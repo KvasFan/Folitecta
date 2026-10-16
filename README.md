@@ -8,7 +8,7 @@ an MIT, Apache or GNU licence.
 
 ![Folitecta screenshot](docs/screenshot.png)
 
-## Status: version 0.0.2 (pre-release)
+## Status: version 0.0.3 (pre-release)
 
 Folitecta ships the **complete command surface of a professional PDF editor** — 1,977 commands
 across a ribbon with 11 tabs and 63 groups, 9 classic menus, 27 side panes and a command palette —
@@ -26,11 +26,19 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
 - **Text**: text layer with mouse selection, copy, select all; search with match case / whole
   words, highlighted results and previous/next navigation (`F3`); mark every result as
   highlight, underline, strikeout or redaction; word count; export to `.txt`.
-- **Comments**: sticky notes, text boxes, typewriter text, rectangles, ellipses, lines, arrows,
-  pencil, area highlights, text highlight / underline / strikeout, stamps (presets, custom text,
-  images), web and page links, each with a real appearance stream. Select, move and resize with
-  handles, nudge with the arrow keys, copy / cut / paste across documents, flatten one or all,
-  hide/show, delete, summary export.
+- **Comments**: sticky notes, text boxes, callouts, typewriter text, rectangles, ellipses,
+  polygons, polylines, clouds, lines, arrows, pencil with eraser, area and free highlights, text
+  highlight / underline / strikeout, insert-text and replace-text marks, stamps (presets, custom
+  text, images), file attachments, web and page links, each with a generated appearance stream.
+  Style editor (colour, fill, opacity, thickness, dashes, line endings, text size and alignment)
+  with per-tool defaults and style copy/paste. Select, move and resize with handles, nudge with
+  the arrow keys, copy / cut / paste across documents, flatten one or all, hide/show, delete,
+  summary export.
+- **Measure**: distance, perimeter and area with a calibrated scale, labels on the page, CSV
+  export.
+- **Forms**: draw text, check box, radio button, combo box, list box, button and signature
+  fields; edit their properties; fill them on the page; import and export values (XFDF, FDF,
+  CSV, text); reset; tab order; field highlighting.
 - **Pages**: insert blank pages, pages of another PDF or pictures, delete (also empty pages),
   duplicate, extract, move by dragging thumbnails, swap, reverse, replace with pages of another
   file, rotate, crop by margins or to the visible content, resize, add margins, normalise sizes,
@@ -53,9 +61,8 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
 ### Planned
 
 OCR, digital signing and certificate management, content editing (text and image objects),
-measurement tools, form field design, PDF/A conversion, optimisation, spell checking,
-accessibility tagging, document comparison, cloud connectors and the remaining commands listed as
-*planned* in the feature matrix.
+PDF/A conversion, optimisation, spell checking, accessibility tagging, document comparison,
+cloud connectors and the remaining commands listed as *planned* in the feature matrix.
 
 ## Download
 

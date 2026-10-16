@@ -259,17 +259,86 @@ fn all_ids() -> impl Iterator<Item = &'static str> {
     TABLES.iter().flat_map(|t| t.iter().map(|(id, _)| *id))
 }
 
-/// Set of implemented command ids.
-pub fn implemented_ids() -> HashSet<&'static str> {
-    all_ids()
-        .filter(|id| !PARTIAL.contains(id))
-        .chain(VIEW_OPTIONS.iter().copied())
-        .collect()
+/// Status of a pure container (a submenu without its own handler), derived from its
+/// children: 2 when every child works, 1 when some do, 0 when none does.
+fn container_status(
+    id: &'static str,
+    done: &HashSet<&'static str>,
+    partial: &HashSet<&'static str>,
+    memo: &mut HashMap<&'static str, u8>,
+    depth: usize,
+) -> u8 {
+    if done.contains(id) {
+        return 2;
+    }
+    if partial.contains(id) {
+        return 1;
+    }
+    if let Some(s) = memo.get(id) {
+        return *s;
+    }
+    let reg = registry();
+    let children = reg.children(id);
+    if children.is_empty() || depth > 12 {
+        return 0;
+    }
+    let statuses: Vec<u8> = children
+        .iter()
+        .map(|c| container_status(c.id.as_str(), done, partial, memo, depth + 1))
+        .collect();
+    let s = if statuses.iter().all(|s| *s == 2) {
+        2
+    } else if statuses.iter().any(|s| *s > 0) {
+        1
+    } else {
+        0
+    };
+    memo.insert(id, s);
+    s
 }
 
-/// Set of partially implemented command ids.
+/// Implemented and partial command ids, with containers classified by their children.
+fn status_sets() -> (HashSet<&'static str>, HashSet<&'static str>) {
+    let mut done: HashSet<&'static str> = all_ids()
+        .filter(|id| !PARTIAL.contains(id))
+        .chain(VIEW_OPTIONS.iter().copied())
+        .collect();
+    let mut partial: HashSet<&'static str> = all_ids().filter(|id| PARTIAL.contains(id)).collect();
+    let mut memo = HashMap::new();
+    let reg = registry();
+    let containers: Vec<&'static str> = reg
+        .all()
+        .iter()
+        .map(|c| c.id.as_str())
+        .filter(|id| !done.contains(id) && !partial.contains(id) && reg.has_children(id))
+        .collect();
+    let derived: Vec<(&'static str, u8)> = containers
+        .into_iter()
+        .map(|id| (id, container_status(id, &done, &partial, &mut memo, 0)))
+        .collect();
+    for (id, s) in derived {
+        match s {
+            2 => {
+                done.insert(id);
+            }
+            1 => {
+                partial.insert(id);
+            }
+            _ => {}
+        }
+    }
+    (done, partial)
+}
+
+/// Set of implemented command ids (a submenu counts when all of its commands work).
+pub fn implemented_ids() -> HashSet<&'static str> {
+    status_sets().0
+}
+
+/// Set of partially implemented command ids (a submenu counts when some of its
+/// commands work).
 pub fn partial_ids() -> HashSet<&'static str> {
-    all_ids().filter(|id| PARTIAL.contains(id)).collect()
+    status_sets().1
 }
 
 pub fn is_implemented(id: &str) -> bool {

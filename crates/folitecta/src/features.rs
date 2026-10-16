@@ -32,7 +32,9 @@ pub fn feature_matrix_markdown() -> String {
     md.push_str("| Status | Count |\n|---|---:|\n");
     md.push_str(&format!("| ✅ available | {n_done} |\n| 🟡 partial | {n_partial} |\n| ⬜ planned | {n_planned} |\n| total | {} |\n\n", r.len()));
     md.push_str("Legend: *available* performs the complete operation; *partial* performs a reduced version \
-                 (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked.\n\n");
+                 (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. \
+                 A submenu counts as available when all of its commands are available, and as partial when only \
+                 some of them work.\n\n");
 
     md.push_str("## Ribbon\n\n");
     for (tab, tab_label) in RIBBON_TABS {

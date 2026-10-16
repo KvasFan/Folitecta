@@ -4,6 +4,38 @@ All notable changes to Folitecta are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.0.3] - 2026-10-16
+
+### Added
+
+- Comment styles: a style editor in the properties pane for colour, fill, opacity, thickness,
+  dashes, line endings, text size, text colour and alignment; default styles per tool; copy and
+  paste of styles; the Format tab commands work on the selected comment.
+- Appearances are generated from the comment entries for every comment type Folitecta draws, so
+  moving, resizing and restyling keep strokes and text crisp in any viewer.
+- New comment tools: polygon, polyline, cloud, callout, free highlight, eraser for pencil strokes,
+  insert-text and replace-text marks, file attachments.
+- Measurement tools: distance, perimeter and area with a calibrated scale (units and ratio),
+  labels on the page and CSV export of all measurements.
+- Form design: create text, check box, radio button (groups), combo box, list box, button and
+  signature fields by dragging; edit name, tooltip, required, read-only, multi-line, password,
+  comb, maximum length, options, default and export values, caption, font size, colours, border
+  and alignment; delete fields; tab order by rows, columns or structure.
+- Form filling directly on the page; import and export of field values as XFDF, FDF, CSV or
+  tab-separated text; reset of one field or of the whole form.
+
+### Changed
+
+- Changing a field value always redraws the field appearance (check boxes and radio buttons
+  switch state, text fields show the new text).
+- The feature matrix counts a submenu as available when all of its commands work and as partial
+  when some of them do.
+
+### Fixed
+
+- The self-test now also detects squeezed buttons; the document properties button no longer
+  shrinks in narrow panes.
+
 ## [0.0.2] - 2026-10-16
 
 ### Added

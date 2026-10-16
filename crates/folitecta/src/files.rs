@@ -1,0 +1,632 @@
+//! File operations: open, save, export, with native dialogs.
+
+use std::path::{Path, PathBuf};
+
+use dioxus::prelude::*;
+use folitecta_core::{Document, Error as CoreError, ImageFormat};
+
+use crate::i18n::{t, tf};
+use crate::state::{AfterUnsaved, AppState, Dialog, DocTab, ToastKind};
+
+fn pdf_dialog() -> rfd::AsyncFileDialog {
+    rfd::AsyncFileDialog::new()
+        .add_filter("PDF documents", &["pdf"])
+        .add_filter("All files", &["*"])
+}
+
+/// Open a document from disk and show it in a new tab.
+pub fn open_path(st: AppState, path: PathBuf, password: Option<&str>) {
+    // Already open? Just activate it.
+    let existing = st
+        .docs
+        .read()
+        .iter()
+        .position(|t| t.doc.path() == Some(path.as_path()));
+    if let Some(idx) = existing {
+        st.set_active(idx);
+        return;
+    }
+    let result = match password {
+        Some(pw) => Document::open_with_password(&path, pw),
+        None => Document::open(&path),
+    };
+    match result {
+        Ok(doc) => {
+            let name = doc.display_name();
+            let id = st.alloc_id();
+            st.docs_mut().push(DocTab::new(id, doc));
+            let idx = st.docs.read().len() - 1;
+            st.set_active(idx);
+            st.ui_mut().push_recent(&path);
+            st.save_prefs();
+            set_window_title(st);
+            st.toast(
+                ToastKind::Ok,
+                tf(st.lang(), "toast.opened", &[("name", &name)]),
+                "",
+            );
+        }
+        Err(CoreError::PasswordRequired) => st.set_dialog(Dialog::Password(path)),
+        Err(e) => st.error(format!("{}: {e}", path.display())),
+    }
+}
+
+/// Show the open dialog and open every selected file.
+pub fn open_dialog(st: AppState) {
+    spawn(async move {
+        if let Some(files) = pdf_dialog().set_title("Open PDF").pick_files().await {
+            for f in files {
+                open_path(st, f.path().to_path_buf(), None);
+            }
+        }
+    });
+}
+
+/// Create a blank document tab.
+pub fn new_blank(st: AppState, pages: usize, width: f32, height: f32) {
+    match Document::new_blank(pages, width, height) {
+        Ok(mut doc) => {
+            doc.clear_history();
+            let id = st.alloc_id();
+            st.docs_mut().push(DocTab::new(id, doc));
+            let idx = st.docs.read().len() - 1;
+            st.set_active(idx);
+            set_window_title(st);
+        }
+        Err(e) => st.error(e),
+    }
+}
+
+/// Combine several files into one new document.
+pub fn combine_files(st: AppState) {
+    spawn(async move {
+        let Some(files) = pdf_dialog()
+            .set_title("Combine files into one PDF")
+            .pick_files()
+            .await
+        else {
+            return;
+        };
+        let mut paths: Vec<PathBuf> = files.into_iter().map(|f| f.path().to_path_buf()).collect();
+        if paths.is_empty() {
+            return;
+        }
+        let first = paths.remove(0);
+        let mut doc = match Document::open(&first) {
+            Ok(d) => d,
+            Err(e) => {
+                st.error(format!("{}: {e}", first.display()));
+                return;
+            }
+        };
+        for p in paths {
+            match Document::open(&p) {
+                Ok(other) => {
+                    let at = doc.page_count();
+                    if let Err(e) = doc.insert_document(at, &other, None) {
+                        st.error(format!("{}: {e}", p.display()));
+                    }
+                }
+                Err(e) => st.error(format!("{}: {e}", p.display())),
+            }
+        }
+        doc.set_path(None);
+        doc.clear_history();
+        let id = st.alloc_id();
+        st.docs_mut().push(DocTab::new(id, doc));
+        let idx = st.docs.read().len() - 1;
+        st.set_active(idx);
+        set_window_title(st);
+    });
+}
+
+pub fn set_window_title(st: AppState) {
+    let title = match st.read_active(|t| (t.title(), t.doc.is_dirty())) {
+        Some((name, dirty)) => format!("{}{} - Folitecta", name, if dirty { " •" } else { "" }),
+        None => "Folitecta".to_string(),
+    };
+    dioxus::desktop::window().set_title(&title);
+}
+
+/// Save the active document; falls back to Save As when it has no path.
+pub fn save(st: AppState) {
+    let has_path = st.read_active(|t| t.doc.path().is_some()).unwrap_or(false);
+    if !has_path {
+        save_as(st);
+        return;
+    }
+    let result = st.with_active(|t| t.doc.save());
+    match result {
+        Some(Ok(())) => {
+            let name = st.read_active(|t| t.title()).unwrap_or_default();
+            st.toast(
+                ToastKind::Ok,
+                tf(st.lang(), "toast.saved", &[("name", &name)]),
+                "",
+            );
+            set_window_title(st);
+        }
+        Some(Err(e)) => st.error(e),
+        None => st.toast(ToastKind::Warn, t(st.lang(), "toast.no_document"), ""),
+    }
+}
+
+fn suggested_name(st: AppState, suffix: &str) -> String {
+    st.read_active(|t| {
+        let stem = t
+            .doc
+            .path()
+            .and_then(|p| p.file_stem())
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "document".into());
+        format!("{stem}{suffix}.pdf")
+    })
+    .unwrap_or_else(|| format!("document{suffix}.pdf"))
+}
+
+pub fn save_as(st: AppState) {
+    if !st.has_doc() {
+        st.toast(ToastKind::Warn, t(st.lang(), "toast.no_document"), "");
+        return;
+    }
+    let name = suggested_name(st, "");
+    spawn(async move {
+        let Some(file) = pdf_dialog()
+            .set_title("Save As")
+            .set_file_name(&name)
+            .save_file()
+            .await
+        else {
+            return;
+        };
+        let path = file.path().to_path_buf();
+        match st.with_active(|t| t.doc.save_as(&path)) {
+            Some(Ok(())) => {
+                st.ui_mut().push_recent(&path);
+                st.save_prefs();
+                set_window_title(st);
+                st.toast(
+                    ToastKind::Ok,
+                    tf(
+                        st.lang(),
+                        "toast.saved",
+                        &[(
+                            "name",
+                            &path
+                                .file_name()
+                                .map(|n| n.to_string_lossy().to_string())
+                                .unwrap_or_default(),
+                        )],
+                    ),
+                    "",
+                );
+            }
+            Some(Err(e)) => st.error(e),
+            None => {}
+        }
+    });
+}
+
+pub fn save_copy(st: AppState) {
+    if !st.has_doc() {
+        st.toast(ToastKind::Warn, t(st.lang(), "toast.no_document"), "");
+        return;
+    }
+    let name = suggested_name(st, "-copy");
+    spawn(async move {
+        let Some(file) = pdf_dialog()
+            .set_title("Save a Copy")
+            .set_file_name(&name)
+            .save_file()
+            .await
+        else {
+            return;
+        };
+        let path = file.path().to_path_buf();
+        match st.with_active(|t| t.doc.save_copy(&path)) {
+            Some(Ok(())) => st.toast(
+                ToastKind::Ok,
+                tf(st.lang(), "toast.saved", &[("name", &path.display().to_string())]),
+                "",
+            ),
+            Some(Err(e)) => st.error(e),
+            None => {}
+        }
+    });
+}
+
+pub fn save_all(st: AppState) {
+    let n = st.docs.read().len();
+    let mut errors = Vec::new();
+    for i in 0..n {
+        let mut docs = st.docs_mut();
+        let tab = &mut docs[i];
+        if tab.doc.path().is_some() && tab.doc.is_dirty() {
+            if let Err(e) = tab.doc.save() {
+                errors.push(e.to_string());
+            }
+        }
+    }
+    for e in errors {
+        st.error(e);
+    }
+    set_window_title(st);
+}
+
+/// Close a tab by id; asks about unsaved changes unless `force`.
+pub fn close_tab(st: AppState, id: u64, force: bool, then: AfterUnsaved) {
+    let info = st.docs.read().iter().position(|t| t.id == id).map(|idx| {
+        (
+            idx,
+            st.docs.read()[idx].doc.is_dirty(),
+            st.docs.read()[idx].doc.path().map(Path::to_path_buf),
+        )
+    });
+    let Some((idx, dirty, path)) = info else { return };
+    if dirty && !force {
+        st.set_dialog(Dialog::Unsaved { tab: id, then });
+        return;
+    }
+    st.docs_mut().remove(idx);
+    if let Some(p) = path {
+        st.closed_mut().push(p);
+    }
+    let n = st.docs.read().len();
+    let active = (st.active)();
+    if n == 0 {
+        st.set_active(0);
+    } else if active >= n {
+        st.set_active(n - 1);
+    } else if active > idx {
+        st.set_active(active - 1);
+    }
+    set_window_title(st);
+}
+
+pub fn close_active(st: AppState) {
+    if let Some(id) = st.read_active(|t| t.id) {
+        close_tab(st, id, false, AfterUnsaved::Close);
+    }
+}
+
+pub fn close_all(st: AppState) {
+    let ids: Vec<(u64, bool)> = st.docs.read().iter().map(|t| (t.id, t.doc.is_dirty())).collect();
+    if let Some((id, _)) = ids.iter().find(|(_, dirty)| *dirty) {
+        st.set_dialog(Dialog::Unsaved {
+            tab: *id,
+            then: AfterUnsaved::CloseAll,
+        });
+        return;
+    }
+    for (id, _) in ids {
+        close_tab(st, id, true, AfterUnsaved::Close);
+    }
+}
+
+/// Continue after the unsaved-changes dialog.
+pub fn resolve_unsaved(st: AppState, tab: u64, then: AfterUnsaved, save_first: bool) {
+    if save_first {
+        let idx = st.docs.read().iter().position(|t| t.id == tab);
+        if let Some(idx) = idx {
+            st.set_active(idx);
+            let has_path = st.read_active(|t| t.doc.path().is_some()).unwrap_or(false);
+            if !has_path {
+                // Save As is asynchronous; the user can close again afterwards.
+                save_as(st);
+                return;
+            }
+            if let Some(Err(e)) = st.with_active(|t| t.doc.save()) {
+                st.error(e);
+                return;
+            }
+        }
+    }
+    close_tab(st, tab, true, then.clone());
+    match then {
+        AfterUnsaved::Close => {}
+        AfterUnsaved::CloseAll => close_all(st),
+        AfterUnsaved::Exit => exit_app(st),
+    }
+}
+
+pub fn exit_app(st: AppState) {
+    let dirty: Option<u64> = st.docs.read().iter().find(|t| t.doc.is_dirty()).map(|t| t.id);
+    match dirty {
+        Some(id) => st.set_dialog(Dialog::Unsaved {
+            tab: id,
+            then: AfterUnsaved::Exit,
+        }),
+        None => dioxus::desktop::window().close(),
+    }
+}
+
+pub fn revert(st: AppState) {
+    let path = st.read_active(|t| t.doc.path().map(Path::to_path_buf)).flatten();
+    let Some(path) = path else {
+        st.toast(ToastKind::Warn, t(st.lang(), "toast.no_document"), "");
+        return;
+    };
+    match Document::open(&path) {
+        Ok(doc) => {
+            st.with_active(|t| {
+                t.doc = doc;
+                t.revision = u64::MAX; // force refresh
+            });
+            set_window_title(st);
+        }
+        Err(e) => st.error(e),
+    }
+}
+
+pub fn reopen_closed(st: AppState) {
+    let path = st.closed_mut().pop();
+    match path {
+        Some(p) => open_path(st, p, None),
+        None => st.toast(ToastKind::Info, t(st.lang(), "label.none"), ""),
+    }
+}
+
+/// Export selected pages as images into a chosen folder.
+pub fn export_images(st: AppState, pages: Vec<usize>, dpi: f32, format: ImageFormat) {
+    spawn(async move {
+        let Some(dir) = rfd::AsyncFileDialog::new()
+            .set_title("Choose a folder for the images")
+            .pick_folder()
+            .await
+        else {
+            return;
+        };
+        let dir = dir.path().to_path_buf();
+        let prefix = st
+            .read_active(|t| {
+                t.doc
+                    .path()
+                    .and_then(|p| p.file_stem())
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "page".into())
+            })
+            .unwrap_or_else(|| "page".into());
+        st.set_busy(true);
+        let result = st.read_active(|t| t.doc.export_pages_images(&pages, &dir, dpi, format, &prefix));
+        st.set_busy(false);
+        match result {
+            Some(Ok(files)) => st.toast(
+                ToastKind::Ok,
+                tf(
+                    st.lang(),
+                    "toast.exported",
+                    &[
+                        ("count", &files.len().to_string()),
+                        ("dir", &dir.display().to_string()),
+                    ],
+                ),
+                "",
+            ),
+            Some(Err(e)) => st.error(e),
+            None => {}
+        }
+    });
+}
+
+/// Extract pages into a new file chosen by the user.
+pub fn extract_pages(st: AppState, pages: Vec<usize>) {
+    let name = suggested_name(st, "-extract");
+    spawn(async move {
+        let Some(file) = pdf_dialog()
+            .set_title("Extract pages to")
+            .set_file_name(&name)
+            .save_file()
+            .await
+        else {
+            return;
+        };
+        let path = file.path().to_path_buf();
+        let result = st.read_active(|t| t.doc.extract_pages(&pages));
+        match result {
+            Some(Ok(mut part)) => match part.save_as(&path) {
+                Ok(()) => st.toast(
+                    ToastKind::Ok,
+                    tf(st.lang(), "toast.saved", &[("name", &path.display().to_string())]),
+                    "",
+                ),
+                Err(e) => st.error(e),
+            },
+            Some(Err(e)) => st.error(e),
+            None => {}
+        }
+    });
+}
+
+/// Split the active document into files of `every` pages inside a chosen folder.
+pub fn split_document(st: AppState, every: usize) {
+    spawn(async move {
+        let Some(dir) = rfd::AsyncFileDialog::new()
+            .set_title("Choose a folder for the parts")
+            .pick_folder()
+            .await
+        else {
+            return;
+        };
+        let dir = dir.path().to_path_buf();
+        let stem = st
+            .read_active(|t| {
+                t.doc
+                    .path()
+                    .and_then(|p| p.file_stem())
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "part".into())
+            })
+            .unwrap_or_else(|| "part".into());
+        let result = st.read_active(|t| t.doc.split_every(every));
+        match result {
+            Some(Ok(parts)) => {
+                let mut count = 0;
+                for (i, mut part) in parts.into_iter().enumerate() {
+                    let path = dir.join(format!("{stem}-{:03}.pdf", i + 1));
+                    match part.save_as(&path) {
+                        Ok(()) => count += 1,
+                        Err(e) => st.error(e),
+                    }
+                }
+                st.toast(
+                    ToastKind::Ok,
+                    tf(
+                        st.lang(),
+                        "toast.exported",
+                        &[("count", &count.to_string()), ("dir", &dir.display().to_string())],
+                    ),
+                    "",
+                );
+            }
+            Some(Err(e)) => st.error(e),
+            None => {}
+        }
+    });
+}
+
+/// Pick a PDF and open the "insert pages" dialog for it.
+pub fn pick_file_to_insert(st: AppState) {
+    spawn(async move {
+        if let Some(file) = pdf_dialog().set_title("Insert pages from").pick_file().await {
+            st.set_dialog(Dialog::MergeFile(file.path().to_path_buf()));
+        }
+    });
+}
+
+pub fn insert_from_file(st: AppState, path: PathBuf, at: usize) {
+    match Document::open(&path) {
+        Ok(other) => {
+            if let Some(Err(e)) = st.with_active(|t| t.doc.insert_document(at, &other, None)) {
+                st.error(e);
+            }
+        }
+        Err(e) => st.error(format!("{}: {e}", path.display())),
+    }
+}
+
+/// Export extracted text to a chosen file.
+pub fn export_text(st: AppState) {
+    let name = suggested_name(st, "").replace(".pdf", ".txt");
+    spawn(async move {
+        let Some(file) = rfd::AsyncFileDialog::new()
+            .add_filter("Text", &["txt"])
+            .set_file_name(&name)
+            .save_file()
+            .await
+        else {
+            return;
+        };
+        match st.read_active(|t| t.doc.export_text(file.path())) {
+            Some(Ok(())) => st.toast(
+                ToastKind::Ok,
+                tf(
+                    st.lang(),
+                    "toast.saved",
+                    &[("name", &file.path().display().to_string())],
+                ),
+                "",
+            ),
+            Some(Err(e)) => st.error(e),
+            None => {}
+        }
+    });
+}
+
+/// Write arbitrary text to a user-chosen file (summaries, form data).
+pub fn save_text_file(st: AppState, suggested: &str, contents: String) {
+    let suggested = suggested.to_string();
+    spawn(async move {
+        let Some(file) = rfd::AsyncFileDialog::new()
+            .add_filter("Text", &["txt", "csv"])
+            .set_file_name(&suggested)
+            .save_file()
+            .await
+        else {
+            return;
+        };
+        match std::fs::write(file.path(), contents) {
+            Ok(()) => st.toast(
+                ToastKind::Ok,
+                tf(
+                    st.lang(),
+                    "toast.saved",
+                    &[("name", &file.path().display().to_string())],
+                ),
+                "",
+            ),
+            Err(e) => st.error(e),
+        }
+    });
+}
+
+/// Extract embedded images of the given pages into a folder.
+pub fn extract_images(st: AppState, pages: Vec<usize>) {
+    spawn(async move {
+        let Some(dir) = rfd::AsyncFileDialog::new()
+            .set_title("Choose a folder for the images")
+            .pick_folder()
+            .await
+        else {
+            return;
+        };
+        let dir = dir.path().to_path_buf();
+        match st.read_active(|t| t.doc.extract_images(&pages, &dir)) {
+            Some(Ok(files)) => st.toast(
+                ToastKind::Ok,
+                tf(
+                    st.lang(),
+                    "toast.exported",
+                    &[
+                        ("count", &files.len().to_string()),
+                        ("dir", &dir.display().to_string()),
+                    ],
+                ),
+                "",
+            ),
+            Some(Err(e)) => st.error(e),
+            None => {}
+        }
+    });
+}
+
+/// Attach a file chosen by the user to the active document.
+pub fn add_attachment(st: AppState) {
+    spawn(async move {
+        let Some(file) = rfd::AsyncFileDialog::new()
+            .set_title("Attach file")
+            .pick_file()
+            .await
+        else {
+            return;
+        };
+        if let Some(Err(e)) = st.with_active(|t| t.doc.add_attachment_from_path(file.path(), "")) {
+            st.error(e);
+        }
+    });
+}
+
+/// Save an attachment to disk.
+pub fn save_attachment(st: AppState, att: folitecta_core::Attachment) {
+    spawn(async move {
+        let Some(file) = rfd::AsyncFileDialog::new()
+            .set_file_name(&att.name)
+            .save_file()
+            .await
+        else {
+            return;
+        };
+        match st.read_active(|t| t.doc.save_attachment(&att, file.path())) {
+            Some(Ok(())) => st.toast(
+                ToastKind::Ok,
+                tf(
+                    st.lang(),
+                    "toast.saved",
+                    &[("name", &file.path().display().to_string())],
+                ),
+                "",
+            ),
+            Some(Err(e)) => st.error(e),
+            None => {}
+        }
+    });
+}

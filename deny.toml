@@ -1,0 +1,42 @@
+# cargo-deny configuration. Run `cargo deny check licenses`.
+#
+# Policy: every dependency Folitecta chooses directly is MIT or Apache-2.0 licensed Rust.
+# The user-interface stack (Dioxus → wry/tao → OS web view bindings, url/idna, image) brings a
+# small number of transitive crates under other permissive free licences, listed below so the
+# audit stays explicit. Copyleft licences other than the GNU family are not accepted.
+[graph]
+targets = [
+  { triple = "x86_64-pc-windows-msvc" },
+  { triple = "x86_64-unknown-linux-gnu" },
+  { triple = "aarch64-apple-darwin" },
+  { triple = "x86_64-apple-darwin" },
+]
+
+[licenses]
+allow = [
+  "MIT",
+  "MIT-0",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "GPL-2.0",
+  "GPL-3.0",
+  "LGPL-2.1",
+  "LGPL-3.0",
+  # permissive licences of transitive crates pulled in by the UI framework
+  "Unicode-3.0",
+  "Zlib",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "0BSD",
+  "CC0-1.0",
+  "Unlicense",
+]
+confidence-threshold = 0.8
+
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+
+[advisories]
+yanked = "deny"

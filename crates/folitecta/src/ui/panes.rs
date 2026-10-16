@@ -244,7 +244,7 @@ pub fn PanePanel() -> Element {
             Pane::Links => rsx! { LinksPane {} },
             Pane::Destinations => rsx! { crate::ui::bookmarks_pane::DestinationsPane {} },
             Pane::Search => rsx! { SearchPane {} },
-            Pane::Signatures => rsx! { SignaturesPane {} },
+            Pane::Signatures => rsx! { crate::ui::signatures::SignaturesPane {} },
             Pane::Other(id) => rsx! { PlannedPane { pane_id: id.clone() } },
         }
     };
@@ -545,32 +545,6 @@ fn LinksPane() -> Element {
                         },
                         div { class: "title", Icon { name: "link" } "{t(lang, \"status.page\")} {page + 1}" }
                         div { class: "body ellipsis", title: "{desc}", "{desc}" }
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-fn SignaturesPane() -> Element {
-    let st = use_context::<AppState>();
-    let lang = st.lang();
-    let Some(sigs) = st.read_active(|t| t.doc.signatures()) else {
-        return rsx! {};
-    };
-    rsx! {
-        if sigs.is_empty() { div { class: "pane-empty", "{t(lang, \"label.none\")}" } }
-        for s in sigs {
-            {
-                let page = s.page;
-                rsx! {
-                    div { class: "list-item", key: "{s.field}", onclick: move |_| { if let Some(p) = page { st.go_to_page(p); } },
-                        div { class: "title", Icon { name: "signature" } span { class: "ellipsis", "{s.field}" } span { class: if s.signed { "badge ok" } else { "badge planned" }, if s.signed { "{t(lang, \"label.signed\")}" } else { "{t(lang, \"label.unsigned\")}" } } }
-                        if s.signed {
-                            div { class: "meta", span { "{s.signer}" } span { "{s.date}" } span { "{s.filter}" } }
-                            if !s.reason.is_empty() { div { class: "body", "{s.reason}" } }
-                        }
                     }
                 }
             }

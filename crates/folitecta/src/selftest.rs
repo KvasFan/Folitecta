@@ -1052,7 +1052,89 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     st.set_option("view.panzoom", false);
     st.with_active(|t| t.zoom = crate::state::Zoom::FitWidth);
 
-    // 23. Undo everything added above.
+    // 23. Digital signature: a new ID, an invisible signature, validation in the
+    // signatures pane and trusting the signer.
+    let created = crate::commands::signatures::create_id(
+        &folitecta_core::digsig::IdentityInfo {
+            name: "Self Test Signer".into(),
+            organization: "Folitecta".into(),
+            ..Default::default()
+        },
+        folitecta_core::digsig::KeyKind::EcP256,
+        1,
+        "selftest-password",
+    );
+    let signed_tab =
+        match created.and_then(|stored| crate::commands::signatures::load_id(&stored, "selftest-password")) {
+            Ok(id) => {
+                let opts = folitecta_core::digsig::SignOptions {
+                    reason: "Self-test".into(),
+                    ..Default::default()
+                };
+                st.read_active(|t| t.doc.sign(&id, &opts)).and_then(|r| r.ok())
+            }
+            Err(e) => {
+                record("digital ID created", false, e);
+                None
+            }
+        };
+    if let Some(bytes) = signed_tab {
+        let path = dir.join("signed.pdf");
+        let _ = std::fs::write(&path, &bytes);
+        crate::files::open_path(st, path, None);
+        pause(1200).await;
+        {
+            let mut ui = st.ui_mut();
+            ui.show_left_pane = true;
+            ui.left_pane = "signatures".into();
+        }
+        pause(800).await;
+        let warn = document::eval("return document.querySelectorAll('.sig-item.warn').length;")
+            .await
+            .ok()
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        record(
+            "signed document: valid signature, identity not yet trusted",
+            warn == 1,
+            format!("{warn} item(s)"),
+        );
+        let field = crate::commands::signatures::signature_status(st)
+            .first()
+            .map(|s| s.field.clone())
+            .unwrap_or_default();
+        st.set_dialog(Dialog::SignatureDetails(field));
+        pause(500).await;
+        let _ = document::eval(
+            "const b = [...document.querySelectorAll('.dialog .row .tbtn.primary')][0]; if (b) b.click();",
+        )
+        .await;
+        pause(800).await;
+        st.set_dialog(Dialog::None);
+        pause(400).await;
+        let ok = document::eval("return document.querySelectorAll('.sig-item.ok').length;")
+            .await
+            .ok()
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        record(
+            "trusting the signer's certificate",
+            ok == 1,
+            format!("{ok} trusted"),
+        );
+        let _ = capture_window(&dir.join("interaction-signature.png"));
+        // Close the signed document again.
+        if let Some(i) = st.active_index() {
+            st.docs_mut().remove(i);
+            st.set_active(0);
+        }
+        st.ui_mut().left_pane = "thumbnails".into();
+        pause(500).await;
+    } else {
+        record("document signed", false, String::new());
+    }
+
+    // 24. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..30 {
         crate::commands::dispatch(st, "undo");
@@ -1213,6 +1295,16 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("bookmark-props", Dialog::BookmarkProps(vec![0])),
         ("bookmark-options", Dialog::BookmarkOptions),
         ("bookmark-io", Dialog::BookmarkImportExport),
+        (
+            "sign",
+            Dialog::Sign {
+                certify: 0,
+                invisible: false,
+                field: None,
+            },
+        ),
+        ("digital-ids", Dialog::DigitalIds),
+        ("trusted-certs", Dialog::TrustedCerts),
     ];
     for lang in [crate::i18n::Lang::It, crate::i18n::Lang::En] {
         st.ui_mut().lang = lang;

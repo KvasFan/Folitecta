@@ -198,7 +198,7 @@ fn ellipse(cx: f32, cy: f32, rx: f32, ry: f32) -> String {
 
 impl Document {
     /// The AcroForm dictionary id, creating the form when the document has none.
-    fn ensure_acroform(&mut self) -> Result<ObjectId> {
+    pub(crate) fn ensure_acroform(&mut self) -> Result<ObjectId> {
         let font = self.helvetica_font_id();
         let existing = self.inner.catalog()?.get(b"AcroForm").ok().cloned();
         let id = match existing {

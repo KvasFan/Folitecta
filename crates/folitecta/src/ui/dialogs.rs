@@ -18,7 +18,7 @@ use crate::state::{AppState, ConfirmAction, Dialog, Guide, Theme, ToastKind, Too
 use crate::util::{format_pages, parse_color, parse_page_range};
 
 #[component]
-fn Frame(
+pub fn Frame(
     title: String,
     children: Element,
     on_ok: Option<EventHandler<()>>,
@@ -252,6 +252,14 @@ pub fn Dialogs() -> Element {
         Dialog::BookmarkProps(path) => rsx! { BookmarkPropsDialog { path } },
         Dialog::Toolbars => rsx! { ToolbarsDialog {} },
         Dialog::ZoomLevel => rsx! { ZoomLevelDialog {} },
+        Dialog::Sign {
+            certify,
+            invisible,
+            field,
+        } => rsx! { crate::ui::signatures::SignDialog { certify, invisible, field } },
+        Dialog::SignatureDetails(field) => rsx! { crate::ui::signatures::SignatureDetailsDialog { field } },
+        Dialog::DigitalIds => rsx! { crate::ui::signatures::DigitalIdsDialog {} },
+        Dialog::TrustedCerts => rsx! { crate::ui::signatures::TrustedCertsDialog {} },
     }
 }
 
@@ -1670,6 +1678,9 @@ fn Confirm(title: String, body: String, action: ConfirmAction) -> Element {
                         apply_count(st, "toast.redactions_applied", |tab| tab.doc.apply_redactions(pages.as_deref()));
                     }
                     ConfirmAction::RemoveScripts => apply_count(st, "toast.scripts_removed", |tab| tab.doc.remove_scripts()),
+                    ConfirmAction::ClearSignatures => {
+                        apply_count(st, "toast.signatures_cleared", |tab| tab.doc.clear_signatures());
+                    }
                     ConfirmAction::DeletePages(pages) => {
                         st.with_active(|t| t.selected_pages.clear());
                         apply(st, move |tab| tab.doc.delete_pages(&pages));

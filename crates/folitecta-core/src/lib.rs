@@ -13,6 +13,7 @@ pub mod commands;
 pub mod comment_exchange;
 pub mod comment_review;
 pub mod comment_summary;
+pub mod digsig;
 pub mod document;
 pub mod error;
 pub mod export;

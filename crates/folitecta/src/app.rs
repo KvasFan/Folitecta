@@ -226,6 +226,7 @@ pub fn App() -> Element {
                     t.selected_annot = None;
                 });
             } else {
+                commands::signatures::cancel_pending();
                 st.set_tool(Tool::Hand);
                 st.set_pending_image(None);
             }

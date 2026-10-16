@@ -68,6 +68,8 @@ pub enum Tool {
     FieldList,
     FieldButton,
     FieldSignature,
+    /// Draw the rectangle of a digital signature.
+    SignArea,
 }
 
 impl Tool {
@@ -131,6 +133,7 @@ impl Tool {
             Tool::FieldList => "tool.editFields.mode.list",
             Tool::FieldButton => "tool.editFields.mode.button",
             Tool::FieldSignature => "tool.editFields.mode.signature",
+            Tool::SignArea => "tool.digisig",
         }
     }
 
@@ -179,6 +182,7 @@ impl Tool {
             Tool::FieldList => "tool.field_list",
             Tool::FieldButton => "tool.field_button",
             Tool::FieldSignature => "tool.field_signature",
+            Tool::SignArea => "tool.sign_area",
         }
     }
 
@@ -347,6 +351,11 @@ impl Default for UiPrefs {
 
 /// Per-user configuration directory without extra dependencies.
 /// `FOLITECTA_CONFIG_DIR` overrides it (used by the interface self-test).
+/// Folder of Folitecta's own data (settings, digital IDs, trusted certificates).
+pub fn app_data_dir() -> Option<PathBuf> {
+    config_dir().map(|d| d.join("Folitecta"))
+}
+
 fn config_dir() -> Option<PathBuf> {
     if let Some(dir) = std::env::var_os("FOLITECTA_CONFIG_DIR") {
         return Some(PathBuf::from(dir));
@@ -468,6 +477,8 @@ pub struct DocTab {
     pub selected_dest: Option<String>,
     /// Briefly highlighted area of a page (display points), e.g. a destination.
     pub flash: Option<(usize, [f32; 4])>,
+    /// Signature validation results for a revision.
+    pub sig_status: Option<(u64, Vec<folitecta_core::digsig::SignatureStatus>)>,
 }
 
 impl DocTab {
@@ -516,6 +527,7 @@ impl DocTab {
             selected_bookmark: None,
             selected_dest: None,
             flash: None,
+            sig_status: None,
         }
     }
 
@@ -647,6 +659,8 @@ pub enum ConfirmAction {
     RemoveScripts,
     /// Delete these pages.
     DeletePages(Vec<usize>),
+    /// Remove every digital signature.
+    ClearSignatures,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -795,6 +809,18 @@ pub enum Dialog {
     Toolbars,
     /// Zoom level.
     ZoomLevel,
+    /// Sign or certify the document (certification level, invisible, field to sign).
+    Sign {
+        certify: u8,
+        invisible: bool,
+        field: Option<String>,
+    },
+    /// Details of a signature.
+    SignatureDetails(String),
+    /// Digital IDs: import, create, export, delete.
+    DigitalIds,
+    /// Trusted certificates.
+    TrustedCerts,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.3. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 542 |
-| 🟡 partial | 36 |
-| ⬜ planned | 1399 |
+| ✅ available | 586 |
+| 🟡 partial | 34 |
+| ⬜ planned | 1357 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -26,7 +26,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Track Mouse | `tool.loupe.trackMouse` | ⬜ planned |
 | Other Tools | `comment.otherToolsGroup` | ⬜ planned |
 | Other Tools | `otherToolsGroup` | ⬜ planned |
-| Pan and Zoom Tool | `tool.panZoom` | ⬜ planned |
+| Pan and Zoom Tool | `tool.panZoom` | ✅ available |
 | Place Annotation | `tool.selAnnotPlace` | ⬜ planned |
 | Select Text | `tool.selectText` | ✅ available |
 | ↳ Copy as Rich | `tool.selectText.copyAsRich` | ✅ available |
@@ -57,7 +57,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Page Number | `view.goto.pagesView` | ✅ available |
 | Previous Page | `view.goto.prevPage` | ✅ available |
 | Zoom In | `zoomIn` | ✅ available |
-| Zoom Level | `zoom.combo` | ⬜ planned |
+| Zoom Level | `zoom.combo` | ✅ available |
 | Zoom Out | `zoomOut` | ✅ available |
 | Zoom To… | `zoom.to.level` | ✅ available |
 
@@ -141,7 +141,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Command | Id | Status |
 |---|---|---|
 | Loupe | `view.loupe` | ✅ available |
-| Pan and Zoom | `view.panzoom` | ⬜ planned |
+| Pan and Zoom | `view.panzoom` | ✅ available |
 
 **Go To**
 
@@ -164,10 +164,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Command | Id | Status |
 |---|---|---|
 | Zoom | `view.zoom` | ✅ available |
-| Zoom | `zoom` | 🟡 partial |
+| Zoom | `zoom` | ✅ available |
 | ↳ Level | `zoom.level` | ✅ available |
 | ↳ To | `zoom.to` | ✅ available |
-| ↳ Zoom Level | `zoom.combo` | ⬜ planned |
+| ↳ Zoom Level | `zoom.combo` | ✅ available |
 | Zoom Slider | `zoomSlider` | ⬜ planned |
 | Zoom to Selection | `zoomSel` | ✅ available |
 
@@ -183,11 +183,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Highlight Links | `view.highlightLinks` | ✅ available |
 | Invert Vertical Axis | `view.mathY` | ✅ available |
 | Override Document Colors | `view.overrideDocumentColors` | ✅ available |
-| Page | `view.pageNumber` | ⬜ planned |
-| Page Layout | `view.layout` | 🟡 partial |
-| ↳ Auto Scroll | `view.layout.autoScroll` | ⬜ planned |
+| Page | `view.pageNumber` | ✅ available |
+| Page Layout | `view.layout` | ✅ available |
+| ↳ Auto Scroll | `view.layout.autoScroll` | ✅ available |
 | ↳ Continuous | `view.layout.oneColumn` | ✅ available |
-| ↳ Horizontal Scrolling | `view.layout.ribbon` | ⬜ planned |
+| ↳ Horizontal Scrolling | `view.layout.ribbon` | ✅ available |
 | ↳ Right-to-Left Page Layout | `view.layout.r2l` | ✅ available |
 | ↳ Show Cover Page in Two-Page Mode | `view.layout.showCover` | ✅ available |
 | ↳ Show Gaps Between Pages | `view.layout.showGaps` | ✅ available |
@@ -200,7 +200,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Coordinates | `view.pageMeasureInfo.XY` | ✅ available |
 | ↳ Units | `view.pageMeasureInfo.units` | ✅ available |
 | ↳ Width/Height | `view.pageMeasureInfo.WH` | ✅ available |
-| Page Size Popup | `view.showPageSizePopup` | ⬜ planned |
+| Page Size Popup | `view.showPageSizePopup` | ✅ available |
 | Rotate View | `view.rotate` | ✅ available |
 | ↳ Reset Rotation | `view.rotate.reset` | ✅ available |
 | ↳ Rotate Clockwise | `view.rotate.CW` | ✅ available |
@@ -240,35 +240,35 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Comment Styles Palette | `view.commentStyles` | ⬜ planned |
 | Comments | `view.comments` | ✅ available |
 | Content | `view.content` | ⬜ planned |
-| Content Editing | `view.toolbar.contentEditing` | ⬜ planned |
-| Customize Toolbars… | `view.toolbar.customize` | ⬜ planned |
+| Content Editing | `view.toolbar.contentEditing` | ✅ available |
+| Customize Toolbars… | `view.toolbar.customize` | ✅ available |
 | Document Info Bar | `view.docInfoBar` | ✅ available |
-| Document Options | `view.toolbar.docOptions` | ⬜ planned |
+| Document Options | `view.toolbar.docOptions` | ✅ available |
 | Document Recovery | `view.recovery` | ⬜ planned |
 | Document Tabs | `view.docTabsGroup` | ⬜ planned |
-| Drawing | `view.toolbar.drawing` | ⬜ planned |
+| Drawing | `view.toolbar.drawing` | ✅ available |
 | Fields | `view.fields` | ✅ available |
-| File | `view.toolbar.file` | ⬜ planned |
-| Form | `view.toolbar.form` | ⬜ planned |
+| File | `view.toolbar.file` | ✅ available |
+| Form | `view.toolbar.form` | ✅ available |
 | History | `view.history` | ⬜ planned |
 | JavaScript Options… | `view.javaScriptOpts` | ⬜ planned |
-| Launch Application | `view.toolbar.launchApp` | ⬜ planned |
+| Launch Application | `view.toolbar.launchApp` | ✅ available |
 | Layers | `view.layers` | ✅ available |
 | Links | `view.links` | ✅ available |
 | Lock All Cmd Bars | `view.lockAllCmdBars` | ⬜ planned |
 | Lock All Cmd Panes | `view.lockAllCmdPanes` | ⬜ planned |
 | Lock Unlock All Cmd Bars | `view.lockUnlockAllCmdBars` | ⬜ planned |
 | Lock Unlock All Cmd Panes | `view.lockUnlockAllCmdPanes` | ⬜ planned |
-| Measuring | `view.toolbar.measuring` | ⬜ planned |
-| Menu Bar | `view.toolbar.menu` | ⬜ planned |
-| Mouse-Optimized UI | `view.switchToMouseUI` | ⬜ planned |
+| Measuring | `view.toolbar.measuring` | ✅ available |
+| Menu Bar | `view.toolbar.menu` | ✅ available |
+| Mouse-Optimized UI | `view.switchToMouseUI` | ✅ available |
 | Named Destinations | `view.destinations` | ✅ available |
-| Navigation | `view.toolbar.navigation` | ⬜ planned |
+| Navigation | `view.toolbar.navigation` | ✅ available |
 | Order | `view.order` | ⬜ planned |
 | Other Panes | `view.otherPanes` | ⬜ planned |
 | Other Tools | `view.otherToolsGroup` | ⬜ planned |
-| Page Layout | `view.toolbar.pageLayout` | ⬜ planned |
-| Page Zoom | `view.toolbar.pageZoom` | ⬜ planned |
+| Page Layout | `view.toolbar.pageLayout` | ✅ available |
+| Page Zoom | `view.toolbar.pageZoom` | ✅ available |
 | Panes | `view.panesGroup` | ⬜ planned |
 | Portfolio | `view.portfolio` | ⬜ planned |
 | ↳ Add Files | `view.portfolio.addFiles` | ⬜ planned |
@@ -292,24 +292,24 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ View | `view.portfolio.view` | ⬜ planned |
 | ↳ View Fields | `view.portfolio.viewFields` | ⬜ planned |
 | Portfolio Tools | `view.portfolioTools` | ⬜ planned |
-| Properties | `view.toolbar.properties` | ⬜ planned |
+| Properties | `view.toolbar.properties` | ✅ available |
 | Properties Pane | `view.properties` | ✅ available |
-| Restore Cmd Bars Visibility | `view.restoreCmdBarsVisibility` | ⬜ planned |
+| Restore Cmd Bars Visibility | `view.restoreCmdBarsVisibility` | ✅ available |
 | Ribbon / Classic UI | `view.ribbonClassicUI` | ✅ available |
 | Ribbon UI | `view.switchToRibbonUI` | ✅ available |
-| Rotateview | `view.toolbar.rotateview` | ⬜ planned |
+| Rotateview | `view.toolbar.rotateview` | ✅ available |
 | Search | `view.search` | ✅ available |
 | Signatures | `view.signatures` | ✅ available |
-| Spell Check | `view.spellCheck` | ⬜ planned |
+| Spell Check | `view.spellCheck` | ✅ available |
 | Stamps Palette | `view.stamps` | ⬜ planned |
-| Standard | `view.toolbar.standard` | ⬜ planned |
+| Standard | `view.toolbar.standard` | ✅ available |
 | Tags | `view.tags` | ⬜ planned |
 | Thumbnails | `view.pageThumbnails` | ✅ available |
-| Toggle All Cmd Bars | `view.toggleAllCmdBars` | ⬜ planned |
+| Toggle All Cmd Bars | `view.toggleAllCmdBars` | ✅ available |
 | Toggle All Cmd Panes | `view.toggleAllCmdPanes` | ✅ available |
-| Toolbars | `view.toolbars` | ⬜ planned |
-| Touch-Optimized UI | `view.switchToTouchUI` | ⬜ planned |
-| Touch/Mouse Mode | `view.touchMouseMode` | ⬜ planned |
+| Toolbars | `view.toolbars` | ✅ available |
+| Touch-Optimized UI | `view.switchToTouchUI` | ✅ available |
+| Touch/Mouse Mode | `view.touchMouseMode` | ✅ available |
 | UI Options | `view.uiOptions` | ✅ available |
 | UI Theme | `view.theme` | ✅ available |
 | ↳ Black Theme | `view.theme.black` | ✅ available |
@@ -319,7 +319,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Light Theme | `view.theme.white` | ✅ available |
 | Unlock All Cmd Bars | `view.unlockAllCmdBars` | ⬜ planned |
 | Unlock All Cmd Panes | `view.unlockAllCmdPanes` | ⬜ planned |
-| View | `view.toolbar.view` | ⬜ planned |
+| View | `view.toolbar.view` | ✅ available |
 | Window | `window` | 🟡 partial |
 | ↳ Distribute Tabs | `window.distributeTabs` | ⬜ planned |
 | ↳ Horizontally | `window.distributeDocsHorz` | ⬜ planned |
@@ -333,13 +333,13 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ New Horizontal Tab Group | `window.activeDocToNewHorzTabGroup` | ⬜ planned |
 | ↳ New Vertical Tab Group | `window.activeDocToNewVertTabGroup` | ⬜ planned |
 | ↳ Remove Split | `window.removeSplit` | ⬜ planned |
-| ↳ Reset Document Panes Layout | `window.resetDocPanesLayout` | ⬜ planned |
-| ↳ Reset Main Panes Layout | `window.resetMainPanesLayout` | ⬜ planned |
-| ↳ Sort Tabs Alphabetically | `window.sortAllDocTabsAbc` | ⬜ planned |
+| ↳ Reset Document Panes Layout | `window.resetDocPanesLayout` | ✅ available |
+| ↳ Reset Main Panes Layout | `window.resetMainPanesLayout` | ✅ available |
+| ↳ Sort Tabs Alphabetically | `window.sortAllDocTabsAbc` | ✅ available |
 | ↳ Split | `window.split` | ⬜ planned |
 | ↳ Vertically | `window.distributeDocsVert` | ⬜ planned |
 | XFA Tree | `view.xfaTree` | ⬜ planned |
-| Zoom | `view.toolbar.zoom` | ⬜ planned |
+| Zoom | `view.toolbar.zoom` | ✅ available |
 
 ### Comment
 
@@ -1395,7 +1395,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Zoom | `view.zoom` | ✅ available |
 | Zoom In | `zoomIn` | ✅ available |
 | Zoom Out | `zoomOut` | ✅ available |
-| Page Layout | `view.layout` | 🟡 partial |
+| Page Layout | `view.layout` | ✅ available |
 | Rotate View | `view.rotate` | ✅ available |
 | Full Screen | `view.fullScreen` | ✅ available |
 | Thumbnails | `view.pageThumbnails` | ✅ available |
@@ -1415,7 +1415,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Guides | `view.showGuides` | ✅ available |
 | Snap | `view.snap` | ✅ available |
 | Dark Page Mode | `view.darkPageMode` | ✅ available |
-| Toolbars | `view.toolbars` | ⬜ planned |
+| Toolbars | `view.toolbars` | ✅ available |
 | UI Theme | `view.theme` | ✅ available |
 | UI Options | `view.uiOptions` | ✅ available |
 | 3D Model Tree | `3DModelTreeView` | ⬜ planned |
@@ -1459,24 +1459,24 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Lock Unlock All Cmd Panes | `view.lockUnlockAllCmdPanes` | ⬜ planned |
 | Loupe | `loupeView` | ⬜ planned |
 | Loupe | `view.loupe` | ✅ available |
-| Mouse-Optimized UI | `view.switchToMouseUI` | ⬜ planned |
+| Mouse-Optimized UI | `view.switchToMouseUI` | ✅ available |
 | Named Destinations Pane | `pdfNamedDestsView` | ✅ available |
 | Order | `view.order` | ⬜ planned |
 | Order Pane | `orderView` | ⬜ planned |
 | Order Pane | `orderview` | ⬜ planned |
 | Other Tools | `view.otherToolsGroup` | ⬜ planned |
 | Override Document Colors | `view.overrideDocumentColors` | ✅ available |
-| Page | `view.pageNumber` | ⬜ planned |
+| Page | `view.pageNumber` | ✅ available |
 | Page Layout | `view.pageLayoutTypesGroup` | ⬜ planned |
 | Page Size | `view.pageMeasureInfo` | ✅ available |
-| Page Size Popup | `view.showPageSizePopup` | ⬜ planned |
+| Page Size Popup | `view.showPageSizePopup` | ✅ available |
 | Pan and Zoom | `panZoomView` | ⬜ planned |
-| Pan and Zoom | `view.panzoom` | ⬜ planned |
+| Pan and Zoom | `view.panzoom` | ✅ available |
 | Panes | `view.panesGroup` | ⬜ planned |
 | Portfolio | `view.portfolio` | ⬜ planned |
 | Portfolio Tools | `view.portfolioTools` | ⬜ planned |
 | Recovery Pane | `recoveryView` | ⬜ planned |
-| Restore Cmd Bars Visibility | `view.restoreCmdBarsVisibility` | ⬜ planned |
+| Restore Cmd Bars Visibility | `view.restoreCmdBarsVisibility` | ✅ available |
 | Ribbon / Classic UI | `view.ribbonClassicUI` | ✅ available |
 | Ribbon UI | `view.switchToRibbonUI` | ✅ available |
 | Rotate View | `view.rotateViewGroup` | ⬜ planned |
@@ -1487,25 +1487,25 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Show Pane Info Bar | `showPaneInfoBar` | ⬜ planned |
 | Signatures Pane | `signaturesView` | ⬜ planned |
 | Snap | `view.snapGroup` | ⬜ planned |
-| Spell Check | `view.spellCheck` | ⬜ planned |
+| Spell Check | `view.spellCheck` | ✅ available |
 | Stamps Palette | `view.stamps` | ⬜ planned |
 | Stamps Pane | `stampsView` | ⬜ planned |
-| Tab Title Style | `tabTitleStyle` | ⬜ planned |
+| Tab Title Style | `tabTitleStyle` | ✅ available |
 | Tags | `view.tags` | ⬜ planned |
 | Tags Pane | `tagsView` | ⬜ planned |
 | Tags Pane | `tagsview` | ⬜ planned |
 | Thin Lines | `view.thinLines` | ⬜ planned |
 | Thumbnails Pane | `thumbnailsView` | 🟡 partial |
-| Toggle All Cmd Bars | `view.toggleAllCmdBars` | ⬜ planned |
+| Toggle All Cmd Bars | `view.toggleAllCmdBars` | ✅ available |
 | Toggle All Cmd Panes | `view.toggleAllCmdPanes` | ✅ available |
-| Toolbar | `view.toolbar` | ⬜ planned |
-| Touch-Optimized UI | `view.switchToTouchUI` | ⬜ planned |
-| Touch/Mouse Mode | `view.touchMouseMode` | ⬜ planned |
+| Toolbar | `view.toolbar` | ✅ available |
+| Touch-Optimized UI | `view.switchToTouchUI` | ✅ available |
+| Touch/Mouse Mode | `view.touchMouseMode` | ✅ available |
 | Transparency Grid | `view.showTranspGrid` | ✅ available |
 | Unlock All Cmd Bars | `view.unlockAllCmdBars` | ⬜ planned |
 | Unlock All Cmd Panes | `view.unlockAllCmdPanes` | ⬜ planned |
 | XFA Tree | `view.xfaTree` | ⬜ planned |
-| Zoom | `zoom` | 🟡 partial |
+| Zoom | `zoom` | ✅ available |
 | Zoom Slider | `zoomSlider` | ⬜ planned |
 | Zoom Tools | `zoomToolsGroup` | ⬜ planned |
 | Zoom to Selection | `zoomSel` | ✅ available |
@@ -1712,7 +1712,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Media Tools | `tools.media` | ⬜ planned |
 | Zoom Tools | `tools.zoom` | ⬜ planned |
 | Compare Documents… | `compareDocs` | ⬜ planned |
-| Launch Application | `launchExternalApp` | ⬜ planned |
+| Launch Application | `launchExternalApp` | ✅ available |
 | Allow/Block List | `bwList` | ⬜ planned |
 | Metadata | `msp` | ⬜ planned |
 | Other Tools | `otherToolsGroup` | ⬜ planned |
@@ -1744,9 +1744,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | New Blank Window | `window.newBlank` | ✅ available |
 | New Horizontal Tab Group | `window.activeDocToNewHorzTabGroup` | ⬜ planned |
 | New Vertical Tab Group | `window.activeDocToNewVertTabGroup` | ⬜ planned |
-| Reset Document Panes Layout | `window.resetDocPanesLayout` | ⬜ planned |
-| Reset Main Panes Layout | `window.resetMainPanesLayout` | ⬜ planned |
-| Sort Tabs Alphabetically | `window.sortAllDocTabsAbc` | ⬜ planned |
+| Reset Document Panes Layout | `window.resetDocPanesLayout` | ✅ available |
+| Reset Main Panes Layout | `window.resetMainPanesLayout` | ✅ available |
+| Sort Tabs Alphabetically | `window.sortAllDocTabsAbc` | ✅ available |
 | Vertically | `window.distributeDocsVert` | ⬜ planned |
 
 ### Help
@@ -2343,11 +2343,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `stampsView.virtual.recents.remove` | View › Stamps Pane › Virtual › Recents › Remove | ⬜ planned |
 | `stampsView.zoomIn` | View › Stamps Pane › Zoom in | ⬜ planned |
 | `stampsView.zoomOut` | View › Stamps Pane › Zoom Out | ⬜ planned |
-| `tabTitleStyle.auto` | View › Tab Title Style › Auto | ⬜ planned |
-| `tabTitleStyle.documentFilename` | View › Tab Title Style › Document Filename | ⬜ planned |
-| `tabTitleStyle.documentTitle` | View › Tab Title Style › Document Title | ⬜ planned |
-| `tabTitleStyle.endEllipsis` | View › Tab Title Style › End Ellipsis | ⬜ planned |
-| `tabTitleStyle.midEllipsis` | View › Tab Title Style › Mid Ellipsis | ⬜ planned |
+| `tabTitleStyle.auto` | View › Tab Title Style › Auto | ✅ available |
+| `tabTitleStyle.documentFilename` | View › Tab Title Style › Document Filename | ✅ available |
+| `tabTitleStyle.documentTitle` | View › Tab Title Style › Document Title | ✅ available |
+| `tabTitleStyle.endEllipsis` | View › Tab Title Style › End Ellipsis | ✅ available |
+| `tabTitleStyle.midEllipsis` | View › Tab Title Style › Mid Ellipsis | ✅ available |
 | `textPara.indent.decrease` | Edit › Text Para › Indent › Decrease | ⬜ planned |
 | `textPara.indent.increase` | Edit › Text Para › Indent › Increase | ⬜ planned |
 | `thumbnailsView.highlightVisible` | View › Thumbnails Pane › Highlight Visible | ⬜ planned |

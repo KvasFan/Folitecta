@@ -22,3 +22,24 @@ image.workspace = true
 time.workspace = true
 quick-xml.workspace = true
 base64.workspace = true
+# Digital signatures (RustCrypto, MIT/Apache-2.0)
+der = { version = "0.7", features = ["alloc", "oid", "std", "derive"] }
+spki = { version = "0.7", features = ["alloc", "std"] }
+const-oid = { version = "0.9", features = ["db"] }
+x509-cert = { version = "0.2", features = ["builder", "std"] }
+cms = { version = "0.2", features = ["std"] }
+pkcs12 = { version = "0.1", features = ["kdf"] }
+pkcs8 = { version = "0.10", features = ["encryption", "std"] }
+pkcs5 = { version = "0.7", features = ["pbes2", "3des"] }
+rsa = { version = "0.9", features = ["sha2", "std"] }
+p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
+p384 = { version = "0.13", features = ["ecdsa"] }
+signature = "2"
+sha1 = { version = "0.10", features = ["oid"] }
+sha2 = { version = "0.10", features = ["oid"] }
+des = "0.8"
+rc2 = "0.8"
+cbc = { version = "0.1", features = ["std"] }
+aes = "0.8"
+hmac = "0.12"
+rand_core = { version = "0.6", features = ["getrandom"] }

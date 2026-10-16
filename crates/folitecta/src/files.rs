@@ -151,7 +151,7 @@ pub fn save(st: AppState) {
     }
 }
 
-fn suggested_name(st: AppState, suffix: &str) -> String {
+pub(crate) fn suggested_name(st: AppState, suffix: &str) -> String {
     st.read_active(|t| {
         let stem = t
             .doc
@@ -879,6 +879,19 @@ pub fn import_form_data(st: AppState) {
             None => {}
         }
     });
+}
+
+/// Replace the active tab with the file at path (used after signing, when the
+/// saved file is the document to continue with).
+pub fn replace_active_with(st: AppState, path: PathBuf) {
+    if let Some(i) = st.active_index() {
+        st.docs_mut().remove(i);
+        let n = st.docs.read().len();
+        if n > 0 {
+            st.set_active(i.min(n - 1));
+        }
+    }
+    open_path(st, path, None);
 }
 
 /// Open a document created in memory (untitled) in a new tab.

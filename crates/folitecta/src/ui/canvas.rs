@@ -963,6 +963,10 @@ fn PageView(
                 st.set_dialog(Dialog::Link { page, rect });
                 None
             }
+            Tool::SignArea if !tiny => {
+                crate::commands::signatures::finish_sign_area(st, page, rect);
+                None
+            }
             Tool::Rect if !tiny => st.with_active(|t| {
                 t.doc
                     .add_shape_styled(page, Shape::Square, rect, &style("Square"), &author, "")

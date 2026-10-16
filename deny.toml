@@ -2,7 +2,8 @@
 #
 # Policy: every dependency Folitecta chooses directly is MIT or Apache-2.0 licensed Rust.
 # The user-interface stack (Dioxus → wry/tao → OS web view bindings, url/idna, image) brings a
-# small number of transitive crates under other permissive free licences, listed below so the
+# small number of transitive crates under other permissive free licences (also subtle, used by the
+# RustCrypto signature crates), listed below so the
 # audit stays explicit. Copyleft licences other than the GNU family are not accepted.
 [graph]
 targets = [

@@ -56,6 +56,9 @@ pub struct Document {
     pub(crate) helv_font: Option<ObjectId>,
     /// The file was encrypted when it was opened (it is kept decrypted in memory).
     source_encrypted: bool,
+    /// The file as it was opened or last saved (plain, unencrypted files only):
+    /// the base of incremental updates, which keep existing signatures valid.
+    pub(crate) source: Option<Arc<Vec<u8>>>,
     /// Positioned text of every page, keyed by revision.
     pub(crate) text_cache: std::sync::Mutex<Option<(u64, Arc<Vec<crate::textlayer::PageText>>)>>,
 }
@@ -117,9 +120,11 @@ impl Document {
     /// Build a document from in-memory bytes.
     pub fn from_bytes(bytes: Vec<u8>, path: Option<PathBuf>, password: Option<&str>) -> Result<Self> {
         let (inner, source_encrypted) = load_inner(&bytes, password)?;
+        let source = (!source_encrypted).then(|| Arc::new(bytes.clone()));
         let mut doc = Document {
             inner,
             path,
+            source,
             bytes: Arc::new(bytes),
             revision: 0,
             dirty: false,
@@ -176,6 +181,7 @@ impl Document {
         Ok(Document {
             inner,
             path: None,
+            source: None,
             bytes: Arc::new(bytes),
             revision: 0,
             dirty: true,
@@ -198,7 +204,13 @@ impl Document {
         let path = path.as_ref();
         self.touch_mod_date();
         self.bytes = Arc::new(serialize(&mut self.inner)?);
-        std::fs::write(path, self.bytes.as_slice()).map_err(|e| Error::io(path, e))?;
+        // Signed documents are saved as an incremental update so the signatures stay valid.
+        let out = match self.incremental_bytes()? {
+            Some(b) => Arc::new(b),
+            None => self.bytes.clone(),
+        };
+        std::fs::write(path, out.as_slice()).map_err(|e| Error::io(path, e))?;
+        self.source = Some(out);
         self.path = Some(path.to_path_buf());
         self.dirty = false;
         Ok(())
@@ -207,7 +219,10 @@ impl Document {
     /// Write a copy to `path` without changing the document path or dirty state.
     pub fn save_copy(&mut self, path: impl AsRef<Path>) -> Result<()> {
         let path = path.as_ref();
-        let bytes = serialize(&mut self.inner)?;
+        let bytes = match self.incremental_bytes()? {
+            Some(b) => b,
+            None => serialize(&mut self.inner)?,
+        };
         std::fs::write(path, &bytes).map_err(|e| Error::io(path, e))
     }
 

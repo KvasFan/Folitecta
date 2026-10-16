@@ -11,6 +11,7 @@ pub mod ribbon;
 pub mod ribbon_layout;
 pub mod rightpane;
 pub mod signatures;
+pub mod signs;
 pub mod statusbar;
 pub mod style_editor;
 pub mod toasts;

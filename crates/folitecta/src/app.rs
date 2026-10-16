@@ -227,6 +227,7 @@ pub fn App() -> Element {
                 });
             } else {
                 commands::signatures::cancel_pending();
+                commands::signs::cancel_pending();
                 st.set_tool(Tool::Hand);
                 st.set_pending_image(None);
             }

@@ -1005,6 +1005,10 @@ impl Document {
             }
             "Stamp" => {
                 let name = name_of(d, b"Name").unwrap_or_default();
+                if name == crate::signmarks::SIGNATURE_STAMP {
+                    // Handwritten signatures keep their drawing (it scales with the rectangle).
+                    return Ok(false);
+                }
                 if name == "FolitectaImage" {
                     // Keep the picture of the existing appearance, change only the opacity.
                     let img = d

@@ -260,6 +260,7 @@ pub fn Dialogs() -> Element {
         Dialog::SignatureDetails(field) => rsx! { crate::ui::signatures::SignatureDetailsDialog { field } },
         Dialog::DigitalIds => rsx! { crate::ui::signatures::DigitalIdsDialog {} },
         Dialog::TrustedCerts => rsx! { crate::ui::signatures::TrustedCertsDialog {} },
+        Dialog::SignatureLibrary => rsx! { crate::ui::signs::SignatureLibraryDialog {} },
     }
 }
 

@@ -967,6 +967,10 @@ fn PageView(
                 crate::commands::signatures::finish_sign_area(st, page, rect);
                 None
             }
+            Tool::PlaceSignature => {
+                crate::commands::signs::place_at(st, page, rect, tiny);
+                None
+            }
             Tool::Rect if !tiny => st.with_active(|t| {
                 t.doc
                     .add_shape_styled(page, Shape::Square, rect, &style("Square"), &author, "")

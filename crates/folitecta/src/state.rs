@@ -70,6 +70,8 @@ pub enum Tool {
     FieldSignature,
     /// Draw the rectangle of a digital signature.
     SignArea,
+    /// Place a signature, initials or a profile text.
+    PlaceSignature,
 }
 
 impl Tool {
@@ -134,6 +136,7 @@ impl Tool {
             Tool::FieldButton => "tool.editFields.mode.button",
             Tool::FieldSignature => "tool.editFields.mode.signature",
             Tool::SignArea => "tool.digisig",
+            Tool::PlaceSignature => "tool.sign.and.initials",
         }
     }
 
@@ -183,6 +186,7 @@ impl Tool {
             Tool::FieldButton => "tool.field_button",
             Tool::FieldSignature => "tool.field_signature",
             Tool::SignArea => "tool.sign_area",
+            Tool::PlaceSignature => "tool.place_signature",
         }
     }
 
@@ -821,6 +825,8 @@ pub enum Dialog {
     DigitalIds,
     /// Trusted certificates.
     TrustedCerts,
+    /// Library of signatures and initials, and the signer's profile.
+    SignatureLibrary,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

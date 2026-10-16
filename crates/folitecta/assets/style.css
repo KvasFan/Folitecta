@@ -620,3 +620,12 @@ html.emulate-print .print-page img { max-width: 100%; max-height: 100%; object-f
 .problems { margin: 4px 0; padding-left: 20px; color: var(--danger); }
 .callout.error { border-color: var(--danger); background: rgba(217,56,56,.08); }
 .id-list { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow: auto; }
+/* Signatures and initials library */
+.sig-library { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; max-height: 240px; overflow: auto; }
+.sig-card { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sig-preview { height: 56px; display: grid; place-items: center; background: #fff; border-radius: 4px; overflow: hidden; }
+.sig-img { max-height: 52px; max-width: 100%; }
+.typed-sig { font-family: "Segoe Script", "Brush Script MT", "Times New Roman", serif; font-style: italic; font-size: 22px; color: #1c2a6b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.typed-sig.big { font-size: 30px; padding: 8px; background: #fff; border-radius: 4px; }
+.sign-pad { position: relative; background: #fff; border: 1px dashed var(--border); border-radius: var(--radius-sm); cursor: crosshair; max-width: 100%; overflow: hidden; touch-action: none; }
+.sign-pad svg { display: block; pointer-events: none; }

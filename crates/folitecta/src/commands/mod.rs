@@ -20,6 +20,7 @@ mod panes;
 mod protect;
 pub(crate) mod review;
 pub(crate) mod signatures;
+pub(crate) mod signs;
 mod view;
 
 use std::collections::{HashMap, HashSet};
@@ -57,6 +58,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     bookmarks::HANDLERS,
     interface::HANDLERS,
     signatures::HANDLERS,
+    signs::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,

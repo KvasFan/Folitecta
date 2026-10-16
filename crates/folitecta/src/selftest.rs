@@ -1104,19 +1104,36 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
             .map(|s| s.field.clone())
             .unwrap_or_default();
         st.set_dialog(Dialog::SignatureDetails(field));
-        pause(500).await;
-        let _ = document::eval(
-            "const b = [...document.querySelectorAll('.dialog .row .tbtn.primary')][0]; if (b) b.click();",
-        )
-        .await;
-        pause(800).await;
-        st.set_dialog(Dialog::None);
-        pause(400).await;
-        let ok = document::eval("return document.querySelectorAll('.sig-item.ok').length;")
+        // Wait for the dialog, press "trust", then wait for the pane to update.
+        let mut clicked = false;
+        for _ in 0..20 {
+            pause(150).await;
+            clicked = document::eval(
+                "const b = [...document.querySelectorAll('.dialog .row .tbtn.primary')][0]; if (b) { b.click(); return true; } return false;",
+            )
             .await
             .ok()
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0);
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+            if clicked {
+                break;
+            }
+        }
+        pause(500).await;
+        st.set_dialog(Dialog::None);
+        let mut ok = 0;
+        for _ in 0..20 {
+            pause(150).await;
+            ok = document::eval("return document.querySelectorAll('.sig-item.ok').length;")
+                .await
+                .ok()
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            if ok == 1 {
+                break;
+            }
+        }
+        let _ = clicked;
         record(
             "trusting the signer's certificate",
             ok == 1,
@@ -1134,7 +1151,46 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
         record("document signed", false, String::new());
     }
 
-    // 24. Undo everything added above.
+    // 24. Handwritten signature: draw it in the library, place it with a click, apply it.
+    st.set_dialog(Dialog::SignatureLibrary);
+    pause(600).await;
+    let _ = document::eval(
+        "const p = document.querySelector('.sign-pad'); if (p) { const r = p.getBoundingClientRect(); const ev = (t, x, y) => p.dispatchEvent(new MouseEvent(t, { bubbles: true, button: 0, clientX: r.left + x, clientY: r.top + y })); ev('mousedown', 30, 90); for (let i = 1; i <= 12; i++) ev('mousemove', 30 + i * 25, 90 - Math.sin(i) * 40); ev('mouseup', 330, 70); }",
+    )
+    .await;
+    pause(400).await;
+    let _ = document::eval("const b = [...document.querySelectorAll('.dialog .tbtn.primary')].find(b => !b.closest('.sig-card') && !b.closest('.dialog-foot')); if (b) b.click();").await;
+    pause(500).await;
+    let saved = crate::commands::signs::library();
+    record(
+        "signature drawn and saved in the library",
+        saved.len() == 1 && saved[0].strokes.first().map(|s| s.len() > 5).unwrap_or(false),
+        format!("{} saved", saved.len()),
+    );
+    let _ = capture_window(&dir.join("interaction-signature-library.png"));
+    let _ = document::eval("const b = document.querySelector('.sig-card .tbtn.primary'); if (b) b.click();")
+        .await;
+    pause(400).await;
+    let before = st.read_active(|t| t.doc.signature_marks().len()).unwrap_or(0);
+    let _ = pointer_path(0, z, &[(300.0, 520.0), (300.0, 520.0)], false).await;
+    pause(600).await;
+    let after = st.read_active(|t| t.doc.signature_marks().len()).unwrap_or(0);
+    record(
+        "signature placed with a click",
+        after == before + 1,
+        format!("{before} -> {after}"),
+    );
+    crate::commands::dispatch(st, "signs.applyAll");
+    pause(400).await;
+    let left = st.read_active(|t| t.doc.signature_marks().len()).unwrap_or(9);
+    record(
+        "signatures applied to the page",
+        left == 0,
+        format!("{left} left"),
+    );
+    st.set_tool(Tool::Hand);
+
+    // 25. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..30 {
         crate::commands::dispatch(st, "undo");
@@ -1305,6 +1361,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ),
         ("digital-ids", Dialog::DigitalIds),
         ("trusted-certs", Dialog::TrustedCerts),
+        ("signature-library", Dialog::SignatureLibrary),
     ];
     for lang in [crate::i18n::Lang::It, crate::i18n::Lang::En] {
         st.ui_mut().lang = lang;

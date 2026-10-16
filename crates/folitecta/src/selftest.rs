@@ -195,11 +195,6 @@ fn capture_window(_path: &std::path::Path) -> Result<(), String> {
     Err("screenshots are only captured on Windows".into())
 }
 
-#[cfg(not(target_os = "windows"))]
-fn capture_window_from(_path: &std::path::Path, _from_screen: bool) -> Result<(), String> {
-    Err("screenshots are only captured on Windows".into())
-}
-
 #[cfg(target_os = "windows")]
 mod win_capture {
     use windows::Win32::Foundation::{HWND, POINT, RECT};

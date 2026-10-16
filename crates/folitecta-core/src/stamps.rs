@@ -4,7 +4,7 @@ use lopdf::{ObjectId, dictionary};
 
 use crate::document::Document;
 use crate::error::{Error, Result};
-use crate::util::{approx_text_width, fmt_num, pdf_literal};
+use crate::util::fmt_num;
 
 /// Built-in stamp texts.
 pub const STAMP_PRESETS: &[&str] = &[
@@ -66,7 +66,6 @@ impl Document {
         }
         let page_id = self.page_id(page)?;
         self.begin_edit();
-        let font_id = self.helvetica_font_id();
         let mut annot = self.base_annotation(page_id, "Stamp", rect, author, text, color);
         annot.set(
             "Name",
@@ -78,36 +77,7 @@ impl Document {
                 .into_bytes(),
             ),
         );
-        let (w, h) = (rect[2] - rect[0], rect[3] - rect[1]);
-        let chars = text.chars().count().max(1) as f32;
-        let fs = (h * 0.55).min((w - 16.0) / (0.52 * chars)).max(5.0);
-        let tw = approx_text_width(text, fs);
-        let tx = rect[0] + (w - tw) / 2.0;
-        let ty = rect[1] + (h - fs * 0.72) / 2.0;
-        let f = fmt_num;
-        let [r, g, b] = color;
-        let mut content = format!(
-            "q {} {} {} RG 2 w {} {} {} {} re S BT /Helv {} Tf {} {} {} rg {} {} Td ",
-            f(r),
-            f(g),
-            f(b),
-            f(rect[0] + 1.0),
-            f(rect[1] + 1.0),
-            f(w - 2.0),
-            f(h - 2.0),
-            f(fs),
-            f(r),
-            f(g),
-            f(b),
-            f(tx),
-            f(ty)
-        );
-        content.push_str(&String::from_utf8_lossy(&pdf_literal(text)));
-        content.push_str(" Tj ET Q");
-        let resources = dictionary! { "Font" => dictionary! { "Helv" => font_id } };
-        self.add_appearance(&mut annot, rect, content, resources);
-        let id = self.push_annotation(page_id, annot)?;
-        self.commit()?;
-        Ok(id)
+        annot.set("BS", dictionary! { "W" => 1.0f32, "S" => "S" });
+        self.finish_annotation(page_id, annot)
     }
 }

@@ -2,9 +2,10 @@
 
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
+use crate::appearance::{AnnotStyle, apply_style};
 use crate::document::Document;
 use crate::error::{Error, Result};
-use crate::util::{self, color_of, deref, dict_text, fmt_num, pdf_literal, rect_of};
+use crate::util::{self, color_of, deref, dict_text, rect_of};
 
 /// A summary of one annotation.
 #[derive(Debug, Clone, PartialEq)]
@@ -36,6 +37,7 @@ pub enum Markup {
     Highlight,
     Underline,
     StrikeOut,
+    Squiggly,
 }
 
 const NON_COMMENT_SUBTYPES: &[&str] = &[
@@ -62,44 +64,6 @@ fn annot_refs(doc: &lopdf::Document, page: &Dictionary) -> Vec<(Option<ObjectId>
             _ => None,
         })
         .collect()
-}
-
-fn circle_path(x0: f32, y0: f32, x1: f32, y1: f32) -> String {
-    // Four cubic Béziers approximating an ellipse inside the rectangle.
-    let k = 0.5523;
-    let (cx, cy) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0);
-    let (rx, ry) = ((x1 - x0) / 2.0, (y1 - y0) / 2.0);
-    let (ox, oy) = (rx * k, ry * k);
-    let f = fmt_num;
-    format!(
-        "{} {} m {} {} {} {} {} {} c {} {} {} {} {} {} c {} {} {} {} {} {} c {} {} {} {} {} {} c h",
-        f(cx + rx),
-        f(cy),
-        f(cx + rx),
-        f(cy + oy),
-        f(cx + ox),
-        f(cy + ry),
-        f(cx),
-        f(cy + ry),
-        f(cx - ox),
-        f(cy + ry),
-        f(cx - rx),
-        f(cy + oy),
-        f(cx - rx),
-        f(cy),
-        f(cx - rx),
-        f(cy - oy),
-        f(cx - ox),
-        f(cy - ry),
-        f(cx),
-        f(cy - ry),
-        f(cx + ox),
-        f(cy - ry),
-        f(cx + rx),
-        f(cy - oy),
-        f(cx + rx),
-        f(cy),
-    )
 }
 
 impl Document {
@@ -226,6 +190,14 @@ impl Document {
         Ok(annot_id)
     }
 
+    /// Generate the appearance of a new comment and add it to the page (one undo step).
+    pub(crate) fn finish_annotation(&mut self, page_id: ObjectId, mut annot: Dictionary) -> Result<ObjectId> {
+        self.generate_appearance(&mut annot)?;
+        let id = self.push_annotation(page_id, annot)?;
+        self.commit()?;
+        Ok(id)
+    }
+
     /// Add a sticky note at `(x, y)` (PDF user space, lower-left origin).
     pub fn add_note(
         &mut self,
@@ -242,29 +214,11 @@ impl Document {
         let mut annot = self.base_annotation(page_id, "Text", rect, author, contents, color);
         annot.set("Name", Object::Name(b"Comment".to_vec()));
         annot.set("Open", false);
-        let [r, g, b] = color;
-        let f = fmt_num;
-        let content = format!(
-            "q {} {} {} rg 0.2 0.2 0.2 RG 1 w {} {} 18 14 re B {} {} m {} {} l {} {} l h B Q",
-            f(r),
-            f(g),
-            f(b),
-            f(x + 1.0),
-            f(y - 15.0),
-            f(x + 4.0),
-            f(y - 15.0),
-            f(x + 4.0),
-            f(y - 19.5),
-            f(x + 9.0),
-            f(y - 15.0)
-        );
-        self.add_appearance(&mut annot, rect, content, Dictionary::new());
-        let id = self.push_annotation(page_id, annot)?;
-        self.commit()?;
-        Ok(id)
+        self.finish_annotation(page_id, annot)
     }
 
-    /// Add a free text (typewriter) comment inside `rect`.
+    /// Add a free text comment inside `rect`: a text box with a border, or
+    /// typewriter text without one.
     pub fn add_free_text(
         &mut self,
         page: usize,
@@ -275,56 +229,38 @@ impl Document {
         color: [f32; 3],
         border: bool,
     ) -> Result<ObjectId> {
+        let style = AnnotStyle {
+            color: Some(if border { [0.4, 0.4, 0.4] } else { color }),
+            fill: border.then_some([1.0, 1.0, 1.0]),
+            width: if border { 1.0 } else { 0.0 },
+            font_size,
+            text_color: color,
+            ..AnnotStyle::default()
+        };
+        self.add_free_text_styled(page, rect, text, author, &style)
+    }
+
+    /// Add a free text comment with a complete style.
+    pub fn add_free_text_styled(
+        &mut self,
+        page: usize,
+        rect: [f32; 4],
+        text: &str,
+        author: &str,
+        style: &AnnotStyle,
+    ) -> Result<ObjectId> {
         let page_id = self.page_id(page)?;
         self.begin_edit();
-        let font_id = self.helvetica_font_id();
-        let mut annot = self.base_annotation(page_id, "FreeText", rect, author, text, color);
-        let [r, g, b] = color;
-        annot.set(
-            "DA",
-            Object::string_literal(format!(
-                "/Helv {} Tf {} {} {} rg",
-                fmt_num(font_size),
-                fmt_num(r),
-                fmt_num(g),
-                fmt_num(b)
-            )),
+        let mut annot = self.base_annotation(
+            page_id,
+            "FreeText",
+            rect,
+            author,
+            text,
+            style.color.unwrap_or(style.text_color),
         );
-        annot.set("Q", 0i64);
-        let f = fmt_num;
-        let mut content = String::from("q ");
-        if border {
-            content.push_str(&format!(
-                "1 1 1 rg 0.4 0.4 0.4 RG 1 w {} {} {} {} re B ",
-                f(rect[0] + 0.5),
-                f(rect[1] + 0.5),
-                f(rect[2] - rect[0] - 1.0),
-                f(rect[3] - rect[1] - 1.0)
-            ));
-        }
-        content.push_str(&format!(
-            "BT /Helv {} Tf {} {} {} rg {} TL {} {} Td ",
-            f(font_size),
-            f(r),
-            f(g),
-            f(b),
-            f(font_size * 1.2),
-            f(rect[0] + 3.0),
-            f(rect[3] - font_size - 2.0)
-        ));
-        for (i, line) in text.lines().enumerate() {
-            if i > 0 {
-                content.push_str("T* ");
-            }
-            content.push_str(&String::from_utf8_lossy(&pdf_literal(line)));
-            content.push_str(" Tj ");
-        }
-        content.push_str("ET Q");
-        let resources = dictionary! { "Font" => dictionary! { "Helv" => font_id } };
-        self.add_appearance(&mut annot, rect, content, resources);
-        let id = self.push_annotation(page_id, annot)?;
-        self.commit()?;
-        Ok(id)
+        apply_style(&mut annot, "FreeText", style);
+        self.finish_annotation(page_id, annot)
     }
 
     /// Add a rectangle or ellipse comment.
@@ -339,45 +275,41 @@ impl Document {
         author: &str,
         contents: &str,
     ) -> Result<ObjectId> {
+        let style = AnnotStyle {
+            color: Some(stroke),
+            fill,
+            width,
+            ..AnnotStyle::default()
+        };
+        self.add_shape_styled(page, shape, rect, &style, author, contents)
+    }
+
+    /// Add a rectangle or ellipse comment with a complete style.
+    pub fn add_shape_styled(
+        &mut self,
+        page: usize,
+        shape: Shape,
+        rect: [f32; 4],
+        style: &AnnotStyle,
+        author: &str,
+        contents: &str,
+    ) -> Result<ObjectId> {
         let page_id = self.page_id(page)?;
         self.begin_edit();
         let subtype = match shape {
             Shape::Square => "Square",
             Shape::Circle => "Circle",
         };
-        let mut annot = self.base_annotation(page_id, subtype, rect, author, contents, stroke);
-        annot.set("BS", dictionary! { "W" => width, "S" => "S" });
-        if let Some(ic) = fill {
-            annot.set("IC", vec![ic[0].into(), ic[1].into(), ic[2].into()]);
-        }
-        let f = fmt_num;
-        let half = width / 2.0;
-        let mut content = format!(
-            "q {} w {} {} {} RG ",
-            f(width),
-            f(stroke[0]),
-            f(stroke[1]),
-            f(stroke[2])
+        let mut annot = self.base_annotation(
+            page_id,
+            subtype,
+            rect,
+            author,
+            contents,
+            style.color.unwrap_or([0.0; 3]),
         );
-        if let Some(ic) = fill {
-            content.push_str(&format!("{} {} {} rg ", f(ic[0]), f(ic[1]), f(ic[2])));
-        }
-        let path = match shape {
-            Shape::Square => format!(
-                "{} {} {} {} re",
-                f(rect[0] + half),
-                f(rect[1] + half),
-                f(rect[2] - rect[0] - width),
-                f(rect[3] - rect[1] - width)
-            ),
-            Shape::Circle => circle_path(rect[0] + half, rect[1] + half, rect[2] - half, rect[3] - half),
-        };
-        content.push_str(&path);
-        content.push_str(if fill.is_some() { " B Q" } else { " S Q" });
-        self.add_appearance(&mut annot, rect, content, Dictionary::new());
-        let id = self.push_annotation(page_id, annot)?;
-        self.commit()?;
-        Ok(id)
+        apply_style(&mut annot, subtype, style);
+        self.finish_annotation(page_id, annot)
     }
 
     /// Add a straight line (optionally with an arrow head at the end).
@@ -392,61 +324,58 @@ impl Document {
         author: &str,
         contents: &str,
     ) -> Result<ObjectId> {
+        let style = AnnotStyle {
+            color: Some(color),
+            width,
+            line_end: if arrow { "OpenArrow".into() } else { "None".into() },
+            ..AnnotStyle::default()
+        };
+        self.add_polyline(page, &[from, to], false, &style, author, contents)
+    }
+
+    /// Add a line (two points), polyline or polygon comment.
+    pub fn add_polyline(
+        &mut self,
+        page: usize,
+        points: &[(f32, f32)],
+        closed: bool,
+        style: &AnnotStyle,
+        author: &str,
+        contents: &str,
+    ) -> Result<ObjectId> {
+        if points.len() < 2 || (closed && points.len() < 3) {
+            return Err(Error::Invalid("not enough points for the shape".into()));
+        }
         let page_id = self.page_id(page)?;
         self.begin_edit();
-        let pad = width.max(4.0) * 3.0;
-        let rect = [
-            from.0.min(to.0) - pad,
-            from.1.min(to.1) - pad,
-            from.0.max(to.0) + pad,
-            from.1.max(to.1) + pad,
-        ];
-        let mut annot = self.base_annotation(page_id, "Line", rect, author, contents, color);
-        annot.set("L", vec![from.0.into(), from.1.into(), to.0.into(), to.1.into()]);
-        annot.set("BS", dictionary! { "W" => width });
-        if arrow {
-            annot.set(
-                "LE",
-                vec![
-                    Object::Name(b"None".to_vec()),
-                    Object::Name(b"OpenArrow".to_vec()),
-                ],
-            );
-        }
-        let f = fmt_num;
-        let mut content = format!(
-            "q {} w 1 J 1 j {} {} {} RG {} {} m {} {} l S ",
-            f(width),
-            f(color[0]),
-            f(color[1]),
-            f(color[2]),
-            f(from.0),
-            f(from.1),
-            f(to.0),
-            f(to.1)
+        let subtype = match (closed, points.len()) {
+            (true, _) => "Polygon",
+            (false, 2) => "Line",
+            (false, _) => "PolyLine",
+        };
+        let flat: Vec<Object> = points
+            .iter()
+            .flat_map(|(x, y)| [(*x).into(), (*y).into()])
+            .collect();
+        let rect = points
+            .iter()
+            .fold([f32::MAX, f32::MAX, f32::MIN, f32::MIN], |r, p| {
+                [r[0].min(p.0), r[1].min(p.1), r[2].max(p.0), r[3].max(p.1)]
+            });
+        let mut annot = self.base_annotation(
+            page_id,
+            subtype,
+            rect,
+            author,
+            contents,
+            style.color.unwrap_or([0.0; 3]),
         );
-        if arrow {
-            let (dx, dy) = (to.0 - from.0, to.1 - from.1);
-            let len = (dx * dx + dy * dy).sqrt().max(0.001);
-            let (ux, uy) = (dx / len, dy / len);
-            let size = width.max(2.0) * 4.0;
-            let (bx, by) = (to.0 - ux * size, to.1 - uy * size);
-            let (px, py) = (-uy * size * 0.5, ux * size * 0.5);
-            content.push_str(&format!(
-                "{} {} m {} {} l {} {} l S ",
-                f(bx + px),
-                f(by + py),
-                f(to.0),
-                f(to.1),
-                f(bx - px),
-                f(by - py)
-            ));
-        }
-        content.push('Q');
-        self.add_appearance(&mut annot, rect, content, Dictionary::new());
-        let id = self.push_annotation(page_id, annot)?;
-        self.commit()?;
-        Ok(id)
+        annot.set(
+            if subtype == "Line" { "L" } else { "Vertices" },
+            Object::Array(flat),
+        );
+        apply_style(&mut annot, subtype, style);
+        self.finish_annotation(page_id, annot)
     }
 
     /// Add a freehand ink comment made of one or more polylines.
@@ -458,52 +387,40 @@ impl Document {
         width: f32,
         author: &str,
     ) -> Result<ObjectId> {
+        let style = AnnotStyle {
+            color: Some(color),
+            width,
+            ..AnnotStyle::default()
+        };
+        self.add_ink_styled(page, paths, &style, author)
+    }
+
+    /// Add a freehand ink comment with a complete style.
+    pub fn add_ink_styled(
+        &mut self,
+        page: usize,
+        paths: &[Vec<(f32, f32)>],
+        style: &AnnotStyle,
+        author: &str,
+    ) -> Result<ObjectId> {
         let page_id = self.page_id(page)?;
         let pts: Vec<(f32, f32)> = paths.iter().flatten().copied().collect();
         if pts.len() < 2 {
             return Err(Error::Invalid("an ink comment needs at least two points".into()));
         }
         self.begin_edit();
-        let pad = width + 2.0;
         let rect = pts.iter().fold([f32::MAX, f32::MAX, f32::MIN, f32::MIN], |r, p| {
-            [
-                r[0].min(p.0 - pad),
-                r[1].min(p.1 - pad),
-                r[2].max(p.0 + pad),
-                r[3].max(p.1 + pad),
-            ]
+            [r[0].min(p.0), r[1].min(p.1), r[2].max(p.0), r[3].max(p.1)]
         });
-        let mut annot = self.base_annotation(page_id, "Ink", rect, author, "", color);
-        annot.set("BS", dictionary! { "W" => width });
+        let mut annot =
+            self.base_annotation(page_id, "Ink", rect, author, "", style.color.unwrap_or([0.0; 3]));
         let ink_list: Vec<Object> = paths
             .iter()
             .map(|p| Object::Array(p.iter().flat_map(|(x, y)| [(*x).into(), (*y).into()]).collect()))
             .collect();
         annot.set("InkList", Object::Array(ink_list));
-        let f = fmt_num;
-        let mut content = format!(
-            "q {} w 1 J 1 j {} {} {} RG ",
-            f(width),
-            f(color[0]),
-            f(color[1]),
-            f(color[2])
-        );
-        for p in paths {
-            for (i, (x, y)) in p.iter().enumerate() {
-                content.push_str(&format!(
-                    "{} {} {} ",
-                    f(*x),
-                    f(*y),
-                    if i == 0 { "m" } else { "l" }
-                ));
-            }
-            content.push_str("S ");
-        }
-        content.push('Q');
-        self.add_appearance(&mut annot, rect, content, Dictionary::new());
-        let id = self.push_annotation(page_id, annot)?;
-        self.commit()?;
-        Ok(id)
+        apply_style(&mut annot, "Ink", style);
+        self.finish_annotation(page_id, annot)
     }
 
     /// Add a text markup (highlight/underline/strikeout) over the given quadrilaterals.
@@ -538,76 +455,15 @@ impl Document {
             Markup::Highlight => "Highlight",
             Markup::Underline => "Underline",
             Markup::StrikeOut => "StrikeOut",
+            Markup::Squiggly => "Squiggly",
         };
         let mut annot = self.base_annotation(page_id, subtype, rect, author, contents, color);
         annot.set(
             "QuadPoints",
             Object::Array(quads.iter().flatten().map(|v| (*v).into()).collect()),
         );
-        let f = fmt_num;
-        let mut content = format!(
-            "q /GS gs {} {} {} rg {} {} {} RG ",
-            f(color[0]),
-            f(color[1]),
-            f(color[2]),
-            f(color[0]),
-            f(color[1]),
-            f(color[2])
-        );
-        // Quads are upper-left, upper-right, lower-left, lower-right in any
-        // orientation; draw polygons so rotated text is covered correctly.
-        let poly = |pts: [(f32, f32); 4]| {
-            format!(
-                "{} {} m {} {} l {} {} l {} {} l h f ",
-                f(pts[0].0),
-                f(pts[0].1),
-                f(pts[1].0),
-                f(pts[1].1),
-                f(pts[2].0),
-                f(pts[2].1),
-                f(pts[3].0),
-                f(pts[3].1)
-            )
-        };
-        for q in quads {
-            let (ul, ur, ll, lr) = ((q[0], q[1]), (q[2], q[3]), (q[4], q[5]), (q[6], q[7]));
-            let (ux, uy) = (ul.0 - ll.0, ul.1 - ll.1);
-            let h = (ux * ux + uy * uy).sqrt().max(0.001);
-            let (nx, ny) = (ux / h, uy / h);
-            let t = (h * 0.07).max(0.8);
-            let along = |a: (f32, f32), b: (f32, f32), k: f32| (a.0 + (b.0 - a.0) * k, a.1 + (b.1 - a.1) * k);
-            match kind {
-                Markup::Highlight => content.push_str(&poly([ul, ur, lr, ll])),
-                Markup::Underline => content.push_str(&poly([
-                    ll,
-                    lr,
-                    (lr.0 + nx * t, lr.1 + ny * t),
-                    (ll.0 + nx * t, ll.1 + ny * t),
-                ])),
-                Markup::StrikeOut => {
-                    let (m0, m1) = (along(ll, ul, 0.42), along(lr, ur, 0.42));
-                    content.push_str(&poly([
-                        m0,
-                        m1,
-                        (m1.0 + nx * t, m1.1 + ny * t),
-                        (m0.0 + nx * t, m0.1 + ny * t),
-                    ]))
-                }
-            }
-        }
-        content.push('Q');
-        let blend = if kind == Markup::Highlight {
-            "Multiply"
-        } else {
-            "Normal"
-        };
-        let resources = dictionary! { "ExtGState" => dictionary! { "GS" => dictionary! { "BM" => blend, "CA" => 1.0f32, "ca" => 1.0f32 } } };
-        self.add_appearance(&mut annot, rect, content, resources);
-        let id = self.push_annotation(page_id, annot)?;
-        self.commit()?;
-        Ok(id)
+        self.finish_annotation(page_id, annot)
     }
-
     /// Delete one annotation by its position in the page's `/Annots` array.
     pub fn delete_annotation(&mut self, page: usize, index: usize) -> Result<()> {
         let page_id = self.page_id(page)?;

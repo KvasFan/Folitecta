@@ -247,79 +247,121 @@ impl Document {
         });
     }
 
-    /// Set the value of a text, choice or check box field.
+    /// Set the value of a text, choice, check box or radio button field and
+    /// redraw its widgets. For check boxes any value other than "Off" (or
+    /// empty) checks the box; radio groups select the button whose state is `value`.
     pub fn set_field_value(&mut self, id: ObjectId, value: &str) -> Result<()> {
         let field = self
             .form_fields()
             .into_iter()
             .find(|f| f.id == id)
             .ok_or_else(|| Error::Invalid("field not found".into()))?;
+        if field.read_only {
+            return Err(Error::Invalid(format!(
+                "the field \"{}\" is read-only",
+                field.name
+            )));
+        }
         self.begin_edit();
-        let new_value = match field.kind {
-            FieldKind::CheckBox | FieldKind::RadioButton => {
-                let on = if value.is_empty() || value == "Off" {
-                    "Off"
-                } else {
-                    value
-                };
-                Object::Name(on.as_bytes().to_vec())
-            }
-            _ => lopdf::text_string(value),
-        };
-        {
-            let d = self.inner.get_dictionary_mut(id)?;
-            d.set("V", new_value.clone());
-            if matches!(field.kind, FieldKind::CheckBox | FieldKind::RadioButton) {
-                d.set("AS", new_value.clone());
-            }
-            // Drop stale appearance streams of text fields; viewers regenerate them.
-            if matches!(
-                field.kind,
-                FieldKind::Text | FieldKind::ComboBox | FieldKind::ListBox
-            ) {
-                d.remove(b"AP");
-            }
-        }
-        // Widget kids share the value through inheritance, but check box kids need /AS.
-        let kids: Vec<ObjectId> = self
-            .inner
-            .get_dictionary(id)?
-            .get(b"Kids")
-            .ok()
-            .and_then(|k| k.as_array().ok())
-            .map(|arr| arr.iter().filter_map(|k| k.as_reference().ok()).collect())
-            .unwrap_or_default();
-        for kid in kids {
-            if let Ok(d) = self.inner.get_dictionary_mut(kid) {
-                if matches!(field.kind, FieldKind::CheckBox | FieldKind::RadioButton) {
-                    d.set("AS", new_value.clone());
-                } else {
-                    d.remove(b"AP");
-                }
-            }
-        }
-        self.set_need_appearances()?;
+        self.write_field_value(&field, value)?;
         self.commit()
     }
 
-    fn set_need_appearances(&mut self) -> Result<()> {
-        let catalog = self.inner.catalog()?;
-        let form_ref = catalog.get(b"AcroForm").ok().cloned();
-        match form_ref {
-            Some(Object::Reference(r)) => {
-                self.inner.get_dictionary_mut(r)?.set("NeedAppearances", true);
-            }
-            Some(Object::Dictionary(_)) => {
-                let c = self.inner.catalog_mut()?;
-                if let Ok(f) = c.get_mut(b"AcroForm") {
-                    if let Ok(d) = f.as_dict_mut() {
-                        d.set("NeedAppearances", true);
+    fn write_field_value(&mut self, field: &FormField, value: &str) -> Result<()> {
+        let id = field.id;
+        match field.kind {
+            FieldKind::CheckBox | FieldKind::RadioButton => {
+                let off = value.is_empty() || value == "Off";
+                let widgets = self.field_widgets(id);
+                let states: Vec<String> = widgets.iter().map(|w| self.widget_on_state(*w)).collect();
+                let v = if off {
+                    "Off".to_string()
+                } else if field.kind == FieldKind::CheckBox {
+                    states.first().cloned().unwrap_or_else(|| value.to_string())
+                } else {
+                    value.to_string()
+                };
+                self.inner
+                    .get_dictionary_mut(id)?
+                    .set("V", Object::Name(v.as_bytes().to_vec()));
+                for (w, on) in widgets.into_iter().zip(states) {
+                    let state = if !off && on == v {
+                        v.clone()
+                    } else {
+                        "Off".to_string()
+                    };
+                    let has_ap = self.inner.get_dictionary(w)?.has(b"AP");
+                    self.inner
+                        .get_dictionary_mut(w)?
+                        .set("AS", Object::Name(state.into_bytes()));
+                    if !has_ap {
+                        self.refresh_widget(w)?;
                     }
                 }
             }
-            _ => {}
+            FieldKind::ListBox if value.contains('\n') => {
+                let items: Vec<Object> = value.lines().map(lopdf::text_string).collect();
+                self.inner.get_dictionary_mut(id)?.set("V", Object::Array(items));
+                self.refresh_field(id)?;
+            }
+            _ => {
+                self.inner
+                    .get_dictionary_mut(id)?
+                    .set("V", lopdf::text_string(value));
+                self.refresh_field(id)?;
+            }
         }
         Ok(())
+    }
+
+    /// Set several field values at once by full name (one undo step); unknown
+    /// names are skipped. Returns the number of fields changed.
+    pub fn set_field_values(&mut self, values: &[(String, String)]) -> Result<usize> {
+        let fields = self.form_fields();
+        let mut todo = Vec::new();
+        for (name, value) in values {
+            if let Some(f) = fields.iter().find(|f| {
+                &f.name == name
+                    && !f.read_only
+                    && f.kind != FieldKind::Signature
+                    && f.kind != FieldKind::PushButton
+            }) {
+                todo.push((f.clone(), value.clone()));
+            }
+        }
+        if todo.is_empty() {
+            return Ok(0);
+        }
+        self.begin_edit();
+        for (f, v) in &todo {
+            self.write_field_value(f, v)?;
+        }
+        self.commit()?;
+        Ok(todo.len())
+    }
+
+    /// Name of the "on" appearance state of a check box or radio widget.
+    pub(crate) fn widget_on_state(&self, widget: ObjectId) -> String {
+        let doc = &self.inner;
+        let Ok(d) = doc.get_dictionary(widget) else {
+            return "Yes".into();
+        };
+        if let Ok(n) = d.get(b"_On").and_then(|n| n.as_name()) {
+            return String::from_utf8_lossy(n).to_string();
+        }
+        d.get(b"AP")
+            .ok()
+            .map(|a| deref(doc, a))
+            .and_then(|a| a.as_dict().ok())
+            .and_then(|a| a.get(b"N").ok())
+            .map(|n| deref(doc, n))
+            .and_then(|n| n.as_dict().ok())
+            .and_then(|n| {
+                n.iter()
+                    .map(|(k, _)| String::from_utf8_lossy(k).to_string())
+                    .find(|k| k != "Off")
+            })
+            .unwrap_or_else(|| "Yes".into())
     }
 
     /// Reset all fields to their default values.
@@ -334,30 +376,37 @@ impl Document {
             if f.kind == FieldKind::Signature || f.kind == FieldKind::PushButton {
                 continue;
             }
-            if let Ok(d) = self.inner.get_dictionary_mut(f.id) {
-                match d.get(b"DV").ok().cloned() {
-                    Some(dv) => {
-                        d.set("V", dv.clone());
-                        if matches!(f.kind, FieldKind::CheckBox | FieldKind::RadioButton) {
-                            d.set("AS", dv);
-                        }
-                    }
-                    None => {
-                        d.remove(b"V");
-                        if matches!(f.kind, FieldKind::CheckBox | FieldKind::RadioButton) {
-                            d.set("AS", Object::Name(b"Off".to_vec()));
-                        }
-                    }
+            let dv = self
+                .inner
+                .get_dictionary(f.id)
+                .ok()
+                .and_then(|d| d.get(b"DV").ok())
+                .map(|o| deref(&self.inner, o).clone());
+            let value = match dv {
+                Some(Object::Name(n)) => String::from_utf8_lossy(&n).to_string(),
+                Some(other) => text_of(&self.inner, &other).unwrap_or_default(),
+                None => String::new(),
+            };
+            match self.write_field_value(f, &value) {
+                Ok(()) => count += 1,
+                Err(_) => continue,
+            }
+            if self
+                .inner
+                .get_dictionary(f.id)
+                .map(|d| !d.has(b"DV"))
+                .unwrap_or(false)
+                && !matches!(f.kind, FieldKind::CheckBox | FieldKind::RadioButton)
+            {
+                if let Ok(d) = self.inner.get_dictionary_mut(f.id) {
+                    d.remove(b"V");
                 }
-                d.remove(b"AP");
-                count += 1;
+                self.refresh_field(f.id)?;
             }
         }
-        self.set_need_appearances()?;
         self.commit()?;
         Ok(count)
     }
-
     /// Signature fields with their signing information.
     pub fn signatures(&self) -> Vec<SignatureInfo> {
         let doc = &self.inner;

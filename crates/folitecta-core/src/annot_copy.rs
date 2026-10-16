@@ -224,6 +224,20 @@ impl Document {
         dict.set("Rect", Object::Array(n.iter().map(|v| (*v).into()).collect()));
         map_geometry(dict, &|x, y| (n[0] + (x - old[0]) * sx, n[1] + (y - old[1]) * sy));
         dict.set("M", Object::string_literal(crate::util::pdf_date_now()));
+        // Redraw supported comments so strokes and text keep their size.
+        if !self.refresh_appearance(aid)? {
+            let widget = self
+                .inner
+                .get_dictionary(aid)
+                .ok()
+                .and_then(|d| d.get(b"Subtype").ok())
+                .and_then(|s| s.as_name().ok())
+                .map(|n| n == b"Widget")
+                .unwrap_or(false);
+            if widget {
+                self.refresh_widget(aid)?;
+            }
+        }
         self.commit()
     }
 }

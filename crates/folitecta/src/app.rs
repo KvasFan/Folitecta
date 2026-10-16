@@ -193,6 +193,8 @@ pub fn App() -> Element {
                 .unwrap_or((false, false));
             if menus_open {
                 st.close_menus();
+            } else if st.drawing.peek().is_some() {
+                st.set_drawing(None);
             } else if has_sel || has_annot {
                 st.with_active(|t| {
                     t.text_sel = None;
@@ -237,6 +239,11 @@ pub fn App() -> Element {
                 });
                 return;
             }
+        }
+        if key == Key::Enter && st.drawing.peek().is_some() {
+            evt.prevent_default();
+            ui::canvas::finish_drawing(st);
+            return;
         }
         if key == Key::Delete || key == Key::Backspace {
             let has_annot = st.read_active(|t| t.selected_annot.is_some()).unwrap_or(false);

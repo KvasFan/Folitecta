@@ -10,6 +10,7 @@ mod comments;
 mod convert;
 mod edit;
 mod file;
+mod format;
 mod forms;
 mod help;
 mod pages;
@@ -46,6 +47,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     pages::HANDLERS,
     comments::HANDLERS,
     forms::HANDLERS,
+    format::HANDLERS,
     protect::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
@@ -64,10 +66,11 @@ static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {
 
 /// Commands that perform a reduced version of the full operation.
 pub const PARTIAL: &[&str] = &[
+    "fontName",
     "comments.summarize",
     "comments.export",
     "commentsView.exportSelected",
-    "forms.exportData",
+    "tool.editFields.mode.date",
     "sendByEmail",
     "copySrcFile",
 ];
@@ -165,6 +168,17 @@ pub(crate) fn doc_op(st: AppState, f: impl FnOnce(&mut crate::state::DocTab) -> 
 }
 
 /// Open a dialog that needs a document.
+/// Activate a tool (drawing tools need a document).
+pub(crate) fn select_tool(st: AppState, tool: crate::state::Tool) {
+    if tool.is_drawing() && no_doc(st) {
+        return;
+    }
+    st.set_drawing(None);
+    st.set_radio_group(None);
+    st.set_editing_field(None);
+    st.set_tool(tool);
+}
+
 pub(crate) fn doc_dialog(st: AppState, d: Dialog) {
     if !no_doc(st) {
         st.set_dialog(d);

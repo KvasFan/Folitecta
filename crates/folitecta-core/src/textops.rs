@@ -43,6 +43,53 @@ impl Document {
         Ok(())
     }
 
+    /// Mark a character range for replacement with `replacement`.
+    pub fn replace_text_range(
+        &mut self,
+        page: usize,
+        start: usize,
+        end: usize,
+        replacement: &str,
+        color: [f32; 3],
+        author: &str,
+    ) -> Result<()> {
+        let layer = self.text_layer(page).ok_or(Error::InvalidPage(page))?;
+        let size = self.page_size(page)?;
+        let quads = layer.range_quads_pdf(&size, start, end);
+        if quads.is_empty() {
+            return Err(Error::Invalid("the selection contains no text".into()));
+        }
+        self.add_replacement(page, &quads, replacement, color, author)
+    }
+
+    /// Place an insert-text mark before (or, with `after`, after) character
+    /// `index` of a page, carrying the text to insert.
+    pub fn insert_text_mark(
+        &mut self,
+        page: usize,
+        index: usize,
+        after: bool,
+        text: &str,
+        color: [f32; 3],
+        author: &str,
+    ) -> Result<lopdf::ObjectId> {
+        let layer = self.text_layer(page).ok_or(Error::InvalidPage(page))?;
+        let size = self.page_size(page)?;
+        let glyph_of = |i: usize| layer.char_glyph.get(i).copied().flatten();
+        let (g, after) = match glyph_of(index) {
+            Some(g) => (g, after),
+            None => match index.checked_sub(1).and_then(glyph_of) {
+                Some(g) => (g, true),
+                None => return Err(Error::Invalid("there is no text at this position".into())),
+            },
+        };
+        let q = layer.glyphs[g].quad;
+        let (bx, by) = if after { (q[6], q[7]) } else { (q[4], q[5]) };
+        let h = ((q[0] - q[4]).powi(2) + (q[1] - q[5]).powi(2)).sqrt();
+        let at = display_to_pdf(&size, bx, size.height - by);
+        self.add_caret(page, at, h, text, color, author)
+    }
+
     /// Mark a character range for redaction (one mark per line).
     pub fn redact_text_range(
         &mut self,

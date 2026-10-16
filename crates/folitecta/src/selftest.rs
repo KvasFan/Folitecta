@@ -77,6 +77,14 @@ for (const el of document.querySelectorAll('.menu-title, .ribbon-tab, .ribbon-gr
     problems.push({ kind: 'clipped-text', el: desc(el), need: el.scrollWidth, have: el.clientWidth });
   }
 }
+// 3b. Buttons and inputs squeezed below their content height.
+for (const el of document.querySelectorAll('.tbtn, .rbtn, .ibtn, .menu-title, .ribbon-tab, .chip, .style-row input, .field input, .field select')) {
+  if (!visible(el)) continue;
+  const s = getComputedStyle(el);
+  if (s.overflowY !== 'visible' && el.scrollHeight > el.clientHeight + 3) {
+    problems.push({ kind: 'squeezed', el: desc(el), need: el.scrollHeight, have: el.clientHeight });
+  }
+}
 // 4. The ribbon and the whole app must not scroll horizontally.
 const rb = document.querySelector('.ribbon-body');
 if (rb && rb.scrollWidth > rb.clientWidth + 2) problems.push({ kind: 'ribbon-overflow', need: rb.scrollWidth, have: rb.clientWidth });
@@ -339,7 +347,7 @@ fn annots_on(st: AppState, page: usize) -> Vec<folitecta_core::Annotation> {
 }
 
 /// Exercise the canvas tools with simulated input; returns the number of failures.
-async fn interactions(st: AppState, log: &mut Vec<serde_json::Value>) -> usize {
+async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_json::Value>) -> usize {
     set_size(1280.0, 800.0);
     st.ui_mut().left_pane = "thumbnails".into();
     st.with_active(|t| {
@@ -560,9 +568,239 @@ async fn interactions(st: AppState, log: &mut Vec<serde_json::Value>) -> usize {
         format!("{} bytes", png.map(|p| p.len()).unwrap_or(0)),
     );
 
-    // 12. Undo everything added above.
+    // 12. Polygon with three clicks and a double click.
+    crate::commands::dispatch(st, "tool.annot.polygon");
+    pause(300).await;
+    let before = annots_on(st, 0).len();
+    for p in [(100.0, 650.0), (200.0, 640.0), (160.0, 720.0)] {
+        let _ = pointer_path(0, z, &[p, p], false).await;
+        pause(150).await;
+    }
+    let _ = document::eval("const el = document.querySelector('#pg-0 .page-inner'); const r = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: r.left + 160, clientY: r.top + 720 }));").await;
+    pause(600).await;
+    let after = annots_on(st, 0);
+    record(
+        "polygon with clicks and a double click",
+        after.len() == before + 1 && after.last().map(|a| a.subtype == "Polygon").unwrap_or(false),
+        format!("{before} -> {}", after.len()),
+    );
+
+    // 13. Distance measurement by dragging (72 pt = 25.4 mm).
+    crate::commands::dispatch(st, "tool.annot.distance");
+    pause(300).await;
+    let _ = pointer_path(0, z, &line((300.0, 650.0), (372.0, 650.0), 5), false).await;
+    pause(600).await;
+    let last = annots_on(st, 0).last().cloned();
+    record(
+        "distance measurement",
+        last.as_ref()
+            .map(|a| a.subtype == "Line" && a.contents.ends_with("mm"))
+            .unwrap_or(false),
+        format!("{:?}", last.map(|a| a.contents)),
+    );
+
+    // 14. Area with Enter to finish, cloud with Escape to cancel.
+    crate::commands::dispatch(st, "tool.annot.area");
+    pause(300).await;
+    let before = annots_on(st, 0).len();
+    for p in [(420.0, 640.0), (500.0, 640.0), (500.0, 700.0), (420.0, 700.0)] {
+        let _ = pointer_path(0, z, &[p, p], false).await;
+        pause(120).await;
+    }
+    let _ = document::eval("document.querySelector('.app').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));").await;
+    pause(600).await;
+    let after = annots_on(st, 0);
+    record(
+        "area measurement finished with Enter",
+        after.len() == before + 1
+            && after
+                .last()
+                .map(|a| a.contents.contains('\u{b2}'))
+                .unwrap_or(false),
+        format!(
+            "{before} -> {}; {:?}",
+            after.len(),
+            after.last().map(|a| a.contents.clone())
+        ),
+    );
+    crate::commands::dispatch(st, "tool.annot.cloud");
+    pause(300).await;
+    let before = annots_on(st, 0).len();
+    for p in [(100.0, 750.0), (200.0, 750.0)] {
+        let _ = pointer_path(0, z, &[p, p], false).await;
+        pause(120).await;
+    }
+    let _ = document::eval("document.querySelector('.app').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));").await;
+    pause(400).await;
+    record(
+        "Escape cancels a shape being drawn",
+        annots_on(st, 0).len() == before && st.drawing.peek().is_none(),
+        String::new(),
+    );
+
+    // 15. Callout: drag from the pointed spot to where the box goes, then type.
+    crate::commands::dispatch(st, "tool.annot.callout");
+    pause(300).await;
+    let _ = pointer_path(0, z, &line((80.0, 400.0), (250.0, 330.0), 5), false).await;
+    pause(500).await;
+    let opened = matches!((st.dialog)(), Dialog::Callout { page: 0, .. });
+    st.set_dialog(Dialog::None);
+    record("callout tool opens its text dialog", opened, String::new());
+
+    // 16. Eraser cuts a pencil stroke.
+    crate::commands::dispatch(st, "tool.annot.pencil");
+    pause(300).await;
+    let stroke: Vec<(f32, f32)> = (0..30).map(|i| (100.0 + i as f32 * 8.0, 560.0)).collect();
+    let _ = pointer_path(0, z, &stroke, false).await;
+    pause(500).await;
+    let inks_before = annots_on(st, 0).iter().filter(|a| a.subtype == "Ink").count();
+    crate::commands::dispatch(st, "tool.annot.eraser");
+    pause(300).await;
+    let _ = pointer_path(0, z, &line((220.0, 540.0), (220.0, 580.0), 4), false).await;
+    pause(600).await;
+    let ink_paths = st
+        .read_active(|t| {
+            let a = t
+                .doc
+                .annotations(0)
+                .ok()?
+                .into_iter()
+                .rfind(|a| a.subtype == "Ink")?;
+            let d = t.doc.inner().get_dictionary(a.id?).ok()?;
+            Some(d.get(b"InkList").ok()?.as_array().ok()?.len())
+        })
+        .flatten();
+    record(
+        "eraser splits a pencil stroke",
+        inks_before >= 1 && ink_paths == Some(2),
+        format!("ink comments {inks_before}, strokes after erasing {ink_paths:?}"),
+    );
+
+    // 17. Insert text and replace text open their dialogs.
+    crate::commands::dispatch(st, "tool.annot.insertText");
+    pause(300).await;
+    let _ = pointer_path(0, z, &[(70.0, 92.0), (70.0, 92.0)], false).await;
+    pause(500).await;
+    let insert = matches!((st.dialog)(), Dialog::InsertText { page: 0, .. });
+    st.set_dialog(Dialog::None);
+    record(
+        "insert text tool opens its dialog",
+        insert,
+        format!("{:?}", (st.dialog)()),
+    );
+    crate::commands::dispatch(st, "tool.annot.replaceText");
+    pause(300).await;
+    let _ = pointer_path(0, z, &line((58.0, 92.0), (200.0, 92.0), 6), false).await;
+    pause(500).await;
+    let replace = matches!((st.dialog)(), Dialog::ReplaceText { page: 0, .. });
+    st.set_dialog(Dialog::None);
+    record("replace text tool opens its dialog", replace, String::new());
+
+    // 18. Style editor: select the polygon and change its border colour.
+    st.set_tool(Tool::EditAnnots);
+    let poly = annots_on(st, 0)
+        .into_iter()
+        .find(|a| a.subtype == "Polygon")
+        .map(|a| a.index);
+    if let Some(i) = poly {
+        st.with_active(|t| t.selected_annot = Some((0, i)));
+        st.ui_mut().show_right_pane = true;
+        pause(700).await;
+        let _ = document::eval("const c = document.querySelector('.style-editor input[type=color]'); if (c) { c.value = '#00aa00'; c.dispatchEvent(new Event('change', { bubbles: true })); }").await;
+        pause(700).await;
+        let color = st
+            .read_active(|t| t.doc.annotation_style(0, i).ok().and_then(|s| s.color))
+            .flatten();
+        record(
+            "style editor changes the border colour",
+            color
+                .map(|c| c[0] < 0.05 && (c[1] - 0.667).abs() < 0.02)
+                .unwrap_or(false),
+            format!("{color:?}"),
+        );
+        let _ = capture_window(&dir.join("interaction-style-editor.png"));
+        st.ui_mut().show_right_pane = false;
+    } else {
+        record(
+            "style editor changes the border colour",
+            false,
+            "no polygon".into(),
+        );
+    }
+
+    // 19. Form fields: create a text field and a check box, fill them on the page.
+    crate::commands::dispatch(st, "tool.editFields.mode.text");
+    pause(300).await;
+    let _ = pointer_path(0, z, &line((300.0, 150.0), (500.0, 172.0), 4), false).await;
+    pause(600).await;
+    let fields = st.read_active(|t| t.doc.form_fields()).unwrap_or_default();
+    record(
+        "text field created by dragging",
+        fields.len() == 1 && (st.tool)() == Tool::EditFields,
+        format!("{} field(s), tool {:?}", fields.len(), (st.tool)()),
+    );
+    crate::commands::dispatch(st, "tool.editFields.mode.check");
+    pause(300).await;
+    let _ = pointer_path(0, z, &[(300.0, 190.0), (300.0, 190.0)], false).await;
+    pause(600).await;
+    let fields = st.read_active(|t| t.doc.form_fields()).unwrap_or_default();
+    record(
+        "check box created with a click",
+        fields.len() == 2,
+        format!("{:?}", fields.iter().map(|f| f.kind.label()).collect::<Vec<_>>()),
+    );
+    // Properties pane: rename the selected check box.
+    st.ui_mut().show_right_pane = true;
+    pause(700).await;
+    let _ = document::eval("const n = document.querySelector('.field-editor input.wide'); if (n) { n.value = 'Accept'; n.dispatchEvent(new Event('change', { bubbles: true })); }").await;
+    pause(600).await;
+    let renamed = st
+        .read_active(|t| t.doc.form_fields().iter().any(|f| f.name == "Accept"))
+        .unwrap_or(false);
+    record(
+        "field renamed in the properties pane",
+        renamed,
+        format!(
+            "{:?}",
+            st.read_active(|t| t
+                .doc
+                .form_fields()
+                .into_iter()
+                .map(|f| f.name)
+                .collect::<Vec<_>>())
+        ),
+    );
+    let _ = capture_window(&dir.join("interaction-field-editor.png"));
+    st.ui_mut().show_right_pane = false;
+    // Fill the text field on the page and tick the box.
+    crate::commands::dispatch(st, "tool.hand");
+    pause(500).await;
+    let _ = document::eval(
+        "const h = [...document.querySelectorAll('#pg-0 .field-hit')]; if (h[0]) h[0].click();",
+    )
+    .await;
+    pause(500).await;
+    let editing = st.editing_field.peek().is_some();
+    let _ = document::eval("const i = document.querySelector('#pg-0 .field-input'); if (i) { i.value = 'Ada Lovelace'; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }").await;
+    pause(600).await;
+    let _ = document::eval(
+        "const h = [...document.querySelectorAll('#pg-0 .field-hit')]; if (h[1]) h[1].click();",
+    )
+    .await;
+    pause(600).await;
+    let values: Vec<String> = st
+        .read_active(|t| t.doc.form_fields().into_iter().map(|f| f.value).collect())
+        .unwrap_or_default();
+    record(
+        "fill a text field and tick a check box on the page",
+        editing && values == ["Ada Lovelace", "Yes"],
+        format!("editor opened {editing}; values {values:?}"),
+    );
+    let _ = capture_window(&dir.join("interaction-filled-form.png"));
+
+    // 20. Undo everything added above.
     st.set_tool(Tool::Hand);
-    for _ in 0..12 {
+    for _ in 0..30 {
         crate::commands::dispatch(st, "undo");
     }
     pause(500).await;
@@ -577,7 +815,8 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
     let mut log: Vec<serde_json::Value> = Vec::new();
     let mut total = 0;
     // FOLITECTA_SELFTEST_ONLY=print runs only the print step (for debugging).
-    let full = std::env::var("FOLITECTA_SELFTEST_ONLY").is_err();
+    let only = std::env::var("FOLITECTA_SELFTEST_ONLY").ok();
+    let full = only.is_none();
     // Welcome screen (no document) at the smallest and a large size.
     pause(1500).await;
     for (w, h) in if full {
@@ -601,6 +840,8 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
     pause(2500).await;
     if full {
         total += full_suite(st, &dir, &mut log).await;
+    } else if only.as_deref() == Some("interactions") {
+        total += interactions(st, &dir, &mut log).await;
     }
     // Printed layout of the first pages (emulated on screen; the system dialog is modal).
     set_size(1280.0, 800.0);
@@ -639,7 +880,7 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
 /// Every layout state and interaction check; returns the number of problems.
 async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_json::Value>) -> usize {
     let dir = dir.to_path_buf();
-    let mut total = interactions(st, log).await;
+    let mut total = interactions(st, &dir, log).await;
     let sizes: [(f64, f64); 4] = [(960.0, 620.0), (1280.0, 800.0), (1600.0, 900.0), (1920.0, 1080.0)];
     let tabs = [
         "home", "view", "comment", "protect", "form", "organize", "convert", "share", "review", "acc", "help",

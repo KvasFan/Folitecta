@@ -236,6 +236,12 @@ pub fn Dialogs() -> Element {
         Dialog::ReplacePages(path) => rsx! { ReplacePages { path: path.display().to_string() } },
         Dialog::OverlayFile(path) => rsx! { OverlayFile { path: path.display().to_string() } },
         Dialog::Print(all) => rsx! { PrintDialog { all_docs: all } },
+        Dialog::Callout { page, tip, rect } => {
+            rsx! { CalloutDialog { page, tip_x: tip.0, tip_y: tip.1, rect: rect.to_vec() } }
+        }
+        Dialog::InsertText { page, index, after } => rsx! { InsertTextDialog { page, index, after } },
+        Dialog::ReplaceText { page, start, end } => rsx! { ReplaceTextDialog { page, start, end } },
+        Dialog::Calibrate => rsx! { CalibrateDialog {} },
     }
 }
 
@@ -1878,6 +1884,137 @@ fn OverlayFile(path: String) -> Element {
                 },
                 Err(e) => rsx! { div { class: "callout warn", "{e}" } },
             }
+        }
+    }
+}
+
+#[component]
+fn CalloutDialog(page: usize, tip_x: f32, tip_y: f32, rect: Vec<f32>) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let text = use_signal(String::new);
+    let r = [rect[0], rect[1], rect[2], rect[3]];
+    rsx! {
+        Frame { title: t(lang, "tool.callout"),
+            on_ok: move |_| {
+                let c = text();
+                let author = st.ui.read().author.clone();
+                let style = crate::styles::default_style(st, "Callout");
+                apply(st, |tab| tab.doc.add_callout(page, (tip_x, tip_y), r, &c, &style, &author).map(|_| ()));
+                tool_done(st);
+            },
+            Area { label: t(lang, "dialog.note.text"), value: text, autofocus: true }
+        }
+    }
+}
+
+#[component]
+fn InsertTextDialog(page: usize, index: usize, after: bool) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let text = use_signal(String::new);
+    rsx! {
+        Frame { title: t(lang, "tool.insert_text"),
+            on_ok: move |_| {
+                let c = text();
+                let author = st.ui.read().author.clone();
+                let color = crate::styles::default_style(st, "Caret").color.unwrap_or([0.1, 0.4, 0.95]);
+                apply(st, |tab| tab.doc.insert_text_mark(page, index, after, &c, color, &author).map(|_| ()));
+                tool_done(st);
+            },
+            Area { label: t(lang, "dialog.insert_text.text"), value: text, autofocus: true }
+        }
+    }
+}
+
+#[component]
+fn ReplaceTextDialog(page: usize, start: usize, end: usize) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let original = st
+        .read_active(|t| t.doc.text_range(page, start, end))
+        .unwrap_or_default();
+    let text = use_signal(String::new);
+    rsx! {
+        Frame { title: t(lang, "tool.replace_text"),
+            on_ok: move |_| {
+                let c = text();
+                let author = st.ui.read().author.clone();
+                let color = crate::styles::default_style(st, "Caret").color.unwrap_or([0.1, 0.4, 0.95]);
+                apply(st, |tab| {
+                    let r = tab.doc.replace_text_range(page, start, end, &c, color, &author);
+                    tab.text_sel = None;
+                    r
+                });
+                tool_done(st);
+            },
+            div { class: "kv", span { class: "k", "{t(lang, \"dialog.replace_text.original\")}" } span { class: "v", "{original}" } }
+            Area { label: t(lang, "dialog.replace_text.with"), value: text, autofocus: true }
+        }
+    }
+}
+
+/// Units offered for measurement scales.
+const SCALE_UNITS: &[&str] = &["mm", "cm", "m", "km", "in", "ft", "pt"];
+
+/// Current measurement scale from the preferences.
+pub fn measure_scale(st: AppState) -> folitecta_core::MeasureScale {
+    let ui = st.ui.read();
+    let get = |k: &str, d: &str| ui.value(k).unwrap_or(d).to_string();
+    let paper: f32 = get("measure.paper", "1").replace(',', ".").parse().unwrap_or(1.0);
+    let real: f32 = get("measure.real", "1").replace(',', ".").parse().unwrap_or(1.0);
+    let decimals: u8 = get("measure.decimals", "1").parse().unwrap_or(1);
+    folitecta_core::MeasureScale::from_ratio(
+        paper,
+        &get("measure.paper_unit", "mm"),
+        real,
+        &get("measure.real_unit", "mm"),
+        decimals,
+    )
+}
+
+#[component]
+fn CalibrateDialog() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let get = |k: &str, d: &str| st.ui.read().value(k).unwrap_or(d).to_string();
+    let paper = use_signal(|| get("measure.paper", "1"));
+    let real = use_signal(|| get("measure.real", "1"));
+    let decimals = use_signal(|| get("measure.decimals", "1"));
+    let mut paper_unit = use_signal(|| get("measure.paper_unit", "mm"));
+    let mut real_unit = use_signal(|| get("measure.real_unit", "mm"));
+    let preview = {
+        let p: f32 = paper().replace(',', ".").parse().unwrap_or(1.0);
+        let r: f32 = real().replace(',', ".").parse().unwrap_or(1.0);
+        folitecta_core::MeasureScale::from_ratio(p, &paper_unit(), r, &real_unit(), 1).ratio
+    };
+    rsx! {
+        Frame { title: t(lang, "dialog.calibrate.title"),
+            on_ok: move |_| {
+                st.set_value("measure.paper", paper());
+                st.set_value("measure.paper_unit", paper_unit());
+                st.set_value("measure.real", real());
+                st.set_value("measure.real_unit", real_unit());
+                st.set_value("measure.decimals", decimals());
+                st.set_dialog(Dialog::None);
+            },
+            div { class: "hint", "{t(lang, \"dialog.calibrate.hint\")}" }
+            div { class: "field-grid",
+                Num { label: t(lang, "dialog.calibrate.paper"), value: paper, min: "0", step: "0.1" }
+                div { class: "field", label { "{t(lang, \"dialog.calibrate.unit\")}" }
+                    select { onchange: move |e| paper_unit.set(e.value()),
+                        for u in SCALE_UNITS.iter().filter(|u| !["m", "km", "ft"].contains(u)) { option { key: "{u}", value: "{u}", selected: *u == paper_unit(), "{u}" } }
+                    }
+                }
+                Num { label: t(lang, "dialog.calibrate.real"), value: real, min: "0", step: "0.1" }
+                div { class: "field", label { "{t(lang, \"dialog.calibrate.unit\")}" }
+                    select { onchange: move |e| real_unit.set(e.value()),
+                        for u in SCALE_UNITS.iter() { option { key: "{u}", value: "{u}", selected: *u == real_unit(), "{u}" } }
+                    }
+                }
+                Num { label: t(lang, "dialog.calibrate.decimals"), value: decimals, min: "0", max: "6" }
+            }
+            div { class: "kv", span { class: "k", "{t(lang, \"dialog.calibrate.scale\")}" } span { class: "v", "{preview}" } }
         }
     }
 }

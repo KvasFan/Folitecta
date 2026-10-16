@@ -668,6 +668,32 @@ pub fn pick_image_to_place(st: AppState) {
     });
 }
 
+/// Choose a file and attach it to `page` as a paper-clip comment at `at` (PDF space).
+pub fn pick_page_attachment(st: AppState, page: usize, at: (f32, f32)) {
+    spawn(async move {
+        let Some(file) = rfd::AsyncFileDialog::new()
+            .set_title("Attach a file to the page")
+            .pick_file()
+            .await
+        else {
+            return;
+        };
+        let data = file.read().await;
+        let name = file.file_name();
+        let author = st.ui.peek().author.clone();
+        match st.with_active(|t| t.doc.add_file_attachment(page, at, &name, data, "", &author)) {
+            Some(Ok(_)) => {
+                set_window_title(st);
+                if !crate::commands::option_on(st, "tool.keepSelected") {
+                    st.set_tool(crate::state::Tool::Hand);
+                }
+            }
+            Some(Err(e)) => st.error(e),
+            None => {}
+        }
+    });
+}
+
 /// Choose a picture to use as a stamp, then click or drag on the page.
 pub fn pick_image_stamp(st: AppState) {
     spawn(async move {
@@ -772,6 +798,85 @@ pub fn new_from_text_file(st: AppState) {
                 set_window_title(st);
             }
             Err(e) => st.error(e),
+        }
+    });
+}
+
+// ---- Form data -----------------------------------------------------------------
+
+/// Save the form values as XFDF, FDF, CSV or tab-separated text (by the chosen extension).
+pub fn export_form_data(st: AppState) {
+    let name = suggested_name(st, "-data").replace(".pdf", ".xfdf");
+    let data_for = move |format: folitecta_core::FormDataFormat| {
+        st.read_active(|t| t.doc.export_form_data(format))
+            .unwrap_or_default()
+    };
+    spawn(async move {
+        let Some(file) = rfd::AsyncFileDialog::new()
+            .set_title("Export form data")
+            .add_filter("XFDF", &["xfdf"])
+            .add_filter("FDF", &["fdf"])
+            .add_filter("CSV", &["csv"])
+            .add_filter("Text", &["txt"])
+            .set_file_name(&name)
+            .save_file()
+            .await
+        else {
+            return;
+        };
+        let path = file.path().to_path_buf();
+        let ext = path
+            .extension()
+            .map(|e| e.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let format = folitecta_core::FormDataFormat::from_extension(&ext)
+            .unwrap_or(folitecta_core::FormDataFormat::Xfdf);
+        match std::fs::write(&path, data_for(format)) {
+            Ok(()) => st.toast(
+                ToastKind::Ok,
+                tf(st.lang(), "toast.saved", &[("name", &path.display().to_string())]),
+                "",
+            ),
+            Err(e) => st.error(e),
+        }
+    });
+}
+
+/// Fill the form from an XFDF, FDF, CSV or text file.
+pub fn import_form_data(st: AppState) {
+    spawn(async move {
+        let Some(file) = rfd::AsyncFileDialog::new()
+            .set_title("Import form data")
+            .add_filter("Form data", &["xfdf", "xml", "fdf", "csv", "txt"])
+            .add_filter("All files", &["*"])
+            .pick_file()
+            .await
+        else {
+            return;
+        };
+        let ext = file
+            .path()
+            .extension()
+            .map(|e| e.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let data = file.read().await;
+        let format =
+            folitecta_core::FormDataFormat::from_extension(&ext).unwrap_or(if data.starts_with(b"%FDF") {
+                folitecta_core::FormDataFormat::Fdf
+            } else {
+                folitecta_core::FormDataFormat::Xfdf
+            });
+        match st.with_active(|t| t.doc.import_form_data(format, &data)) {
+            Some(Ok(n)) => {
+                set_window_title(st);
+                st.toast(
+                    ToastKind::Ok,
+                    tf(st.lang(), "toast.fields_filled", &[("count", &n.to_string())]),
+                    "",
+                );
+            }
+            Some(Err(e)) => st.error(e),
+            None => {}
         }
     });
 }

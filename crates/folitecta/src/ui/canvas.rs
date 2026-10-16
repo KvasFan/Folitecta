@@ -12,6 +12,7 @@ use crate::files;
 use crate::i18n::t;
 use crate::icons::Icon;
 use crate::state::{AfterUnsaved, AppState, Dialog, Layout, TextSel, ToastKind, Tool, Zoom};
+use crate::ui::form_fill::{FieldInput, fill_field};
 use crate::ui::welcome::Welcome;
 
 /// Points per ruler unit and the minor/major tick spacing (in units).
@@ -136,7 +137,7 @@ const PAN_SCRIPT: &str = r#"
   document.addEventListener('mousedown', e => {
     const c = e.target.closest && e.target.closest('#canvas');
     if (!c || !c.classList.contains('tool-hand') || e.button !== 0) return;
-    if (e.target.closest('.annot-hit, .handle, .sel-toolbar, input, textarea, button, a')) return;
+    if (e.target.closest('.annot-hit, .handle, .sel-toolbar, .field-hit, .field-input, input, textarea, select, button, a')) return;
     drag = { c, x: e.clientX, y: e.clientY, sl: c.scrollLeft, st: c.scrollTop };
     c.classList.add('dragging');
     e.preventDefault();
@@ -387,6 +388,168 @@ fn grid_step(st: AppState) -> f32 {
         .unwrap_or(28.3465)
 }
 
+/// Create a form field from a drag (display rectangle `d`), select it and show its properties.
+fn create_field(st: AppState, page: usize, size: &PageSize, tool: Tool, d: [f32; 4], tiny: bool) {
+    use folitecta_core::{FieldProps, NewField};
+    let Some(kind) = tool.new_field() else { return };
+    let (dw, dh) = match kind {
+        NewField::Text | NewField::ComboBox => (160.0, 22.0),
+        NewField::CheckBox | NewField::RadioButton => (14.0, 14.0),
+        NewField::ListBox => (160.0, 64.0),
+        NewField::PushButton => (90.0, 24.0),
+        NewField::Signature => (180.0, 48.0),
+    };
+    let rect = if tiny {
+        rect_to_pdf(size, [d[0], d[1], d[0] + dw, d[1] + dh])
+    } else {
+        rect_to_pdf(size, d)
+    };
+    let mut props = FieldProps::default();
+    match kind {
+        NewField::RadioButton => {
+            // Join the group of the selected radio button, else the group of this tool session.
+            let selected_group = st
+                .read_active(|t| {
+                    let (p, i) = t.selected_annot?;
+                    let wid = t
+                        .doc
+                        .annotations(p)
+                        .ok()?
+                        .into_iter()
+                        .find(|a| a.index == i)?
+                        .id?;
+                    t.doc
+                        .form_fields()
+                        .into_iter()
+                        .find(|f| {
+                            f.kind == folitecta_core::FieldKind::RadioButton
+                                && t.doc.field_widgets(f.id).contains(&wid)
+                        })
+                        .map(|f| f.name)
+                })
+                .flatten();
+            let group = selected_group.or_else(|| st.radio_group.peek().clone());
+            let existing = group.as_ref().and_then(|g| {
+                st.read_active(|t| {
+                    t.doc
+                        .form_fields()
+                        .into_iter()
+                        .find(|f| &f.name == g)
+                        .map(|f| t.doc.field_widgets(f.id).len())
+                })
+                .flatten()
+            });
+            match (group, existing) {
+                (Some(g), Some(n)) => {
+                    props.name = g;
+                    props.export_value = format!("Choice{}", n + 1);
+                }
+                _ => props.export_value = "Choice1".into(),
+            }
+        }
+        NewField::ComboBox | NewField::ListBox => {
+            props.options = (1..=3)
+                .map(|i| format!("{} {i}", t(st.lang(), "field.option")))
+                .collect()
+        }
+        NewField::PushButton => props.caption = t(st.lang(), "field.button_caption"),
+        _ => {}
+    }
+    match st.with_active(|t| t.doc.add_form_field(page, kind, rect, &props)) {
+        Some(Ok(widget)) => {
+            let info = st
+                .read_active(|t| {
+                    let idx = t
+                        .doc
+                        .annotations(page)
+                        .ok()?
+                        .into_iter()
+                        .find(|a| a.id == Some(widget))
+                        .map(|a| a.index)?;
+                    let name = t
+                        .doc
+                        .form_fields()
+                        .into_iter()
+                        .find(|f| t.doc.field_widgets(f.id).contains(&widget))
+                        .map(|f| f.name)?;
+                    Some((idx, name))
+                })
+                .flatten();
+            if let Some((idx, name)) = info {
+                if kind == NewField::RadioButton {
+                    st.set_radio_group(Some(name));
+                }
+                st.with_active(|t| t.selected_annot = Some((page, idx)));
+            }
+            files::set_window_title(st);
+            if !option_on(st, "tool.keepSelected") {
+                st.set_tool(Tool::EditFields);
+            }
+        }
+        Some(Err(e)) => st.error(e),
+        None => {}
+    }
+}
+
+/// Finish the shape drawn with a multi-click tool (polygon, polyline, cloud,
+/// perimeter, area). Called on double click and on Enter.
+pub fn finish_drawing(st: AppState) {
+    let Some((page, pts)) = st.drawing.peek().clone() else {
+        return;
+    };
+    st.set_drawing(None);
+    let tool = *st.tool.peek();
+    let Some(size) = st.read_active(|t| t.page_sizes.get(page).copied()).flatten() else {
+        return;
+    };
+    // A double click adds the same point twice.
+    let mut pts = pts;
+    pts.dedup_by(|a, b| (a.0 - b.0).abs() < 0.5 && (a.1 - b.1).abs() < 0.5);
+    let pdf: Vec<(f32, f32)> = pts.iter().map(|(x, y)| to_pdf(&size, *x, *y)).collect();
+    let author = st.ui.peek().author.clone();
+    let style = |kind: &str| crate::styles::default_style(st, kind);
+    let scale = crate::ui::dialogs::measure_scale(st);
+    let r = st.with_active(|t| match tool {
+        Tool::Polygon => t
+            .doc
+            .add_polyline(page, &pdf, true, &style("Polygon"), &author, "")
+            .map(|_| ()),
+        Tool::Polyline => t
+            .doc
+            .add_polyline(page, &pdf, false, &style("PolyLine"), &author, "")
+            .map(|_| ()),
+        Tool::Cloud => t.doc.add_cloud(page, &pdf, &style("Cloud"), &author).map(|_| ()),
+        Tool::Perimeter => t
+            .doc
+            .add_measurement(
+                page,
+                folitecta_core::MeasureKind::Perimeter,
+                &pdf,
+                &style("Perimeter"),
+                &scale,
+                &author,
+            )
+            .map(|_| ()),
+        Tool::Area => t
+            .doc
+            .add_measurement(
+                page,
+                folitecta_core::MeasureKind::Area,
+                &pdf,
+                &style("Area"),
+                &scale,
+                &author,
+            )
+            .map(|_| ()),
+        _ => Ok(()),
+    });
+    match r {
+        Some(Err(e)) => st.error(e),
+        Some(Ok(())) => after_create(st),
+        None => {}
+    }
+}
+
 fn after_create(st: AppState) {
     files::set_window_title(st);
     if !option_on(st, "tool.keepSelected") {
@@ -411,8 +574,11 @@ fn PageView(
     let mut ink: Signal<Vec<(f64, f64)>> = use_signal(Vec::new);
     let mut annot_drag = use_signal(|| None::<AnnotDrag>);
     let mut sel_drag = use_signal(|| false);
+    let mut hover = use_signal(|| None::<(f32, f32)>);
 
     let show_hits = matches!(tool, Tool::Hand | Tool::EditAnnots);
+    let edit_fields = tool == Tool::EditFields;
+    let fill_forms = matches!(tool, Tool::Hand | Tool::Select);
     let page_label = if !label.is_empty() && label != (page + 1).to_string() {
         format!("{label} ({})", page + 1)
     } else {
@@ -436,16 +602,23 @@ fn PageView(
         sel: Vec<[f32; 4]>,
         guides: Vec<(bool, f32)>,
         selected: Option<usize>,
+        widgets: Vec<(folitecta_core::PageWidget, [f32; 4])>,
     }
     let Some(view) = st
         .read_active(|t| {
             let size = t.page_sizes.get(page).copied()?;
-            let annots = if show_hits || t.selected_annot.map(|(p, _)| p) == Some(page) {
+            let annots = if show_hits || edit_fields || t.selected_annot.map(|(p, _)| p) == Some(page) {
                 t.doc
                     .annotations(page)
                     .unwrap_or_default()
                     .into_iter()
-                    .filter(|a| !["Link", "Widget", "Popup"].contains(&a.subtype.as_str()) && !a.hidden)
+                    .filter(|a| {
+                        if edit_fields {
+                            a.subtype == "Widget"
+                        } else {
+                            !["Link", "Widget", "Popup"].contains(&a.subtype.as_str()) && !a.hidden
+                        }
+                    })
                     .map(|a| {
                         (
                             a.index,
@@ -505,6 +678,18 @@ fn PageView(
                 .map(|g| (g.horizontal, g.pos))
                 .collect();
             let selected = t.selected_annot.filter(|(p, _)| *p == page).map(|(_, i)| i);
+            let widgets = if fill_forms && t.doc.has_form() {
+                t.doc
+                    .page_widgets(page)
+                    .into_iter()
+                    .map(|w| {
+                        let r = pdf_rect_to_display(&size, w.rect);
+                        (w, r)
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
             Some(View {
                 size,
                 annots,
@@ -514,6 +699,7 @@ fn PageView(
                 sel,
                 guides,
                 selected,
+                widgets,
             })
         })
         .flatten()
@@ -569,7 +755,15 @@ fn PageView(
         let tiny = (x1 - x0) < 3.0 && (y1 - y0) < 3.0;
         let author = st.ui.read().author.clone();
         let rect = rect_to_pdf(&size, [x0, y0, x1, y1]);
+        let start_pdf = to_pdf(&size, d.start.0 as f32 / z, d.start.1 as f32 / z);
         let point = to_pdf(&size, d.current.0 as f32 / z, d.current.1 as f32 / z);
+        let style = |kind: &str| crate::styles::default_style(st, kind);
+        let path_pdf = || -> Vec<(f32, f32)> {
+            points
+                .iter()
+                .map(|(x, y)| to_pdf(&size, *x as f32 / z, *y as f32 / z))
+                .collect()
+        };
         let result: Option<folitecta_core::Result<()>> = match tool {
             Tool::Note => {
                 st.set_dialog(Dialog::Note {
@@ -592,75 +786,88 @@ fn PageView(
                 });
                 None
             }
+            Tool::Callout => {
+                // The press is the pointed spot, the release places the text box.
+                let (bx, by) = (d.current.0 as f32 / z, d.current.1 as f32 / z);
+                let (bx, by) = if tiny { (bx + 40.0, by - 60.0) } else { (bx, by) };
+                let r = rect_to_pdf(&size, [bx, by - 20.0, bx + 170.0, by + 30.0]);
+                st.set_dialog(Dialog::Callout {
+                    page,
+                    tip: start_pdf,
+                    rect: r,
+                });
+                None
+            }
             Tool::Link if !tiny => {
                 st.set_dialog(Dialog::Link { page, rect });
                 None
             }
             Tool::Rect if !tiny => st.with_active(|t| {
                 t.doc
-                    .add_shape(
-                        page,
-                        Shape::Square,
-                        rect,
-                        [0.86, 0.15, 0.15],
-                        None,
-                        2.0,
-                        &author,
-                        "",
-                    )
+                    .add_shape_styled(page, Shape::Square, rect, &style("Square"), &author, "")
                     .map(|_| ())
             }),
             Tool::Ellipse if !tiny => st.with_active(|t| {
                 t.doc
-                    .add_shape(
-                        page,
-                        Shape::Circle,
-                        rect,
-                        [0.1, 0.45, 0.85],
-                        None,
-                        2.0,
-                        &author,
-                        "",
-                    )
+                    .add_shape_styled(page, Shape::Circle, rect, &style("Circle"), &author, "")
                     .map(|_| ())
             }),
             Tool::Highlight if !tiny => {
                 let q = [
                     rect[0], rect[3], rect[2], rect[3], rect[0], rect[1], rect[2], rect[1],
                 ];
+                let c = style("HighlightArea").color.unwrap_or([1.0, 0.9, 0.2]);
                 st.with_active(|t| {
                     t.doc
-                        .add_text_markup(page, Markup::Highlight, &[q], [1.0, 0.9, 0.2], &author, "")
+                        .add_text_markup(page, Markup::Highlight, &[q], c, &author, "")
                         .map(|_| ())
                 })
             }
             Tool::Line | Tool::Arrow if !tiny => {
-                let from = to_pdf(&size, d.start.0 as f32 / z, d.start.1 as f32 / z);
+                let mut s = style("Line");
+                if tool == Tool::Arrow && s.line_end == "None" {
+                    s.line_end = "OpenArrow".into();
+                }
                 st.with_active(|t| {
                     t.doc
-                        .add_line(
+                        .add_polyline(page, &[start_pdf, point], false, &s, &author, "")
+                        .map(|_| ())
+                })
+            }
+            Tool::Distance if !tiny => {
+                let scale = crate::ui::dialogs::measure_scale(st);
+                st.with_active(|t| {
+                    t.doc
+                        .add_measurement(
                             page,
-                            from,
-                            point,
-                            [0.1, 0.1, 0.1],
-                            1.5,
-                            tool == Tool::Arrow,
+                            folitecta_core::MeasureKind::Distance,
+                            &[start_pdf, point],
+                            &style("Distance"),
+                            &scale,
                             &author,
-                            "",
                         )
                         .map(|_| ())
                 })
             }
-            Tool::Ink if points.len() > 1 => {
-                let path: Vec<(f32, f32)> = points
-                    .iter()
-                    .map(|(x, y)| to_pdf(&size, *x as f32 / z, *y as f32 / z))
-                    .collect();
-                st.with_active(|t| {
-                    t.doc
-                        .add_ink(page, &[path], [0.2, 0.2, 0.75], 2.0, &author)
-                        .map(|_| ())
-                })
+            Tool::Ink | Tool::FreeHighlight if points.len() > 1 => {
+                let s = style(if tool == Tool::Ink { "Ink" } else { "FreeHighlight" });
+                let path = path_pdf();
+                st.with_active(|t| t.doc.add_ink_styled(page, &[path], &s, &author).map(|_| ()))
+            }
+            Tool::Eraser => {
+                let path = path_pdf();
+                // Radius of 6 screen pixels, in page points.
+                let radius = (6.0 / z).max(1.5);
+                match st.with_active(|t| t.doc.erase_ink(page, &path, radius)) {
+                    Some(Ok(_)) => files::set_window_title(st),
+                    Some(Err(e)) => st.error(e),
+                    None => {}
+                }
+                None
+            }
+            Tool::FileAttachment => {
+                files::pick_page_attachment(st, page, point);
+                None
             }
             Tool::Redact if !tiny => st.with_active(|t| t.doc.add_redaction(page, rect, &author).map(|_| ())),
             Tool::Stamp => {
@@ -688,7 +895,7 @@ fn PageView(
                         let color =
                             crate::util::parse_color(st.ui.read().value("stamp.color").unwrap_or("#c81e1e"));
                         let r = if tiny {
-                            let w = (text.chars().count() as f32 * 13.0 + 30.0).max(90.0);
+                            let w = (folitecta_core::util::helvetica_width(&text, 20.0) + 30.0).max(90.0);
                             rect_to_pdf(&size, [x0 - w / 2.0, y0 - 22.0, x0 + w / 2.0, y0 + 22.0])
                         } else {
                             rect
@@ -707,6 +914,10 @@ fn PageView(
                     Some(Err(e)) => st.error(e),
                     None => {}
                 }
+                None
+            }
+            _ if tool.new_field().is_some() => {
+                create_field(st, page, &size, tool, [x0, y0, x1, y1], tiny);
                 None
             }
             Tool::PlaceImage => {
@@ -776,6 +987,16 @@ fn PageView(
                 commands::markup_selection(st, Some(k));
             }
         }
+        if tool == Tool::ReplaceText {
+            if let Some(sel) = st.read_active(|t| t.text_sel).flatten().filter(|s| !s.is_empty()) {
+                let (start, end) = sel.range();
+                st.set_dialog(Dialog::ReplaceText {
+                    page: sel.page,
+                    start,
+                    end,
+                });
+            }
+        }
     };
 
     let page_class = if current { "page current-page" } else { "page" };
@@ -789,6 +1010,25 @@ fn PageView(
     let (unit_pt, minor, major, unit_name) = unit_info(&units);
     let grid_px = grid_step(st) * z;
     let sel_first = view.sel.first().copied();
+    // In-progress multi-click shape on this page: points string and vertex dots.
+    let drawing_here = (st.drawing)().filter(|(p, _)| *p == page).map(|(_, v)| v);
+    let multi_vertices: Vec<(f32, f32)> = drawing_here
+        .clone()
+        .unwrap_or_default()
+        .iter()
+        .map(|(x, y)| (x * z, y * z))
+        .collect();
+    let multi_preview = drawing_here.filter(|v| !v.is_empty()).map(|mut v| {
+        if let Some(h) = hover() {
+            v.push(h);
+        }
+        let pts = v
+            .iter()
+            .map(|(x, y)| format!("{},{}", x * z, y * z))
+            .collect::<Vec<_>>()
+            .join(" ");
+        (pts, matches!(tool, Tool::Polygon | Tool::Cloud | Tool::Area))
+    });
 
     rsx! {
         div {
@@ -831,6 +1071,29 @@ fn PageView(
                         }
                         return;
                     }
+                    if tool.is_multi_click() {
+                        let (sx, sy) = snap(st, page, x, y, z);
+                        let mut pts = st.drawing.peek().clone().filter(|(p, _)| *p == page).map(|(_, v)| v).unwrap_or_default();
+                        pts.push((sx, sy));
+                        st.set_drawing(Some((page, pts)));
+                        return;
+                    }
+                    if tool == Tool::InsertText {
+                        let hit = st
+                            .read_active(|t| {
+                                let layers = t.doc.text_layers();
+                                let l = layers.get(page)?;
+                                let i = l.char_at(x, y)?;
+                                let after = l.char_glyph.get(i).copied().flatten().and_then(|g| l.glyphs.get(g)).map(|g| x > (g.bbox[0] + g.bbox[2]) / 2.0).unwrap_or(false);
+                                Some((i, after))
+                            })
+                            .flatten();
+                        match hit {
+                            Some((index, after)) => st.set_dialog(Dialog::InsertText { page, index, after }),
+                            None => st.toast(ToastKind::Info, t(st.lang(), "toast.click_on_text"), ""),
+                        }
+                        return;
+                    }
                     if tool == Tool::EditAnnots || tool == Tool::Hand {
                         st.with_active(|t| t.selected_annot = None);
                         return;
@@ -866,12 +1129,17 @@ fn PageView(
                             }
                         }
                     }
+                    if tool.is_multi_click() && st.drawing.peek().as_ref().map(|(p, _)| *p == page).unwrap_or(false) {
+                        let (sx, sy) = snap(st, page, x, y, z);
+                        hover.set(Some((sx, sy)));
+                    }
+                    let freehand = matches!(tool, Tool::Ink | Tool::FreeHighlight | Tool::Eraser);
                     let current_drag: Option<Drag> = *drag.peek();
                     if let Some(mut d) = current_drag {
-                        let (sx, sy) = if tool == Tool::Ink { (x, y) } else { snap(st, page, x, y, z) };
+                        let (sx, sy) = if freehand { (x, y) } else { snap(st, page, x, y, z) };
                         d.current = ((sx * z) as f64, (sy * z) as f64);
                         drag.set(Some(d));
-                        if tool == Tool::Ink {
+                        if freehand {
                             ink.write().push(d.current);
                         }
                     }
@@ -914,6 +1182,10 @@ fn PageView(
                     }
                 },
                 ondoubleclick: move |evt| {
+                    if tool.is_multi_click() {
+                        finish_drawing(st);
+                        return;
+                    }
                     if tool != Tool::Select {
                         return;
                     }
@@ -957,13 +1229,39 @@ fn PageView(
                         SelToolbar { left: r[0] * z, top: (r[1] * z - 38.0).max(2.0) }
                     }
                 }
+                for (w, r) in view.widgets.iter().cloned() {
+                    {
+                        let editing = (st.editing_field)() == Some((page, w.index));
+                        let kind = w.kind.clone();
+                        let class = match (&kind, w.read_only) {
+                            (_, true) => "field-hit readonly",
+                            (folitecta_core::FieldKind::Text, _) => "field-hit text",
+                            _ => "field-hit",
+                        };
+                        let w2 = w.clone();
+                        rsx! {
+                            if editing {
+                                FieldInput { key: "fi{w.index}", page, widget: w2, left: r[0] * z, top: r[1] * z, width: (r[2] - r[0]) * z, height: (r[3] - r[1]) * z, zoom: z }
+                            } else {
+                                div { key: "w{w.index}", class: "{class}", title: "{w.name}", style: "{css(r)}",
+                                    onmousedown: move |e| e.stop_propagation(),
+                                    onclick: move |e| {
+                                        e.stop_propagation();
+                                        fill_field(st, page, &w);
+                                    },
+                                }
+                            }
+                        }
+                    }
+                }
                 for (index, subtype, rect, contents) in view.annots.iter().cloned() {
                     {
                         let is_sel = view.selected == Some(index);
                         let shown = match cur_drag { Some(d) if d.index == index => dragged_rect(&d, z, view_rotation), _ => rect };
                         let title = format!("{}: {contents}", crate::i18n::annot_name(st.lang(), &subtype));
                         let class = if is_sel { "annot-hit selected" } else { "annot-hit" };
-                        let can_edit = tool == Tool::EditAnnots;
+                        let can_edit = tool == Tool::EditAnnots || tool == Tool::EditFields;
+                        let is_widget = subtype == "Widget";
                         rsx! {
                             div { class: "{class}", key: "a{index}", title: "{title}", style: "{css(shown)}",
                                 onmousedown: move |e| {
@@ -976,6 +1274,10 @@ fn PageView(
                                 },
                                 ondoubleclick: move |e| {
                                     e.stop_propagation();
+                                    if is_widget {
+                                        st.ui_mut().show_right_pane = true;
+                                        return;
+                                    }
                                     let contents = contents.clone();
                                     st.set_dialog(Dialog::AnnotationText { page, index, contents });
                                 },
@@ -994,12 +1296,28 @@ fn PageView(
                         }
                     }
                 }
-                if let Some(d) = drag() {
-                    if tool == Tool::Ink {
-                        svg { class: "ink-preview", width: "{inner_w}", height: "{inner_h}",
-                            polyline { points: "{ink_points}", fill: "none", stroke: "#3b3bc0", stroke_width: "2" }
+                if let Some((pts, closed)) = multi_preview.clone() {
+                    svg { class: "ink-preview", width: "{inner_w}", height: "{inner_h}",
+                        if closed {
+                            polygon { points: "{pts}", fill: "rgba(79,70,229,0.08)", stroke: "#4f46e5", stroke_width: "1.5", stroke_dasharray: "5 3" }
+                        } else {
+                            polyline { points: "{pts}", fill: "none", stroke: "#4f46e5", stroke_width: "1.5" }
                         }
-                    } else if matches!(tool, Tool::Line | Tool::Arrow) {
+                        for (i, (vx, vy)) in multi_vertices.iter().enumerate() {
+                            circle { key: "v{i}", cx: "{vx}", cy: "{vy}", r: "3.5", fill: "#ffffff", stroke: "#4f46e5", stroke_width: "1.5" }
+                        }
+                    }
+                }
+                if let Some(d) = drag() {
+                    if matches!(tool, Tool::Ink | Tool::FreeHighlight | Tool::Eraser) {
+                        svg { class: "ink-preview", width: "{inner_w}", height: "{inner_h}",
+                            match tool {
+                                Tool::Eraser => rsx! { polyline { points: "{ink_points}", fill: "none", stroke: "rgba(220,38,38,0.45)", stroke_width: "12", stroke_linecap: "round", stroke_linejoin: "round" } },
+                                Tool::FreeHighlight => rsx! { polyline { points: "{ink_points}", fill: "none", stroke: "rgba(250,204,21,0.5)", stroke_width: "{12.0 * z}", stroke_linecap: "round", stroke_linejoin: "round" } },
+                                _ => rsx! { polyline { points: "{ink_points}", fill: "none", stroke: "#3b3bc0", stroke_width: "2" } },
+                            }
+                        }
+                    } else if matches!(tool, Tool::Line | Tool::Arrow | Tool::Distance | Tool::Callout) {
                         svg { class: "ink-preview", width: "{inner_w}", height: "{inner_h}",
                             line { x1: "{d.start.0}", y1: "{d.start.1}", x2: "{d.current.0}", y2: "{d.current.1}", stroke: "#3b3bc0", stroke_width: "2" }
                         }

@@ -48,6 +48,26 @@ pub enum Tool {
     TextUnderline,
     TextStrike,
     Snapshot,
+    Polygon,
+    Polyline,
+    Cloud,
+    Callout,
+    Distance,
+    Perimeter,
+    Area,
+    FreeHighlight,
+    Eraser,
+    InsertText,
+    ReplaceText,
+    FileAttachment,
+    EditFields,
+    FieldText,
+    FieldCheck,
+    FieldRadio,
+    FieldCombo,
+    FieldList,
+    FieldButton,
+    FieldSignature,
 }
 
 impl Tool {
@@ -55,7 +75,7 @@ impl Tool {
     pub fn is_drawing(&self) -> bool {
         !matches!(
             self,
-            Tool::Hand | Tool::Select | Tool::EditAnnots | Tool::Zoom | Tool::Loupe
+            Tool::Hand | Tool::Select | Tool::EditAnnots | Tool::Zoom | Tool::Loupe | Tool::EditFields
         )
     }
 
@@ -63,7 +83,7 @@ impl Tool {
     pub fn is_text(&self) -> bool {
         matches!(
             self,
-            Tool::Select | Tool::TextHighlight | Tool::TextUnderline | Tool::TextStrike
+            Tool::Select | Tool::TextHighlight | Tool::TextUnderline | Tool::TextStrike | Tool::ReplaceText
         )
     }
 
@@ -91,6 +111,26 @@ impl Tool {
             Tool::TextUnderline => "tool.annot.underline",
             Tool::TextStrike => "tool.annot.strikeout",
             Tool::Snapshot => "tool.snapshot",
+            Tool::Polygon => "tool.annot.polygon",
+            Tool::Polyline => "tool.annot.polyline",
+            Tool::Cloud => "tool.annot.cloud",
+            Tool::Callout => "tool.annot.callout",
+            Tool::Distance => "tool.annot.distance",
+            Tool::Perimeter => "tool.annot.perimeter",
+            Tool::Area => "tool.annot.area",
+            Tool::FreeHighlight => "tool.annot.freeHighlight",
+            Tool::Eraser => "tool.annot.eraser",
+            Tool::InsertText => "tool.annot.insertText",
+            Tool::ReplaceText => "tool.annot.replaceText",
+            Tool::FileAttachment => "tool.annot.fileAttachment",
+            Tool::EditFields => "tool.editFields.mode.select",
+            Tool::FieldText => "tool.editFields.mode.text",
+            Tool::FieldCheck => "tool.editFields.mode.check",
+            Tool::FieldRadio => "tool.editFields.mode.radio",
+            Tool::FieldCombo => "tool.editFields.mode.combo",
+            Tool::FieldList => "tool.editFields.mode.list",
+            Tool::FieldButton => "tool.editFields.mode.button",
+            Tool::FieldSignature => "tool.editFields.mode.signature",
         }
     }
 
@@ -119,7 +159,50 @@ impl Tool {
             Tool::TextUnderline => "tool.text_underline",
             Tool::TextStrike => "tool.text_strike",
             Tool::Snapshot => "tool.snapshot",
+            Tool::Polygon => "tool.polygon",
+            Tool::Polyline => "tool.polyline",
+            Tool::Cloud => "tool.cloud",
+            Tool::Callout => "tool.callout",
+            Tool::Distance => "tool.distance",
+            Tool::Perimeter => "tool.perimeter",
+            Tool::Area => "tool.area",
+            Tool::FreeHighlight => "tool.free_highlight",
+            Tool::Eraser => "tool.eraser",
+            Tool::InsertText => "tool.insert_text",
+            Tool::ReplaceText => "tool.replace_text",
+            Tool::FileAttachment => "tool.file_attachment",
+            Tool::EditFields => "tool.edit_fields",
+            Tool::FieldText => "tool.field_text",
+            Tool::FieldCheck => "tool.field_check",
+            Tool::FieldRadio => "tool.field_radio",
+            Tool::FieldCombo => "tool.field_combo",
+            Tool::FieldList => "tool.field_list",
+            Tool::FieldButton => "tool.field_button",
+            Tool::FieldSignature => "tool.field_signature",
         }
+    }
+
+    /// The kind of form field a field tool creates.
+    pub fn new_field(&self) -> Option<folitecta_core::NewField> {
+        use folitecta_core::NewField as F;
+        Some(match self {
+            Tool::FieldText => F::Text,
+            Tool::FieldCheck => F::CheckBox,
+            Tool::FieldRadio => F::RadioButton,
+            Tool::FieldCombo => F::ComboBox,
+            Tool::FieldList => F::ListBox,
+            Tool::FieldButton => F::PushButton,
+            Tool::FieldSignature => F::Signature,
+            _ => return None,
+        })
+    }
+
+    /// Tools that place points with clicks and finish with a double click or Enter.
+    pub fn is_multi_click(&self) -> bool {
+        matches!(
+            self,
+            Tool::Polygon | Tool::Polyline | Tool::Cloud | Tool::Perimeter | Tool::Area
+        )
     }
 }
 
@@ -561,10 +644,33 @@ pub enum Dialog {
     OverlayFile(PathBuf),
     /// Print the active document (`false`) or every open document (`true`).
     Print(bool),
+    /// Text of a new callout pointing at `tip` with its box at `rect` (PDF space).
+    Callout {
+        page: usize,
+        tip: (f32, f32),
+        rect: [f32; 4],
+    },
+    /// Text to insert before (or after) character `index` of a page.
+    InsertText {
+        page: usize,
+        index: usize,
+        after: bool,
+    },
+    /// Replacement for the characters `start..end` of a page.
+    ReplaceText {
+        page: usize,
+        start: usize,
+        end: usize,
+    },
+    /// Scale of measurement comments.
+    Calibrate,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.
 pub type LoupePos = (usize, f32, f32, f64, f64);
+
+/// Points placed so far by a multi-click tool: page and display points.
+pub type Drawing = (usize, Vec<(f32, f32)>);
 
 /// One printed page: tab id, page index, document revision.
 pub type PrintPage = (u64, usize, u64);
@@ -616,6 +722,14 @@ pub struct AppState {
     pub pointer: Signal<Option<(usize, f32, f32)>>,
     /// Pages currently laid out for printing.
     pub print_job: Signal<Option<PrintJob>>,
+    /// Points placed so far by a multi-click tool: page and display points.
+    pub drawing: Signal<Option<Drawing>>,
+    /// Copied comment style.
+    pub style_clip: Signal<Option<folitecta_core::AnnotStyle>>,
+    /// Form field being typed into on the page: page and widget position in `/Annots`.
+    pub editing_field: Signal<Option<(usize, usize)>>,
+    /// Radio group that new radio buttons join while the radio tool stays active.
+    pub radio_group: Signal<Option<String>>,
 }
 
 impl AppState {
@@ -646,7 +760,27 @@ impl AppState {
             loupe: use_signal(|| None),
             pointer: use_signal(|| None),
             print_job: use_signal(|| None),
+            drawing: use_signal(|| None),
+            style_clip: use_signal(|| None),
+            editing_field: use_signal(|| None),
+            radio_group: use_signal(|| None),
         }
+    }
+
+    pub fn set_editing_field(&self, v: Option<(usize, usize)>) {
+        *self.editing_field.write_unchecked() = v;
+    }
+
+    pub fn set_radio_group(&self, v: Option<String>) {
+        *self.radio_group.write_unchecked() = v;
+    }
+
+    pub fn set_drawing(&self, v: Option<Drawing>) {
+        *self.drawing.write_unchecked() = v;
+    }
+
+    pub fn set_style_clip(&self, v: Option<folitecta_core::AnnotStyle>) {
+        *self.style_clip.write_unchecked() = v;
     }
 
     pub fn set_print_job(&self, v: Option<PrintJob>) {

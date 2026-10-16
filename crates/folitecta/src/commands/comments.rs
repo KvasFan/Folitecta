@@ -9,10 +9,54 @@ use dioxus::prelude::ReadableExt;
 use folitecta_core::{Markup, SearchOptions};
 
 fn tool(st: AppState, tool: Tool) {
-    if tool.is_drawing() && no_doc(st) {
+    super::select_tool(st, tool);
+}
+
+fn export_measures(st: AppState) {
+    if no_doc(st) {
         return;
     }
-    st.set_tool(tool);
+    let rows = st.read_active(|t| t.doc.measurements()).unwrap_or_default();
+    if rows.is_empty() {
+        st.toast(ToastKind::Info, t(st.lang(), "toast.no_measurements"), "");
+        return;
+    }
+    let mut csv = String::from("page,kind,value\n");
+    for (page, kind, value) in rows {
+        csv.push_str(&format!(
+            "{},{},\"{}\"\n",
+            page + 1,
+            kind,
+            value.replace('"', "'")
+        ));
+    }
+    files::save_text_file(st, "measurements.csv", csv);
+}
+
+/// Insert mark after the text selection (or replacement of the selection).
+fn selection_mark(st: AppState, replace: bool) {
+    if no_doc(st) {
+        return;
+    }
+    match st.read_active(|t| t.text_sel).flatten().filter(|s| !s.is_empty()) {
+        Some(sel) => {
+            let (start, end) = sel.range();
+            st.set_dialog(if replace {
+                Dialog::ReplaceText {
+                    page: sel.page,
+                    start,
+                    end,
+                }
+            } else {
+                Dialog::InsertText {
+                    page: sel.page,
+                    index: end.saturating_sub(1),
+                    after: true,
+                }
+            });
+        }
+        None => st.toast(ToastKind::Info, t(st.lang(), "toast.select_text_first"), ""),
+    }
 }
 
 fn step_comment(st: AppState, forward: bool) {
@@ -74,6 +118,19 @@ fn set_all_hidden(st: AppState, hidden: Option<bool>) {
     });
 }
 
+/// Colour of new text markups of a kind (the user's default style).
+pub(crate) fn markup_color(st: AppState, k: Markup) -> [f32; 3] {
+    let kind = match k {
+        Markup::Highlight => "Highlight",
+        Markup::Underline => "Underline",
+        Markup::StrikeOut => "StrikeOut",
+        Markup::Squiggly => "Squiggly",
+    };
+    crate::styles::default_style(st, kind)
+        .color
+        .unwrap_or([1.0, 0.9, 0.2])
+}
+
 /// Apply a markup to the current text selection.
 pub(crate) fn markup_selection(st: AppState, kind: Option<Markup>) {
     if no_doc(st) {
@@ -88,11 +145,7 @@ pub(crate) fn markup_selection(st: AppState, kind: Option<Markup>) {
     let r = st.with_active(|t| {
         let r = match kind {
             Some(k) => {
-                let color = match k {
-                    Markup::Highlight => [1.0, 0.9, 0.2],
-                    Markup::Underline => [0.1, 0.4, 0.95],
-                    Markup::StrikeOut => [0.9, 0.15, 0.15],
-                };
+                let color = markup_color(st, k);
                 t.doc.markup_text_range(sel.page, start, end, k, color, &author)
             }
             None => t.doc.redact_text_range(sel.page, start, end, &author).map(|_| ()),
@@ -127,11 +180,7 @@ fn markup_results(st: AppState, kind: Option<Markup>) {
     let author = st.ui.read().author.clone();
     let r = st.with_active(|t| match kind {
         Some(k) => {
-            let color = match k {
-                Markup::Highlight => [1.0, 0.9, 0.2],
-                Markup::Underline => [0.1, 0.4, 0.95],
-                Markup::StrikeOut => [0.9, 0.15, 0.15],
-            };
+            let color = markup_color(st, k);
             t.doc.markup_search_results(&query, opts, k, color, &author)
         }
         None => t.doc.redact_search_results(&query, opts, &author),
@@ -223,6 +272,23 @@ handlers! {
     "tool.annot.stamp" => |st| doc_dialog(st, Dialog::StampPicker),
     "stampsList" => |st| doc_dialog(st, Dialog::StampPicker),
     "tool.annot.highlight" => |st| tool(st, Tool::TextHighlight),
+    "tool.annot.polygon" => |st| tool(st, Tool::Polygon),
+    "tool.annot.polyline" => |st| tool(st, Tool::Polyline),
+    "tool.annot.cloud" => |st| tool(st, Tool::Cloud),
+    "tool.annot.callout" => |st| tool(st, Tool::Callout),
+    "tool.annot.distance" => |st| tool(st, Tool::Distance),
+    "tool.annot.perimeter" => |st| tool(st, Tool::Perimeter),
+    "tool.annot.area" => |st| tool(st, Tool::Area),
+    "tool.annot.freeHighlight" => |st| tool(st, Tool::FreeHighlight),
+    "tool.annot.eraser" => |st| tool(st, Tool::Eraser),
+    "tool.annot.insertText" => |st| tool(st, Tool::InsertText),
+    "tool.annot.replaceText" => |st| tool(st, Tool::ReplaceText),
+    "tool.annot.fileAttachment" => |st| tool(st, Tool::FileAttachment),
+    "tool.calibrate" => |st| doc_dialog(st, Dialog::Calibrate),
+    "annot.measure.setScale" => |st| doc_dialog(st, Dialog::Calibrate),
+    "exportMeasuresToCSV" => export_measures,
+    "textsel.addInsertTextNote" => |st| selection_mark(st, false),
+    "textsel.addReplaceTextNote" => |st| selection_mark(st, true),
     "tool.annot.underline" => |st| tool(st, Tool::TextUnderline),
     "tool.annot.strikeout" => |st| tool(st, Tool::TextStrike),
     // ---- Markup on the text selection ---------------------------------------

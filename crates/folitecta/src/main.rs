@@ -10,6 +10,7 @@ mod i18n;
 mod icons;
 mod selftest;
 mod state;
+mod styles;
 mod ui;
 mod util;
 

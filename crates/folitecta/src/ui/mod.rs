@@ -1,5 +1,7 @@
 pub mod canvas;
 pub mod dialogs;
+pub mod field_editor;
+pub mod form_fill;
 pub mod menubar;
 pub mod palette;
 pub mod panes;
@@ -7,6 +9,7 @@ pub mod ribbon;
 pub mod ribbon_layout;
 pub mod rightpane;
 pub mod statusbar;
+pub mod style_editor;
 pub mod toasts;
 pub mod welcome;
 

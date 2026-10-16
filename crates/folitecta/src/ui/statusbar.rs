@@ -101,6 +101,9 @@ pub fn StatusBar() -> Element {
             if busy {
                 span { class: "chip", "{t(lang, \"status.rendering\")}" }
             }
+            if tool.is_multi_click() {
+                span { class: "chip sb-opt ellipsis", title: "{t(lang, \"status.multi_hint\")}", "{t(lang, \"status.multi_hint\")}" }
+            }
             if has_doc && show_measure {
                 if show_wh {
                     span { class: "muted sb-opt2", title: "{t(lang, \"status.page_size\")}", "{fmt_len(page_size.0, unit_pt)} × {fmt_len(page_size.1, unit_pt)}{unit_suffix}" }

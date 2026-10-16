@@ -8588,7 +8588,7 @@
   },
   {
    "id": "fieldsView.select.combo",
-   "label": "Select",
+   "label": "Combo Box",
    "parent": "fieldsView.select",
    "menu": "view",
    "ribbon": {
@@ -21685,7 +21685,7 @@
   },
   {
    "id": "tool.editFields.mode.combo",
-   "label": "Mode",
+   "label": "Combo Box",
    "parent": "tool.editFields.mode",
    "menu": "form",
    "ribbon": {

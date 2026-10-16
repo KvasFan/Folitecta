@@ -1,6 +1,6 @@
 //! Redaction: mark areas, then apply by painting them black and rasterizing the page.
 
-use lopdf::{Object, ObjectId, dictionary};
+use lopdf::{Object, ObjectId};
 
 use crate::document::Document;
 use crate::error::Result;
@@ -13,23 +13,7 @@ impl Document {
         self.begin_edit();
         let mut annot = self.base_annotation(page_id, "Redact", rect, author, "", [1.0, 0.0, 0.0]);
         annot.set("IC", vec![0.into(), 0.into(), 0.into()]);
-        let f = fmt_num;
-        let content = format!(
-            "q /GS gs 1 0 0 rg {} {} {} {} re f Q q 1 0 0 RG 1.5 w {} {} {} {} re S Q",
-            f(rect[0]),
-            f(rect[1]),
-            f(rect[2] - rect[0]),
-            f(rect[3] - rect[1]),
-            f(rect[0] + 0.75),
-            f(rect[1] + 0.75),
-            f(rect[2] - rect[0] - 1.5),
-            f(rect[3] - rect[1] - 1.5),
-        );
-        let resources = dictionary! { "ExtGState" => dictionary! { "GS" => dictionary! { "CA" => 1.0f32, "ca" => 0.18f32 } } };
-        self.add_appearance(&mut annot, rect, content, resources);
-        let id = self.push_annotation(page_id, annot)?;
-        self.commit()?;
-        Ok(id)
+        self.finish_annotation(page_id, annot)
     }
 
     /// Pending redaction marks as `(page, rect)`.

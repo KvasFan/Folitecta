@@ -84,7 +84,7 @@ pub fn RightPane() -> Element {
                     {prop(t(lang, "props.links"), links.to_string())}
                     {prop(t(lang, "props.images"), images.to_string())}
                     {prop(t(lang, "props.marks"), if marks.is_empty() { t(lang, "label.none") } else { marks.join(", ") })}
-                    if let Some(a) = selected {
+                    if let Some(a) = selected.filter(|a| a.subtype != "Widget") {
                         div { class: "prop-head", "{t(lang, \"props.selection\")}" }
                         {prop(t(lang, "props.type"), annot_name(lang, &a.subtype))}
                         {prop(t(lang, "dialog.note.author"), a.author.clone())}
@@ -98,6 +98,8 @@ pub fn RightPane() -> Element {
                             button { class: "tbtn danger", onclick: move |_| dispatch(st, "comments.deleteSel"), "{t(lang, \"label.delete\")}" }
                         }
                     }
+                    crate::ui::style_editor::StyleEditor {}
+                    crate::ui::field_editor::FieldEditor {}
                 } else {
                     div { class: "pane-empty", "{t(lang, \"toast.no_document\")}" }
                 }

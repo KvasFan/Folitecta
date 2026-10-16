@@ -930,7 +930,92 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
         record("reply written in the comments pane", false, "no comment".into());
     }
 
-    // 21. Undo everything added above.
+    // 21. Bookmarks: demote/promote, move by dragging, a new bookmark from the
+    // current view, a named destination.
+    {
+        let mut ui = st.ui_mut();
+        ui.show_left_pane = true;
+        ui.left_pane = "bookmarks".into();
+    }
+    let titles = |st: AppState| -> Vec<(usize, String)> {
+        st.read_active(|t| {
+            t.doc
+                .outline_flat()
+                .into_iter()
+                .map(|(d, ti, _)| (d, ti))
+                .collect()
+        })
+        .unwrap_or_default()
+    };
+    let before = titles(st);
+    st.with_active(|t| t.selected_bookmark = Some(vec![1]));
+    crate::commands::dispatch(st, "bookmarksView.demote");
+    pause(500).await;
+    let demoted = titles(st);
+    record(
+        "demote a bookmark under the previous one",
+        demoted.get(1).map(|(d, _)| *d) == Some(1)
+            && st.read_active(|t| t.selected_bookmark.clone()).flatten() == Some(vec![0, 0]),
+        format!("{:?}", demoted.iter().take(3).collect::<Vec<_>>()),
+    );
+    crate::commands::dispatch(st, "bookmarksView.promote");
+    pause(500).await;
+    record("promote it back", titles(st) == before, String::new());
+    // Drag the third bookmark onto the lower part of the first: it goes after it.
+    pause(300).await;
+    let _ = document::eval(
+        "const items = [...document.querySelectorAll('.bookmark-tree .tree-item')]; const src = items[2], dst = items[0]; if (src && dst) { const s = src.getBoundingClientRect(), d = dst.getBoundingClientRect(); src.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: s.left + 30, clientY: s.top + 10 })); dst.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: d.left + 30, clientY: d.top + 20 })); }",
+    )
+    .await;
+    pause(300).await;
+    let _ = document::eval(
+        "const dst = document.querySelectorAll('.bookmark-tree .tree-item')[0]; if (dst) { const d = dst.getBoundingClientRect(); dst.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: d.left + 30, clientY: d.top + 20 })); }",
+    )
+    .await;
+    pause(600).await;
+    let dragged = titles(st);
+    record(
+        "drag a bookmark to a new place",
+        dragged.get(1).map(|(_, t)| t.clone()) == before.get(2).map(|(_, t)| t.clone()),
+        format!("{:?}", dragged.iter().take(3).collect::<Vec<_>>()),
+    );
+    let _ = capture_window(&dir.join("interaction-bookmarks.png"));
+    st.with_active(|t| t.selected_bookmark = Some(vec![0]));
+    let count_before = st.read_active(|t| t.doc.bookmark_count()).unwrap_or(0);
+    crate::commands::dispatch(st, "bookmarksView.new");
+    pause(900).await;
+    let _ = document::eval("const i = document.querySelector('.dialog input'); if (i) { i.value = 'Self-test bookmark'; i.dispatchEvent(new Event('input', { bubbles: true })); } const b = document.querySelector('.dialog .dialog-foot .tbtn.primary'); if (b) b.click();").await;
+    pause(600).await;
+    let created = st
+        .read_active(|t| {
+            t.doc
+                .outline_flat()
+                .iter()
+                .any(|(_, ti, _)| ti == "Self-test bookmark")
+        })
+        .unwrap_or(false);
+    let count_after = st.read_active(|t| t.doc.bookmark_count()).unwrap_or(0);
+    record(
+        "new bookmark from the current view, renamed",
+        created && count_after == count_before + 1,
+        format!("{count_before} -> {count_after}"),
+    );
+    crate::commands::dispatch(st, "pdfNamedDestsView.new");
+    pause(900).await;
+    let _ = document::eval(
+        "const b = document.querySelector('.dialog .dialog-foot .tbtn.primary'); if (b) b.click();",
+    )
+    .await;
+    pause(500).await;
+    let dests = st.read_active(|t| t.doc.named_destinations().len()).unwrap_or(0);
+    record(
+        "named destination from the current view",
+        dests >= 1,
+        format!("{dests} destination(s)"),
+    );
+    st.ui_mut().left_pane = "thumbnails".into();
+
+    // 22. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..30 {
         crate::commands::dispatch(st, "undo");
@@ -1088,6 +1173,9 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("summary", Dialog::SummarizeComments),
         ("comment-filter", Dialog::CommentFilter),
         ("comments-options", Dialog::CommentsViewOptions),
+        ("bookmark-props", Dialog::BookmarkProps(vec![0])),
+        ("bookmark-options", Dialog::BookmarkOptions),
+        ("bookmark-io", Dialog::BookmarkImportExport),
     ];
     for lang in [crate::i18n::Lang::It, crate::i18n::Lang::En] {
         st.ui_mut().lang = lang;

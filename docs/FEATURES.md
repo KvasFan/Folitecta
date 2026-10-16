@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.3. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 406 |
-| 🟡 partial | 39 |
-| ⬜ planned | 1532 |
+| ✅ available | 467 |
+| 🟡 partial | 35 |
+| ⬜ planned | 1475 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -432,45 +432,45 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Delete All Visible Comments | `comments.deleteAllShown` | ✅ available |
 | Delete Comments | `comments.deleteGroup` | ⬜ planned |
 | Delete Selected Comments | `comments.deleteSel` | ✅ available |
-| Export Comments to Data File… | `comments.export` | 🟡 partial |
+| Export Comments to Data File… | `comments.export` | ✅ available |
 | Flatten Comments | `comments.flattenGroup` | ✅ available |
 | Flatten Comments… | `comments.flatten` | ✅ available |
 | Flatten Selected | `comments.flattenSel` | ✅ available |
 | Hide All Comments | `comments.hideAll` | ✅ available |
-| Import Comments… | `comments.import` | ⬜ planned |
+| Import Comments… | `comments.import` | ✅ available |
 | Next Comment | `comments.next` | ✅ available |
 | Paste | `annotStyle.paste` | ✅ available |
 | Paste Application Only | `annotStyle.pasteAppOnly` | ✅ available |
 | Previous Comment | `comments.previous` | ✅ available |
 | Show All Comments | `comments.showAll` | ✅ available |
-| Show Comments | `comments.show` | ⬜ planned |
-| ↳ By Author | `comments.show.byAuthor` | ⬜ planned |
-| ↳ By Check Mark | `comments.show.checked` | ⬜ planned |
-| ↳ By Status | `comments.show.status` | ⬜ planned |
-| ↳ By Type | `comments.show.byType` | ⬜ planned |
-| ↳ Popups | `comments.show.popups` | ⬜ planned |
+| Show Comments | `comments.show` | ✅ available |
+| ↳ By Author | `comments.show.byAuthor` | ✅ available |
+| ↳ By Check Mark | `comments.show.checked` | ✅ available |
+| ↳ By Status | `comments.show.status` | ✅ available |
+| ↳ By Type | `comments.show.byType` | ✅ available |
+| ↳ Popups | `comments.show.popups` | ✅ available |
 | Show/Hide All Comments | `comments.showhideAll` | ✅ available |
-| Summarize Comments… | `comments.summarize` | 🟡 partial |
+| Summarize Comments… | `comments.summarize` | ✅ available |
 | Tool Styles List | `toolStylesList` | ⬜ planned |
 
 **Popup**
 
 | Command | Id | Status |
 |---|---|---|
-| Hide | `annot.popup.hide` | ⬜ planned |
-| Open | `annot.popup.open` | ⬜ planned |
-| Reset Location | `annot.popup.resetLocation` | ⬜ planned |
+| Hide | `annot.popup.hide` | ✅ available |
+| Open | `annot.popup.open` | ✅ available |
+| Reset Location | `annot.popup.resetLocation` | ✅ available |
 
 **Collaboration**
 
 | Command | Id | Status |
 |---|---|---|
-| Add Reply | `annot.addReply` | ⬜ planned |
-| Checked | `comments.checked` | ⬜ planned |
-| Locked | `comments.locked` | ⬜ planned |
-| Printable | `comments.printable` | ⬜ planned |
-| Review History | `annot.reviewHistory` | ⬜ planned |
-| Status | `annot.status` | ⬜ planned |
+| Add Reply | `annot.addReply` | ✅ available |
+| Checked | `comments.checked` | ✅ available |
+| Locked | `comments.locked` | ✅ available |
+| Printable | `comments.printable` | ✅ available |
+| Review History | `annot.reviewHistory` | ✅ available |
+| Status | `annot.status` | ✅ available |
 
 **Media**
 
@@ -1432,7 +1432,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Classic UI | `view.switchToClassicUI` | ✅ available |
 | Collapse All | `collapseAll` | ⬜ planned |
 | Comment Styles Palette | `view.commentStyles` | ⬜ planned |
-| Comments View | `commentsView` | 🟡 partial |
+| Comments View | `commentsView` | ✅ available |
 | Compare Documents | `cmpDocs` | ⬜ planned |
 | Comparison | `comparisonView` | ⬜ planned |
 | Content | `view.content` | ⬜ planned |
@@ -1625,14 +1625,14 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Add Sticky Note | `addStickyNote` | ✅ available |
 | Annotation | `tool.annot` | 🟡 partial |
 | Add Comments | `comments.newGroup` | ⬜ planned |
-| Show Comments | `comments.show` | ⬜ planned |
+| Show Comments | `comments.show` | ✅ available |
 | Next Comment | `comments.next` | ✅ available |
 | Previous Comment | `comments.previous` | ✅ available |
 | Delete Comments | `comments.deleteGroup` | ⬜ planned |
 | Flatten Comments | `comments.flattenGroup` | ✅ available |
-| Import Comments… | `comments.import` | ⬜ planned |
-| Export Comments to Data File… | `comments.export` | 🟡 partial |
-| Summarize Comments… | `comments.summarize` | 🟡 partial |
+| Import Comments… | `comments.import` | ✅ available |
+| Export Comments to Data File… | `comments.export` | ✅ available |
+| Summarize Comments… | `comments.summarize` | ✅ available |
 | Comment Styles | `annotStylesList` | ⬜ planned |
 | Comment Styles | `commentStyles` | ⬜ planned |
 | 3D | `3d` | ⬜ planned |
@@ -1647,7 +1647,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Border Style | `borderStyle` | ✅ available |
 | Border Width | `borderWidth` | ✅ available |
 | Border Width Text | `borderWidthText` | ⬜ planned |
-| Checked | `comments.checked` | ⬜ planned |
+| Checked | `comments.checked` | ✅ available |
 | Comment | `comment` | ⬜ planned |
 | Comment Style | `annotStyle` | ✅ available |
 | Delete All Comments | `comments.deleteAllDoc` | ✅ available |
@@ -1664,7 +1664,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Line End | `lineEnd` | ✅ available |
 | Line Join | `lineJoin` | ⬜ planned |
 | Line Start | `lineStart` | ✅ available |
-| Locked | `comments.locked` | ⬜ planned |
+| Locked | `comments.locked` | ✅ available |
 | Macro | `macro` | 🟡 partial |
 | Measure | `measure` | ⬜ planned |
 | Measure Edit | `measureEdit` | ⬜ planned |
@@ -1673,7 +1673,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Media Annotation | `mediaAnnot` | ⬜ planned |
 | Note Icon | `noteIcon` | ⬜ planned |
 | Opacity | `opacity` | ✅ available |
-| Printable | `comments.printable` | ⬜ planned |
+| Printable | `comments.printable` | ✅ available |
 | Selected Text | `textsel` | 🟡 partial |
 | Selection | `selection` | ⬜ planned |
 | Show All Comments | `comments.showAll` | ✅ available |
@@ -1814,14 +1814,14 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `annot.3d` | Comments › Annotation › 3D | ⬜ planned |
 | `annot.addText` | Comments › Annotation › Add Text | ⬜ planned |
 | `annot.callout` | Comments › Annotation › Callout | ⬜ planned |
-| `annot.copyText` | Comments › Annotation › Copy Text | ⬜ planned |
+| `annot.copyText` | Comments › Annotation › Copy Text | ✅ available |
 | `annot.deleteLabel` | Comments › Annotation › Delete Label | ⬜ planned |
 | `annot.editLabel` | Comments › Annotation › Edit Label | ⬜ planned |
-| `annot.line` | Comments › Annotation › Line | ⬜ planned |
+| `annot.line` | Comments › Annotation › Line | 🟡 partial |
 | `annot.link` | Comments › Annotation › Link | ⬜ planned |
 | `annot.measure` | Comments › Annotation › Measure | ✅ available |
 | `annot.poly` | Comments › Annotation › Poly | ⬜ planned |
-| `annot.popup` | Comments › Annotation › Popup | ⬜ planned |
+| `annot.popup` | Comments › Annotation › Popup | ✅ available |
 | `annot.redact` | Comments › Annotation › Redact | ⬜ planned |
 | `attachmentsView.autoShowPane` | View › Attachments Pane › Auto Show Pane | ⬜ planned |
 | `attachmentsView.edit` | View › Attachments Pane › Edit | ⬜ planned |
@@ -1924,51 +1924,51 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `cmpDocs.show.summary` | View › Compare Documents › Show › Summary | ⬜ planned |
 | `comments` | Comments | 🟡 partial |
 | `comments.ac.closeAll` | Comments › Accounting Calculator › Close All | ⬜ planned |
-| `comments.show.byAuthor.all` | Comments › Show Comments › By Author › All | ⬜ planned |
-| `comments.show.byType.all` | Comments › Show Comments › By Type › All | ⬜ planned |
-| `comments.show.checked.all` | Comments › Show Comments › By Check Mark › All | ⬜ planned |
-| `comments.show.popups.closeAll` | Comments › Show Comments › Popups › Close All Popups | ⬜ planned |
-| `comments.show.popups.openAll` | Comments › Show Comments › Popups › Open All Popups | ⬜ planned |
-| `comments.show.popups.openNonEmpty` | Comments › Show Comments › Popups › Open All Non-Empty Popups | ⬜ planned |
-| `comments.show.popups.opencloseAll` | Comments › Show Comments › Popups › Open/Close All Popups | ⬜ planned |
-| `commentsView.collapseAll` | View › Comments View › Collapse All | ⬜ planned |
-| `commentsView.expandAll` | View › Comments View › Expand All | ⬜ planned |
-| `commentsView.exportSelected` | View › Comments View › Export Selected | 🟡 partial |
-| `commentsView.groupBy` | View › Comments View › Group by | ⬜ planned |
-| `commentsView.groupBy.author` | View › Comments View › Group by › Author | ⬜ planned |
-| `commentsView.groupBy.color` | View › Comments View › Group by › Color | ⬜ planned |
-| `commentsView.groupBy.crtDate` | View › Comments View › Group by › Created Date | ⬜ planned |
-| `commentsView.groupBy.modDate` | View › Comments View › Group by › Modified Date | ⬜ planned |
-| `commentsView.groupBy.page` | View › Comments View › Group by › Page | ⬜ planned |
-| `commentsView.groupBy.state` | View › Comments View › Group by › State | ⬜ planned |
-| `commentsView.groupBy.stateAndAuthor` | View › Comments View › Group by › State and Author | ⬜ planned |
-| `commentsView.groupBy.stateAuthor` | View › Comments View › Group by › State Author | ⬜ planned |
-| `commentsView.groupBy.subject` | View › Comments View › Group by › Subject | ⬜ planned |
-| `commentsView.groupBy.submenu` | View › Comments View › Group by › Submenu | ⬜ planned |
-| `commentsView.groupBy.type` | View › Comments View › Group by › Type | ⬜ planned |
-| `commentsView.hide` | View › Comments View › Hide | ⬜ planned |
-| `commentsView.hide.dates` | View › Comments View › Hide › Dates | ⬜ planned |
+| `comments.show.byAuthor.all` | Comments › Show Comments › By Author › All | ✅ available |
+| `comments.show.byType.all` | Comments › Show Comments › By Type › All | ✅ available |
+| `comments.show.checked.all` | Comments › Show Comments › By Check Mark › All | ✅ available |
+| `comments.show.popups.closeAll` | Comments › Show Comments › Popups › Close All Popups | ✅ available |
+| `comments.show.popups.openAll` | Comments › Show Comments › Popups › Open All Popups | ✅ available |
+| `comments.show.popups.openNonEmpty` | Comments › Show Comments › Popups › Open All Non-Empty Popups | ✅ available |
+| `comments.show.popups.opencloseAll` | Comments › Show Comments › Popups › Open/Close All Popups | ✅ available |
+| `commentsView.collapseAll` | View › Comments View › Collapse All | ✅ available |
+| `commentsView.expandAll` | View › Comments View › Expand All | ✅ available |
+| `commentsView.exportSelected` | View › Comments View › Export Selected | ✅ available |
+| `commentsView.groupBy` | View › Comments View › Group by | ✅ available |
+| `commentsView.groupBy.author` | View › Comments View › Group by › Author | ✅ available |
+| `commentsView.groupBy.color` | View › Comments View › Group by › Color | ✅ available |
+| `commentsView.groupBy.crtDate` | View › Comments View › Group by › Created Date | ✅ available |
+| `commentsView.groupBy.modDate` | View › Comments View › Group by › Modified Date | ✅ available |
+| `commentsView.groupBy.page` | View › Comments View › Group by › Page | ✅ available |
+| `commentsView.groupBy.state` | View › Comments View › Group by › State | ✅ available |
+| `commentsView.groupBy.stateAndAuthor` | View › Comments View › Group by › State and Author | ✅ available |
+| `commentsView.groupBy.stateAuthor` | View › Comments View › Group by › State Author | ✅ available |
+| `commentsView.groupBy.subject` | View › Comments View › Group by › Subject | ✅ available |
+| `commentsView.groupBy.submenu` | View › Comments View › Group by › Submenu | ✅ available |
+| `commentsView.groupBy.type` | View › Comments View › Group by › Type | ✅ available |
+| `commentsView.hide` | View › Comments View › Hide | ✅ available |
+| `commentsView.hide.dates` | View › Comments View › Hide › Dates | ✅ available |
 | `commentsView.next` | View › Comments View › Next | ✅ available |
-| `commentsView.options` | View › Comments View › Options | ⬜ planned |
-| `commentsView.popups` | View › Comments View › Popups | ⬜ planned |
-| `commentsView.popups.close` | View › Comments View › Popups › Close | ⬜ planned |
-| `commentsView.popups.open` | View › Comments View › Popups › Open | ⬜ planned |
+| `commentsView.options` | View › Comments View › Options | ✅ available |
+| `commentsView.popups` | View › Comments View › Popups | ✅ available |
+| `commentsView.popups.close` | View › Comments View › Popups › Close | ✅ available |
+| `commentsView.popups.open` | View › Comments View › Popups › Open | ✅ available |
 | `commentsView.previous` | View › Comments View › Previous | ✅ available |
-| `commentsView.show` | View › Comments View › Show | 🟡 partial |
+| `commentsView.show` | View › Comments View › Show | ✅ available |
 | `commentsView.show.authors` | View › Comments View › Show › Authors | ✅ available |
 | `commentsView.show.colors` | View › Comments View › Show › Colors | ✅ available |
-| `commentsView.show.compactItems` | View › Comments View › Show › Compact Items | ⬜ planned |
+| `commentsView.show.compactItems` | View › Comments View › Show › Compact Items | ✅ available |
 | `commentsView.show.dates` | View › Comments View › Show › Dates | ✅ available |
-| `commentsView.show.dynamicIcons` | View › Comments View › Show › Dynamic Icons | ⬜ planned |
-| `commentsView.show.noTextPlaceholder` | View › Comments View › Show › No Text Placeholder | ⬜ planned |
-| `commentsView.show.states` | View › Comments View › Show › States | ⬜ planned |
-| `commentsView.show.subjects` | View › Comments View › Show › Subjects | ⬜ planned |
-| `commentsView.show.text` | View › Comments View › Show › Show Text | ⬜ planned |
-| `commentsView.show.uniformText` | View › Comments View › Show › Uniform Text | ⬜ planned |
+| `commentsView.show.dynamicIcons` | View › Comments View › Show › Dynamic Icons | ✅ available |
+| `commentsView.show.noTextPlaceholder` | View › Comments View › Show › No Text Placeholder | ✅ available |
+| `commentsView.show.states` | View › Comments View › Show › States | ✅ available |
+| `commentsView.show.subjects` | View › Comments View › Show › Subjects | ✅ available |
+| `commentsView.show.text` | View › Comments View › Show › Show Text | ✅ available |
+| `commentsView.show.uniformText` | View › Comments View › Show › Uniform Text | ✅ available |
 | `commentsView.show.wrapLongTitles` | View › Comments View › Show › Wrap Long Titles | ✅ available |
-| `commentsView.showCommentsFromHiddenLayers` | View › Comments View › Show Comments from Hidden Layers | ⬜ planned |
-| `commentsView.showHiddenComments` | View › Comments View › Show Hidden Comments | ⬜ planned |
-| `commentsView.showMenu` | View › Comments View › Show Menu | ⬜ planned |
+| `commentsView.showCommentsFromHiddenLayers` | View › Comments View › Show Comments from Hidden Layers | ✅ available |
+| `commentsView.showHiddenComments` | View › Comments View › Show Hidden Comments | ✅ available |
+| `commentsView.showMenu` | View › Comments View › Show Menu | ✅ available |
 | `contentsView.displaySelected` | View › Content Pane › Display Selected | ⬜ planned |
 | `contentsView.options` | View › Content Pane › Options | ⬜ planned |
 | `contentsView.showInTags` | View › Content Pane › Show in Tags | ⬜ planned |

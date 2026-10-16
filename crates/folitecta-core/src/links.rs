@@ -40,10 +40,12 @@ pub struct Link {
     pub target: LinkTarget,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NamedDestination {
     pub name: String,
     pub page: Option<usize>,
+    /// How the page is shown.
+    pub view: Option<crate::outline::DestView>,
 }
 
 impl Document {
@@ -134,10 +136,241 @@ impl Document {
             .map(|(k, v)| NamedDestination {
                 name: String::from_utf8_lossy(&k).to_string(),
                 page: self.resolve_destination(&v),
+                view: self.destination_view(&v, 0),
             })
             .collect();
         out.sort_by(|a, b| a.name.cmp(&b.name));
         out
+    }
+
+    /// Target of a destination given by name (string or name object).
+    pub(crate) fn named_destination_object(&self, dest: &Object) -> Option<Object> {
+        let key: Vec<u8> = match deref(&self.inner, dest) {
+            Object::String(s, _) => s.clone(),
+            Object::Name(n) => n.clone(),
+            _ => return None,
+        };
+        self.named_dest_map()
+            .into_iter()
+            .find(|(k, _)| *k == key)
+            .map(|(_, v)| v)
+    }
+
+    /// Entries of the `/Names /Dests` name tree.
+    fn names_tree_entries(&self) -> Vec<(Vec<u8>, Object)> {
+        let doc = &self.inner;
+        let mut out = Vec::new();
+        if let Some(tree) = doc
+            .catalog()
+            .ok()
+            .and_then(|c| c.get(b"Names").ok())
+            .map(|n| deref(doc, n))
+            .and_then(|n| n.as_dict().ok())
+            .and_then(|n| n.get(b"Dests").ok())
+            .map(|d| deref(doc, d))
+            .and_then(|d| d.as_dict().ok())
+        {
+            walk_name_tree(doc, tree, &mut out, 0);
+        }
+        out
+    }
+
+    /// The catalog `/Dests` dictionary (destinations named by name objects).
+    fn dests_dict_mut(&mut self) -> Option<&mut Dictionary> {
+        let r = self.inner.catalog().ok()?.get(b"Dests").ok()?.clone();
+        match r {
+            Object::Reference(id) => self.inner.get_dictionary_mut(id).ok(),
+            Object::Dictionary(_) => match self.inner.catalog_mut().ok()?.get_mut(b"Dests").ok()? {
+                Object::Dictionary(d) => Some(d),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    /// Rewrite the `/Names /Dests` tree as one sorted leaf.
+    fn write_names_tree(&mut self, mut entries: Vec<(Vec<u8>, Object)>) -> Result<()> {
+        entries.sort_by(|a, b| a.0.cmp(&b.0));
+        entries.dedup_by(|a, b| a.0 == b.0);
+        let names_ref = self.inner.catalog()?.get(b"Names").ok().cloned();
+        let mut names = match &names_ref {
+            Some(Object::Reference(r)) => self.inner.get_dictionary(*r)?.clone(),
+            Some(Object::Dictionary(d)) => d.clone(),
+            _ => Dictionary::new(),
+        };
+        if entries.is_empty() {
+            names.remove(b"Dests");
+        } else {
+            let arr: Vec<Object> = entries
+                .into_iter()
+                .flat_map(|(k, v)| [Object::String(k, lopdf::StringFormat::Literal), v])
+                .collect();
+            let tree = self.inner.add_object(dictionary! { "Names" => arr });
+            names.set("Dests", Object::Reference(tree));
+        }
+        match names_ref {
+            Some(Object::Reference(r)) => {
+                self.inner.objects.insert(r, Object::Dictionary(names));
+            }
+            _ => {
+                if names.is_empty() {
+                    self.inner.catalog_mut()?.remove(b"Names");
+                } else {
+                    self.inner.catalog_mut()?.set("Names", Object::Dictionary(names));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn named_destination_exists(&self, name: &str) -> bool {
+        self.named_dest_map().iter().any(|(k, _)| k == name.as_bytes())
+    }
+
+    /// Add a named destination pointing at `page` (one undo step).
+    pub fn add_named_destination(
+        &mut self,
+        name: &str,
+        page: usize,
+        view: Option<crate::outline::DestView>,
+    ) -> Result<()> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(Error::Invalid("the destination name is empty".into()));
+        }
+        if self.named_destination_exists(name) {
+            return Err(Error::Invalid(format!(
+                "a destination named '{name}' already exists"
+            )));
+        }
+        let view = view.unwrap_or_else(|| self.top_of_page_view(page));
+        let dest = self.dest_array(page, &view)?;
+        self.begin_edit();
+        let mut entries = self.names_tree_entries();
+        entries.push((name.as_bytes().to_vec(), dest));
+        self.write_names_tree(entries)?;
+        self.commit()
+    }
+
+    /// Point an existing named destination at `page` with `view` (one undo step).
+    pub fn set_named_destination(
+        &mut self,
+        name: &str,
+        page: usize,
+        view: Option<crate::outline::DestView>,
+    ) -> Result<()> {
+        if !self.named_destination_exists(name) {
+            return Err(Error::Invalid(format!("no destination named '{name}'")));
+        }
+        let view = view.unwrap_or_else(|| self.top_of_page_view(page));
+        let dest = self.dest_array(page, &view)?;
+        self.begin_edit();
+        let key = name.as_bytes().to_vec();
+        let in_dict = self.dests_dict_mut().map(|d| d.has(&key)).unwrap_or(false);
+        if in_dict {
+            if let Some(d) = self.dests_dict_mut() {
+                d.set(key, dest);
+            }
+        } else {
+            let mut entries = self.names_tree_entries();
+            for e in entries.iter_mut().filter(|e| e.0 == key) {
+                e.1 = dest.clone();
+            }
+            self.write_names_tree(entries)?;
+        }
+        self.commit()
+    }
+
+    /// Delete named destinations (one undo step). Returns how many were removed.
+    pub fn delete_named_destinations(&mut self, names: &[String]) -> Result<usize> {
+        let keys: Vec<Vec<u8>> = names.iter().map(|n| n.as_bytes().to_vec()).collect();
+        let before = self.named_dest_map().len();
+        self.begin_edit();
+        if let Some(d) = self.dests_dict_mut() {
+            for k in &keys {
+                d.remove(k);
+            }
+        }
+        let entries: Vec<_> = self
+            .names_tree_entries()
+            .into_iter()
+            .filter(|(k, _)| !keys.contains(k))
+            .collect();
+        self.write_names_tree(entries)?;
+        self.commit()?;
+        Ok(before.saturating_sub(self.named_dest_map().len()))
+    }
+
+    /// Delete named destinations whose page does not exist (one undo step).
+    pub fn remove_invalid_named_destinations(&mut self) -> Result<usize> {
+        let invalid: Vec<String> = self
+            .named_destinations()
+            .into_iter()
+            .filter(|d| d.page.is_none())
+            .map(|d| d.name)
+            .collect();
+        if invalid.is_empty() {
+            return Ok(0);
+        }
+        self.delete_named_destinations(&invalid)
+    }
+
+    /// Rename a named destination and update the links, bookmarks and actions
+    /// that use it (one undo step).
+    pub fn rename_named_destination(&mut self, old: &str, new: &str) -> Result<()> {
+        let new = new.trim();
+        if new.is_empty() {
+            return Err(Error::Invalid("the destination name is empty".into()));
+        }
+        if old == new {
+            return Ok(());
+        }
+        if self.named_destination_exists(new) {
+            return Err(Error::Invalid(format!(
+                "a destination named '{new}' already exists"
+            )));
+        }
+        let (old_k, new_k) = (old.as_bytes().to_vec(), new.as_bytes().to_vec());
+        self.begin_edit();
+        let moved = self.dests_dict_mut().and_then(|d| d.remove(&old_k));
+        if let Some(v) = moved {
+            if let Some(d) = self.dests_dict_mut() {
+                d.set(new_k.clone(), v);
+            }
+        } else {
+            let entries: Vec<_> = self
+                .names_tree_entries()
+                .into_iter()
+                .map(|(k, v)| if k == old_k { (new_k.clone(), v) } else { (k, v) })
+                .collect();
+            self.write_names_tree(entries)?;
+        }
+        // References by name: /Dest of links and bookmarks, /D of GoTo actions.
+        for obj in self.inner.objects.values_mut() {
+            let dict = match obj {
+                Object::Dictionary(d) => d,
+                Object::Stream(s) => &mut s.dict,
+                _ => continue,
+            };
+            for key in [&b"Dest"[..], b"D"] {
+                if let Ok(v) = dict.get_mut(key) {
+                    match v {
+                        Object::String(s, _) | Object::Name(s) if *s == old_k => *s = new_k.clone(),
+                        _ => {}
+                    }
+                }
+            }
+            // Inline actions of links and bookmarks.
+            if let Ok(Object::Dictionary(a)) = dict.get_mut(b"A") {
+                if let Ok(v) = a.get_mut(b"D") {
+                    match v {
+                        Object::String(s, _) | Object::Name(s) if *s == old_k => *s = new_k.clone(),
+                        _ => {}
+                    }
+                }
+            }
+        }
+        self.commit()
     }
 
     fn link_target(&self, d: &Dictionary) -> LinkTarget {

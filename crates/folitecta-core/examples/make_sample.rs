@@ -162,12 +162,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
     )?;
 
+    let mut overview = OutlineItem::new("Overview", Some(0));
+    overview.children = vec![OutlineItem::new("Comments", Some(0))];
     doc.set_outline(&[
-        OutlineItem {
-            title: "Overview".into(),
-            page: Some(0),
-            children: vec![OutlineItem::new("Comments", Some(0))],
-        },
+        overview,
         OutlineItem::new("Watermark", Some(1)),
         OutlineItem::new("Links", Some(2)),
         OutlineItem::new("Rotated page", Some(3)),

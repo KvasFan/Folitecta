@@ -4,7 +4,7 @@ use dioxus::html::input_data::MouseButton;
 use dioxus::html::{InteractionElementOffset, InteractionLocation, ModifiersInteraction, PointerInteraction};
 use dioxus::prelude::*;
 use folitecta_core::commands::PANES;
-use folitecta_core::{Command, OutlineItem, SearchOptions, registry};
+use folitecta_core::{Command, SearchOptions, registry};
 
 use crate::commands::{dispatch, option_on};
 use crate::files;
@@ -236,13 +236,13 @@ pub fn PanePanel() -> Element {
     } else {
         match &pane {
             Pane::Thumbnails => rsx! { ThumbnailsPane {} },
-            Pane::Bookmarks => rsx! { BookmarksPane {} },
+            Pane::Bookmarks => rsx! { crate::ui::bookmarks_pane::BookmarksPane {} },
             Pane::Comments => rsx! { crate::ui::comments_pane::CommentsPane {} },
             Pane::Attachments => rsx! { AttachmentsPane {} },
             Pane::Layers => rsx! { LayersPane {} },
             Pane::Fields => rsx! { FieldsPane {} },
             Pane::Links => rsx! { LinksPane {} },
-            Pane::Destinations => rsx! { DestinationsPane {} },
+            Pane::Destinations => rsx! { crate::ui::bookmarks_pane::DestinationsPane {} },
             Pane::Search => rsx! { SearchPane {} },
             Pane::Signatures => rsx! { SignaturesPane {} },
             Pane::Other(id) => rsx! { PlannedPane { pane_id: id.clone() } },
@@ -411,83 +411,6 @@ fn ThumbnailsPane() -> Element {
     }
 }
 
-// ---- Bookmarks --------------------------------------------------------------------
-
-fn outline_nodes(
-    st: AppState,
-    items: &[OutlineItem],
-    path: Vec<usize>,
-    expanded: &std::collections::HashSet<String>,
-    selected: &Option<Vec<usize>>,
-    selected_sig: Signal<Option<Vec<usize>>>,
-    show_icons: bool,
-) -> Element {
-    let mut selected_sig = selected_sig;
-    rsx! {
-        for (i, item) in items.iter().enumerate() {
-            {
-                let mut p = path.clone();
-                p.push(i);
-                let key = p.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(".");
-                let is_open = expanded.contains("*") || expanded.contains(&key);
-                let has_children = !item.children.is_empty();
-                let depth = p.len() - 1;
-                let is_sel = selected.as_ref() == Some(&p);
-                let p_click = p.clone();
-                let p_dbl = p.clone();
-                let key_t = key.clone();
-                let page = item.page;
-                let title = item.title.clone();
-                let children = item.children.clone();
-                rsx! {
-                    div { key: "{key}",
-                        div { class: if is_sel { "tree-item selected" } else { "tree-item" }, style: "padding-left: {6 + depth * 14}px",
-                            onclick: move |_| { selected_sig.set(Some(p_click.clone())); if let Some(pg) = page { st.go_to_page(pg); } },
-                            ondoubleclick: move |_| st.set_dialog(Dialog::BookmarkRename(p_dbl.clone())),
-                            span { class: "twisty", onclick: move |e| { e.stop_propagation(); st.with_active(|t| { if !t.expanded_bookmarks.remove(&key_t) { t.expanded_bookmarks.insert(key_t.clone()); } t.expanded_bookmarks.remove("*"); }); },
-                                if has_children { if is_open { "▾" } else { "▸" } } else { "" }
-                            }
-                            if show_icons { Icon { name: "bookmark" } }
-                            span { class: "tree-label", "{title}" }
-                            if let Some(pg) = page { span { class: "page-ref", "{pg + 1}" } }
-                        }
-                        if has_children && is_open {
-                            {outline_nodes(st, &children, p.clone(), expanded, selected, selected_sig, show_icons)}
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-fn BookmarksPane() -> Element {
-    let st = use_context::<AppState>();
-    let lang = st.lang();
-    let mut selected: Signal<Option<Vec<usize>>> = use_signal(|| None);
-    let Some((items, expanded)) = st.read_active(|t| (t.doc.outline(), t.expanded_bookmarks.clone())) else {
-        return rsx! {};
-    };
-    let sel = selected();
-    let sel_del = sel.clone();
-    let sel_ren = sel.clone();
-    let show_icons = option_on(st, "bookmarksView.showIcons");
-    let wrap = option_on(st, "bookmarksView.wrapTitles");
-    rsx! {
-        div { class: "pane-toolbar",
-            button { class: "tbtn primary", title: "{t(lang, \"cmd.bookmarksView.new\")}", onclick: move |_| st.set_dialog(Dialog::BookmarkNew), Icon { name: "insert" } "{t(lang, \"cmd.bookmarksView.new\")}" }
-            button { class: "tbtn", disabled: sel.is_none(), onclick: move |_| { if let Some(p) = sel_ren.clone() { st.set_dialog(Dialog::BookmarkRename(p)); } }, "{t(lang, \"cmd.rename\")}" }
-            button { class: "tbtn danger", title: "{t(lang, \"label.delete\")}", disabled: sel.is_none(), onclick: move |_| { if let Some(p) = sel_del.clone() { if let Some(Err(e)) = st.with_active(|t| t.doc.delete_bookmark(&p)) { st.error(e); } selected.set(None); } }, Icon { name: "delete" } }
-            button { class: "tbtn", title: "{t(lang, \"pane.bookmarks.from_pages\")}", onclick: move |_| { if let Some(Err(e)) = st.with_active(|t| t.doc.bookmarks_from_pages()) { st.error(e); } }, "{t(lang, \"pane.bookmarks.from_pages\")}" }
-        }
-        if items.is_empty() {
-            div { class: "pane-empty", "{t(lang, \"label.none\")}" }
-        }
-        div { class: if wrap { "tree wrap" } else { "tree" }, {outline_nodes(st, &items, Vec::new(), &expanded, &sel, selected, show_icons)} }
-    }
-}
-
 // ---- Attachments, layers, fields, links, destinations, signatures ------------------
 
 #[component]
@@ -622,29 +545,6 @@ fn LinksPane() -> Element {
                         },
                         div { class: "title", Icon { name: "link" } "{t(lang, \"status.page\")} {page + 1}" }
                         div { class: "body ellipsis", title: "{desc}", "{desc}" }
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-fn DestinationsPane() -> Element {
-    let st = use_context::<AppState>();
-    let lang = st.lang();
-    let Some(dests) = st.read_active(|t| t.doc.named_destinations()) else {
-        return rsx! {};
-    };
-    rsx! {
-        if dests.is_empty() { div { class: "pane-empty", "{t(lang, \"label.none\")}" } }
-        for d in dests {
-            {
-                let page = d.page;
-                rsx! {
-                    div { class: "tree-item", key: "{d.name}", onclick: move |_| { if let Some(p) = page { st.go_to_page(p); } },
-                        Icon { name: "star" } span { class: "tree-label", "{d.name}" }
-                        if let Some(p) = page { span { class: "page-ref", "{p + 1}" } }
                     }
                 }
             }

@@ -59,7 +59,7 @@ pub use layers::Layer;
 pub use links::{Link, LinkTarget, NamedDestination};
 pub use marks::{MarkPosition, TextMarkOptions};
 pub use markup_tools::{MeasureKind, MeasureScale};
-pub use outline::OutlineItem;
+pub use outline::{BookmarkTarget, DestView, OutlineItem};
 pub use pagetools::{Sides, TRANSITIONS};
 pub use render::{RenderOpts, RenderService, RenderedPage, Renderer};
 pub use scripts::ScriptInfo;

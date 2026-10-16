@@ -604,6 +604,7 @@ fn PageView(
         selected: Option<usize>,
         widgets: Vec<(folitecta_core::PageWidget, [f32; 4])>,
         popups: Vec<PopupView>,
+        flash: Option<[f32; 4]>,
     }
     let Some(view) = st
         .read_active(|t| {
@@ -712,6 +713,7 @@ fn PageView(
                 selected,
                 widgets,
                 popups,
+                flash: t.flash.filter(|(p, _)| *p == page).map(|(_, r)| r),
             })
         })
         .flatten()
@@ -1307,6 +1309,9 @@ fn PageView(
                             }
                         }
                     }
+                }
+                if let Some(r) = view.flash {
+                    div { class: "dest-flash", style: "{css(r)}" }
                 }
                 for pv in view.popups.iter().cloned() {
                     PopupNote { key: "pn{pv.index}", page, view: pv, zoom: z, size, view_rotation, area_w: inner_w, area_h: inner_h }

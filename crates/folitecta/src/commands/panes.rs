@@ -1,9 +1,9 @@
 //! Pane commands: bookmarks, attachments, layers, thumbnails and search options.
 
-use super::{doc_dialog, handlers, no_doc};
+use super::{handlers, no_doc};
 use crate::files;
 use crate::i18n::tf;
-use crate::state::{AppState, Dialog, DocTab, ToastKind};
+use crate::state::{AppState, DocTab, ToastKind};
 use dioxus::prelude::ReadableExt;
 
 fn select_pages_where(st: AppState, pred: impl Fn(&DocTab, usize) -> bool) {
@@ -50,10 +50,6 @@ fn thumbs_zoom(st: AppState, factor: f32) {
 }
 
 handlers! {
-    "addBookmark" => |st| doc_dialog(st, Dialog::BookmarkNew),
-    "bookmarksView.new" => |st| doc_dialog(st, Dialog::BookmarkNew),
-    "bookmarksView.expandAll" => |st| { st.with_active(|t| { t.expanded_bookmarks.insert("*".into()); }); },
-    "bookmarksView.collapseAll" => |st| { st.with_active(|t| t.expanded_bookmarks.clear()); },
     "attachmentsView.new" => |st| { if !no_doc(st) { files::add_attachment(st) } },
     "layersView.showSelected" => |st| super::doc_op(st, |t| t.doc.set_all_layers_visible(true)),
     "layersView.hideSelected" => |st| super::doc_op(st, |t| t.doc.set_all_layers_visible(false)),

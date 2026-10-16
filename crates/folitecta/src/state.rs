@@ -462,10 +462,33 @@ pub struct DocTab {
     pub comment_filter: CommentFilter,
     /// Bumped when the displayed pages change without a new revision (filters).
     pub view_gen: u64,
+    /// Selected bookmark in the bookmarks pane.
+    pub selected_bookmark: Option<Vec<usize>>,
+    /// Selected named destination.
+    pub selected_dest: Option<String>,
+    /// Briefly highlighted area of a page (display points), e.g. a destination.
+    pub flash: Option<(usize, [f32; 4])>,
 }
 
 impl DocTab {
     pub fn new(id: u64, doc: Document) -> Self {
+        // Bookmarks saved as open start expanded.
+        fn open_keys(
+            items: &[folitecta_core::OutlineItem],
+            prefix: &mut Vec<usize>,
+            out: &mut HashSet<String>,
+        ) {
+            for (i, item) in items.iter().enumerate() {
+                prefix.push(i);
+                if item.open && !item.children.is_empty() {
+                    out.insert(prefix.iter().map(|x| x.to_string()).collect::<Vec<_>>().join("."));
+                }
+                open_keys(&item.children, prefix, out);
+                prefix.pop();
+            }
+        }
+        let mut expanded = HashSet::new();
+        open_keys(&doc.outline(), &mut Vec::new(), &mut expanded);
         let render = Arc::new(RenderService::new(doc.bytes()));
         let page_sizes = doc.page_sizes();
         let revision = doc.revision();
@@ -480,7 +503,7 @@ impl DocTab {
             selected_pages: Vec::new(),
             selected_annot: None,
             search: SearchState::default(),
-            expanded_bookmarks: HashSet::new(),
+            expanded_bookmarks: expanded,
             page_sizes,
             revision,
             highlight_fields: false,
@@ -490,6 +513,9 @@ impl DocTab {
             history_pos: 0,
             comment_filter: CommentFilter::default(),
             view_gen: 0,
+            selected_bookmark: None,
+            selected_dest: None,
+            flash: None,
         }
     }
 
@@ -619,6 +645,8 @@ pub enum ConfirmAction {
     Revert,
     ApplyRedactions(Option<usize>),
     RemoveScripts,
+    /// Delete these pages.
+    DeletePages(Vec<usize>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -688,7 +716,6 @@ pub enum Dialog {
         name: String,
         value: String,
     },
-    BookmarkNew,
     BookmarkRename(Vec<usize>),
     AnnotationText {
         page: usize,
@@ -756,6 +783,14 @@ pub enum Dialog {
     CommentFilter,
     /// Options of the comments pane.
     CommentsViewOptions,
+    /// Name and target of a named destination.
+    NamedDestEdit(String),
+    /// Options of the bookmarks and destinations panes.
+    BookmarkOptions,
+    /// Import and export of bookmarks.
+    BookmarkImportExport,
+    /// Target, colour and style of a bookmark.
+    BookmarkProps(Vec<usize>),
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.
@@ -1063,6 +1098,65 @@ impl AppState {
     /// Navigate the active document to a page and scroll it into view.
     pub fn go_to_page(&self, page: usize) {
         self.navigate(page, true);
+    }
+
+    /// Show a destination: apply its zoom, scroll its top to the top of the
+    /// window and briefly highlight the target area.
+    pub fn go_to_dest(&self, page: usize, view: Option<folitecta_core::DestView>) {
+        use folitecta_core::DestView;
+        let Some(size) = self.read_active(|t| t.page_sizes.get(page).copied()).flatten() else {
+            return;
+        };
+        let (cw, ch) = *self.canvas_size.peek();
+        match &view {
+            Some(DestView::Fit) => {
+                self.with_active(|t| t.zoom = Zoom::FitPage);
+            }
+            Some(DestView::FitWidth(_)) => {
+                self.with_active(|t| t.zoom = Zoom::FitWidth);
+            }
+            Some(DestView::Xyz { zoom: Some(z), .. }) => {
+                let z = z.clamp(0.1, 8.0);
+                self.with_active(|t| t.zoom = Zoom::Fixed(z));
+            }
+            Some(DestView::Rect(r)) => {
+                let (w, h) = ((r[2] - r[0]).abs().max(10.0), (r[3] - r[1]).abs().max(10.0));
+                let z = ((cw as f32 - 56.0) / w)
+                    .min((ch as f32 - 70.0) / h)
+                    .clamp(0.1, 8.0);
+                self.with_active(|t| t.zoom = Zoom::Fixed(z));
+            }
+            _ => {}
+        }
+        self.navigate(page, true);
+        let c = size.crop_box;
+        let band = match &view {
+            Some(DestView::Xyz { top: Some(top), .. }) | Some(DestView::FitWidth(Some(top))) => {
+                Some([c[0], top - 28.0, c[2], *top])
+            }
+            Some(DestView::Rect(r)) => Some(*r),
+            _ => None,
+        };
+        let Some(band) = band else { return };
+        let display = folitecta_core::marks::pdf_rect_to_display(&size, band);
+        self.with_active(|t| t.flash = Some((page, display)));
+        let st = *self;
+        spawn(async move {
+            // Let the new zoom lay the pages out before scrolling inside the page.
+            tokio::time::sleep(std::time::Duration::from_millis(160)).await;
+            let zoom = crate::commands::current_zoom(st);
+            let y = (display[1] * zoom - 16.0).max(0.0);
+            let js = format!(
+                "const el = document.getElementById('pg-{page}'); const c = document.getElementById('canvas'); if (el && c) {{ c.scrollTop += el.getBoundingClientRect().top - c.getBoundingClientRect().top + {y}; }}"
+            );
+            let _ = document::eval(&js).await;
+            tokio::time::sleep(std::time::Duration::from_millis(1600)).await;
+            st.with_active(|t| {
+                if t.flash.map(|(p, _)| p) == Some(page) {
+                    t.flash = None;
+                }
+            });
+        });
     }
 
     /// Show `page`; `record` adds the jump to the previous/next view history.

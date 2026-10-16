@@ -209,9 +209,4 @@ handlers! {
     "pagemarks.removeAll" => |st| doc_dialog(st, Dialog::RemoveMarks),
     "pagemarks.add" => |st| doc_dialog(st, Dialog::PageNumbers),
     "document.wordCount" => |st| { if !no_doc(st) { let (words, chars) = st.read_active(|t| t.doc.word_count()).unwrap_or((0, 0)); st.set_dialog(Dialog::WordCount { words, chars }); } },
-    "document.exportBookmarks" => |st| {
-        if no_doc(st) { return; }
-        let text = st.read_active(|t| t.doc.outline_flat().into_iter().map(|(d, title, page)| format!("{}{}\t{}", "  ".repeat(d), title, page.map(|p| (p + 1).to_string()).unwrap_or_default())).collect::<Vec<_>>().join("\n")).unwrap_or_default();
-        files::save_text_file(st, "bookmarks.txt", text);
-    },
 }

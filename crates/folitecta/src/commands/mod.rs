@@ -6,6 +6,7 @@
 //! all derive from them.
 
 use dioxus::prelude::ReadableExt;
+pub(crate) mod bookmarks;
 mod comments;
 mod convert;
 mod edit;
@@ -51,6 +52,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     format::HANDLERS,
     protect::HANDLERS,
     review::HANDLERS,
+    bookmarks::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -76,6 +78,24 @@ pub const PARTIAL: &[&str] = &[
 
 /// View options toggled by command id; their state lives in the preferences.
 pub const VIEW_OPTIONS: &[&str] = &[
+    "bookmarksView.autoExpandBookmarks",
+    "bookmarksView.ensureVisibility",
+    "bookmarksView.markInvalid",
+    "bookmarksView.showContrastText",
+    "bookmarksView.useCurrentPage",
+    "bookmarksView.useInheritedZoom",
+    "bookmarksView.useRegionForDest",
+    "bookmarksView.useTextForTitle",
+    "pdfNamedDestsView.ensureVisibility",
+    "pdfNamedDestsView.useCurrentPage",
+    "pdfNamedDestsView.useInheritedZoom",
+    "pdfNamedDestsView.useRegionForDest",
+    "pdfNamedDestsView.useTextForTitle",
+    "pdfNamedDestsView.wrapTitles",
+    "pdfNamedDestsView.hdr.details",
+    "pdfNamedDestsView.hdr.name",
+    "pdfNamedDestsView.hdr.page",
+    "pdfNamedDestsView.hdr.type",
     "commentsView.show.subjects",
     "commentsView.show.states",
     "commentsView.show.text",
@@ -118,6 +138,19 @@ pub const VIEW_OPTIONS: &[&str] = &[
 
 /// Options that are on unless the user turned them off.
 pub const DEFAULT_ON: &[&str] = &[
+    "bookmarksView.autoExpandBookmarks",
+    "bookmarksView.ensureVisibility",
+    "bookmarksView.markInvalid",
+    "bookmarksView.showContrastText",
+    "bookmarksView.useCurrentPage",
+    "bookmarksView.useInheritedZoom",
+    "bookmarksView.useTextForTitle",
+    "pdfNamedDestsView.ensureVisibility",
+    "pdfNamedDestsView.useCurrentPage",
+    "pdfNamedDestsView.useInheritedZoom",
+    "pdfNamedDestsView.hdr.name",
+    "pdfNamedDestsView.hdr.page",
+    "pdfNamedDestsView.hdr.type",
     "bookmarksView.showIcons",
     "commentsView.show.states",
     "commentsView.show.text",
@@ -149,6 +182,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .contains(&id)
         .then(|| option_on(st, id))
         .or_else(|| review::review_state(st, id))
+        .or_else(|| bookmarks::bookmark_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

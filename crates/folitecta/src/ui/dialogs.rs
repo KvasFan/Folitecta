@@ -212,7 +212,6 @@ pub fn Dialogs() -> Element {
         Dialog::FieldValue { id, name, value } => {
             rsx! { FieldValue { id_num: id.0, id_gen: id.1, name, value } }
         }
-        Dialog::BookmarkNew => rsx! { BookmarkNew {} },
         Dialog::BookmarkRename(path) => rsx! { BookmarkRename { path } },
         Dialog::AnnotationText {
             page,
@@ -247,6 +246,264 @@ pub fn Dialogs() -> Element {
         Dialog::ReviewHistory { page, index } => rsx! { ReviewHistoryDialog { page, index } },
         Dialog::CommentFilter => rsx! { CommentFilterDialog {} },
         Dialog::CommentsViewOptions => rsx! { CommentsViewOptionsDialog {} },
+        Dialog::NamedDestEdit(name) => rsx! { NamedDestEditDialog { name } },
+        Dialog::BookmarkOptions => rsx! { BookmarkOptionsDialog {} },
+        Dialog::BookmarkImportExport => rsx! { BookmarkImportExportDialog {} },
+        Dialog::BookmarkProps(path) => rsx! { BookmarkPropsDialog { path } },
+    }
+}
+
+#[component]
+fn NamedDestEditDialog(name: String) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let dest = st
+        .read_active(|t| t.doc.named_destinations().into_iter().find(|d| d.name == name))
+        .flatten();
+    let Some(dest) = dest else {
+        return rsx! {};
+    };
+    let original_page = dest.page;
+    let new_name = use_signal(|| dest.name.clone());
+    let page_s = use_signal(|| dest.page.map(|p| (p + 1).to_string()).unwrap_or_default());
+    let old = name.clone();
+    let count = st.page_count();
+    let view_text = dest
+        .view
+        .as_ref()
+        .map(|v| v.describe())
+        .unwrap_or_else(|| "—".into());
+    rsx! {
+        Frame { title: t(lang, "cmd.pdfNamedDestsView.edit"),
+            on_ok: move |_| {
+                let n = new_name().trim().to_string();
+                let page: Option<usize> = page_s().trim().parse::<usize>().ok().filter(|p| *p >= 1 && *p <= count).map(|p| p - 1);
+                let old = old.clone();
+                let r = st.with_active(|t| -> folitecta_core::Result<()> {
+                    if n != old {
+                        t.doc.rename_named_destination(&old, &n)?;
+                    }
+                    if let Some(p) = page.filter(|p| Some(*p) != original_page) {
+                        t.doc.set_named_destination(&n, p, None)?;
+                    }
+                    Ok(())
+                });
+                st.with_active(|t| t.selected_dest = Some(n.clone()));
+                match r {
+                    Some(Err(e)) => st.error(e),
+                    _ => {
+                        files::set_window_title(st);
+                        st.set_dialog(Dialog::None);
+                    }
+                }
+            },
+            Text { label: t(lang, "dialog.dest.name"), value: new_name, autofocus: true }
+            Num { label: t(lang, "status.page"), value: page_s, min: "1", max: "{count}" }
+            div { class: "kv", span { class: "k", "{t(lang, \"dialog.dest.view\")}" } span { class: "v", "{view_text}" } }
+        }
+    }
+}
+
+#[component]
+fn BookmarkOptionsDialog() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let reg = registry();
+    let groups: [(&str, &[&str]); 3] = [
+        (
+            "dialog.bookmarks.create",
+            &[
+                "bookmarksView.useTextForTitle",
+                "bookmarksView.useCurrentPage",
+                "bookmarksView.useInheritedZoom",
+                "bookmarksView.useRegionForDest",
+            ],
+        ),
+        (
+            "dialog.bookmarks.view",
+            &[
+                "bookmarksView.showIcons",
+                "bookmarksView.wrapTitles",
+                "bookmarksView.showContrastText",
+                "bookmarksView.markInvalid",
+                "bookmarksView.autoExpandBookmarks",
+                "bookmarksView.ensureVisibility",
+            ],
+        ),
+        (
+            "dialog.bookmarks.dests",
+            &[
+                "pdfNamedDestsView.useTextForTitle",
+                "pdfNamedDestsView.useInheritedZoom",
+                "pdfNamedDestsView.useRegionForDest",
+                "pdfNamedDestsView.wrapTitles",
+                "pdfNamedDestsView.hdr.page",
+                "pdfNamedDestsView.hdr.type",
+                "pdfNamedDestsView.hdr.details",
+            ],
+        ),
+    ];
+    let size = st
+        .ui
+        .read()
+        .value("bookmarks.text_size")
+        .unwrap_or("medium")
+        .to_string();
+    rsx! {
+        Frame { title: t(lang, "cmd.bookmarksView.options").trim_end_matches('…').to_string(), wide: true,
+            div { class: "field-grid",
+                for (title, ids) in groups {
+                    div { class: "field", key: "{title}",
+                        label { "{t(lang, title)}" }
+                        div { class: "check-list",
+                            for id in ids.iter().copied() {
+                                {
+                                    let on = option_on(st, id);
+                                    let label = reg.get(id).map(|c| cmd_label(lang, c)).unwrap_or_else(|| id.to_string());
+                                    rsx! { label { class: "check", key: "{id}", input { r#type: "checkbox", checked: on, onchange: move |_| st.set_option(id, !on) } span { "{label}" } } }
+                                }
+                            }
+                        }
+                    }
+                }
+                div { class: "field",
+                    label { "{t(lang, \"cmd.bookmarksView.textSize\")}" }
+                    select { onchange: move |e| st.set_value("bookmarks.text_size", e.value()),
+                        for (v, key) in [("small", "cmd.bookmarksView.textSize.small"), ("medium", "cmd.bookmarksView.textSize.medium"), ("large", "cmd.bookmarksView.textSize.large")] {
+                            option { key: "{v}", value: "{v}", selected: size == v, "{t(lang, key)}" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn BookmarkImportExportDialog() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let has_sel = crate::commands::bookmarks::selected_path(st).is_some();
+    let run = move |id: &'static str| {
+        move |_| {
+            st.set_dialog(Dialog::None);
+            crate::commands::dispatch(st, id);
+        }
+    };
+    let copy = move |_| {
+        let text = st
+            .read_active(|t| t.doc.export_bookmarks_text(None))
+            .unwrap_or_default();
+        crate::clipboard::set_text(&text);
+        st.set_dialog(Dialog::None);
+        st.toast(ToastKind::Ok, t(st.lang(), "toast.copied"), "");
+    };
+    rsx! {
+        Frame { title: t(lang, "cmd.bookmarksView.importExport"),
+            div { class: "hint", "{t(lang, \"dialog.bookmarks.format\")}" }
+            div { class: "button-col",
+                button { class: "tbtn", onclick: run("document.exportBookmarks"), Icon { name: "export" } "{t(lang, \"cmd.document.exportBookmarks\")}" }
+                button { class: "tbtn", disabled: !has_sel, onclick: run("document.exportSelBookmarks"), Icon { name: "export" } "{t(lang, \"cmd.document.exportSelBookmarks\")}" }
+                button { class: "tbtn", onclick: run("document.importBookmarks"), Icon { name: "import" } "{t(lang, \"cmd.document.importBookmarks\")}" }
+                button { class: "tbtn", onclick: copy, Icon { name: "copy" } "{t(lang, \"dialog.bookmarks.copy\")}" }
+                button { class: "tbtn", onclick: run("pasteBookmarks"), Icon { name: "clipboard" } "{t(lang, \"cmd.pasteBookmarks\")}" }
+            }
+        }
+    }
+}
+
+#[component]
+fn BookmarkPropsDialog(path: Vec<usize>) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let item = st
+        .read_active(|t| folitecta_core::outline::item_at(&t.doc.outline(), &path).cloned())
+        .flatten();
+    let Some(item) = item else {
+        return rsx! {};
+    };
+    let count = st.page_count();
+    let title = use_signal(|| item.title.clone());
+    let mut kind = use_signal(|| {
+        if item.page.is_none() && !item.action.is_empty() {
+            "uri".to_string()
+        } else {
+            "page".to_string()
+        }
+    });
+    let page_s = use_signal(|| {
+        item.page
+            .map(|p| (p + 1).to_string())
+            .unwrap_or_else(|| "1".into())
+    });
+    let uri = use_signal(|| item.action.clone());
+    let mut view = use_signal(|| "keep".to_string());
+    let mut color = use_signal(|| {
+        item.color
+            .map(crate::util::color_hex)
+            .unwrap_or_else(|| "#000000".into())
+    });
+    let mut has_color = use_signal(|| item.color.is_some());
+    let mut bold = use_signal(|| item.bold);
+    let mut italic = use_signal(|| item.italic);
+    let original_page = item.page;
+    let original_uri = item.action.clone();
+    let p = path.clone();
+    rsx! {
+        Frame { title: t(lang, "dialog.bookmark.props"), wide: true,
+            on_ok: move |_| {
+                use folitecta_core::{BookmarkTarget, DestView};
+                let page: Option<usize> = page_s().trim().parse::<usize>().ok().filter(|v| *v >= 1 && *v <= count).map(|v| v - 1);
+                let target = if kind() == "uri" {
+                    if uri().trim() == original_uri.trim() { BookmarkTarget::Keep } else { BookmarkTarget::Uri(uri()) }
+                } else {
+                    match (page, view().as_str()) {
+                        (Some(pg), "keep") if Some(pg) == original_page => BookmarkTarget::Keep,
+                        (Some(pg), "fit") => BookmarkTarget::Page(pg, Some(DestView::Fit)),
+                        (Some(pg), "width") => BookmarkTarget::Page(pg, Some(DestView::FitWidth(None))),
+                        (Some(pg), _) => BookmarkTarget::Page(pg, None),
+                        (None, _) => BookmarkTarget::Keep,
+                    }
+                };
+                let c = has_color().then(|| parse_color(&color()));
+                let (ti, b, i, pp) = (title(), bold(), italic(), p.clone());
+                apply(st, move |tab| tab.doc.set_bookmark_properties(&pp, &ti, target, c, b, i));
+                st.with_active(|t| t.selected_bookmark = Some(p.clone()));
+            },
+            Text { label: t(lang, "dialog.bookmark.name"), value: title, autofocus: true }
+            div { class: "field",
+                label { "{t(lang, \"dialog.bookmark.target\")}" }
+                div { class: "radio-row",
+                    label { input { r#type: "radio", name: "bm-kind", checked: kind() == "page", onchange: move |_| kind.set("page".into()) } "{t(lang, \"status.page\")}" }
+                    label { input { r#type: "radio", name: "bm-kind", checked: kind() == "uri", onchange: move |_| kind.set("uri".into()) } "{t(lang, \"dialog.bookmark.web\")}" }
+                }
+            }
+            if kind() == "uri" {
+                Text { label: t(lang, "dialog.link.url"), value: uri, placeholder: "https://" }
+            } else {
+                div { class: "field-grid",
+                    Num { label: t(lang, "status.page"), value: page_s, min: "1", max: "{count}" }
+                    div { class: "field",
+                        label { "{t(lang, \"dialog.dest.view\")}" }
+                        select { onchange: move |e| view.set(e.value()),
+                            option { value: "keep", selected: view() == "keep", "{t(lang, \"dialog.bookmark.view_keep\")}" }
+                            option { value: "top", selected: view() == "top", "{t(lang, \"dialog.bookmark.view_top\")}" }
+                            option { value: "fit", selected: view() == "fit", "{t(lang, \"cmd.zoom.fitPage\")}" }
+                            option { value: "width", selected: view() == "width", "{t(lang, \"cmd.zoom.fitWidth\")}" }
+                        }
+                    }
+                }
+            }
+            div { class: "style-row",
+                label { "{t(lang, \"style.text_color\")}" }
+                input { r#type: "color", value: "{color}", disabled: !has_color(), onchange: move |e| color.set(e.value()) }
+                label { class: "check mini", input { r#type: "checkbox", checked: !has_color(), onchange: move |_| has_color.set(!has_color()) } span { "{t(lang, \"style.none\")}" } }
+            }
+            div { class: "check-row",
+                label { class: "check mini", input { r#type: "checkbox", checked: bold(), onchange: move |_| bold.set(!bold()) } span { "{t(lang, \"cmd.bookmarks.bold\")}" } }
+                label { class: "check mini", input { r#type: "checkbox", checked: italic(), onchange: move |_| italic.set(!italic()) } span { "{t(lang, \"cmd.bookmarks.italic\")}" } }
+            }
+        }
     }
 }
 
@@ -1339,6 +1596,10 @@ fn Confirm(title: String, body: String, action: ConfirmAction) -> Element {
                         apply_count(st, "toast.redactions_applied", |tab| tab.doc.apply_redactions(pages.as_deref()));
                     }
                     ConfirmAction::RemoveScripts => apply_count(st, "toast.scripts_removed", |tab| tab.doc.remove_scripts()),
+                    ConfirmAction::DeletePages(pages) => {
+                        st.with_active(|t| t.selected_pages.clear());
+                        apply(st, move |tab| tab.doc.delete_pages(&pages));
+                    }
                 }
             },
             p { "{body}" }
@@ -1510,22 +1771,6 @@ fn FieldValue(id_num: u32, id_gen: u16, name: String, value: String) -> Element 
         Frame { title: format!("{} — {}", t(lang, "dialog.field.title"), name),
             on_ok: move |_| { let val = v(); apply(st, |tab| tab.doc.set_field_value((id_num, id_gen), &val)); },
             Text { label: name.clone(), value: v, autofocus: true }
-        }
-    }
-}
-
-#[component]
-fn BookmarkNew() -> Element {
-    let st = use_context::<AppState>();
-    let lang = st.lang();
-    let page = st.current_page();
-    let title = use_signal(|| format!("Page {}", page + 1));
-    let page_s = use_signal(|| (page + 1).to_string());
-    rsx! {
-        Frame { title: t(lang, "dialog.bookmark.title"),
-            on_ok: move |_| { let ti = title(); let p: usize = page_s().trim().parse::<usize>().unwrap_or(page + 1).saturating_sub(1); apply(st, |tab| tab.doc.add_bookmark(&ti, p, &[])); },
-            Text { label: t(lang, "dialog.bookmark.name"), value: title, autofocus: true }
-            Num { label: t(lang, "status.page"), value: page_s, min: "1" }
         }
     }
 }

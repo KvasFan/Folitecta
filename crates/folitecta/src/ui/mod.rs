@@ -1,3 +1,4 @@
+pub mod bookmarks_pane;
 pub mod canvas;
 pub mod comments_pane;
 pub mod dialogs;

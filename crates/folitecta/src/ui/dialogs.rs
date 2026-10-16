@@ -1,16 +1,21 @@
 //! Modal dialogs.
 
+use std::rc::Rc;
+
 use dioxus::prelude::*;
 use folitecta_core::commands::{MENUS, RIBBON_GROUPS, RIBBON_TABS};
 use folitecta_core::marks::{MarkPosition, TextMarkOptions};
-use folitecta_core::{ImageFormat, registry};
+use folitecta_core::{
+    Document, FlattenScope, ImageFormat, STAMP_PRESETS, SecurityPermissions, TRANSITIONS, registry,
+};
 
 use crate::app::icon_data_url;
-use crate::commands::{implemented_ids, is_implemented, is_partial, partial_ids};
+use crate::commands::{implemented_ids, is_implemented, is_partial, option_on, partial_ids};
 use crate::files;
 use crate::i18n::{Lang, cmd_label, t, tf};
-use crate::state::{AppState, ConfirmAction, Dialog, Theme, ToastKind, Zoom};
-use crate::util::{color_hex, format_pages, parse_color, parse_page_range};
+use crate::icons::Icon;
+use crate::state::{AppState, ConfirmAction, Dialog, Guide, Theme, ToastKind, Tool, Zoom};
+use crate::util::{format_pages, parse_color, parse_page_range};
 
 #[component]
 fn Frame(
@@ -200,7 +205,9 @@ pub fn Dialogs() -> Element {
         Dialog::Unsaved { tab, then } => rsx! { Unsaved { tab, then } },
         Dialog::Password(path) => rsx! { Password { path: path.display().to_string() } },
         Dialog::Note { page, x, y } => rsx! { NoteDialog { page, x, y } },
-        Dialog::TextBox { page, rect } => rsx! { TextBoxDialog { page, rect: rect.to_vec() } },
+        Dialog::TextBox { page, rect, border } => {
+            rsx! { TextBoxDialog { page, rect: rect.to_vec(), border } }
+        }
         Dialog::Link { page, rect } => rsx! { LinkDialog { page, rect: rect.to_vec() } },
         Dialog::FieldValue { id, name, value } => {
             rsx! { FieldValue { id_num: id.0, id_gen: id.1, name, value } }
@@ -213,8 +220,21 @@ pub fn Dialogs() -> Element {
             contents,
         } => rsx! { AnnotationText { page, index, contents } },
         Dialog::WordCount { words, chars } => rsx! { WordCount { words, chars } },
-        Dialog::UrlReport(urls) => rsx! { UrlReport { urls } },
         Dialog::Summary(text) => rsx! { Summary { text } },
+        Dialog::NewBlank => rsx! { NewBlank {} },
+        Dialog::PasteSpecial => rsx! { PasteSpecial {} },
+        Dialog::Rasterize => rsx! { Rasterize {} },
+        Dialog::StampPicker => rsx! { StampPicker {} },
+        Dialog::Security => rsx! { Security {} },
+        Dialog::Scripts => rsx! { Scripts {} },
+        Dialog::Flatten => rsx! { Flatten {} },
+        Dialog::AddGuides => rsx! { AddGuides {} },
+        Dialog::SplitTiles => rsx! { SplitTiles {} },
+        Dialog::Background => rsx! { Background {} },
+        Dialog::PageLabels => rsx! { PageLabels {} },
+        Dialog::Transitions => rsx! { Transitions {} },
+        Dialog::ReplacePages(path) => rsx! { ReplacePages { path: path.display().to_string() } },
+        Dialog::OverlayFile(path) => rsx! { OverlayFile { path: path.display().to_string() } },
     }
 }
 
@@ -264,8 +284,27 @@ fn Shortcuts() -> Element {
     rows.sort();
     rsx! {
         Frame { title: t(lang, "dialog.shortcuts.title"),
-            div { class: "matrix", table { thead { tr { th { "Shortcut" } th { "Command" } } } tbody { for (k, v) in rows { tr { key: "{k}", td { class: "mono", "{k}" } td { "{v}" } } } } } }
+            div { class: "matrix", table { thead { tr { th { "{t(lang, \"dialog.shortcuts.key\")}" } th { "{t(lang, \"dialog.shortcuts.command\")}" } } } tbody { for (k, v) in rows { tr { key: "{k}", td { class: "mono", "{k}" } td { "{v}" } } } } } }
         }
+    }
+}
+
+/// Localized name of a mark position.
+fn pos_label(lang: Lang, p: MarkPosition) -> String {
+    t(
+        lang,
+        &format!("pos.{}", p.label().to_lowercase().replace(' ', "_")),
+    )
+}
+
+/// Localized status badge for the feature matrix.
+fn matrix_badge(lang: Lang, id: &str) -> Element {
+    if is_partial(id) {
+        rsx! { span { class: "badge partial", "{t(lang, \"label.partial\").to_lowercase()}" } }
+    } else if is_implemented(id) {
+        rsx! { span { class: "badge ok", "{t(lang, \"label.available\")}" } }
+    } else {
+        rsx! { span { class: "badge planned", "{t(lang, \"label.planned\").to_lowercase()}" } }
     }
 }
 
@@ -285,7 +324,7 @@ fn Matrix() -> Element {
             }
             div { class: "matrix",
                 table {
-                    thead { tr { th { "Tab / Group" } th { "Command" } th { "Status" } } }
+                    thead { tr { th { "{t(lang, \"dialog.matrix.location\")}" } th { "{t(lang, \"dialog.shortcuts.command\")}" } th { "{t(lang, \"dialog.matrix.status\")}" } } }
                     tbody {
                         for (tab, tab_label) in RIBBON_TABS.iter() {
                             for (_, g, g_label) in RIBBON_GROUPS.iter().filter(|(t, _, _)| t == tab) {
@@ -293,7 +332,7 @@ fn Matrix() -> Element {
                                     tr { key: "{c.id}",
                                         td { "{tab_label} › {g_label}" }
                                         td { "{c.label}" }
-                                        td { if is_partial(&c.id) { span { class: "badge partial", "partial" } } else if is_implemented(&c.id) { span { class: "badge ok", "available" } } else { span { class: "badge planned", "planned" } } }
+                                        td { {matrix_badge(lang, &c.id)} }
                                     }
                                 }
                             }
@@ -303,7 +342,7 @@ fn Matrix() -> Element {
                                 tr { key: "m-{c.id}",
                                     td { "{menu_label}" }
                                     td { "{c.label}" }
-                                    td { if is_partial(&c.id) { span { class: "badge partial", "partial" } } else if is_implemented(&c.id) { span { class: "badge ok", "available" } } else { span { class: "badge planned", "planned" } } }
+                                    td { {matrix_badge(lang, &c.id)} }
                                 }
                             }
                         }
@@ -543,11 +582,11 @@ fn CropPages() -> Element {
             div { class: "hint", "{t(lang, \"dialog.crop.margins\")}" }
             div { class: "field-grid",
                 Num { label: t(lang, "dialog.hf.left"), value: left, min: "0", step: "1" }
-                Num { label: "Top".to_string(), value: top, min: "0", step: "1" }
+                Num { label: t(lang, "dialog.margin.top"), value: top, min: "0", step: "1" }
                 Num { label: t(lang, "dialog.hf.right"), value: right, min: "0", step: "1" }
-                Num { label: "Bottom".to_string(), value: bottom, min: "0", step: "1" }
+                Num { label: t(lang, "dialog.margin.bottom"), value: bottom, min: "0", step: "1" }
             }
-            label { class: "check", input { r#type: "checkbox", checked: reset(), onchange: move |_| reset.set(!reset()) } span { "{t(lang, \"cmd.cropPage.hideAllBoxes\").replace(\"Hide All Boxes\", \"Remove existing crop\")}" } }
+            label { class: "check", input { r#type: "checkbox", checked: reset(), onchange: move |_| reset.set(!reset()) } span { "{t(lang, \"dialog.crop.reset\")}" } }
             PageScope { mode, range }
         }
     }
@@ -569,10 +608,10 @@ fn ResizePages() -> Element {
                 Err(e) => st.error(e),
             },
             div { class: "field-grid",
-                Num { label: "Width (pt)".to_string(), value: width, min: "10", step: "1" }
-                Num { label: "Height (pt)".to_string(), value: height, min: "10", step: "1" }
+                Num { label: t(lang, "dialog.size.width"), value: width, min: "10", step: "1" }
+                Num { label: t(lang, "dialog.size.height"), value: height, min: "10", step: "1" }
             }
-            div { class: "hint", "A4 = 595 × 842 pt · Letter = 612 × 792 pt · A3 = 842 × 1191 pt" }
+            div { class: "hint", "{t(lang, \"dialog.resize.hint\")}" }
             label { class: "check", input { r#type: "checkbox", checked: scale(), onchange: move |_| scale.set(!scale()) } span { "{t(lang, \"dialog.resize.scale\")}" } }
             PageScope { mode, range }
         }
@@ -598,9 +637,9 @@ fn AddMargins() -> Element {
             },
             div { class: "field-grid",
                 Num { label: t(lang, "dialog.hf.left"), value: left, step: "1" }
-                Num { label: "Top".to_string(), value: top, step: "1" }
+                Num { label: t(lang, "dialog.margin.top"), value: top, step: "1" }
                 Num { label: t(lang, "dialog.hf.right"), value: right, step: "1" }
-                Num { label: "Bottom".to_string(), value: bottom, step: "1" }
+                Num { label: t(lang, "dialog.margin.bottom"), value: bottom, step: "1" }
             }
             PageScope { mode, range }
         }
@@ -622,7 +661,7 @@ fn MovePages() -> Element {
                 Err(e) => st.error(e),
             },
             PageScope { mode, range }
-            Num { label: format!("Move before page (1-{})", count + 1), value: to, min: "1", max: (count + 1).to_string() }
+            Num { label: tf(lang, "dialog.move.before", &[("count", &(count + 1).to_string())]), value: to, min: "1", max: (count + 1).to_string() }
         }
     }
 }
@@ -636,7 +675,7 @@ fn SwapPages() -> Element {
     rsx! {
         Frame { title: cmd_label(lang, registry().get("document.swapPages").unwrap()),
             on_ok: move |_| { let pa: usize = a().trim().parse().unwrap_or(1); let pb: usize = b().trim().parse().unwrap_or(1); apply(st, |tab| tab.doc.swap_pages(pa.saturating_sub(1), pb.saturating_sub(1))); },
-            div { class: "field-grid", Num { label: "Page A".to_string(), value: a, min: "1" } Num { label: "Page B".to_string(), value: b, min: "1" } }
+            div { class: "field-grid", Num { label: t(lang, "dialog.swap.a"), value: a, min: "1" } Num { label: t(lang, "dialog.swap.b"), value: b, min: "1" } }
         }
     }
 }
@@ -679,7 +718,7 @@ fn Watermark() -> Element {
             div { class: "field-grid",
                 div { class: "field", label { "{t(lang, \"dialog.watermark.position\")}" }
                     select { onchange: move |e| position.set(e.value()),
-                        for p in MarkPosition::ALL { option { value: "{p.label()}", selected: p == MarkPosition::Center, "{p.label()}" } }
+                        for p in MarkPosition::ALL { option { value: "{p.label()}", selected: p == MarkPosition::Center, "{pos_label(lang, p)}" } }
                     }
                 }
                 div { class: "field", label { "{t(lang, \"dialog.watermark.color\")}" } input { r#type: "color", value: "{color}", oninput: move |e| color.set(e.value()) } }
@@ -719,7 +758,7 @@ fn HeaderFooter() -> Element {
             div { class: "field-grid three", Text { label: t(lang, "dialog.hf.left"), value: hl } Text { label: t(lang, "dialog.hf.center"), value: hc } Text { label: t(lang, "dialog.hf.right"), value: hr } }
             b { "{t(lang, \"dialog.hf.footer\")}" }
             div { class: "field-grid three", Text { label: t(lang, "dialog.hf.left"), value: fl } Text { label: t(lang, "dialog.hf.center"), value: fc } Text { label: t(lang, "dialog.hf.right"), value: fr } }
-            div { class: "field-grid", Num { label: t(lang, "dialog.watermark.size"), value: size, min: "5", max: "72" } Num { label: "Margin (pt)".to_string(), value: margin, min: "0", max: "200" } }
+            div { class: "field-grid", Num { label: t(lang, "dialog.watermark.size"), value: size, min: "5", max: "72" } Num { label: t(lang, "dialog.margin.pt"), value: margin, min: "0", max: "200" } }
             PageScope { mode, range }
         }
     }
@@ -771,7 +810,7 @@ fn PageNumbers(bates: bool) -> Element {
                 Num { label: t(lang, "dialog.watermark.size"), value: size, min: "5", max: "72" }
                 div { class: "field", label { "{t(lang, \"dialog.watermark.position\")}" }
                     select { onchange: move |e| position.set(e.value()),
-                        for p in MarkPosition::ALL.iter().filter(|p| **p != MarkPosition::Center) { option { value: "{p.label()}", selected: p.label() == position(), "{p.label()}" } }
+                        for p in MarkPosition::ALL.iter().filter(|p| **p != MarkPosition::Center) { option { value: "{p.label()}", selected: p.label() == position(), "{pos_label(lang, *p)}" } }
                     }
                 }
             }
@@ -790,12 +829,19 @@ fn RemoveMarks() -> Element {
     rsx! {
         Frame { title: t(lang, "dialog.removemarks.title"), danger: true,
             on_ok: move |_| match scope_pages(st, mode(), &range()) {
-                Ok(pages) => { let k = kind(); let tag = if k == "all" { None } else { Some(k) }; apply(st, |tab| tab.doc.remove_marks(&pages, tag.as_deref()).map(|_| ())); }
+                Ok(pages) => {
+                    let k = kind();
+                    apply_count(st, "toast.marks_removed", |tab| match k.as_str() {
+                        "all" => tab.doc.remove_marks(&pages, None),
+                        "Overlay" => tab.doc.remove_marks_of(&pages, &["Overlay", "Underlay"]),
+                        other => tab.doc.remove_marks(&pages, Some(other)),
+                    });
+                }
                 Err(e) => st.error(e),
             },
-            div { class: "field", label { "Kind" }
+            div { class: "field", label { "{t(lang, \"dialog.removemarks.kind\")}" }
                 select { onchange: move |e| kind.set(e.value()),
-                    option { value: "all", "All marks" } option { value: "Watermark", "Watermarks" } option { value: "HeaderFooter", "Headers and footers" } option { value: "PageNumber", "Page / Bates numbers" }
+                    option { value: "all", "{t(lang, \"dialog.removemarks.all\")}" } option { value: "Watermark", "{t(lang, \"dialog.removemarks.watermarks\")}" } option { value: "HeaderFooter", "{t(lang, \"dialog.removemarks.hf\")}" } option { value: "PageNumber", "{t(lang, \"dialog.removemarks.numbers\")}" } option { value: "Background", "{t(lang, \"dialog.removemarks.backgrounds\")}" } option { value: "Image", "{t(lang, \"dialog.removemarks.images\")}" } option { value: "Overlay", "{t(lang, \"dialog.removemarks.overlays\")}" }
                 }
             }
             PageScope { mode, range }
@@ -828,10 +874,10 @@ fn ExportImages() -> Element {
             div { class: "field-grid",
                 Num { label: t(lang, "dialog.export.dpi"), value: dpi, min: "36", max: "600" }
                 div { class: "field", label { "{t(lang, \"dialog.export.format\")}" }
-                    select { onchange: move |e| format.set(e.value()), option { value: "png", "PNG" } option { value: "jpg", "JPEG" } option { value: "txt", "Text (.txt)" } }
+                    select { onchange: move |e| format.set(e.value()), option { value: "png", "PNG" } option { value: "jpg", "JPEG" } option { value: "txt", "{t(lang, \"dialog.export.text\")}" } }
                 }
             }
-            label { class: "check", input { r#type: "checkbox", checked: images_only(), onchange: move |_| images_only.set(!images_only()) } span { "Extract embedded images instead of rendering pages" } }
+            label { class: "check", input { r#type: "checkbox", checked: images_only(), onchange: move |_| images_only.set(!images_only()) } span { "{t(lang, \"dialog.export.embedded\")}" } }
             PageScope { mode, range }
         }
     }
@@ -863,10 +909,10 @@ fn MergeFile(path: String) -> Element {
                 st.set_dialog(Dialog::None);
                 files::insert_from_file(st, p.clone(), at);
             },
-            div { class: "kv", span { class: "k", "File" } span { class: "v", "{path}" } }
+            div { class: "kv", span { class: "k", "{t(lang, \"dialog.file\")}" } span { class: "v", "{path}" } }
             div { class: "field", label { "{t(lang, \"dialog.insert.position\")}" }
                 select { onchange: move |e| position.set(e.value()),
-                    option { value: "start", "At the beginning" }
+                    option { value: "start", "{t(lang, \"dialog.insert.start\")}" }
                     option { value: "before", "{t(lang, \"dialog.insert.before\")}" }
                     option { value: "after", selected: true, "{t(lang, \"dialog.insert.after\")}" }
                     option { value: "end", "{t(lang, \"dialog.insert.end\")}" }
@@ -893,9 +939,30 @@ fn NotImplemented(id: String) -> Element {
     rsx! {
         Frame { title: t(lang, "dialog.notimpl.title"),
             div { class: "callout warn", "{body}" }
-            div { class: "kv", span { class: "k", "Command" } span { class: "v mono", "{id}" } span { class: "k", "Location" } span { class: "v", "{path}" } }
+            div { class: "kv", span { class: "k", "{t(lang, \"dialog.notimpl.command\")}" } span { class: "v mono", "{id}" } span { class: "k", "{t(lang, \"dialog.notimpl.location\")}" } span { class: "v", "{path}" } }
             button { class: "tbtn", onclick: move |_| st.set_dialog(Dialog::Matrix), "{t(lang, \"dialog.matrix.title\")}" }
         }
+    }
+}
+
+/// Run an operation that reports a count, close the dialog and show `toast_key`.
+fn apply_count(
+    st: AppState,
+    toast_key: &str,
+    f: impl FnOnce(&mut crate::state::DocTab) -> folitecta_core::Result<usize>,
+) {
+    match st.with_active(f) {
+        Some(Ok(n)) => {
+            files::set_window_title(st);
+            st.set_dialog(Dialog::None);
+            st.toast(
+                ToastKind::Ok,
+                tf(st.lang(), toast_key, &[("count", &n.to_string())]),
+                "",
+            );
+        }
+        Some(Err(e)) => st.error(e),
+        None => st.set_dialog(Dialog::None),
     }
 }
 
@@ -911,6 +978,11 @@ fn Confirm(title: String, body: String, action: ConfirmAction) -> Element {
                     ConfirmAction::RemoveLinks => apply(st, |tab| tab.doc.remove_links(None).map(|_| ())),
                     ConfirmAction::ResetForm => apply(st, |tab| tab.doc.reset_form().map(|_| ())),
                     ConfirmAction::Revert => { st.set_dialog(Dialog::None); files::revert(st); }
+                    ConfirmAction::ApplyRedactions(page) => {
+                        let pages = page.map(|p| vec![p]);
+                        apply_count(st, "toast.redactions_applied", |tab| tab.doc.apply_redactions(pages.as_deref()));
+                    }
+                    ConfirmAction::RemoveScripts => apply_count(st, "toast.scripts_removed", |tab| tab.doc.remove_scripts()),
                 }
             },
             p { "{body}" }
@@ -956,9 +1028,16 @@ fn Password(path: String) -> Element {
         Frame { title: t(lang, "dialog.password.title"),
             on_ok: move |_| { let password = pw(); st.set_dialog(Dialog::None); files::open_path(st, p.clone(), Some(&password)); },
             p { "{t(lang, \"dialog.password.body\")}" }
-            div { class: "kv", span { class: "k", "File" } span { class: "v", "{path}" } }
-            div { class: "field", label { "Password" } input { r#type: "password", autofocus: true, value: "{pw}", oninput: move |e| { let mut s = pw; s.set(e.value()); } } }
+            div { class: "kv", span { class: "k", "{t(lang, \"dialog.file\")}" } span { class: "v", "{path}" } }
+            div { class: "field", label { "{t(lang, \"dialog.password.field\")}" } input { r#type: "password", autofocus: true, value: "{pw}", oninput: move |e| { let mut s = pw; s.set(e.value()); } } }
         }
+    }
+}
+
+/// Return to the hand tool after creating something, unless the user keeps tools selected.
+fn tool_done(st: AppState) {
+    if !option_on(st, "tool.keepSelected") {
+        st.set_tool(Tool::Hand);
     }
 }
 
@@ -968,33 +1047,60 @@ fn NoteDialog(page: usize, x: f32, y: f32) -> Element {
     let lang = st.lang();
     let text = use_signal(String::new);
     let author = use_signal(|| st.ui.read().author.clone());
+    let mut color = use_signal(|| st.ui.read().value("note.color").unwrap_or("#ffd833").to_string());
     rsx! {
         Frame { title: t(lang, "dialog.note.title"),
-            on_ok: move |_| { let (c, a) = (text(), author()); apply(st, |tab| tab.doc.add_note(page, x, y, &c, &a, [1.0, 0.85, 0.2]).map(|_| ())); st.set_tool(crate::state::Tool::Hand); },
-            Area { label: t(lang, "dialog.note.title"), value: text, autofocus: true }
-            Text { label: t(lang, "dialog.note.author"), value: author }
+            on_ok: move |_| {
+                let (c, a, col) = (text(), author(), color());
+                st.set_value("note.color", col.clone());
+                apply(st, |tab| tab.doc.add_note(page, x, y, &c, &a, parse_color(&col)).map(|_| ()));
+                tool_done(st);
+            },
+            Area { label: t(lang, "dialog.note.text"), value: text, autofocus: true }
+            div { class: "field-grid",
+                Text { label: t(lang, "dialog.note.author"), value: author }
+                div { class: "field", label { "{t(lang, \"dialog.watermark.color\")}" } input { r#type: "color", value: "{color}", oninput: move |e| color.set(e.value()) } }
+            }
         }
     }
 }
 
 #[component]
-fn TextBoxDialog(page: usize, rect: Vec<f32>) -> Element {
+fn TextBoxDialog(page: usize, rect: Vec<f32>, border: bool) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
     let text = use_signal(String::new);
-    let size = use_signal(|| "12".to_string());
-    let mut color = use_signal(|| "#1d4ed8".to_string());
-    let mut border = use_signal(|| true);
+    let size = use_signal(|| st.ui.read().value("text.size").unwrap_or("12").to_string());
+    let mut color = use_signal(|| {
+        st.ui
+            .read()
+            .value("text.color")
+            .unwrap_or(if border { "#1d4ed8" } else { "#000000" })
+            .to_string()
+    });
+    let mut with_border = use_signal(|| border);
     let r = [rect[0], rect[1], rect[2], rect[3]];
+    let title = if border {
+        t(lang, "tool.text")
+    } else {
+        t(lang, "tool.typewriter")
+    };
     rsx! {
-        Frame { title: t(lang, "tool.text"),
-            on_ok: move |_| { let (c, fs, col, b) = (text(), size().trim().parse().unwrap_or(12.0), parse_color(&color()), border()); let author = st.ui.read().author.clone(); apply(st, |tab| tab.doc.add_free_text(page, r, &c, &author, fs, col, b).map(|_| ())); st.set_tool(crate::state::Tool::Hand); },
-            Area { label: t(lang, "dialog.note.title"), value: text, autofocus: true }
+        Frame { title,
+            on_ok: move |_| {
+                let (c, fs, col, b) = (text(), num_or(&size, 12.0).clamp(4.0, 200.0), color(), with_border());
+                st.set_value("text.size", fs.to_string());
+                st.set_value("text.color", col.clone());
+                let author = st.ui.read().author.clone();
+                apply(st, |tab| tab.doc.add_free_text(page, r, &c, &author, fs, parse_color(&col), b).map(|_| ()));
+                tool_done(st);
+            },
+            Area { label: t(lang, "dialog.note.text"), value: text, autofocus: true }
             div { class: "field-grid",
-                Num { label: t(lang, "dialog.watermark.size"), value: size, min: "4", max: "120" }
+                Num { label: t(lang, "dialog.watermark.size"), value: size, min: "4", max: "200" }
                 div { class: "field", label { "{t(lang, \"dialog.watermark.color\")}" } input { r#type: "color", value: "{color}", oninput: move |e| color.set(e.value()) } }
             }
-            label { class: "check", input { r#type: "checkbox", checked: border(), onchange: move |_| border.set(!border()) } span { "Border" } }
+            label { class: "check", input { r#type: "checkbox", checked: with_border(), onchange: move |_| with_border.set(!with_border()) } span { "{t(lang, \"dialog.textbox.border\")}" } }
         }
     }
 }
@@ -1004,11 +1110,37 @@ fn LinkDialog(page: usize, rect: Vec<f32>) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
     let url = use_signal(|| "https://".to_string());
+    let target_page = use_signal(|| "1".to_string());
+    let mut kind = use_signal(|| "web".to_string());
+    let count = st.page_count();
     let r = [rect[0], rect[1], rect[2], rect[3]];
     rsx! {
         Frame { title: t(lang, "dialog.link.title"),
-            on_ok: move |_| { let u = url(); apply(st, |tab| tab.doc.add_uri_link(page, r, &u).map(|_| ())); st.set_tool(crate::state::Tool::Hand); },
-            Text { label: t(lang, "dialog.link.url"), value: url, autofocus: true }
+            on_ok: move |_| {
+                if kind() == "page" {
+                    let p = num_or(&target_page, 1.0) as usize;
+                    if p < 1 || p > count {
+                        st.error(tf(st.lang(), "dialog.replace.bad_range", &[("count", &count.to_string())]));
+                        return;
+                    }
+                    apply(st, |tab| tab.doc.add_page_link(page, r, p - 1).map(|_| ()));
+                } else {
+                    let u = url();
+                    apply(st, |tab| tab.doc.add_uri_link(page, r, &u).map(|_| ()));
+                }
+                tool_done(st);
+            },
+            div { class: "field",
+                div { class: "radio-row",
+                    label { input { r#type: "radio", checked: kind() == "web", onchange: move |_| kind.set("web".into()) } "{t(lang, \"dialog.link.web\")}" }
+                    label { input { r#type: "radio", checked: kind() == "page", onchange: move |_| kind.set("page".into()) } "{t(lang, \"dialog.link.page\")}" }
+                }
+            }
+            if kind() == "page" {
+                Num { label: format!("{} (1-{count})", t(lang, "status.page")), value: target_page, min: "1", max: count.to_string() }
+            } else {
+                Text { label: t(lang, "dialog.link.url"), value: url, autofocus: true }
+            }
         }
     }
 }
@@ -1089,20 +1221,7 @@ fn AnnotationText(page: usize, index: usize, contents: String) -> Element {
 fn WordCount(words: usize, chars: usize) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
-    rsx! { Frame { title: t(lang, "cmd.document.wordCount"), div { class: "kv", span { class: "k", "Words" } span { class: "v", "{words}" } span { class: "k", "Characters" } span { class: "v", "{chars}" } } } }
-}
-
-#[component]
-fn UrlReport(urls: Vec<(usize, String)>) -> Element {
-    let st = use_context::<AppState>();
-    let lang = st.lang();
-    rsx! {
-        Frame { title: t(lang, "cmd.createWebLinksFromText"),
-            div { class: "callout", "Addresses found in the page text. Creating clickable link rectangles automatically needs glyph positions, which is planned; use the Web link tool to draw a link over the text meanwhile." }
-            if urls.is_empty() { p { "{t(lang, \"toast.not_found\")}" } }
-            div { class: "matrix", table { tbody { for (p, u) in urls { tr { key: "{p}-{u}", td { "{p + 1}" } td { class: "mono", style: "user-select:text", "{u}" } } } } } }
-        }
-    }
+    rsx! { Frame { title: t(lang, "cmd.document.wordCount"), div { class: "kv", span { class: "k", "{t(lang, \"dialog.wordcount.words\")}" } span { class: "v", "{words}" } span { class: "k", "{t(lang, \"dialog.wordcount.chars\")}" } span { class: "v", "{chars}" } } } }
 }
 
 #[component]
@@ -1113,9 +1232,580 @@ fn Summary(text: String) -> Element {
     rsx! {
         Frame { title: t(lang, "cmd.comments.summarize"), ok_label: Some(t(lang, "dialog.unsaved.save")),
             on_ok: move |_| { st.set_dialog(Dialog::None); files::save_text_file(st, "comments.txt", t2.clone()); },
-            pre { class: "mono", style: "white-space: pre-wrap; user-select: text; max-height: 50vh; overflow: auto", "{text}" }
-            if false { span { "{color_hex([0.0,0.0,0.0])}" } }
-            if false { span { "{ToastKind::Info == ToastKind::Info}" } }
+            pre { class: "mono scroll-box", "{text}" }
+        }
+    }
+}
+
+/// Standard paper sizes in points (portrait).
+const PAPER: &[(&str, &str, f32, f32)] = &[
+    ("a4", "A4 (210 × 297 mm)", 595.28, 841.89),
+    ("a3", "A3 (297 × 420 mm)", 841.89, 1190.55),
+    ("a5", "A5 (148 × 210 mm)", 419.53, 595.28),
+    ("b5", "B5 (176 × 250 mm)", 498.9, 708.66),
+    ("letter", "Letter (8.5 × 11 in)", 612.0, 792.0),
+    ("legal", "Legal (8.5 × 14 in)", 612.0, 1008.0),
+    ("tabloid", "Tabloid (11 × 17 in)", 792.0, 1224.0),
+];
+
+fn paper_size(id: &str) -> Option<(f32, f32)> {
+    PAPER.iter().find(|p| p.0 == id).map(|p| (p.2, p.3))
+}
+
+fn num_or(s: &Signal<String>, default: f32) -> f32 {
+    s.read().trim().replace(',', ".").parse().unwrap_or(default)
+}
+
+#[component]
+fn NewBlank() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let count = use_signal(|| "1".to_string());
+    let mut size = use_signal(|| "a4".to_string());
+    let mut landscape = use_signal(|| false);
+    let width = use_signal(|| "595".to_string());
+    let height = use_signal(|| "842".to_string());
+    rsx! {
+        Frame { title: t(lang, "dialog.newblank.title"),
+            on_ok: move |_| {
+                let n = num_or(&count, 1.0).clamp(1.0, 2000.0) as usize;
+                let (mut w, mut h) = paper_size(&size()).unwrap_or((num_or(&width, 595.0).clamp(36.0, 14400.0), num_or(&height, 842.0).clamp(36.0, 14400.0)));
+                if landscape() { std::mem::swap(&mut w, &mut h); }
+                st.set_dialog(Dialog::None);
+                files::new_blank(st, n, w, h);
+            },
+            div { class: "field-grid",
+                Num { label: t(lang, "dialog.insert.count"), value: count, min: "1", max: "2000" }
+                div { class: "field", label { "{t(lang, \"dialog.insert.size\")}" }
+                    select { onchange: move |e| size.set(e.value()),
+                        for (id, label, _, _) in PAPER.iter() { option { key: "{id}", value: "{id}", selected: *id == size(), "{label}" } }
+                        option { value: "custom", selected: size() == "custom", "{t(lang, \"dialog.size.custom\")}" }
+                    }
+                }
+            }
+            if size() == "custom" {
+                div { class: "field-grid",
+                    Num { label: t(lang, "dialog.size.width"), value: width, min: "36" }
+                    Num { label: t(lang, "dialog.size.height"), value: height, min: "36" }
+                }
+            }
+            label { class: "check", input { r#type: "checkbox", checked: landscape(), onchange: move |_| landscape.set(!landscape()) } span { "{t(lang, \"dialog.size.landscape\")}" } }
+        }
+    }
+}
+
+#[component]
+fn PasteSpecial() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let has_clip = st.clip.read().is_some();
+    let has_doc = st.has_doc();
+    let go = move |id: &'static str| {
+        move |_| {
+            st.set_dialog(Dialog::None);
+            crate::commands::dispatch(st, id);
+        }
+    };
+    rsx! {
+        Frame { title: t(lang, "dialog.paste.title"),
+            div { class: "choice-list",
+                button { class: "choice", disabled: !has_clip || !has_doc, onclick: go("pasteAnnots"),
+                    Icon { name: "comment" }
+                    div { b { "{t(lang, \"dialog.paste.comments\")}" } span { class: "hint", "{t(lang, \"dialog.paste.comments_hint\")}" } }
+                }
+                button { class: "choice", disabled: !has_doc, onclick: go("pasteImage"),
+                    Icon { name: "image" }
+                    div { b { "{t(lang, \"dialog.paste.image\")}" } span { class: "hint", "{t(lang, \"dialog.paste.image_hint\")}" } }
+                }
+                button { class: "choice", disabled: !has_doc, onclick: go("pastePlainText"),
+                    Icon { name: "text" }
+                    div { b { "{t(lang, \"dialog.paste.text\")}" } span { class: "hint", "{t(lang, \"dialog.paste.text_hint\")}" } }
+                }
+                button { class: "choice", disabled: !has_doc, onclick: go("document.insertPagesFromClipboard"),
+                    Icon { name: "insert" }
+                    div { b { "{t(lang, \"dialog.paste.page\")}" } span { class: "hint", "{t(lang, \"dialog.paste.page_hint\")}" } }
+                }
+                button { class: "choice", onclick: go("newDocClipboard"),
+                    Icon { name: "page" }
+                    div { b { "{t(lang, \"dialog.paste.newdoc\")}" } span { class: "hint", "{t(lang, \"dialog.paste.newdoc_hint\")}" } }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn Rasterize() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let mode = use_signal(|| default_scope(st));
+    let range = use_signal(String::new);
+    let dpi = use_signal(|| "150".to_string());
+    let mut annots = use_signal(|| true);
+    rsx! {
+        Frame { title: cmd_label(lang, registry().get("document.rasterizePages").unwrap()),
+            on_ok: move |_| match scope_pages(st, mode(), &range()) {
+                Ok(pages) => { let d = num_or(&dpi, 150.0).clamp(36.0, 600.0); let a = annots(); apply(st, |tab| tab.doc.rasterize_pages(&pages, d, a)); }
+                Err(e) => st.error(e),
+            },
+            div { class: "callout warn", "{t(lang, \"dialog.rasterize.hint\")}" }
+            Num { label: t(lang, "dialog.export.dpi"), value: dpi, min: "36", max: "600" }
+            label { class: "check", input { r#type: "checkbox", checked: annots(), onchange: move |_| annots.set(!annots()) } span { "{t(lang, \"dialog.rasterize.annots\")}" } }
+            PageScope { mode, range }
+        }
+    }
+}
+
+#[component]
+fn StampPicker() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let custom = use_signal(|| st.ui.read().value("stamp.custom").unwrap_or("").to_string());
+    let mut color = use_signal(|| st.ui.read().value("stamp.color").unwrap_or("#c81e1e").to_string());
+    let choose = move |text: String| {
+        st.set_value("stamp.text", text);
+        st.set_value("stamp.color", color());
+        st.set_value("stamp.kind", "text");
+        st.set_dialog(Dialog::None);
+        st.set_tool(Tool::Stamp);
+        st.toast(ToastKind::Info, t(st.lang(), "toast.place_stamp"), "");
+    };
+    rsx! {
+        Frame { title: t(lang, "dialog.stamp.title"), wide: true, ok_label: Some(t(lang, "dialog.stamp.use_custom")),
+            on_ok: move |_| {
+                let c = custom().trim().to_string();
+                if c.is_empty() {
+                    st.toast(ToastKind::Info, t(st.lang(), "dialog.stamp.custom_empty"), "");
+                } else {
+                    st.set_value("stamp.custom", c.clone());
+                    choose(c);
+                }
+            },
+            div { class: "stamp-grid",
+                for p in STAMP_PRESETS.iter() {
+                    button { class: "stamp-preview", key: "{p}", style: "color:{color};border-color:{color}", onclick: move |_| choose(p.to_string()), "{p}" }
+                }
+            }
+            div { class: "field-grid",
+                Text { label: t(lang, "dialog.stamp.custom"), value: custom, placeholder: "PAID" }
+                div { class: "field", label { "{t(lang, \"dialog.watermark.color\")}" } input { r#type: "color", value: "{color}", oninput: move |e| color.set(e.value()) } }
+            }
+            div { class: "row", style: "gap:8px",
+                button { class: "tbtn", onclick: move |_| { st.set_dialog(Dialog::None); files::pick_image_stamp(st); }, Icon { name: "image" } "{t(lang, \"dialog.stamp.image\")}" }
+            }
+            div { class: "hint", "{t(lang, \"dialog.stamp.hint\")}" }
+        }
+    }
+}
+
+/// A permission checkbox: label key, current state and the toggle.
+type PermRow = (&'static str, bool, fn(&mut SecurityPermissions));
+
+#[component]
+fn Security() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let mut user = use_signal(String::new);
+    let mut owner = use_signal(String::new);
+    let mut perms = use_signal(SecurityPermissions::default);
+    let p = perms();
+    let rows: [PermRow; 6] = [
+        ("dialog.security.print", p.print, |p| p.print = !p.print),
+        ("dialog.security.modify", p.modify, |p| p.modify = !p.modify),
+        ("dialog.security.copy", p.copy, |p| p.copy = !p.copy),
+        ("dialog.security.annotate", p.annotate, |p| {
+            p.annotate = !p.annotate
+        }),
+        ("dialog.security.fill", p.fill_forms, |p| {
+            p.fill_forms = !p.fill_forms
+        }),
+        ("dialog.security.assemble", p.assemble, |p| {
+            p.assemble = !p.assemble
+        }),
+    ];
+    rsx! {
+        Frame { title: t(lang, "dialog.security.title"), wide: true, ok_label: Some(t(lang, "dialog.security.save")),
+            on_ok: move |_| {
+                let (u, o) = (user(), owner());
+                if u.is_empty() && o.is_empty() {
+                    st.toast(ToastKind::Warn, t(st.lang(), "dialog.security.need_password"), "");
+                    return;
+                }
+                st.set_dialog(Dialog::None);
+                files::save_encrypted(st, u, o, perms());
+            },
+            div { class: "callout", "{t(lang, \"dialog.security.hint\")}" }
+            div { class: "field-grid",
+                div { class: "field", label { "{t(lang, \"dialog.security.user\")}" } input { r#type: "password", autofocus: true, value: "{user}", oninput: move |e| user.set(e.value()) } }
+                div { class: "field", label { "{t(lang, \"dialog.security.owner\")}" } input { r#type: "password", value: "{owner}", oninput: move |e| owner.set(e.value()) } }
+            }
+            b { "{t(lang, \"dialog.security.permissions\")}" }
+            div { class: "check-grid",
+                for (key, on, toggle) in rows {
+                    label { class: "check", key: "{key}",
+                        input { r#type: "checkbox", checked: on, onchange: move |_| toggle(&mut perms.write()) }
+                        span { "{t(lang, key)}" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn Scripts() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let scripts = st.read_active(|t| t.doc.scripts()).unwrap_or_default();
+    let any = !scripts.is_empty();
+    rsx! {
+        Frame { title: t(lang, "dialog.scripts.title"), wide: true,
+            if !any { p { "{t(lang, \"dialog.scripts.none\")}" } }
+            div { class: "script-list",
+                for (i, s) in scripts.iter().enumerate() {
+                    div { class: "script-item", key: "{i}",
+                        div { class: "title", b { "{s.name}" } span { class: "chip", "{s.source}" } }
+                        pre { class: "mono code", "{s.code}" }
+                    }
+                }
+            }
+            if any {
+                button { class: "tbtn danger", onclick: move |_| crate::commands::confirm(st, "dialog.scripts.remove_all", "dialog.scripts.remove_body", ConfirmAction::RemoveScripts),
+                    Icon { name: "delete" } "{t(lang, \"dialog.scripts.remove_all\")}"
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn Flatten() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let mode = use_signal(|| Scope::All);
+    let range = use_signal(String::new);
+    let mut what = use_signal(|| "comments".to_string());
+    rsx! {
+        Frame { title: t(lang, "dialog.flatten.title"),
+            on_ok: move |_| match scope_pages(st, mode(), &range()) {
+                Ok(pages) => {
+                    let scope = match what().as_str() { "fields" => FlattenScope::FormFields, "all" => FlattenScope::All, _ => FlattenScope::Comments };
+                    apply_count(st, "toast.flattened", |tab| tab.doc.flatten(&pages, scope));
+                }
+                Err(e) => st.error(e),
+            },
+            div { class: "hint", "{t(lang, \"dialog.flatten.hint\")}" }
+            div { class: "field",
+                div { class: "radio-row",
+                    label { input { r#type: "radio", checked: what() == "comments", onchange: move |_| what.set("comments".into()) } "{t(lang, \"dialog.flatten.comments\")}" }
+                    label { input { r#type: "radio", checked: what() == "fields", onchange: move |_| what.set("fields".into()) } "{t(lang, \"dialog.flatten.fields\")}" }
+                    label { input { r#type: "radio", checked: what() == "all", onchange: move |_| what.set("all".into()) } "{t(lang, \"dialog.flatten.all\")}" }
+                }
+            }
+            PageScope { mode, range }
+        }
+    }
+}
+
+/// Parse a list of numbers separated by spaces or semicolons (decimal comma allowed).
+fn parse_numbers(s: &str) -> Result<Vec<f32>, String> {
+    s.split(|c: char| c == ';' || c.is_whitespace())
+        .filter(|x| !x.trim().is_empty())
+        .map(|x| {
+            x.trim()
+                .replace(',', ".")
+                .parse::<f32>()
+                .map_err(|_| format!("\"{x}\""))
+        })
+        .collect()
+}
+
+#[component]
+fn AddGuides() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let units = st.ui.read().value("units").unwrap_or("mm").to_string();
+    let (unit_pt, _, _, unit_name) = crate::ui::canvas::unit_info(&units);
+    let horizontal = use_signal(String::new);
+    let vertical = use_signal(String::new);
+    let mut every_page = use_signal(|| true);
+    rsx! {
+        Frame { title: t(lang, "dialog.guides.title"),
+            on_ok: move |_| {
+                let (hs, vs) = match (parse_numbers(&horizontal()), parse_numbers(&vertical())) {
+                    (Ok(h), Ok(v)) => (h, v),
+                    (Err(e), _) | (_, Err(e)) => { st.error(tf(st.lang(), "dialog.guides.bad", &[("value", &e)])); return; }
+                };
+                let page = if every_page() { None } else { Some(st.current_page()) };
+                st.with_active(|t| {
+                    t.guides.extend(hs.iter().map(|y| Guide { page, horizontal: true, pos: y * unit_pt }));
+                    t.guides.extend(vs.iter().map(|x| Guide { page, horizontal: false, pos: x * unit_pt }));
+                });
+                if !option_on(st, "view.showGuides") {
+                    st.set_option("view.showGuides", true);
+                }
+                st.set_dialog(Dialog::None);
+            },
+            div { class: "hint", "{tf(lang, \"dialog.guides.hint\", &[(\"unit\", unit_name)])}" }
+            Text { label: t(lang, "dialog.guides.horizontal"), value: horizontal, placeholder: "20; 50", autofocus: true }
+            Text { label: t(lang, "dialog.guides.vertical"), value: vertical, placeholder: "15; 105" }
+            label { class: "check", input { r#type: "checkbox", checked: every_page(), onchange: move |_| every_page.set(!every_page()) } span { "{t(lang, \"dialog.guides.every_page\")}" } }
+        }
+    }
+}
+
+#[component]
+fn SplitTiles() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let mode = use_signal(|| default_scope(st));
+    let range = use_signal(String::new);
+    let cols = use_signal(|| "2".to_string());
+    let rows = use_signal(|| "1".to_string());
+    rsx! {
+        Frame { title: cmd_label(lang, registry().get("document.splitPages").unwrap()),
+            on_ok: move |_| match scope_pages(st, mode(), &range()) {
+                Ok(pages) => { let c = num_or(&cols, 2.0).clamp(1.0, 20.0) as usize; let r = num_or(&rows, 1.0).clamp(1.0, 20.0) as usize; apply(st, |tab| tab.doc.split_pages_grid(&pages, c, r)); }
+                Err(e) => st.error(e),
+            },
+            div { class: "hint", "{t(lang, \"dialog.tiles.hint\")}" }
+            div { class: "field-grid",
+                Num { label: t(lang, "dialog.tiles.cols"), value: cols, min: "1", max: "20" }
+                Num { label: t(lang, "dialog.tiles.rows"), value: rows, min: "1", max: "20" }
+            }
+            PageScope { mode, range }
+        }
+    }
+}
+
+#[component]
+fn Background() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let mode = use_signal(|| Scope::All);
+    let range = use_signal(String::new);
+    let mut color = use_signal(|| "#fff8dc".to_string());
+    let opacity = use_signal(|| "100".to_string());
+    rsx! {
+        Frame { title: t(lang, "dialog.background.title"),
+            on_ok: move |_| match scope_pages(st, mode(), &range()) {
+                Ok(pages) => { let c = parse_color(&color()); let o = num_or(&opacity, 100.0).clamp(1.0, 100.0) / 100.0; apply(st, |tab| tab.doc.add_background_color(&pages, c, o)); }
+                Err(e) => st.error(e),
+            },
+            div { class: "field-grid",
+                div { class: "field", label { "{t(lang, \"dialog.watermark.color\")}" } input { r#type: "color", value: "{color}", oninput: move |e| color.set(e.value()) } }
+                Num { label: t(lang, "dialog.watermark.opacity"), value: opacity, min: "1", max: "100" }
+            }
+            div { class: "hint", "{t(lang, \"dialog.background.hint\")}" }
+            PageScope { mode, range }
+        }
+    }
+}
+
+/// One page-label range being edited: start page, style, prefix, first number.
+type LabelRow = (String, String, String, String);
+
+const LABEL_STYLES: &[(&str, &str)] = &[
+    ("D", "1, 2, 3"),
+    ("r", "i, ii, iii"),
+    ("R", "I, II, III"),
+    ("a", "a, b, c"),
+    ("A", "A, B, C"),
+    ("", "—"),
+];
+
+#[component]
+fn PageLabels() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let labels = st.read_active(|t| t.doc.page_labels()).unwrap_or_default();
+    let count = labels.len();
+    let mut ranges: Signal<Vec<LabelRow>> =
+        use_signal(|| vec![("1".into(), "D".into(), String::new(), "1".into())]);
+    let preview = labels.iter().take(14).cloned().collect::<Vec<_>>().join(", ");
+    rsx! {
+        Frame { title: t(lang, "dialog.labels.title"), wide: true,
+            on_ok: move |_| {
+                let mut parsed: Vec<(usize, String, String, i64)> = Vec::new();
+                for (s, style, prefix, first) in ranges() {
+                    let start = s.trim().parse::<usize>().unwrap_or(0);
+                    if start == 0 || start > count {
+                        st.error(tf(st.lang(), "dialog.labels.bad_start", &[("value", s.trim()), ("count", &count.to_string())]));
+                        return;
+                    }
+                    parsed.push((start - 1, style, prefix, first.trim().parse().unwrap_or(1)));
+                }
+                let refs: Vec<(usize, &str, &str, i64)> = parsed.iter().map(|(a, b, c, d)| (*a, b.as_str(), c.as_str(), *d)).collect();
+                apply(st, |tab| tab.doc.set_page_labels(&refs));
+            },
+            div { class: "hint", "{t(lang, \"dialog.labels.hint\")}" }
+            div { class: "label-rows",
+                div { class: "label-row head",
+                    span { "{t(lang, \"dialog.labels.start\")}" } span { "{t(lang, \"dialog.labels.style\")}" } span { "{t(lang, \"dialog.labels.prefix\")}" } span { "{t(lang, \"dialog.labels.first\")}" } span {}
+                }
+                for (i, (s, style, prefix, first)) in ranges().into_iter().enumerate() {
+                    div { class: "label-row", key: "{i}",
+                        input { r#type: "number", min: "1", max: "{count}", value: "{s}", oninput: move |e| ranges.write()[i].0 = e.value() }
+                        select { onchange: move |e| ranges.write()[i].1 = e.value(),
+                            for (code, label) in LABEL_STYLES.iter() { option { key: "{code}", value: "{code}", selected: *code == style, "{label}" } }
+                        }
+                        input { value: "{prefix}", oninput: move |e| ranges.write()[i].2 = e.value() }
+                        input { r#type: "number", min: "1", value: "{first}", oninput: move |e| ranges.write()[i].3 = e.value() }
+                        button { class: "ibtn", title: "{t(lang, \"dialog.labels.remove\")}", disabled: ranges.read().len() < 2, onclick: move |_| { ranges.write().remove(i); }, "×" }
+                    }
+                }
+            }
+            div { class: "row", style: "gap:8px",
+                button { class: "tbtn", onclick: move |_| { let next = (st.current_page() + 1).to_string(); ranges.write().push((next, "D".into(), String::new(), "1".into())); }, Icon { name: "insert" } "{t(lang, \"dialog.labels.add\")}" }
+                button { class: "tbtn danger", onclick: move |_| apply(st, |tab| tab.doc.set_page_labels(&[])), "{t(lang, \"dialog.labels.clear\")}" }
+            }
+            div { class: "kv", span { class: "k", "{t(lang, \"dialog.labels.current\")}" } span { class: "v", "{preview}" } }
+        }
+    }
+}
+
+#[component]
+fn Transitions() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let mode = use_signal(|| Scope::All);
+    let range = use_signal(String::new);
+    let current = st.read_active(|t| t.doc.page_transition(t.page)).flatten();
+    let mut style = use_signal(|| {
+        current
+            .as_ref()
+            .map(|c| c.0.clone())
+            .unwrap_or_else(|| "Dissolve".to_string())
+    });
+    let duration = use_signal(|| {
+        current
+            .as_ref()
+            .map(|c| c.1.to_string())
+            .unwrap_or_else(|| "1".to_string())
+    });
+    let advance = use_signal(|| "0".to_string());
+    let name = |s: &str| {
+        if s == "R" {
+            "Replace".to_string()
+        } else {
+            s.to_string()
+        }
+    };
+    rsx! {
+        Frame { title: t(lang, "dialog.transitions.title"),
+            on_ok: move |_| match scope_pages(st, mode(), &range()) {
+                Ok(pages) => {
+                    let s = style();
+                    let chosen = if s == "none" { None } else { Some(s) };
+                    let d = num_or(&duration, 1.0).clamp(0.0, 60.0);
+                    let a = num_or(&advance, 0.0);
+                    let auto = (a > 0.0).then_some(a);
+                    apply(st, |tab| tab.doc.set_page_transition(&pages, chosen.as_deref(), d, auto));
+                }
+                Err(e) => st.error(e),
+            },
+            div { class: "field-grid three",
+                div { class: "field", label { "{t(lang, \"dialog.transitions.style\")}" }
+                    select { onchange: move |e| style.set(e.value()),
+                        option { value: "none", selected: style() == "none", "{t(lang, \"label.none\")}" }
+                        for s in TRANSITIONS.iter() { option { key: "{s}", value: "{s}", selected: *s == style(), "{name(s)}" } }
+                    }
+                }
+                Num { label: t(lang, "dialog.transitions.duration"), value: duration, min: "0", max: "60", step: "0.5" }
+                Num { label: t(lang, "dialog.transitions.advance"), value: advance, min: "0", max: "3600", step: "1" }
+            }
+            div { class: "hint", "{t(lang, \"dialog.transitions.hint\")}" }
+            PageScope { mode, range }
+        }
+    }
+}
+
+/// Open another PDF once per dialog instance.
+fn use_other_document(path: &str) -> Rc<Result<Document, String>> {
+    let p = path.to_string();
+    use_hook(move || Rc::new(Document::open(&p).map_err(|e| e.to_string())))
+}
+
+#[component]
+fn ReplacePages(path: String) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let other = use_other_document(&path);
+    let src_count = other.as_ref().as_ref().map(|d| d.page_count()).unwrap_or(0);
+    let count = st.page_count();
+    let cur = (st.current_page() + 1).to_string();
+    let first = use_signal(|| cur.clone());
+    let last = use_signal(|| cur.clone());
+    let src = use_signal(|| {
+        if src_count > 0 {
+            format!("1-{src_count}")
+        } else {
+            "1".to_string()
+        }
+    });
+    let other_ok = other.clone();
+    rsx! {
+        Frame { title: cmd_label(lang, registry().get("document.replacePages").unwrap()),
+            on_ok: move |_| {
+                let Ok(doc) = other_ok.as_ref() else { return };
+                let a = num_or(&first, 0.0) as usize;
+                let b = num_or(&last, 0.0) as usize;
+                if a < 1 || b < a || b > count {
+                    st.error(tf(st.lang(), "dialog.replace.bad_range", &[("count", &count.to_string())]));
+                    return;
+                }
+                match parse_page_range(&src(), src_count) {
+                    Ok(src_pages) => apply(st, |tab| tab.doc.replace_pages(a - 1, b - a + 1, doc, &src_pages)),
+                    Err(e) => st.error(e),
+                }
+            },
+            div { class: "kv", span { class: "k", "{t(lang, \"dialog.file\")}" } span { class: "v", "{path}" } }
+            match other.as_ref() {
+                Ok(_) => rsx! {
+                    div { class: "field-grid",
+                        Num { label: t(lang, "dialog.replace.first"), value: first, min: "1", max: count.to_string() }
+                        Num { label: t(lang, "dialog.replace.last"), value: last, min: "1", max: count.to_string() }
+                    }
+                    Text { label: tf(lang, "dialog.replace.source", &[("count", &src_count.to_string())]), value: src }
+                },
+                Err(e) => rsx! { div { class: "callout warn", "{e}" } },
+            }
+        }
+    }
+}
+
+#[component]
+fn OverlayFile(path: String) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let other = use_other_document(&path);
+    let mode = use_signal(|| Scope::All);
+    let range = use_signal(String::new);
+    let mut behind = use_signal(|| false);
+    let other_ok = other.clone();
+    rsx! {
+        Frame { title: cmd_label(lang, registry().get("document.overlayPages").unwrap()),
+            on_ok: move |_| {
+                let Ok(doc) = other_ok.as_ref() else { return };
+                match scope_pages(st, mode(), &range()) {
+                    Ok(pages) => { let b = behind(); apply(st, |tab| tab.doc.overlay_document(doc, &pages, b)); }
+                    Err(e) => st.error(e),
+                }
+            },
+            div { class: "kv", span { class: "k", "{t(lang, \"dialog.file\")}" } span { class: "v", "{path}" } }
+            match other.as_ref() {
+                Ok(d) => rsx! {
+                    div { class: "hint", "{tf(lang, \"dialog.overlay.hint\", &[(\"count\", &d.page_count().to_string())])}" }
+                    div { class: "field",
+                        div { class: "radio-row",
+                            label { input { r#type: "radio", checked: !behind(), onchange: move |_| behind.set(false) } "{t(lang, \"dialog.overlay.front\")}" }
+                            label { input { r#type: "radio", checked: behind(), onchange: move |_| behind.set(true) } "{t(lang, \"dialog.overlay.behind\")}" }
+                        }
+                    }
+                    PageScope { mode, range }
+                },
+                Err(e) => rsx! { div { class: "callout warn", "{e}" } },
+            }
         }
     }
 }

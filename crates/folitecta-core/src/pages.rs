@@ -449,14 +449,14 @@ impl Document {
         self.set_path(None);
     }
 
-    /// Pages whose content stream is empty (ignoring whitespace) and that carry no annotations.
+    /// Pages that draw nothing (no text, image or path) and carry no annotations.
     pub fn empty_pages(&self) -> Vec<usize> {
+        let layers = self.text_layers();
         self.page_ids()
             .iter()
             .enumerate()
-            .filter(|(_, id)| {
-                let content = self.inner.get_page_content(**id);
-                let blank = content.iter().all(|b| b.is_ascii_whitespace());
+            .filter(|(i, id)| {
+                let blank = layers.get(*i).map(|l| l.ink_bbox.is_none()).unwrap_or(false);
                 let annots = self
                     .inner
                     .get_dictionary(**id)

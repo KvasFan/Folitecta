@@ -6,6 +6,10 @@ use crate::document::{Document, PageSize};
 use crate::error::{Error, Result};
 use crate::util::{self, approx_text_width, fmt_num, pdf_literal};
 
+/// Mark kinds removed by "remove all page marks". Flattened comments, applied
+/// redactions, placed images and overlays are page content and stay.
+pub const PAGE_MARKS: &[&str] = &["Watermark", "HeaderFooter", "PageNumber", "Background"];
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MarkPosition {
     #[default]
@@ -84,6 +88,27 @@ pub fn display_to_pdf(size: &PageSize, u: f32, v: f32) -> (f32, f32) {
         270 => (x0 + v, y1 - u),
         _ => (x0 + u, y0 + v),
     }
+}
+
+/// Inverse of [`display_to_pdf`]: PDF user space to display coordinates with the
+/// origin at the top-left corner and y pointing down.
+pub fn pdf_to_display(size: &PageSize, x: f32, y: f32) -> (f32, f32) {
+    let c = size.crop_box;
+    let (x0, y0, x1, y1) = (c[0], c[1], c[2], c[3]);
+    let (u, v) = match size.rotation {
+        90 => (y - y0, size.height - (x - x0)),
+        180 => (x1 - x, y1 - y),
+        270 => (y1 - y, x - x0),
+        _ => (x - x0, y - y0),
+    };
+    (u, size.height - v)
+}
+
+/// PDF rectangle to a display rectangle `[x0, y0, x1, y1]` (y down).
+pub fn pdf_rect_to_display(size: &PageSize, r: [f32; 4]) -> [f32; 4] {
+    let (ax, ay) = pdf_to_display(size, r[0], r[1]);
+    let (bx, by) = pdf_to_display(size, r[2], r[3]);
+    [ax.min(bx), ay.min(by), ax.max(bx), ay.max(by)]
 }
 
 /// Display anchor (baseline start) for text of width `w` and size `s`.
@@ -311,8 +336,18 @@ impl Document {
     }
 
     /// Remove marks previously added by Folitecta. `tag` restricts the kind
-    /// ("Watermark", "HeaderFooter", "PageNumber"); `None` removes all kinds.
+    /// ("Watermark", "HeaderFooter", "PageNumber", "Background", "Image",
+    /// "Overlay", "Underlay"); `None` removes the page marks listed in
+    /// [`PAGE_MARKS`].
     pub fn remove_marks(&mut self, pages: &[usize], tag: Option<&str>) -> Result<usize> {
+        match tag {
+            Some(t) => self.remove_marks_of(pages, &[t]),
+            None => self.remove_marks_of(pages, PAGE_MARKS),
+        }
+    }
+
+    /// Remove the content streams Folitecta added with any of the given tags.
+    pub fn remove_marks_of(&mut self, pages: &[usize], tags: &[&str]) -> Result<usize> {
         let ids = self.page_ids();
         for &p in pages {
             if p >= ids.len() {
@@ -333,7 +368,7 @@ impl Document {
                     .and_then(|o| o.as_stream().ok())
                     .and_then(|s| s.dict.get(b"FolitectaMark").ok())
                     .and_then(|m| m.as_name().ok())
-                    .map(|m| tag.map(|t| t.as_bytes() == m).unwrap_or(true))
+                    .map(|m| tags.iter().any(|t| t.as_bytes() == m))
                     .unwrap_or(false);
                 if is_mark {
                     removed += 1;

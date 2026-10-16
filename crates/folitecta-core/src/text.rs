@@ -1,6 +1,9 @@
-//! Text extraction and search.
+//! Text extraction and search, built on the positioned text layer.
+
+use std::sync::Arc;
 
 use crate::document::Document;
+use crate::textlayer::PageText;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SearchOptions {
@@ -8,13 +11,16 @@ pub struct SearchOptions {
     pub whole_words: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SearchHit {
     pub page: usize,
     /// Ordinal of the hit within its page.
     pub index: usize,
-    /// Character offset of the match inside the page text.
-    pub offset: usize,
+    /// Character range `[start, end)` inside the page text layer.
+    pub start: usize,
+    pub end: usize,
+    /// Rectangles covering the hit, display space (points, y down).
+    pub rects: Vec<[f32; 4]>,
     pub snippet: String,
 }
 
@@ -40,72 +46,63 @@ fn is_word_char(c: char) -> bool {
 }
 
 impl Document {
-    /// Plain text of a page (whitespace normalised). Empty when extraction fails.
+    /// Positioned text of every page (cached per revision).
+    pub fn text_layers(&self) -> Arc<Vec<PageText>> {
+        let mut cache = self.text_cache.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((rev, layers)) = cache.as_ref() {
+            if *rev == self.revision() {
+                return layers.clone();
+            }
+        }
+        let layers = Arc::new(crate::textlayer::extract_all(self.bytes()).unwrap_or_default());
+        *cache = Some((self.revision(), layers.clone()));
+        layers
+    }
+
+    /// Positioned text of one page.
+    pub fn text_layer(&self, page: usize) -> Option<PageText> {
+        self.text_layers().get(page).cloned()
+    }
+
+    /// Plain text of a page (whitespace normalised). Empty when the page has no text.
     pub fn page_text(&self, page: usize) -> String {
-        if page >= self.page_count() {
-            return String::new();
-        }
-        match self.inner.extract_text(&[page as u32 + 1]) {
-            Ok(t) => normalize(&t),
-            Err(_) => String::new(),
-        }
+        self.text_layers()
+            .get(page)
+            .map(|l| normalize(&l.text))
+            .unwrap_or_default()
     }
 
     /// Text of every page.
     pub fn all_text(&self) -> Vec<String> {
-        (0..self.page_count()).map(|p| self.page_text(p)).collect()
+        self.text_layers().iter().map(|l| normalize(&l.text)).collect()
     }
 
     /// Find `query` on every page.
     pub fn search(&self, query: &str, opts: SearchOptions) -> Vec<SearchHit> {
-        let query = query.trim();
-        if query.is_empty() {
-            return Vec::new();
-        }
         let mut hits = Vec::new();
-        for page in 0..self.page_count() {
-            let text = self.page_text(page);
-            let (hay, needle) = if opts.case_sensitive {
-                (text.clone(), query.to_string())
-            } else {
-                (text.to_lowercase(), query.to_lowercase())
-            };
-            let chars: Vec<char> = hay.chars().collect();
-            let needle_chars: Vec<char> = needle.chars().collect();
-            let orig_chars: Vec<char> = text.chars().collect();
-            if needle_chars.is_empty() || chars.len() < needle_chars.len() {
-                continue;
-            }
-            let mut index = 0;
-            let mut i = 0;
-            while i + needle_chars.len() <= chars.len() {
-                if chars[i..i + needle_chars.len()] == needle_chars[..] {
-                    let end = i + needle_chars.len();
-                    let boundary_ok = !opts.whole_words
-                        || ((i == 0 || !is_word_char(chars[i - 1]))
-                            && (end >= chars.len() || !is_word_char(chars[end])));
-                    if boundary_ok {
-                        let start = i.saturating_sub(40);
-                        let stop = (end + 40).min(orig_chars.len());
-                        let mut snippet: String = orig_chars[start..stop].iter().collect();
-                        if start > 0 {
-                            snippet.insert(0, '…');
-                        }
-                        if stop < orig_chars.len() {
-                            snippet.push('…');
-                        }
-                        hits.push(SearchHit {
-                            page,
-                            index,
-                            offset: i,
-                            snippet,
-                        });
-                        index += 1;
-                        i = end;
-                        continue;
-                    }
+        for (page, layer) in self.text_layers().iter().enumerate() {
+            let chars: Vec<char> = layer.text.chars().collect();
+            for (index, (start, end)) in layer.find(query, opts).into_iter().enumerate() {
+                let from = start.saturating_sub(40);
+                let to = (end + 40).min(chars.len());
+                let mut snippet: String = chars[from..to]
+                    .iter()
+                    .map(|c| if c.is_whitespace() { ' ' } else { *c })
+                    .collect();
+                if from > 0 {
+                    snippet.insert(0, '…');
                 }
-                i += 1;
+                if to < chars.len() {
+                    snippet.push('…');
+                }
+                hits.push(SearchHit {
+                    page,
+                    index,
+                    start,
+                    end,
+                    rects: layer.range_rects(start, end),
+                    snippet,
+                });
             }
         }
         hits
@@ -122,10 +119,13 @@ impl Document {
         (words, chars)
     }
 
-    /// Pages whose extracted text contains no word characters (candidates for OCR).
+    /// Pages whose text contains no word characters (candidates for OCR).
     pub fn pages_without_text(&self) -> Vec<usize> {
-        (0..self.page_count())
-            .filter(|p| !self.page_text(*p).chars().any(is_word_char))
+        self.all_text()
+            .iter()
+            .enumerate()
+            .filter(|(_, t)| !t.chars().any(is_word_char))
+            .map(|(i, _)| i)
             .collect()
     }
 }

@@ -150,7 +150,7 @@ impl Document {
             .collect()
     }
 
-    fn base_annotation(
+    pub(crate) fn base_annotation(
         &self,
         page_id: ObjectId,
         subtype: &str,
@@ -181,7 +181,7 @@ impl Document {
         d
     }
 
-    fn add_appearance(
+    pub(crate) fn add_appearance(
         &mut self,
         annot: &mut Dictionary,
         rect: [f32; 4],
@@ -201,7 +201,7 @@ impl Document {
         annot.set("AP", dictionary! { "N" => ap_id });
     }
 
-    fn push_annotation(&mut self, page_id: ObjectId, annot: Dictionary) -> Result<ObjectId> {
+    pub(crate) fn push_annotation(&mut self, page_id: ObjectId, annot: Dictionary) -> Result<ObjectId> {
         let annot_id = self.inner.add_object(annot);
         let existing = self.inner.get_dictionary(page_id)?.get(b"Annots").ok().cloned();
         let new_value = match existing {
@@ -554,30 +554,45 @@ impl Document {
             f(color[1]),
             f(color[2])
         );
+        // Quads are upper-left, upper-right, lower-left, lower-right in any
+        // orientation; draw polygons so rotated text is covered correctly.
+        let poly = |pts: [(f32, f32); 4]| {
+            format!(
+                "{} {} m {} {} l {} {} l {} {} l h f ",
+                f(pts[0].0),
+                f(pts[0].1),
+                f(pts[1].0),
+                f(pts[1].1),
+                f(pts[2].0),
+                f(pts[2].1),
+                f(pts[3].0),
+                f(pts[3].1)
+            )
+        };
         for q in quads {
-            let x0 = q[0].min(q[4]);
-            let x1 = q[2].max(q[6]);
-            let top = q[1].max(q[3]);
-            let bottom = q[5].min(q[7]);
-            let h = top - bottom;
+            let (ul, ur, ll, lr) = ((q[0], q[1]), (q[2], q[3]), (q[4], q[5]), (q[6], q[7]));
+            let (ux, uy) = (ul.0 - ll.0, ul.1 - ll.1);
+            let h = (ux * ux + uy * uy).sqrt().max(0.001);
+            let (nx, ny) = (ux / h, uy / h);
+            let t = (h * 0.07).max(0.8);
+            let along = |a: (f32, f32), b: (f32, f32), k: f32| (a.0 + (b.0 - a.0) * k, a.1 + (b.1 - a.1) * k);
             match kind {
-                Markup::Highlight => {
-                    content.push_str(&format!("{} {} {} {} re f ", f(x0), f(bottom), f(x1 - x0), f(h)))
+                Markup::Highlight => content.push_str(&poly([ul, ur, lr, ll])),
+                Markup::Underline => content.push_str(&poly([
+                    ll,
+                    lr,
+                    (lr.0 + nx * t, lr.1 + ny * t),
+                    (ll.0 + nx * t, ll.1 + ny * t),
+                ])),
+                Markup::StrikeOut => {
+                    let (m0, m1) = (along(ll, ul, 0.42), along(lr, ur, 0.42));
+                    content.push_str(&poly([
+                        m0,
+                        m1,
+                        (m1.0 + nx * t, m1.1 + ny * t),
+                        (m0.0 + nx * t, m0.1 + ny * t),
+                    ]))
                 }
-                Markup::Underline => content.push_str(&format!(
-                    "{} {} {} {} re f ",
-                    f(x0),
-                    f(bottom),
-                    f(x1 - x0),
-                    f((h * 0.07).max(0.8))
-                )),
-                Markup::StrikeOut => content.push_str(&format!(
-                    "{} {} {} {} re f ",
-                    f(x0),
-                    f(bottom + h * 0.45),
-                    f(x1 - x0),
-                    f((h * 0.07).max(0.8))
-                )),
             }
         }
         content.push('Q');

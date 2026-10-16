@@ -1,12 +1,22 @@
-//! Status bar: navigation, zoom, layout and document facts.
+//! Status bar: tool, selection, pointer position, navigation, zoom and layout.
 
 use dioxus::prelude::*;
 
-use crate::commands::{self, current_zoom, dispatch};
+use crate::commands::{current_zoom, dispatch, option_on};
 use crate::i18n::t;
 use crate::icons::Icon;
 use crate::state::{AppState, Layout, Tool, Zoom};
+use crate::ui::canvas::unit_info;
 use crate::util::human_size;
+
+fn fmt_len(v: f32, unit_pt: f32) -> String {
+    let x = v / unit_pt;
+    if x.abs() >= 100.0 {
+        format!("{x:.0}")
+    } else {
+        format!("{x:.1}")
+    }
+}
 
 #[component]
 pub fn StatusBar() -> Element {
@@ -16,98 +26,153 @@ pub fn StatusBar() -> Element {
     let page = st.current_page();
     let count = st.page_count();
     let zoom_pct = (current_zoom(st) * 100.0).round() as i32;
-    let (layout, size, selected, tool) = st
+    let tool = (st.tool)();
+    let (layout, size, selected, zoom_mode, page_size, sel_chars, label) = st
         .read_active(|t| {
+            let sel_chars = t.text_sel.map(|s| s.range()).map(|(a, b)| b - a).unwrap_or(0);
+            let label = t.doc.page_labels().get(t.page).cloned().unwrap_or_default();
             (
                 t.layout,
                 t.doc.bytes().len() as u64,
                 t.selected_pages.len(),
-                (st.tool)(),
+                t.zoom,
+                t.display_size(t.page),
+                sel_chars,
+                label,
             )
         })
-        .unwrap_or((Layout::Continuous, 0, 0, Tool::Hand));
+        .unwrap_or((
+            Layout::Continuous,
+            0,
+            0,
+            Zoom::FitWidth,
+            (0.0, 0.0),
+            0,
+            String::new(),
+        ));
     let mut page_input = use_signal(String::new);
-    let tool_label = t(
-        lang,
-        match tool {
-            Tool::Hand => "tool.hand",
-            Tool::Select => "tool.select",
-            Tool::Zoom => "cmd.tool.zoom",
-            Tool::Note => "tool.note",
-            Tool::Rect => "tool.rect",
-            Tool::Ellipse => "tool.ellipse",
-            Tool::Line => "tool.line",
-            Tool::Arrow => "tool.arrow",
-            Tool::Highlight => "tool.highlight",
-            Tool::TextBox => "tool.text",
-            Tool::Ink => "tool.ink",
-            Tool::Link => "tool.link",
-        },
-    );
+    let tool_label = t(lang, tool.label_key());
     let busy = (st.busy)();
+    let units = st.ui.read().value("units").unwrap_or("mm").to_string();
+    let (unit_pt, _, _, unit_name) = unit_info(&units);
+    let show_measure = option_on(st, "view.showPageMeasureInfo");
+    let show_wh = option_on(st, "view.pageMeasureInfo.WH");
+    let show_xy = option_on(st, "view.pageMeasureInfo.XY");
+    let show_units = option_on(st, "view.pageMeasureInfo.units");
+    let math_y = option_on(st, "view.mathY");
+    let pointer = (st.pointer)();
+    let pointer_text = pointer
+        .filter(|(p, _, _)| *p == page || layout != Layout::Single)
+        .map(|(p, x, y)| {
+            let h = st.read_active(|t| t.display_size(p).1).unwrap_or(0.0);
+            let y = if math_y { h - y } else { y };
+            format!("X {} · Y {}", fmt_len(x, unit_pt), fmt_len(y, unit_pt))
+        });
+    let unit_suffix = if show_units {
+        format!(" {unit_name}")
+    } else {
+        String::new()
+    };
+    let tool_icon = match tool {
+        Tool::Hand => "hand",
+        Tool::Select | Tool::TextHighlight | Tool::TextUnderline | Tool::TextStrike => "select",
+        Tool::Zoom | Tool::Loupe => "zoom-in",
+        _ => "pencil",
+    };
+    let page_value = if page_input().is_empty() {
+        if !label.is_empty() && label != (page + 1).to_string() {
+            label.clone()
+        } else {
+            format!("{}", page + 1)
+        }
+    } else {
+        page_input()
+    };
 
     rsx! {
         div { class: "statusbar",
-            span { class: "chip", Icon { name: "hand" } "{tool_label}" }
+            span { class: "chip tool-chip", title: "{tool_label}", Icon { name: tool_icon } span { class: "ellipsis", "{tool_label}" } }
             if selected > 0 {
-                span { class: "chip", "{selected} {t(lang, \"dialog.pages\")}" }
+                span { class: "chip sb-opt", "{selected} {t(lang, \"status.pages_selected\")}" }
+            }
+            if sel_chars > 0 {
+                span { class: "chip sb-opt", "{sel_chars} {t(lang, \"status.chars_selected\")}" }
             }
             if busy {
                 span { class: "chip", "{t(lang, \"status.rendering\")}" }
             }
+            if has_doc && show_measure {
+                if show_wh {
+                    span { class: "muted sb-opt2", title: "{t(lang, \"status.page_size\")}", "{fmt_len(page_size.0, unit_pt)} × {fmt_len(page_size.1, unit_pt)}{unit_suffix}" }
+                }
+                if show_xy {
+                    if let Some(p) = pointer_text {
+                        span { class: "muted sb-opt2 mono", "{p}{unit_suffix}" }
+                    }
+                }
+            }
             div { class: "spacer" }
             if has_doc {
                 div { class: "seg",
-                    button { title: "First", onclick: move |_| dispatch(st, "view.goto.firstPage"), Icon { name: "first" } }
-                    button { title: "Previous", onclick: move |_| dispatch(st, "view.goto.prevPage"), Icon { name: "prev" } }
+                    button { title: "{t(lang, \"status.first\")}", onclick: move |_| dispatch(st, "view.goto.firstPage"), Icon { name: "first" } }
+                    button { title: "{t(lang, \"status.prev\")}", onclick: move |_| dispatch(st, "view.goto.prevPage"), Icon { name: "prev" } }
                 }
-                span { "{t(lang, \"status.page\")}" }
                 input {
                     class: "page-input",
                     r#type: "text",
-                    value: if page_input().is_empty() { format!("{}", page + 1) } else { page_input() },
+                    title: "{t(lang, \"status.page\")}",
+                    value: "{page_value}",
                     onfocus: move |_| page_input.set(format!("{}", page + 1)),
                     oninput: move |e| page_input.set(e.value()),
                     onkeydown: move |e| {
                         e.stop_propagation();
                         if e.key() == Key::Enter {
-                            if let Ok(n) = page_input().trim().parse::<usize>() {
-                                if n >= 1 { st.go_to_page(n - 1); }
+                            let v = page_input().trim().to_string();
+                            match v.parse::<usize>() {
+                                Ok(n) if n >= 1 => st.go_to_page(n - 1),
+                                _ => {
+                                    // Logical page label typed by the user.
+                                    if let Some(i) = st.read_active(|t| t.doc.page_labels().iter().position(|l| *l == v)).flatten() {
+                                        st.go_to_page(i);
+                                    }
+                                }
                             }
+                            page_input.set(String::new());
+                        } else if e.key() == Key::Escape {
                             page_input.set(String::new());
                         }
                     },
                     onblur: move |_| page_input.set(String::new()),
                 }
-                span { "{t(lang, \"status.of\")} {count}" }
+                span { class: "nowrap", "/ {count}" }
                 div { class: "seg",
-                    button { title: "Next", onclick: move |_| dispatch(st, "view.goto.nextPage"), Icon { name: "next" } }
-                    button { title: "Last", onclick: move |_| dispatch(st, "view.goto.lastPage"), Icon { name: "last" } }
+                    button { title: "{t(lang, \"status.next\")}", onclick: move |_| dispatch(st, "view.goto.nextPage"), Icon { name: "next" } }
+                    button { title: "{t(lang, \"status.last\")}", onclick: move |_| dispatch(st, "view.goto.lastPage"), Icon { name: "last" } }
                 }
-                div { class: "spacer" }
-                div { class: "seg",
-                    button { title: "Zoom out (Ctrl+-)", onclick: move |_| dispatch(st, "zoomOut"), Icon { name: "zoom-out" } }
-                    input {
-                        r#type: "range", min: "10", max: "400", step: "5", value: "{zoom_pct.clamp(10, 400)}",
-                        oninput: move |e| { if let Ok(v) = e.value().parse::<f32>() { st.with_active(|t| t.zoom = Zoom::Fixed(v / 100.0)); } },
-                    }
-                    button { title: "Zoom in (Ctrl++)", onclick: move |_| dispatch(st, "zoomIn"), Icon { name: "zoom-in" } }
-                    span { class: "zoom-pct", "{zoom_pct}%" }
+                div { class: "seg sb-opt",
+                    button { class: if zoom_mode == Zoom::FitWidth { "active" } else { "" }, title: "{t(lang, \"status.fit_width\")}", onclick: move |_| dispatch(st, "zoom.level.fitWidth"), Icon { name: "fit" } }
+                    button { class: if zoom_mode == Zoom::FitPage { "active" } else { "" }, title: "{t(lang, \"status.fit_page\")}", onclick: move |_| dispatch(st, "zoom.level.fitPage"), Icon { name: "page" } }
                 }
-                div { class: "seg",
-                    button { class: if st.read_active(|t| t.zoom == Zoom::FitWidth).unwrap_or(false) { "active" } else { "" }, title: "{t(lang, \"status.fit_width\")}", onclick: move |_| dispatch(st, "zoom.level.fitWidth"), Icon { name: "fit" } }
-                    button { class: if st.read_active(|t| t.zoom == Zoom::FitPage).unwrap_or(false) { "active" } else { "" }, title: "{t(lang, \"status.fit_page\")}", onclick: move |_| dispatch(st, "zoom.level.fitPage"), Icon { name: "page" } }
-                }
-                div { class: "seg",
+                div { class: "seg sb-opt",
                     button { class: if layout == Layout::Single { "active" } else { "" }, title: "{t(lang, \"status.single\")}", onclick: move |_| dispatch(st, "view.layout.onePage"), Icon { name: "single" } }
                     button { class: if layout == Layout::Continuous { "active" } else { "" }, title: "{t(lang, \"status.continuous\")}", onclick: move |_| dispatch(st, "view.layout.oneColumn"), Icon { name: "continuous" } }
                     button { class: if layout == Layout::TwoPages { "active" } else { "" }, title: "{t(lang, \"status.two\")}", onclick: move |_| dispatch(st, "view.layout.twoPages"), Icon { name: "two" } }
                 }
-                span { class: "muted", "{human_size(size)}" }
+                div { class: "seg zoom-seg",
+                    button { title: "{t(lang, \"status.zoom_out\")} (Ctrl+-)", onclick: move |_| dispatch(st, "zoomOut"), Icon { name: "zoom-out" } }
+                    input {
+                        class: "sb-opt",
+                        r#type: "range", min: "10", max: "400", step: "5", value: "{zoom_pct.clamp(10, 400)}",
+                        title: "{t(lang, \"status.zoom\")}",
+                        oninput: move |e| { if let Ok(v) = e.value().parse::<f32>() { st.with_active(|t| t.zoom = Zoom::Fixed(v / 100.0)); } },
+                    }
+                    button { title: "{t(lang, \"status.zoom_in\")} (Ctrl++)", onclick: move |_| dispatch(st, "zoomIn"), Icon { name: "zoom-in" } }
+                    button { class: "zoom-pct", title: "{t(lang, \"dialog.goto.title\")}", onclick: move |_| dispatch(st, "zoom.to.level"), "{zoom_pct}%" }
+                }
+                span { class: "muted sb-opt2 nowrap", "{human_size(size)}" }
             } else {
                 span { "{t(lang, \"status.ready\")}" }
             }
-            span { class: "muted", "{commands::implemented_ids().len() + commands::partial_ids().len()}/{folitecta_core::registry().len()}" }
         }
     }
 }

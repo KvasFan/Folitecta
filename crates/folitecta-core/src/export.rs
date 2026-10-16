@@ -41,10 +41,41 @@ fn encode(rendered: &RenderedPage, format: ImageFormat) -> Result<Vec<u8>> {
     }
 }
 
+/// Re-encode PNG bytes as a baseline JPEG (RGB) of the given quality.
+pub(crate) fn png_to_jpeg(png: &[u8], quality: u8) -> Result<Vec<u8>> {
+    let img = image::load_from_memory(png)
+        .map_err(|e| Error::Image(e.to_string()))?
+        .to_rgb8();
+    let mut out = Cursor::new(Vec::new());
+    let mut enc = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, quality.clamp(10, 100));
+    enc.encode_image(&img).map_err(|e| Error::Image(e.to_string()))?;
+    Ok(out.into_inner())
+}
+
 impl Document {
     /// Render a page at `scale` (1.0 = 72 dpi) to PNG.
     pub fn render_page_png(&self, page: usize, scale: f32) -> Result<RenderedPage> {
         Renderer::new(self.bytes())?.render_page(page, scale)
+    }
+
+    /// Render a rectangular area of a page (display points, origin top-left,
+    /// y down) at `scale` and return it as PNG.
+    pub fn render_region_png(&self, page: usize, rect: [f32; 4], scale: f32) -> Result<Vec<u8>> {
+        let rendered = self.render_page_png(page, scale)?;
+        let img = image::load_from_memory(&rendered.png).map_err(|e| Error::Image(e.to_string()))?;
+        let (w, h) = (img.width(), img.height());
+        if w == 0 || h == 0 {
+            return Err(Error::Image("empty page image".into()));
+        }
+        let x0 = ((rect[0].min(rect[2]) * scale).floor().max(0.0) as u32).min(w - 1);
+        let y0 = ((rect[1].min(rect[3]) * scale).floor().max(0.0) as u32).min(h - 1);
+        let x1 = ((rect[0].max(rect[2]) * scale).ceil().max(0.0) as u32).clamp(x0 + 1, w);
+        let y1 = ((rect[1].max(rect[3]) * scale).ceil().max(0.0) as u32).clamp(y0 + 1, h);
+        let crop = img.crop_imm(x0, y0, x1 - x0, y1 - y0);
+        let mut out = Cursor::new(Vec::new());
+        crop.write_to(&mut out, image::ImageFormat::Png)
+            .map_err(|e| Error::Image(e.to_string()))?;
+        Ok(out.into_inner())
     }
 
     /// Export one page as an image file.

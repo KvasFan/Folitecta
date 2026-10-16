@@ -1,7 +1,7 @@
 //! Ribbon (tabs, groups, buttons) and the compact classic toolbar.
 
+use dioxus::html::{InteractionElementOffset, InteractionLocation};
 use dioxus::prelude::*;
-use folitecta_core::commands::{RIBBON_TABS, Registry};
 use folitecta_core::{Command, registry};
 
 use crate::commands::{self, is_implemented};
@@ -9,17 +9,52 @@ use crate::i18n::{Lang, cmd_label, t, ui_label};
 use crate::icons::{self, Icon};
 use crate::state::{AppState, Layout, Pane, Theme, Tool, Zoom};
 use crate::ui::menu_entry;
+use crate::ui::ribbon_layout::{self, CONTEXT_TAB, GroupSpec, RGroup, fit_ribbon, small_width};
 
-const MAX_LARGE_BUTTONS: usize = 3;
+const LARGE_H: f64 = 62.0;
+const SMALL_H: f64 = 20.0;
+const ICON_H: f64 = 28.0;
+const MENU_W: f64 = 300.0;
+
+/// How a ribbon command is drawn.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum BtnStyle {
+    /// Icon above a two-line label (62 x 62).
+    Large,
+    /// Icon and label in one row, stacked three per column.
+    Compact,
+    /// Icon only (classic toolbar).
+    Icon,
+}
+
+impl BtnStyle {
+    fn class(self) -> &'static str {
+        match self {
+            BtnStyle::Large => "rbtn",
+            BtnStyle::Compact => "rbtn compact",
+            BtnStyle::Icon => "rbtn small",
+        }
+    }
+    fn height(self) -> f64 {
+        match self {
+            BtnStyle::Large => LARGE_H,
+            BtnStyle::Compact => SMALL_H,
+            BtnStyle::Icon => ICON_H,
+        }
+    }
+}
 
 /// Whether a toggle-like command is currently "on".
-fn is_active(st: AppState, id: &str) -> bool {
+pub fn is_active(st: AppState, id: &str) -> bool {
     let tool = (st.tool)();
     if tool.command_id() == id
         || (id == "addStickyNote" && tool == Tool::Note)
         || (id == "addLink" && tool == Tool::Link)
     {
         return true;
+    }
+    if let Some(v) = crate::commands::toggle_state(st, id) {
+        return v;
     }
     let ui = st.ui.read();
     let pane_on = |p: Pane| ui.show_left_pane && ui.left_pane == p.id();
@@ -54,36 +89,74 @@ fn is_active(st: AppState, id: &str) -> bool {
     }
 }
 
-fn ribbon_button(
-    st: AppState,
-    lang: Lang,
-    reg: &'static Registry,
-    cmd: &'static Command,
-    small: bool,
-) -> Element {
+/// Viewport position just below the element that received `evt`.
+/// Children of ribbon buttons ignore pointer events, so the target is the button.
+fn anchor_below(evt: &Event<MouseData>, height: f64) -> (f64, f64) {
+    let c = evt.client_coordinates();
+    let o = evt.element_coordinates();
+    (c.x - o.x, c.y - o.y + height + 2.0)
+}
+
+/// A dropdown list anchored at `st.dropdown_pos`, kept inside the window.
+pub fn dropdown(st: AppState, lang: Lang, cmds: Vec<&'static Command>) -> Element {
+    let (x, y) = (st.dropdown_pos)();
+    let (vw, vh) = (st.viewport)();
+    let left = x.min(vw - MENU_W - 8.0).max(4.0);
+    let room = vh - y - 10.0;
+    let (top, max_h) = if room < 180.0 {
+        ((vh - 260.0).max(4.0), 250.0)
+    } else {
+        (y, room)
+    };
+    rsx! {
+        div { class: "rbtn-menu", style: "left:{left}px;top:{top}px;max-height:{max_h}px",
+            onclick: move |e| e.stop_propagation(),
+            for c in cmds {
+                {menu_entry(st, lang, c, 0)}
+            }
+        }
+    }
+}
+
+fn toggle_dropdown(st: AppState, key: &str, pos: (f64, f64)) {
+    let cur = st.open_dropdown.peek().clone();
+    if cur.as_deref() == Some(key) {
+        st.set_open_dropdown(None);
+    } else {
+        st.set_dropdown_pos(pos);
+        st.submenus_mut().clear();
+        st.set_open_dropdown(Some(key.to_string()));
+    }
+    st.set_open_menu(None);
+}
+
+pub fn ribbon_button(st: AppState, lang: Lang, cmd: &'static Command, style: BtnStyle) -> Element {
+    let reg = registry();
     let id = cmd.id.clone();
     let id_click = id.clone();
     let label = cmd_label(lang, cmd);
-    let has_menu = reg.has_children(&cmd.id);
+    let has_menu = reg.has_children(&cmd.id) && !is_implemented(&cmd.id);
     let icon = icons::for_command(&cmd.id);
     let active = is_active(st, &cmd.id);
     let planned = !is_implemented(&cmd.id) && !has_menu;
-    let open = (st.open_dropdown)().as_deref() == Some(cmd.id.as_str());
-    let mut class = String::from("rbtn");
-    if small {
-        class.push_str(" small");
-    }
+    let key = format!("btn:{}", cmd.id);
+    let open = (st.open_dropdown)().as_deref() == Some(key.as_str());
+    let mut class = String::from(style.class());
     if active {
         class.push_str(" active");
     }
     if has_menu {
         class.push_str(" has-menu");
     }
-    let tip = if planned {
-        format!("{label} — {}", t(lang, "label.planned"))
-    } else {
-        label.clone()
+    if planned {
+        class.push_str(" planned");
+    }
+    let tip = match (planned, cmd.shortcut.as_deref()) {
+        (true, _) => format!("{label} — {}", t(lang, "label.planned")),
+        (false, Some(s)) => format!("{label} ({s})"),
+        (false, None) => label.clone(),
     };
+    let height = style.height();
     rsx! {
         div { class: "rbtn-wrap", key: "{cmd.id}",
             button {
@@ -92,9 +165,7 @@ fn ribbon_button(
                 onclick: move |e| {
                     e.stop_propagation();
                     if has_menu {
-                        let cur = st.open_dropdown.peek().clone();
-                        st.set_open_dropdown(if cur.as_deref() == Some(id_click.as_str()) { None } else { Some(id_click.clone()) });
-                        st.set_open_menu(None);
+                        toggle_dropdown(st, &key, anchor_below(&e, height));
                     } else {
                         commands::dispatch(st, &id_click);
                     }
@@ -104,40 +175,50 @@ fn ribbon_button(
                 if planned { span { class: "dot" } }
             }
             if has_menu && open {
-                div { class: "rbtn-menu", onclick: move |e| e.stop_propagation(),
-                    for child in reg.children(&id) {
-                        {menu_entry(st, lang, child, 1)}
-                    }
-                }
+                {dropdown(st, lang, reg.children(&id))}
             }
         }
     }
 }
 
-fn more_button(st: AppState, lang: Lang, key: String, rest: Vec<&'static Command>) -> Element {
+/// Overflow button listing the commands that did not fit (or a collapsed group).
+fn overflow_button(
+    st: AppState,
+    lang: Lang,
+    key: String,
+    label: String,
+    icon: &'static str,
+    cmds: Vec<&'static Command>,
+    style: BtnStyle,
+) -> Element {
     let open = (st.open_dropdown)().as_deref() == Some(key.as_str());
     let key_click = key.clone();
-    let count = rest.len();
+    let count = cmds.len();
+    let class = format!("{} has-menu", style.class());
+    let height = style.height();
     rsx! {
         div { class: "rbtn-wrap", key: "{key}",
-            button { class: "rbtn has-menu", title: "{count} more commands",
+            button { class: "{class}", title: "{label} ({count})",
                 onclick: move |e| {
                     e.stop_propagation();
-                    let cur = st.open_dropdown.peek().clone();
-                    st.set_open_dropdown(if cur.as_deref() == Some(key_click.as_str()) { None } else { Some(key_click.clone()) });
+                    toggle_dropdown(st, &key_click, anchor_below(&e, height));
                 },
-                Icon { name: "more" }
-                span { class: "lbl", "More ({count})" }
+                Icon { name: icon }
+                span { class: "lbl", "{label}" }
             }
             if open {
-                div { class: "rbtn-menu", style: "min-width:300px", onclick: move |e| e.stop_propagation(),
-                    for c in rest {
-                        {menu_entry(st, lang, c, 1)}
-                    }
-                }
+                {dropdown(st, lang, cmds)}
             }
         }
     }
+}
+
+fn group_label(lang: Lang, tab: &str, g: &RGroup) -> String {
+    ui_label(lang, "group", &format!("{tab}.{}", g.id), g.label)
+}
+
+fn title_width(label: &str) -> f64 {
+    label.chars().count() as f64 * 6.6 + 12.0
 }
 
 #[component]
@@ -146,66 +227,120 @@ pub fn Ribbon() -> Element {
     let lang = st.lang();
     let reg = registry();
     let active_tab = (st.ribbon_tab)();
+    let (vw, _) = (st.viewport)();
     let tool = (st.tool)();
-    let ctx_tab: Option<&'static str> = if tool.is_drawing() {
-        Some("ctx.format")
-    } else {
-        None
-    };
-    let tab_for_groups = active_tab.clone();
+    let show_ctx = tool.is_drawing() || st.read_active(|t| t.selected_annot.is_some()).unwrap_or(false);
+    let tab = ribbon_layout::tab(&active_tab)
+        .filter(|t| show_ctx || !t.id.starts_with("ctx."))
+        .unwrap_or(&ribbon_layout::RIBBON[0]);
+    let tab_id = tab.id;
+
+    let groups: Vec<(&'static RGroup, Vec<&'static Command>, Vec<&'static Command>)> = tab
+        .groups
+        .iter()
+        .map(|g| {
+            let items: Vec<&'static Command> = g.items.iter().filter_map(|id| reg.get(id)).collect();
+            let extras: Vec<&'static Command> = reg
+                .ribbon_group(tab_id, g.id)
+                .into_iter()
+                .filter(|c| !g.items.contains(&c.id.as_str()))
+                .collect();
+            (g, items, extras)
+        })
+        .collect();
+    let more_w = small_width(&format!("{} (99)", t(lang, "label.more")));
+    let specs: Vec<GroupSpec> = groups
+        .iter()
+        .map(|(g, items, extras)| GroupSpec {
+            small_w: items.iter().map(|c| small_width(&cmd_label(lang, c))).collect(),
+            extra: !extras.is_empty(),
+            title: title_width(&group_label(lang, tab_id, g)),
+            more_w,
+        })
+        .collect();
+    let fits = fit_ribbon(&specs, vw - 28.0);
+    let open_label = cmd_label(lang, reg.get("open").unwrap());
+    let save_label = cmd_label(lang, reg.get("save").unwrap());
+    let undo_label = cmd_label(lang, reg.get("undo").unwrap());
+    let redo_label = cmd_label(lang, reg.get("redo").unwrap());
 
     rsx! {
         div { class: "ribbon", onclick: move |e| e.stop_propagation(),
             div { class: "ribbon-tabs",
-                for (id, label) in RIBBON_TABS.iter() {
+                for t in ribbon_layout::main_tabs() {
                     {
-                        let id_s = id.to_string();
-                        let title = ui_label(lang, "tab", id, label);
-                        let is_active = active_tab == *id;
+                        let id = t.id;
+                        let title = ui_label(lang, "tab", id, t.label);
                         rsx! {
-                            button { class: if is_active { "ribbon-tab active" } else { "ribbon-tab" }, key: "{id}",
-                                onclick: move |_| { st.set_ribbon_tab(id_s.clone()); st.set_open_dropdown(None); },
+                            button { class: if tab_id == id { "ribbon-tab active" } else { "ribbon-tab" }, key: "{id}", title: "{title}",
+                                onclick: move |_| { st.set_ribbon_tab(id.to_string()); st.set_open_dropdown(None); },
                                 "{title}"
                             }
                         }
                     }
                 }
-                if let Some(ctx) = ctx_tab {
-                    button { class: if active_tab == ctx { "ribbon-tab ctx active" } else { "ribbon-tab ctx" },
-                        onclick: move |_| st.set_ribbon_tab(ctx.to_string()),
-                        "{Registry::tab_label(ctx)}"
+                if show_ctx {
+                    {
+                        let ctx = ribbon_layout::tab(CONTEXT_TAB).unwrap();
+                        let title = ui_label(lang, "tab", ctx.id, ctx.label);
+                        rsx! {
+                            button { class: if tab_id == CONTEXT_TAB { "ribbon-tab ctx active" } else { "ribbon-tab ctx" }, title: "{title}",
+                                onclick: move |_| st.set_ribbon_tab(CONTEXT_TAB.to_string()),
+                                "{title}"
+                            }
+                        }
                     }
                 }
                 div { class: "spacer" }
                 div { class: "ribbon-right",
-                    button { class: "tbtn", onclick: move |_| commands::dispatch(st, "open"), Icon { name: "open" } "{cmd_label(lang, reg.get(\"open\").unwrap())}" }
-                    button { class: "tbtn", onclick: move |_| commands::dispatch(st, "save"), Icon { name: "save" } "{cmd_label(lang, reg.get(\"save\").unwrap())}" }
-                    button { class: "ibtn", title: "Undo (Ctrl+Z)", onclick: move |_| commands::dispatch(st, "undo"), Icon { name: "undo" } }
-                    button { class: "ibtn", title: "Redo (Ctrl+Y)", onclick: move |_| commands::dispatch(st, "redo"), Icon { name: "redo" } }
+                    button { class: "tbtn", title: "{open_label} (Ctrl+O)", onclick: move |_| commands::dispatch(st, "open"), Icon { name: "open" } span { class: "txt", "{open_label}" } }
+                    button { class: "tbtn", title: "{save_label} (Ctrl+S)", onclick: move |_| commands::dispatch(st, "save"), Icon { name: "save" } span { class: "txt", "{save_label}" } }
+                    button { class: "ibtn", title: "{undo_label} (Ctrl+Z)", onclick: move |_| commands::dispatch(st, "undo"), Icon { name: "undo" } }
+                    button { class: "ibtn", title: "{redo_label} (Ctrl+Y)", onclick: move |_| commands::dispatch(st, "redo"), Icon { name: "redo" } }
                 }
             }
             div { class: "ribbon-body",
-                for (group, group_label) in reg.ribbon_groups(&tab_for_groups) {
+                for (i, (g, items, extras)) in groups.into_iter().enumerate() {
                     {
-                        let cmds: Vec<&'static Command> = reg.ribbon_group(&tab_for_groups, group);
-                        let (shown, rest): (Vec<&'static Command>, Vec<&'static Command>) = if cmds.len() > MAX_LARGE_BUTTONS {
-                            let (a, b) = cmds.split_at(MAX_LARGE_BUTTONS - 1);
-                            (a.to_vec(), b.to_vec())
-                        } else {
-                            (cmds.clone(), Vec::new())
-                        };
-                        let more_key = format!("more:{tab_for_groups}:{group}");
+                        let (large, small) = fits.get(i).copied().unwrap_or((0, 0));
+                        let large = large.min(items.len());
+                        let small = small.min(items.len() - large);
+                        let shown = large + small;
+                        let label = group_label(lang, tab_id, g);
+                        let mut overflow: Vec<&'static Command> = items[shown..].to_vec();
+                        overflow.extend(extras);
+                        let more_key = format!("more:{tab_id}:{}", g.id);
+                        let collapsed = shown == 0;
+                        let more_label = if collapsed { label.clone() } else { format!("{} ({})", t(lang, "label.more"), overflow.len()) };
+                        let more_icon = if collapsed { icons::for_command(g.items.first().copied().unwrap_or("more")) } else { "more" };
+                        // Small buttons stack three per column; the overflow button joins the last column.
+                        let mut stack: Vec<Option<&'static Command>> = items[large..shown].iter().map(|c| Some(*c)).collect();
+                        let more_in_stack = small > 0 && !overflow.is_empty();
+                        if more_in_stack {
+                            stack.push(None);
+                        }
+                        let columns: Vec<Vec<Option<&'static Command>>> = stack.chunks(3).map(|c| c.to_vec()).collect();
                         rsx! {
-                            div { class: "ribbon-group", key: "{group}",
+                            div { class: "ribbon-group", key: "{tab_id}-{g.id}",
                                 div { class: "ribbon-group-items",
-                                    for c in shown {
-                                        {ribbon_button(st, lang, reg, c, false)}
+                                    for c in items[..large].iter() {
+                                        {ribbon_button(st, lang, c, BtnStyle::Large)}
                                     }
-                                    if !rest.is_empty() {
-                                        {more_button(st, lang, more_key, rest)}
+                                    for (ci, col) in columns.into_iter().enumerate() {
+                                        div { class: "rb-col", key: "col{ci}",
+                                            for entry in col {
+                                                match entry {
+                                                    Some(c) => ribbon_button(st, lang, c, BtnStyle::Compact),
+                                                    None => overflow_button(st, lang, more_key.clone(), more_label.clone(), more_icon, overflow.clone(), BtnStyle::Compact),
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if !overflow.is_empty() && !more_in_stack {
+                                        {overflow_button(st, lang, more_key.clone(), more_label.clone(), more_icon, overflow.clone(), BtnStyle::Large)}
                                     }
                                 }
-                                div { class: "ribbon-group-title", "{group_label}" }
+                                div { class: "ribbon-group-title", "{label}" }
                             }
                         }
                     }
@@ -221,6 +356,7 @@ pub fn ClassicToolbar() -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
     let reg = registry();
+    let (vw, _) = (st.viewport)();
     let ids = [
         "open",
         "save",
@@ -244,9 +380,9 @@ pub fn ClassicToolbar() -> Element {
         "view.rotate.CCW",
         "view.rotate.CW",
         "-",
-        "addStickyNote",
+        "tool.annot.stickyNote",
+        "tool.annot.highlight",
         "tool.annot.square",
-        "tool.annot.highlightArea",
         "tool.annot.textBox",
         "-",
         "document.rotatePages",
@@ -254,14 +390,16 @@ pub fn ClassicToolbar() -> Element {
         "document.insertEmptyPages",
         "document.watermarks.add",
     ];
+    // Icon-only buttons are ~30px; drop trailing ones that would not fit.
+    let budget = ((vw - 40.0) / 31.0).max(8.0) as usize;
     rsx! {
-        div { class: "ribbon", onclick: move |e| e.stop_propagation(),
-            div { class: "ribbon-body", style: "min-height:0; padding: 4px 8px; gap: 2px; align-items: center",
-                for (i, id) in ids.iter().enumerate() {
+        div { class: "ribbon classic", onclick: move |e| e.stop_propagation(),
+            div { class: "ribbon-body",
+                for (i, id) in ids.iter().take(budget).enumerate() {
                     if *id == "-" {
-                        div { key: "sep{i}", style: "width:1px;height:22px;background:var(--border);margin:0 4px" }
+                        div { key: "sep{i}", class: "tb-sep" }
                     } else if let Some(cmd) = reg.get(id) {
-                        {ribbon_button(st, lang, reg, cmd, true)}
+                        {ribbon_button(st, lang, cmd, BtnStyle::Icon)}
                     }
                 }
             }

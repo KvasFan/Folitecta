@@ -630,3 +630,306 @@ pub fn save_attachment(st: AppState, att: folitecta_core::Attachment) {
         }
     });
 }
+
+// ---- Images ------------------------------------------------------------------
+
+fn image_dialog() -> rfd::AsyncFileDialog {
+    rfd::AsyncFileDialog::new()
+        .add_filter(
+            "Images",
+            &["png", "jpg", "jpeg", "gif", "bmp", "tif", "tiff", "webp"],
+        )
+        .add_filter("All files", &["*"])
+}
+
+async fn read_files(files: Vec<rfd::FileHandle>) -> Vec<Vec<u8>> {
+    let mut out = Vec::with_capacity(files.len());
+    for f in files {
+        out.push(f.read().await);
+    }
+    out
+}
+
+/// Choose a picture, then let the user drag the area where it goes.
+pub fn pick_image_to_place(st: AppState) {
+    spawn(async move {
+        let Some(file) = image_dialog().set_title("Choose an image").pick_file().await else {
+            return;
+        };
+        let data = file.read().await;
+        match Document::image_size(&data) {
+            Ok(_) => {
+                st.set_pending_image(Some(data));
+                st.set_tool(crate::state::Tool::PlaceImage);
+                st.toast(ToastKind::Info, t(st.lang(), "toast.place_image"), "");
+            }
+            Err(e) => st.error(e),
+        }
+    });
+}
+
+/// Choose a picture to use as a stamp, then click or drag on the page.
+pub fn pick_image_stamp(st: AppState) {
+    spawn(async move {
+        let Some(file) = image_dialog().set_title("Choose a stamp image").pick_file().await else {
+            return;
+        };
+        let data = file.read().await;
+        match Document::image_size(&data) {
+            Ok(_) => {
+                st.set_pending_image(Some(data));
+                st.set_value("stamp.kind", "image");
+                st.set_tool(crate::state::Tool::Stamp);
+                st.toast(ToastKind::Info, t(st.lang(), "toast.place_stamp"), "");
+            }
+            Err(e) => st.error(e),
+        }
+    });
+}
+
+/// Insert one page per chosen picture after the current page.
+pub fn insert_image_pages(st: AppState) {
+    spawn(async move {
+        let Some(files) = image_dialog()
+            .set_title("Insert images as pages")
+            .pick_files()
+            .await
+        else {
+            return;
+        };
+        let images = read_files(files).await;
+        let at = st.current_page() + 1;
+        match st.with_active(|t| t.doc.insert_image_pages(at, images)) {
+            Some(Ok(n)) => {
+                set_window_title(st);
+                st.toast(
+                    ToastKind::Ok,
+                    tf(st.lang(), "toast.pages_inserted", &[("count", &n.to_string())]),
+                    "",
+                );
+            }
+            Some(Err(e)) => st.error(e),
+            None => {}
+        }
+    });
+}
+
+/// New document with one page per picture.
+pub fn new_from_images(st: AppState) {
+    spawn(async move {
+        let Some(files) = image_dialog()
+            .set_title("Create a PDF from images")
+            .pick_files()
+            .await
+        else {
+            return;
+        };
+        let images = read_files(files).await;
+        match Document::from_images(images) {
+            Ok(doc) => {
+                let id = st.alloc_id();
+                st.docs_mut().push(DocTab::new(id, doc));
+                let n = st.docs.read().len();
+                st.set_active(n - 1);
+                set_window_title(st);
+            }
+            Err(e) => st.error(e),
+        }
+    });
+}
+
+/// New document from a plain text file (UTF-8, or Latin-1 when not valid UTF-8).
+pub fn new_from_text_file(st: AppState) {
+    spawn(async move {
+        let Some(file) = rfd::AsyncFileDialog::new()
+            .set_title("Create a PDF from a text file")
+            .add_filter("Text", &["txt", "text", "md", "csv", "log", "ini", "json", "xml"])
+            .add_filter("All files", &["*"])
+            .pick_file()
+            .await
+        else {
+            return;
+        };
+        let bytes = file.read().await;
+        let text = match String::from_utf8(bytes) {
+            Ok(s) => s.trim_start_matches('\u{feff}').to_string(),
+            Err(e) => e.into_bytes().iter().map(|b| *b as char).collect(),
+        };
+        match Document::from_text(&text, folitecta_core::TextLayout::default()) {
+            Ok(mut doc) => {
+                let stem = file
+                    .path()
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "text".into());
+                doc.set_path(None);
+                let _ = doc.set_info(&stem, "", "", "");
+                doc.clear_history();
+                let id = st.alloc_id();
+                st.docs_mut().push(DocTab::new(id, doc));
+                let n = st.docs.read().len();
+                st.set_active(n - 1);
+                set_window_title(st);
+            }
+            Err(e) => st.error(e),
+        }
+    });
+}
+
+// ---- Pages from another PDF ------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PickPurpose {
+    Replace,
+    Overlay,
+}
+
+/// Choose a PDF and open the dialog that uses it.
+pub fn pick_file_for(st: AppState, purpose: PickPurpose) {
+    spawn(async move {
+        let title = match purpose {
+            PickPurpose::Replace => "Replace pages with pages from",
+            PickPurpose::Overlay => "Overlay pages from",
+        };
+        if let Some(file) = pdf_dialog().set_title(title).pick_file().await {
+            let path = file.path().to_path_buf();
+            st.set_dialog(match purpose {
+                PickPurpose::Replace => Dialog::ReplacePages(path),
+                PickPurpose::Overlay => Dialog::OverlayFile(path),
+            });
+        }
+    });
+}
+
+/// Add consecutive Bates numbers to several files, written next to the originals
+/// with a `-bates` suffix.
+pub fn bates_multiple(st: AppState) {
+    spawn(async move {
+        let Some(files) = pdf_dialog()
+            .set_title("Bates numbering: choose the documents")
+            .pick_files()
+            .await
+        else {
+            return;
+        };
+        let mut next = 1i64;
+        let mut written = 0;
+        for f in files {
+            let path = f.path().to_path_buf();
+            match Document::open(&path) {
+                Ok(mut doc) => {
+                    let pages: Vec<usize> = (0..doc.page_count()).collect();
+                    let n = pages.len() as i64;
+                    if let Err(e) = doc.add_page_numbers(
+                        &pages,
+                        "{bates:6}",
+                        next,
+                        folitecta_core::MarkPosition::BottomRight,
+                        9.0,
+                        24.0,
+                        [0.0, 0.0, 0.0],
+                    ) {
+                        st.error(format!("{}: {e}", path.display()));
+                        continue;
+                    }
+                    let stem = path
+                        .file_stem()
+                        .map(|s| s.to_string_lossy().to_string())
+                        .unwrap_or_else(|| "document".into());
+                    let out = path.with_file_name(format!("{stem}-bates.pdf"));
+                    match doc.save_as(&out) {
+                        Ok(()) => {
+                            written += 1;
+                            next += n;
+                        }
+                        Err(e) => st.error(e),
+                    }
+                }
+                Err(e) => st.error(format!("{}: {e}", path.display())),
+            }
+        }
+        st.toast(
+            ToastKind::Ok,
+            tf(
+                st.lang(),
+                "toast.bates_done",
+                &[("count", &written.to_string()), ("last", &(next - 1).to_string())],
+            ),
+            "",
+        );
+    });
+}
+
+// ---- Settings --------------------------------------------------------------------
+
+pub fn export_settings(st: AppState) {
+    let json = serde_json::to_string_pretty(&*st.ui.read()).unwrap_or_default();
+    spawn(async move {
+        let Some(file) = rfd::AsyncFileDialog::new()
+            .add_filter("Settings", &["json"])
+            .set_file_name("folitecta-settings.json")
+            .save_file()
+            .await
+        else {
+            return;
+        };
+        match std::fs::write(file.path(), json) {
+            Ok(()) => st.toast(
+                ToastKind::Ok,
+                tf(
+                    st.lang(),
+                    "toast.saved",
+                    &[("name", &file.path().display().to_string())],
+                ),
+                "",
+            ),
+            Err(e) => st.error(e),
+        }
+    });
+}
+
+pub fn import_settings(st: AppState) {
+    spawn(async move {
+        let Some(file) = rfd::AsyncFileDialog::new()
+            .add_filter("Settings", &["json"])
+            .pick_file()
+            .await
+        else {
+            return;
+        };
+        let text = String::from_utf8_lossy(&file.read().await).to_string();
+        match serde_json::from_str::<crate::state::UiPrefs>(&text) {
+            Ok(prefs) => {
+                *st.ui_mut() = prefs;
+                st.save_prefs();
+                st.toast(ToastKind::Ok, t(st.lang(), "toast.settings_imported"), "");
+            }
+            Err(e) => st.error(e),
+        }
+    });
+}
+
+/// Write an encrypted copy of the active document.
+pub fn save_encrypted(st: AppState, user: String, owner: String, perms: folitecta_core::SecurityPermissions) {
+    let name = suggested_name(st, "-protected");
+    spawn(async move {
+        let Some(file) = pdf_dialog()
+            .set_title("Save protected copy")
+            .set_file_name(&name)
+            .save_file()
+            .await
+        else {
+            return;
+        };
+        let path = file.path().to_path_buf();
+        match st.read_active(|t| t.doc.save_encrypted(&path, &user, &owner, perms)) {
+            Some(Ok(())) => st.toast(
+                ToastKind::Ok,
+                tf(st.lang(), "toast.saved", &[("name", &path.display().to_string())]),
+                t(st.lang(), "toast.protected_note"),
+            ),
+            Some(Err(e)) => st.error(e),
+            None => {}
+        }
+    });
+}

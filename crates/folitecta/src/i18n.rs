@@ -52,13 +52,27 @@ fn table(lang: Lang) -> &'static HashMap<String, String> {
     }
 }
 
-/// Translate a UI string key.
+/// Translate a UI string key. `cmd.<id>` keys fall back to the registry label.
 pub fn t(lang: Lang, key: &str) -> String {
-    table(lang)
-        .get(key)
-        .or_else(|| EN.get(key))
-        .cloned()
-        .unwrap_or_else(|| key.to_string())
+    if let Some(s) = table(lang).get(key).or_else(|| EN.get(key)) {
+        return s.clone();
+    }
+    if let Some(cmd) = key
+        .strip_prefix("cmd.")
+        .and_then(|id| folitecta_core::registry().get(id))
+    {
+        return cmd.label.clone();
+    }
+    key.to_string()
+}
+
+/// Friendly, localized name of an annotation subtype (`Text` is a sticky note, ...).
+pub fn annot_name(lang: Lang, subtype: &str) -> String {
+    let key = format!("annot.{subtype}");
+    match table(lang).get(&key).or_else(|| EN.get(&key)) {
+        Some(s) => s.clone(),
+        None => subtype.to_string(),
+    }
 }
 
 /// Translate with `{name}` placeholders.
@@ -101,6 +115,7 @@ mod tests {
         assert_eq!(t(Lang::En, "dialog.ok"), "OK");
         assert_eq!(t(Lang::It, "menu.edit"), "Modifica");
         assert_eq!(t(Lang::It, "no.such.key"), "no.such.key");
+        assert_eq!(t(Lang::En, "cmd.saveAs"), "Save As…");
         assert_eq!(tf(Lang::En, "toast.opened", &[("name", "a.pdf")]), "Opened a.pdf");
     }
 

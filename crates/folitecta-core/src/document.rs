@@ -54,6 +54,10 @@ pub struct Document {
     redo: Vec<Arc<Vec<u8>>>,
     /// Object id of the shared Helvetica font resource created by Folitecta, if any.
     pub(crate) helv_font: Option<ObjectId>,
+    /// The file was encrypted when it was opened (it is kept decrypted in memory).
+    source_encrypted: bool,
+    /// Positioned text of every page, keyed by revision.
+    pub(crate) text_cache: std::sync::Mutex<Option<(u64, Arc<Vec<crate::textlayer::PageText>>)>>,
 }
 
 impl std::fmt::Debug for Document {
@@ -73,7 +77,7 @@ fn serialize(doc: &mut lopdf::Document) -> Result<Vec<u8>> {
     Ok(out)
 }
 
-fn load_inner(bytes: &[u8], password: Option<&str>) -> Result<lopdf::Document> {
+fn load_inner(bytes: &[u8], password: Option<&str>) -> Result<(lopdf::Document, bool)> {
     let mut doc = match password {
         Some(pw) => lopdf::Document::load_mem_with_options(bytes, lopdf::LoadOptions::with_password(pw))?,
         None => lopdf::Document::load_mem(bytes)?,
@@ -82,12 +86,13 @@ fn load_inner(bytes: &[u8], password: Option<&str>) -> Result<lopdf::Document> {
         doc.decrypt(password.unwrap_or(""))
             .map_err(|_| Error::PasswordRequired)?;
     }
-    if doc.was_encrypted() || doc.is_encrypted() {
+    let encrypted = doc.was_encrypted() || doc.is_encrypted();
+    if encrypted {
         // We keep the decrypted objects and write plain files from now on.
         doc.trailer.remove(b"Encrypt");
         doc.encryption_state = None;
     }
-    Ok(doc)
+    Ok((doc, encrypted))
 }
 
 impl Document {
@@ -111,7 +116,7 @@ impl Document {
 
     /// Build a document from in-memory bytes.
     pub fn from_bytes(bytes: Vec<u8>, path: Option<PathBuf>, password: Option<&str>) -> Result<Self> {
-        let inner = load_inner(&bytes, password)?;
+        let (inner, source_encrypted) = load_inner(&bytes, password)?;
         let mut doc = Document {
             inner,
             path,
@@ -121,12 +126,14 @@ impl Document {
             undo: Vec::new(),
             redo: Vec::new(),
             helv_font: None,
+            source_encrypted,
+            text_cache: Default::default(),
         };
         if doc.page_count() == 0 {
             return Err(Error::Invalid("the file contains no pages".into()));
         }
         // Encrypted sources are re-serialized so the renderer sees plain objects.
-        if doc.inner.was_encrypted() {
+        if source_encrypted {
             doc.bytes = Arc::new(serialize(&mut doc.inner)?);
         }
         Ok(doc)
@@ -175,6 +182,8 @@ impl Document {
             undo: Vec::new(),
             redo: Vec::new(),
             helv_font: None,
+            source_encrypted: false,
+            text_cache: Default::default(),
         })
     }
 
@@ -253,6 +262,14 @@ impl Document {
         self.dirty = false;
     }
 
+    /// Merge the last two edits into one undo step (for operations built from
+    /// two primitive edits).
+    pub(crate) fn merge_last_undo(&mut self) {
+        if self.undo.len() >= 2 {
+            self.undo.pop();
+        }
+    }
+
     pub fn can_redo(&self) -> bool {
         !self.redo.is_empty()
     }
@@ -291,7 +308,7 @@ impl Document {
     }
 
     fn restore(&mut self, bytes: Arc<Vec<u8>>) -> Result<()> {
-        self.inner = load_inner(&bytes, None)?;
+        self.inner = load_inner(&bytes, None)?.0;
         self.bytes = bytes;
         self.revision += 1;
         self.dirty = true;
@@ -481,7 +498,7 @@ impl Document {
             version: self.inner.version.clone(),
             page_count: self.page_count(),
             file_size: self.bytes.len() as u64,
-            encrypted: self.inner.was_encrypted(),
+            encrypted: self.source_encrypted,
             has_form,
             tagged,
             path: self.path.clone(),
@@ -637,21 +654,42 @@ impl Document {
         }
         let stream_id = self.inner.add_object(Stream::new(dict, content));
         let current = self.inner.get_dictionary(page_id)?.get(b"Contents").ok().cloned();
-        let new_contents = match current {
-            None | Some(Object::Null) => Object::Reference(stream_id),
-            Some(Object::Array(mut arr)) => {
-                arr.push(Object::Reference(stream_id));
-                Object::Array(arr)
-            }
+        let mut arr: Vec<Object> = match current {
+            None | Some(Object::Null) => Vec::new(),
+            Some(Object::Array(arr)) => arr,
             Some(Object::Reference(rid)) => match self.inner.get_object(rid) {
-                Ok(Object::Array(arr)) => {
-                    let mut arr = arr.clone();
-                    arr.push(Object::Reference(stream_id));
-                    Object::Array(arr)
-                }
-                _ => Object::Array(vec![Object::Reference(rid), Object::Reference(stream_id)]),
+                Ok(Object::Array(arr)) => arr.clone(),
+                _ => vec![Object::Reference(rid)],
             },
-            Some(other) => Object::Array(vec![other, Object::Reference(stream_id)]),
+            Some(other) => vec![other],
+        };
+        // The first time something is added, wrap the original content in q/Q so a
+        // graphics state it leaves behind (e.g. a flipped matrix) cannot distort
+        // what Folitecta draws after it.
+        let guarded = arr.iter().filter_map(|o| o.as_reference().ok()).any(|id| {
+            self.inner
+                .get_object(id)
+                .ok()
+                .and_then(|o| o.as_stream().ok())
+                .is_some_and(|s| s.dict.has(b"FolitectaGuard"))
+        });
+        if !guarded && !arr.is_empty() {
+            let open = self.inner.add_object(Stream::new(
+                dictionary! { "FolitectaGuard" => true },
+                b"q\n".to_vec(),
+            ));
+            let close = self.inner.add_object(Stream::new(
+                dictionary! { "FolitectaGuard" => true },
+                b"\nQ\n".to_vec(),
+            ));
+            arr.insert(0, Object::Reference(open));
+            arr.push(Object::Reference(close));
+        }
+        arr.push(Object::Reference(stream_id));
+        let new_contents = if arr.len() == 1 {
+            arr.remove(0)
+        } else {
+            Object::Array(arr)
         };
         self.inner
             .get_dictionary_mut(page_id)?

@@ -1,17 +1,29 @@
-//! Document tabs and the page canvas with drawing tools.
+//! Document tabs and the page canvas: rendering, tools, selections and overlays.
 
 use dioxus::html::geometry::WheelDelta;
-use dioxus::html::{InteractionElementOffset, ModifiersInteraction, PointerInteraction};
+use dioxus::html::input_data::MouseButton;
+use dioxus::html::{InteractionElementOffset, InteractionLocation, ModifiersInteraction, PointerInteraction};
 use dioxus::prelude::*;
-use folitecta_core::marks::display_to_pdf;
+use folitecta_core::marks::{display_to_pdf, pdf_rect_to_display};
 use folitecta_core::{Markup, PageSize, Shape};
 
-use crate::commands::{self, current_zoom};
+use crate::commands::{self, current_zoom, option_on};
 use crate::files;
 use crate::i18n::t;
 use crate::icons::Icon;
-use crate::state::{AfterUnsaved, AppState, Dialog, Layout, ToastKind, Tool};
+use crate::state::{AfterUnsaved, AppState, Dialog, Layout, TextSel, ToastKind, Tool, Zoom};
 use crate::ui::welcome::Welcome;
+
+/// Points per ruler unit and the minor/major tick spacing (in units).
+pub fn unit_info(units: &str) -> (f32, f32, f32, &'static str) {
+    match units {
+        "pt" => (1.0, 10.0, 50.0, "pt"),
+        "in" => (72.0, 0.125, 1.0, "in"),
+        "cm" => (28.3465, 0.5, 1.0, "cm"),
+        "pc" => (12.0, 1.0, 6.0, "pc"),
+        _ => (2.83465, 5.0, 10.0, "mm"),
+    }
+}
 
 #[component]
 pub fn CanvasArea() -> Element {
@@ -19,10 +31,39 @@ pub fn CanvasArea() -> Element {
     if !st.has_doc() {
         return rsx! { div { class: "canvas-wrap", Welcome {} } };
     }
+    let info_bar = option_on(st, "view.docInfoBar");
     rsx! {
         div { class: "canvas-wrap",
             DocTabs {}
+            if info_bar { DocInfoBar {} }
             Canvas {}
+            Loupe {}
+        }
+    }
+}
+
+#[component]
+fn DocInfoBar() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let Some(info) = st.read_active(|t| t.doc.info()) else {
+        return rsx! {};
+    };
+    let title = if info.title.is_empty() {
+        t(lang, "label.untitled")
+    } else {
+        info.title.clone()
+    };
+    rsx! {
+        div { class: "doc-info-bar",
+            Icon { name: "info" }
+            span { class: "strong", "{title}" }
+            if !info.author.is_empty() { span { "· {info.author}" } }
+            span { "· {info.page_count} {t(lang, \"dialog.props.pages\").to_lowercase()}" }
+            span { "· PDF {info.version}" }
+            span { "· {crate::util::human_size(info.file_size)}" }
+            if info.encrypted { span { class: "chip", "{t(lang, \"dialog.props.encrypted\")}" } }
+            if info.has_form { span { class: "chip", "{t(lang, \"dialog.props.form\")}" } }
         }
     }
 }
@@ -47,58 +88,144 @@ fn DocTabs() -> Element {
                     span { class: "close", title: "Close", onclick: move |e| { e.stop_propagation(); files::close_tab(st, id, false, AfterUnsaved::Close); }, "×" }
                 }
             }
-            button { class: "doc-tab", title: "Open…", onclick: move |_| files::open_dialog(st), Icon { name: "insert" } }
+            button { class: "doc-tab add", title: "Open…", onclick: move |_| files::open_dialog(st), Icon { name: "insert" } }
         }
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
-struct Drag {
-    start: (f64, f64),
-    current: (f64, f64),
+/// Floating magnifier for the loupe tool.
+#[component]
+fn Loupe() -> Element {
+    let st = use_context::<AppState>();
+    if (st.tool)() != Tool::Loupe {
+        return rsx! {};
+    }
+    let Some((page, x, y, cx, cy)) = (st.loupe)() else {
+        return rsx! {};
+    };
+    let Some((tab, rev)) = st.read_active(|t| (t.id, t.revision)) else {
+        return rsx! {};
+    };
+    let zoom = current_zoom(st);
+    let mag = (zoom * 3.0).min(8.0);
+    let scale = ((mag * (st.dpr)() as f32) * 1000.0).round().clamp(50.0, 8000.0) as u32;
+    let (w, h) = (240.0, 170.0);
+    let (vw, vh) = (st.viewport)();
+    let left = if cx + 24.0 + w > vw {
+        cx - w - 24.0
+    } else {
+        cx + 24.0
+    };
+    let top = (cy - h / 2.0).clamp(4.0, (vh - h - 4.0).max(4.0));
+    let page_w = st
+        .read_active(|t| t.page_sizes.get(page).map(|s| s.width))
+        .flatten()
+        .unwrap_or(595.0)
+        * mag;
+    let bx = -(x * mag - w as f32 / 2.0);
+    let by = -(y * mag - h as f32 / 2.0);
+    rsx! {
+        div { class: "loupe", style: "left:{left}px;top:{top}px;width:{w}px;height:{h}px;background-image:url(/page/{tab}/{page}/{rev}/{scale}.png);background-size:{page_w}px auto;background-position:{bx}px {by}px" }
+    }
 }
+
+const PAN_SCRIPT: &str = r#"
+(function(){
+  if (window.__foliPan) return; window.__foliPan = true;
+  let drag = null;
+  document.addEventListener('mousedown', e => {
+    const c = e.target.closest && e.target.closest('#canvas');
+    if (!c || !c.classList.contains('tool-hand') || e.button !== 0) return;
+    if (e.target.closest('.annot-hit, .handle, .sel-toolbar, input, textarea, button, a')) return;
+    drag = { c, x: e.clientX, y: e.clientY, sl: c.scrollLeft, st: c.scrollTop };
+    c.classList.add('dragging');
+    e.preventDefault();
+  }, true);
+  document.addEventListener('mousemove', e => {
+    if (!drag) return;
+    drag.c.scrollLeft = drag.sl - (e.clientX - drag.x);
+    drag.c.scrollTop = drag.st - (e.clientY - drag.y);
+  }, true);
+  document.addEventListener('mouseup', () => {
+    if (drag) { drag.c.classList.remove('dragging'); drag = null; }
+  }, true);
+})();
+"#;
 
 #[component]
 fn Canvas() -> Element {
     let st = use_context::<AppState>();
+    use_hook(|| {
+        spawn(async move {
+            let _ = document::eval(PAN_SCRIPT).await;
+        });
+    });
     let zoom = current_zoom(st);
     let dpr = (st.dpr)();
     let tool = (st.tool)();
-    let Some((tab_id, page, rev, layout, count, sizes, rotation)) = st.read_active(|t| {
+    let Some((tab_id, page, rev, layout, count, rotation)) = st.read_active(|t| {
         (
             t.id,
             t.page,
             t.revision,
             t.layout,
             t.doc.page_count(),
-            t.page_sizes.clone(),
             t.view_rotation,
         )
     }) else {
         return rsx! {};
     };
     let render_scale = ((zoom * dpr as f32) * 1000.0).round().clamp(50.0, 6000.0) as u32;
-    let pages: Vec<usize> = match layout {
-        Layout::Single => vec![page.min(count.saturating_sub(1))],
-        _ => (0..count).collect(),
+    let labels = st.read_active(|t| t.doc.page_labels()).unwrap_or_default();
+    let gaps = option_on(st, "view.layout.showGaps");
+    let r2l = option_on(st, "view.layout.r2l");
+    let cover = option_on(st, "view.layout.showCover");
+    let rulers = option_on(st, "view.showRulers");
+    let mut rows: Vec<Vec<usize>> = match layout {
+        Layout::Single => vec![vec![page.min(count.saturating_sub(1))]],
+        Layout::Continuous => (0..count).map(|p| vec![p]).collect(),
+        Layout::TwoPages => {
+            let mut rows = Vec::new();
+            let mut i = 0;
+            if cover && count > 0 {
+                rows.push(vec![0]);
+                i = 1;
+            }
+            while i < count {
+                let mut r = vec![i];
+                if i + 1 < count {
+                    r.push(i + 1);
+                }
+                rows.push(r);
+                i += 2;
+            }
+            rows
+        }
     };
+    if r2l {
+        rows.iter_mut().for_each(|r| r.reverse());
+    }
     let tool_class = match tool {
         Tool::Hand => "tool-hand",
-        Tool::Select | Tool::Zoom => "tool-select",
+        Tool::Select | Tool::TextHighlight | Tool::TextUnderline | Tool::TextStrike => "tool-text",
+        Tool::Zoom => "tool-zoom",
+        Tool::Loupe => "tool-loupe",
+        Tool::EditAnnots => "tool-edit",
         _ => "tool-draw",
     };
     let mut scroll_pending = use_signal(|| false);
-    let cls = format!("canvas {tool_class}");
-    let pages_class = if layout == Layout::TwoPages {
-        "pages two"
-    } else {
-        "pages"
-    };
+    let mut pages_class = String::from("pages");
+    if !gaps {
+        pages_class.push_str(" nogap");
+    }
+    if rulers {
+        pages_class.push_str(" with-rulers");
+    }
 
     rsx! {
         div {
             id: "canvas",
-            class: "{cls}",
+            class: "canvas {tool_class}",
             onresize: move |evt| {
                 if let Ok(size) = evt.data().get_content_box_size() {
                     st.set_canvas_size((size.width, size.height));
@@ -114,8 +241,12 @@ fn Canvas() -> Element {
                     };
                     let z = current_zoom(st);
                     let next = if dy < 0.0 { z * 1.1 } else { z / 1.1 };
-                    st.with_active(|t| t.zoom = crate::state::Zoom::Fixed(next.clamp(0.1, 8.0)));
+                    st.with_active(|t| t.zoom = Zoom::Fixed(next.clamp(0.1, 8.0)));
                 }
+            },
+            onmouseleave: move |_| {
+                if st.loupe.peek().is_some() { st.set_loupe(None); }
+                if st.pointer.peek().is_some() { st.set_pointer(None); }
             },
             onscroll: move |_| {
                 if layout == Layout::Single || *scroll_pending.peek() {
@@ -124,12 +255,11 @@ fn Canvas() -> Element {
                 scroll_pending.set(true);
                 spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_millis(90)).await;
-                    let js = "const c=document.getElementById('canvas'); if(!c) return 0; const r=c.getBoundingClientRect(); let best=0,bd=1e9; c.querySelectorAll('.page').forEach((el,i)=>{const d=Math.abs(el.getBoundingClientRect().top-r.top-24); if(d<bd){bd=d;best=i;}}); return best;";
+                    let js = "const c=document.getElementById('canvas'); if(!c) return -1; const r=c.getBoundingClientRect(); let best=-1,bd=1e9; c.querySelectorAll('.page').forEach(el=>{const d=Math.abs(el.getBoundingClientRect().top-r.top-24); if(d<bd){bd=d;best=parseInt(el.dataset.page);}}); return best;";
                     if let Ok(v) = document::eval(js).await {
-                        if let Some(i) = v.as_u64() {
+                        if let Some(i) = v.as_i64().filter(|i| *i >= 0) {
                             let i = i as usize;
-                            let cur = st.read_active(|t| t.page).unwrap_or(0);
-                            if cur != i {
+                            if st.read_active(|t| t.page).unwrap_or(0) != i {
                                 st.with_active(|t| t.page = i);
                             }
                         }
@@ -138,17 +268,10 @@ fn Canvas() -> Element {
                 });
             },
             div { class: "{pages_class}",
-                for p in pages {
-                    {
-                        let size = sizes.get(p).copied();
-                        let (w_pt, h_pt) = size.map(|s| if rotation % 180 != 0 { (s.height, s.width) } else { (s.width, s.height) }).unwrap_or((595.0, 842.0));
-                        rsx! {
-                            PageView {
-                                key: "{tab_id}-{p}",
-                                tab_id, page: p, rev, scale: render_scale, zoom,
-                                width: (w_pt * zoom) as f64, height: (h_pt * zoom) as f64,
-                                current: p == page, tool, view_rotation: rotation,
-                            }
+                for (ri, row) in rows.into_iter().enumerate() {
+                    div { class: "page-row", key: "row-{ri}",
+                        for p in row {
+                            PageView { key: "{tab_id}-{p}", tab_id, page: p, rev, scale: render_scale, zoom, current: p == page, tool, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default() }
                         }
                     }
                 }
@@ -157,24 +280,118 @@ fn Canvas() -> Element {
     }
 }
 
-/// CSS-pixel position of a PDF rectangle on an unrotated page view.
-fn rect_to_css(size: &PageSize, rect: [f32; 4], zoom: f32) -> Option<(f64, f64, f64, f64)> {
-    if size.rotation != 0 {
-        return None;
-    }
-    let c = size.crop_box;
-    let left = (rect[0] - c[0]) * zoom;
-    let top = (c[3] - rect[3]) * zoom;
-    let w = (rect[2] - rect[0]) * zoom;
-    let h = (rect[3] - rect[1]) * zoom;
-    Some((left as f64, top as f64, w.max(2.0) as f64, h.max(2.0) as f64))
+#[derive(Clone, Copy, PartialEq)]
+struct Drag {
+    start: (f64, f64),
+    current: (f64, f64),
 }
 
-/// Convert a CSS-pixel point inside the page element into PDF user space.
-fn css_to_pdf(size: &PageSize, zoom: f32, x: f64, y: f64) -> (f32, f32) {
-    let u = x as f32 / zoom;
-    let v = size.height - y as f32 / zoom;
-    display_to_pdf(size, u, v)
+#[derive(Clone, Copy, PartialEq)]
+enum AnnotDragKind {
+    Move,
+    /// Corner: 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right (display space).
+    Resize(u8),
+}
+
+#[derive(Clone, Copy, PartialEq)]
+struct AnnotDrag {
+    index: usize,
+    kind: AnnotDragKind,
+    start_client: (f64, f64),
+    cur_client: (f64, f64),
+    rect: [f32; 4],
+}
+
+/// Client-space delta to local (unrotated page) CSS pixels.
+fn client_to_local(dx: f64, dy: f64, view_rotation: i32) -> (f64, f64) {
+    match view_rotation {
+        90 => (dy, -dx),
+        180 => (-dx, -dy),
+        270 => (-dy, dx),
+        _ => (dx, dy),
+    }
+}
+
+/// Display point (y down) to PDF user space.
+fn to_pdf(size: &PageSize, x: f32, y: f32) -> (f32, f32) {
+    display_to_pdf(size, x, size.height - y)
+}
+
+fn rect_to_pdf(size: &PageSize, r: [f32; 4]) -> [f32; 4] {
+    folitecta_core::textops::display_rect_to_pdf(size, r)
+}
+
+fn dragged_rect(d: &AnnotDrag, zoom: f32, view_rotation: i32) -> [f32; 4] {
+    let (dx, dy) = client_to_local(
+        d.cur_client.0 - d.start_client.0,
+        d.cur_client.1 - d.start_client.1,
+        view_rotation,
+    );
+    let (dx, dy) = (dx as f32 / zoom, dy as f32 / zoom);
+    let mut r = d.rect;
+    match d.kind {
+        AnnotDragKind::Move => {
+            r[0] += dx;
+            r[2] += dx;
+            r[1] += dy;
+            r[3] += dy;
+        }
+        AnnotDragKind::Resize(c) => {
+            if c == 0 || c == 2 {
+                r[0] += dx;
+            } else {
+                r[2] += dx;
+            }
+            if c == 0 || c == 1 {
+                r[1] += dy;
+            } else {
+                r[3] += dy;
+            }
+        }
+    }
+    [r[0].min(r[2]), r[1].min(r[3]), r[0].max(r[2]), r[1].max(r[3])]
+}
+
+/// Snap a display point to the grid and/or guides when snapping is on.
+fn snap(st: AppState, page: usize, x: f32, y: f32, zoom: f32) -> (f32, f32) {
+    if !option_on(st, "view.snap") {
+        return (x, y);
+    }
+    let (mut sx, mut sy) = (x, y);
+    if option_on(st, "view.snap.toGrid") {
+        let step = grid_step(st);
+        sx = (x / step).round() * step;
+        sy = (y / step).round() * step;
+    }
+    if option_on(st, "view.snap.toGuides") {
+        let tol = 6.0 / zoom;
+        let guides = st.read_active(|t| t.guides.clone()).unwrap_or_default();
+        for g in guides.iter().filter(|g| g.page.is_none() || g.page == Some(page)) {
+            if g.horizontal && (y - g.pos).abs() < tol {
+                sy = g.pos;
+            }
+            if !g.horizontal && (x - g.pos).abs() < tol {
+                sx = g.pos;
+            }
+        }
+    }
+    (sx, sy)
+}
+
+fn grid_step(st: AppState) -> f32 {
+    st.ui
+        .read()
+        .value("grid.step")
+        .and_then(|v| v.parse().ok())
+        .filter(|v: &f32| *v > 1.0)
+        .unwrap_or(28.3465)
+}
+
+fn after_create(st: AppState) {
+    files::set_window_title(st);
+    if !option_on(st, "tool.keepSelected") {
+        st.set_tool(Tool::Hand);
+    }
 }
 
 #[component]
@@ -184,66 +401,199 @@ fn PageView(
     rev: u64,
     scale: u32,
     zoom: f32,
-    width: f64,
-    height: f64,
     current: bool,
     tool: Tool,
     view_rotation: i32,
+    label: String,
 ) -> Element {
     let st = use_context::<AppState>();
-    let lang = st.lang();
     let mut drag = use_signal(|| None::<Drag>);
     let mut ink: Signal<Vec<(f64, f64)>> = use_signal(Vec::new);
-    let src = format!("/page/{tab_id}/{page}/{rev}/{scale}.png");
-    let (size, annots, fields, selected, highlight_fields) = st
+    let mut annot_drag = use_signal(|| None::<AnnotDrag>);
+    let mut sel_drag = use_signal(|| false);
+
+    let show_hits = matches!(tool, Tool::Hand | Tool::EditAnnots);
+    let page_label = if !label.is_empty() && label != (page + 1).to_string() {
+        format!("{label} ({})", page + 1)
+    } else {
+        (page + 1).to_string()
+    };
+    let highlight_links = option_on(st, "view.highlightLinks");
+    let show_guides = option_on(st, "view.showGuides");
+    let show_grid = option_on(st, "view.showGrid");
+    let rulers = option_on(st, "view.showRulers");
+    let transparent = option_on(st, "view.showTranspGrid");
+    let dark = option_on(st, "view.darkPageMode");
+    let contrast = option_on(st, "view.overrideDocumentColors");
+    let track_pointer = option_on(st, "view.showPageMeasureInfo");
+
+    struct View {
+        size: PageSize,
+        annots: Vec<(usize, String, [f32; 4], String)>,
+        links: Vec<[f32; 4]>,
+        fields: Vec<[f32; 4]>,
+        hits: Vec<(bool, [f32; 4])>,
+        sel: Vec<[f32; 4]>,
+        guides: Vec<(bool, f32)>,
+        selected: Option<usize>,
+    }
+    let Some(view) = st
         .read_active(|t| {
-            let size = t.page_sizes.get(page).copied();
-            let annots = t.doc.annotations(page).unwrap_or_default();
-            let fields: Vec<[f32; 4]> = if t.highlight_fields {
+            let size = t.page_sizes.get(page).copied()?;
+            let annots = if show_hits || t.selected_annot.map(|(p, _)| p) == Some(page) {
+                t.doc
+                    .annotations(page)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter(|a| !["Link", "Widget", "Popup"].contains(&a.subtype.as_str()) && !a.hidden)
+                    .map(|a| {
+                        (
+                            a.index,
+                            a.subtype.clone(),
+                            pdf_rect_to_display(&size, a.rect),
+                            a.contents.clone(),
+                        )
+                    })
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            let links = if highlight_links {
+                t.doc
+                    .links(page)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|l| pdf_rect_to_display(&size, l.rect))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            let fields = if t.highlight_fields {
                 t.doc
                     .form_fields()
                     .into_iter()
                     .filter(|f| f.page == Some(page))
                     .filter_map(|f| f.rect)
+                    .map(|r| pdf_rect_to_display(&size, r))
                     .collect()
             } else {
                 Vec::new()
             };
-            (size, annots, fields, t.selected_annot, t.highlight_fields)
+            let hits = t
+                .search
+                .hits
+                .iter()
+                .enumerate()
+                .filter(|(_, h)| h.page == page)
+                .flat_map(|(i, h)| h.rects.iter().map(move |r| (i == t.search.current, *r)))
+                .collect();
+            let sel = match t.text_sel {
+                Some(s) if s.page == page && !s.is_empty() => {
+                    let (a, b) = s.range();
+                    t.doc
+                        .text_layers()
+                        .get(page)
+                        .map(|l| l.range_rects(a, b))
+                        .unwrap_or_default()
+                }
+                _ => Vec::new(),
+            };
+            let guides = t
+                .guides
+                .iter()
+                .filter(|g| g.page.is_none() || g.page == Some(page))
+                .map(|g| (g.horizontal, g.pos))
+                .collect();
+            let selected = t.selected_annot.filter(|(p, _)| *p == page).map(|(_, i)| i);
+            Some(View {
+                size,
+                annots,
+                links,
+                fields,
+                hits,
+                sel,
+                guides,
+                selected,
+            })
         })
-        .unwrap_or((None, Vec::new(), Vec::new(), None, false));
-    let Some(size) = size else { return rsx! {} };
-    let drawing = tool.is_drawing() && view_rotation == 0;
+        .flatten()
+    else {
+        return rsx! {};
+    };
+    let size = view.size;
+    let (inner_w, inner_h) = (size.width * zoom, size.height * zoom);
+    let (outer_w, outer_h) = if view_rotation % 180 != 0 {
+        (inner_h, inner_w)
+    } else {
+        (inner_w, inner_h)
+    };
+    let transform = match view_rotation {
+        90 => format!("translate({inner_h}px,0) rotate(90deg)"),
+        180 => format!("translate({inner_w}px,{inner_h}px) rotate(180deg)"),
+        270 => format!("translate(0,{inner_w}px) rotate(270deg)"),
+        _ => String::new(),
+    };
+    let src = if transparent {
+        format!("/page/{tab_id}/{page}/{rev}/{scale}.png?bg=0")
+    } else {
+        format!("/page/{tab_id}/{page}/{rev}/{scale}.png")
+    };
+    let mut img_filter = String::new();
+    if dark {
+        img_filter.push_str("invert(1) hue-rotate(180deg) ");
+    }
+    if contrast {
+        img_filter.push_str("grayscale(1) contrast(1.6) ");
+    }
+    let z = zoom;
+    let css = |r: [f32; 4]| -> String {
+        format!(
+            "left:{}px;top:{}px;width:{}px;height:{}px",
+            r[0] * z,
+            r[1] * z,
+            ((r[2] - r[0]) * z).max(2.0),
+            ((r[3] - r[1]) * z).max(2.0)
+        )
+    };
 
-    let finish = move |d: Drag, points: Vec<(f64, f64)>| {
-        let (x0, y0) = (d.start.0.min(d.current.0), d.start.1.min(d.current.1));
-        let (x1, y1) = (d.start.0.max(d.current.0), d.start.1.max(d.current.1));
+    // ---- finishing a creation drag -------------------------------------------------
+    let finish_create = move |d: Drag, points: Vec<(f64, f64)>| {
+        let (x0, y0) = (
+            d.start.0.min(d.current.0) as f32 / z,
+            d.start.1.min(d.current.1) as f32 / z,
+        );
+        let (x1, y1) = (
+            d.start.0.max(d.current.0) as f32 / z,
+            d.start.1.max(d.current.1) as f32 / z,
+        );
+        let tiny = (x1 - x0) < 3.0 && (y1 - y0) < 3.0;
         let author = st.ui.read().author.clone();
-        let (ax, ay) = css_to_pdf(&size, zoom, x0, y1);
-        let (bx, by) = css_to_pdf(&size, zoom, x1, y0);
-        let rect = [ax.min(bx), ay.min(by), ax.max(bx), ay.max(by)];
-        let tiny = (x1 - x0) < 4.0 && (y1 - y0) < 4.0;
-        let result = match tool {
+        let rect = rect_to_pdf(&size, [x0, y0, x1, y1]);
+        let point = to_pdf(&size, d.current.0 as f32 / z, d.current.1 as f32 / z);
+        let result: Option<folitecta_core::Result<()>> = match tool {
             Tool::Note => {
-                let (px, py) = css_to_pdf(&size, zoom, d.current.0, d.current.1);
-                st.set_dialog(Dialog::Note { page, x: px, y: py });
+                st.set_dialog(Dialog::Note {
+                    page,
+                    x: point.0,
+                    y: point.1,
+                });
                 None
             }
-            Tool::TextBox => {
-                if tiny {
-                    st.set_dialog(Dialog::TextBox {
-                        page,
-                        rect: [rect[0], rect[1] - 40.0, rect[0] + 200.0, rect[1] + 10.0],
-                    });
+            Tool::TextBox | Tool::Typewriter => {
+                let r = if tiny {
+                    rect_to_pdf(&size, [x0, y0, x0 + 220.0, y0 + 40.0])
                 } else {
-                    st.set_dialog(Dialog::TextBox { page, rect });
-                }
+                    rect
+                };
+                st.set_dialog(Dialog::TextBox {
+                    page,
+                    rect: r,
+                    border: tool == Tool::TextBox,
+                });
                 None
             }
-            Tool::Link => {
-                if !tiny {
-                    st.set_dialog(Dialog::Link { page, rect });
-                }
+            Tool::Link if !tiny => {
+                st.set_dialog(Dialog::Link { page, rect });
                 None
             }
             Tool::Rect if !tiny => st.with_active(|t| {
@@ -285,14 +635,13 @@ fn PageView(
                 })
             }
             Tool::Line | Tool::Arrow if !tiny => {
-                let (fx, fy) = css_to_pdf(&size, zoom, d.start.0, d.start.1);
-                let (tx, ty) = css_to_pdf(&size, zoom, d.current.0, d.current.1);
+                let from = to_pdf(&size, d.start.0 as f32 / z, d.start.1 as f32 / z);
                 st.with_active(|t| {
                     t.doc
                         .add_line(
                             page,
-                            (fx, fy),
-                            (tx, ty),
+                            from,
+                            point,
                             [0.1, 0.1, 0.1],
                             1.5,
                             tool == Tool::Arrow,
@@ -305,7 +654,7 @@ fn PageView(
             Tool::Ink if points.len() > 1 => {
                 let path: Vec<(f32, f32)> = points
                     .iter()
-                    .map(|(x, y)| css_to_pdf(&size, zoom, *x, *y))
+                    .map(|(x, y)| to_pdf(&size, *x as f32 / z, *y as f32 / z))
                     .collect();
                 st.with_active(|t| {
                     t.doc
@@ -313,12 +662,119 @@ fn PageView(
                         .map(|_| ())
                 })
             }
+            Tool::Redact if !tiny => st.with_active(|t| t.doc.add_redaction(page, rect, &author).map(|_| ())),
+            Tool::Stamp => {
+                let image = if st.ui.read().value("stamp.kind") == Some("image") {
+                    st.pending_image.peek().clone()
+                } else {
+                    None
+                };
+                match image {
+                    Some(data) => {
+                        let r = if tiny {
+                            let (iw, ih) = folitecta_core::Document::image_size(&data)
+                                .map(|(w, h)| (w as f32, h as f32))
+                                .unwrap_or((160.0, 80.0));
+                            let s = (160.0 / iw.max(ih)).min(1.0);
+                            let (w, h) = ((iw * s).max(8.0), (ih * s).max(8.0));
+                            rect_to_pdf(&size, [x0 - w / 2.0, y0 - h / 2.0, x0 + w / 2.0, y0 + h / 2.0])
+                        } else {
+                            rect
+                        };
+                        st.with_active(|t| t.doc.add_image_stamp(page, r, data, &author, "").map(|_| ()))
+                    }
+                    None => {
+                        let text = st.ui.read().value("stamp.text").unwrap_or("APPROVED").to_string();
+                        let color =
+                            crate::util::parse_color(st.ui.read().value("stamp.color").unwrap_or("#c81e1e"));
+                        let r = if tiny {
+                            let w = (text.chars().count() as f32 * 13.0 + 30.0).max(90.0);
+                            rect_to_pdf(&size, [x0 - w / 2.0, y0 - 22.0, x0 + w / 2.0, y0 + 22.0])
+                        } else {
+                            rect
+                        };
+                        st.with_active(|t| t.doc.add_stamp(page, r, &text, color, &author).map(|_| ()))
+                    }
+                }
+            }
+            Tool::Snapshot if !tiny => {
+                let png = st.read_active(|t| t.doc.render_region_png(page, [x0, y0, x1, y1], 2.0));
+                match png {
+                    Some(Ok(png)) => match crate::clipboard::set_png(&png) {
+                        Ok(()) => st.toast(ToastKind::Ok, t(st.lang(), "toast.snapshot_copied"), ""),
+                        Err(e) => st.error(e),
+                    },
+                    Some(Err(e)) => st.error(e),
+                    None => {}
+                }
+                None
+            }
+            Tool::PlaceImage => {
+                let data = st.pending_image.peek().clone();
+                match data {
+                    Some(data) => {
+                        // add_image takes display space with y up.
+                        let display = if tiny {
+                            None
+                        } else {
+                            Some([x0, size.height - y1, x1, size.height - y0])
+                        };
+                        let r = st.with_active(|t| t.doc.add_image(page, data, display).map(|_| ()));
+                        st.set_pending_image(None);
+                        r
+                    }
+                    None => None,
+                }
+            }
             _ => None,
         };
-        if let Some(Err(e)) = result {
-            st.error(e);
-        } else if result.is_some() {
-            files::set_window_title(st);
+        match result {
+            Some(Err(e)) => st.error(e),
+            Some(Ok(())) => after_create(st),
+            None => {}
+        }
+    };
+
+    // ---- finishing a move/resize of a comment ------------------------------------
+    let finish_annot = move |d: AnnotDrag| {
+        let moved = dragged_rect(&d, z, view_rotation);
+        if (moved[0] - d.rect[0]).abs() < 0.5
+            && (moved[1] - d.rect[1]).abs() < 0.5
+            && (moved[2] - d.rect[2]).abs() < 0.5
+            && (moved[3] - d.rect[3]).abs() < 0.5
+        {
+            return;
+        }
+        let pdf_rect = rect_to_pdf(&size, moved);
+        let r = st.with_active(|t| {
+            let res = t.doc.set_annotation_rect(page, d.index, pdf_rect);
+            t.selected_annot = Some((page, d.index));
+            res
+        });
+        match r {
+            Some(Err(e)) => st.error(e),
+            _ => {
+                st.with_active(|t| t.selected_annot = Some((page, d.index)));
+                files::set_window_title(st);
+            }
+        }
+    };
+
+    let mut finish_text = move || {
+        sel_drag.set(false);
+        let kind = match tool {
+            Tool::TextHighlight => Some(Markup::Highlight),
+            Tool::TextUnderline => Some(Markup::Underline),
+            Tool::TextStrike => Some(Markup::StrikeOut),
+            _ => None,
+        };
+        if let Some(k) = kind {
+            let has = st
+                .read_active(|t| t.text_sel.map(|s| !s.is_empty()).unwrap_or(false))
+                .unwrap_or(false);
+            if has {
+                commands::markup_selection(st, Some(k));
+            }
         }
     };
 
@@ -328,100 +784,296 @@ fn PageView(
         .map(|(x, y)| format!("{x},{y}"))
         .collect::<Vec<_>>()
         .join(" ");
+    let cur_drag = annot_drag();
+    let units = st.ui.read().value("units").unwrap_or("mm").to_string();
+    let (unit_pt, minor, major, unit_name) = unit_info(&units);
+    let grid_px = grid_step(st) * z;
+    let sel_first = view.sel.first().copied();
+
     rsx! {
         div {
             id: "pg-{page}",
             class: "{page_class}",
-            style: "width:{width}px;height:{height}px",
-            onmousedown: move |evt| {
-                if !drawing || evt.trigger_button() != Some(dioxus::html::input_data::MouseButton::Primary) {
-                    return;
-                }
-                let p = evt.element_coordinates();
-                drag.set(Some(Drag { start: (p.x, p.y), current: (p.x, p.y) }));
-                ink.set(vec![(p.x, p.y)]);
-            },
-            onmousemove: move |evt| {
-                let current_drag: Option<Drag> = *drag.peek();
-                if let Some(mut d) = current_drag {
+            "data-page": "{page}",
+            style: "width:{outer_w}px;height:{outer_h}px",
+            if rulers {
+                Rulers { width: outer_w, height: outer_h, zoom: z, unit_pt, minor, major, unit_name }
+            }
+            div {
+                class: if transparent { "page-inner transparent" } else { "page-inner" },
+                style: "width:{inner_w}px;height:{inner_h}px;transform:{transform}",
+                onmousedown: move |evt| {
+                    if evt.trigger_button() != Some(MouseButton::Primary) {
+                        return;
+                    }
                     let p = evt.element_coordinates();
-                    d.current = (p.x, p.y);
-                    drag.set(Some(d));
-                    if tool == Tool::Ink {
-                        ink.write().push((p.x, p.y));
+                    let (x, y) = ((p.x as f32) / z, (p.y as f32) / z);
+                    if !current {
+                        st.with_active(|t| t.page = page);
+                    }
+                    if tool.is_text() {
+                        let idx = st.read_active(|t| t.doc.text_layers().get(page).and_then(|l| l.char_at(x, y))).flatten();
+                        match idx {
+                            Some(i) => {
+                                let extend = evt.modifiers().shift();
+                                st.with_active(|t| {
+                                    t.selected_annot = None;
+                                    match (extend, t.text_sel) {
+                                        (true, Some(s)) if s.page == page => t.text_sel = Some(TextSel { head: i, ..s }),
+                                        _ => t.text_sel = Some(TextSel { page, anchor: i, head: i }),
+                                    }
+                                });
+                                sel_drag.set(true);
+                            }
+                            None => {
+                                st.with_active(|t| t.text_sel = None);
+                            }
+                        }
+                        return;
+                    }
+                    if tool == Tool::EditAnnots || tool == Tool::Hand {
+                        st.with_active(|t| t.selected_annot = None);
+                        return;
+                    }
+                    if tool.is_drawing() {
+                        let (sx, sy) = snap(st, page, x, y, z);
+                        let start = ((sx * z) as f64, (sy * z) as f64);
+                        drag.set(Some(Drag { start, current: start }));
+                        ink.set(vec![start]);
+                    }
+                },
+                onmousemove: move |evt| {
+                    let p = evt.element_coordinates();
+                    let (x, y) = ((p.x as f32) / z, (p.y as f32) / z);
+                    if track_pointer {
+                        st.set_pointer(Some((page, x, y)));
+                    }
+                    if tool == Tool::Loupe {
+                        let c = evt.client_coordinates();
+                        st.set_loupe(Some((page, x, y, c.x, c.y)));
+                    }
+                    if *sel_drag.peek() {
+                        if let Some(i) = st.read_active(|t| t.doc.text_layers().get(page).and_then(|l| l.char_at(x, y))).flatten() {
+                            let changed = st.read_active(|t| t.text_sel.map(|s| s.head != i).unwrap_or(true)).unwrap_or(false);
+                            if changed {
+                                st.with_active(|t| {
+                                    if let Some(s) = t.text_sel.as_mut() {
+                                        if s.page == page {
+                                            s.head = i;
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    }
+                    let current_drag: Option<Drag> = *drag.peek();
+                    if let Some(mut d) = current_drag {
+                        let (sx, sy) = if tool == Tool::Ink { (x, y) } else { snap(st, page, x, y, z) };
+                        d.current = ((sx * z) as f64, (sy * z) as f64);
+                        drag.set(Some(d));
+                        if tool == Tool::Ink {
+                            ink.write().push(d.current);
+                        }
+                    }
+                    let current_annot: Option<AnnotDrag> = *annot_drag.peek();
+                    if let Some(mut d) = current_annot {
+                        let c = evt.client_coordinates();
+                        d.cur_client = (c.x, c.y);
+                        annot_drag.set(Some(d));
+                    }
+                },
+                onmouseup: move |_| {
+                    if *sel_drag.peek() {
+                        finish_text();
+                    }
+                    let current_drag: Option<Drag> = *drag.peek();
+                    if let Some(d) = current_drag {
+                        let points = ink.peek().clone();
+                        drag.set(None);
+                        ink.set(Vec::new());
+                        finish_create(d, points);
+                    }
+                    let current_annot: Option<AnnotDrag> = *annot_drag.peek();
+                    if let Some(d) = current_annot {
+                        annot_drag.set(None);
+                        finish_annot(d);
+                    }
+                },
+                onmouseleave: move |_| {
+                    if *sel_drag.peek() {
+                        finish_text();
+                    }
+                    if drag.peek().is_some() {
+                        drag.set(None);
+                        ink.set(Vec::new());
+                    }
+                    let current_annot: Option<AnnotDrag> = *annot_drag.peek();
+                    if let Some(d) = current_annot {
+                        annot_drag.set(None);
+                        finish_annot(d);
+                    }
+                },
+                ondoubleclick: move |evt| {
+                    if tool != Tool::Select {
+                        return;
+                    }
+                    let p = evt.element_coordinates();
+                    let (x, y) = ((p.x as f32) / z, (p.y as f32) / z);
+                    let word = st.read_active(|t| t.doc.text_layers().get(page).and_then(|l| l.char_at(x, y).map(|i| l.word_at(i.saturating_sub(0))))).flatten();
+                    if let Some((a, b)) = word {
+                        st.with_active(|t| t.text_sel = Some(TextSel { page, anchor: a, head: b }));
+                    }
+                },
+                onclick: move |evt| {
+                    if tool == Tool::Zoom {
+                        let z = current_zoom(st);
+                        let f = if evt.modifiers().shift() { 0.8 } else { 1.25 };
+                        st.with_active(|t| t.zoom = Zoom::Fixed((z * f).clamp(0.1, 8.0)));
+                    }
+                },
+                img { class: "page-img", src: "{src}", alt: "", loading: "lazy", draggable: "false", style: if img_filter.is_empty() { String::new() } else { format!("filter:{img_filter}") } }
+                if show_grid {
+                    div { class: "grid-overlay", style: "background-size:{grid_px}px {grid_px}px" }
+                }
+                if show_guides {
+                    for (i, (horizontal, pos)) in view.guides.iter().enumerate() {
+                        div { key: "g{i}", class: if *horizontal { "guide h" } else { "guide v" }, style: if *horizontal { format!("top:{}px", pos * z) } else { format!("left:{}px", pos * z) } }
                     }
                 }
-            },
-            onmouseup: move |evt| {
-                let current_drag: Option<Drag> = *drag.peek();
-                if let Some(mut d) = current_drag {
-                    let p = evt.element_coordinates();
-                    d.current = (p.x, p.y);
-                    let points = ink.peek().clone();
-                    drag.set(None);
-                    ink.set(Vec::new());
-                    finish(d, points);
+                for (i, r) in view.links.iter().enumerate() {
+                    div { key: "l{i}", class: "link-box", style: "{css(*r)}" }
                 }
-            },
-            onmouseleave: move |_| {
-                if drag.peek().is_some() { drag.set(None); ink.set(Vec::new()); }
-            },
-            onclick: move |_| {
-                if !current {
-                    st.with_active(|t| t.page = page);
+                for (i, r) in view.fields.iter().enumerate() {
+                    div { key: "f{i}", class: "field-box", style: "{css(*r)}" }
                 }
-                if tool == Tool::Zoom {
-                    let z = current_zoom(st);
-                    st.with_active(|t| t.zoom = crate::state::Zoom::Fixed((z * 1.25).clamp(0.1, 8.0)));
+                for (i, (cur, r)) in view.hits.iter().enumerate() {
+                    div { key: "h{i}", class: if *cur { "hit current" } else { "hit" }, style: "{css(*r)}" }
                 }
-                if tool.is_drawing() && view_rotation != 0 {
-                    st.toast(ToastKind::Warn, t(lang, "cmd.view.rotate.reset"), "Reset the view rotation before drawing.");
+                for (i, r) in view.sel.iter().enumerate() {
+                    div { key: "s{i}", class: "sel", style: "{css(*r)}" }
                 }
-            },
-            img { src: "{src}", alt: "Page {page + 1}", loading: "lazy", draggable: "false" }
-            if tool == Tool::Select {
-                for a in annots.iter().filter(|a| !["Link", "Widget", "Popup"].contains(&a.subtype.as_str())) {
-                    if let Some((l, tp, w, h)) = rect_to_css(&size, a.rect, zoom) {
-                        {
-                            let idx = a.index;
-                            let sel = selected == Some((page, idx));
-                            let title = format!("{} — {}: {}", a.subtype, a.author, a.contents);
-                            let contents = a.contents.clone();
-                            let extra = if sel { "border-color: var(--accent); background: rgba(79,70,229,.15)" } else { "" };
-                            rsx! {
-                                div { class: "annot-hit", key: "a{idx}", title: "{title}",
-                                    style: "left:{l}px;top:{tp}px;width:{w}px;height:{h}px;{extra}",
-                                    onclick: move |e| { e.stop_propagation(); st.with_active(|t| t.selected_annot = Some((page, idx))); },
-                                    ondoubleclick: move |e| { e.stop_propagation(); st.set_dialog(Dialog::AnnotationText { page, index: idx, contents: contents.clone() }); },
+                if let Some(r) = sel_first {
+                    if !*sel_drag.read() {
+                        SelToolbar { left: r[0] * z, top: (r[1] * z - 38.0).max(2.0) }
+                    }
+                }
+                for (index, subtype, rect, contents) in view.annots.iter().cloned() {
+                    {
+                        let is_sel = view.selected == Some(index);
+                        let shown = match cur_drag { Some(d) if d.index == index => dragged_rect(&d, z, view_rotation), _ => rect };
+                        let title = format!("{}: {contents}", crate::i18n::annot_name(st.lang(), &subtype));
+                        let class = if is_sel { "annot-hit selected" } else { "annot-hit" };
+                        let can_edit = tool == Tool::EditAnnots;
+                        rsx! {
+                            div { class: "{class}", key: "a{index}", title: "{title}", style: "{css(shown)}",
+                                onmousedown: move |e| {
+                                    e.stop_propagation();
+                                    st.with_active(|t| { t.selected_annot = Some((page, index)); t.text_sel = None; });
+                                    if can_edit && e.trigger_button() == Some(MouseButton::Primary) {
+                                        let c = e.client_coordinates();
+                                        annot_drag.set(Some(AnnotDrag { index, kind: AnnotDragKind::Move, start_client: (c.x, c.y), cur_client: (c.x, c.y), rect }));
+                                    }
+                                },
+                                ondoubleclick: move |e| {
+                                    e.stop_propagation();
+                                    let contents = contents.clone();
+                                    st.set_dialog(Dialog::AnnotationText { page, index, contents });
+                                },
+                                if is_sel && can_edit {
+                                    for corner in 0u8..4 {
+                                        div { key: "c{corner}", class: "handle h{corner}",
+                                            onmousedown: move |e| {
+                                                e.stop_propagation();
+                                                let c = e.client_coordinates();
+                                                annot_drag.set(Some(AnnotDrag { index, kind: AnnotDragKind::Resize(corner), start_client: (c.x, c.y), cur_client: (c.x, c.y), rect }));
+                                            },
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
-            if highlight_fields {
-                for (i, r) in fields.iter().enumerate() {
-                    if let Some((l, tp, w, h)) = rect_to_css(&size, *r, zoom) {
-                        div { key: "f{i}", class: "annot-hit", style: "left:{l}px;top:{tp}px;width:{w}px;height:{h}px;background:rgba(79,70,229,.18);border-color:var(--accent)" }
+                if let Some(d) = drag() {
+                    if tool == Tool::Ink {
+                        svg { class: "ink-preview", width: "{inner_w}", height: "{inner_h}",
+                            polyline { points: "{ink_points}", fill: "none", stroke: "#3b3bc0", stroke_width: "2" }
+                        }
+                    } else if matches!(tool, Tool::Line | Tool::Arrow) {
+                        svg { class: "ink-preview", width: "{inner_w}", height: "{inner_h}",
+                            line { x1: "{d.start.0}", y1: "{d.start.1}", x2: "{d.current.0}", y2: "{d.current.1}", stroke: "#3b3bc0", stroke_width: "2" }
+                        }
+                    } else {
+                        div { class: if tool == Tool::Redact { "marquee redact" } else { "marquee" },
+                            style: "left:{d.start.0.min(d.current.0)}px;top:{d.start.1.min(d.current.1)}px;width:{(d.start.0 - d.current.0).abs()}px;height:{(d.start.1 - d.current.1).abs()}px" }
                     }
                 }
             }
-            if let Some(d) = drag() {
-                if tool == Tool::Ink {
-                    svg { style: "position:absolute;left:0;top:0;pointer-events:none", width: "{width}", height: "{height}",
-                        polyline { points: "{ink_points}", fill: "none", stroke: "#3b3bc0", stroke_width: "2" }
-                    }
-                } else {
-                    div { class: "marquee",
-                        style: "left:{d.start.0.min(d.current.0)}px;top:{d.start.1.min(d.current.1)}px;width:{(d.start.0 - d.current.0).abs()}px;height:{(d.start.1 - d.current.1).abs()}px" }
-                }
-            }
-            div { class: "page-label", "{page + 1}" }
+            div { class: "page-label", "{page_label}" }
         }
     }
 }
 
-#[allow(dead_code)]
-pub fn zoom_label(st: AppState) -> String {
-    format!("{}%", (commands::current_zoom(st) * 100.0).round())
+/// Floating actions above a text selection.
+#[component]
+fn SelToolbar(left: f32, top: f32) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let act = move |id: &'static str| {
+        move |e: Event<MouseData>| {
+            e.stop_propagation();
+            commands::dispatch(st, id);
+        }
+    };
+    rsx! {
+        div { class: "sel-toolbar", style: "left:{left}px;top:{top}px", onmousedown: move |e| e.stop_propagation(),
+            button { title: "{t(lang, \"sel.copy\")} (Ctrl+C)", onclick: act("tool.selectText.copyAsRich"), Icon { name: "copy" } }
+            button { title: "{t(lang, \"sel.highlight\")}", onclick: act("textsel.addHighlight"), Icon { name: "highlight" } }
+            button { title: "{t(lang, \"sel.underline\")}", onclick: act("textsel.addUnderline"), span { class: "u", "U" } }
+            button { title: "{t(lang, \"sel.strike\")}", onclick: act("textsel.addStrikeout"), span { class: "s", "S" } }
+            button { title: "{t(lang, \"sel.redact\")}", onclick: act("addAnnotBySelect.redaction"), Icon { name: "redact" } }
+        }
+    }
+}
+
+/// Rulers along the top and left edge of a page.
+#[component]
+fn Rulers(
+    width: f32,
+    height: f32,
+    zoom: f32,
+    unit_pt: f32,
+    minor: f32,
+    major: f32,
+    unit_name: &'static str,
+) -> Element {
+    let minor_px = minor * unit_pt * zoom;
+    let major_px = major * unit_pt * zoom;
+    let label_every = if major_px < 40.0 {
+        ((40.0 / major_px).ceil()) as usize
+    } else {
+        1
+    };
+    let xs: Vec<(f32, String)> = (0..)
+        .map(|i| i as f32 * major_px)
+        .take_while(|x| *x <= width)
+        .enumerate()
+        .filter(|(i, _)| i % label_every == 0)
+        .map(|(i, x)| (x, format!("{}", (i as f32 * major * 100.0).round() / 100.0)))
+        .collect();
+    let ys: Vec<(f32, String)> = (0..)
+        .map(|i| i as f32 * major_px)
+        .take_while(|y| *y <= height)
+        .enumerate()
+        .filter(|(i, _)| i % label_every == 0)
+        .map(|(i, y)| (y, format!("{}", (i as f32 * major * 100.0).round() / 100.0)))
+        .collect();
+    rsx! {
+        div { class: "ruler rx", title: "{unit_name}", style: "width:{width}px;--minor:{minor_px.max(2.0)}px;--major:{major_px.max(4.0)}px",
+            for (x, label) in xs { span { key: "x{x}", style: "left:{x}px", "{label}" } }
+        }
+        div { class: "ruler ry", title: "{unit_name}", style: "height:{height}px;--minor:{minor_px.max(2.0)}px;--major:{major_px.max(4.0)}px",
+            for (y, label) in ys { span { key: "y{y}", style: "top:{y}px", "{label}" } }
+        }
+    }
 }

@@ -3,14 +3,31 @@
 use dioxus::prelude::*;
 
 use crate::commands::dispatch;
-use crate::i18n::t;
+use crate::i18n::{annot_name, t};
 use crate::state::{AppState, Dialog};
 use crate::util::human_size;
+
+/// One "label: value" row that wraps the value under the label when narrow.
+fn prop(label: String, value: String) -> Element {
+    rsx! {
+        div { class: "prop",
+            span { class: "k", title: "{label}", "{label}" }
+            span { class: "v", title: "{value}", "{value}" }
+        }
+    }
+}
 
 #[component]
 pub fn RightPane() -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
+    let yes_no = move |b: bool| {
+        if b {
+            t(lang, "label.yes")
+        } else {
+            t(lang, "label.no")
+        }
+    };
     let data = st.read_active(|tab| {
         let info = tab.doc.info();
         let size = tab.page_sizes.get(tab.page).copied();
@@ -18,9 +35,13 @@ pub fn RightPane() -> Element {
         let links = tab.doc.links(tab.page).map(|l| l.len()).unwrap_or(0);
         let images = tab.doc.image_count(tab.page);
         let marks = tab.doc.marks_on_page(tab.page);
-        let selected = tab
-            .selected_annot
-            .and_then(|(p, i)| tab.doc.annotations(p).ok().and_then(|a| a.get(i).cloned()));
+        let label = tab.doc.page_labels().get(tab.page).cloned().unwrap_or_default();
+        let selected = tab.selected_annot.and_then(|(p, i)| {
+            tab.doc
+                .annotations(p)
+                .ok()
+                .and_then(|a| a.into_iter().find(|x| x.index == i))
+        });
         (
             info,
             tab.page,
@@ -30,51 +51,51 @@ pub fn RightPane() -> Element {
             images,
             marks,
             selected,
-            tab.doc.can_undo(),
-            tab.doc.can_redo(),
+            tab.doc.is_dirty(),
+            label,
         )
     });
     rsx! {
-        div { class: "right-pane",
-            div { class: "pane-header", "{t(lang, \"pane.properties\")}" div { class: "spacer" }
-                button { class: "ibtn", onclick: move |_| { st.ui_mut().show_right_pane = false; st.save_prefs(); }, "×" }
+        div { class: "right-pane", onclick: move |e| e.stop_propagation(),
+            div { class: "pane-header", span { class: "pane-title", "{t(lang, \"pane.properties\")}" } div { class: "spacer" }
+                button { class: "ibtn", title: "{t(lang, \"dialog.close\")}", onclick: move |_| { st.ui_mut().show_right_pane = false; st.save_prefs(); }, "×" }
             }
-            div { class: "pane-body",
-                if let Some((info, page, size, annots, links, images, marks, selected, can_undo, can_redo)) = data {
-                    div { class: "pane-header", style: "border:none;padding:4px 8px", "{t(lang, \"props.document\")}" }
-                    div { class: "kv",
-                        span { class: "k", "{t(lang, \"dialog.props.title_field\")}" } span { class: "v", "{info.title}" }
-                        span { class: "k", "{t(lang, \"dialog.props.author\")}" } span { class: "v", "{info.author}" }
-                        span { class: "k", "{t(lang, \"dialog.props.pages\")}" } span { class: "v", "{info.page_count}" }
-                        span { class: "k", "{t(lang, \"dialog.props.size\")}" } span { class: "v", "{human_size(info.file_size)}" }
-                        span { class: "k", "{t(lang, \"dialog.props.version\")}" } span { class: "v", "PDF {info.version}" }
-                        span { class: "k", "{t(lang, \"dialog.props.form\")}" } span { class: "v", if info.has_form { "{t(lang, \"label.yes\")}" } else { "{t(lang, \"label.no\")}" } }
-                        span { class: "k", "Undo / Redo" } span { class: "v", "{can_undo} / {can_redo}" }
+            div { class: "pane-body props",
+                if let Some((info, page, size, annots, links, images, marks, selected, dirty, label)) = data {
+                    div { class: "prop-head", "{t(lang, \"props.document\")}" }
+                    {prop(t(lang, "dialog.props.title_field"), if info.title.is_empty() { "—".into() } else { info.title.clone() })}
+                    {prop(t(lang, "dialog.props.author"), if info.author.is_empty() { "—".into() } else { info.author.clone() })}
+                    {prop(t(lang, "dialog.props.pages"), info.page_count.to_string())}
+                    {prop(t(lang, "dialog.props.size"), human_size(info.file_size))}
+                    {prop(t(lang, "dialog.props.version"), format!("PDF {}", info.version))}
+                    {prop(t(lang, "dialog.props.form"), yes_no(info.has_form))}
+                    {prop(t(lang, "props.unsaved"), yes_no(dirty))}
+                    button { class: "tbtn", onclick: move |_| st.set_dialog(Dialog::DocProps), "{t(lang, \"cmd.docProps\")}" }
+                    div { class: "prop-head", "{t(lang, \"props.page\")} {page + 1}" }
+                    if !label.is_empty() && label != (page + 1).to_string() {
+                        {prop(t(lang, "dialog.labels.title"), label.clone())}
                     }
-                    button { class: "tbtn", style: "margin:4px 8px", onclick: move |_| st.set_dialog(Dialog::DocProps), "{t(lang, \"cmd.docProps\")}" }
-                    div { class: "pane-header", style: "border:none;padding:10px 8px 4px", "{t(lang, \"props.page\")} {page + 1}" }
                     if let Some(s) = size {
-                        div { class: "kv",
-                            span { class: "k", "{t(lang, \"props.size\")}" }
-                            span { class: "v", "{s.width:.0} × {s.height:.0} pt ({s.width / 72.0 * 25.4:.0} × {s.height / 72.0 * 25.4:.0} mm)" }
-                            span { class: "k", "{t(lang, \"props.rotation\")}" } span { class: "v", "{s.rotation}°" }
-                            span { class: "k", "{t(lang, \"props.annotations\")}" } span { class: "v", "{annots}" }
-                            span { class: "k", "{t(lang, \"props.links\")}" } span { class: "v", "{links}" }
-                            span { class: "k", "{t(lang, \"props.images\")}" } span { class: "v", "{images}" }
-                            span { class: "k", "{t(lang, \"props.marks\")}" } span { class: "v", if marks.is_empty() { "{t(lang, \"label.none\")}" } else { "{marks.join(\", \")}" } }
-                        }
+                        {prop(t(lang, "props.size"), format!("{:.0} × {:.0} pt", s.width, s.height))}
+                        {prop(String::new(), format!("{:.0} × {:.0} mm", s.width / 72.0 * 25.4, s.height / 72.0 * 25.4))}
+                        {prop(t(lang, "props.rotation"), format!("{}°", s.rotation))}
                     }
+                    {prop(t(lang, "props.annotations"), annots.to_string())}
+                    {prop(t(lang, "props.links"), links.to_string())}
+                    {prop(t(lang, "props.images"), images.to_string())}
+                    {prop(t(lang, "props.marks"), if marks.is_empty() { t(lang, "label.none") } else { marks.join(", ") })}
                     if let Some(a) = selected {
-                        div { class: "pane-header", style: "border:none;padding:10px 8px 4px", "{t(lang, \"props.selection\")}" }
-                        div { class: "kv",
-                            span { class: "k", "Type" } span { class: "v", "{a.subtype}" }
-                            span { class: "k", "{t(lang, \"dialog.note.author\")}" } span { class: "v", "{a.author}" }
-                            span { class: "k", "{t(lang, \"dialog.props.modified\")}" } span { class: "v", "{a.modified}" }
-                            span { class: "k", "Text" } span { class: "v", "{a.contents}" }
+                        div { class: "prop-head", "{t(lang, \"props.selection\")}" }
+                        {prop(t(lang, "props.type"), annot_name(lang, &a.subtype))}
+                        {prop(t(lang, "dialog.note.author"), a.author.clone())}
+                        {prop(t(lang, "dialog.props.modified"), a.modified.clone())}
+                        if !a.contents.is_empty() {
+                            div { class: "prop-text", "{a.contents}" }
                         }
-                        div { class: "row", style: "padding: 4px 8px; gap: 6px",
-                            button { class: "tbtn", onclick: move |_| st.set_dialog(Dialog::AnnotationText { page: a.page, index: a.index, contents: a.contents.clone() }), "Edit text…" }
-                            button { class: "tbtn danger", onclick: move |_| dispatch(st, "comments.deleteSel"), "{t(lang, \"cmd.delete\")}" }
+                        div { class: "row",
+                            button { class: "tbtn", onclick: move |_| st.set_dialog(Dialog::AnnotationText { page: a.page, index: a.index, contents: a.contents.clone() }), "{t(lang, \"label.edit\")}" }
+                            button { class: "tbtn", onclick: move |_| dispatch(st, "comments.flattenSel"), "{t(lang, \"label.flatten\")}" }
+                            button { class: "tbtn danger", onclick: move |_| dispatch(st, "comments.deleteSel"), "{t(lang, \"label.delete\")}" }
                         }
                     }
                 } else {

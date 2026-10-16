@@ -1561,11 +1561,14 @@ dependencies = [
  "base64",
  "dioxus",
  "folitecta-core",
+ "gtk",
+ "image",
  "open",
  "rfd",
  "serde",
  "serde_json",
  "tokio",
+ "windows",
 ]
 
 [[package]]
@@ -2852,6 +2855,7 @@ dependencies = [
  "encoding_rs",
  "flate2",
  "getrandom 0.4.3",
+ "image",
  "indexmap",
  "itoa",
  "log",

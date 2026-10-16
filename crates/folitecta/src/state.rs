@@ -28,7 +28,9 @@ pub enum Layout {
 pub enum Tool {
     Hand,
     Select,
+    EditAnnots,
     Zoom,
+    Loupe,
     Note,
     Rect,
     Ellipse,
@@ -36,20 +38,42 @@ pub enum Tool {
     Arrow,
     Highlight,
     TextBox,
+    Typewriter,
     Ink,
     Link,
+    Stamp,
+    Redact,
+    PlaceImage,
+    TextHighlight,
+    TextUnderline,
+    TextStrike,
+    Snapshot,
 }
 
 impl Tool {
+    /// Tools that create something by dragging or clicking on the page.
     pub fn is_drawing(&self) -> bool {
-        !matches!(self, Tool::Hand | Tool::Select | Tool::Zoom)
+        !matches!(
+            self,
+            Tool::Hand | Tool::Select | Tool::EditAnnots | Tool::Zoom | Tool::Loupe
+        )
+    }
+
+    /// Tools that work on the text layer.
+    pub fn is_text(&self) -> bool {
+        matches!(
+            self,
+            Tool::Select | Tool::TextHighlight | Tool::TextUnderline | Tool::TextStrike
+        )
     }
 
     pub fn command_id(&self) -> &'static str {
         match self {
             Tool::Hand => "tool.hand",
             Tool::Select => "tool.selectText",
+            Tool::EditAnnots => "tool.editAnnots",
             Tool::Zoom => "tool.zoom",
+            Tool::Loupe => "tool.loupe",
             Tool::Note => "tool.annot.stickyNote",
             Tool::Rect => "tool.annot.square",
             Tool::Ellipse => "tool.annot.circle",
@@ -57,10 +81,81 @@ impl Tool {
             Tool::Arrow => "tool.annot.arrow",
             Tool::Highlight => "tool.annot.highlightArea",
             Tool::TextBox => "tool.annot.textBox",
+            Tool::Typewriter => "tool.annot.typeWriter",
             Tool::Ink => "tool.annot.pencil",
             Tool::Link => "tool.annot.editLink",
+            Tool::Stamp => "tool.annot.stamp",
+            Tool::Redact => "tool.annot.redaction",
+            Tool::PlaceImage => "tool.selImagePlace",
+            Tool::TextHighlight => "tool.annot.highlight",
+            Tool::TextUnderline => "tool.annot.underline",
+            Tool::TextStrike => "tool.annot.strikeout",
+            Tool::Snapshot => "tool.snapshot",
         }
     }
+
+    /// i18n key of the tool name for the status bar.
+    pub fn label_key(&self) -> &'static str {
+        match self {
+            Tool::Hand => "tool.hand",
+            Tool::Select => "tool.select",
+            Tool::EditAnnots => "tool.edit_annots",
+            Tool::Zoom => "tool.zoom",
+            Tool::Loupe => "tool.loupe",
+            Tool::Note => "tool.note",
+            Tool::Rect => "tool.rect",
+            Tool::Ellipse => "tool.ellipse",
+            Tool::Line => "tool.line",
+            Tool::Arrow => "tool.arrow",
+            Tool::Highlight => "tool.highlight",
+            Tool::TextBox => "tool.text",
+            Tool::Typewriter => "tool.typewriter",
+            Tool::Ink => "tool.ink",
+            Tool::Link => "tool.link",
+            Tool::Stamp => "tool.stamp",
+            Tool::Redact => "tool.redact",
+            Tool::PlaceImage => "tool.image",
+            Tool::TextHighlight => "tool.text_highlight",
+            Tool::TextUnderline => "tool.text_underline",
+            Tool::TextStrike => "tool.text_strike",
+            Tool::Snapshot => "tool.snapshot",
+        }
+    }
+}
+
+/// Internal clipboard for comments.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Clip {
+    /// A comment of an open document, copied by reference.
+    Annotation { tab: u64, page: usize, index: usize },
+    /// A comment that was cut (kept as a detached copy).
+    Detached(folitecta_core::AnnotSnapshot),
+}
+
+/// A text selection on one page: character offsets in the page text layer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TextSel {
+    pub page: usize,
+    pub anchor: usize,
+    pub head: usize,
+}
+
+impl TextSel {
+    pub fn range(&self) -> (usize, usize) {
+        (self.anchor.min(self.head), self.anchor.max(self.head))
+    }
+    pub fn is_empty(&self) -> bool {
+        self.anchor == self.head
+    }
+}
+
+/// A ruler guide in display points: horizontal guides store y, vertical ones x.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Guide {
+    /// `None` = shown on every page.
+    pub page: Option<usize>,
+    pub horizontal: bool,
+    pub pos: f32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -132,6 +227,7 @@ pub enum Theme {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct UiPrefs {
     pub theme: Theme,
     pub lang: Lang,
@@ -141,6 +237,10 @@ pub struct UiPrefs {
     pub show_right_pane: bool,
     pub left_pane: String,
     pub recent: Vec<PathBuf>,
+    /// On/off view options keyed by command id (rulers, grid, dark pages, ...).
+    pub options: std::collections::BTreeMap<String, bool>,
+    /// Valued settings keyed by name (ruler units, thumbnail size, ...).
+    pub values: std::collections::BTreeMap<String, String>,
 }
 
 impl Default for UiPrefs {
@@ -156,12 +256,18 @@ impl Default for UiPrefs {
             show_right_pane: false,
             left_pane: "thumbnails".into(),
             recent: Vec::new(),
+            options: Default::default(),
+            values: Default::default(),
         }
     }
 }
 
 /// Per-user configuration directory without extra dependencies.
+/// `FOLITECTA_CONFIG_DIR` overrides it (used by the interface self-test).
 fn config_dir() -> Option<PathBuf> {
+    if let Some(dir) = std::env::var_os("FOLITECTA_CONFIG_DIR") {
+        return Some(PathBuf::from(dir));
+    }
     #[cfg(target_os = "windows")]
     {
         std::env::var_os("APPDATA").map(PathBuf::from)
@@ -201,6 +307,10 @@ impl UiPrefs {
         }
     }
 
+    pub fn value(&self, key: &str) -> Option<&str> {
+        self.values.get(key).map(String::as_str)
+    }
+
     pub fn push_recent(&mut self, path: &std::path::Path) {
         self.recent.retain(|p| p != path);
         self.recent.insert(0, path.to_path_buf());
@@ -233,6 +343,13 @@ pub struct DocTab {
     pub page_sizes: Vec<PageSize>,
     pub revision: u64,
     pub highlight_fields: bool,
+    /// Current text selection (characters of one page).
+    pub text_sel: Option<TextSel>,
+    /// Ruler guides (view only, not saved in the PDF).
+    pub guides: Vec<Guide>,
+    /// Visited pages for previous/next view navigation.
+    pub history: Vec<usize>,
+    pub history_pos: usize,
 }
 
 impl DocTab {
@@ -255,7 +372,24 @@ impl DocTab {
             page_sizes,
             revision,
             highlight_fields: false,
+            text_sel: None,
+            guides: Vec::new(),
+            history: vec![0],
+            history_pos: 0,
         }
+    }
+
+    /// Record a navigation to `page` in the view history.
+    pub fn push_history(&mut self, page: usize) {
+        if self.history.get(self.history_pos) == Some(&page) {
+            return;
+        }
+        self.history.truncate(self.history_pos + 1);
+        self.history.push(page);
+        if self.history.len() > 200 {
+            self.history.remove(0);
+        }
+        self.history_pos = self.history.len() - 1;
     }
 
     /// Call after any mutation of `doc`: refreshes caches and the renderer.
@@ -270,6 +404,9 @@ impl DocTab {
             }
             self.selected_pages.retain(|p| *p < n);
             self.selected_annot = None;
+            self.text_sel = None;
+            // Search rectangles refer to the previous revision.
+            self.search.hits.clear();
         }
     }
 
@@ -325,6 +462,8 @@ pub enum ConfirmAction {
     RemoveLinks,
     ResetForm,
     Revert,
+    ApplyRedactions(Option<usize>),
+    RemoveScripts,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -382,6 +521,8 @@ pub enum Dialog {
     TextBox {
         page: usize,
         rect: [f32; 4],
+        /// Text box with a border; typewriter text has none.
+        border: bool,
     },
     Link {
         page: usize,
@@ -403,9 +544,25 @@ pub enum Dialog {
         words: usize,
         chars: usize,
     },
-    UrlReport(Vec<(usize, String)>),
     Summary(String),
+    NewBlank,
+    PasteSpecial,
+    Rasterize,
+    StampPicker,
+    Security,
+    Scripts,
+    Flatten,
+    AddGuides,
+    SplitTiles,
+    Background,
+    PageLabels,
+    Transitions,
+    ReplacePages(PathBuf),
+    OverlayFile(PathBuf),
 }
+
+/// Loupe position: page, x and y in display points, pointer client x and y.
+pub type LoupePos = (usize, f32, f32, f64, f64);
 
 /// All reactive state, cheap to copy into closures.
 #[derive(Clone, Copy)]
@@ -426,6 +583,20 @@ pub struct AppState {
     pub next_id: Signal<u64>,
     pub closed_recently: Signal<Vec<PathBuf>>,
     pub busy: Signal<bool>,
+    /// Viewport position (CSS px) where the open ribbon/pane dropdown is anchored.
+    pub dropdown_pos: Signal<(f64, f64)>,
+    /// Open classic-menu submenus by depth: (command id, x, y).
+    pub submenus: Signal<Vec<(String, f64, f64)>>,
+    /// Size of the window content area in CSS pixels.
+    pub viewport: Signal<(f64, f64)>,
+    /// Internal comment clipboard.
+    pub clip: Signal<Option<Clip>>,
+    /// Picture waiting to be placed with the image tool.
+    pub pending_image: Signal<Option<Vec<u8>>>,
+    /// Loupe position: page, x and y in display points, pointer client x and y.
+    pub loupe: Signal<Option<LoupePos>>,
+    /// Pointer position over a page for the status bar: (page, x, y) in display points.
+    pub pointer: Signal<Option<(usize, f32, f32)>>,
 }
 
 impl AppState {
@@ -448,7 +619,57 @@ impl AppState {
             next_id: use_signal(|| 1),
             closed_recently: use_signal(Vec::new),
             busy: use_signal(|| false),
+            dropdown_pos: use_signal(|| (0.0, 0.0)),
+            submenus: use_signal(Vec::new),
+            viewport: use_signal(|| (1440.0, 900.0)),
+            clip: use_signal(|| None),
+            pending_image: use_signal(|| None),
+            loupe: use_signal(|| None),
+            pointer: use_signal(|| None),
         }
+    }
+
+    pub fn set_clip(&self, v: Option<Clip>) {
+        *self.clip.write_unchecked() = v;
+    }
+    pub fn set_pending_image(&self, v: Option<Vec<u8>>) {
+        *self.pending_image.write_unchecked() = v;
+    }
+    pub fn set_loupe(&self, v: Option<LoupePos>) {
+        *self.loupe.write_unchecked() = v;
+    }
+    pub fn set_pointer(&self, v: Option<(usize, f32, f32)>) {
+        *self.pointer.write_unchecked() = v;
+    }
+
+    pub fn set_viewport(&self, v: (f64, f64)) {
+        *self.viewport.write_unchecked() = v;
+    }
+
+    pub fn set_dropdown_pos(&self, v: (f64, f64)) {
+        *self.dropdown_pos.write_unchecked() = v;
+    }
+
+    pub fn submenus_mut(&self) -> impl std::ops::DerefMut<Target = Vec<(String, f64, f64)>> + 'static {
+        self.submenus.write_unchecked()
+    }
+
+    /// Clamp a floating menu so it stays inside the window (CSS pixels).
+    pub fn clamp_menu_pos(&self, x: f64, y: f64, width: f64, height: f64) -> (f64, f64) {
+        let (vw, vh) = *self.viewport.peek();
+        let left = x.min((vw - width - 6.0).max(0.0)).max(0.0);
+        let top = y.min((vh - height - 6.0).max(0.0)).max(0.0);
+        (left, top)
+    }
+
+    pub fn set_option(&self, id: &str, on: bool) {
+        self.ui_mut().options.insert(id.to_string(), on);
+        self.save_prefs();
+    }
+
+    pub fn set_value(&self, key: &str, value: impl Into<String>) {
+        self.ui_mut().values.insert(key.to_string(), value.into());
+        self.save_prefs();
     }
 
     // Setters usable through a shared copy of the state (signals are handles).
@@ -571,6 +792,9 @@ impl AppState {
         if self.open_dropdown.peek().is_some() {
             self.set_open_dropdown(None);
         }
+        if !self.submenus.peek().is_empty() {
+            self.submenus_mut().clear();
+        }
     }
 
     pub fn save_prefs(&self) {
@@ -588,12 +812,24 @@ impl AppState {
 
     /// Navigate the active document to a page and scroll it into view.
     pub fn go_to_page(&self, page: usize) {
+        self.navigate(page, true);
+    }
+
+    /// Show `page`; `record` adds the jump to the previous/next view history.
+    pub fn navigate(&self, page: usize, record: bool) {
         let n = self.page_count();
         if n == 0 {
             return;
         }
         let page = page.min(n - 1);
-        self.with_active(|t| t.page = page);
+        self.with_active(|t| {
+            if record && t.page != page {
+                let from = t.page;
+                t.push_history(from);
+                t.push_history(page);
+            }
+            t.page = page;
+        });
         let js = format!(
             "const el = document.getElementById('pg-{page}'); if (el) {{ el.scrollIntoView({{ block: 'start' }}); }}"
         );

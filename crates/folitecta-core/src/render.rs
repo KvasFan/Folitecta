@@ -8,7 +8,7 @@ use std::thread::JoinHandle;
 
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
-use hayro::vello_cpu::color::palette::css::WHITE;
+use hayro::vello_cpu::color::palette::css::{TRANSPARENT, WHITE};
 use hayro::{PixmapSettings, RenderCache, RenderSettings, render};
 
 use crate::error::{Error, Result};
@@ -33,7 +33,55 @@ fn load_pdf(bytes: Arc<Vec<u8>>) -> Result<Pdf> {
     Pdf::new(bytes).map_err(|e| Error::Render(format!("cannot parse document for rendering: {e:?}")))
 }
 
-fn render_with<'a>(pdf: &'a Pdf, cache: &RenderCache<'a>, page: usize, scale: f32) -> Result<RenderedPage> {
+/// Rendering options.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct RenderOpts {
+    /// Draw annotation appearances.
+    pub annotations: bool,
+    /// Leave the page background transparent instead of white.
+    pub transparent: bool,
+}
+
+impl Default for RenderOpts {
+    fn default() -> Self {
+        RenderOpts {
+            annotations: true,
+            transparent: false,
+        }
+    }
+}
+
+fn render_with<'a>(
+    pdf: &'a Pdf,
+    cache: &RenderCache<'a>,
+    page: usize,
+    scale: f32,
+    annotations: bool,
+) -> Result<RenderedPage> {
+    render_with_opts(
+        pdf,
+        cache,
+        page,
+        scale,
+        RenderOpts {
+            annotations,
+            transparent: false,
+        },
+    )
+}
+
+fn render_with_opts<'a>(
+    pdf: &'a Pdf,
+    cache: &RenderCache<'a>,
+    page: usize,
+    scale: f32,
+    opts: RenderOpts,
+) -> Result<RenderedPage> {
+    let annotations = opts.annotations;
+    let interpreter = InterpreterSettings {
+        render_annotations: annotations,
+        ..InterpreterSettings::default()
+    };
     let pages = pdf.pages();
     let p = pages.get(page).ok_or(Error::InvalidPage(page))?;
     let (w, h) = p.render_dimensions();
@@ -41,16 +89,10 @@ fn render_with<'a>(pdf: &'a Pdf, cache: &RenderCache<'a>, page: usize, scale: f3
     let settings = PixmapSettings {
         x_scale: scale,
         y_scale: scale,
-        bg_color: WHITE,
+        bg_color: if opts.transparent { TRANSPARENT } else { WHITE },
     };
     let result = catch_unwind(AssertUnwindSafe(|| {
-        render(
-            p,
-            cache,
-            &InterpreterSettings::default(),
-            &RenderSettings::default(),
-            &settings,
-        )
+        render(p, cache, &interpreter, &RenderSettings::default(), &settings)
     }));
     let pixmap = result.map_err(|_| Error::Render(format!("the renderer failed on page {}", page + 1)))?;
     let (width, height) = (pixmap.width() as u32, pixmap.height() as u32);
@@ -78,8 +120,13 @@ impl Renderer {
 
     /// Render `page` (zero-based) at `scale` (1.0 = 72 dpi).
     pub fn render_page(&self, page: usize, scale: f32) -> Result<RenderedPage> {
+        self.render_page_opts(page, scale, true)
+    }
+
+    /// Render with control over annotation appearance streams.
+    pub fn render_page_opts(&self, page: usize, scale: f32, annotations: bool) -> Result<RenderedPage> {
         let cache = RenderCache::new();
-        render_with(&self.pdf, &cache, page, scale)
+        render_with(&self.pdf, &cache, page, scale, annotations)
     }
 }
 
@@ -90,6 +137,7 @@ enum Msg {
     Render {
         page: usize,
         scale: f32,
+        opts: RenderOpts,
         reply: Reply<Result<RenderedPage>>,
     },
     Sizes(Reply<Result<Vec<(f32, f32)>>>),
@@ -111,7 +159,7 @@ fn worker(rx: Receiver<Msg>, initial: Arc<Vec<u8>>) {
     'outer: loop {
         let pdf = load_pdf(bytes.clone());
         let cache = RenderCache::new();
-        let mut memo: HashMap<(usize, u32), Arc<RenderedPage>> = HashMap::new();
+        let mut memo: HashMap<(usize, u32, RenderOpts), Arc<RenderedPage>> = HashMap::new();
         loop {
             let Ok(msg) = rx.recv() else { return };
             match msg {
@@ -125,14 +173,19 @@ fn worker(rx: Receiver<Msg>, initial: Arc<Vec<u8>>) {
                         .map(|p| p.pages().iter().map(|pg| pg.render_dimensions()).collect())
                         .map_err(|e| Error::Render(e.to_string())),
                 ),
-                Msg::Render { page, scale, reply } => {
-                    let key = (page, scale_key(scale));
+                Msg::Render {
+                    page,
+                    scale,
+                    opts,
+                    reply,
+                } => {
+                    let key = (page, scale_key(scale), opts);
                     if let Some(hit) = memo.get(&key) {
                         reply(Ok(hit.as_ref().clone()));
                         continue;
                     }
                     let result = match &pdf {
-                        Ok(pdf) => render_with(pdf, &cache, page, scale),
+                        Ok(pdf) => render_with_opts(pdf, &cache, page, scale, opts),
                         Err(e) => Err(Error::Render(e.to_string())),
                     };
                     if let Ok(rendered) = &result {
@@ -169,9 +222,21 @@ impl RenderService {
 
     /// Render asynchronously; `reply` runs on the render thread.
     pub fn render(&self, page: usize, scale: f32, reply: impl FnOnce(Result<RenderedPage>) + Send + 'static) {
+        self.render_ext(page, scale, RenderOpts::default(), reply);
+    }
+
+    /// Render asynchronously with explicit options.
+    pub fn render_ext(
+        &self,
+        page: usize,
+        scale: f32,
+        opts: RenderOpts,
+        reply: impl FnOnce(Result<RenderedPage>) + Send + 'static,
+    ) {
         let _ = self.tx.send(Msg::Render {
             page,
             scale,
+            opts,
             reply: Box::new(reply),
         });
     }

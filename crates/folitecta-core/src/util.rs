@@ -148,14 +148,96 @@ pub fn fmt_num(v: f32) -> String {
     }
 }
 
-/// Escape a string for use inside a PDF literal string `( ... )`, encoding
-/// characters outside Latin-1 as `?` (the built-in fonts use WinAnsi).
+/// WinAnsiEncoding code of a character (`?` when the encoding lacks it).
+pub fn winansi_byte(ch: char) -> u8 {
+    let code = ch as u32;
+    if code < 0x80 || (0xA0..=0xFF).contains(&code) {
+        return code as u8;
+    }
+    match ch {
+        '€' => 0x80,
+        '‚' => 0x82,
+        'ƒ' => 0x83,
+        '„' => 0x84,
+        '…' => 0x85,
+        '†' => 0x86,
+        '‡' => 0x87,
+        'ˆ' => 0x88,
+        '‰' => 0x89,
+        'Š' => 0x8A,
+        '‹' => 0x8B,
+        'Œ' => 0x8C,
+        'Ž' => 0x8E,
+        '‘' => 0x91,
+        '’' => 0x92,
+        '“' => 0x93,
+        '”' => 0x94,
+        '•' => 0x95,
+        '–' => 0x96,
+        '—' => 0x97,
+        '˜' => 0x98,
+        '™' => 0x99,
+        'š' => 0x9A,
+        '›' => 0x9B,
+        'œ' => 0x9C,
+        'ž' => 0x9E,
+        'Ÿ' => 0x9F,
+        '\u{2212}' => b'-',
+        '\u{00A0}' => 0xA0,
+        _ => b'?',
+    }
+}
+
+/// Helvetica advance widths (1/1000 em) for WinAnsi codes 32..=126.
+const HELV_ASCII: [u16; 95] = [
+    278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, // space .. /
+    556, 556, 556, 556, 556, 556, 556, 556, 556, 556, // 0-9
+    278, 278, 584, 584, 584, 556, 1015, // : ; < = > ? @
+    667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778, 667, 778, 722, 667, 611, 722,
+    667, 944, 667, 667, 611, // A-Z
+    278, 278, 278, 469, 556, 333, // [ \ ] ^ _ `
+    556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500, 278, 556,
+    500, 722, 500, 500, 500, // a-z
+    334, 260, 334, 584, // { | } ~
+];
+
+/// Helvetica advance widths for WinAnsi codes 0x80..=0xFF.
+const HELV_HIGH: [u16; 128] = [
+    556, 278, 222, 556, 333, 1000, 556, 556, 333, 1000, 667, 333, 1000, 278, 611, 278, // 0x80
+    278, 222, 222, 333, 333, 350, 556, 1000, 333, 1000, 500, 333, 944, 278, 500, 667, // 0x90
+    278, 333, 556, 556, 556, 556, 260, 556, 333, 737, 370, 556, 584, 333, 737, 333, // 0xA0
+    400, 584, 333, 333, 333, 556, 537, 278, 333, 333, 365, 556, 834, 834, 834, 611, // 0xB0
+    667, 667, 667, 667, 667, 667, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278, // 0xC0
+    722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611, // 0xD0
+    556, 556, 556, 556, 556, 556, 889, 500, 556, 556, 556, 556, 278, 278, 278, 278, // 0xE0
+    556, 556, 556, 556, 556, 556, 556, 584, 611, 556, 556, 556, 556, 500, 556, 500, // 0xF0
+];
+
+/// Advance width of one WinAnsi code in Helvetica (1/1000 em).
+pub fn helvetica_advance(code: u8) -> u16 {
+    match code {
+        32..=126 => HELV_ASCII[(code - 32) as usize],
+        0x80..=0xFF => HELV_HIGH[(code - 0x80) as usize],
+        _ => 0,
+    }
+}
+
+/// Width of `text` set in Helvetica at `font_size` points.
+pub fn helvetica_width(text: &str, font_size: f32) -> f32 {
+    let units: u32 = text
+        .chars()
+        .map(|c| helvetica_advance(winansi_byte(c)) as u32)
+        .sum();
+    units as f32 * font_size / 1000.0
+}
+
+/// Escape a string for use inside a PDF literal string `( ... )` in
+/// WinAnsiEncoding (characters the encoding lacks become `?`).
 pub fn pdf_literal(text: &str) -> Vec<u8> {
     let mut out = Vec::with_capacity(text.len() + 2);
     out.push(b'(');
     for ch in text.chars() {
-        let code = ch as u32;
-        let byte = if code < 256 { code as u8 } else { b'?' };
+        let byte = winansi_byte(ch);
         match byte {
             b'(' | b')' | b'\\' => {
                 out.push(b'\\');
@@ -172,9 +254,9 @@ pub fn pdf_literal(text: &str) -> Vec<u8> {
     out
 }
 
-/// Rough text width for Helvetica (average glyph advance 0.52 em).
+/// Text width for the built-in Helvetica font used by generated content.
 pub fn approx_text_width(text: &str, font_size: f32) -> f32 {
-    text.chars().count() as f32 * 0.52 * font_size
+    helvetica_width(text, font_size)
 }
 
 /// Build the `Reference` object for an id.

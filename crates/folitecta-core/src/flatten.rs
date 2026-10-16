@@ -1,0 +1,211 @@
+//! Flattening: merge annotation appearances into the page content as vector
+//! form XObjects, then remove the annotations (comments, form widgets or both).
+
+use lopdf::{Dictionary, Object, ObjectId};
+
+use crate::document::Document;
+use crate::error::{Error, Result};
+use crate::util::{deref, fmt_num, num, rect_of};
+
+/// Which annotations to flatten.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlattenScope {
+    /// Comments and markups (everything except links, widgets and popups).
+    Comments,
+    /// Interactive form fields (widget annotations); the form is removed.
+    FormFields,
+    /// Comments and form fields.
+    All,
+}
+
+const NEVER: &[&[u8]] = &[b"Link", b"Popup"];
+
+fn matrix_of(doc: &lopdf::Document, dict: &Dictionary) -> [f32; 6] {
+    dict.get(b"Matrix")
+        .ok()
+        .map(|m| deref(doc, m))
+        .and_then(|m| m.as_array().ok())
+        .and_then(|a| {
+            let v: Vec<f32> = a.iter().filter_map(|o| num(deref(doc, o))).collect();
+            (v.len() == 6).then(|| [v[0], v[1], v[2], v[3], v[4], v[5]])
+        })
+        .unwrap_or([1.0, 0.0, 0.0, 1.0, 0.0, 0.0])
+}
+
+fn apply(m: [f32; 6], x: f32, y: f32) -> (f32, f32) {
+    (m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5])
+}
+
+impl Document {
+    /// The normal appearance stream of an annotation (resolving `/AS` sub-states).
+    fn normal_appearance(&self, annot: &Dictionary) -> Option<ObjectId> {
+        let doc = &self.inner;
+        let ap = deref(doc, annot.get(b"AP").ok()?).as_dict().ok()?;
+        match ap.get(b"N").ok()? {
+            Object::Reference(r) => match doc.get_object(*r).ok()? {
+                Object::Stream(_) => Some(*r),
+                Object::Dictionary(states) => {
+                    let state = annot.get(b"AS").ok()?.as_name().ok()?;
+                    states.get(state).ok()?.as_reference().ok()
+                }
+                _ => None,
+            },
+            Object::Dictionary(states) => {
+                let state = annot.get(b"AS").ok()?.as_name().ok()?;
+                states.get(state).ok()?.as_reference().ok()
+            }
+            _ => None,
+        }
+    }
+
+    /// Flatten annotations of the given pages. Returns how many were merged.
+    pub fn flatten(&mut self, pages: &[usize], scope: FlattenScope) -> Result<usize> {
+        let n = self.page_count();
+        for &p in pages {
+            if p >= n {
+                return Err(Error::InvalidPage(p));
+            }
+        }
+        self.begin_edit();
+        let count = self.flatten_internal(pages, scope, None)?;
+        self.commit()?;
+        Ok(count)
+    }
+
+    /// Flatten annotations; `only` restricts the work to one `(page, index)`.
+    pub(crate) fn flatten_internal(
+        &mut self,
+        pages: &[usize],
+        scope: FlattenScope,
+        only: Option<(usize, usize)>,
+    ) -> Result<usize> {
+        let ids = self.page_ids();
+        let mut flattened = 0;
+        let mut removed_widgets = false;
+        for &p in pages {
+            let page_id = ids[p];
+            self.inherit_attributes(&[page_id]);
+            let annots_obj = self.inner.get_dictionary(page_id)?.get(b"Annots").ok().cloned();
+            let list: Vec<Object> = match annots_obj {
+                Some(Object::Array(a)) => a,
+                Some(Object::Reference(r)) => self
+                    .inner
+                    .get_object(r)
+                    .ok()
+                    .and_then(|o| o.as_array().ok())
+                    .cloned()
+                    .unwrap_or_default(),
+                _ => continue,
+            };
+            let mut keep = Vec::with_capacity(list.len());
+            let mut content = String::new();
+            for (position, item) in list.into_iter().enumerate() {
+                if only.is_some_and(|(op, oi)| op != p || oi != position) {
+                    keep.push(item);
+                    continue;
+                }
+                let (aid, dict) = match &item {
+                    Object::Reference(r) => match self.inner.get_dictionary(*r) {
+                        Ok(d) => (Some(*r), d.clone()),
+                        Err(_) => continue,
+                    },
+                    Object::Dictionary(d) => (None, d.clone()),
+                    _ => continue,
+                };
+                let subtype = dict
+                    .get(b"Subtype")
+                    .ok()
+                    .and_then(|s| s.as_name().ok())
+                    .unwrap_or(b"")
+                    .to_vec();
+                let is_widget = subtype == b"Widget";
+                let wanted = match scope {
+                    FlattenScope::Comments => !is_widget,
+                    FlattenScope::FormFields => is_widget,
+                    FlattenScope::All => true,
+                } && !NEVER.contains(&subtype.as_slice());
+                if !wanted {
+                    keep.push(item);
+                    continue;
+                }
+                let flags = dict.get(b"F").ok().and_then(|f| f.as_i64().ok()).unwrap_or(0);
+                let hidden = flags & 2 != 0 || flags & 32 != 0;
+                let rect = dict.get(b"Rect").ok().and_then(|r| rect_of(&self.inner, r));
+                if let (false, Some(rect), Some(ap_id)) = (hidden, rect, self.normal_appearance(&dict)) {
+                    let form = self.inner.get_object(ap_id)?.as_stream()?.dict.clone();
+                    let bbox = form
+                        .get(b"BBox")
+                        .ok()
+                        .and_then(|b| rect_of(&self.inner, b))
+                        .unwrap_or(rect);
+                    let m = matrix_of(&self.inner, &form);
+                    // Transformed appearance box (PDF 32000-1, 12.5.5).
+                    let corners = [
+                        apply(m, bbox[0], bbox[1]),
+                        apply(m, bbox[2], bbox[1]),
+                        apply(m, bbox[0], bbox[3]),
+                        apply(m, bbox[2], bbox[3]),
+                    ];
+                    let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
+                    for (x, y) in corners {
+                        x0 = x0.min(x);
+                        y0 = y0.min(y);
+                        x1 = x1.max(x);
+                        y1 = y1.max(y);
+                    }
+                    let (bw, bh) = ((x1 - x0).max(0.001), (y1 - y0).max(0.001));
+                    let sx = (rect[2] - rect[0]) / bw;
+                    let sy = (rect[3] - rect[1]) / bh;
+                    let tx = rect[0] - x0 * sx;
+                    let ty = rect[1] - y0 * sy;
+                    // Make sure the form is a proper XObject.
+                    if let Ok(Object::Stream(s)) = self.inner.get_object_mut(ap_id) {
+                        s.dict.set("Type", Object::Name(b"XObject".to_vec()));
+                        s.dict.set("Subtype", Object::Name(b"Form".to_vec()));
+                        if !s.dict.has(b"BBox") {
+                            s.dict
+                                .set("BBox", Object::Array(rect.iter().map(|v| (*v).into()).collect()));
+                        }
+                    }
+                    let name = format!("FoliFlat{}", ap_id.0);
+                    self.add_page_resource(page_id, "XObject", &name, Object::Reference(ap_id))?;
+                    let f = fmt_num;
+                    content.push_str(&format!(
+                        "q {} 0 0 {} {} {} cm /{} Do Q\n",
+                        f(sx),
+                        f(sy),
+                        f(tx),
+                        f(ty),
+                        name
+                    ));
+                }
+                flattened += 1;
+                if is_widget {
+                    removed_widgets = true;
+                }
+                if let Some(id) = aid {
+                    if let Some(popup) = dict.get(b"Popup").ok().and_then(|p| p.as_reference().ok()) {
+                        self.inner.delete_object(popup);
+                    }
+                    self.inner.delete_object(id);
+                }
+            }
+            // Popups of removed annotations are dangling now; drop them from the list.
+            keep.retain(|o| match o {
+                Object::Reference(r) => self.inner.objects.contains_key(r),
+                _ => true,
+            });
+            self.inner
+                .get_dictionary_mut(page_id)?
+                .set("Annots", Object::Array(keep));
+            if !content.is_empty() {
+                self.append_page_content(page_id, content.into_bytes(), Some("Flatten"))?;
+            }
+        }
+        if removed_widgets && matches!(scope, FlattenScope::FormFields | FlattenScope::All) {
+            self.inner.catalog_mut()?.remove(b"AcroForm");
+        }
+        self.inner.prune_objects();
+        Ok(flattened)
+    }
+}

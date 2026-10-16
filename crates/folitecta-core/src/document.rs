@@ -474,6 +474,14 @@ impl Document {
         deref(&self.inner, info).as_dict().ok()
     }
 
+    /// The document title from the document information (empty when unset).
+    pub fn title(&self) -> String {
+        self.info_dict()
+            .and_then(|d| dict_text(&self.inner, d, b"Title"))
+            .map(|t| t.trim().to_string())
+            .unwrap_or_default()
+    }
+
     pub fn info(&self) -> DocInfo {
         let d = self.info_dict();
         let get = |key: &[u8]| d.and_then(|d| dict_text(&self.inner, d, key)).unwrap_or_default();

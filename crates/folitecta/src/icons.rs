@@ -114,6 +114,25 @@ pub fn path(name: &str) -> &'static str {
 pub fn for_command(id: &str) -> &'static str {
     let l = id.to_lowercase();
     let has = |s: &str| l.contains(s);
+    // Specific tools first.
+    match id {
+        "tool.annot.distance" => return "line",
+        "tool.annot.perimeter" => return "pencil",
+        "tool.annot.area" => return "rect",
+        "tool.calibrate" => return "settings",
+        "tool.editFields.mode.text" => return "text",
+        "tool.editFields.mode.check" => return "check",
+        "tool.editFields.mode.radio" => return "select",
+        "tool.editFields.mode.combo" | "tool.editFields.mode.list" => return "list",
+        "tool.editFields.mode.button" => return "rect",
+        "tool.editFields.mode.signature" => return "signature",
+        "view.panzoom" | "tool.panZoom" => return "move",
+        "launchExternalApp" => return "share",
+        "view.layout.onePage" => return "single",
+        "view.layout.oneColumn" => return "continuous",
+        "view.layout.twoPages" | "view.layout.twoColumns" => return "two",
+        _ => {}
+    }
     if has("zoomin") || has("zoom.level.actual") {
         return "zoom-in";
     }

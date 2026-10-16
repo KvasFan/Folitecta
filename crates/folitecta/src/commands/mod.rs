@@ -14,6 +14,7 @@ mod file;
 mod format;
 mod forms;
 mod help;
+pub(crate) mod interface;
 mod pages;
 mod panes;
 mod protect;
@@ -53,6 +54,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     protect::HANDLERS,
     review::HANDLERS,
     bookmarks::HANDLERS,
+    interface::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -78,6 +80,10 @@ pub const PARTIAL: &[&str] = &[
 
 /// View options toggled by command id; their state lives in the preferences.
 pub const VIEW_OPTIONS: &[&str] = &[
+    "view.layout.ribbon",
+    "view.panzoom",
+    "view.showPageSizePopup",
+    "view.spellCheck",
     "bookmarksView.autoExpandBookmarks",
     "bookmarksView.ensureVisibility",
     "bookmarksView.markInvalid",
@@ -138,6 +144,7 @@ pub const VIEW_OPTIONS: &[&str] = &[
 
 /// Options that are on unless the user turned them off.
 pub const DEFAULT_ON: &[&str] = &[
+    "view.spellCheck",
     "bookmarksView.autoExpandBookmarks",
     "bookmarksView.ensureVisibility",
     "bookmarksView.markInvalid",
@@ -183,6 +190,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .then(|| option_on(st, id))
         .or_else(|| review::review_state(st, id))
         .or_else(|| bookmarks::bookmark_state(st, id))
+        .or_else(|| interface::interface_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

@@ -791,6 +791,10 @@ pub enum Dialog {
     BookmarkImportExport,
     /// Target, colour and style of a bookmark.
     BookmarkProps(Vec<usize>),
+    /// Which toolbars the classic interface shows.
+    Toolbars,
+    /// Zoom level.
+    ZoomLevel,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.
@@ -1174,8 +1178,13 @@ impl AppState {
             }
             t.page = page;
         });
+        let inline = if crate::commands::option_on(*self, "view.layout.ribbon") {
+            "start"
+        } else {
+            "nearest"
+        };
         let js = format!(
-            "const el = document.getElementById('pg-{page}'); if (el) {{ el.scrollIntoView({{ block: 'start' }}); }}"
+            "const el = document.getElementById('pg-{page}'); if (el) {{ el.scrollIntoView({{ block: 'start', inline: '{inline}' }}); }}"
         );
         spawn(async move {
             let _ = document::eval(&js).await;

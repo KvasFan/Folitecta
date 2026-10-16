@@ -13,6 +13,7 @@ pub mod rightpane;
 pub mod statusbar;
 pub mod style_editor;
 pub mod toasts;
+pub mod toolbars;
 pub mod welcome;
 
 use dioxus::html::{InteractionElementOffset, InteractionLocation};

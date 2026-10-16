@@ -168,6 +168,17 @@ pub fn App() -> Element {
     let show_right = st.ui.read().show_right_pane;
     let (vw, _) = (st.viewport)();
     let compact = if vw < 1100.0 { " compact" } else { "" };
+    let touch = if st.ui.read().value("ui.touch") == Some("1") {
+        " touch"
+    } else {
+        ""
+    };
+    let compact = format!("{compact}{touch}");
+    let spellcheck = if commands::option_on(st, "view.spellCheck") {
+        "true"
+    } else {
+        "false"
+    };
 
     let on_key = move |evt: Event<KeyboardData>| {
         let key = evt.key();
@@ -183,6 +194,20 @@ pub fn App() -> Element {
                 st.set_palette(None);
             }
             return;
+        }
+        if commands::interface::auto_scroll_on() {
+            match key {
+                Key::Escape => {
+                    commands::interface::stop_auto_scroll();
+                    return;
+                }
+                Key::ArrowDown | Key::ArrowUp if !mods.ctrl() && !mods.shift() => {
+                    evt.prevent_default();
+                    commands::interface::auto_scroll_speed(st, key == Key::ArrowDown);
+                    return;
+                }
+                _ => {}
+            }
         }
         if key == Key::Escape {
             let menus_open = st.open_menu.peek().is_some()
@@ -304,6 +329,7 @@ pub fn App() -> Element {
         div {
             class: if fullscreen { "app fullscreen{compact}" } else { "app{compact}" },
             "data-theme": "{theme}",
+            "spellcheck": "{spellcheck}",
             tabindex: "0",
             autofocus: true,
             onkeydown: on_key,
@@ -312,7 +338,7 @@ pub fn App() -> Element {
             if ribbon {
                 ui::ribbon::Ribbon {}
             } else {
-                ui::ribbon::ClassicToolbar {}
+                ui::toolbars::ClassicToolbars {}
             }
             div { class: if show_left { "main" } else { "main no-left" },
                 ui::panes::PaneStrip {}

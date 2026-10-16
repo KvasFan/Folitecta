@@ -575,3 +575,31 @@ html.emulate-print .print-page img { max-width: 100%; max-height: 100%; object-f
   .statusbar .sb-opt { display: none; }
   .menubar .brand span, .menubar .brand { margin-right: 4px; }
 }
+/* Classic toolbars */
+.classic-toolbars { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 4px 8px; min-width: 0; }
+.toolbar-group { display: flex; align-items: center; gap: 1px; padding-right: 8px; border-right: 1px solid var(--border); flex: none; }
+.toolbar-group:last-child { border-right: none; }
+/* Horizontal scrolling layout */
+.pages.horizontal { flex-direction: row; align-items: flex-start; }
+.pages.horizontal .page-row { flex-wrap: nowrap; }
+/* Page size shown when the pointer is over a page */
+.page-size { position: absolute; right: 0; bottom: -22px; font-size: 11px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; opacity: 0; transition: opacity .15s; pointer-events: none; white-space: nowrap; }
+.page:hover .page-size { opacity: 1; }
+/* Pan and zoom window */
+.panzoom { position: absolute; right: 22px; bottom: 18px; z-index: 30; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); padding: 4px 6px 6px; display: flex; flex-direction: column; gap: 4px; }
+.panzoom-head { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; min-width: 0; }
+.panzoom-head .ellipsis { flex: 1; }
+.panzoom-page { position: relative; background: #fff; box-shadow: var(--shadow-sm); cursor: crosshair; align-self: center; overflow: hidden; }
+.panzoom-page img { display: block; pointer-events: none; }
+.panzoom-view { position: absolute; border: 2px solid var(--accent); background: rgba(79,70,229,.12); pointer-events: none; }
+.panzoom-foot { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.zoom-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Touch-optimised interface: larger targets */
+.app.touch .ibtn { width: 36px; height: 36px; }
+.app.touch .tbtn { min-height: 36px; padding-top: 6px; padding-bottom: 6px; }
+.app.touch .menu-item { min-height: 40px; }
+.app.touch .tree-item { padding-top: 8px; padding-bottom: 8px; }
+.app.touch .list-item { padding: 10px 10px; }
+.app.touch .doc-tab { min-height: 36px; }
+.app.touch .statusbar { padding-top: 6px; padding-bottom: 6px; }
+.app.touch .check { padding-top: 8px; padding-bottom: 8px; }

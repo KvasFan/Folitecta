@@ -1015,7 +1015,44 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     );
     st.ui_mut().left_pane = "thumbnails".into();
 
-    // 22. Undo everything added above.
+    // 22. Automatic scrolling moves the pages; the pan and zoom window moves the view.
+    st.with_active(|t| t.zoom = crate::state::Zoom::Fixed(1.5));
+    st.go_to_page(1);
+    pause(700).await;
+    let scroll_top = || async {
+        document::eval("const c = document.getElementById('canvas'); return c ? c.scrollTop : 0;")
+            .await
+            .ok()
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0)
+    };
+    let top0 = scroll_top().await;
+    crate::commands::dispatch(st, "view.layout.autoScroll");
+    pause(1000).await;
+    let top1 = scroll_top().await;
+    crate::commands::dispatch(st, "view.layout.autoScroll");
+    pause(300).await;
+    record(
+        "automatic scrolling moves the pages and stops",
+        top1 > top0 + 5.0 && !crate::commands::interface::auto_scroll_on(),
+        format!("{top0:.0} -> {top1:.0}"),
+    );
+    st.set_option("view.panzoom", true);
+    pause(900).await;
+    let before = scroll_top().await;
+    let _ = document::eval("const p = document.querySelector('.panzoom-page'); if (p) { const r = p.getBoundingClientRect(); p.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: r.left + r.width / 2, clientY: r.top + r.height * 0.9 })); p.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: r.left + r.width / 2, clientY: r.top + r.height * 0.9 })); }").await;
+    pause(600).await;
+    let after = scroll_top().await;
+    record(
+        "pan and zoom window moves the view",
+        (after - before).abs() > 20.0,
+        format!("{before:.0} -> {after:.0}"),
+    );
+    let _ = capture_window(&dir.join("interaction-panzoom.png"));
+    st.set_option("view.panzoom", false);
+    st.with_active(|t| t.zoom = crate::state::Zoom::FitWidth);
+
+    // 23. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..30 {
         crate::commands::dispatch(st, "undo");
@@ -1192,7 +1229,24 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
     st.ui_mut().theme = Theme::Light;
     st.ui_mut().ribbon = false;
     total += check(st, &dir, "960x620-classic", log).await;
+    // Every toolbar of the classic interface, then the touch interface.
+    let all: Vec<String> = crate::ui::toolbars::TOOLBARS
+        .iter()
+        .map(|(id, _)| id.to_string())
+        .collect();
+    crate::ui::toolbars::set_visible_toolbars(st, &all);
+    total += check(st, &dir, "960x620-classic-all-toolbars", log).await;
+    st.ui_mut().values.remove("toolbars");
     st.ui_mut().ribbon = true;
+    st.set_value("ui.touch", "1");
+    total += check(st, &dir, "960x620-touch", log).await;
+    st.set_value("ui.touch", "");
+    // Horizontal scrolling with the pan and zoom window.
+    st.set_option("view.layout.ribbon", true);
+    st.set_option("view.panzoom", true);
+    total += check(st, &dir, "960x620-horizontal-panzoom", log).await;
+    st.set_option("view.layout.ribbon", false);
+    st.set_option("view.panzoom", false);
     // Window resize back and forth must keep the layout consistent.
     for (w, h) in [(1500.0, 950.0), (1000.0, 700.0), (1366.0, 768.0)] {
         set_size(w, h);

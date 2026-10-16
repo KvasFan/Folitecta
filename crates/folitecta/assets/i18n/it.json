@@ -2549,5 +2549,12 @@
   "dialog.bookmark.target": "Destinazione",
   "dialog.bookmark.web": "Indirizzo web",
   "dialog.bookmark.view_keep": "Mantieni la vista attuale",
-  "dialog.bookmark.view_top": "Inizio della pagina"
+  "dialog.bookmark.view_top": "Inizio della pagina",
+  "toast.auto_scroll": "Scorrimento automatico: Su e Giù cambiano la velocità, Esc lo ferma",
+  "toast.classic_interface": "Le barre degli strumenti sono mostrate nell'interfaccia classica",
+  "toast.launch_unsaved": "L'applicazione apre l'ultima versione salvata",
+  "toast.save_first": "Salva prima il documento",
+  "menu.show": "Mostra i menu",
+  "dialog.toolbars.classic_only": "Le barre degli strumenti compaiono nell'interfaccia classica (senza barra multifunzione).",
+  "dialog.toolbars.switch": "Usa l'interfaccia classica"
 }

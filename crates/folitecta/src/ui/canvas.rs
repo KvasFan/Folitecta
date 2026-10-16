@@ -39,6 +39,98 @@ pub fn CanvasArea() -> Element {
             if info_bar { DocInfoBar {} }
             Canvas {}
             Loupe {}
+            if option_on(st, "view.panzoom") { PanZoomWindow {} }
+        }
+    }
+}
+
+/// Visible part of the current page as fractions of its size: x0, y0, x1, y1.
+const VIEWPORT_JS: &str = "const c = document.getElementById('canvas'); const el = document.getElementById('pg-PAGE'); if (!c || !el) return null; const r = el.getBoundingClientRect(), v = c.getBoundingClientRect(); const f = (a, b) => Math.min(1, Math.max(0, a / b)); return [f(v.left - r.left, r.width), f(v.top - r.top, r.height), f(v.right - r.left, r.width), f(v.bottom - r.top, r.height)];";
+
+/// Overview of the current page with the visible area; click or drag to move it.
+#[component]
+fn PanZoomWindow() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let mut view: Signal<Option<[f64; 4]>> = use_signal(|| None);
+    let mut dragging = use_signal(|| false);
+    let Some((tab, page, rev, size)) =
+        st.read_active(|t| (t.id, t.page, t.view_rev(), t.page_sizes.get(t.page).copied()))
+    else {
+        return rsx! {};
+    };
+    // Follow scrolling and zooming.
+    use_future(move || async move {
+        loop {
+            let p = st.current_page();
+            let js = VIEWPORT_JS.replace("PAGE", &p.to_string());
+            if let Ok(v) = document::eval(&js).await {
+                let arr: Option<[f64; 4]> = v.as_array().and_then(|a| {
+                    let n: Vec<f64> = a.iter().filter_map(|x| x.as_f64()).collect();
+                    (n.len() == 4).then(|| [n[0], n[1], n[2], n[3]])
+                });
+                if *view.peek() != arr {
+                    view.set(arr);
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        }
+    });
+    let (w, h) = size.map(|s| (s.width, s.height)).unwrap_or((595.0, 842.0));
+    let box_w = 180.0f32;
+    let box_h = (box_w * h / w).min(240.0);
+    let box_w = box_h * w / h;
+    let scale = ((box_w / w) * 2.0 * 1000.0).round().clamp(50.0, 2000.0) as u32;
+    let rect = view().map(|r| {
+        format!(
+            "left:{}px;top:{}px;width:{}px;height:{}px",
+            r[0] * box_w as f64,
+            r[1] * box_h as f64,
+            ((r[2] - r[0]) * box_w as f64).max(4.0),
+            ((r[3] - r[1]) * box_h as f64).max(4.0)
+        )
+    });
+    let move_to = move |fx: f64, fy: f64| {
+        let page = st.current_page();
+        let js = format!(
+            "const c = document.getElementById('canvas'); const el = document.getElementById('pg-{page}'); if (c && el) {{ const r = el.getBoundingClientRect(), v = c.getBoundingClientRect(); c.scrollLeft += (r.left + {fx} * r.width) - (v.left + c.clientWidth / 2); c.scrollTop += (r.top + {fy} * r.height) - (v.top + c.clientHeight / 2); }}"
+        );
+        spawn(async move {
+            let _ = document::eval(&js).await;
+        });
+    };
+    let zoom_pct = (current_zoom(st) * 100.0).round();
+    rsx! {
+        div { class: "panzoom", onmousedown: move |e| e.stop_propagation(), onclick: move |e| e.stop_propagation(),
+            div { class: "panzoom-head",
+                span { class: "ellipsis", "{t(lang, \"cmd.view.panzoom\")}" }
+                button { class: "ibtn", title: "{t(lang, \"dialog.close\")}", onclick: move |_| st.set_option("view.panzoom", false), "×" }
+            }
+            div { class: "panzoom-page", style: "width:{box_w}px;height:{box_h}px",
+                onmousedown: move |e| {
+                    dragging.set(true);
+                    let p = e.element_coordinates();
+                    move_to(p.x / box_w as f64, p.y / box_h as f64);
+                },
+                onmousemove: move |e| {
+                    if dragging() {
+                        let p = e.element_coordinates();
+                        move_to(p.x / box_w as f64, p.y / box_h as f64);
+                    }
+                },
+                onmouseup: move |_| dragging.set(false),
+                onmouseleave: move |_| dragging.set(false),
+                img { src: "/page/{tab}/{page}/{rev}/{scale}.png", alt: "", draggable: "false", width: "{box_w}", height: "{box_h}" }
+                if let Some(style) = rect {
+                    div { class: "panzoom-view", style: "{style}" }
+                }
+            }
+            div { class: "panzoom-foot",
+                button { class: "ibtn", title: "{t(lang, \"cmd.zoomOut\")}", onclick: move |_| commands::dispatch(st, "zoomOut"), Icon { name: "zoom-out" } }
+                span { class: "muted", "{zoom_pct}%" }
+                button { class: "ibtn", title: "{t(lang, \"cmd.zoomIn\")}", onclick: move |_| commands::dispatch(st, "zoomIn"), Icon { name: "zoom-in" } }
+                button { class: "ibtn", title: "{t(lang, \"cmd.zoom.level.fitPage\")}", onclick: move |_| commands::dispatch(st, "zoom.level.fitPage"), Icon { name: "fit" } }
+            }
         }
     }
 }
@@ -69,20 +161,55 @@ fn DocInfoBar() -> Element {
     }
 }
 
+/// Tab text: long names are shortened in the middle when `mid` is set (the
+/// end is shortened by the style sheet otherwise).
+fn tab_label(name: &str, mid: bool) -> String {
+    let chars: Vec<char> = name.chars().collect();
+    if !mid || chars.len() <= 28 {
+        return name.to_string();
+    }
+    let head: String = chars[..13].iter().collect();
+    let tail: String = chars[chars.len() - 13..].iter().collect();
+    format!("{head}…{tail}")
+}
+
 #[component]
 fn DocTabs() -> Element {
     let st = use_context::<AppState>();
     let active = st.active_index().unwrap_or(0);
-    let tabs: Vec<(u64, String, bool)> = st
+    let (mode, mid) = {
+        let ui = st.ui.read();
+        (
+            ui.value("tabs.title").unwrap_or("auto").to_string(),
+            ui.value("tabs.ellipsis") == Some("mid"),
+        )
+    };
+    let tabs: Vec<(u64, String, String, bool)> = st
         .docs
         .read()
         .iter()
-        .map(|t| (t.id, t.title(), t.doc.is_dirty()))
+        .map(|t| {
+            let file = t.title();
+            let doc_title = t.doc.title();
+            let shown = match mode.as_str() {
+                "filename" => file.clone(),
+                "title" if !doc_title.is_empty() => doc_title.clone(),
+                "title" => file.clone(),
+                _ if !doc_title.is_empty() && t.doc.path().is_none() => doc_title.clone(),
+                _ => file.clone(),
+            };
+            let tip = if doc_title.is_empty() || doc_title == file {
+                file.clone()
+            } else {
+                format!("{doc_title}\n{file}")
+            };
+            (t.id, tab_label(&shown, mid), tip, t.doc.is_dirty())
+        })
         .collect();
     rsx! {
         div { class: "doc-tabs",
-            for (i, (id, title, dirty)) in tabs.into_iter().enumerate() {
-                button { class: if i == active { "doc-tab active" } else { "doc-tab" }, key: "{id}", title: "{title}",
+            for (i, (id, title, tip, dirty)) in tabs.into_iter().enumerate() {
+                button { class: if i == active { "doc-tab active" } else { "doc-tab" }, key: "{id}", title: "{tip}",
                     onclick: move |_| { st.set_active(i); files::set_window_title(st); },
                     span { class: "name", "{title}" }
                     if dirty { span { class: "dirty", "•" } }
@@ -182,6 +309,7 @@ fn Canvas() -> Element {
     let r2l = option_on(st, "view.layout.r2l");
     let cover = option_on(st, "view.layout.showCover");
     let rulers = option_on(st, "view.showRulers");
+    let horizontal = option_on(st, "view.layout.ribbon") && layout != Layout::Single;
     let mut rows: Vec<Vec<usize>> = match layout {
         Layout::Single => vec![vec![page.min(count.saturating_sub(1))]],
         Layout::Continuous => (0..count).map(|p| vec![p]).collect(),
@@ -203,6 +331,10 @@ fn Canvas() -> Element {
             rows
         }
     };
+    if horizontal {
+        // Horizontal scrolling: every page side by side in one row.
+        rows = vec![rows.into_iter().flatten().collect()];
+    }
     if r2l {
         rows.iter_mut().for_each(|r| r.reverse());
     }
@@ -221,6 +353,9 @@ fn Canvas() -> Element {
     }
     if rulers {
         pages_class.push_str(" with-rulers");
+    }
+    if horizontal {
+        pages_class.push_str(" horizontal");
     }
 
     rsx! {
@@ -256,7 +391,11 @@ fn Canvas() -> Element {
                 scroll_pending.set(true);
                 spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_millis(90)).await;
-                    let js = "const c=document.getElementById('canvas'); if(!c) return -1; const r=c.getBoundingClientRect(); let best=-1,bd=1e9; c.querySelectorAll('.page').forEach(el=>{const d=Math.abs(el.getBoundingClientRect().top-r.top-24); if(d<bd){bd=d;best=parseInt(el.dataset.page);}}); return best;";
+                    let js = if horizontal {
+                        "const c=document.getElementById('canvas'); if(!c) return -1; const r=c.getBoundingClientRect(); let best=-1,bd=1e9; c.querySelectorAll('.page').forEach(el=>{const d=Math.abs(el.getBoundingClientRect().left-r.left-24); if(d<bd){bd=d;best=parseInt(el.dataset.page);}}); return best;"
+                    } else {
+                        "const c=document.getElementById('canvas'); if(!c) return -1; const r=c.getBoundingClientRect(); let best=-1,bd=1e9; c.querySelectorAll('.page').forEach(el=>{const d=Math.abs(el.getBoundingClientRect().top-r.top-24); if(d<bd){bd=d;best=parseInt(el.dataset.page);}}); return best;"
+                    };
                     if let Ok(v) = document::eval(js).await {
                         if let Some(i) = v.as_i64().filter(|i| *i >= 0) {
                             let i = i as usize;
@@ -592,6 +731,7 @@ fn PageView(
     let dark = option_on(st, "view.darkPageMode");
     let contrast = option_on(st, "view.overrideDocumentColors");
     let track_pointer = option_on(st, "view.showPageMeasureInfo");
+    let show_size = option_on(st, "view.showPageSizePopup");
 
     struct View {
         size: PageSize,
@@ -721,6 +861,13 @@ fn PageView(
         return rsx! {};
     };
     let size = view.size;
+    let size_text = format!(
+        "{:.0} × {:.0} mm ({:.2} × {:.2} in)",
+        size.width * 25.4 / 72.0,
+        size.height * 25.4 / 72.0,
+        size.width / 72.0,
+        size.height / 72.0
+    );
     let (inner_w, inner_h) = (size.width * zoom, size.height * zoom);
     let (outer_w, outer_h) = if view_rotation % 180 != 0 {
         (inner_h, inner_w)
@@ -1348,6 +1495,9 @@ fn PageView(
                 }
             }
             div { class: "page-label", "{page_label}" }
+            if show_size {
+                div { class: "page-size", "{size_text}" }
+            }
         }
     }
 }

@@ -250,6 +250,80 @@ pub fn Dialogs() -> Element {
         Dialog::BookmarkOptions => rsx! { BookmarkOptionsDialog {} },
         Dialog::BookmarkImportExport => rsx! { BookmarkImportExportDialog {} },
         Dialog::BookmarkProps(path) => rsx! { BookmarkPropsDialog { path } },
+        Dialog::Toolbars => rsx! { ToolbarsDialog {} },
+        Dialog::ZoomLevel => rsx! { ZoomLevelDialog {} },
+    }
+}
+
+#[component]
+fn ToolbarsDialog() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let reg = registry();
+    let visible = crate::ui::toolbars::visible_toolbars(st);
+    let menu_on = crate::ui::toolbars::menubar_visible(st);
+    let ribbon = st.ui.read().ribbon;
+    rsx! {
+        Frame { title: t(lang, "cmd.view.toolbars"),
+            if ribbon {
+                div { class: "hint", "{t(lang, \"dialog.toolbars.classic_only\")}" }
+            }
+            div { class: "check-list",
+                label { class: "check",
+                    input { r#type: "checkbox", checked: menu_on, onchange: move |_| crate::commands::dispatch(st, "view.toolbar.menu") }
+                    span { "{reg.get(\"view.toolbar.menu\").map(|c| cmd_label(lang, c)).unwrap_or_default()}" }
+                }
+                for (id, cmds) in crate::ui::toolbars::TOOLBARS.iter().copied() {
+                    {
+                        let on = visible.iter().any(|v| v == id);
+                        let cmd_id = format!("view.toolbar.{id}");
+                        let label = reg.get(&cmd_id).map(|c| cmd_label(lang, c)).unwrap_or_else(|| id.to_string());
+                        let n = cmds.len();
+                        rsx! {
+                            label { class: "check", key: "{id}",
+                                input { r#type: "checkbox", checked: on, onchange: move |_| crate::commands::dispatch(st, &cmd_id) }
+                                span { "{label}" }
+                                span { class: "muted small", "{n}" }
+                            }
+                        }
+                    }
+                }
+            }
+            div { class: "row",
+                button { class: "tbtn", onclick: move |_| crate::commands::dispatch(st, "view.restoreCmdBarsVisibility"), "{t(lang, \"cmd.view.restoreCmdBarsVisibility\")}" }
+                if ribbon {
+                    button { class: "tbtn primary", onclick: move |_| { st.ui_mut().ribbon = false; st.save_prefs(); }, "{t(lang, \"dialog.toolbars.switch\")}" }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn ZoomLevelDialog() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let current = (crate::commands::current_zoom(st) * 100.0).round();
+    let value = use_signal(|| current.to_string());
+    let set = move |z: Zoom| {
+        st.with_active(|t| t.zoom = z);
+        st.set_dialog(Dialog::None);
+    };
+    rsx! {
+        Frame { title: t(lang, "cmd.zoom.combo"),
+            on_ok: move |_| {
+                let v: f32 = value().replace(',', ".").trim_end_matches('%').trim().parse().unwrap_or(current);
+                set(Zoom::Fixed((v / 100.0).clamp(0.1, 8.0)));
+            },
+            Num { label: "%".to_string(), value, min: "10", max: "800", step: "10" }
+            div { class: "zoom-presets",
+                button { class: "tbtn", onclick: move |_| set(Zoom::FitWidth), "{t(lang, \"cmd.zoom.level.fitWidth\")}" }
+                button { class: "tbtn", onclick: move |_| set(Zoom::FitPage), "{t(lang, \"cmd.zoom.level.fitPage\")}" }
+                for z in [50u32, 75, 100, 125, 150, 200, 300, 400] {
+                    button { class: "tbtn", key: "{z}", onclick: move |_| set(Zoom::Fixed(z as f32 / 100.0)), "{z}%" }
+                }
+            }
+        }
     }
 }
 

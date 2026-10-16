@@ -19,11 +19,19 @@ pub fn Menubar() -> Element {
     let icon = icon_data_url();
     let theme_dark = st.ui.read().theme == Theme::Dark;
     let theme_icon: &'static str = if theme_dark { "sun" } else { "moon" };
+    // A hidden menu bar shows its menus only while one of them is open.
+    let show_menus = crate::ui::toolbars::menubar_visible(st) || open.is_some();
 
     rsx! {
         div { class: "menubar", onclick: move |e| e.stop_propagation(),
             div { class: "brand", img { src: "{icon}", alt: "" } "Folitecta" }
-            for (id, label) in MENUS.iter() {
+            if !show_menus {
+                button { class: "ibtn", title: "{t(lang, \"menu.show\")}",
+                    onclick: move |_| { st.set_open_menu(Some("file".into())); st.set_open_dropdown(None); },
+                    Icon { name: "list" }
+                }
+            }
+            for (id, label) in MENUS.iter().filter(|_| show_menus) {
                 {
                     let id_s = id.to_string();
                     let id_toggle = id_s.clone();

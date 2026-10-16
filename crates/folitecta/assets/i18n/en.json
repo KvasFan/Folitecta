@@ -594,5 +594,12 @@
   "dialog.bookmark.target": "Goes to",
   "dialog.bookmark.web": "Web address",
   "dialog.bookmark.view_keep": "Keep the current view",
-  "dialog.bookmark.view_top": "Top of the page"
+  "dialog.bookmark.view_top": "Top of the page",
+  "toast.auto_scroll": "Automatic scrolling: Up and Down change the speed, Esc stops",
+  "toast.classic_interface": "Toolbars are shown in the classic interface",
+  "toast.launch_unsaved": "The application opens the last saved version",
+  "toast.save_first": "Save the document first",
+  "menu.show": "Show the menus",
+  "dialog.toolbars.classic_only": "Toolbars appear in the classic interface (without the ribbon).",
+  "dialog.toolbars.switch": "Use the classic interface"
 }

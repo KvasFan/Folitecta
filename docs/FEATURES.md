@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.3. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 467 |
-| 🟡 partial | 35 |
-| ⬜ planned | 1475 |
+| ✅ available | 542 |
+| 🟡 partial | 36 |
+| ⬜ planned | 1399 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -917,7 +917,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Export to Images… | `document.export.toImages` | ✅ available |
 | Export | `export` | ✅ available |
 | Export All Bookmarks… | `document.exportBookmarks` | ✅ available |
-| Export Selected Bookmarks… | `document.exportSelBookmarks` | ⬜ planned |
+| Export Selected Bookmarks… | `document.exportSelBookmarks` | ✅ available |
 | Export to CSV… | `linksView.exportToCSV` | ✅ available |
 | Export… | `linksView.export` | ⬜ planned |
 | Save Image As… | `saveImage` | ✅ available |
@@ -933,7 +933,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Font | `font` | ⬜ planned |
 | ↳ Repair to Unicode C Map | `font.repairToUnicodeCMap` | ⬜ planned |
 | Highlight from File | `document.highlightFile` | ⬜ planned |
-| Import Bookmarks | `document.importBookmarks` | ⬜ planned |
+| Import Bookmarks | `document.importBookmarks` | ✅ available |
 | New Stamp from Active Document | `document.createStampFromActiveDoc` | ⬜ planned |
 | New Stamp from Selection… | `document.createStampFromSel` | ⬜ planned |
 | Options… | `document.options` | ⬜ planned |
@@ -1335,7 +1335,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Move to New Layer | `moveToNewLayer` | ⬜ planned |
 | Order | `order` | ⬜ planned |
 | Paste Annotations | `pasteAnnots` | ✅ available |
-| Paste Bookmarks | `pasteBookmarks` | ⬜ planned |
+| Paste Bookmarks | `pasteBookmarks` | ✅ available |
 | Paste Contents | `pasteContents` | ⬜ planned |
 | Paste Fields | `pasteFields` | ⬜ planned |
 | Paste Files | `pasteFiles` | ⬜ planned |
@@ -1371,7 +1371,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Selection | `selectionGroup` | ⬜ planned |
 | Show Quick Access Toolbar Above Ribbon | `QABarAbove` | ⬜ planned |
 | Show Quick Access Toolbar Below Ribbon | `QABarBelow` | ⬜ planned |
-| Snapshot | `snapshot` | ⬜ planned |
+| Snapshot | `snapshot` | 🟡 partial |
 | Split Pages | `splitPages` | ⬜ planned |
 | Substitute Fonts | `saf` | ⬜ planned |
 | Text | `text` | ⬜ planned |
@@ -1444,7 +1444,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Expand All | `expandAll` | ⬜ planned |
 | Expand All Descendants | `expandAllDescendants` | ⬜ planned |
 | Fields Pane | `fieldsView` | 🟡 partial |
-| Highlight | `highlight` | ⬜ planned |
+| Highlight | `highlight` | ✅ available |
 | Highlight Links | `view.highlightLinks` | ✅ available |
 | History | `view.history` | ⬜ planned |
 | Inertial Scroll | `inertialScroll` | ⬜ planned |
@@ -1460,7 +1460,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Loupe | `loupeView` | ⬜ planned |
 | Loupe | `view.loupe` | ✅ available |
 | Mouse-Optimized UI | `view.switchToMouseUI` | ⬜ planned |
-| Named Destinations Pane | `pdfNamedDestsView` | ⬜ planned |
+| Named Destinations Pane | `pdfNamedDestsView` | ✅ available |
 | Order | `view.order` | ⬜ planned |
 | Order Pane | `orderView` | ⬜ planned |
 | Order Pane | `orderview` | ⬜ planned |
@@ -1554,7 +1554,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Annotations | `annots` | ✅ available |
 | Apply All Redactions | `document.applyRedactions` | ✅ available |
 | Audit Space Usage | `document.audit` | ⬜ planned |
-| Bookmarks | `bookmarks` | ⬜ planned |
+| Bookmarks | `bookmarks` | ✅ available |
 | Create Web Links from Barcodes | `createWebLinksFromBarcodes` | ⬜ planned |
 | Create Web Links from URLs | `createWebLinksFromText` | ✅ available |
 | Crop to White Margins | `document.cropToWhiteMargins` | ✅ available |
@@ -1567,11 +1567,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Document Actions | `docActions` | ⬜ planned |
 | Enable Editing (Discard PDF/A) | `document.discardPDFA` | ⬜ planned |
 | Export All Bookmarks… | `document.exportBookmarks` | ✅ available |
-| Export Selected Bookmarks… | `document.exportSelBookmarks` | ⬜ planned |
+| Export Selected Bookmarks… | `document.exportSelBookmarks` | ✅ available |
 | Find | `document.find` | 🟡 partial |
 | Find Duplicate Pages | `document.findDuplicates` | ✅ available |
 | Highlight from File | `document.highlightFile` | ⬜ planned |
-| Import Bookmarks | `document.importBookmarks` | ⬜ planned |
+| Import Bookmarks | `document.importBookmarks` | ✅ available |
 | Insert Pages from Clipboard… | `document.insertPagesFromClipboard` | ✅ available |
 | Insert Rich Text… | `document.insertRTF` | ⬜ planned |
 | Insert Scanned Pages… | `document.insertScannedPages` | ⬜ planned |
@@ -1847,59 +1847,59 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `batesNumberingFiles.hdr.size` | File › Bates Numbering Files › Columns › Size | ⬜ planned |
 | `batesNumberingFiles.hdr.title` | File › Bates Numbering Files › Columns › Title | ⬜ planned |
 | `batesNumberingFiles.hdr.type` | File › Bates Numbering Files › Columns › Type | ⬜ planned |
-| `bookmarks.bold` | Document › Bookmarks › Bold | ⬜ planned |
-| `bookmarks.italic` | Document › Bookmarks › Italic | ⬜ planned |
-| `bookmarksView.addDest` | View › Bookmarks Pane › Add Destination | ⬜ planned |
-| `bookmarksView.allInvalid` | View › Bookmarks Pane › All Invalid | ⬜ planned |
-| `bookmarksView.autoExpandBookmarks` | View › Bookmarks Pane › Auto Expand Bookmarks | ⬜ planned |
+| `bookmarks.bold` | Document › Bookmarks › Bold | ✅ available |
+| `bookmarks.italic` | Document › Bookmarks › Italic | ✅ available |
+| `bookmarksView.addDest` | View › Bookmarks Pane › Add Destination | ✅ available |
+| `bookmarksView.allInvalid` | View › Bookmarks Pane › All Invalid | ✅ available |
+| `bookmarksView.autoExpandBookmarks` | View › Bookmarks Pane › Auto Expand Bookmarks | ✅ available |
 | `bookmarksView.collapseAll` | View › Bookmarks Pane › Collapse All | ✅ available |
-| `bookmarksView.createOptions` | View › Bookmarks Pane › Create Options | ⬜ planned |
-| `bookmarksView.deleteOnlyChildren` | View › Bookmarks Pane › Delete Only Children | ⬜ planned |
-| `bookmarksView.deleteWithoutChildren` | View › Bookmarks Pane › Delete Without Children | ⬜ planned |
-| `bookmarksView.demote` | View › Bookmarks Pane › Demote | ⬜ planned |
-| `bookmarksView.ensureVisibility` | View › Bookmarks Pane › Ensure Visibility | ⬜ planned |
+| `bookmarksView.createOptions` | View › Bookmarks Pane › Create Options | ✅ available |
+| `bookmarksView.deleteOnlyChildren` | View › Bookmarks Pane › Delete Only Children | ✅ available |
+| `bookmarksView.deleteWithoutChildren` | View › Bookmarks Pane › Delete Without Children | ✅ available |
+| `bookmarksView.demote` | View › Bookmarks Pane › Demote | ✅ available |
+| `bookmarksView.ensureVisibility` | View › Bookmarks Pane › Ensure Visibility | ✅ available |
 | `bookmarksView.expandAll` | View › Bookmarks Pane › Expand All | ✅ available |
-| `bookmarksView.goto` | View › Bookmarks Pane › Go to | ⬜ planned |
-| `bookmarksView.importExport` | View › Bookmarks Pane › Import Export | ⬜ planned |
-| `bookmarksView.markInvalid` | View › Bookmarks Pane › Mark Invalid | ⬜ planned |
-| `bookmarksView.moveDown` | View › Bookmarks Pane › Move Down | ⬜ planned |
-| `bookmarksView.moveUp` | View › Bookmarks Pane › Move Up | ⬜ planned |
+| `bookmarksView.goto` | View › Bookmarks Pane › Go to | ✅ available |
+| `bookmarksView.importExport` | View › Bookmarks Pane › Import Export | ✅ available |
+| `bookmarksView.markInvalid` | View › Bookmarks Pane › Mark Invalid | ✅ available |
+| `bookmarksView.moveDown` | View › Bookmarks Pane › Move Down | ✅ available |
+| `bookmarksView.moveUp` | View › Bookmarks Pane › Move Up | ✅ available |
 | `bookmarksView.new` | View › Bookmarks Pane › New Bookmark | ✅ available |
-| `bookmarksView.new.before` | View › Bookmarks Pane › New Bookmark › Before Current | ⬜ planned |
-| `bookmarksView.new.firstChild` | View › Bookmarks Pane › New Bookmark › As First Child | ⬜ planned |
-| `bookmarksView.new.lastChild` | View › Bookmarks Pane › New Bookmark › As Last Child | ⬜ planned |
-| `bookmarksView.nextInvalid` | View › Bookmarks Pane › Next Invalid | ⬜ planned |
-| `bookmarksView.options` | View › Bookmarks Pane › Options | ⬜ planned |
-| `bookmarksView.pages` | View › Bookmarks Pane › Pages | ⬜ planned |
-| `bookmarksView.pages.extract` | View › Bookmarks Pane › Pages › Extract | ⬜ planned |
-| `bookmarksView.pages.print` | View › Bookmarks Pane › Pages › Print | ⬜ planned |
-| `bookmarksView.pages.remove` | View › Bookmarks Pane › Pages › Remove | ⬜ planned |
-| `bookmarksView.pages.select` | View › Bookmarks Pane › Pages › Select | ⬜ planned |
-| `bookmarksView.prefs` | View › Bookmarks Pane › Preferences | ⬜ planned |
-| `bookmarksView.promote` | View › Bookmarks Pane › Promote | ⬜ planned |
+| `bookmarksView.new.before` | View › Bookmarks Pane › New Bookmark › Before Current | ✅ available |
+| `bookmarksView.new.firstChild` | View › Bookmarks Pane › New Bookmark › As First Child | ✅ available |
+| `bookmarksView.new.lastChild` | View › Bookmarks Pane › New Bookmark › As Last Child | ✅ available |
+| `bookmarksView.nextInvalid` | View › Bookmarks Pane › Next Invalid | ✅ available |
+| `bookmarksView.options` | View › Bookmarks Pane › Options | ✅ available |
+| `bookmarksView.pages` | View › Bookmarks Pane › Pages | ✅ available |
+| `bookmarksView.pages.extract` | View › Bookmarks Pane › Pages › Extract | ✅ available |
+| `bookmarksView.pages.print` | View › Bookmarks Pane › Pages › Print | ✅ available |
+| `bookmarksView.pages.remove` | View › Bookmarks Pane › Pages › Remove | ✅ available |
+| `bookmarksView.pages.select` | View › Bookmarks Pane › Pages › Select | ✅ available |
+| `bookmarksView.prefs` | View › Bookmarks Pane › Preferences | ✅ available |
+| `bookmarksView.promote` | View › Bookmarks Pane › Promote | ✅ available |
 | `bookmarksView.resolveInvNDestsOnImport` | View › Bookmarks Pane › Resolve Inv N Destinations on Import | ⬜ planned |
-| `bookmarksView.sections` | View › Bookmarks Pane › Sections | ⬜ planned |
-| `bookmarksView.sections.extract` | View › Bookmarks Pane › Sections › Extract | ⬜ planned |
-| `bookmarksView.sections.print` | View › Bookmarks Pane › Sections › Print | ⬜ planned |
-| `bookmarksView.sections.remove` | View › Bookmarks Pane › Sections › Remove | ⬜ planned |
-| `bookmarksView.sections.select` | View › Bookmarks Pane › Sections › Select | ⬜ planned |
-| `bookmarksView.select` | View › Bookmarks Pane › Select | ⬜ planned |
-| `bookmarksView.select.entireSection` | View › Bookmarks Pane › Select › Entire Section | ⬜ planned |
-| `bookmarksView.select.targetPages` | View › Bookmarks Pane › Select › Target Pages | ⬜ planned |
-| `bookmarksView.select.targetPagesE` | View › Bookmarks Pane › Select › Target Pages E | ⬜ planned |
-| `bookmarksView.setDest` | View › Bookmarks Pane › Set Destination | ⬜ planned |
-| `bookmarksView.setDestFromSel` | View › Bookmarks Pane › Set Destination from Selection | ⬜ planned |
-| `bookmarksView.showContrastText` | View › Bookmarks Pane › Show Contrast Text | ⬜ planned |
+| `bookmarksView.sections` | View › Bookmarks Pane › Sections | ✅ available |
+| `bookmarksView.sections.extract` | View › Bookmarks Pane › Sections › Extract | ✅ available |
+| `bookmarksView.sections.print` | View › Bookmarks Pane › Sections › Print | ✅ available |
+| `bookmarksView.sections.remove` | View › Bookmarks Pane › Sections › Remove | ✅ available |
+| `bookmarksView.sections.select` | View › Bookmarks Pane › Sections › Select | ✅ available |
+| `bookmarksView.select` | View › Bookmarks Pane › Select | ✅ available |
+| `bookmarksView.select.entireSection` | View › Bookmarks Pane › Select › Entire Section | ✅ available |
+| `bookmarksView.select.targetPages` | View › Bookmarks Pane › Select › Target Pages | ✅ available |
+| `bookmarksView.select.targetPagesE` | View › Bookmarks Pane › Select › Target Pages E | ✅ available |
+| `bookmarksView.setDest` | View › Bookmarks Pane › Set Destination | ✅ available |
+| `bookmarksView.setDestFromSel` | View › Bookmarks Pane › Set Destination from Selection | ✅ available |
+| `bookmarksView.showContrastText` | View › Bookmarks Pane › Show Contrast Text | ✅ available |
 | `bookmarksView.showIcons` | View › Bookmarks Pane › Show Icons | ✅ available |
-| `bookmarksView.textSize` | View › Bookmarks Pane › Text Size | ⬜ planned |
-| `bookmarksView.textSize.large` | View › Bookmarks Pane › Text Size › Large | ⬜ planned |
-| `bookmarksView.textSize.medium` | View › Bookmarks Pane › Text Size › Medium | ⬜ planned |
-| `bookmarksView.textSize.small` | View › Bookmarks Pane › Text Size › Small | ⬜ planned |
-| `bookmarksView.useCurrentPage` | View › Bookmarks Pane › Use Current Page | ⬜ planned |
-| `bookmarksView.useInheritedZoom` | View › Bookmarks Pane › Use Inherited Zoom | ⬜ planned |
-| `bookmarksView.useRegionForDest` | View › Bookmarks Pane › Use Region for Destination | ⬜ planned |
-| `bookmarksView.useTextForTitle` | View › Bookmarks Pane › Use Text for Title | ⬜ planned |
-| `bookmarksView.viewOptions` | View › Bookmarks Pane › View Options | ⬜ planned |
+| `bookmarksView.textSize` | View › Bookmarks Pane › Text Size | ✅ available |
+| `bookmarksView.textSize.large` | View › Bookmarks Pane › Text Size › Large | ✅ available |
+| `bookmarksView.textSize.medium` | View › Bookmarks Pane › Text Size › Medium | ✅ available |
+| `bookmarksView.textSize.small` | View › Bookmarks Pane › Text Size › Small | ✅ available |
+| `bookmarksView.useCurrentPage` | View › Bookmarks Pane › Use Current Page | ✅ available |
+| `bookmarksView.useInheritedZoom` | View › Bookmarks Pane › Use Inherited Zoom | ✅ available |
+| `bookmarksView.useRegionForDest` | View › Bookmarks Pane › Use Region for Destination | ✅ available |
+| `bookmarksView.useTextForTitle` | View › Bookmarks Pane › Use Text for Title | ✅ available |
+| `bookmarksView.viewOptions` | View › Bookmarks Pane › View Options | ✅ available |
 | `bookmarksView.wrapTitles` | View › Bookmarks Pane › Wrap Titles | ✅ available |
 | `bwList.addFile` | Tools › Allow/Block List › Add File | ⬜ planned |
 | `bwList.addFolder` | Tools › Allow/Block List › Add Folder | ⬜ planned |
@@ -2036,7 +2036,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `forms.highlight.signature` | Form › Forms › Highlight Form Fields › Signature | ⬜ planned |
 | `forms.highlight.textBox` | Form › Forms › Highlight Form Fields › Text Box | ⬜ planned |
 | `forms.reset.selected` | Form › Forms › Reset Form › Reset Selected Fields | ✅ available |
-| `highlight.destination` | View › Highlight › Destination | ⬜ planned |
+| `highlight.destination` | View › Highlight › Destination | ✅ available |
 | `historyList.clear` | File › History › Clear | ✅ available |
 | `historyList.collapseAll` | File › History › Collapse All | ⬜ planned |
 | `historyList.copyPath` | File › History › Copy Path | ⬜ planned |
@@ -2185,25 +2185,25 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `pathedit.convert.corner` | Edit › Path Editing › Convert › Corner | ⬜ planned |
 | `pathedit.convert.smooth` | Edit › Path Editing › Convert › Smooth | ⬜ planned |
 | `pathedit.convert.straight` | Edit › Path Editing › Convert › Straight | ⬜ planned |
-| `pdfNamedDestsView.createOptions` | View › Named Destinations Pane › Create Options | ⬜ planned |
-| `pdfNamedDestsView.edit` | View › Named Destinations Pane › Edit | ⬜ planned |
-| `pdfNamedDestsView.ensureVisibility` | View › Named Destinations Pane › Ensure Visibility | ⬜ planned |
-| `pdfNamedDestsView.goto` | View › Named Destinations Pane › Go to | ⬜ planned |
-| `pdfNamedDestsView.hdr` | View › Named Destinations Pane › Columns | ⬜ planned |
-| `pdfNamedDestsView.hdr.details` | View › Named Destinations Pane › Columns › Details | ⬜ planned |
-| `pdfNamedDestsView.hdr.name` | View › Named Destinations Pane › Columns › Name | ⬜ planned |
-| `pdfNamedDestsView.hdr.page` | View › Named Destinations Pane › Columns › Page | ⬜ planned |
-| `pdfNamedDestsView.hdr.type` | View › Named Destinations Pane › Columns › Type | ⬜ planned |
-| `pdfNamedDestsView.new` | View › Named Destinations Pane › New | ⬜ planned |
-| `pdfNamedDestsView.options` | View › Named Destinations Pane › Options | ⬜ planned |
-| `pdfNamedDestsView.removeInvalid` | View › Named Destinations Pane › Remove Invalid | ⬜ planned |
-| `pdfNamedDestsView.set` | View › Named Destinations Pane › Set | ⬜ planned |
-| `pdfNamedDestsView.setFromSel` | View › Named Destinations Pane › Set from Selection | ⬜ planned |
-| `pdfNamedDestsView.useCurrentPage` | View › Named Destinations Pane › Use Current Page | ⬜ planned |
-| `pdfNamedDestsView.useInheritedZoom` | View › Named Destinations Pane › Use Inherited Zoom | ⬜ planned |
-| `pdfNamedDestsView.useRegionForDest` | View › Named Destinations Pane › Use Region for Destination | ⬜ planned |
-| `pdfNamedDestsView.useTextForTitle` | View › Named Destinations Pane › Use Text for Title | ⬜ planned |
-| `pdfNamedDestsView.wrapTitles` | View › Named Destinations Pane › Wrap Titles | ⬜ planned |
+| `pdfNamedDestsView.createOptions` | View › Named Destinations Pane › Create Options | ✅ available |
+| `pdfNamedDestsView.edit` | View › Named Destinations Pane › Edit | ✅ available |
+| `pdfNamedDestsView.ensureVisibility` | View › Named Destinations Pane › Ensure Visibility | ✅ available |
+| `pdfNamedDestsView.goto` | View › Named Destinations Pane › Go to | ✅ available |
+| `pdfNamedDestsView.hdr` | View › Named Destinations Pane › Columns | ✅ available |
+| `pdfNamedDestsView.hdr.details` | View › Named Destinations Pane › Columns › Details | ✅ available |
+| `pdfNamedDestsView.hdr.name` | View › Named Destinations Pane › Columns › Name | ✅ available |
+| `pdfNamedDestsView.hdr.page` | View › Named Destinations Pane › Columns › Page | ✅ available |
+| `pdfNamedDestsView.hdr.type` | View › Named Destinations Pane › Columns › Type | ✅ available |
+| `pdfNamedDestsView.new` | View › Named Destinations Pane › New | ✅ available |
+| `pdfNamedDestsView.options` | View › Named Destinations Pane › Options | ✅ available |
+| `pdfNamedDestsView.removeInvalid` | View › Named Destinations Pane › Remove Invalid | ✅ available |
+| `pdfNamedDestsView.set` | View › Named Destinations Pane › Set | ✅ available |
+| `pdfNamedDestsView.setFromSel` | View › Named Destinations Pane › Set from Selection | ✅ available |
+| `pdfNamedDestsView.useCurrentPage` | View › Named Destinations Pane › Use Current Page | ✅ available |
+| `pdfNamedDestsView.useInheritedZoom` | View › Named Destinations Pane › Use Inherited Zoom | ✅ available |
+| `pdfNamedDestsView.useRegionForDest` | View › Named Destinations Pane › Use Region for Destination | ✅ available |
+| `pdfNamedDestsView.useTextForTitle` | View › Named Destinations Pane › Use Text for Title | ✅ available |
+| `pdfNamedDestsView.wrapTitles` | View › Named Destinations Pane › Wrap Titles | ✅ available |
 | `position.Slider` | Edit › Position › Position | ⬜ planned |
 | `presetList.add` | Edit › Presets › Add | ⬜ planned |
 | `presetList.clone` | Edit › Presets › Clone | ⬜ planned |

@@ -19,6 +19,7 @@ lopdf = { version = "0.45", features = ["embed_image"] }
 hayro = "0.8"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 base64 = "0.22"
+quick-xml = "0.41"
 time = { version = "0.3", features = ["formatting", "parsing", "macros"] }
 
 [workspace.lints.clippy]

@@ -104,7 +104,7 @@ fn Loupe() -> Element {
     let Some((page, x, y, cx, cy)) = (st.loupe)() else {
         return rsx! {};
     };
-    let Some((tab, rev)) = st.read_active(|t| (t.id, t.revision)) else {
+    let Some((tab, rev)) = st.read_active(|t| (t.id, t.view_rev())) else {
         return rsx! {};
     };
     let zoom = current_zoom(st);
@@ -168,7 +168,7 @@ fn Canvas() -> Element {
         (
             t.id,
             t.page,
-            t.revision,
+            t.view_rev(),
             t.layout,
             t.doc.page_count(),
             t.view_rotation,
@@ -603,10 +603,18 @@ fn PageView(
         guides: Vec<(bool, f32)>,
         selected: Option<usize>,
         widgets: Vec<(folitecta_core::PageWidget, [f32; 4])>,
+        popups: Vec<PopupView>,
     }
     let Some(view) = st
         .read_active(|t| {
             let size = t.page_sizes.get(page).copied()?;
+            let infos = t.doc.page_comment_infos(page);
+            let filtered: std::collections::HashSet<usize> = infos
+                .iter()
+                .filter(|c| c.reply_to.is_none() && !c.is_state && !t.comment_filter.shows(c))
+                .map(|c| c.index)
+                .collect();
+            let popups = popup_views(&infos, &filtered, &size);
             let annots = if show_hits || edit_fields || t.selected_annot.map(|(p, _)| p) == Some(page) {
                 t.doc
                     .annotations(page)
@@ -616,7 +624,10 @@ fn PageView(
                         if edit_fields {
                             a.subtype == "Widget"
                         } else {
-                            !["Link", "Widget", "Popup"].contains(&a.subtype.as_str()) && !a.hidden
+                            !["Link", "Widget", "Popup"].contains(&a.subtype.as_str())
+                                && !a.hidden
+                                && !a.is_reply
+                                && !filtered.contains(&a.index)
                         }
                     })
                     .map(|a| {
@@ -700,6 +711,7 @@ fn PageView(
                 guides,
                 selected,
                 widgets,
+                popups,
             })
         })
         .flatten()
@@ -1296,6 +1308,9 @@ fn PageView(
                         }
                     }
                 }
+                for pv in view.popups.iter().cloned() {
+                    PopupNote { key: "pn{pv.index}", page, view: pv, zoom: z, size, view_rotation, area_w: inner_w, area_h: inner_h }
+                }
                 if let Some((pts, closed)) = multi_preview.clone() {
                     svg { class: "ink-preview", width: "{inner_w}", height: "{inner_h}",
                         if closed {
@@ -1328,6 +1343,186 @@ fn PageView(
                 }
             }
             div { class: "page-label", "{page_label}" }
+        }
+    }
+}
+
+/// An open pop-up note of a comment, in display points.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PopupView {
+    index: usize,
+    rect: [f32; 4],
+    subtype: String,
+    author: String,
+    date: String,
+    contents: String,
+    color: [f32; 3],
+    locked: bool,
+    replies: Vec<(String, String, String)>,
+}
+
+/// Open pop-up notes of the comments of a page.
+fn popup_views(
+    infos: &[folitecta_core::CommentInfo],
+    filtered: &std::collections::HashSet<usize>,
+    size: &PageSize,
+) -> Vec<PopupView> {
+    infos
+        .iter()
+        .filter(|c| c.reply_to.is_none() && !c.is_state && !c.hidden && !filtered.contains(&c.index))
+        .filter_map(|c| {
+            let (_, open, r) = c.popup?;
+            open.then(|| PopupView {
+                index: c.index,
+                rect: pdf_rect_to_display(size, r),
+                subtype: c.subtype.clone(),
+                author: c.author.clone(),
+                date: c.modified.clone(),
+                contents: c.contents.clone(),
+                color: c.color.unwrap_or([1.0, 0.85, 0.2]),
+                locked: c.locked,
+                replies: infos
+                    .iter()
+                    .filter(|x| x.reply_to == Some(c.id) && !x.is_state)
+                    .map(|x| (x.author.clone(), x.modified.clone(), x.contents.clone()))
+                    .collect(),
+            })
+        })
+        .collect()
+}
+
+/// Mouse movement in client pixels expressed in page display pixels.
+fn unrotate_delta(dx: f64, dy: f64, view_rotation: i32) -> (f64, f64) {
+    match view_rotation {
+        90 => (dy, -dx),
+        180 => (-dx, -dy),
+        270 => (-dy, dx),
+        _ => (dx, dy),
+    }
+}
+
+const POPUP_W: f32 = 240.0;
+const POPUP_H: f32 = 170.0;
+
+/// A pop-up note: the comment text (editable), its replies and a reply box.
+/// The header drags the note.
+#[component]
+fn PopupNote(
+    page: usize,
+    view: PopupView,
+    zoom: f32,
+    size: PageSize,
+    view_rotation: i32,
+    area_w: f32,
+    area_h: f32,
+) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let mut drag = use_signal(|| None::<((f64, f64), (f64, f64))>);
+    let mut reply = use_signal(String::new);
+    let index = view.index;
+    let (dx, dy) = drag()
+        .map(|(s, c)| unrotate_delta(c.0 - s.0, c.1 - s.1, view_rotation))
+        .unwrap_or((0.0, 0.0));
+    let left = (view.rect[0] * zoom + dx as f32).clamp(0.0, (area_w - POPUP_W).max(0.0));
+    let top = (view.rect[1] * zoom + dy as f32).clamp(0.0, (area_h - POPUP_H).max(0.0));
+    let color = crate::util::color_hex(view.color);
+    let original = view.contents.clone();
+    let rect = view.rect;
+    let send_reply = move || {
+        let text = reply.peek().trim().to_string();
+        if text.is_empty() {
+            return;
+        }
+        let author = st.ui.peek().author.clone();
+        match st.with_active(|t| t.doc.add_reply(page, index, &text, &author)) {
+            Some(Err(e)) => st.error(e),
+            _ => {
+                reply.set(String::new());
+                crate::files::set_window_title(st);
+            }
+        }
+    };
+    let mut send_key = send_reply;
+    let mut send_click = send_reply;
+    rsx! {
+        div { class: "popup-note", style: "left:{left}px;top:{top}px;--note:{color}",
+            onmousedown: move |e| e.stop_propagation(),
+            onclick: move |e| e.stop_propagation(),
+            ondoubleclick: move |e| e.stop_propagation(),
+            onkeydown: move |e| e.stop_propagation(),
+            div { class: "popup-head",
+                onmousedown: move |e| {
+                    e.stop_propagation();
+                    let c = e.client_coordinates();
+                    drag.set(Some(((c.x, c.y), (c.x, c.y))));
+                },
+                span { class: "who ellipsis", "{view.author}" }
+                span { class: "when", "{view.date}" }
+                button { class: "ibtn", title: "{t(lang, \"dialog.close\")}",
+                    onmousedown: move |e| e.stop_propagation(),
+                    onclick: move |e| {
+                        e.stop_propagation();
+                        if let Some(Err(err)) = st.with_active(|t| t.doc.set_popup_open(page, index, false)) { st.error(err); }
+                    },
+                    "×"
+                }
+            }
+            textarea { class: "popup-text", value: "{view.contents}", readonly: view.locked,
+                placeholder: "{crate::i18n::annot_name(lang, &view.subtype)}",
+                onchange: move |e| {
+                    let v = e.value();
+                    if v != original {
+                        match st.with_active(|t| t.doc.set_annotation_contents(page, index, &v)) {
+                            Some(Err(err)) => st.error(err),
+                            _ => crate::files::set_window_title(st),
+                        }
+                    }
+                },
+            }
+            if !view.replies.is_empty() {
+                div { class: "popup-replies",
+                    for (i, (author, date, text)) in view.replies.iter().enumerate() {
+                        div { key: "{i}", class: "popup-reply",
+                            div { class: "meta", "{author} · {date}" }
+                            div { class: "text", "{text}" }
+                        }
+                    }
+                }
+            }
+            div { class: "popup-reply-box",
+                input { value: "{reply}", placeholder: "{t(lang, \"popup.reply_placeholder\")}",
+                    oninput: move |e| reply.set(e.value()),
+                    onkeydown: move |e| {
+                        e.stop_propagation();
+                        if e.key() == Key::Enter { send_key(); }
+                    },
+                }
+                button { class: "tbtn", onclick: move |_| send_click(), "{t(lang, \"popup.reply\")}" }
+            }
+            if drag().is_some() {
+                div { class: "drag-capture",
+                    onmousemove: move |e| {
+                        let start = drag.peek().as_ref().map(|(s, _)| *s);
+                        if let Some(s) = start {
+                            let c = e.client_coordinates();
+                            drag.set(Some((s, (c.x, c.y))));
+                        }
+                    },
+                    onmouseup: move |_| {
+                        let Some((s, c)) = *drag.peek() else { return };
+                        drag.set(None);
+                        let (dx, dy) = unrotate_delta(c.0 - s.0, c.1 - s.1, view_rotation);
+                        if dx.abs() < 2.0 && dy.abs() < 2.0 {
+                            return;
+                        }
+                        let (mx, my) = (dx as f32 / zoom, dy as f32 / zoom);
+                        let moved = [rect[0] + mx, rect[1] + my, rect[2] + mx, rect[3] + my];
+                        let pdf = rect_to_pdf(&size, moved);
+                        if let Some(Err(err)) = st.with_active(|t| t.doc.set_popup_rect(page, index, pdf)) { st.error(err); }
+                    },
+                }
+            }
         }
     }
 }

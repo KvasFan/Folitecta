@@ -798,7 +798,139 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     );
     let _ = capture_window(&dir.join("interaction-filled-form.png"));
 
-    // 20. Undo everything added above.
+    // 20. Comment review: reply from the comments pane, pop-up note, status,
+    // filter and a summary document.
+    st.set_tool(Tool::Hand);
+    let first = st
+        .read_active(|t| {
+            t.doc
+                .page_comment_infos(0)
+                .into_iter()
+                .find(|c| c.reply_to.is_none() && !c.is_state)
+        })
+        .flatten();
+    if let Some(c) = first {
+        {
+            let mut ui = st.ui_mut();
+            ui.show_left_pane = true;
+            ui.left_pane = "comments".into();
+        }
+        st.with_active(|t| t.selected_annot = Some((c.page, c.index)));
+        pause(700).await;
+        let _ = document::eval("const b = document.querySelector('.comment-item.selected .comment-actions .tbtn'); if (b) b.click();").await;
+        pause(500).await;
+        let _ = document::eval("const a = document.querySelector('.comment-item.selected .reply-box textarea'); if (a) { a.value = 'Agreed'; a.dispatchEvent(new Event('input', { bubbles: true })); } const s = document.querySelector('.comment-item.selected .reply-box .tbtn.primary'); if (s) s.click();").await;
+        pause(700).await;
+        let replies = st
+            .read_active(|t| {
+                t.doc
+                    .comment_infos()
+                    .iter()
+                    .filter(|r| r.reply_to == Some(c.id) && r.contents == "Agreed")
+                    .count()
+            })
+            .unwrap_or(0);
+        record(
+            "reply written in the comments pane",
+            replies == 1,
+            format!("{replies} reply"),
+        );
+        st.with_active(|t| t.selected_annot = Some((c.page, c.index)));
+        crate::commands::dispatch(st, "annot.popup.open");
+        pause(900).await;
+        let notes = document::eval("return document.querySelectorAll('.popup-note').length;")
+            .await
+            .ok()
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        record(
+            "pop-up note opens on the page",
+            notes >= 1,
+            format!("{notes} note(s)"),
+        );
+        crate::commands::review::set_state(st, c.page, c.index, "Review", "Accepted");
+        pause(700).await;
+        let review = st
+            .read_active(|t| {
+                t.doc
+                    .comment_infos()
+                    .into_iter()
+                    .find(|x| x.id == c.id)
+                    .map(|x| x.review)
+            })
+            .flatten()
+            .unwrap_or_default();
+        let chip = document::eval("return document.querySelectorAll('.comment-item .chip.state').length;")
+            .await
+            .ok()
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        record(
+            "review status shown in the pane",
+            review == "Accepted" && chip >= 1,
+            format!("{review}, {chip} chip(s)"),
+        );
+        let _ = capture_window(&dir.join("interaction-comment-review.png"));
+        // Filter out the comment's author: the pane and the page view update.
+        let author = c.author.clone();
+        let gen_before = st.read_active(|t| t.view_gen).unwrap_or(0);
+        crate::commands::review::update_filter(st, |f| {
+            f.hidden_authors.insert(author.clone());
+        });
+        pause(700).await;
+        let gen_after = st.read_active(|t| t.view_gen).unwrap_or(0);
+        let listed = document::eval("return document.querySelectorAll('.comment-item').length;")
+            .await
+            .ok()
+            .and_then(|v| v.as_u64())
+            .unwrap_or(99);
+        let expected = st
+            .read_active(|t| {
+                t.doc
+                    .comment_infos()
+                    .iter()
+                    .filter(|x| x.reply_to.is_none() && !x.is_state && x.author != c.author)
+                    .count()
+            })
+            .unwrap_or(0) as u64;
+        record(
+            "comment filter hides an author",
+            gen_after > gen_before && listed == expected,
+            format!("{listed} listed, {expected} expected"),
+        );
+        crate::commands::review::update_filter(st, |f| *f = Default::default());
+        // Summary document in a new tab.
+        let tabs_before = st.docs.read().len();
+        crate::commands::dispatch(st, "comments.summarize");
+        pause(500).await;
+        let _ = document::eval(
+            "const b = document.querySelector('.dialog .dialog-foot .tbtn.primary'); if (b) b.click();",
+        )
+        .await;
+        pause(1200).await;
+        let tabs_after = st.docs.read().len();
+        let summary_pages = if tabs_after > tabs_before {
+            st.docs.read().last().map(|t| t.doc.page_count()).unwrap_or(0)
+        } else {
+            0
+        };
+        record(
+            "comment summary opens as a new document",
+            tabs_after == tabs_before + 1 && summary_pages >= 1,
+            format!("{tabs_before} -> {tabs_after} tabs, {summary_pages} page(s)"),
+        );
+        let _ = capture_window(&dir.join("interaction-comment-summary.png"));
+        if tabs_after > tabs_before {
+            st.docs_mut().pop();
+            st.set_active(tabs_before - 1);
+        }
+        st.ui_mut().left_pane = "thumbnails".into();
+        pause(500).await;
+    } else {
+        record("reply written in the comments pane", false, "no comment".into());
+    }
+
+    // 21. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..30 {
         crate::commands::dispatch(st, "undo");
@@ -816,6 +948,8 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
     let mut total = 0;
     // FOLITECTA_SELFTEST_ONLY=print runs only the print step (for debugging).
     let only = std::env::var("FOLITECTA_SELFTEST_ONLY").ok();
+    // A neutral author name: screenshots never show the account name.
+    st.ui_mut().author = "Reviewer".into();
     let full = only.is_none();
     // Welcome screen (no document) at the smallest and a large size.
     pause(1500).await;
@@ -951,6 +1085,9 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("transitions", Dialog::Transitions),
         ("newblank", Dialog::NewBlank),
         ("matrix", Dialog::Matrix),
+        ("summary", Dialog::SummarizeComments),
+        ("comment-filter", Dialog::CommentFilter),
+        ("comments-options", Dialog::CommentsViewOptions),
     ];
     for lang in [crate::i18n::Lang::It, crate::i18n::Lang::En] {
         st.ui_mut().lang = lang;

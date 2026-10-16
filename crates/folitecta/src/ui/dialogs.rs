@@ -220,7 +220,6 @@ pub fn Dialogs() -> Element {
             contents,
         } => rsx! { AnnotationText { page, index, contents } },
         Dialog::WordCount { words, chars } => rsx! { WordCount { words, chars } },
-        Dialog::Summary(text) => rsx! { Summary { text } },
         Dialog::NewBlank => rsx! { NewBlank {} },
         Dialog::PasteSpecial => rsx! { PasteSpecial {} },
         Dialog::Rasterize => rsx! { Rasterize {} },
@@ -242,6 +241,285 @@ pub fn Dialogs() -> Element {
         Dialog::InsertText { page, index, after } => rsx! { InsertTextDialog { page, index, after } },
         Dialog::ReplaceText { page, start, end } => rsx! { ReplaceTextDialog { page, start, end } },
         Dialog::Calibrate => rsx! { CalibrateDialog {} },
+        Dialog::SummarizeComments => rsx! { SummarizeCommentsDialog {} },
+        Dialog::Reply { page, index } => rsx! { ReplyDialog { page, index } },
+        Dialog::ReviewStatus { page, index } => rsx! { ReviewStatusDialog { page, index } },
+        Dialog::ReviewHistory { page, index } => rsx! { ReviewHistoryDialog { page, index } },
+        Dialog::CommentFilter => rsx! { CommentFilterDialog {} },
+        Dialog::CommentsViewOptions => rsx! { CommentsViewOptionsDialog {} },
+    }
+}
+
+fn review_name(lang: Lang, state: &str) -> String {
+    t(lang, &format!("review.{}", state.to_lowercase()))
+}
+
+fn group_name(lang: Lang, group: &str) -> String {
+    t(lang, &format!("group.{group}"))
+}
+
+#[component]
+fn ReplyDialog(page: usize, index: usize) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let text = use_signal(String::new);
+    let comment = st
+        .read_active(|t| {
+            t.doc
+                .page_comment_infos(page)
+                .into_iter()
+                .find(|c| c.index == index)
+        })
+        .flatten();
+    let Some(c) = comment else {
+        return rsx! {};
+    };
+    let replies: Vec<(String, String, String)> = st
+        .read_active(|t| {
+            t.doc
+                .page_comment_infos(page)
+                .into_iter()
+                .filter(|x| x.reply_to == Some(c.id) && !x.is_state)
+                .map(|x| (x.author, x.modified, x.contents))
+                .collect()
+        })
+        .unwrap_or_default();
+    rsx! {
+        Frame { title: t(lang, "cmd.annot.addReply"), ok_label: Some(t(lang, "popup.reply")),
+            on_ok: move |_| {
+                let author = st.ui.peek().author.clone();
+                let r = st.with_active(|t| t.doc.add_reply(page, index, &text(), &author));
+                st.with_active(|t| t.selected_annot = Some((page, index)));
+                match r {
+                    Some(Err(e)) => st.error(e),
+                    _ => {
+                        files::set_window_title(st);
+                        st.set_dialog(Dialog::None);
+                    }
+                }
+            },
+            div { class: "thread",
+                div { class: "thread-item",
+                    div { class: "meta", "{crate::i18n::annot_name(lang, &c.subtype)} · {c.author} · {c.modified}" }
+                    div { class: "text", "{c.contents}" }
+                }
+                for (i, (author, date, body)) in replies.into_iter().enumerate() {
+                    div { class: "thread-item reply", key: "{i}",
+                        div { class: "meta", "{author} · {date}" }
+                        div { class: "text", "{body}" }
+                    }
+                }
+            }
+            Area { label: t(lang, "popup.reply_placeholder"), value: text, autofocus: true }
+        }
+    }
+}
+
+#[component]
+fn ReviewStatusDialog(page: usize, index: usize) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let comment = st
+        .read_active(|t| {
+            t.doc
+                .page_comment_infos(page)
+                .into_iter()
+                .find(|c| c.index == index)
+        })
+        .flatten();
+    let Some(c) = comment else {
+        return rsx! {};
+    };
+    let initial = if c.review.is_empty() {
+        "None".to_string()
+    } else {
+        c.review.clone()
+    };
+    let initial_marked = c.marked;
+    let mut state = use_signal(|| initial.clone());
+    let mut marked = use_signal(|| initial_marked);
+    rsx! {
+        Frame { title: t(lang, "cmd.annot.status"),
+            on_ok: move |_| {
+                st.set_dialog(Dialog::None);
+                if state() != initial {
+                    crate::commands::review::set_state(st, page, index, "Review", &state());
+                }
+                if marked() != initial_marked {
+                    crate::commands::review::set_state(st, page, index, "Marked", if marked() { "Marked" } else { "Unmarked" });
+                }
+            },
+            div { class: "field",
+                label { "{t(lang, \"review.state\")}" }
+                div { class: "radio-col",
+                    for s in folitecta_core::REVIEW_STATES.iter().copied() {
+                        label { key: "{s}", input { r#type: "radio", name: "review-state", checked: state() == s, onchange: move |_| state.set(s.to_string()) } "{review_name(lang, s)}" }
+                    }
+                }
+            }
+            label { class: "check", input { r#type: "checkbox", checked: marked(), onchange: move |_| marked.set(!marked()) } span { "{t(lang, \"review.marked\")}" } }
+        }
+    }
+}
+
+#[component]
+fn ReviewHistoryDialog(page: usize, index: usize) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let history = st
+        .read_active(|t| t.doc.review_history(page, index))
+        .and_then(|r| r.ok())
+        .unwrap_or_default();
+    rsx! {
+        Frame { title: t(lang, "cmd.annot.reviewHistory"),
+            if history.is_empty() {
+                div { class: "hint", "{t(lang, \"review.no_history\")}" }
+            } else {
+                table { class: "grid-table",
+                    thead { tr { th { "{t(lang, \"dialog.summary.by_date\")}" } th { "{t(lang, \"dialog.summary.by_author\")}" } th { "{t(lang, \"review.state\")}" } } }
+                    tbody {
+                        for (i, h) in history.into_iter().enumerate() {
+                            tr { key: "{i}",
+                                td { "{h.date}" }
+                                td { "{h.author}" }
+                                td { "{review_name(lang, &h.state)}" }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn CommentFilterDialog() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let Some((infos, current)) = st.read_active(|t| (t.doc.comment_infos(), t.comment_filter.clone())) else {
+        return rsx! {};
+    };
+    let top: Vec<_> = infos
+        .into_iter()
+        .filter(|c| c.reply_to.is_none() && !c.is_state)
+        .collect();
+    let mut authors: Vec<String> = top.iter().map(|c| c.author.clone()).collect();
+    authors.sort();
+    authors.dedup();
+    let mut types: Vec<String> = top.iter().map(|c| c.subtype.clone()).collect();
+    types.sort();
+    types.dedup();
+    let mut filter = use_signal(|| current.clone());
+    let status_value = filter()
+        .status
+        .clone()
+        .map(|s| if s.is_empty() { "-".to_string() } else { s })
+        .unwrap_or_default();
+    let checked_value = match filter().checked {
+        Some(true) => "yes",
+        Some(false) => "no",
+        None => "",
+    };
+    rsx! {
+        Frame { title: t(lang, "filter.title"), wide: true,
+            on_ok: move |_| {
+                let f = filter();
+                st.with_active(|t| t.set_comment_filter(f));
+                st.set_dialog(Dialog::None);
+            },
+            div { class: "field-grid",
+                div { class: "field",
+                    label { "{t(lang, \"cmd.comments.show.byAuthor\")}" }
+                    div { class: "check-list",
+                        for a in authors {
+                            {
+                                let shown = !filter().hidden_authors.contains(&a);
+                                let a2 = a.clone();
+                                let label = if a.is_empty() { "—".to_string() } else { a.clone() };
+                                rsx! { label { class: "check", key: "{a}", input { r#type: "checkbox", checked: shown, onchange: move |_| filter.with_mut(|f| { if !f.hidden_authors.remove(&a2) { f.hidden_authors.insert(a2.clone()); } }) } span { "{label}" } } }
+                            }
+                        }
+                    }
+                }
+                div { class: "field",
+                    label { "{t(lang, \"cmd.comments.show.byType\")}" }
+                    div { class: "check-list",
+                        for ty in types {
+                            {
+                                let shown = !filter().hidden_types.contains(&ty);
+                                let ty2 = ty.clone();
+                                rsx! { label { class: "check", key: "{ty}", input { r#type: "checkbox", checked: shown, onchange: move |_| filter.with_mut(|f| { if !f.hidden_types.remove(&ty2) { f.hidden_types.insert(ty2.clone()); } }) } span { "{crate::i18n::annot_name(lang, &ty)}" } } }
+                            }
+                        }
+                    }
+                }
+                div { class: "field",
+                    label { "{t(lang, \"review.state\")}" }
+                    select { onchange: move |e| { let v = e.value(); filter.with_mut(|f| f.status = match v.as_str() { "" => None, "-" => Some(String::new()), s => Some(s.to_string()) }); },
+                        option { value: "", selected: status_value.is_empty(), "{t(lang, \"filter.all\")}" }
+                        option { value: "-", selected: status_value == "-", "{t(lang, \"review.none\")}" }
+                        for s in folitecta_core::REVIEW_STATES.iter().copied().filter(|s| *s != "None") {
+                            option { key: "{s}", value: "{s}", selected: status_value == s, "{review_name(lang, s)}" }
+                        }
+                    }
+                }
+                div { class: "field",
+                    label { "{t(lang, \"cmd.comments.show.checked\")}" }
+                    select { onchange: move |e| { let v = e.value(); filter.with_mut(|f| f.checked = match v.as_str() { "yes" => Some(true), "no" => Some(false), _ => None }); },
+                        option { value: "", selected: checked_value.is_empty(), "{t(lang, \"filter.all\")}" }
+                        option { value: "yes", selected: checked_value == "yes", "{t(lang, \"review.marked\")}" }
+                        option { value: "no", selected: checked_value == "no", "{t(lang, \"review.unmarked\")}" }
+                    }
+                }
+            }
+            div { class: "row",
+                button { class: "tbtn", onclick: move |_| filter.set(crate::state::CommentFilter::default()), "{t(lang, \"filter.show_all\")}" }
+            }
+        }
+    }
+}
+
+#[component]
+fn CommentsViewOptionsDialog() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let group = crate::commands::review::current_group(st);
+    let toggles = [
+        "commentsView.show.authors",
+        "commentsView.show.dates",
+        "commentsView.show.colors",
+        "commentsView.show.subjects",
+        "commentsView.show.states",
+        "commentsView.show.text",
+        "commentsView.show.noTextPlaceholder",
+        "commentsView.show.compactItems",
+        "commentsView.show.uniformText",
+        "commentsView.show.dynamicIcons",
+        "commentsView.show.wrapLongTitles",
+        "commentsView.showHiddenComments",
+        "commentsView.showCommentsFromHiddenLayers",
+    ];
+    let reg = registry();
+    rsx! {
+        Frame { title: t(lang, "cmd.commentsView.options"),
+            div { class: "field",
+                label { "{t(lang, \"cmd.commentsView.groupBy\")}" }
+                select { onchange: move |e| crate::commands::review::set_group(st, &e.value()),
+                    for g in crate::commands::review::GROUPS.iter().copied().filter(|g| *g != "stateAndAuthor") {
+                        option { key: "{g}", value: "{g}", selected: group == g, "{group_name(lang, g)}" }
+                    }
+                }
+            }
+            div { class: "check-list",
+                for id in toggles {
+                    {
+                        let on = option_on(st, id);
+                        let label = reg.get(id).map(|c| cmd_label(lang, c)).unwrap_or_else(|| id.to_string());
+                        rsx! { label { class: "check", key: "{id}", input { r#type: "checkbox", checked: on, onchange: move |_| st.set_option(id, !on) } span { "{label}" } } }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1302,19 +1580,6 @@ fn WordCount(words: usize, chars: usize) -> Element {
     rsx! { Frame { title: t(lang, "cmd.document.wordCount"), div { class: "kv", span { class: "k", "{t(lang, \"dialog.wordcount.words\")}" } span { class: "v", "{words}" } span { class: "k", "{t(lang, \"dialog.wordcount.chars\")}" } span { class: "v", "{chars}" } } } }
 }
 
-#[component]
-fn Summary(text: String) -> Element {
-    let st = use_context::<AppState>();
-    let lang = st.lang();
-    let t2 = text.clone();
-    rsx! {
-        Frame { title: t(lang, "cmd.comments.summarize"), ok_label: Some(t(lang, "dialog.unsaved.save")),
-            on_ok: move |_| { st.set_dialog(Dialog::None); files::save_text_file(st, "comments.txt", t2.clone()); },
-            pre { class: "mono scroll-box", "{text}" }
-        }
-    }
-}
-
 /// Standard paper sizes in points (portrait).
 const PAPER: &[(&str, &str, f32, f32)] = &[
     ("a4", "A4 (210 × 297 mm)", 595.28, 841.89),
@@ -1971,6 +2236,104 @@ pub fn measure_scale(st: AppState) -> folitecta_core::MeasureScale {
         &get("measure.real_unit", "mm"),
         decimals,
     )
+}
+
+#[component]
+fn SummarizeCommentsDialog() -> Element {
+    use folitecta_core::{SummaryLabels, SummaryLayout, SummaryOptions, SummarySort};
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let get = |k: &str, d: &str| st.ui.read().value(k).unwrap_or(d).to_string();
+    let mut layout = use_signal(|| get("summary.layout", "only"));
+    let mut sort = use_signal(|| get("summary.sort", "page"));
+    let mut size = use_signal(|| get("summary.size", "10"));
+    let mut paper = use_signal(|| get("summary.paper", "a4"));
+    let mut hidden = use_signal(|| get("summary.hidden", "0") == "1");
+    let count = st
+        .read_active(|t| t.doc.summary_entries(true, SummarySort::Page).len())
+        .unwrap_or(0);
+    let layouts = [
+        ("only", "dialog.summary.only"),
+        ("separate", "dialog.summary.separate"),
+        ("connector", "dialog.summary.connector"),
+    ];
+    let sorts = [
+        ("page", "dialog.summary.by_page"),
+        ("author", "dialog.summary.by_author"),
+        ("date", "dialog.summary.by_date"),
+        ("type", "dialog.summary.by_type"),
+    ];
+    let sizes = [
+        ("8", "dialog.summary.small"),
+        ("10", "dialog.summary.medium"),
+        ("12", "dialog.summary.large"),
+    ];
+    rsx! {
+        Frame { title: t(lang, "cmd.comments.summarize"), ok_label: Some(t(lang, "dialog.summary.create")),
+            on_ok: move |_| {
+                st.set_value("summary.layout", layout());
+                st.set_value("summary.sort", sort());
+                st.set_value("summary.size", size());
+                st.set_value("summary.paper", paper());
+                st.set_value("summary.hidden", if hidden() { "1" } else { "0" });
+                let (_, _, pw, ph) = PAPER.iter().copied().find(|p| p.0 == paper()).unwrap_or(PAPER[0]);
+                let types = ["Text", "FreeText", "Line", "Square", "Circle", "Polygon", "PolyLine", "Highlight", "Underline", "Squiggly", "StrikeOut", "Stamp", "Caret", "Ink", "FileAttachment", "Sound", "Redact"]
+                    .iter()
+                    .map(|s| (s.to_string(), crate::i18n::annot_name(lang, s)))
+                    .collect();
+                let opts = SummaryOptions {
+                    layout: match layout().as_str() { "separate" => SummaryLayout::SeparatePages, "connector" => SummaryLayout::ConnectorLines, _ => SummaryLayout::CommentsOnly },
+                    sort: match sort().as_str() { "author" => SummarySort::Author, "date" => SummarySort::Date, "type" => SummarySort::Type, _ => SummarySort::Page },
+                    font_size: size().parse().unwrap_or(10.0),
+                    include_hidden: hidden(),
+                    paper: (pw, ph),
+                    labels: SummaryLabels {
+                        title: t(lang, "dialog.summary.doc_title"),
+                        page: t(lang, "status.page"),
+                        no_comments: t(lang, "toast.no_comments"),
+                        types,
+                    },
+                };
+                match st.read_active(|t| t.doc.summarize_comments(&opts)) {
+                    Some(Ok(doc)) => {
+                        st.set_dialog(Dialog::None);
+                        files::open_document_tab(st, doc);
+                    }
+                    Some(Err(e)) => st.error(e),
+                    None => st.set_dialog(Dialog::None),
+                }
+            },
+            div { class: "hint", "{tf(lang, \"dialog.summary.count\", &[(\"count\", &count.to_string())])}" }
+            div { class: "field",
+                label { "{t(lang, \"dialog.summary.layout\")}" }
+                div { class: "radio-col",
+                    for (value, key) in layouts {
+                        label { key: "{value}", input { r#type: "radio", name: "summary-layout", checked: layout() == value, onchange: move |_| layout.set(value.to_string()) } "{t(lang, key)}" }
+                    }
+                }
+            }
+            div { class: "field-grid",
+                div { class: "field", label { "{t(lang, \"dialog.summary.sort\")}" }
+                    select { onchange: move |e| sort.set(e.value()),
+                        for (value, key) in sorts { option { key: "{value}", value: "{value}", selected: sort() == value, "{t(lang, key)}" } }
+                    }
+                }
+                div { class: "field", label { "{t(lang, \"dialog.summary.size\")}" }
+                    select { onchange: move |e| size.set(e.value()),
+                        for (value, key) in sizes { option { key: "{value}", value: "{value}", selected: size() == value, "{t(lang, key)}" } }
+                    }
+                }
+                if layout() == "only" {
+                    div { class: "field", label { "{t(lang, \"dialog.summary.paper\")}" }
+                        select { onchange: move |e| paper.set(e.value()),
+                            for (id, name, _, _) in PAPER.iter().copied() { option { key: "{id}", value: "{id}", selected: paper() == id, "{name}" } }
+                        }
+                    }
+                }
+            }
+            label { class: "check", input { r#type: "checkbox", checked: hidden(), onchange: move |_| hidden.set(!hidden()) } span { "{t(lang, \"dialog.summary.hidden\")}" } }
+        }
+    }
 }
 
 #[component]

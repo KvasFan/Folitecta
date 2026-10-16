@@ -1,5 +1,7 @@
 //! Annotations (comments): listing, creation with appearance streams, deletion.
 
+use std::collections::HashSet;
+
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
 use crate::appearance::{AnnotStyle, apply_style};
@@ -22,6 +24,8 @@ pub struct Annotation {
     pub rect: [f32; 4],
     pub color: Option<[f32; 3]>,
     pub hidden: bool,
+    /// A reply to another comment (`/IRT` without `/RT /Group`), including review states.
+    pub is_reply: bool,
 }
 
 /// Closed shapes that can be drawn as comments.
@@ -100,6 +104,8 @@ impl Document {
                         .unwrap_or([0.0; 4]),
                     color: d.get(b"C").ok().and_then(|c| color_of(doc, c)),
                     hidden: flags & 2 != 0,
+                    is_reply: d.has(b"IRT")
+                        && d.get(b"RT").ok().and_then(|r| r.as_name().ok()) != Some(b"Group".as_slice()),
                 }
             })
             .collect())
@@ -108,8 +114,15 @@ impl Document {
     /// Comment-like annotations of the whole document (links, widgets and popups excluded).
     pub fn comments(&self) -> Vec<Annotation> {
         (0..self.page_count())
-            .filter_map(|p| self.annotations(p).ok())
-            .flatten()
+            .flat_map(|p| self.page_comments(p))
+            .collect()
+    }
+
+    /// Comment-like annotations of one page.
+    pub fn page_comments(&self, page: usize) -> Vec<Annotation> {
+        self.annotations(page)
+            .unwrap_or_default()
+            .into_iter()
             .filter(|a| !NON_COMMENT_SUBTYPES.contains(&a.subtype.as_str()))
             .collect()
     }
@@ -483,29 +496,59 @@ impl Document {
             return Err(Error::Invalid(format!("annotation {index} does not exist")));
         }
         self.begin_edit();
-        let removed = arr.remove(index);
-        self.inner
-            .get_dictionary_mut(page_id)?
-            .set("Annots", Object::Array(arr));
-        if let Object::Reference(r) = removed {
-            // Remove popups attached to the annotation too.
-            let popup = self
-                .inner
-                .get_dictionary(r)
-                .ok()
-                .and_then(|d| d.get(b"Popup").ok())
-                .and_then(|p| p.as_reference().ok());
-            self.inner.delete_object(r);
-            if let Some(p) = popup {
-                self.inner.delete_object(p);
-                if let Ok(d) = self.inner.get_dictionary_mut(page_id) {
-                    if let Ok(Object::Array(arr)) = d.get_mut(b"Annots") {
-                        arr.retain(|a| a.as_reference().ok() != Some(p));
-                    }
-                }
+        match arr[index].clone() {
+            Object::Reference(r) => self.remove_annotations(page_id, &HashSet::from([r])),
+            _ => {
+                arr.remove(index);
+                self.inner
+                    .get_dictionary_mut(page_id)?
+                    .set("Annots", Object::Array(arr));
             }
         }
         self.commit()
+    }
+
+    /// Remove annotations of a page together with their popups, replies and
+    /// review states (recursively).
+    pub(crate) fn remove_annotations(&mut self, page_id: ObjectId, roots: &HashSet<ObjectId>) {
+        let Ok(page) = self.inner.get_dictionary(page_id) else {
+            return;
+        };
+        let items = annot_refs(&self.inner, page);
+        let mut gone: HashSet<ObjectId> = roots.clone();
+        loop {
+            let before = gone.len();
+            for (aid, d) in &items {
+                let Some(id) = aid else { continue };
+                if gone.contains(id) {
+                    continue;
+                }
+                let is_popup =
+                    d.get(b"Subtype").ok().and_then(|s| s.as_name().ok()) == Some(b"Popup".as_slice());
+                let key: &[u8] = if is_popup { b"Parent" } else { b"IRT" };
+                let target = d.get(key).ok().and_then(|o| o.as_reference().ok());
+                if target.map(|t| gone.contains(&t)).unwrap_or(false) {
+                    gone.insert(*id);
+                }
+            }
+            if gone.len() == before {
+                break;
+            }
+        }
+        let keep: Vec<Object> = items
+            .into_iter()
+            .filter(|(aid, _)| aid.map(|id| !gone.contains(&id)).unwrap_or(true))
+            .map(|(aid, d)| match aid {
+                Some(id) => Object::Reference(id),
+                None => Object::Dictionary(d),
+            })
+            .collect();
+        if let Ok(d) = self.inner.get_dictionary_mut(page_id) {
+            d.set("Annots", Object::Array(keep));
+        }
+        for id in gone {
+            self.inner.objects.remove(&id);
+        }
     }
 
     /// Delete every comment of a page (or of the whole document when `page` is `None`).
@@ -519,35 +562,55 @@ impl Document {
         for p in pages {
             let page_id = self.page_id(p)?;
             let items = annot_refs(&self.inner, self.inner.get_dictionary(page_id)?);
-            let mut keep = Vec::new();
-            for (aid, d) in items {
+            let mut roots = HashSet::new();
+            let mut inline = false;
+            for (aid, d) in &items {
                 let subtype = d
                     .get(b"Subtype")
                     .ok()
                     .and_then(|s| s.as_name().ok())
                     .map(|n| String::from_utf8_lossy(n).to_string())
                     .unwrap_or_default();
-                if NON_COMMENT_SUBTYPES.contains(&subtype.as_str()) {
-                    if let Some(id) = aid {
-                        keep.push(Object::Reference(id));
-                    } else {
-                        keep.push(Object::Dictionary(d));
-                    }
-                } else {
+                if !NON_COMMENT_SUBTYPES.contains(&subtype.as_str()) {
                     removed += 1;
-                    if let Some(id) = aid {
-                        self.inner.delete_object(id);
+                    match aid {
+                        Some(id) => {
+                            roots.insert(*id);
+                        }
+                        None => inline = true,
                     }
                 }
             }
-            self.inner
-                .get_dictionary_mut(page_id)?
-                .set("Annots", Object::Array(keep));
+            self.remove_annotations(page_id, &roots);
+            if inline {
+                // Direct (inline) comment dictionaries.
+                let items = annot_refs(&self.inner, self.inner.get_dictionary(page_id)?);
+                let keep: Vec<Object> = items
+                    .into_iter()
+                    .filter_map(|(aid, d)| {
+                        let subtype = d
+                            .get(b"Subtype")
+                            .ok()
+                            .and_then(|s| s.as_name().ok())
+                            .map(|n| String::from_utf8_lossy(n).to_string())
+                            .unwrap_or_default();
+                        match aid {
+                            Some(id) => Some(Object::Reference(id)),
+                            None if NON_COMMENT_SUBTYPES.contains(&subtype.as_str()) => {
+                                Some(Object::Dictionary(d))
+                            }
+                            None => None,
+                        }
+                    })
+                    .collect();
+                self.inner
+                    .get_dictionary_mut(page_id)?
+                    .set("Annots", Object::Array(keep));
+            }
         }
         self.commit()?;
         Ok(removed)
     }
-
     /// Update the text of an annotation.
     pub fn set_annotation_contents(&mut self, page: usize, index: usize, contents: &str) -> Result<()> {
         let id = self
@@ -559,6 +622,14 @@ impl Document {
         let d = self.inner.get_dictionary_mut(id)?;
         d.set("Contents", lopdf::text_string(contents));
         d.set("M", Object::string_literal(util::pdf_date_now()));
+        // Text boxes and text stamps show their text: redraw them.
+        let shows_text = matches!(
+            d.get(b"Subtype").ok().and_then(|s| s.as_name().ok()),
+            Some(b"FreeText") | Some(b"Stamp")
+        );
+        if shows_text {
+            self.refresh_appearance(id)?;
+        }
         self.commit()
     }
 

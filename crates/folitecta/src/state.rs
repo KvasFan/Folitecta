@@ -1,11 +1,11 @@
 //! Application state shared through the Dioxus context.
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use dioxus::prelude::*;
-use folitecta_core::{Document, PageSize, RenderService, SearchHit};
+use folitecta_core::{CommentInfo, Document, PageSize, RenderService, SearchHit};
 use serde::{Deserialize, Serialize};
 
 use crate::i18n::Lang;
@@ -401,6 +401,31 @@ impl UiPrefs {
     }
 }
 
+/// Which comments are shown (a view setting: the document does not change).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct CommentFilter {
+    pub hidden_authors: BTreeSet<String>,
+    pub hidden_types: BTreeSet<String>,
+    /// Some(true): only checked comments; Some(false): only unchecked ones.
+    pub checked: Option<bool>,
+    /// Only comments with this review state ("" = without a state).
+    pub status: Option<String>,
+}
+
+impl CommentFilter {
+    pub fn is_empty(&self) -> bool {
+        *self == CommentFilter::default()
+    }
+
+    /// Whether a top-level comment passes the filter.
+    pub fn shows(&self, c: &CommentInfo) -> bool {
+        !self.hidden_authors.contains(&c.author)
+            && !self.hidden_types.contains(&c.subtype)
+            && self.checked.is_none_or(|k| c.marked == k)
+            && self.status.as_ref().is_none_or(|s| &c.review == s)
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct SearchState {
     pub query: String,
@@ -433,6 +458,10 @@ pub struct DocTab {
     /// Visited pages for previous/next view navigation.
     pub history: Vec<usize>,
     pub history_pos: usize,
+    /// Comments shown on the pages and in the comments pane.
+    pub comment_filter: CommentFilter,
+    /// Bumped when the displayed pages change without a new revision (filters).
+    pub view_gen: u64,
 }
 
 impl DocTab {
@@ -459,6 +488,8 @@ impl DocTab {
             guides: Vec::new(),
             history: vec![0],
             history_pos: 0,
+            comment_filter: CommentFilter::default(),
+            view_gen: 0,
         }
     }
 
@@ -480,7 +511,7 @@ impl DocTab {
         if self.doc.revision() != self.revision {
             self.page_sizes = self.doc.page_sizes();
             self.revision = self.doc.revision();
-            self.render.replace(self.doc.bytes());
+            self.update_render();
             let n = self.doc.page_count();
             if self.page >= n {
                 self.page = n.saturating_sub(1);
@@ -491,6 +522,47 @@ impl DocTab {
             // Search rectangles refer to the previous revision.
             self.search.hits.clear();
         }
+    }
+
+    /// Top-level comments the filter hides.
+    pub fn filtered_out(&self) -> HashSet<(u32, u16)> {
+        if self.comment_filter.is_empty() {
+            return HashSet::new();
+        }
+        self.doc
+            .comment_infos()
+            .into_iter()
+            .filter(|c| c.reply_to.is_none() && !c.is_state && !self.comment_filter.shows(c))
+            .map(|c| c.id)
+            .collect()
+    }
+
+    /// Give the renderer the document as displayed (comments hidden by the filter).
+    pub fn update_render(&mut self) {
+        let bytes = if self.comment_filter.is_empty() {
+            self.doc.bytes()
+        } else {
+            self.doc
+                .bytes_hiding(&self.filtered_out())
+                .unwrap_or_else(|_| self.doc.bytes())
+        };
+        self.render.replace(bytes);
+    }
+
+    /// Change the comment filter and redraw the pages.
+    pub fn set_comment_filter(&mut self, filter: CommentFilter) {
+        if filter != self.comment_filter {
+            self.comment_filter = filter;
+            self.view_gen += 1;
+            self.update_render();
+        }
+    }
+
+    /// Revision of the displayed pages, for page image addresses.
+    pub fn view_rev(&self) -> u64 {
+        self.revision
+            .wrapping_mul(1000)
+            .wrapping_add(self.view_gen % 1000)
     }
 
     pub fn title(&self) -> String {
@@ -627,7 +699,6 @@ pub enum Dialog {
         words: usize,
         chars: usize,
     },
-    Summary(String),
     NewBlank,
     PasteSpecial,
     Rasterize,
@@ -664,6 +735,27 @@ pub enum Dialog {
     },
     /// Scale of measurement comments.
     Calibrate,
+    /// Options of a comment summary document.
+    SummarizeComments,
+    /// Reply to a comment.
+    Reply {
+        page: usize,
+        index: usize,
+    },
+    /// Review state and check mark of a comment.
+    ReviewStatus {
+        page: usize,
+        index: usize,
+    },
+    /// State changes of a comment.
+    ReviewHistory {
+        page: usize,
+        index: usize,
+    },
+    /// Which comments are shown.
+    CommentFilter,
+    /// Options of the comments pane.
+    CommentsViewOptions,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

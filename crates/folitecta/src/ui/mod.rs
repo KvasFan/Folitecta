@@ -1,4 +1,5 @@
 pub mod canvas;
+pub mod comments_pane;
 pub mod dialogs;
 pub mod field_editor;
 pub mod form_fill;
@@ -60,6 +61,108 @@ fn recent_entries(st: AppState) -> Element {
     }
 }
 
+/// Comment filter submenus whose entries come from the document.
+fn filter_kind(id: &str) -> Option<&'static str> {
+    match id {
+        "comments.show.byAuthor" => Some("author"),
+        "comments.show.byType" => Some("type"),
+        "comments.show.checked" => Some("checked"),
+        _ => None,
+    }
+}
+
+/// Entries of a comment filter submenu: value, label, shown.
+fn filter_items(st: AppState, lang: Lang, kind: &str) -> Vec<(String, String, bool)> {
+    let Some((infos, filter)) = st.read_active(|t| (t.doc.comment_infos(), t.comment_filter.clone())) else {
+        return Vec::new();
+    };
+    let top: Vec<_> = infos
+        .into_iter()
+        .filter(|c| c.reply_to.is_none() && !c.is_state)
+        .collect();
+    match kind {
+        "author" => {
+            let mut v: Vec<String> = top.iter().map(|c| c.author.clone()).collect();
+            v.sort();
+            v.dedup();
+            v.into_iter()
+                .map(|a| {
+                    let on = !filter.hidden_authors.contains(&a);
+                    let label = if a.is_empty() {
+                        "—".to_string()
+                    } else {
+                        a.clone()
+                    };
+                    (a, label, on)
+                })
+                .collect()
+        }
+        "type" => {
+            let mut v: Vec<String> = top.iter().map(|c| c.subtype.clone()).collect();
+            v.sort();
+            v.dedup();
+            v.into_iter()
+                .map(|ty| {
+                    let on = !filter.hidden_types.contains(&ty);
+                    let label = crate::i18n::annot_name(lang, &ty);
+                    (ty, label, on)
+                })
+                .collect()
+        }
+        "checked" => vec![
+            (
+                "yes".into(),
+                crate::i18n::t(lang, "review.marked"),
+                filter.checked == Some(true),
+            ),
+            (
+                "no".into(),
+                crate::i18n::t(lang, "review.unmarked"),
+                filter.checked == Some(false),
+            ),
+        ],
+        _ => Vec::new(),
+    }
+}
+
+fn filter_entries(st: AppState, lang: Lang, kind: &'static str) -> Element {
+    let items = filter_items(st, lang, kind);
+    rsx! {
+        for (value, label, on) in items {
+            {
+                let v = value.clone();
+                rsx! {
+                    div { class: "menu-item", key: "{kind}-{value}",
+                        onclick: move |e| {
+                            e.stop_propagation();
+                            st.close_menus();
+                            let v = v.clone();
+                            commands::review::update_filter(st, move |f| match kind {
+                                "author" => {
+                                    if !f.hidden_authors.remove(&v) {
+                                        f.hidden_authors.insert(v);
+                                    }
+                                }
+                                "type" => {
+                                    if !f.hidden_types.remove(&v) {
+                                        f.hidden_types.insert(v);
+                                    }
+                                }
+                                _ => {
+                                    let want = v == "yes";
+                                    f.checked = if f.checked == Some(want) { None } else { Some(want) };
+                                }
+                            });
+                        },
+                        span { class: "check-mark", if on { "✓" } else { "" } }
+                        span { class: "label", "{label}" }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Position of a submenu opened from the row that received `evt`.
 fn submenu_position(st: AppState, evt: &Event<MouseData>, rows: usize) -> (f64, f64) {
     let c = evt.client_coordinates();
@@ -90,12 +193,13 @@ pub fn menu_entry(st: AppState, lang: Lang, cmd: &'static Command, depth: usize)
     } else {
         reg.children(&cmd.id)
     };
+    let filter_kind = filter_kind(&cmd.id);
     let has_sub = (is_recent || !children.is_empty()) && depth < 6;
     if has_sub {
         let rows = if is_recent {
             st.ui.read().recent.len().max(1)
         } else {
-            children.len()
+            children.len() + filter_kind.map(|k| filter_items(st, lang, k).len()).unwrap_or(0)
         };
         let open_pos = st
             .submenus
@@ -135,6 +239,9 @@ pub fn menu_entry(st: AppState, lang: Lang, cmd: &'static Command, depth: usize)
                         }
                         for child in children.iter() {
                             {menu_entry(st, lang, child, depth + 1)}
+                        }
+                        if let Some(kind) = filter_kind {
+                            {filter_entries(st, lang, kind)}
                         }
                     }
                 }

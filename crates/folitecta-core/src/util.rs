@@ -42,11 +42,57 @@ pub fn deref<'a>(doc: &'a lopdf::Document, obj: &'a Object) -> &'a Object {
     doc.dereference(obj).map(|(_, o)| o).unwrap_or(obj)
 }
 
+/// Characters of PDFDocEncoding codes 0x18..=0x1F.
+const PDFDOC_18: [char; 8] = ['˘', 'ˇ', 'ˆ', '˙', '˝', '˛', '˚', '˜'];
+/// Characters of PDFDocEncoding codes 0x80..=0xA0 (`\0` = undefined).
+const PDFDOC_80: [char; 33] = [
+    '•', '†', '‡', '…', '—', '–', 'ƒ', '⁄', '‹', '›', '−', '‰', '„', '“', '”', '‘', '’', '‚', '™', 'ﬁ', 'ﬂ',
+    'Ł', 'Œ', 'Š', 'Ÿ', 'Ž', 'ı', 'ł', 'œ', 'š', 'ž', '\0', '€',
+];
+
+/// Decode the bytes of a PDF text string: UTF-16BE or UTF-8 with a byte order
+/// mark, otherwise PDFDocEncoding (tabs and line breaks included).
+pub fn decode_pdf_text(bytes: &[u8]) -> String {
+    if let Some(rest) = bytes.strip_prefix(&[0xFE, 0xFF]) {
+        let units: Vec<u16> = rest
+            .chunks(2)
+            .map(|c| u16::from_be_bytes([c[0], *c.get(1).unwrap_or(&0)]))
+            .collect();
+        let s: String = char::decode_utf16(units)
+            .map(|r| r.unwrap_or('\u{FFFD}'))
+            .collect();
+        // Drop language escape sequences (ESC ... ESC).
+        let mut out = String::with_capacity(s.len());
+        let mut in_escape = false;
+        for c in s.chars() {
+            if c == '\u{1B}' {
+                in_escape = !in_escape;
+            } else if !in_escape {
+                out.push(c);
+            }
+        }
+        return out;
+    }
+    if let Some(rest) = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]) {
+        return String::from_utf8_lossy(rest).to_string();
+    }
+    bytes
+        .iter()
+        .filter_map(|&b| match b {
+            0x09 | 0x0A | 0x0D | 0x20..=0x7E => Some(b as char),
+            0x18..=0x1F => Some(PDFDOC_18[(b - 0x18) as usize]),
+            0x80..=0xA0 => Some(PDFDOC_80[(b - 0x80) as usize]).filter(|c| *c != '\0'),
+            0xA1..=0xFF if b != 0xAD => Some(b as char),
+            _ => None,
+        })
+        .collect()
+}
+
 /// Decode a PDF text string (possibly behind a reference) into a Rust string.
 pub fn text_of(doc: &lopdf::Document, obj: &Object) -> Option<String> {
     let obj = deref(doc, obj);
     match obj {
-        Object::String(..) => lopdf::decode_text_string(obj).ok(),
+        Object::String(bytes, _) => Some(decode_pdf_text(bytes)),
         Object::Name(n) => Some(String::from_utf8_lossy(n).to_string()),
         Object::Integer(i) => Some(i.to_string()),
         Object::Real(r) => Some(fmt_num(*r)),
@@ -262,4 +308,21 @@ pub fn approx_text_width(text: &str, font_size: f32) -> f32 {
 /// Build the `Reference` object for an id.
 pub fn r(id: ObjectId) -> Object {
     Object::Reference(id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn text_strings_keep_line_breaks_and_special_characters() {
+        assert_eq!(decode_pdf_text(b"a\rb\nc\td"), "a\rb\nc\td");
+        assert_eq!(decode_pdf_text(&[0x80, 0x92, 0xA0, 0xE9]), "•™€é");
+        assert_eq!(decode_pdf_text(&[0xFE, 0xFF, 0x00, 0x41, 0x20, 0xAC]), "A€");
+        assert_eq!(decode_pdf_text(&[0xEF, 0xBB, 0xBF, 0xC3, 0xA8]), "è");
+        let s = lopdf::text_string("one\ntwo è");
+        let mut doc = lopdf::Document::new();
+        let id = doc.add_object(s);
+        assert_eq!(text_of(&doc, &Object::Reference(id)).unwrap(), "one\ntwo è");
+    }
 }

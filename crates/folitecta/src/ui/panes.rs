@@ -8,7 +8,7 @@ use folitecta_core::{Command, OutlineItem, SearchOptions, registry};
 
 use crate::commands::{dispatch, option_on};
 use crate::files;
-use crate::i18n::{annot_name, cmd_label, t, tf, ui_label};
+use crate::i18n::{cmd_label, t, tf, ui_label};
 use crate::icons::Icon;
 use crate::state::{AppState, Dialog, Pane, ToastKind};
 use crate::ui::{MENU_W, status_badge};
@@ -237,7 +237,7 @@ pub fn PanePanel() -> Element {
         match &pane {
             Pane::Thumbnails => rsx! { ThumbnailsPane {} },
             Pane::Bookmarks => rsx! { BookmarksPane {} },
-            Pane::Comments => rsx! { CommentsPane {} },
+            Pane::Comments => rsx! { crate::ui::comments_pane::CommentsPane {} },
             Pane::Attachments => rsx! { AttachmentsPane {} },
             Pane::Layers => rsx! { LayersPane {} },
             Pane::Fields => rsx! { FieldsPane {} },
@@ -294,7 +294,7 @@ fn ThumbnailsPane() -> Element {
     let Some((tab_id, rev, page, count, sizes, selected, rotation)) = st.read_active(|t| {
         (
             t.id,
-            t.revision,
+            t.view_rev(),
             t.page,
             t.doc.page_count(),
             t.page_sizes.clone(),
@@ -485,63 +485,6 @@ fn BookmarksPane() -> Element {
             div { class: "pane-empty", "{t(lang, \"label.none\")}" }
         }
         div { class: if wrap { "tree wrap" } else { "tree" }, {outline_nodes(st, &items, Vec::new(), &expanded, &sel, selected, show_icons)} }
-    }
-}
-
-// ---- Comments ---------------------------------------------------------------------
-
-#[component]
-fn CommentsPane() -> Element {
-    let st = use_context::<AppState>();
-    let lang = st.lang();
-    let Some((comments, selected)) = st.read_active(|t| (t.doc.comments(), t.selected_annot)) else {
-        return rsx! {};
-    };
-    let show_authors = option_on(st, "commentsView.show.authors");
-    let show_dates = option_on(st, "commentsView.show.dates");
-    let show_colors = option_on(st, "commentsView.show.colors");
-    let wrap = option_on(st, "commentsView.show.wrapLongTitles");
-    rsx! {
-        if comments.is_empty() {
-            div { class: "pane-empty", "{t(lang, \"label.none\")}" }
-        }
-        for a in comments {
-            {
-                let (page, index) = (a.page, a.index);
-                let is_sel = selected == Some((page, index));
-                let contents = a.contents.clone();
-                let color = a.color.map(crate::util::color_hex).unwrap_or_else(|| "#888".into());
-                let class = match (is_sel, wrap) {
-                    (true, true) => "list-item selected wrap",
-                    (true, false) => "list-item selected",
-                    (false, true) => "list-item wrap",
-                    (false, false) => "list-item",
-                };
-                rsx! {
-                    div { class: "{class}", key: "{page}-{index}",
-                        onclick: move |_| { st.with_active(|t| t.selected_annot = Some((page, index))); st.go_to_page(page); },
-                        div { class: "title",
-                            if show_colors { span { class: "swatch", style: "background:{color}" } }
-                            span { class: "ellipsis", "{annot_name(lang, &a.subtype)}" }
-                            span { class: "muted", "· {t(lang, \"status.page\")} {page + 1}" }
-                            if a.hidden { span { class: "chip", "{t(lang, \"label.hidden\")}" } }
-                        }
-                        if show_authors || show_dates {
-                            div { class: "meta",
-                                if show_authors { span { "{a.author}" } }
-                                if show_dates { span { "{a.modified}" } }
-                            }
-                        }
-                        if !a.contents.is_empty() { div { class: "body", "{a.contents}" } }
-                        div { class: "row", style: "gap:6px",
-                            button { class: "tbtn", onclick: move |e| { e.stop_propagation(); st.set_dialog(Dialog::AnnotationText { page, index, contents: contents.clone() }); }, "{t(lang, \"label.edit\")}" }
-                            button { class: "tbtn", title: "{t(lang, \"cmd.comments.flattenSel\")}", onclick: move |e| { e.stop_propagation(); if let Some(Err(err)) = st.with_active(|t| t.doc.flatten_annotation(page, index)) { st.error(err); } }, "{t(lang, \"label.flatten\")}" }
-                            button { class: "tbtn danger", title: "{t(lang, \"label.delete\")}", onclick: move |e| { e.stop_propagation(); if let Some(Err(err)) = st.with_active(|t| t.doc.delete_annotation(page, index)) { st.error(err); } }, Icon { name: "delete" } }
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 

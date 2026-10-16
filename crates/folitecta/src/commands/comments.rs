@@ -90,21 +90,25 @@ fn step_comment(st: AppState, forward: bool) {
     }
 }
 
-pub(crate) fn comments_summary(st: AppState) -> String {
-    st.read_active(|t| {
-        let mut out = format!("Comments in {}\n\n", t.title());
-        for a in t.doc.comments() {
-            out.push_str(&format!(
-                "Page {}: [{}] {} — {}\n",
-                a.page + 1,
-                a.subtype,
-                a.author,
-                a.contents.replace('\n', " ")
-            ));
-        }
-        out
-    })
-    .unwrap_or_default()
+fn summarize(st: AppState) {
+    if no_doc(st) {
+        return;
+    }
+    if st.read_active(|t| t.doc.comments().is_empty()).unwrap_or(true) {
+        st.toast(ToastKind::Info, t(st.lang(), "toast.no_comments"), "");
+        return;
+    }
+    st.set_dialog(Dialog::SummarizeComments);
+}
+
+fn export_selected(st: AppState) {
+    if no_doc(st) {
+        return;
+    }
+    match st.read_active(|t| t.selected_annot).flatten() {
+        Some(sel) => files::export_comments(st, Some(vec![sel])),
+        None => st.toast(ToastKind::Info, t(st.lang(), "toast.select_comment_first"), ""),
+    }
 }
 
 fn set_all_hidden(st: AppState, hidden: Option<bool>) {
@@ -326,9 +330,10 @@ handlers! {
     "comments.hideAll" => |st| set_all_hidden(st, Some(true)),
     "comments.showAll" => |st| set_all_hidden(st, Some(false)),
     "comments.showhideAll" => |st| set_all_hidden(st, None),
-    "comments.summarize" => |st| { if !no_doc(st) { let s = comments_summary(st); st.set_dialog(Dialog::Summary(s)); } },
-    "comments.export" => |st| { if !no_doc(st) { let s = comments_summary(st); files::save_text_file(st, "comments.txt", s); } },
-    "commentsView.exportSelected" => |st| { if !no_doc(st) { let s = comments_summary(st); files::save_text_file(st, "comments.txt", s); } },
+    "comments.summarize" => summarize,
+    "comments.export" => |st| { if !no_doc(st) { files::export_comments(st, None) } },
+    "comments.import" => |st| { if !no_doc(st) { files::import_comments(st) } },
+    "commentsView.exportSelected" => export_selected,
     "comments.flatten" => |st| doc_dialog(st, Dialog::Flatten),
     "comments.flattenGroup" => |st| doc_dialog(st, Dialog::Flatten),
     "comments.flattenSel" => flatten_selected,

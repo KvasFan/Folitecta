@@ -1576,9 +1576,11 @@ name = "folitecta-core"
 version = "0.0.3"
 dependencies = [
  "anyhow",
+ "base64",
  "hayro",
  "image",
  "lopdf",
+ "quick-xml",
  "serde",
  "serde_json",
  "thiserror 2.0.21",

@@ -16,6 +16,7 @@ mod help;
 mod pages;
 mod panes;
 mod protect;
+pub(crate) mod review;
 mod view;
 
 use std::collections::{HashMap, HashSet};
@@ -49,6 +50,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     forms::HANDLERS,
     format::HANDLERS,
     protect::HANDLERS,
+    review::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -67,9 +69,6 @@ static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {
 /// Commands that perform a reduced version of the full operation.
 pub const PARTIAL: &[&str] = &[
     "fontName",
-    "comments.summarize",
-    "comments.export",
-    "commentsView.exportSelected",
     "tool.editFields.mode.date",
     "sendByEmail",
     "copySrcFile",
@@ -77,6 +76,15 @@ pub const PARTIAL: &[&str] = &[
 
 /// View options toggled by command id; their state lives in the preferences.
 pub const VIEW_OPTIONS: &[&str] = &[
+    "commentsView.show.subjects",
+    "commentsView.show.states",
+    "commentsView.show.text",
+    "commentsView.show.compactItems",
+    "commentsView.show.noTextPlaceholder",
+    "commentsView.show.uniformText",
+    "commentsView.show.dynamicIcons",
+    "commentsView.showHiddenComments",
+    "commentsView.showCommentsFromHiddenLayers",
     "view.darkPageMode",
     "view.overrideDocumentColors",
     "view.showGrid",
@@ -111,6 +119,11 @@ pub const VIEW_OPTIONS: &[&str] = &[
 /// Options that are on unless the user turned them off.
 pub const DEFAULT_ON: &[&str] = &[
     "bookmarksView.showIcons",
+    "commentsView.show.states",
+    "commentsView.show.text",
+    "commentsView.show.dynamicIcons",
+    "commentsView.showHiddenComments",
+    "commentsView.showCommentsFromHiddenLayers",
     "commentsView.show.authors",
     "commentsView.show.dates",
     "commentsView.show.colors",
@@ -132,7 +145,10 @@ pub fn option_on(st: AppState, id: &str) -> bool {
 
 /// `Some(state)` when `id` is a view option, for toggle buttons and menu checks.
 pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
-    VIEW_OPTIONS.contains(&id).then(|| option_on(st, id))
+    VIEW_OPTIONS
+        .contains(&id)
+        .then(|| option_on(st, id))
+        .or_else(|| review::review_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

@@ -141,7 +141,7 @@ pub const RIBBON_GROUPS: &[(&str, &str, &str)] = &[
     ("protect", "signsAndInitials", "Signatures and Initials"),
     ("protect", "redact", "Redact"),
     ("protect", "docSecurity", "Document Security"),
-    ("protect", "docuSign", "DocuSign"),
+    ("protect", "esign", "E-Signature"),
     ("form", "fields", "Form Fields"),
     ("form", "data", "Form Data"),
     ("form", "javaScript", "JavaScript"),

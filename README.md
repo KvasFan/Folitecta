@@ -8,42 +8,53 @@ an MIT, Apache or GNU licence.
 
 ![Folitecta screenshot](docs/screenshot.png)
 
-## Status: version 0.0.1 (pre-release)
+## Status: version 0.0.2 (pre-release)
 
 Folitecta ships the **complete command surface of a professional PDF editor** — 1,977 commands
 across a ribbon with 11 tabs and 63 groups, 9 classic menus, 27 side panes and a command palette —
-so the whole feature set is discoverable from day one. In this first release a subset of those
-commands performs its operation; the rest are listed and open a roadmap notice. The exact
-state of every command is in [docs/FEATURES.md](docs/FEATURES.md) (generated from the code) and in
-the in-app **Feature matrix** dialog.
+so the whole feature set is discoverable. Each release turns more of those commands into working
+operations; the rest are listed and open a roadmap notice. The exact state of every command is in
+[docs/FEATURES.md](docs/FEATURES.md) (generated from the code) and in the in-app
+**Feature matrix** dialog.
 
 ### Working today
 
-- **Viewing**: tabs, continuous / single / two-page layouts, fit width / fit page / free zoom,
-  view rotation, full screen, light and dark themes, thumbnails, go-to-page, keyboard navigation.
-- **Pages**: insert blank pages, delete, duplicate, extract to a new file, move, swap, reverse,
-  rotate, crop by margins, resize with content scaling, add margins, split a document, insert the
-  pages of another PDF, combine several files into one, delete empty pages.
-- **Page marks**: text watermarks (position, rotation, opacity, colour), headers and footers with
-  placeholders (`{page}`, `{pages}`, `{date}`, `{title}`, `{file}`, `{author}`), page numbering and
-  Bates numbering (`{bates:6}`), and removal of any mark Folitecta added.
-- **Comments**: sticky notes, free text boxes, rectangles, ellipses, lines and arrows, freehand
-  ink, area highlights, each with a real appearance stream; comments pane, edit text, hide/show,
-  delete, summary export.
-- **Navigation data**: bookmarks (create, rename, retarget, delete, one-per-page), named
-  destinations, links (list, open, add web links and page links, remove), attachments (list,
-  save, add, remove), layers (toggle visibility), form fields (list, edit values, reset,
-  highlight, export values), signature fields (status and signer information).
-- **Text**: extraction, search with match case / whole words, word count, export to `.txt`.
-- **Export**: pages to PNG or JPEG at any resolution, embedded images, document properties
-  editing, undo/redo of every edit, save / save as / save a copy, recent files, sessions of
-  tabs, command palette (`Ctrl+Shift+P`), English and Italian interface.
+- **Viewing**: tabs, continuous / single / two-page layouts, fit width / fit page / free zoom
+  (`Ctrl`+wheel), view rotation, full screen, light and dark themes, dark and high-contrast page
+  modes, rulers (mm, cm, in, pt, pc), grid, guides with snapping, loupe, link and form-field
+  highlighting, transparency grid, document info bar, page labels, view history.
+- **Text**: text layer with mouse selection, copy, select all; search with match case / whole
+  words, highlighted results and previous/next navigation (`F3`); mark every result as
+  highlight, underline, strikeout or redaction; word count; export to `.txt`.
+- **Comments**: sticky notes, text boxes, typewriter text, rectangles, ellipses, lines, arrows,
+  pencil, area highlights, text highlight / underline / strikeout, stamps (presets, custom text,
+  images), web and page links, each with a real appearance stream. Select, move and resize with
+  handles, nudge with the arrow keys, copy / cut / paste across documents, flatten one or all,
+  hide/show, delete, summary export.
+- **Pages**: insert blank pages, pages of another PDF or pictures, delete (also empty pages),
+  duplicate, extract, move by dragging thumbnails, swap, reverse, replace with pages of another
+  file, rotate, crop by margins or to the visible content, resize, add margins, normalise sizes,
+  split into tiles, rasterise, find duplicates, split a document, combine several files.
+- **Page marks**: watermarks, backgrounds, headers and footers with placeholders (`{page}`,
+  `{pages}`, `{date}`, `{title}`, `{file}`, `{author}`), page numbering and Bates numbering
+  (`{bates:6}`, also across several files), page labels (roman, letters, prefixes), page
+  transitions, overlays and underlays from another PDF, removal of any mark Folitecta added.
+- **Protect**: redaction (mark areas or text, apply to destroy the content underneath), password
+  protection with AES-128 and permissions, document script listing and removal.
+- **Create and convert**: blank documents of any paper size, from pictures, from text files, from
+  the clipboard; export pages to PNG/JPEG, extract embedded images; snapshot of an area to the
+  clipboard; paste pictures onto pages and text as text boxes.
+- **Print**: page range, resolution, with or without comments, fit to paper, every open document.
+- **Navigation data**: bookmarks, named destinations, links, attachments, layers, form fields
+  (values, reset, highlight, export), signature fields (status and signer).
+- **Interface**: ribbon and classic menus that adapt to any window size, side panes, properties
+  pane, command palette (`Ctrl+Shift+P`), undo/redo of every edit, English and Italian.
 
 ### Planned
 
-OCR, redaction, digital signing and certificate management, content editing (text and
-image objects), measurement tools, stamps, form field design, PDF/A conversion, optimisation,
-spell checking, accessibility tagging, cloud connectors and the remaining commands listed as
+OCR, digital signing and certificate management, content editing (text and image objects),
+measurement tools, form field design, PDF/A conversion, optimisation, spell checking,
+accessibility tagging, document comparison, cloud connectors and the remaining commands listed as
 *planned* in the feature matrix.
 
 ## Download
@@ -69,6 +80,11 @@ cargo build --release
 Run the tests with `cargo test --workspace`, the lints with
 `cargo clippy --workspace --all-targets -- -D warnings`, and regenerate the feature matrix with
 `cargo run -p folitecta -- --features-md docs/FEATURES.md`.
+
+`folitecta --ui-selftest <dir>` runs the interface self-test: it resizes the window through
+several sizes, opens every ribbon tab, panes, menus and dialogs in both languages, checks the
+layout for clipped or overlapping elements, simulates mouse and keyboard input on the canvas and
+writes a report with a screenshot of every state (screenshots on Windows).
 
 ## Project layout
 

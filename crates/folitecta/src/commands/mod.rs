@@ -64,8 +64,6 @@ static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {
 
 /// Commands that perform a reduced version of the full operation.
 pub const PARTIAL: &[&str] = &[
-    "print",
-    "printAll",
     "comments.summarize",
     "comments.export",
     "commentsView.exportSelected",
@@ -224,7 +222,9 @@ pub fn current_zoom(st: AppState) -> f32 {
         match t.zoom {
             Zoom::Fixed(z) => z,
             Zoom::FitWidth => {
-                let widest = (0..t.doc.page_count()).map(|p| t.display_size(p).0).fold(1.0, f32::max);
+                let widest = (0..t.doc.page_count())
+                    .map(|p| t.display_size(p).0)
+                    .fold(1.0, f32::max);
                 // Two pages side by side in the two-page layout.
                 let w = if two { widest * 2.0 + 18.0 } else { widest };
                 ((cw as f32 - mx) / w).clamp(0.1, 8.0)

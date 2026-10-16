@@ -414,5 +414,11 @@
   "annot.FileAttachment": "File attachment",
   "annot.Sound": "Sound",
   "annot.Link": "Link",
-  "annot.Widget": "Form field"
+  "annot.Widget": "Form field",
+  "dialog.print.title": "Print",
+  "dialog.print.title_all": "Print all open documents",
+  "dialog.print.go": "Print…",
+  "dialog.print.fit": "Fit pages to the paper",
+  "dialog.print.hint": "Printer, paper, copies and orientation are chosen in the next window.",
+  "dialog.print.all_hint": "{docs} documents, {pages} pages in total."
 }

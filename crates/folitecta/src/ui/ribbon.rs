@@ -9,7 +9,7 @@ use crate::i18n::{Lang, cmd_label, t, ui_label};
 use crate::icons::{self, Icon};
 use crate::state::{AppState, Layout, Pane, Theme, Tool, Zoom};
 use crate::ui::menu_entry;
-use crate::ui::ribbon_layout::{self, CONTEXT_TAB, GroupSpec, RGroup, fit_ribbon, small_width};
+use crate::ui::ribbon_layout::{self, CONTEXT_TAB, GroupSpec, RGroup, fit_ribbon, large_width, small_width};
 
 const LARGE_H: f64 = 62.0;
 const SMALL_H: f64 = 20.0;
@@ -157,10 +157,16 @@ pub fn ribbon_button(st: AppState, lang: Lang, cmd: &'static Command, style: Btn
         (false, None) => label.clone(),
     };
     let height = style.height();
+    let width_style = if style == BtnStyle::Large {
+        format!("width:{}px", large_width(&label) - 2.0)
+    } else {
+        String::new()
+    };
     rsx! {
         div { class: "rbtn-wrap", key: "{cmd.id}",
             button {
                 class: "{class}",
+                style: "{width_style}",
                 title: "{tip}",
                 onclick: move |e| {
                     e.stop_propagation();
@@ -196,9 +202,14 @@ fn overflow_button(
     let count = cmds.len();
     let class = format!("{} has-menu", style.class());
     let height = style.height();
+    let width_style = if style == BtnStyle::Large {
+        format!("width:{}px", large_width(&label) - 2.0)
+    } else {
+        String::new()
+    };
     rsx! {
         div { class: "rbtn-wrap", key: "{key}",
-            button { class: "{class}", title: "{label} ({count})",
+            button { class: "{class}", style: "{width_style}", title: "{label} ({count})",
                 onclick: move |e| {
                     e.stop_propagation();
                     toggle_dropdown(st, &key_click, anchor_below(&e, height));
@@ -253,9 +264,11 @@ pub fn Ribbon() -> Element {
         .iter()
         .map(|(g, items, extras)| GroupSpec {
             small_w: items.iter().map(|c| small_width(&cmd_label(lang, c))).collect(),
+            large_w: items.iter().map(|c| large_width(&cmd_label(lang, c))).collect(),
             extra: !extras.is_empty(),
             title: title_width(&group_label(lang, tab_id, g)),
             more_w,
+            collapsed_w: large_width(&group_label(lang, tab_id, g)),
         })
         .collect();
     let fits = fit_ribbon(&specs, vw - 28.0);

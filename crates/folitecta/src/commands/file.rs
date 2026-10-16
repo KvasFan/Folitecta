@@ -86,8 +86,8 @@ handlers! {
     "closeTabsToTheRight" => |st| close_where(st, |i, a| i > a),
     "duplicateTab" => duplicate_tab,
     "reopenJustClosedDoc" => |st| files::reopen_closed(st),
-    "print" => |st| { if !no_doc(st) { dioxus::desktop::window().print(); } },
-    "printAll" => |st| { if !no_doc(st) { dioxus::desktop::window().print(); } },
+    "print" => |st| doc_dialog(st, Dialog::Print(false)),
+    "printAll" => |st| doc_dialog(st, Dialog::Print(true)),
     "exit" => |st| files::exit_app(st),
     "docProps" => |st| doc_dialog(st, Dialog::DocProps),
     "openSrcFolder" => |st| {

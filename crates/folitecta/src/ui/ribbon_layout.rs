@@ -594,12 +594,17 @@ const MAX_LARGE_MIXED: usize = 2;
 pub struct GroupSpec {
     /// Width of each curated item drawn as a small (icon + label) button.
     pub small_w: Vec<f64>,
+    /// Width of each curated item drawn as a large button (wide enough for its
+    /// longest word, so labels never break inside a word).
+    pub large_w: Vec<f64>,
     /// More registry commands exist, so an overflow button is always needed.
     pub extra: bool,
     /// Estimated width of the group title.
     pub title: f64,
     /// Width of the small "More" button.
     pub more_w: f64,
+    /// Width of the single button that replaces a collapsed group.
+    pub collapsed_w: f64,
 }
 
 /// How a group is drawn: the first `large` items as large buttons, the next
@@ -612,13 +617,27 @@ pub fn small_width(label: &str) -> f64 {
     30.0 + (label.chars().count() as f64 * 6.7).min(132.0)
 }
 
+/// Estimated width of a large ribbon button with this label.
+pub fn large_width(label: &str) -> f64 {
+    let longest = label
+        .split_whitespace()
+        .map(|w| w.chars().count())
+        .max()
+        .unwrap_or(0) as f64;
+    (longest * 6.4 + 14.0).clamp(LARGE_W, 104.0)
+}
+
+fn visible(f: GroupFit) -> usize {
+    f.0 + f.1
+}
+
 fn group_width(spec: &GroupSpec, (large, small): GroupFit) -> f64 {
     if large == 0 && small == 0 {
-        return PAD + LARGE_W.max(spec.title);
+        return PAD + spec.collapsed_w.max(spec.title);
     }
     let n = spec.small_w.len();
     let overflow = large + small < n || spec.extra;
-    let mut w = large as f64 * LARGE_W;
+    let mut w: f64 = spec.large_w[..large].iter().sum();
     let mut stack: Vec<f64> = spec.small_w[large..large + small].to_vec();
     if overflow {
         if small > 0 {
@@ -642,49 +661,79 @@ fn total_width(specs: &[GroupSpec], fit: &[GroupFit]) -> f64 {
         + GAP * specs.len().saturating_sub(1) as f64
 }
 
+/// Drop items from the largest groups (later groups first on ties) while the
+/// ribbon is too wide and `allowed` permits it.
+fn shrink(specs: &[GroupSpec], fit: &mut [GroupFit], width: f64, allowed: impl Fn(usize, GroupFit) -> bool) {
+    while total_width(specs, fit) > width {
+        let candidate = (0..fit.len())
+            .filter(|i| fit[*i] != (0, 0) && allowed(*i, fit[*i]))
+            .max_by_key(|i| visible(fit[*i]));
+        match candidate {
+            Some(i) if fit[i].1 > 0 => fit[i].1 -= 1,
+            Some(i) => fit[i].0 -= 1,
+            None => break,
+        }
+    }
+}
+
 /// Choose a layout for every group so the ribbon fits `width` pixels.
 ///
-/// All-large buttons are used when they fit. Otherwise each group shows its
-/// items as small buttons (dropping the least important ones into the
-/// overflow menu, round-robin from the largest group) and then promotes up to
-/// two leading items per group to large buttons while space allows. Groups
-/// collapse into a single button, from the last one, only as a last resort.
+/// All-large buttons are used when they fit. Otherwise every group shows its
+/// commands as small buttons, dropping the least important ones into its
+/// overflow menu while keeping at least two per group; if that is still too
+/// wide, groups collapse into a single button starting from the right, and
+/// only then shrink to one command. Any space left is given back (collapsed
+/// groups first, left to right) and up to two leading commands per group
+/// become large buttons.
 pub fn fit_ribbon(specs: &[GroupSpec], width: f64) -> Vec<GroupFit> {
     let all_large: Vec<GroupFit> = specs.iter().map(|s| (s.small_w.len(), 0)).collect();
     if total_width(specs, &all_large) <= width {
         return all_large;
     }
+    let n = specs.len();
     let mut fit: Vec<GroupFit> = specs.iter().map(|s| (0, s.small_w.len())).collect();
-    while total_width(specs, &fit) > width {
-        let candidate = (0..fit.len())
-            .filter(|i| fit[*i].0 + fit[*i].1 > 1)
-            .max_by_key(|i| fit[*i].0 + fit[*i].1);
-        match candidate {
-            Some(i) => {
-                if fit[i].1 > 0 {
-                    fit[i].1 -= 1;
-                } else {
-                    fit[i].0 -= 1;
-                }
-            }
-            None => match (0..fit.len()).rev().find(|i| fit[*i] != (0, 0)) {
-                Some(i) => fit[i] = (0, 0),
-                None => break,
-            },
-        }
+    shrink(specs, &mut fit, width, |i, f| {
+        visible(f) > specs[i].small_w.len().min(2)
+    });
+    let mut i = n;
+    while total_width(specs, &fit) > width && i > 1 {
+        i -= 1;
+        fit[i] = (0, 0);
     }
-    // Promote leading items to large buttons, round-robin, while it fits.
+    shrink(specs, &mut fit, width, |_, f| visible(f) > 1);
+    if total_width(specs, &fit) > width && n > 0 {
+        fit[0] = (0, 0);
+    }
+    // Give room back: re-open collapsed groups and re-add commands, left to right.
     loop {
         let mut changed = false;
-        for i in 0..fit.len() {
-            let (l, s) = fit[i];
+        for j in 0..n {
+            let (l, s) = fit[j];
+            if l + s >= specs[j].small_w.len() {
+                continue;
+            }
+            fit[j] = (l, s + 1);
+            if total_width(specs, &fit) > width {
+                fit[j] = (l, s);
+            } else {
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    // Promote leading commands to large buttons, round-robin, while it fits.
+    loop {
+        let mut changed = false;
+        for j in 0..n {
+            let (l, s) = fit[j];
             if s == 0 || l >= MAX_LARGE_MIXED {
                 continue;
             }
-            let before = fit[i];
-            fit[i] = (l + 1, s - 1);
+            fit[j] = (l + 1, s - 1);
             if total_width(specs, &fit) > width {
-                fit[i] = before;
+                fit[j] = (l, s);
             } else {
                 changed = true;
             }
@@ -695,7 +744,6 @@ pub fn fit_ribbon(specs: &[GroupSpec], width: f64) -> Vec<GroupFit> {
     }
     fit
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -720,6 +768,8 @@ mod tests {
     fn specs() -> Vec<GroupSpec> {
         let mk = |n: usize, extra: bool, title: f64| GroupSpec {
             small_w: (0..n).map(|i| 60.0 + (i % 4) as f64 * 15.0).collect(),
+            large_w: vec![LARGE_W; n],
+            collapsed_w: LARGE_W,
             extra,
             title,
             more_w: small_width("More (12)"),

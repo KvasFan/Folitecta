@@ -6196,76 +6196,6 @@
    "status": "planned"
   },
   {
-   "id": "docuSign",
-   "label": "DocuSign",
-   "parent": null,
-   "menu": "file",
-   "ribbon": {
-    "tab": "protect",
-    "group": "docuSign"
-   },
-   "pane": null,
-   "kind": "submenu",
-   "shortcut": null,
-   "status": "planned"
-  },
-  {
-   "id": "docuSign.changeAccount",
-   "label": "Change Account…",
-   "parent": "docuSign",
-   "menu": "file",
-   "ribbon": {
-    "tab": "protect",
-    "group": "docuSign"
-   },
-   "pane": null,
-   "kind": "command",
-   "shortcut": null,
-   "status": "planned"
-  },
-  {
-   "id": "docuSign.createEnvelope",
-   "label": "Create Envelope…",
-   "parent": "docuSign",
-   "menu": "file",
-   "ribbon": {
-    "tab": "protect",
-    "group": "docuSign"
-   },
-   "pane": null,
-   "kind": "command",
-   "shortcut": null,
-   "status": "planned"
-  },
-  {
-   "id": "docuSign.login",
-   "label": "Log in to DocuSign…",
-   "parent": "docuSign",
-   "menu": "file",
-   "ribbon": {
-    "tab": "protect",
-    "group": "docuSign"
-   },
-   "pane": null,
-   "kind": "command",
-   "shortcut": null,
-   "status": "planned"
-  },
-  {
-   "id": "docuSign.logout",
-   "label": "Log out of DocuSign",
-   "parent": "docuSign",
-   "menu": "file",
-   "ribbon": {
-    "tab": "protect",
-    "group": "docuSign"
-   },
-   "pane": null,
-   "kind": "command",
-   "shortcut": null,
-   "status": "planned"
-  },
-  {
    "id": "document",
    "label": "Document",
    "parent": null,
@@ -6683,48 +6613,6 @@
    "status": "planned"
   },
   {
-   "id": "document.docuSign",
-   "label": "DocuSign",
-   "parent": "document",
-   "menu": "file",
-   "ribbon": {
-    "tab": "protect",
-    "group": "docuSign"
-   },
-   "pane": null,
-   "kind": "submenu",
-   "shortcut": null,
-   "status": "planned"
-  },
-  {
-   "id": "document.docuSign.send",
-   "label": "Send with DocuSign",
-   "parent": "document.docuSign",
-   "menu": "file",
-   "ribbon": {
-    "tab": "protect",
-    "group": "docuSign"
-   },
-   "pane": null,
-   "kind": "command",
-   "shortcut": null,
-   "status": "planned"
-  },
-  {
-   "id": "document.docuSign.sign",
-   "label": "Sign with DocuSign",
-   "parent": "document.docuSign",
-   "menu": "file",
-   "ribbon": {
-    "tab": "protect",
-    "group": "docuSign"
-   },
-   "pane": null,
-   "kind": "command",
-   "shortcut": null,
-   "status": "planned"
-  },
-  {
    "id": "document.duplicatePages",
    "label": "Duplicate Pages…",
    "parent": "document",
@@ -6732,6 +6620,48 @@
    "ribbon": {
     "tab": "organize",
     "group": "pages"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
+   "id": "document.esign",
+   "label": "E-Signature Service",
+   "parent": "document",
+   "menu": "file",
+   "ribbon": {
+    "tab": "protect",
+    "group": "esign"
+   },
+   "pane": null,
+   "kind": "submenu",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
+   "id": "document.esign.send",
+   "label": "Send for E-Signature",
+   "parent": "document.esign",
+   "menu": "file",
+   "ribbon": {
+    "tab": "protect",
+    "group": "esign"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
+   "id": "document.esign.sign",
+   "label": "Sign with the E-Signature Service",
+   "parent": "document.esign",
+   "menu": "file",
+   "ribbon": {
+    "tab": "protect",
+    "group": "esign"
    },
    "pane": null,
    "kind": "command",
@@ -8181,6 +8111,76 @@
    "ribbon": {
     "tab": "ctx.format",
     "group": "shapeStyle"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
+   "id": "esign",
+   "label": "E-Signature Service",
+   "parent": null,
+   "menu": "file",
+   "ribbon": {
+    "tab": "protect",
+    "group": "esign"
+   },
+   "pane": null,
+   "kind": "submenu",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
+   "id": "esign.changeAccount",
+   "label": "Change Account…",
+   "parent": "esign",
+   "menu": "file",
+   "ribbon": {
+    "tab": "protect",
+    "group": "esign"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
+   "id": "esign.createEnvelope",
+   "label": "Create Envelope…",
+   "parent": "esign",
+   "menu": "file",
+   "ribbon": {
+    "tab": "protect",
+    "group": "esign"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
+   "id": "esign.login",
+   "label": "Log In to the E-Signature Service…",
+   "parent": "esign",
+   "menu": "file",
+   "ribbon": {
+    "tab": "protect",
+    "group": "esign"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
+   "id": "esign.logout",
+   "label": "Log Out of the E-Signature Service",
+   "parent": "esign",
+   "menu": "file",
+   "ribbon": {
+    "tab": "protect",
+    "group": "esign"
    },
    "pane": null,
    "kind": "command",

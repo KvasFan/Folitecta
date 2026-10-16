@@ -172,9 +172,16 @@ async fn check(st: AppState, dir: &std::path::Path, name: &str, log: &mut Vec<se
 
 #[cfg(target_os = "windows")]
 fn capture_window(path: &std::path::Path) -> Result<(), String> {
+    capture_window_from(path, false)
+}
+
+/// Capture by copying the window area from the screen (works while the page
+/// is blocked by a modal browser dialog, which PrintWindow waits for).
+#[cfg(target_os = "windows")]
+fn capture_window_from(path: &std::path::Path, from_screen: bool) -> Result<(), String> {
     use dioxus::desktop::tao::platform::windows::WindowExtWindows;
     let hwnd = dioxus::desktop::window().window.hwnd();
-    let (w, h, mut rgba) = win_capture::capture(hwnd)?;
+    let (w, h, mut rgba) = win_capture::capture(hwnd, from_screen)?;
     for px in rgba.as_chunks_mut::<4>().0 {
         px.swap(0, 2);
         px[3] = 255;
@@ -185,6 +192,11 @@ fn capture_window(path: &std::path::Path) -> Result<(), String> {
 
 #[cfg(not(target_os = "windows"))]
 fn capture_window(_path: &std::path::Path) -> Result<(), String> {
+    Err("screenshots are only captured on Windows".into())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn capture_window_from(_path: &std::path::Path, _from_screen: bool) -> Result<(), String> {
     Err("screenshots are only captured on Windows".into())
 }
 
@@ -201,7 +213,7 @@ mod win_capture {
 
     /// Capture the client area (BGRA rows, top-down). Uses PrintWindow with full
     /// content rendering and falls back to copying from the screen.
-    pub fn capture(hwnd_raw: isize) -> Result<(u32, u32, Vec<u8>), String> {
+    pub fn capture(hwnd_raw: isize, screen_only: bool) -> Result<(u32, u32, Vec<u8>), String> {
         unsafe {
             let hwnd = HWND(hwnd_raw as *mut core::ffi::c_void);
             let mut rect = RECT::default();
@@ -262,6 +274,9 @@ mod win_capture {
                 }
                 Ok(buf)
             };
+            if screen_only {
+                return Ok((w as u32, h as u32, try_grab(true)?));
+            }
             let buf = try_grab(false)?;
             // A black frame means the compositor content was not captured.
             let dark = buf
@@ -285,7 +300,10 @@ mod win_capture {
 /// Simulate pointer input on page `page` of the canvas. `points` are in page
 /// display points; the first is the press, the last the release.
 async fn pointer_path(page: usize, zoom: f32, points: &[(f32, f32)], target_first_at_point: bool) -> String {
-    let pts: Vec<String> = points.iter().map(|(x, y)| format!("[{},{}]", x * zoom, y * zoom)).collect();
+    let pts: Vec<String> = points
+        .iter()
+        .map(|(x, y)| format!("[{},{}]", x * zoom, y * zoom))
+        .collect();
     let js = format!(
         r#"
 const el = document.querySelector('#pg-{page} .page-inner');
@@ -312,15 +330,17 @@ return first.className || first.tagName;
 
 /// Interpolate a straight drag with `steps` intermediate moves.
 fn line(from: (f32, f32), to: (f32, f32), steps: usize) -> Vec<(f32, f32)> {
-    (0..=steps).map(|i| {
-        let t = i as f32 / steps as f32;
-        (from.0 + (to.0 - from.0) * t, from.1 + (to.1 - from.1) * t)
-    })
-    .collect()
+    (0..=steps)
+        .map(|i| {
+            let t = i as f32 / steps as f32;
+            (from.0 + (to.0 - from.0) * t, from.1 + (to.1 - from.1) * t)
+        })
+        .collect()
 }
 
 fn annots_on(st: AppState, page: usize) -> Vec<folitecta_core::Annotation> {
-    st.read_active(|t| t.doc.annotations(page).unwrap_or_default()).unwrap_or_default()
+    st.read_active(|t| t.doc.annotations(page).unwrap_or_default())
+        .unwrap_or_default()
 }
 
 /// Exercise the canvas tools with simulated input; returns the number of failures.
@@ -349,15 +369,35 @@ async fn interactions(st: AppState, log: &mut Vec<serde_json::Value>) -> usize {
     pause(300).await;
     let r = pointer_path(0, z, &line((58.0, 62.0), (300.0, 64.0), 8), false).await;
     pause(500).await;
-    let sel = st.read_active(|t| t.text_sel.map(|s| (s.page, s.range(), t.doc.text_range(s.page, s.range().0, s.range().1)))).flatten();
-    record("select text by dragging", sel.as_ref().map(|(p, (a, b), _)| *p == 0 && b > a).unwrap_or(false), format!("{r}; {sel:?}"));
+    let sel = st
+        .read_active(|t| {
+            t.text_sel.map(|s| {
+                (
+                    s.page,
+                    s.range(),
+                    t.doc.text_range(s.page, s.range().0, s.range().1),
+                )
+            })
+        })
+        .flatten();
+    record(
+        "select text by dragging",
+        sel.as_ref()
+            .map(|(p, (a, b), _)| *p == 0 && b > a)
+            .unwrap_or(false),
+        format!("{r}; {sel:?}"),
+    );
 
     // 2. Highlight the selection from the floating toolbar command.
     let before = annots_on(st, 0).len();
     crate::commands::dispatch(st, "textsel.addHighlight");
     pause(500).await;
     let after = annots_on(st, 0);
-    record("highlight selected text", after.len() == before + 1 && after.last().map(|a| a.subtype == "Highlight").unwrap_or(false), format!("{before} -> {}", after.len()));
+    record(
+        "highlight selected text",
+        after.len() == before + 1 && after.last().map(|a| a.subtype == "Highlight").unwrap_or(false),
+        format!("{before} -> {}", after.len()),
+    );
 
     // 3. Draw a rectangle.
     st.set_tool(Tool::Rect);
@@ -367,7 +407,11 @@ async fn interactions(st: AppState, log: &mut Vec<serde_json::Value>) -> usize {
     pause(600).await;
     let after = annots_on(st, 0);
     let rect_ok = after.len() == before + 1 && after.last().map(|a| a.subtype == "Square").unwrap_or(false);
-    record("draw a rectangle", rect_ok, format!("{r}; {before} -> {}; tool now {:?}", after.len(), (st.tool)()));
+    record(
+        "draw a rectangle",
+        rect_ok,
+        format!("{r}; {before} -> {}; tool now {:?}", after.len(), (st.tool)()),
+    );
 
     // 4. Move it with the comment editing tool.
     st.set_tool(Tool::EditAnnots);
@@ -378,9 +422,18 @@ async fn interactions(st: AppState, log: &mut Vec<serde_json::Value>) -> usize {
         let c = ((d[0] + d[2]) / 2.0, (d[1] + d[3]) / 2.0);
         let r = pointer_path(0, z, &line(c, (c.0 + 40.0, c.1 + 30.0), 6), true).await;
         pause(600).await;
-        let moved = annots_on(st, 0).into_iter().find(|x| x.index == a.index).map(|x| folitecta_core::marks::pdf_rect_to_display(&size, x.rect));
-        let ok = moved.map(|m| ((m[0] - d[0]) - 40.0).abs() < 1.5 && ((m[1] - d[1]) - 30.0).abs() < 1.5).unwrap_or(false);
-        record("move a comment by dragging", ok, format!("{r}; before {d:?} after {moved:?}"));
+        let moved = annots_on(st, 0)
+            .into_iter()
+            .find(|x| x.index == a.index)
+            .map(|x| folitecta_core::marks::pdf_rect_to_display(&size, x.rect));
+        let ok = moved
+            .map(|m| ((m[0] - d[0]) - 40.0).abs() < 1.5 && ((m[1] - d[1]) - 30.0).abs() < 1.5)
+            .unwrap_or(false);
+        record(
+            "move a comment by dragging",
+            ok,
+            format!("{r}; before {d:?} after {moved:?}"),
+        );
 
         // 5. Resize it from the bottom-right handle.
         let selected = st.read_active(|t| t.selected_annot).flatten();
@@ -388,29 +441,59 @@ async fn interactions(st: AppState, log: &mut Vec<serde_json::Value>) -> usize {
             let corner = (m[2], m[3]);
             let r = pointer_path(0, z, &line(corner, (corner.0 + 30.0, corner.1 + 20.0), 5), true).await;
             pause(600).await;
-            let resized = annots_on(st, 0).into_iter().find(|x| x.index == a.index).map(|x| folitecta_core::marks::pdf_rect_to_display(&size, x.rect));
-            let ok = resized.map(|n| ((n[2] - n[0]) - (m[2] - m[0]) - 30.0).abs() < 1.5 && ((n[3] - n[1]) - (m[3] - m[1]) - 20.0).abs() < 1.5).unwrap_or(false);
-            record("resize a comment with a handle", ok, format!("{r}; selected {selected:?}; before {m:?} after {resized:?}"));
+            let resized = annots_on(st, 0)
+                .into_iter()
+                .find(|x| x.index == a.index)
+                .map(|x| folitecta_core::marks::pdf_rect_to_display(&size, x.rect));
+            let ok = resized
+                .map(|n| {
+                    ((n[2] - n[0]) - (m[2] - m[0]) - 30.0).abs() < 1.5
+                        && ((n[3] - n[1]) - (m[3] - m[1]) - 20.0).abs() < 1.5
+                })
+                .unwrap_or(false);
+            record(
+                "resize a comment with a handle",
+                ok,
+                format!("{r}; selected {selected:?}; before {m:?} after {resized:?}"),
+            );
         }
 
         // 6. Nudge with the keyboard, then delete with the Delete key.
         st.with_active(|t| t.selected_annot = Some((0, a.index)));
-        let before_rect = annots_on(st, 0).into_iter().find(|x| x.index == a.index).map(|x| x.rect);
+        let before_rect = annots_on(st, 0)
+            .into_iter()
+            .find(|x| x.index == a.index)
+            .map(|x| x.rect);
         let _ = document::eval("document.querySelector('.app').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true }));").await;
         pause(500).await;
-        let after_rect = annots_on(st, 0).into_iter().find(|x| x.index == a.index).map(|x| x.rect);
+        let after_rect = annots_on(st, 0)
+            .into_iter()
+            .find(|x| x.index == a.index)
+            .map(|x| x.rect);
         let ok = match (before_rect, after_rect) {
             (Some(b), Some(n)) => ((n[0] - b[0]) - 10.0).abs() < 0.6,
             _ => false,
         };
-        record("nudge the selected comment with Shift+Right", ok, format!("{before_rect:?} -> {after_rect:?}"));
+        record(
+            "nudge the selected comment with Shift+Right",
+            ok,
+            format!("{before_rect:?} -> {after_rect:?}"),
+        );
         let before = annots_on(st, 0).len();
         st.with_active(|t| t.selected_annot = Some((0, a.index)));
         let _ = document::eval("document.querySelector('.app').dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));").await;
         pause(500).await;
-        record("delete the selected comment with the Delete key", annots_on(st, 0).len() + 1 == before, format!("{before} -> {}", annots_on(st, 0).len()));
+        record(
+            "delete the selected comment with the Delete key",
+            annots_on(st, 0).len() + 1 == before,
+            format!("{before} -> {}", annots_on(st, 0).len()),
+        );
     } else {
-        record("move a comment by dragging", false, "no annotation to move".into());
+        record(
+            "move a comment by dragging",
+            false,
+            "no annotation to move".into(),
+        );
     }
 
     // 7. Stamp with a single click.
@@ -422,17 +505,27 @@ async fn interactions(st: AppState, log: &mut Vec<serde_json::Value>) -> usize {
     let r = pointer_path(0, z, &[(300.0, 500.0), (300.0, 500.0)], false).await;
     pause(600).await;
     let after = annots_on(st, 0);
-    record("place a stamp with a click", after.len() == before + 1 && after.last().map(|a| a.subtype == "Stamp").unwrap_or(false), format!("{r}; {before} -> {}", after.len()));
+    record(
+        "place a stamp with a click",
+        after.len() == before + 1 && after.last().map(|a| a.subtype == "Stamp").unwrap_or(false),
+        format!("{r}; {before} -> {}", after.len()),
+    );
 
     // 8. Freehand ink.
     st.set_tool(Tool::Ink);
     pause(300).await;
     let before = annots_on(st, 0).len();
-    let wave: Vec<(f32, f32)> = (0..20).map(|i| (120.0 + i as f32 * 8.0, 600.0 + ((i as f32) * 0.8).sin() * 20.0)).collect();
+    let wave: Vec<(f32, f32)> = (0..20)
+        .map(|i| (120.0 + i as f32 * 8.0, 600.0 + ((i as f32) * 0.8).sin() * 20.0))
+        .collect();
     let r = pointer_path(0, z, &wave, false).await;
     pause(600).await;
     let after = annots_on(st, 0);
-    record("draw with the pencil", after.len() == before + 1 && after.last().map(|a| a.subtype == "Ink").unwrap_or(false), format!("{r}; {before} -> {}", after.len()));
+    record(
+        "draw with the pencil",
+        after.len() == before + 1 && after.last().map(|a| a.subtype == "Ink").unwrap_or(false),
+        format!("{r}; {before} -> {}", after.len()),
+    );
 
     // 9. Sticky note opens its dialog.
     st.set_tool(Tool::Note);
@@ -440,7 +533,11 @@ async fn interactions(st: AppState, log: &mut Vec<serde_json::Value>) -> usize {
     let _ = pointer_path(0, z, &[(400.0, 200.0), (400.0, 200.0)], false).await;
     pause(500).await;
     let dialog = (st.dialog)();
-    record("sticky note tool opens the note dialog", matches!(dialog, Dialog::Note { page: 0, .. }), format!("{dialog:?}"));
+    record(
+        "sticky note tool opens the note dialog",
+        matches!(dialog, Dialog::Note { page: 0, .. }),
+        format!("{dialog:?}"),
+    );
     st.set_dialog(Dialog::None);
 
     // 10. Text highlight tool marks text directly.
@@ -450,7 +547,11 @@ async fn interactions(st: AppState, log: &mut Vec<serde_json::Value>) -> usize {
     let _ = pointer_path(0, z, &line((58.0, 120.0), (250.0, 122.0), 6), false).await;
     pause(700).await;
     let after = annots_on(st, 0);
-    record("highlight text tool", after.len() == before + 1 && after.last().map(|a| a.subtype == "Highlight").unwrap_or(false), format!("{before} -> {}", after.len()));
+    record(
+        "highlight text tool",
+        after.len() == before + 1 && after.last().map(|a| a.subtype == "Highlight").unwrap_or(false),
+        format!("{before} -> {}", after.len()),
+    );
 
     // 11. Snapshot copies an area to the clipboard.
     st.set_tool(Tool::Snapshot);
@@ -458,7 +559,11 @@ async fn interactions(st: AppState, log: &mut Vec<serde_json::Value>) -> usize {
     let _ = pointer_path(0, z, &line((50.0, 50.0), (250.0, 150.0), 4), false).await;
     pause(900).await;
     let png = crate::clipboard::get_png();
-    record("snapshot tool copies an image", png.as_ref().map(|p| p.len() > 100).unwrap_or(false), format!("{} bytes", png.map(|p| p.len()).unwrap_or(0)));
+    record(
+        "snapshot tool copies an image",
+        png.as_ref().map(|p| p.len() > 100).unwrap_or(false),
+        format!("{} bytes", png.map(|p| p.len()).unwrap_or(0)),
+    );
 
     // 12. Undo everything added above.
     st.set_tool(Tool::Hand);
@@ -474,6 +579,21 @@ async fn interactions(st: AppState, log: &mut Vec<serde_json::Value>) -> usize {
 pub async fn run(st: AppState, cfg: SelfTestConfig) {
     let dir = cfg.dir.clone();
     let _ = std::fs::create_dir_all(&dir);
+    let mut log: Vec<serde_json::Value> = Vec::new();
+    let mut total = 0;
+    // FOLITECTA_SELFTEST_ONLY=print runs only the print step (for debugging).
+    let full = std::env::var("FOLITECTA_SELFTEST_ONLY").is_err();
+    // Welcome screen (no document) at the smallest and a large size.
+    pause(1500).await;
+    for (w, h) in if full {
+        vec![(960.0, 620.0), (1920.0, 1080.0)]
+    } else {
+        Vec::new()
+    } {
+        set_size(w, h);
+        pause(900).await;
+        total += check(st, &dir, &format!("{}x{}-welcome", w as u32, h as u32), &mut log).await;
+    }
     match sample_document() {
         Ok(doc) => {
             let id = st.alloc_id();
@@ -484,8 +604,47 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
         Err(e) => eprintln!("sample document: {e}"),
     }
     pause(2500).await;
-    let mut log: Vec<serde_json::Value> = Vec::new();
-    let mut total = interactions(st, &mut log).await;
+    if full {
+        total += full_suite(st, &dir, &mut log).await;
+    }
+    // Printed layout of the first pages (emulated on screen; the system dialog is modal).
+    set_size(1280.0, 800.0);
+    pause(800).await;
+    let pages: Vec<crate::state::PrintPage> = st
+        .read_active(|t| {
+            (0..3.min(t.doc.page_count()))
+                .map(|p| (t.id, p, t.revision))
+                .collect()
+        })
+        .unwrap_or_default();
+    let ready = crate::files::prepare_print(st, pages, 100.0, true, true).await;
+    let _ = document::eval("document.documentElement.classList.add('emulate-print'); window.scrollTo(0, 0);")
+        .await;
+    pause(800).await;
+    let shot = dir.join("print-layout.png");
+    let capture = capture_window(&shot);
+    let _ = document::eval("document.documentElement.classList.remove('emulate-print');").await;
+    let pass = ready == 3 && capture.is_ok();
+    if !pass {
+        total += 1;
+    }
+    log.push(serde_json::json!({ "interaction": "print layout with 3 rendered pages", "pass": pass, "detail": format!("{ready} pages ready"), "screenshot": shot.display().to_string(), "capture": capture.err() }));
+    let report = serde_json::json!({ "total_problems": total, "states": log });
+    let _ = std::fs::write(
+        dir.join("report.json"),
+        serde_json::to_string_pretty(&report).unwrap_or_default(),
+    );
+    println!(
+        "ui self-test finished: {total} problem(s); report in {}",
+        dir.display()
+    );
+    std::process::exit(if total == 0 { 0 } else { 3 });
+}
+
+/// Every layout state and interaction check; returns the number of problems.
+async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_json::Value>) -> usize {
+    let dir = dir.to_path_buf();
+    let mut total = interactions(st, log).await;
     let sizes: [(f64, f64); 4] = [(960.0, 620.0), (1280.0, 800.0), (1600.0, 900.0), (1920.0, 1080.0)];
     let tabs = [
         "home", "view", "comment", "protect", "form", "organize", "convert", "share", "review", "acc", "help",
@@ -496,12 +655,12 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
         let tag = format!("{}x{}", w as u32, h as u32);
         for tab in tabs {
             st.set_ribbon_tab(tab.to_string());
-            total += check(st, &dir, &format!("{tag}-tab-{tab}"), &mut log).await;
+            total += check(st, &dir, &format!("{tag}-tab-{tab}"), log).await;
         }
         st.set_ribbon_tab("home".into());
         // Both side panes open.
         st.ui_mut().show_right_pane = true;
-        total += check(st, &dir, &format!("{tag}-both-panes"), &mut log).await;
+        total += check(st, &dir, &format!("{tag}-both-panes"), log).await;
         st.ui_mut().show_right_pane = false;
         // Search results and text selection.
         st.ui_mut().left_pane = "search".into();
@@ -514,21 +673,33 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
                 head: 60,
             })
         });
-        total += check(st, &dir, &format!("{tag}-search-select"), &mut log).await;
+        total += check(st, &dir, &format!("{tag}-search-select"), log).await;
         st.with_active(|t| t.text_sel = None);
         st.set_tool(Tool::Hand);
         // Comments pane, rulers and grid.
         st.ui_mut().left_pane = "comments".into();
         st.set_option("view.showRulers", true);
         st.set_option("view.showGrid", true);
-        total += check(st, &dir, &format!("{tag}-comments-rulers"), &mut log).await;
+        total += check(st, &dir, &format!("{tag}-comments-rulers"), log).await;
         st.set_option("view.showRulers", false);
         st.set_option("view.showGrid", false);
         st.ui_mut().left_pane = "thumbnails".into();
-        // A menu and a ribbon dropdown.
-        st.set_open_menu(Some("document".into()));
-        total += check(st, &dir, &format!("{tag}-menu-document"), &mut log).await;
-        st.set_open_menu(None);
+        // A menu with a submenu opened on its first entry that has children,
+        // and a ribbon overflow dropdown near the right edge.
+        st.set_open_menu(Some("help".into()));
+        pause(400).await;
+        let _ = document::eval(
+            "const it = [...document.querySelectorAll('.menu-dropdown .menu-item')].find(e => e.querySelector('.chev')); if (it) { const r = it.getBoundingClientRect(); it.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, clientX: r.left + 20, clientY: r.top + 8 })); it.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false, clientX: r.left + 20, clientY: r.top + 8 })); it.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.left + 20, clientY: r.top + 8 })); }",
+        )
+        .await;
+        total += check(st, &dir, &format!("{tag}-menu-help-submenu"), log).await;
+        st.close_menus();
+        let _ = document::eval(
+            "const b = [...document.querySelectorAll('.ribbon-body .rbtn.has-menu')].pop(); if (b) { const r = b.getBoundingClientRect(); b.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.left + 5, clientY: r.top + 5 })); }",
+        )
+        .await;
+        total += check(st, &dir, &format!("{tag}-ribbon-dropdown"), log).await;
+        st.close_menus();
     }
     // Dialogs, languages, themes and the classic interface at the smallest size.
     set_size(960.0, 620.0);
@@ -548,33 +719,24 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
     for lang in [crate::i18n::Lang::It, crate::i18n::Lang::En] {
         st.ui_mut().lang = lang;
         let code = lang.code();
-        total += check(st, &dir, &format!("960x620-{code}-home"), &mut log).await;
+        total += check(st, &dir, &format!("960x620-{code}-home"), log).await;
         for (name, d) in dialogs.iter() {
             st.set_dialog(d.clone());
-            total += check(st, &dir, &format!("960x620-{code}-dialog-{name}"), &mut log).await;
+            total += check(st, &dir, &format!("960x620-{code}-dialog-{name}"), log).await;
         }
         st.set_dialog(Dialog::None);
     }
     st.ui_mut().theme = Theme::Dark;
-    total += check(st, &dir, "960x620-dark", &mut log).await;
+    total += check(st, &dir, "960x620-dark", log).await;
     st.ui_mut().theme = Theme::Light;
     st.ui_mut().ribbon = false;
-    total += check(st, &dir, "960x620-classic", &mut log).await;
+    total += check(st, &dir, "960x620-classic", log).await;
     st.ui_mut().ribbon = true;
     // Window resize back and forth must keep the layout consistent.
     for (w, h) in [(1500.0, 950.0), (1000.0, 700.0), (1366.0, 768.0)] {
         set_size(w, h);
         pause(900).await;
-        total += check(st, &dir, &format!("resize-{}x{}", w as u32, h as u32), &mut log).await;
+        total += check(st, &dir, &format!("resize-{}x{}", w as u32, h as u32), log).await;
     }
-    let report = serde_json::json!({ "total_problems": total, "states": log });
-    let _ = std::fs::write(
-        dir.join("report.json"),
-        serde_json::to_string_pretty(&report).unwrap_or_default(),
-    );
-    println!(
-        "ui self-test finished: {total} problem(s); report in {}",
-        dir.display()
-    );
-    std::process::exit(if total == 0 { 0 } else { 3 });
+    total
 }

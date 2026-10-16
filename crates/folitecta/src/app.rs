@@ -320,6 +320,7 @@ pub fn App() -> Element {
             ui::palette::Palette {}
             ui::toasts::Toasts {}
         }
+        ui::dialogs::PrintView {}
     }
 }
 

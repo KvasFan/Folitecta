@@ -559,10 +559,27 @@ pub enum Dialog {
     Transitions,
     ReplacePages(PathBuf),
     OverlayFile(PathBuf),
+    /// Print the active document (`false`) or every open document (`true`).
+    Print(bool),
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.
 pub type LoupePos = (usize, f32, f32, f64, f64);
+
+/// One printed page: tab id, page index, document revision.
+pub type PrintPage = (u64, usize, u64);
+
+/// Pages being printed through the hidden print view.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PrintJob {
+    pub pages: Vec<PrintPage>,
+    /// Render scale in thousandths (1000 = 72 dpi).
+    pub scale_milli: u32,
+    pub annotations: bool,
+    /// Scale each page to the paper; otherwise print at actual size.
+    pub fit: bool,
+    pub id: u64,
+}
 
 /// All reactive state, cheap to copy into closures.
 #[derive(Clone, Copy)]
@@ -597,6 +614,8 @@ pub struct AppState {
     pub loupe: Signal<Option<LoupePos>>,
     /// Pointer position over a page for the status bar: (page, x, y) in display points.
     pub pointer: Signal<Option<(usize, f32, f32)>>,
+    /// Pages currently laid out for printing.
+    pub print_job: Signal<Option<PrintJob>>,
 }
 
 impl AppState {
@@ -626,7 +645,12 @@ impl AppState {
             pending_image: use_signal(|| None),
             loupe: use_signal(|| None),
             pointer: use_signal(|| None),
+            print_job: use_signal(|| None),
         }
+    }
+
+    pub fn set_print_job(&self, v: Option<PrintJob>) {
+        *self.print_job.write_unchecked() = v;
     }
 
     pub fn set_clip(&self, v: Option<Clip>) {

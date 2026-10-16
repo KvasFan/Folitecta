@@ -1,12 +1,12 @@
 # Folitecta feature matrix
 
-Generated from the command registry for version 0.0.1. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
+Generated from the command registry for version 0.0.2. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
 
 | Status | Count |
 |---|---:|
-| ✅ available | 190 |
-| 🟡 partial | 13 |
-| ⬜ planned | 1774 |
+| ✅ available | 327 |
+| 🟡 partial | 6 |
+| ⬜ planned | 1644 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked.
@@ -21,16 +21,16 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 |---|---|---|
 | Continuous Zoom | `tool.zoomDyn` | ⬜ planned |
 | Hand Tool | `tool.hand` | ✅ available |
-| ↳ Selection Text Images | `tool.hand.selTextImages` | ⬜ planned |
-| Loupe Tool | `tool.loupe` | ⬜ planned |
+| ↳ Selection Text Images | `tool.hand.selTextImages` | ✅ available |
+| Loupe Tool | `tool.loupe` | ✅ available |
 | ↳ Track Mouse | `tool.loupe.trackMouse` | ⬜ planned |
 | Other Tools | `comment.otherToolsGroup` | ⬜ planned |
 | Other Tools | `otherToolsGroup` | ⬜ planned |
 | Pan and Zoom Tool | `tool.panZoom` | ⬜ planned |
 | Place Annotation | `tool.selAnnotPlace` | ⬜ planned |
-| Select Text | `tool.selectText` | 🟡 partial |
-| ↳ Copy as Rich | `tool.selectText.copyAsRich` | ⬜ planned |
-| Snapshot Tool | `tool.snapshot` | 🟡 partial |
+| Select Text | `tool.selectText` | ✅ available |
+| ↳ Copy as Rich | `tool.selectText.copyAsRich` | ✅ available |
+| Snapshot Tool | `tool.snapshot` | ✅ available |
 | Tools | `tools` | ⬜ planned |
 | ↳ Basic Tools | `tools.basic` | ⬜ planned |
 | ↳ Comment and Markup Tools | `tools.markup` | ⬜ planned |
@@ -65,15 +65,15 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Copy | `copy` | ⬜ planned |
-| Cut | `cut` | ⬜ planned |
+| Copy | `copy` | ✅ available |
+| Cut | `cut` | ✅ available |
 | Delete | `delete` | ✅ available |
 | Find and Replace… | `findAndRepl` | ⬜ planned |
 | Find… | `find` | ✅ available |
 | ↳ Annotate Results | `find.annotateResults` | ⬜ planned |
-| ↳ Edit… | `find.edit` | ⬜ planned |
-| Paste | `paste` | ⬜ planned |
-| Paste Options | `pasteSpecial` | ⬜ planned |
+| ↳ Edit… | `find.edit` | ✅ available |
+| Paste | `paste` | ✅ available |
+| Paste Options | `pasteSpecial` | ✅ available |
 | Redo | `redo` | ✅ available |
 | Select All | `selectAll` | ✅ available |
 | Undo | `undo` | ✅ available |
@@ -83,9 +83,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Command | Id | Status |
 |---|---|---|
 | Add Barcode | `tool.selBarcodePlace` | ⬜ planned |
-| Add Image… | `document.addImage` | ⬜ planned |
-| Add Image… | `tool.selImagePlace` | ⬜ planned |
-| Add Text | `tool.addText` | ⬜ planned |
+| Add Image… | `document.addImage` | ✅ available |
+| Add Image… | `tool.selImagePlace` | ✅ available |
+| Add Text | `tool.addText` | ✅ available |
 | Edit Content | `tool.editContent` | ⬜ planned |
 | ↳ All | `tool.editContent.all` | ⬜ planned |
 | ↳ Images | `tool.editContent.images` | ⬜ planned |
@@ -101,15 +101,15 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Add Sticky Note | `addStickyNote` | ✅ available |
 | Arrow | `tool.annot.arrow` | ✅ available |
 | Ellipse | `tool.annot.circle` | ✅ available |
-| Highlight Text | `tool.annot.highlight` | ⬜ planned |
+| Highlight Text | `tool.annot.highlight` | ✅ available |
 | Pencil | `tool.annot.pencil` | ✅ available |
 | Rectangle | `tool.annot.square` | ✅ available |
-| Stamp | `tool.annot.stamp` | ⬜ planned |
+| Stamp | `tool.annot.stamp` | ✅ available |
 | Sticky Note | `tool.annot.stickyNote` | ✅ available |
-| Strikeout Text | `tool.annot.strikeout` | ⬜ planned |
+| Strikeout Text | `tool.annot.strikeout` | ✅ available |
 | Text Box | `tool.annot.textBox` | ✅ available |
 | Typewriter | `tool.annot.typeWriter` | ✅ available |
-| Underline Text | `tool.annot.underline` | ⬜ planned |
+| Underline Text | `tool.annot.underline` | ✅ available |
 
 **Links**
 
@@ -122,16 +122,16 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Add Web Link… | `addLink.uri` | ✅ available |
 | Add/Edit Links | `tool.annot.editLink` | ✅ available |
 | Create Web Links from Barcodes | `createWebLinksFromBarcodes` | ⬜ planned |
-| Create Web Links from URLs | `createWebLinksFromText` | 🟡 partial |
+| Create Web Links from URLs | `createWebLinksFromText` | ✅ available |
 | Remove All Web Links | `removeAllWebLinks` | ✅ available |
 
 **Protect**
 
 | Command | Id | Status |
 |---|---|---|
-| Mark for Redaction | `tool.annot.redaction` | ⬜ planned |
+| Mark for Redaction | `tool.annot.redaction` | ✅ available |
 | Place Signature or Initials | `tool.sign.and.initials` | ⬜ planned |
-| Security Properties… | `document.security` | ⬜ planned |
+| Security Properties… | `document.security` | ✅ available |
 | Sign Document… | `document.signatures.sign` | ⬜ planned |
 
 ### View
@@ -140,7 +140,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Loupe | `view.loupe` | ⬜ planned |
+| Loupe | `view.loupe` | ✅ available |
 | Pan and Zoom | `view.panzoom` | ⬜ planned |
 
 **Go To**
@@ -153,11 +153,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Last Page | `view.goto.lastPage` | ✅ available |
 | ↳ Next Document | `view.goto.nextDocument` | ✅ available |
 | ↳ Next Page | `view.goto.nextPage` | ✅ available |
-| ↳ Next View | `view.goto.nextView` | ⬜ planned |
+| ↳ Next View | `view.goto.nextView` | ✅ available |
 | ↳ Page Number | `view.goto.pagesView` | ✅ available |
 | ↳ Previous Document | `view.goto.prevDocument` | ✅ available |
 | ↳ Previous Page | `view.goto.prevPage` | ✅ available |
-| ↳ Previous View | `view.goto.prevView` | ⬜ planned |
+| ↳ Previous View | `view.goto.prevView` | ✅ available |
 
 **Zoom**
 
@@ -178,28 +178,28 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Dark Page Mode | `view.darkPageMode` | ✅ available |
 | Exit Full Screen | `view.fullScreenExit` | ✅ available |
 | Full Screen | `view.fullScreen` | ✅ available |
-| Grid | `view.showGrid` | ⬜ planned |
-| Guides | `view.showGuides` | ⬜ planned |
-| Highlight Links | `view.highlightLinks` | ⬜ planned |
-| Invert Vertical Axis | `view.mathY` | ⬜ planned |
-| Override Document Colors | `view.overrideDocumentColors` | ⬜ planned |
+| Grid | `view.showGrid` | ✅ available |
+| Guides | `view.showGuides` | ✅ available |
+| Highlight Links | `view.highlightLinks` | ✅ available |
+| Invert Vertical Axis | `view.mathY` | ✅ available |
+| Override Document Colors | `view.overrideDocumentColors` | ✅ available |
 | Page | `view.pageNumber` | ⬜ planned |
 | Page Layout | `view.layout` | ⬜ planned |
 | ↳ Auto Scroll | `view.layout.autoScroll` | ⬜ planned |
 | ↳ Continuous | `view.layout.oneColumn` | ✅ available |
 | ↳ Horizontal Scrolling | `view.layout.ribbon` | ⬜ planned |
-| ↳ Right-to-Left Page Layout | `view.layout.r2l` | ⬜ planned |
-| ↳ Show Cover Page in Two-Page Mode | `view.layout.showCover` | ⬜ planned |
-| ↳ Show Gaps Between Pages | `view.layout.showGaps` | ⬜ planned |
+| ↳ Right-to-Left Page Layout | `view.layout.r2l` | ✅ available |
+| ↳ Show Cover Page in Two-Page Mode | `view.layout.showCover` | ✅ available |
+| ↳ Show Gaps Between Pages | `view.layout.showGaps` | ✅ available |
 | ↳ Single Page | `view.layout.onePage` | ✅ available |
 | ↳ Standard Layout | `view.layout.standard` | ✅ available |
 | ↳ Two Pages | `view.layout.twoPages` | ✅ available |
 | ↳ Two Pages Continuous | `view.layout.twoColumns` | ✅ available |
 | Page Layout | `view.pageLayoutTypesGroup` | ⬜ planned |
 | Page Size | `view.pageMeasureInfo` | ⬜ planned |
-| ↳ Coordinates | `view.pageMeasureInfo.XY` | ⬜ planned |
-| ↳ Units | `view.pageMeasureInfo.units` | ⬜ planned |
-| ↳ Width/Height | `view.pageMeasureInfo.WH` | ⬜ planned |
+| ↳ Coordinates | `view.pageMeasureInfo.XY` | ✅ available |
+| ↳ Units | `view.pageMeasureInfo.units` | ✅ available |
+| ↳ Width/Height | `view.pageMeasureInfo.WH` | ✅ available |
 | Page Size Popup | `view.showPageSizePopup` | ⬜ planned |
 | Rotate View | `view.rotate` | ⬜ planned |
 | ↳ Reset Rotation | `view.rotate.reset` | ✅ available |
@@ -207,24 +207,24 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Rotate Counterclockwise | `view.rotate.CCW` | ✅ available |
 | Rotate View | `view.rotateViewGroup` | ⬜ planned |
 | Rulers | `rulers` | ⬜ planned |
-| ↳ Add New Guides | `rulers.addNewGuides` | ⬜ planned |
-| ↳ Delete All Guides | `rulers.deleteAllGuides` | ⬜ planned |
-| ↳ Delete Guides on Current Page | `rulers.deleteGuidesOnCurrentPage` | ⬜ planned |
+| ↳ Add New Guides | `rulers.addNewGuides` | ✅ available |
+| ↳ Delete All Guides | `rulers.deleteAllGuides` | ✅ available |
+| ↳ Delete Guides on Current Page | `rulers.deleteGuidesOnCurrentPage` | ✅ available |
 | ↳ Duplicate Guides | `rulers.duplicateGuides` | ⬜ planned |
 | ↳ Export Guides | `rulers.exportGuides` | ⬜ planned |
 | ↳ Import Guides | `rulers.importGuides` | ⬜ planned |
 | ↳ Units | `rulers.units` | ⬜ planned |
-| Rulers | `view.showRulers` | ⬜ planned |
+| Rulers | `view.showRulers` | ✅ available |
 | Show | `view.show` | ⬜ planned |
-| Show Page Size | `view.showPageMeasureInfo` | ⬜ planned |
-| Snap | `view.snap` | ⬜ planned |
+| Show Page Size | `view.showPageMeasureInfo` | ✅ available |
+| Snap | `view.snap` | ✅ available |
 | ↳ Settings | `view.snap.settings` | ⬜ planned |
-| ↳ To Grid | `view.snap.toGrid` | ⬜ planned |
-| ↳ To Guides | `view.snap.toGuides` | ⬜ planned |
+| ↳ To Grid | `view.snap.toGrid` | ✅ available |
+| ↳ To Guides | `view.snap.toGuides` | ✅ available |
 | ↳ To Objects | `view.snap.toObjects` | ⬜ planned |
 | Snap | `view.snapGroup` | ⬜ planned |
 | Thin Lines | `view.thinLines` | ⬜ planned |
-| Transparency Grid | `view.showTranspGrid` | ⬜ planned |
+| Transparency Grid | `view.showTranspGrid` | ✅ available |
 
 **Window**
 
@@ -242,7 +242,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Content | `view.content` | ⬜ planned |
 | Content Editing | `view.toolbar.contentEditing` | ⬜ planned |
 | Customize Toolbars… | `view.toolbar.customize` | ⬜ planned |
-| Document Info Bar | `view.docInfoBar` | ⬜ planned |
+| Document Info Bar | `view.docInfoBar` | ✅ available |
 | Document Options | `view.toolbar.docOptions` | ⬜ planned |
 | Document Recovery | `view.recovery` | ⬜ planned |
 | Document Tabs | `view.docTabsGroup` | ⬜ planned |
@@ -313,7 +313,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | UI Options | `view.uiOptions` | ✅ available |
 | UI Theme | `view.theme` | ⬜ planned |
 | ↳ Black Theme | `view.theme.black` | ✅ available |
-| ↳ Customize Theme… | `view.theme.customize` | ⬜ planned |
+| ↳ Customize Theme… | `view.theme.customize` | ✅ available |
 | ↳ Dark Gray Theme | `view.theme.darkGray` | ✅ available |
 | ↳ Default Theme | `view.theme.default` | ✅ available |
 | ↳ Light Theme | `view.theme.white` | ✅ available |
@@ -328,7 +328,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Move Tab To | `window.moveTabTo` | ⬜ planned |
 | ↳ Move Tabs… | `window.moveTabsTo` | ⬜ planned |
 | ↳ Move to New Window | `window.activeDocToNewWindow` | ⬜ planned |
-| ↳ New Blank Window | `window.newBlank` | ⬜ planned |
+| ↳ New Blank Window | `window.newBlank` | ✅ available |
 | ↳ New Document Tab | `window.new` | ✅ available |
 | ↳ New Horizontal Tab Group | `window.activeDocToNewHorzTabGroup` | ⬜ planned |
 | ↳ New Vertical Tab Group | `window.activeDocToNewVertTabGroup` | ⬜ planned |
@@ -366,19 +366,19 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Add Highlight | `textsel.addHighlight` | ⬜ planned |
+| Add Highlight | `textsel.addHighlight` | ✅ available |
 | Add Insert Text Note | `textsel.addInsertTextNote` | ⬜ planned |
 | Add Replace Text Note | `textsel.addReplaceTextNote` | ⬜ planned |
-| Add Strikeout | `textsel.addStrikeout` | ⬜ planned |
-| Add Underline | `textsel.addUnderline` | ⬜ planned |
+| Add Strikeout | `textsel.addStrikeout` | ✅ available |
+| Add Underline | `textsel.addUnderline` | ✅ available |
 | Comment | `textsel.comment` | ⬜ planned |
-| Highlight | `addAnnotBySelect.highlight` | ⬜ planned |
+| Highlight | `addAnnotBySelect.highlight` | ✅ available |
 | Insert Text | `tool.annot.insertText` | ⬜ planned |
-| Redaction | `addAnnotBySelect.redaction` | ⬜ planned |
+| Redaction | `addAnnotBySelect.redaction` | ✅ available |
 | Replace Text | `tool.annot.replaceText` | ⬜ planned |
-| Strikeout | `addAnnotBySelect.strikeout` | ⬜ planned |
+| Strikeout | `addAnnotBySelect.strikeout` | ✅ available |
 | Text Correction | `tool.textCorrectionMarkup` | ⬜ planned |
-| Underline | `addAnnotBySelect.underline` | ⬜ planned |
+| Underline | `addAnnotBySelect.underline` | ✅ available |
 
 **Drawing**
 
@@ -433,9 +433,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Delete Comments | `comments.deleteGroup` | ⬜ planned |
 | Delete Selected Comments | `comments.deleteSel` | ✅ available |
 | Export Comments to Data File… | `comments.export` | 🟡 partial |
-| Flatten Comments | `comments.flattenGroup` | ⬜ planned |
-| Flatten Comments… | `comments.flatten` | ⬜ planned |
-| Flatten Selected | `comments.flattenSel` | ⬜ planned |
+| Flatten Comments | `comments.flattenGroup` | ✅ available |
+| Flatten Comments… | `comments.flatten` | ✅ available |
+| Flatten Selected | `comments.flattenSel` | ✅ available |
 | Hide All Comments | `comments.hideAll` | ✅ available |
 | Import Comments… | `comments.import` | ⬜ planned |
 | Next Comment | `comments.next` | ✅ available |
@@ -449,7 +449,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ By Status | `comments.show.status` | ⬜ planned |
 | ↳ By Type | `comments.show.byType` | ⬜ planned |
 | ↳ Popups | `comments.show.popups` | ⬜ planned |
-| Show/Hide All Comments | `comments.showhideAll` | ⬜ planned |
+| Show/Hide All Comments | `comments.showhideAll` | ✅ available |
 | Summarize Comments… | `comments.summarize` | 🟡 partial |
 | Tool Styles List | `toolStylesList` | ⬜ planned |
 
@@ -580,16 +580,16 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Apply All Redactions | `document.applyRedactions` | ⬜ planned |
-| Apply Selected Redactions | `annots.applyRedactions` | ⬜ planned |
+| Apply All Redactions | `document.applyRedactions` | ✅ available |
+| Apply Selected Redactions | `annots.applyRedactions` | ✅ available |
 | Overlay | `overlay` | ⬜ planned |
 | ↳ Fill Color | `overlay.fcolor` | ⬜ planned |
 | ↳ Font Name | `overlay.fontName` | ⬜ planned |
 | ↳ Font Size | `overlay.fontSize` | ⬜ planned |
 | ↳ Repeat Text | `overlay.repeatText` | ⬜ planned |
 | ↳ Text Color | `overlay.textColor` | ⬜ planned |
-| Redaction | `addAnnotsByFindResult.redaction` | ⬜ planned |
-| Redaction | `addAnnotsBySearchResult.redaction` | ⬜ planned |
+| Redaction | `addAnnotsByFindResult.redaction` | ✅ available |
+| Redaction | `addAnnotsBySearchResult.redaction` | ✅ available |
 | Redaction | `document.redaction` | ⬜ planned |
 | Redaction | `redaction` | ⬜ planned |
 | ↳ Add Code | `redaction.addTextCode` | ⬜ planned |
@@ -606,7 +606,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Options | `cryptAlterBar.opts` | ⬜ planned |
 | Public Key Security | `pubsec` | ⬜ planned |
 | ↳ Cert | `pubsec.cert` | ⬜ planned |
-| Save Unrestricted Copy… | `saveUnrestricted` | ⬜ planned |
+| Save Unrestricted Copy… | `saveUnrestricted` | ✅ available |
 | Security Policies | `secPoliciesList` | ⬜ planned |
 | ↳ Add | `secPoliciesList.add` | ⬜ planned |
 | ↳ Clone… | `secPoliciesList.clone` | ⬜ planned |
@@ -616,20 +616,20 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Import… | `secPoliciesList.import` | ⬜ planned |
 | ↳ Rename… | `secPoliciesList.rename` | ⬜ planned |
 | Security Policies | `securityPolicies` | ⬜ planned |
-| Standard Security Policy… | `standardSecPolicy` | ⬜ planned |
+| Standard Security Policy… | `standardSecPolicy` | ✅ available |
 
-**DocuSign**
+**E-Signature**
 
 | Command | Id | Status |
 |---|---|---|
-| DocuSign | `docuSign` | ⬜ planned |
-| ↳ Change Account… | `docuSign.changeAccount` | ⬜ planned |
-| ↳ Create Envelope… | `docuSign.createEnvelope` | ⬜ planned |
-| ↳ Log in to DocuSign… | `docuSign.login` | ⬜ planned |
-| ↳ Log out of DocuSign | `docuSign.logout` | ⬜ planned |
-| DocuSign | `document.docuSign` | ⬜ planned |
-| ↳ Send with DocuSign | `document.docuSign.send` | ⬜ planned |
-| ↳ Sign with DocuSign | `document.docuSign.sign` | ⬜ planned |
+| E-Signature Service | `document.esign` | ⬜ planned |
+| ↳ Send for E-Signature | `document.esign.send` | ⬜ planned |
+| ↳ Sign with the E-Signature Service | `document.esign.sign` | ⬜ planned |
+| E-Signature Service | `esign` | ⬜ planned |
+| ↳ Change Account… | `esign.changeAccount` | ⬜ planned |
+| ↳ Create Envelope… | `esign.createEnvelope` | ⬜ planned |
+| ↳ Log In to the E-Signature Service… | `esign.login` | ⬜ planned |
+| ↳ Log Out of the E-Signature Service | `esign.logout` | ⬜ planned |
 
 ### Form
 
@@ -706,9 +706,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Document Actions | `docActions` | ⬜ planned |
 | ↳ Clear… | `docActions.clear` | ⬜ planned |
 | Document Actions | `document.actions` | ⬜ planned |
-| Document JavaScript | `document.javaScript` | ⬜ planned |
+| Document JavaScript | `document.javaScript` | ✅ available |
 | Java Script | `javaScript` | ⬜ planned |
-| ↳ Edit All | `javaScript.editAll` | ⬜ planned |
+| ↳ Edit All | `javaScript.editAll` | ✅ available |
 | JavaScript Console | `jsConsole` | ⬜ planned |
 | ↳ Clear… | `jsConsole.clear` | ⬜ planned |
 | ↳ Open Folder | `jsConsole.openFolder` | ⬜ planned |
@@ -740,19 +740,19 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Delete Pages… | `document.deletePages` | ✅ available |
 | Duplicate Pages… | `document.duplicatePages` | ✅ available |
 | Extract Pages… | `document.extractPages` | ✅ available |
-| Find Duplicate Pages | `document.findDuplicates` | ⬜ planned |
+| Find Duplicate Pages | `document.findDuplicates` | ✅ available |
 | Insert Blank Pages… | `document.insertEmptyPages` | ✅ available |
-| Insert Images… | `document.insertImages` | ⬜ planned |
-| Insert Pages from Clipboard… | `document.insertPagesFromClipboard` | ⬜ planned |
+| Insert Images… | `document.insertImages` | ✅ available |
+| Insert Pages from Clipboard… | `document.insertPagesFromClipboard` | ✅ available |
 | Insert Pages… | `document.insertPages` | ✅ available |
 | Insert Rich Text… | `document.insertRTF` | ⬜ planned |
 | Insert Scanned Pages… | `document.insertScannedPages` | ⬜ planned |
 | Insert Text… | `document.insertText` | ⬜ planned |
-| Merge Pages… | `document.mergePages` | 🟡 partial |
+| Merge Pages… | `document.mergePages` | ✅ available |
 | More Page Tools | `document.pagesMore` | ⬜ planned |
 | Move Pages… | `document.movePages` | ✅ available |
-| New Document from Selection… | `document.createNewDocFromSel` | ⬜ planned |
-| Replace Pages… | `document.replacePages` | ⬜ planned |
+| New Document from Selection… | `document.createNewDocFromSel` | ✅ available |
+| Replace Pages… | `document.replacePages` | ✅ available |
 | Reverse Page Order | `document.reversePageOrder` | ✅ available |
 | Select Pages | `selectPages` | ✅ available |
 | Split | `document.splitGroup` | ✅ available |
@@ -771,7 +771,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Zoom Out | `splitPages.zoomOut` | ⬜ planned |
 | ↳ Zoom in | `splitPages.zoomIn` | ⬜ planned |
 | Split Pages by Guides… | `document.splitPagesByGuides` | ⬜ planned |
-| Split Pages… | `document.splitPages` | ⬜ planned |
+| Split Pages… | `document.splitPages` | ✅ available |
 | Swap Pages… | `document.swapPages` | ✅ available |
 
 **Transform Pages**
@@ -788,14 +788,14 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Show Origin Anchor | `cropPage.showOriginAnchor` | ⬜ planned |
 | Crop Page Tool | `tool.cropPage` | ✅ available |
 | Crop Pages… | `document.cropPages` | ✅ available |
-| Crop to White Margins | `document.cropToWhiteMargins` | ⬜ planned |
-| ↳ Bottom | `document.cropToWhiteMargins.bottom` | ⬜ planned |
-| ↳ Left | `document.cropToWhiteMargins.left` | ⬜ planned |
-| ↳ Right | `document.cropToWhiteMargins.right` | ⬜ planned |
-| ↳ Top | `document.cropToWhiteMargins.top` | ⬜ planned |
-| Normalize Pages… | `document.normalizePages` | ⬜ planned |
-| Overlay Pages… | `document.overlayPages` | ⬜ planned |
-| Rasterize Pages… | `document.rasterizePages` | ⬜ planned |
+| Crop to White Margins | `document.cropToWhiteMargins` | ✅ available |
+| ↳ Bottom | `document.cropToWhiteMargins.bottom` | ✅ available |
+| ↳ Left | `document.cropToWhiteMargins.left` | ✅ available |
+| ↳ Right | `document.cropToWhiteMargins.right` | ✅ available |
+| ↳ Top | `document.cropToWhiteMargins.top` | ✅ available |
+| Normalize Pages… | `document.normalizePages` | ✅ available |
+| Overlay Pages… | `document.overlayPages` | ✅ available |
+| Rasterize Pages… | `document.rasterizePages` | ✅ available |
 | Remove Cropped Content | `document.removeCroppedContent` | ⬜ planned |
 | Resize Pages… | `document.resizePages` | ✅ available |
 | Rotate Pages… | `document.rotatePages` | ✅ available |
@@ -808,12 +808,12 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Background | `document.background` | ⬜ planned |
-| ↳ Add… | `document.background.add` | ⬜ planned |
-| ↳ Remove… | `document.background.remove` | ⬜ planned |
-| ↳ Update… | `document.background.update` | ⬜ planned |
+| Background | `document.background` | ✅ available |
+| ↳ Add… | `document.background.add` | ✅ available |
+| ↳ Remove… | `document.background.remove` | ✅ available |
+| ↳ Update… | `document.background.update` | ✅ available |
 | Bates Numbering | `document.batesNumbering` | ✅ available |
-| ↳ Add to Multiple Documents… | `document.batesNumbering.addMulti` | ⬜ planned |
+| ↳ Add to Multiple Documents… | `document.batesNumbering.addMulti` | ✅ available |
 | ↳ Add… | `document.batesNumbering.add` | ✅ available |
 | ↳ Manage… | `document.batesNumbering.manage` | ⬜ planned |
 | ↳ Remove All… | `document.batesNumbering.removeAll` | ✅ available |
@@ -860,14 +860,14 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ User | `macro.user` | ⬜ planned |
 | ↳ Year | `macro.year` | ⬜ planned |
 | Page Marks | `pagemarks` | ⬜ planned |
-| ↳ Add | `pagemarks.add` | ⬜ planned |
+| ↳ Add | `pagemarks.add` | ✅ available |
 | ↳ Edit… | `pagemarks.edit` | ⬜ planned |
 | ↳ Remove | `pagemarks.remove` | ⬜ planned |
 | ↳ Remove All | `pagemarks.removeAll` | ✅ available |
 | ↳ Zoom Out | `pagemarks.zoomOut` | ⬜ planned |
 | ↳ Zoom in | `pagemarks.zoomIn` | ⬜ planned |
 | Page Numbering… | `document.pageNumbering` | ✅ available |
-| Page Transitions | `document.pageTransitions` | ⬜ planned |
+| Page Transitions | `document.pageTransitions` | ✅ available |
 | Watermarks | `document.watermarks` | ✅ available |
 | ↳ Add… | `document.watermarks.add` | ✅ available |
 | ↳ Manage… | `document.watermarks.manage` | ⬜ planned |
@@ -880,17 +880,17 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Command | Id | Status |
 |---|---|---|
 | Blank Pages… | `newDocBlank` | ✅ available |
-| Combine Files into One PDF… | `newDocCombine` | 🟡 partial |
+| Combine Files into One PDF… | `newDocCombine` | ✅ available |
 | Configure Scan Presets… | `configureScanPresets` | ⬜ planned |
 | Custom Scan… | `newDocCustomScan` | ⬜ planned |
-| From Clipboard… | `newDocClipboard` | ⬜ planned |
+| From Clipboard… | `newDocClipboard` | ✅ available |
 | From Email… | `newDocEmail` | ⬜ planned |
-| From Files… | `newDocFromFiles` | 🟡 partial |
-| From Images… | `newDocImage` | ⬜ planned |
+| From Files… | `newDocFromFiles` | ✅ available |
+| From Images… | `newDocImage` | ✅ available |
 | From Rich Text… | `newDocRTF` | ⬜ planned |
 | From Scanner… | `newDocScanner` | ⬜ planned |
 | From Selection… | `newDocSelection` | ⬜ planned |
-| From Text… | `newDocText` | ⬜ planned |
+| From Text… | `newDocText` | ✅ available |
 | From Web Page… | `newDocHtml` | ⬜ planned |
 | New Document | `newDoc` | ✅ available |
 | PDF Portfolio… | `newPortfolio` | ⬜ planned |
@@ -1014,8 +1014,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Edit Custom… | `folderExts.editCustom` | ⬜ planned |
 | ↳ File List | `folderExts.fileList` | ⬜ planned |
 | ↳ Remove Custom… | `folderExts.removeCustom` | ⬜ planned |
-| Places List Open | `placesListOpen` | ⬜ planned |
-| Places List Save | `placesListSave` | ⬜ planned |
+| Places List Open | `placesListOpen` | ✅ available |
+| Places List Save | `placesListSave` | ✅ available |
 | Share | `shareGroup` | ⬜ planned |
 | WebDAV | `wdav` | ⬜ planned |
 | ↳ Columns | `wdav.columns` | ⬜ planned |
@@ -1158,9 +1158,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Reset Menu | `resetMenu` | ⬜ planned |
 | Reset Toolbar | `resetToolbar` | ⬜ planned |
 | Settings | `settings` | ✅ available |
-| ↳ Export Settings… | `settings.export` | ⬜ planned |
-| ↳ Import Settings… | `settings.import` | ⬜ planned |
-| ↳ Manage Settings… | `settings.manage` | ⬜ planned |
+| ↳ Export Settings… | `settings.export` | ✅ available |
+| ↳ Import Settings… | `settings.import` | ✅ available |
+| ↳ Manage Settings… | `settings.manage` | ✅ available |
 | ↳ Reset Settings… | `settings.reset` | ✅ available |
 | Show Quick Access Toolbar Above Ribbon | `QABarAbove` | ⬜ planned |
 | Show Quick Access Toolbar Below Ribbon | `QABarBelow` | ⬜ planned |
@@ -1210,10 +1210,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Export | `document.export` | ✅ available |
 | Email Document… | `sendByEmail` | 🟡 partial |
 | Share | `shareGroup` | ⬜ planned |
-| Print… | `print` | 🟡 partial |
-| Print All… | `printAll` | 🟡 partial |
+| Print… | `print` | ✅ available |
+| Print All… | `printAll` | ✅ available |
 | Document Properties… | `docProps` | ✅ available |
-| Security Properties… | `document.security` | ⬜ planned |
+| Security Properties… | `document.security` | ✅ available |
 | Exit | `exit` | ✅ available |
 | Add Place | `addPlace` | ⬜ planned |
 | Bates Numbering Files | `batesNumberingFiles` | ⬜ planned |
@@ -1221,27 +1221,27 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Browse Places… | `openFromPlaces` | ✅ available |
 | Browse Places… | `saveToPlaces` | ✅ available |
 | Browse for Open | `browseForOpen` | ✅ available |
-| Browse for Save | `browseForSave` | ⬜ planned |
-| Combine Files into One PDF… | `newDocCombine` | 🟡 partial |
+| Browse for Save | `browseForSave` | ✅ available |
+| Combine Files into One PDF… | `newDocCombine` | ✅ available |
 | Copy File | `copySrcFile` | 🟡 partial |
 | Copy Full Path | `copySrcFileName` | ✅ available |
 | Custom Scan… | `newDocCustomScan` | ⬜ planned |
-| DocuSign | `docuSign` | ⬜ planned |
-| DocuSign | `document.docuSign` | ⬜ planned |
+| E-Signature Service | `document.esign` | ⬜ planned |
+| E-Signature Service | `esign` | ⬜ planned |
 | Email All Open Documents as ZIP… | `sendByEmailOpenAllZip` | ⬜ planned |
 | Email All Open Documents… | `sendByEmailOpenAll` | ⬜ planned |
 | Email Methods | `emailMethods` | ⬜ planned |
 | Email as ZIP… | `sendByEmailZip` | ⬜ planned |
 | Explorer | `explorer` | ⬜ planned |
 | Folder Filters | `folderExts` | ⬜ planned |
-| From Clipboard… | `newDocClipboard` | ⬜ planned |
+| From Clipboard… | `newDocClipboard` | ✅ available |
 | From Email… | `newDocEmail` | ⬜ planned |
-| From Files… | `newDocFromFiles` | 🟡 partial |
-| From Images… | `newDocImage` | ⬜ planned |
+| From Files… | `newDocFromFiles` | ✅ available |
+| From Images… | `newDocImage` | ✅ available |
 | From Rich Text… | `newDocRTF` | ⬜ planned |
 | From Scanner… | `newDocScanner` | ⬜ planned |
 | From Selection… | `newDocSelection` | ⬜ planned |
-| From Text… | `newDocText` | ⬜ planned |
+| From Text… | `newDocText` | ✅ available |
 | From Web Page… | `newDocHtml` | ⬜ planned |
 | History | `historyList` | ⬜ planned |
 | History and Recents Options… | `manageHistory` | ✅ available |
@@ -1253,8 +1253,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Open Containing Folder | `openSrcFolder` | ✅ available |
 | Open Session from File… | `openSessionFromFile` | ⬜ planned |
 | Open from URL… | `openFromURL` | ⬜ planned |
-| Places List Open | `placesListOpen` | ⬜ planned |
-| Places List Save | `placesListSave` | ⬜ planned |
+| Places List Open | `placesListOpen` | ✅ available |
+| Places List Save | `placesListSave` | ✅ available |
 | Recent | `recentsList` | ✅ available |
 | Rename… | `renameDoc` | ⬜ planned |
 | Reopen Closed Document | `reopenJustClosedDoc` | ✅ available |
@@ -1263,9 +1263,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Save Current Session | `saveCurrentSession` | ⬜ planned |
 | Save Current Session to File… | `saveCurrentSessionToFile` | ⬜ planned |
 | Save Image As… | `saveImage` | ✅ available |
-| Save Settings and History | `saveSettingsAndHistory` | ⬜ planned |
+| Save Settings and History | `saveSettingsAndHistory` | ✅ available |
 | Save To | `saveTo` | ⬜ planned |
-| Save Unrestricted Copy… | `saveUnrestricted` | ⬜ planned |
+| Save Unrestricted Copy… | `saveUnrestricted` | ✅ available |
 | Sessions | `sessionsList` | ⬜ planned |
 | Settings | `settings` | ✅ available |
 | Source Files | `newDocumentList` | ⬜ planned |
@@ -1280,10 +1280,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 |---|---|---|
 | Undo | `undo` | ✅ available |
 | Redo | `redo` | ✅ available |
-| Cut | `cut` | ⬜ planned |
-| Copy | `copy` | ⬜ planned |
-| Paste | `paste` | ⬜ planned |
-| Paste Options | `pasteSpecial` | ⬜ planned |
+| Cut | `cut` | ✅ available |
+| Copy | `copy` | ✅ available |
+| Paste | `paste` | ✅ available |
+| Paste Options | `pasteSpecial` | ✅ available |
 | Delete | `delete` | ✅ available |
 | Select All | `selectAll` | ✅ available |
 | Invert Selection | `invertSelection` | ✅ available |
@@ -1334,17 +1334,17 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Manage Search Providers | `manageSearchProviders` | ⬜ planned |
 | Move to New Layer | `moveToNewLayer` | ⬜ planned |
 | Order | `order` | ⬜ planned |
-| Paste Annotations | `pasteAnnots` | ⬜ planned |
+| Paste Annotations | `pasteAnnots` | ✅ available |
 | Paste Bookmarks | `pasteBookmarks` | ⬜ planned |
 | Paste Contents | `pasteContents` | ⬜ planned |
 | Paste Fields | `pasteFields` | ⬜ planned |
 | Paste Files | `pasteFiles` | ⬜ planned |
 | Paste Guides | `pasteGuides` | ⬜ planned |
-| Paste Image | `pasteImage` | ⬜ planned |
+| Paste Image | `pasteImage` | ✅ available |
 | Paste Metafile | `pasteMetafile` | ⬜ planned |
 | Paste Pages | `pastePages` | ⬜ planned |
 | Paste Pages Special | `pastePagesSpecial` | ⬜ planned |
-| Paste Plain Text | `pastePlainText` | ⬜ planned |
+| Paste Plain Text | `pastePlainText` | ✅ available |
 | Paste Rich Text | `pasteRichText` | ⬜ planned |
 | Paste as Stamp | `pasteAsStamp` | ⬜ planned |
 | Path Editing | `pathedit` | ⬜ planned |
@@ -1410,10 +1410,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Search | `view.search` | ✅ available |
 | Properties Pane | `view.properties` | ✅ available |
 | Other Panes | `view.otherPanes` | ⬜ planned |
-| Rulers | `view.showRulers` | ⬜ planned |
-| Grid | `view.showGrid` | ⬜ planned |
-| Guides | `view.showGuides` | ⬜ planned |
-| Snap | `view.snap` | ⬜ planned |
+| Rulers | `view.showRulers` | ✅ available |
+| Grid | `view.showGrid` | ✅ available |
+| Guides | `view.showGuides` | ✅ available |
+| Snap | `view.snap` | ✅ available |
 | Dark Page Mode | `view.darkPageMode` | ✅ available |
 | Toolbars | `view.toolbars` | ⬜ planned |
 | UI Theme | `view.theme` | ⬜ planned |
@@ -1437,7 +1437,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Comparison | `comparisonView` | ⬜ planned |
 | Content | `view.content` | ⬜ planned |
 | Content Pane | `contentsView` | ⬜ planned |
-| Document Info Bar | `view.docInfoBar` | ⬜ planned |
+| Document Info Bar | `view.docInfoBar` | ✅ available |
 | Document Recovery | `view.recovery` | ⬜ planned |
 | Document Tabs | `view.docTabsGroup` | ⬜ planned |
 | Exit Full Screen | `view.fullScreenExit` | ✅ available |
@@ -1445,10 +1445,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Expand All Descendants | `expandAllDescendants` | ⬜ planned |
 | Fields Pane | `fieldsView` | ⬜ planned |
 | Highlight | `highlight` | ⬜ planned |
-| Highlight Links | `view.highlightLinks` | ⬜ planned |
+| Highlight Links | `view.highlightLinks` | ✅ available |
 | History | `view.history` | ⬜ planned |
 | Inertial Scroll | `inertialScroll` | ⬜ planned |
-| Invert Vertical Axis | `view.mathY` | ⬜ planned |
+| Invert Vertical Axis | `view.mathY` | ✅ available |
 | JavaScript Console | `jsConsole` | ⬜ planned |
 | JavaScript Options… | `view.javaScriptOpts` | ⬜ planned |
 | Layers Pane | `layersView` | ⬜ planned |
@@ -1458,14 +1458,14 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Lock Unlock All Cmd Bars | `view.lockUnlockAllCmdBars` | ⬜ planned |
 | Lock Unlock All Cmd Panes | `view.lockUnlockAllCmdPanes` | ⬜ planned |
 | Loupe | `loupeView` | ⬜ planned |
-| Loupe | `view.loupe` | ⬜ planned |
+| Loupe | `view.loupe` | ✅ available |
 | Mouse-Optimized UI | `view.switchToMouseUI` | ⬜ planned |
 | Named Destinations Pane | `pdfNamedDestsView` | ⬜ planned |
 | Order | `view.order` | ⬜ planned |
 | Order Pane | `orderView` | ⬜ planned |
 | Order Pane | `orderview` | ⬜ planned |
 | Other Tools | `view.otherToolsGroup` | ⬜ planned |
-| Override Document Colors | `view.overrideDocumentColors` | ⬜ planned |
+| Override Document Colors | `view.overrideDocumentColors` | ✅ available |
 | Page | `view.pageNumber` | ⬜ planned |
 | Page Layout | `view.pageLayoutTypesGroup` | ⬜ planned |
 | Page Size | `view.pageMeasureInfo` | ⬜ planned |
@@ -1483,7 +1483,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Rulers | `rulers` | ⬜ planned |
 | Search Pane | `searchView` | ⬜ planned |
 | Show | `view.show` | ⬜ planned |
-| Show Page Size | `view.showPageMeasureInfo` | ⬜ planned |
+| Show Page Size | `view.showPageMeasureInfo` | ✅ available |
 | Show Pane Info Bar | `showPaneInfoBar` | ⬜ planned |
 | Signatures Pane | `signaturesView` | ⬜ planned |
 | Snap | `view.snapGroup` | ⬜ planned |
@@ -1501,7 +1501,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Toolbar | `view.toolbar` | ⬜ planned |
 | Touch-Optimized UI | `view.switchToTouchUI` | ⬜ planned |
 | Touch/Mouse Mode | `view.touchMouseMode` | ⬜ planned |
-| Transparency Grid | `view.showTranspGrid` | ⬜ planned |
+| Transparency Grid | `view.showTranspGrid` | ✅ available |
 | Unlock All Cmd Bars | `view.unlockAllCmdBars` | ⬜ planned |
 | Unlock All Cmd Panes | `view.unlockAllCmdPanes` | ⬜ planned |
 | XFA Tree | `view.xfaTree` | ⬜ planned |
@@ -1516,22 +1516,22 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 |---|---|---|
 | Insert Pages… | `document.insertPages` | ✅ available |
 | Insert Blank Pages… | `document.insertEmptyPages` | ✅ available |
-| Insert Images… | `document.insertImages` | ⬜ planned |
+| Insert Images… | `document.insertImages` | ✅ available |
 | Delete Pages… | `document.deletePages` | ✅ available |
 | Extract Pages… | `document.extractPages` | ✅ available |
-| Replace Pages… | `document.replacePages` | ⬜ planned |
+| Replace Pages… | `document.replacePages` | ✅ available |
 | Move Pages… | `document.movePages` | ✅ available |
 | Duplicate Pages… | `document.duplicatePages` | ✅ available |
 | Swap Pages… | `document.swapPages` | ✅ available |
 | Reverse Page Order | `document.reversePageOrder` | ✅ available |
-| Merge Pages… | `document.mergePages` | 🟡 partial |
+| Merge Pages… | `document.mergePages` | ✅ available |
 | Split | `document.splitGroup` | ✅ available |
 | Rotate Pages… | `document.rotatePages` | ✅ available |
 | Crop Pages… | `document.cropPages` | ✅ available |
 | Resize Pages… | `document.resizePages` | ✅ available |
 | Set Margins… | `document.setMargins` | ✅ available |
 | Watermarks | `document.watermarks` | ✅ available |
-| Background | `document.background` | ⬜ planned |
+| Background | `document.background` | ✅ available |
 | Header and Footer | `document.headerAndFooter` | ✅ available |
 | Bates Numbering | `document.batesNumbering` | ✅ available |
 | Page Numbering… | `document.pageNumbering` | ✅ available |
@@ -1541,7 +1541,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Digital Signatures | `document.signatures` | ⬜ planned |
 | Security Policies | `securityPolicies` | ⬜ planned |
 | Redaction | `document.redaction` | ⬜ planned |
-| Document JavaScript | `document.javaScript` | ⬜ planned |
+| Document JavaScript | `document.javaScript` | ✅ available |
 | Document Actions | `document.actions` | ⬜ planned |
 | Word Count | `document.wordCount` | ✅ available |
 | Accessibility | `acc` | ⬜ planned |
@@ -1549,15 +1549,15 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Action | `action` | ⬜ planned |
 | Actions | `actions` | ⬜ planned |
 | Add Bookmark | `addBookmark` | ✅ available |
-| Add Image… | `document.addImage` | ⬜ planned |
+| Add Image… | `document.addImage` | ✅ available |
 | Add Link… | `addLink` | ✅ available |
 | Annotations | `annots` | ⬜ planned |
-| Apply All Redactions | `document.applyRedactions` | ⬜ planned |
+| Apply All Redactions | `document.applyRedactions` | ✅ available |
 | Audit Space Usage | `document.audit` | ⬜ planned |
 | Bookmarks | `bookmarks` | ⬜ planned |
 | Create Web Links from Barcodes | `createWebLinksFromBarcodes` | ⬜ planned |
-| Create Web Links from URLs | `createWebLinksFromText` | 🟡 partial |
-| Crop to White Margins | `document.cropToWhiteMargins` | ⬜ planned |
+| Create Web Links from URLs | `createWebLinksFromText` | ✅ available |
+| Crop to White Margins | `document.cropToWhiteMargins` | ✅ available |
 | Crypt Alter Bar | `cryptAlterBar` | ⬜ planned |
 | Delete Empty Pages… | `document.deleteEmptyPages` | ✅ available |
 | Detect Barcodes in Region… | `document.detectBarcodes` | ⬜ planned |
@@ -1569,10 +1569,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Export All Bookmarks… | `document.exportBookmarks` | ✅ available |
 | Export Selected Bookmarks… | `document.exportSelBookmarks` | ⬜ planned |
 | Find | `document.find` | ⬜ planned |
-| Find Duplicate Pages | `document.findDuplicates` | ⬜ planned |
+| Find Duplicate Pages | `document.findDuplicates` | ✅ available |
 | Highlight from File | `document.highlightFile` | ⬜ planned |
 | Import Bookmarks | `document.importBookmarks` | ⬜ planned |
-| Insert Pages from Clipboard… | `document.insertPagesFromClipboard` | ⬜ planned |
+| Insert Pages from Clipboard… | `document.insertPagesFromClipboard` | ✅ available |
 | Insert Rich Text… | `document.insertRTF` | ⬜ planned |
 | Insert Scanned Pages… | `document.insertScannedPages` | ⬜ planned |
 | Insert Text… | `document.insertText` | ⬜ planned |
@@ -1583,23 +1583,23 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Layer Actions | `dao` | ⬜ planned |
 | Link | `link` | ⬜ planned |
 | More Page Tools | `document.pagesMore` | ⬜ planned |
-| New Document from Selection… | `document.createNewDocFromSel` | ⬜ planned |
+| New Document from Selection… | `document.createNewDocFromSel` | ✅ available |
 | New Stamp from Active Document | `document.createStampFromActiveDoc` | ⬜ planned |
 | New Stamp from Selection… | `document.createStampFromSel` | ⬜ planned |
 | Next Bookmark | `document.nextBookm` | ⬜ planned |
-| Normalize Pages… | `document.normalizePages` | ⬜ planned |
+| Normalize Pages… | `document.normalizePages` | ✅ available |
 | OCR Images… | `document.ocrImages` | ⬜ planned |
 | OCR Image… | `OCRImage` | ⬜ planned |
 | OCR Selected Region… | `document.OCRSelRgn` | ⬜ planned |
 | Options… | `document.options` | ⬜ planned |
 | Overlay | `overlay` | ⬜ planned |
-| Overlay Pages… | `document.overlayPages` | ⬜ planned |
+| Overlay Pages… | `document.overlayPages` | ✅ available |
 | Page Marks | `pagemarks` | ⬜ planned |
 | Page Structure | `pageStructure` | ⬜ planned |
-| Page Transitions | `document.pageTransitions` | ⬜ planned |
+| Page Transitions | `document.pageTransitions` | ✅ available |
 | Previous Bookmark | `document.prevBookm` | ⬜ planned |
 | Public Key Security | `pubsec` | ⬜ planned |
-| Rasterize Pages… | `document.rasterizePages` | ⬜ planned |
+| Rasterize Pages… | `document.rasterizePages` | ✅ available |
 | Recompress Images | `recompressImages` | ⬜ planned |
 | Recompress Image… | `document.recompressImage` | ⬜ planned |
 | Redaction | `redaction` | ⬜ planned |
@@ -1613,8 +1613,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Spell Check and Replace | `document.spellCheckAndRepl` | ⬜ planned |
 | Split Document… | `document.split` | ✅ available |
 | Split Pages by Guides… | `document.splitPagesByGuides` | ⬜ planned |
-| Split Pages… | `document.splitPages` | ⬜ planned |
-| Standard Security Policy… | `standardSecPolicy` | ⬜ planned |
+| Split Pages… | `document.splitPages` | ✅ available |
+| Standard Security Policy… | `standardSecPolicy` | ✅ available |
 | Tags | `tags` | ⬜ planned |
 | Web Links | `webLinksGroup` | ⬜ planned |
 
@@ -1629,7 +1629,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Next Comment | `comments.next` | ✅ available |
 | Previous Comment | `comments.previous` | ✅ available |
 | Delete Comments | `comments.deleteGroup` | ⬜ planned |
-| Flatten Comments | `comments.flattenGroup` | ⬜ planned |
+| Flatten Comments | `comments.flattenGroup` | ✅ available |
 | Import Comments… | `comments.import` | ⬜ planned |
 | Export Comments to Data File… | `comments.export` | 🟡 partial |
 | Summarize Comments… | `comments.summarize` | 🟡 partial |
@@ -1655,8 +1655,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Delete Selected Comments | `comments.deleteSel` | ✅ available |
 | Export Measures to CSV | `exportMeasuresToCSV` | ⬜ planned |
 | Fill Color | `fcolor` | ⬜ planned |
-| Flatten Comments… | `comments.flatten` | ⬜ planned |
-| Flatten Selected | `comments.flattenSel` | ⬜ planned |
+| Flatten Comments… | `comments.flatten` | ✅ available |
+| Flatten Selected | `comments.flattenSel` | ✅ available |
 | Hide All Comments | `comments.hideAll` | ✅ available |
 | Highlight Mode | `highlightMode` | ⬜ planned |
 | Image | `image` | ⬜ planned |
@@ -1677,10 +1677,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Selected Text | `textsel` | ⬜ planned |
 | Selection | `selection` | ⬜ planned |
 | Show All Comments | `comments.showAll` | ✅ available |
-| Show/Hide All Comments | `comments.showhideAll` | ⬜ planned |
+| Show/Hide All Comments | `comments.showhideAll` | ✅ available |
 | Sound | `sound` | ⬜ planned |
 | Stamp Designer | `stampCustom` | ⬜ planned |
-| Stamps List | `stampsList` | ⬜ planned |
+| Stamps List | `stampsList` | ✅ available |
 | Stroke Color | `scolor` | ⬜ planned |
 | Stroke Opacity | `strokeOpacity` | ⬜ planned |
 | Text Fill Color | `fcolorText` | ⬜ planned |
@@ -1741,7 +1741,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Move Tab To | `window.moveTabTo` | ⬜ planned |
 | Move Tabs… | `window.moveTabsTo` | ⬜ planned |
 | Move to New Window | `window.activeDocToNewWindow` | ⬜ planned |
-| New Blank Window | `window.newBlank` | ⬜ planned |
+| New Blank Window | `window.newBlank` | ✅ available |
 | New Horizontal Tab Group | `window.activeDocToNewHorzTabGroup` | ⬜ planned |
 | New Vertical Tab Group | `window.activeDocToNewVertTabGroup` | ⬜ planned |
 | Reset Document Panes Layout | `window.resetDocPanesLayout` | ⬜ planned |
@@ -1802,12 +1802,12 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `action.goto.useCurrentView` | Document › Action › Go to › Use Current View | ⬜ planned |
 | `action.goto.zoomIn` | Document › Action › Go to › Zoom in | ⬜ planned |
 | `action.goto.zoomOut` | Document › Action › Go to › Zoom Out | ⬜ planned |
-| `addAnnotsByFindResult.highlight` | Comments › Add Annotations by Find Result › Highlight | ⬜ planned |
-| `addAnnotsByFindResult.strikeout` | Comments › Add Annotations by Find Result › Strikeout | ⬜ planned |
-| `addAnnotsByFindResult.underline` | Comments › Add Annotations by Find Result › Underline | ⬜ planned |
-| `addAnnotsBySearchResult.highlight` | Comments › Add Annotations by Search Result › Highlight | ⬜ planned |
-| `addAnnotsBySearchResult.strikeout` | Comments › Add Annotations by Search Result › Strikeout | ⬜ planned |
-| `addAnnotsBySearchResult.underline` | Comments › Add Annotations by Search Result › Underline | ⬜ planned |
+| `addAnnotsByFindResult.highlight` | Comments › Add Annotations by Find Result › Highlight | ✅ available |
+| `addAnnotsByFindResult.strikeout` | Comments › Add Annotations by Find Result › Strikeout | ✅ available |
+| `addAnnotsByFindResult.underline` | Comments › Add Annotations by Find Result › Underline | ✅ available |
+| `addAnnotsBySearchResult.highlight` | Comments › Add Annotations by Search Result › Highlight | ✅ available |
+| `addAnnotsBySearchResult.strikeout` | Comments › Add Annotations by Search Result › Strikeout | ✅ available |
+| `addAnnotsBySearchResult.underline` | Comments › Add Annotations by Search Result › Underline | ✅ available |
 | `aiView.clear` | View › AI Assistant › Clear | ⬜ planned |
 | `aiView.summarizeDoc` | View › AI Assistant › Summarize Document | ⬜ planned |
 | `aiView.translateDoc` | View › AI Assistant › Translate Document | ⬜ planned |
@@ -1890,7 +1890,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `bookmarksView.setDest` | View › Bookmarks Pane › Set Destination | ⬜ planned |
 | `bookmarksView.setDestFromSel` | View › Bookmarks Pane › Set Destination from Selection | ⬜ planned |
 | `bookmarksView.showContrastText` | View › Bookmarks Pane › Show Contrast Text | ⬜ planned |
-| `bookmarksView.showIcons` | View › Bookmarks Pane › Show Icons | ⬜ planned |
+| `bookmarksView.showIcons` | View › Bookmarks Pane › Show Icons | ✅ available |
 | `bookmarksView.textSize` | View › Bookmarks Pane › Text Size | ⬜ planned |
 | `bookmarksView.textSize.large` | View › Bookmarks Pane › Text Size › Large | ⬜ planned |
 | `bookmarksView.textSize.medium` | View › Bookmarks Pane › Text Size › Medium | ⬜ planned |
@@ -1900,7 +1900,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `bookmarksView.useRegionForDest` | View › Bookmarks Pane › Use Region for Destination | ⬜ planned |
 | `bookmarksView.useTextForTitle` | View › Bookmarks Pane › Use Text for Title | ⬜ planned |
 | `bookmarksView.viewOptions` | View › Bookmarks Pane › View Options | ⬜ planned |
-| `bookmarksView.wrapTitles` | View › Bookmarks Pane › Wrap Titles | ⬜ planned |
+| `bookmarksView.wrapTitles` | View › Bookmarks Pane › Wrap Titles | ✅ available |
 | `bwList.addFile` | Tools › Allow/Block List › Add File | ⬜ planned |
 | `bwList.addFolder` | Tools › Allow/Block List › Add Folder | ⬜ planned |
 | `bwList.addHost` | Tools › Allow/Block List › Add Host | ⬜ planned |
@@ -1933,7 +1933,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `comments.show.popups.opencloseAll` | Comments › Show Comments › Popups › Open/Close All Popups | ⬜ planned |
 | `commentsView.collapseAll` | View › Comments View › Collapse All | ⬜ planned |
 | `commentsView.expandAll` | View › Comments View › Expand All | ⬜ planned |
-| `commentsView.exportSelected` | View › Comments View › Export Selected | ✅ available |
+| `commentsView.exportSelected` | View › Comments View › Export Selected | 🟡 partial |
 | `commentsView.groupBy` | View › Comments View › Group by | ⬜ planned |
 | `commentsView.groupBy.author` | View › Comments View › Group by › Author | ⬜ planned |
 | `commentsView.groupBy.color` | View › Comments View › Group by › Color | ⬜ planned |
@@ -1955,17 +1955,17 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `commentsView.popups.open` | View › Comments View › Popups › Open | ⬜ planned |
 | `commentsView.previous` | View › Comments View › Previous | ✅ available |
 | `commentsView.show` | View › Comments View › Show | ⬜ planned |
-| `commentsView.show.authors` | View › Comments View › Show › Authors | ⬜ planned |
-| `commentsView.show.colors` | View › Comments View › Show › Colors | ⬜ planned |
+| `commentsView.show.authors` | View › Comments View › Show › Authors | ✅ available |
+| `commentsView.show.colors` | View › Comments View › Show › Colors | ✅ available |
 | `commentsView.show.compactItems` | View › Comments View › Show › Compact Items | ⬜ planned |
-| `commentsView.show.dates` | View › Comments View › Show › Dates | ⬜ planned |
+| `commentsView.show.dates` | View › Comments View › Show › Dates | ✅ available |
 | `commentsView.show.dynamicIcons` | View › Comments View › Show › Dynamic Icons | ⬜ planned |
 | `commentsView.show.noTextPlaceholder` | View › Comments View › Show › No Text Placeholder | ⬜ planned |
 | `commentsView.show.states` | View › Comments View › Show › States | ⬜ planned |
 | `commentsView.show.subjects` | View › Comments View › Show › Subjects | ⬜ planned |
 | `commentsView.show.text` | View › Comments View › Show › Show Text | ⬜ planned |
 | `commentsView.show.uniformText` | View › Comments View › Show › Uniform Text | ⬜ planned |
-| `commentsView.show.wrapLongTitles` | View › Comments View › Show › Wrap Long Titles | ⬜ planned |
+| `commentsView.show.wrapLongTitles` | View › Comments View › Show › Wrap Long Titles | ✅ available |
 | `commentsView.showCommentsFromHiddenLayers` | View › Comments View › Show Comments from Hidden Layers | ⬜ planned |
 | `commentsView.showHiddenComments` | View › Comments View › Show Hidden Comments | ⬜ planned |
 | `commentsView.showMenu` | View › Comments View › Show Menu | ⬜ planned |
@@ -1985,17 +1985,17 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `digisig.view.summary` | Document › Digital Signature › View › Summary | ⬜ planned |
 | `digisig.view.validate` | Document › Digital Signature › View › Validate | ⬜ planned |
 | `document` | Document | ⬜ planned |
-| `document.find.caseSensitive` | Document › Find › Case Sensitive | ⬜ planned |
+| `document.find.caseSensitive` | Document › Find › Case Sensitive | ✅ available |
 | `document.find.coloredResults` | Document › Find › Colored Results | ⬜ planned |
-| `document.find.gotoNext` | Document › Find › Go To Next | ⬜ planned |
-| `document.find.gotoPrev` | Document › Find › Go To Previous | ⬜ planned |
+| `document.find.gotoNext` | Document › Find › Go To Next | ✅ available |
+| `document.find.gotoPrev` | Document › Find › Go To Previous | ✅ available |
 | `document.find.ignoreDiacritics` | Document › Find › Ignore Diacritics | ⬜ planned |
 | `document.find.includeAnnotations` | Document › Find › Include Annotations | ⬜ planned |
 | `document.find.includeBookmarks` | Document › Find › Include Bookmarks | ⬜ planned |
 | `document.find.includeExtLinks` | Document › Find › Include Extension Links | ⬜ planned |
 | `document.find.includeFormFields` | Document › Find › Include Form Fields | ⬜ planned |
 | `document.find.includePageText` | Document › Find › Include Page Text | ⬜ planned |
-| `document.find.wholeWords` | Document › Find › Whole Words | ⬜ planned |
+| `document.find.wholeWords` | Document › Find › Whole Words | ✅ available |
 | `document.signatures.certify.invisible` | Document › Digital Signatures › Certify (Visible) › Certify (Invisible) | ⬜ planned |
 | `dsd.pageSize` | Edit › Document Size › Page Size | ⬜ planned |
 | `edit` | Edit | ⬜ planned |
@@ -2146,7 +2146,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `macro.LaunchApp.ViewRotation` | Comments › Macro › Launch Application › View Rotation | ⬜ planned |
 | `macro.LaunchApp.Zoom` | Comments › Macro › Launch Application › Zoom | ⬜ planned |
 | `macro.bates.options` | Comments › Macro › Bates Number › Bates Numbering Settings | ⬜ planned |
-| `macro.pageNumberingStyle.options` | Comments › Macro › Page Numbering Style › Options | ⬜ planned |
+| `macro.pageNumberingStyle.options` | Comments › Macro › Page Numbering Style › Options | ✅ available |
 | `macro.rowData.options` | Comments › Macro › Row Data › Options | ⬜ planned |
 | `media.position.Slider` | Comments › Media › Position › Position | ⬜ planned |
 | `media.volume.Slider` | Comments › Media › Volume › Volume | ⬜ planned |
@@ -2230,11 +2230,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `redaction.overlay.pixelate` | Document › Redaction › Overlay › Pixelate | ⬜ planned |
 | `redaction.overlay.pixelateExtra` | Document › Redaction › Overlay › Pixelate Extra | ⬜ planned |
 | `redaction.overlay.standard` | Document › Redaction › Overlay › Standard | ⬜ planned |
-| `rulers.units.centimeters` | View › Rulers › Units › Centimeters | ⬜ planned |
-| `rulers.units.inches` | View › Rulers › Units › Inches | ⬜ planned |
-| `rulers.units.millimeters` | View › Rulers › Units › Millimeters | ⬜ planned |
-| `rulers.units.picas` | View › Rulers › Units › Picas | ⬜ planned |
-| `rulers.units.points` | View › Rulers › Units › Points | ⬜ planned |
+| `rulers.units.centimeters` | View › Rulers › Units › Centimeters | ✅ available |
+| `rulers.units.inches` | View › Rulers › Units › Inches | ✅ available |
+| `rulers.units.millimeters` | View › Rulers › Units › Millimeters | ✅ available |
+| `rulers.units.picas` | View › Rulers › Units › Picas | ✅ available |
+| `rulers.units.points` | View › Rulers › Units › Points | ✅ available |
 | `search.annotateResults` | Edit › Search › Annotate Results | ⬜ planned |
 | `search.coloredResults` | Edit › Search › Colored Results | ⬜ planned |
 | `search.select` | Edit › Search › Select | ⬜ planned |
@@ -2258,16 +2258,16 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `searchView.proximity.samePage` | View › Search Pane › Proximity › Same Page | ⬜ planned |
 | `searchView.proximity.samePara` | View › Search Pane › Proximity › Same Para | ⬜ planned |
 | `searchView.results` | View › Search Pane › Results | ⬜ planned |
-| `searchView.results.clear` | View › Search Pane › Results › Clear | ⬜ planned |
+| `searchView.results.clear` | View › Search Pane › Results › Clear | ✅ available |
 | `searchView.results.collapseAll` | View › Search Pane › Results › Collapse All | ⬜ planned |
 | `searchView.results.expandAll` | View › Search Pane › Results › Expand All | ⬜ planned |
 | `searchView.results.open` | View › Search Pane › Results › Open | ⬜ planned |
-| `searchView.results.save` | View › Search Pane › Results › Save | ⬜ planned |
+| `searchView.results.save` | View › Search Pane › Results › Save | ✅ available |
 | `searchView.results.showCommentTypes` | View › Search Pane › Results › Show Comment Types | ⬜ planned |
 | `searchView.results.showContextBookmarks` | View › Search Pane › Results › Show Context Bookmarks | ⬜ planned |
 | `searchView.results.showIcon` | View › Search Pane › Results › Show Icon | ⬜ planned |
-| `searchView.results.showPageNum` | View › Search Pane › Results › Show Page Num | ⬜ planned |
-| `searchView.results.wrapText` | View › Search Pane › Results › Wrap Text | ⬜ planned |
+| `searchView.results.showPageNum` | View › Search Pane › Results › Show Page Num | ✅ available |
+| `searchView.results.wrapText` | View › Search Pane › Results › Wrap Text | ✅ available |
 | `searchView.wholeWords` | View › Search Pane › Whole Words | ✅ available |
 | `selection.stamp` | Comments › Selection › Stamp | ⬜ planned |
 | `sessions.clear` | File › Sessions › Clear | ⬜ planned |
@@ -2352,7 +2352,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `textPara.indent.increase` | Edit › Text Para › Indent › Increase | ⬜ planned |
 | `thumbnailsView.highlightVisible` | View › Thumbnails Pane › Highlight Visible | ⬜ planned |
 | `thumbnailsView.interactiveVisible` | View › Thumbnails Pane › Interactive Visible | ⬜ planned |
-| `thumbnailsView.logicalVisible` | View › Thumbnails Pane › Logical Visible | ⬜ planned |
+| `thumbnailsView.logicalVisible` | View › Thumbnails Pane › Logical Visible | ✅ available |
 | `thumbnailsView.options` | View › Thumbnails Pane › Options | ⬜ planned |
 | `thumbnailsView.select` | View › Thumbnails Pane › Select | ⬜ planned |
 | `thumbnailsView.select.bookmarks` | View › Thumbnails Pane › Select › Bookmarks | ✅ available |
@@ -2361,15 +2361,15 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `thumbnailsView.select.fields` | View › Thumbnails Pane › Select › Fields | ✅ available |
 | `thumbnailsView.select.images` | View › Thumbnails Pane › Select › Images | ✅ available |
 | `thumbnailsView.select.landscape` | View › Thumbnails Pane › Select › Landscape | ✅ available |
-| `thumbnailsView.select.linkTargets` | View › Thumbnails Pane › Select › Link Targets | ⬜ planned |
+| `thumbnailsView.select.linkTargets` | View › Thumbnails Pane › Select › Link Targets | ✅ available |
 | `thumbnailsView.select.links` | View › Thumbnails Pane › Select › Links | ✅ available |
 | `thumbnailsView.select.portrait` | View › Thumbnails Pane › Select › Portrait | ✅ available |
-| `thumbnailsView.select.searchRes` | View › Thumbnails Pane › Select › Search Res | ⬜ planned |
+| `thumbnailsView.select.searchRes` | View › Thumbnails Pane › Select › Search Res | ✅ available |
 | `thumbnailsView.select.shape` | View › Thumbnails Pane › Select › Shape | ⬜ planned |
 | `thumbnailsView.select.text` | View › Thumbnails Pane › Select › Pages with Text | ✅ available |
 | `thumbnailsView.select.with` | View › Thumbnails Pane › Select › Advanced Selection | ⬜ planned |
-| `thumbnailsView.zoomIn` | View › Thumbnails Pane › Zoom in | ⬜ planned |
-| `thumbnailsView.zoomOut` | View › Thumbnails Pane › Zoom Out | ⬜ planned |
+| `thumbnailsView.zoomIn` | View › Thumbnails Pane › Zoom in | ✅ available |
+| `thumbnailsView.zoomOut` | View › Thumbnails Pane › Zoom Out | ✅ available |
 | `tool.edit3d.poster.fromFile` | Tools › Tool › Edit 3 D › Poster › From File | ⬜ planned |
 | `tool.edit3d.poster.fromView` | Tools › Tool › Edit 3 D › Poster › From View | ⬜ planned |
 | `tool.editFields.mode.barcode` | Form › Tool › Edit Form › Field Type › Barcode | ⬜ planned |

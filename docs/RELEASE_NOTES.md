@@ -21,10 +21,9 @@ A free PDF editor written entirely in Rust with a Dioxus desktop interface.
 
 | Platform | File |
 |---|---|
-| Windows x64 | `folitecta-0.0.1-x86_64-pc-windows-msvc.zip` |
-| Linux x64 | `folitecta-0.0.1-x86_64-unknown-linux-gnu.tar.gz` |
-| macOS Apple silicon | `folitecta-0.0.1-aarch64-apple-darwin.tar.gz` |
-| macOS Intel | `folitecta-0.0.1-x86_64-apple-darwin.tar.gz` |
+| Windows x64 | `folitecta-0.0.1-windows-x64.zip` |
+| Linux x64 | `folitecta-0.0.1-linux-x64.tar.gz` |
+| macOS (Apple silicon and Intel) | `folitecta-0.0.1-macos-universal.zip` (app bundle) or `.tar.gz` (binary) |
 
 Linux needs the WebKitGTK 4.1 runtime (`libwebkit2gtk-4.1-0`). macOS builds are not notarized:
 right-click → Open on first launch.

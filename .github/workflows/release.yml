@@ -3,75 +3,166 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build and publish (for example v0.0.1)"
+        required: true
 
 permissions:
   contents: write
 
 env:
   CARGO_TERM_COLOR: always
+  RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
 
 jobs:
-  build:
-    name: Build ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            archive: zip
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            archive: tar.gz
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            archive: tar.gz
-          - os: macos-13
-            target: x86_64-apple-darwin
-            archive: tar.gz
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          ref: ${{ env.RELEASE_TAG }}
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Install Linux system libraries
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev pkg-config
       - name: Build
-        run: cargo build --release --locked --package folitecta --target ${{ matrix.target }}
-      - name: Package (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
-          NAME="folitecta-${VERSION}-${{ matrix.target }}"
-          mkdir -p "dist/${NAME}"
-          cp "target/${{ matrix.target }}/release/folitecta" "dist/${NAME}/"
-          cp README.md LICENSE "dist/${NAME}/"
-          cp -r docs "dist/${NAME}/docs"
-          tar -C dist -czf "dist/${NAME}.tar.gz" "${NAME}"
-          (cd dist && shasum -a 256 "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256")
-      - name: Package (Windows)
-        if: runner.os == 'Windows'
+        run: cargo build --release --locked --package folitecta
+      - name: Package
         shell: pwsh
         run: |
-          $version = $env:GITHUB_REF_NAME.TrimStart('v')
-          $name = "folitecta-$version-${{ matrix.target }}"
+          $version = $env:RELEASE_TAG.TrimStart('v')
+          $name = "folitecta-$version-windows-x64"
           New-Item -ItemType Directory -Force "dist/$name" | Out-Null
-          Copy-Item "target/${{ matrix.target }}/release/folitecta.exe" "dist/$name/"
-          Copy-Item README.md, LICENSE "dist/$name/"
+          Copy-Item "target/release/folitecta.exe" "dist/$name/"
+          Copy-Item README.md, LICENSE, CHANGELOG.md "dist/$name/"
           Copy-Item -Recurse docs "dist/$name/docs"
           Compress-Archive -Path "dist/$name" -DestinationPath "dist/$name.zip"
           $hash = (Get-FileHash "dist/$name.zip" -Algorithm SHA256).Hash.ToLower()
           "$hash  $name.zip" | Out-File -Encoding ascii "dist/$name.zip.sha256"
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.target }}
+          name: windows
+          path: |
+            dist/*.zip
+            dist/*.sha256
+
+  linux:
+    name: Linux x64
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev pkg-config
+      - name: Build
+        run: cargo build --release --locked --package folitecta
+      - name: Package
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#v}"
+          NAME="folitecta-${VERSION}-linux-x64"
+          mkdir -p "dist/${NAME}"
+          cp target/release/folitecta "dist/${NAME}/"
+          cp README.md LICENSE CHANGELOG.md "dist/${NAME}/"
+          cp -r docs "dist/${NAME}/docs"
+          cp crates/folitecta/assets/icon-256.png "dist/${NAME}/folitecta.png"
+          cat > "dist/${NAME}/folitecta.desktop" <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=Folitecta
+          Comment=Free PDF editor
+          Exec=folitecta %F
+          Icon=folitecta
+          MimeType=application/pdf;
+          Categories=Office;Viewer;
+          EOF
+          sed -i 's/^          //' "dist/${NAME}/folitecta.desktop"
+          tar -C dist -czf "dist/${NAME}.tar.gz" "${NAME}"
+          (cd dist && sha256sum "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+
+  macos:
+    name: macOS universal
+    runs-on: macos-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+      - name: Build both architectures
+        run: |
+          cargo build --release --locked --package folitecta --target aarch64-apple-darwin
+          cargo build --release --locked --package folitecta --target x86_64-apple-darwin
+      - name: Package universal app bundle
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#v}"
+          NAME="folitecta-${VERSION}-macos-universal"
+          mkdir -p dist
+          lipo -create -output dist/folitecta \
+            target/aarch64-apple-darwin/release/folitecta \
+            target/x86_64-apple-darwin/release/folitecta
+          APP="dist/Folitecta.app"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp dist/folitecta "$APP/Contents/MacOS/folitecta"
+          ICONSET=dist/folitecta.iconset
+          mkdir -p "$ICONSET"
+          for size in 16 32 64 128 256; do
+            sips -z $size $size crates/folitecta/assets/icon-256.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
+          done
+          cp "$ICONSET/icon_32x32.png" "$ICONSET/icon_16x16@2x.png"
+          cp "$ICONSET/icon_64x64.png" "$ICONSET/icon_32x32@2x.png"
+          cp "$ICONSET/icon_256x256.png" "$ICONSET/icon_128x128@2x.png"
+          rm "$ICONSET/icon_64x64.png"
+          iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/folitecta.icns"
+          cat > "$APP/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleName</key><string>Folitecta</string>
+            <key>CFBundleDisplayName</key><string>Folitecta</string>
+            <key>CFBundleIdentifier</key><string>io.github.kvasexpert.folitecta</string>
+            <key>CFBundleVersion</key><string>${VERSION}</string>
+            <key>CFBundleShortVersionString</key><string>${VERSION}</string>
+            <key>CFBundleExecutable</key><string>folitecta</string>
+            <key>CFBundleIconFile</key><string>folitecta</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+            <key>CFBundleDocumentTypes</key><array><dict>
+              <key>CFBundleTypeName</key><string>PDF document</string>
+              <key>CFBundleTypeRole</key><string>Editor</string>
+              <key>LSItemContentTypes</key><array><string>com.adobe.pdf</string></array>
+            </dict></array>
+          </dict></plist>
+          EOF
+          sed -i '' 's/^          //' "$APP/Contents/Info.plist"
+          (cd dist && ditto -c -k --keepParent Folitecta.app "${NAME}.zip")
+          mkdir -p "dist/${NAME}"
+          cp dist/folitecta README.md LICENSE CHANGELOG.md "dist/${NAME}/"
+          cp -r docs "dist/${NAME}/docs"
+          tar -C dist -czf "dist/${NAME}.tar.gz" "${NAME}"
+          (cd dist && shasum -a 256 "${NAME}.zip" > "${NAME}.zip.sha256" && shasum -a 256 "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
           path: |
             dist/*.zip
             dist/*.tar.gz
@@ -79,10 +170,12 @@ jobs:
 
   release:
     name: Publish GitHub release
-    needs: build
+    needs: [windows, linux, macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -91,7 +184,8 @@ jobs:
         run: ls -la artifacts
       - uses: softprops/action-gh-release@v2
         with:
-          name: Folitecta ${{ github.ref_name }}
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: Folitecta ${{ env.RELEASE_TAG }}
           body_path: docs/RELEASE_NOTES.md
           files: artifacts/*
           draft: false

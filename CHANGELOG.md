@@ -6,6 +6,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.0.11] - 2026-10-17
+
 ### Added
 
 - Field calculations: in the properties of a text field or combo box, its value can be the sum,
@@ -19,6 +21,14 @@ All notable changes to Folitecta are documented here. The format follows
 - Window › Split shows the document in two views, side by side or one above the other, each with
   its own page, zoom, layout and turn: the outlined view is the one the tools and commands work
   on, and a click in the other view makes it that one. Remove Split keeps the outlined view.
+- Links pane: a click selects a link and shows it on its page, a double click follows it; the
+  pane menu copies the address of the selected link, opens it in the browser and wraps long
+  addresses. View › Expand All, Collapse All and Expand All Descendants work on the bookmarks,
+  form fields or comments pane that is shown.
+
+### Changed
+
+- A click on a link in the links pane no longer opens it at once (a double click does).
 
 ### Fixed
 

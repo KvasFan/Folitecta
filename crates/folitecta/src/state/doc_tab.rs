@@ -127,6 +127,8 @@ pub struct DocTab {
     pub selected_bookmark: Option<Vec<usize>>,
     /// Selected named destination.
     pub selected_dest: Option<String>,
+    /// Selected link of the links pane: page and index among the page's annotations.
+    pub selected_link: Option<(usize, usize)>,
     /// Briefly highlighted area of a page (display points), e.g. a destination.
     pub flash: Option<(usize, [f32; 4])>,
     /// Signature validation results for a revision.
@@ -270,6 +272,7 @@ impl DocTab {
             comment_filter: CommentFilter::default(),
             view_gen: 0,
             selected_bookmark: None,
+            selected_link: None,
             selected_dest: None,
             flash: None,
             sig_status: None,
@@ -354,6 +357,7 @@ impl DocTab {
             self.selected_annot = None;
             self.text_sel = None;
             self.image_sel = None;
+            self.selected_link = None;
             // Search rectangles refer to the previous revision.
             self.search.hits.clear();
         }

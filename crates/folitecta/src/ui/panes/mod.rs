@@ -272,23 +272,36 @@ pub fn PanePanel() -> Element {
 }
 // ---- Thumbnails -------------------------------------------------------------------
 
+/// The links of the document: a click selects one and shows it on its page
+/// (the pane menu copies or opens its address), a double click follows it.
 #[component]
 fn LinksPane() -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
-    let Some(links) = st.read_active(|t| t.doc.all_links()) else {
+    let Some((links, selected)) = st.read_active(|t| (t.doc.all_links(), t.selected_link)) else {
         return rsx! {};
     };
+    let wrap = crate::commands::option_on(st, "linksView.wrapTitles");
     rsx! {
         if links.is_empty() { div { class: "pane-empty", "{t(lang, \"label.none\")}" } }
         for l in links {
             {
                 let target = l.target.clone();
-                let page = l.page;
+                let (page, index, rect) = (l.page, l.index, l.rect);
                 let desc = target.describe();
+                let class = if selected == Some((page, index)) { "list-item selected" } else { "list-item" };
                 rsx! {
-                    div { class: "list-item", key: "{page}-{l.index}",
+                    div { class: "{class}", key: "{page}-{index}",
                         onclick: move |_| {
+                            st.go_to_page(page);
+                            st.with_active(|t| {
+                                t.selected_link = Some((page, index));
+                                if let Some(size) = t.page_sizes.get(page) {
+                                    t.flash = Some((page, folitecta_core::marks::pdf_rect_to_display(size, rect)));
+                                }
+                            });
+                        },
+                        ondoubleclick: move |_| {
                             match &target {
                                 folitecta_core::LinkTarget::Uri(u) => { if let Err(e) = crate::util::open_external(u) { st.error(e); } }
                                 folitecta_core::LinkTarget::Page(p) => st.go_to_page(*p),
@@ -296,7 +309,7 @@ fn LinksPane() -> Element {
                             }
                         },
                         div { class: "title", Icon { name: "link" } "{t(lang, \"status.page\")} {page + 1}" }
-                        div { class: "body ellipsis", title: "{desc}", "{desc}" }
+                        div { class: if wrap { "body wrap" } else { "body ellipsis" }, title: "{desc}", "{desc}" }
                     }
                 }
             }

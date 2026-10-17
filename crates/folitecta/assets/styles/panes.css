@@ -66,6 +66,7 @@
 .list-item .body { white-space: pre-wrap; user-select: text; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; word-break: break-word; }
 .list-item.wrap .body { display: block; -webkit-line-clamp: unset; }
 .list-item .body.ellipsis { display: block; white-space: nowrap; }
+.list-item .body.wrap { display: block; -webkit-line-clamp: unset; overflow-wrap: anywhere; }
 .list-item .row { flex-wrap: wrap; }
 .swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; border: 1px solid rgba(0,0,0,.15); }
 .ibtn.danger { color: var(--danger); }

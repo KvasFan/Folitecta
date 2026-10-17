@@ -1,12 +1,12 @@
 # Folitecta feature matrix
 
-Generated from the command registry for version 0.0.10. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
+Generated from the command registry for version 0.0.11. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1324 |
-| 🟡 partial | 56 |
-| ⬜ planned | 601 |
+| ✅ available | 1344 |
+| 🟡 partial | 57 |
+| ⬜ planned | 580 |
 | total | 1981 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -341,11 +341,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ New Document Tab | `window.new` | ✅ available |
 | ↳ New Horizontal Tab Group | `window.activeDocToNewHorzTabGroup` | ⬜ planned |
 | ↳ New Vertical Tab Group | `window.activeDocToNewVertTabGroup` | ⬜ planned |
-| ↳ Remove Split | `window.removeSplit` | ⬜ planned |
+| ↳ Remove Split | `window.removeSplit` | ✅ available |
 | ↳ Reset Document Panes Layout | `window.resetDocPanesLayout` | ✅ available |
 | ↳ Reset Main Panes Layout | `window.resetMainPanesLayout` | ✅ available |
 | ↳ Sort Tabs Alphabetically | `window.sortAllDocTabsAbc` | ✅ available |
-| ↳ Split | `window.split` | ⬜ planned |
+| ↳ Split | `window.split` | 🟡 partial |
 | ↳ Vertically | `window.distributeDocsVert` | ⬜ planned |
 | XFA Tree | `view.xfaTree` | ⬜ planned |
 | Zoom | `view.toolbar.zoom` | ✅ available |
@@ -697,7 +697,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Manage Form Data | `forms.manageData` | ⬜ planned |
 | ↳ Populate Forms… | `forms.populate` | ✅ available |
 | ↳ Reset Form | `forms.reset` | ✅ available |
-| ↳ Set Field Calculation Order… | `forms.calcOrder` | ⬜ planned |
+| ↳ Set Field Calculation Order… | `forms.calcOrder` | ✅ available |
 
 **JavaScript**
 
@@ -1442,7 +1442,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Bookmarks Pane | `bookmarksView` | 🟡 partial |
 | Checker | `chekerView` | ✅ available |
 | Classic UI | `view.switchToClassicUI` | ✅ available |
-| Collapse All | `collapseAll` | ⬜ planned |
+| Collapse All | `collapseAll` | ✅ available |
 | Comment Styles Palette | `view.commentStyles` | ✅ available |
 | Comments View | `commentsView` | ✅ available |
 | Compare Documents | `cmpDocs` | 🟡 partial |
@@ -1453,8 +1453,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Document Recovery | `view.recovery` | ✅ available |
 | Document Tabs | `view.docTabsGroup` | ⬜ planned |
 | Exit Full Screen | `view.fullScreenExit` | ✅ available |
-| Expand All | `expandAll` | ⬜ planned |
-| Expand All Descendants | `expandAllDescendants` | ⬜ planned |
+| Expand All | `expandAll` | ✅ available |
+| Expand All Descendants | `expandAllDescendants` | ✅ available |
 | Fields Pane | `fieldsView` | ✅ available |
 | Highlight | `highlight` | ✅ available |
 | Highlight Links | `view.highlightLinks` | ✅ available |
@@ -1745,8 +1745,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Close Other Tabs | `closeOtherTabs` | ✅ available |
 | Close Tabs to the Left | `closeTabsToTheLeft` | ✅ available |
 | Close Tabs to the Right | `closeTabsToTheRight` | ✅ available |
-| Split | `window.split` | ⬜ planned |
-| Remove Split | `window.removeSplit` | ⬜ planned |
+| Split | `window.split` | 🟡 partial |
+| Remove Split | `window.removeSplit` | ✅ available |
 | Distribute Tabs | `window.distributeTabs` | ⬜ planned |
 | Horizontally | `window.distributeDocsHorz` | ⬜ planned |
 | Merge All Tabs into One Group | `window.allDocsToOneTabGroup` | ⬜ planned |
@@ -2039,15 +2039,15 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `folderExts.fileList.saveSel` | File › Folder Filters › File List › Save Selection | ✅ available |
 | `form` | Form | ⬜ planned |
 | `forms.highlight.all` | Form › Forms › Highlight Form Fields › All | ✅ available |
-| `forms.highlight.barcode` | Form › Forms › Highlight Form Fields › Barcode | ⬜ planned |
-| `forms.highlight.checkBox` | Form › Forms › Highlight Form Fields › Check Box | ⬜ planned |
-| `forms.highlight.comboBox` | Form › Forms › Highlight Form Fields › Combo Box | ⬜ planned |
-| `forms.highlight.listBox` | Form › Forms › Highlight Form Fields › List Box | ⬜ planned |
-| `forms.highlight.onlyrequired` | Form › Forms › Highlight Form Fields › Onlyrequired | ⬜ planned |
-| `forms.highlight.pushButton` | Form › Forms › Highlight Form Fields › Push Button | ⬜ planned |
-| `forms.highlight.radioButton` | Form › Forms › Highlight Form Fields › Radio Button | ⬜ planned |
-| `forms.highlight.signature` | Form › Forms › Highlight Form Fields › Signature | ⬜ planned |
-| `forms.highlight.textBox` | Form › Forms › Highlight Form Fields › Text Box | ⬜ planned |
+| `forms.highlight.barcode` | Form › Forms › Highlight Form Fields › Barcode | ✅ available |
+| `forms.highlight.checkBox` | Form › Forms › Highlight Form Fields › Check Box | ✅ available |
+| `forms.highlight.comboBox` | Form › Forms › Highlight Form Fields › Combo Box | ✅ available |
+| `forms.highlight.listBox` | Form › Forms › Highlight Form Fields › List Box | ✅ available |
+| `forms.highlight.onlyrequired` | Form › Forms › Highlight Form Fields › Only Required Fields | ✅ available |
+| `forms.highlight.pushButton` | Form › Forms › Highlight Form Fields › Push Button | ✅ available |
+| `forms.highlight.radioButton` | Form › Forms › Highlight Form Fields › Radio Button | ✅ available |
+| `forms.highlight.signature` | Form › Forms › Highlight Form Fields › Signature | ✅ available |
+| `forms.highlight.textBox` | Form › Forms › Highlight Form Fields › Text Box | ✅ available |
 | `forms.reset.selected` | Form › Forms › Reset Form › Reset Selected Fields | ✅ available |
 | `highlight.destination` | View › Highlight › Destination | ✅ available |
 | `historyList.clear` | File › History › Clear | ✅ available |
@@ -2131,11 +2131,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `layersView.viewVisiblePages` | View › Layers Pane › View Visible Pages | ✅ available |
 | `link.batch` | Document › Link › Batch Link | ⬜ planned |
 | `linksView.import` | View › Links Pane › Import | ⬜ planned |
-| `linksView.link` | View › Links Pane › Link | ⬜ planned |
-| `linksView.link.copyURL` | View › Links Pane › Link › Copy URL | ⬜ planned |
-| `linksView.link.openInBrowser` | View › Links Pane › Link › Open in Browser | ⬜ planned |
+| `linksView.link` | View › Links Pane › Link | ✅ available |
+| `linksView.link.copyURL` | View › Links Pane › Link › Copy URL | ✅ available |
+| `linksView.link.openInBrowser` | View › Links Pane › Link › Open in Browser | ✅ available |
 | `linksView.options` | View › Links Pane › Options | ⬜ planned |
-| `linksView.wrapTitles` | View › Links Pane › Wrap Titles | ⬜ planned |
+| `linksView.wrapTitles` | View › Links Pane › Wrap Titles | ✅ available |
 | `list.add` | Edit › List › Add | ⬜ planned |
 | `list.clear` | Edit › List › Clear | ⬜ planned |
 | `list.delete` | Edit › List › Delete | ⬜ planned |
@@ -2434,8 +2434,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `wdav.view.smallIcons` | File › WebDAV › View › Small Icons | ⬜ planned |
 | `wdav.view.thumbnail` | File › WebDAV › View › Thumbnail | ⬜ planned |
 | `wdav.view.tiles` | File › WebDAV › View › Tiles | ⬜ planned |
-| `window.split.horz` | Window › Split › Split Horizontally | ⬜ planned |
+| `window.split.horz` | Window › Split › Split Horizontally | ✅ available |
 | `window.split.spreadsheet` | Window › Split › Spreadsheet Split | ⬜ planned |
-| `window.split.vert` | Window › Split › Split Vertically | ⬜ planned |
+| `window.split.vert` | Window › Split › Split Vertically | ✅ available |
 | `xmp.export.template` | File › XMP › Export › Template | ✅ available |
 | `xmp.show.templates` | File › XMP › Show › Templates | ✅ available |

@@ -1,10 +1,94 @@
-//! Pane commands: bookmarks, attachments, layers, thumbnails and search options.
+//! Pane commands: thumbnails, links, search options, and expanding or
+//! collapsing the tree of the visible pane.
 
 use super::{handlers, no_doc};
 use crate::files;
-use crate::i18n::tf;
+use crate::i18n::{t, tf};
 use crate::state::{AppState, DocTab, ToastKind};
 use dioxus::prelude::ReadableExt;
+use folitecta_core::{Link, LinkTarget, OutlineItem};
+
+/// View › Expand All / Collapse All: the same command of the visible pane
+/// (bookmarks, form fields or comments).
+fn tree(st: AppState, expand: bool) {
+    let pane = {
+        let ui = st.ui.read();
+        ui.show_left_pane.then(|| ui.left_pane.clone())
+    };
+    let area = match pane.as_deref() {
+        Some("bookmarks") => "bookmarksView",
+        Some("fields") => "fieldsView",
+        Some("comments") => "commentsView",
+        _ => {
+            st.toast(ToastKind::Info, t(st.lang(), "toast.no_tree_pane"), "");
+            return;
+        }
+    };
+    let what = if expand { "expandAll" } else { "collapseAll" };
+    super::dispatch(st, &format!("{area}.{what}"));
+}
+
+/// Keys of a bookmark (its path) and of the bookmarks inside it that have bookmarks inside.
+fn expand_keys(items: &[OutlineItem], path: &mut Vec<usize>, out: &mut Vec<String>) {
+    for (i, item) in items.iter().enumerate() {
+        path.push(i);
+        if !item.children.is_empty() {
+            out.push(path.iter().map(|x| x.to_string()).collect::<Vec<_>>().join("."));
+            expand_keys(&item.children, path, out);
+        }
+        path.pop();
+    }
+}
+
+/// View › Expand All Descendants: the selected bookmark and everything in it.
+fn expand_descendants(st: AppState) {
+    let bookmarks = {
+        let ui = st.ui.read();
+        ui.show_left_pane && ui.left_pane == "bookmarks"
+    };
+    let selected = st.read_active(|t| t.selected_bookmark.clone()).flatten();
+    let Some(path) = selected.filter(|_| bookmarks) else {
+        tree(st, true);
+        return;
+    };
+    st.with_active(|t| {
+        let outline = t.doc.outline();
+        let mut items = outline.as_slice();
+        for &i in &path {
+            match items.get(i) {
+                Some(item) => items = &item.children,
+                None => return,
+            }
+        }
+        let mut keys = vec![path.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(".")];
+        expand_keys(items, &mut path.clone(), &mut keys);
+        t.expanded_bookmarks.extend(keys);
+    });
+}
+
+/// The link selected in the links pane.
+fn selected_link(st: AppState) -> Option<Link> {
+    st.read_active(|t| {
+        let (page, index) = t.selected_link?;
+        t.doc.links(page).ok()?.into_iter().find(|l| l.index == index)
+    })
+    .flatten()
+}
+
+/// The web address of the selected link, or a message saying what is missing.
+fn selected_address(st: AppState) -> Option<String> {
+    match selected_link(st).map(|l| l.target) {
+        Some(LinkTarget::Uri(u)) => Some(u),
+        Some(_) => {
+            st.toast(ToastKind::Info, t(st.lang(), "toast.select_web_link"), "");
+            None
+        }
+        None => {
+            st.toast(ToastKind::Info, t(st.lang(), "toast.select_link_first"), "");
+            None
+        }
+    }
+}
 
 fn select_pages_where(st: AppState, pred: impl Fn(&DocTab, usize) -> bool) {
     if no_doc(st) {
@@ -72,4 +156,18 @@ handlers! {
     },
     "document.find.gotoNext" => |st| crate::ui::panes::step_search(st, true),
     "document.find.gotoPrev" => |st| crate::ui::panes::step_search(st, false),
+    "expandAll" => |st| tree(st, true),
+    "collapseAll" => |st| tree(st, false),
+    "expandAllDescendants" => expand_descendants,
+    "linksView.link.copyURL" => |st| {
+        if let Some(u) = selected_address(st) {
+            crate::clipboard::set_text(&u);
+            st.toast(ToastKind::Ok, t(st.lang(), "toast.link_copied"), "");
+        }
+    },
+    "linksView.link.openInBrowser" => |st| {
+        if let Some(u) = selected_address(st) {
+            if let Err(e) = crate::util::open_external(&u) { st.error(e); }
+        }
+    },
 }

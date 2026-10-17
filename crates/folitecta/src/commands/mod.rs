@@ -166,6 +166,7 @@ pub const VIEW_OPTIONS: &[&str] = &[
     "view.layout.ribbon",
     // The names of the ribbon tools next to their icons (otherwise in the tooltip).
     "view.ribbonLabels",
+    "linksView.wrapTitles",
     "view.panzoom",
     "view.showPageSizePopup",
     "view.spellCheck",

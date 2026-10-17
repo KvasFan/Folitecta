@@ -383,6 +383,7 @@ mod steps_features;
 mod steps_files;
 mod steps_layout;
 mod steps_links;
+mod steps_note_icon;
 mod steps_panes;
 mod steps_pictures;
 mod steps_recovery;
@@ -445,9 +446,10 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     steps_calc::run(&mut cx).await;
     steps_split_view::run(&mut cx).await;
     steps_links::run(&mut cx).await;
+    steps_note_icon::run(&mut cx).await;
     let failures = cx.failures;
 
-    // 51. Undo everything added above.
+    // 52. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..90 {
         crate::commands::dispatch(st, "undo");
@@ -739,6 +741,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ),
         ("recovery", Dialog::Recovery),
         ("calc-order", Dialog::CalcOrder),
+        ("note-icon", Dialog::NoteIcon(None)),
         (
             "barcode",
             Dialog::Barcode {

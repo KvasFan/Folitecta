@@ -36,6 +36,35 @@ pub(super) fn ThumbnailsPane() -> Element {
         Vec::new()
     };
     let render_scale = ((box_px * 1.6 / 842.0) * 1000.0).round().clamp(120.0, 900.0) as u32;
+    // The part of the current page the canvas shows, outlined on its
+    // thumbnail (Highlight Visible), followed while the pages scroll.
+    let mut visible: Signal<Option<[f64; 4]>> = use_signal(|| None);
+    use_future(move || async move {
+        loop {
+            let shown = if option_on(st, "thumbnailsView.highlightVisible") {
+                let js = crate::ui::canvas::VIEWPORT_JS.replace("PAGE", &st.current_page().to_string());
+                document::eval(&js).await.ok().and_then(|v| {
+                    let n: Vec<f64> = v.as_array()?.iter().filter_map(|x| x.as_f64()).collect();
+                    (n.len() == 4).then(|| [n[0], n[1], n[2], n[3]])
+                })
+            } else {
+                None
+            };
+            if *visible.peek() != shown {
+                visible.set(shown);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        }
+    });
+    let outline = visible().map(|r| {
+        format!(
+            "left:{:.2}%;top:{:.2}%;width:{:.2}%;height:{:.2}%",
+            r[0] * 100.0,
+            r[1] * 100.0,
+            (r[2] - r[0]) * 100.0,
+            (r[3] - r[1]) * 100.0
+        )
+    });
     let mut finish_drag = move || {
         let (src, over) = (*drag_src.peek(), *drag_over.peek());
         drag_src.set(None);
@@ -119,6 +148,11 @@ pub(super) fn ThumbnailsPane() -> Element {
                             ondoubleclick: move |_| st.go_to_page(p),
                             div { class: "thumb-img", style: "width:{wpx.max(iw)}px;height:{hpx.max(ih)}px",
                                 img { src: "{src}", alt: "", loading: "lazy", draggable: "false", width: "{wpx}", height: "{hpx}", style: "{img_style}" }
+                                if p == page {
+                                    if let Some(style) = outline.clone() {
+                                        div { class: "thumb-visible", style: "{style}" }
+                                    }
+                                }
                             }
                             span { class: "num", "{label}" }
                         }

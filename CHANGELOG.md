@@ -12,6 +12,10 @@ All notable changes to Folitecta are documented here. The format follows
   paragraph, an insertion caret, a check mark, a circle, a cross or a star (Comments › Note Icon
   for the selected note, or for the new notes; also in the dialog of a new note). Notes read
   from other files keep their icon when they are drawn again.
+- Thumbnails › Highlight Visible outlines, on the thumbnail of the current page, the part of the
+  page the window shows, and follows it while the pages scroll.
+- The loupe enlarges more or less (Zoom In and Zoom Out of its menu, from 1.5 to 8 times); the
+  choice is kept.
 
 ### Changed
 

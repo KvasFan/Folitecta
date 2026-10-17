@@ -31,7 +31,9 @@
 .thumb.drop-before::before, .thumb.drop-after::after { content: ""; position: absolute; left: 4px; right: 4px; height: 3px; border-radius: 2px; background: var(--accent-2); }
 .thumb.drop-before::before { top: -6px; }
 .thumb.drop-after::after { bottom: -6px; }
-.thumb-img { display: grid; place-items: center; max-width: 100%; }
+.thumb-img { display: grid; place-items: center; max-width: 100%; position: relative; }
+/* The part of the current page the canvas shows (Highlight Visible). */
+.thumb-visible { position: absolute; border: 2px solid var(--accent); background: var(--accent-soft); opacity: .7; pointer-events: none; }
 .thumb img { box-shadow: var(--shadow-sm); background: white; display: block; max-width: 100%; height: auto; pointer-events: none; }
 .thumb .num { font-size: 11px; color: var(--muted); }
 

@@ -21,7 +21,8 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
 
 - **Viewing**: tabs, continuous / single / two-page layouts, fit width / fit page / free zoom
   (`Ctrl`+wheel), view rotation, split window with two views of a document, full screen, light, white, dark and black themes, dark and
-  high-contrast page modes, rulers (mm, cm, in, pt, pc), grid, guides with snapping, loupe, link
+  high-contrast page modes, rulers (mm, cm, in, pt, pc), grid, guides with snapping, loupe with
+  adjustable enlargement, the visible area outlined on the thumbnails, link
   and form-field highlighting, transparency grid, document info bar, page labels, view history.
 - **Interface**: ribbon or classic menus and toolbars; the ribbon shows its tools as icons with
   their names in the tooltips (or with the names next to them: View › Tool Names); the side panes,
@@ -36,7 +37,7 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
 - **Page text**: the Edit Text tool and the Insert, Replace and Delete Text commands of
   Edit › Text change the text drawn on the page (the rest of the line moves to make room);
   Find and Replace changes one occurrence or all of them in one undo step.
-- **Comments**: sticky notes, text boxes, callouts, typewriter text, rectangles, ellipses,
+- **Comments**: sticky notes (eleven icons), text boxes, callouts, typewriter text, rectangles, ellipses,
   polygons, polylines, clouds, lines, arrows (shown as they will look while drawn), smooth pencil
   strokes with eraser, area and free highlights, text highlight / underline / strikeout,
   insert-text and replace-text marks and text correction, stamps (presets, custom text, images),

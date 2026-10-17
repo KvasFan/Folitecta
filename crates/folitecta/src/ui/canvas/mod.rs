@@ -80,7 +80,7 @@ pub fn CanvasArea() -> Element {
 }
 
 /// Visible part of the current page as fractions of its size: x0, y0, x1, y1.
-const VIEWPORT_JS: &str = "const c = document.getElementById('canvas'); const el = document.getElementById('pg-PAGE'); if (!c || !el) return null; const r = el.getBoundingClientRect(), v = c.getBoundingClientRect(); const f = (a, b) => Math.min(1, Math.max(0, a / b)); return [f(v.left - r.left, r.width), f(v.top - r.top, r.height), f(v.right - r.left, r.width), f(v.bottom - r.top, r.height)];";
+pub(crate) const VIEWPORT_JS: &str = "const c = document.getElementById('canvas'); const el = document.getElementById('pg-PAGE'); if (!c || !el) return null; const r = el.getBoundingClientRect(), v = c.getBoundingClientRect(); const f = (a, b) => Math.min(1, Math.max(0, a / b)); return [f(v.left - r.left, r.width), f(v.top - r.top, r.height), f(v.right - r.left, r.width), f(v.bottom - r.top, r.height)];";
 
 /// Overview of the current page with the visible area; click or drag to move it.
 #[component]
@@ -256,6 +256,17 @@ fn DocTabs() -> Element {
     }
 }
 
+/// How many times the loupe enlarges the page as shown (Zoom In and Zoom
+/// Out of the loupe menu change it).
+pub(crate) fn loupe_factor(st: AppState) -> f32 {
+    st.ui
+        .read()
+        .value("loupe.factor")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(3.0f32)
+        .clamp(1.5, 8.0)
+}
+
 /// Floating magnifier for the loupe tool.
 #[component]
 fn Loupe() -> Element {
@@ -270,7 +281,7 @@ fn Loupe() -> Element {
         return rsx! {};
     };
     let zoom = current_zoom(st);
-    let mag = (zoom * 3.0).min(8.0);
+    let mag = (zoom * loupe_factor(st)).min(8.0);
     let scale = ((mag * (st.dpr)() as f32) * 1000.0).round().clamp(50.0, 8000.0) as u32;
     let (w, h) = (240.0, 170.0);
     let (vw, vh) = (st.viewport)();

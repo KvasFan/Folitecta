@@ -1,5 +1,5 @@
-//! Pane commands: thumbnails, links, search options, and expanding or
-//! collapsing the tree of the visible pane.
+//! Pane commands: thumbnails, links, the loupe, search options, and
+//! expanding or collapsing the tree of the visible pane.
 
 use crate::commands::{handlers, no_doc};
 use crate::files;
@@ -7,6 +7,12 @@ use crate::i18n::{t, tf};
 use crate::state::{AppState, DocTab, ToastKind};
 use dioxus::prelude::ReadableExt;
 use folitecta_core::{Link, LinkTarget, OutlineItem};
+
+/// Enlarge more (or less) in the loupe, between 1.5 and 8 times.
+fn loupe_zoom(st: AppState, by: f32) {
+    let next = (crate::ui::canvas::loupe_factor(st) * by).clamp(1.5, 8.0);
+    st.set_value("loupe.factor", format!("{next:.2}"));
+}
 
 /// View › Expand All / Collapse All: the same command of the visible pane
 /// (bookmarks, form fields or comments).
@@ -156,6 +162,8 @@ handlers! {
     },
     "document.find.gotoNext" => |st| crate::ui::panes::step_search(st, true),
     "document.find.gotoPrev" => |st| crate::ui::panes::step_search(st, false),
+    "loupeView.zoomIn" => |st| loupe_zoom(st, 1.25),
+    "loupeView.zoomOut" => |st| loupe_zoom(st, 0.8),
     "expandAll" => |st| tree(st, true),
     "collapseAll" => |st| tree(st, false),
     "expandAllDescendants" => expand_descendants,

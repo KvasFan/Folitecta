@@ -75,4 +75,28 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             "clicked {clicked}, selected {selected:?}, flashed {flashed}, address {address:?}, copied {copied:?}, wrapped {wrapped}, expanded {expanded}, collapsed {collapsed}"
         ),
     );
+
+    // Thumbnails: the visible part of the current page outlined; the loupe
+    // enlarges more and less.
+    st.go_to_page(0);
+    crate::commands::dispatch(st, "thumbnailsView.highlightVisible");
+    pause(900).await;
+    let outlined =
+        document::eval("return document.querySelectorAll('.thumb.current .thumb-visible').length;")
+            .await
+            .ok()
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+    let _ = capture_window(&cx.dir.join("interaction-thumbs-visible.png"));
+    crate::commands::dispatch(st, "thumbnailsView.highlightVisible");
+    crate::commands::dispatch(st, "loupeView.zoomIn");
+    let more = st.value("loupe.factor");
+    crate::commands::dispatch(st, "loupeView.zoomOut");
+    let back = st.value("loupe.factor");
+    st.ui_mut().values.remove("loupe.factor");
+    cx.record(
+        "thumbnails outline the visible part of the page; the loupe enlarges more and less",
+        outlined == 1 && more == "3.75" && back == "3.00",
+        format!("outlined {outlined}, loupe {more:?} then {back:?}"),
+    );
 }

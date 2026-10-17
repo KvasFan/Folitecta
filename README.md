@@ -4,7 +4,7 @@
 interface built on [Dioxus](https://dioxuslabs.com). It renders pages with the pure-Rust
 [hayro](https://github.com/LaurenzV/hayro) rasterizer and edits documents through the
 [lopdf](https://github.com/J-F-Liu/lopdf) object model. The libraries it uses directly are free
-software under MIT, Apache or GNU licences.
+software under MIT, Apache, GNU or Mozilla Public License 2.0 licences.
 
 ![Folitecta screenshot](docs/screenshot.png)
 
@@ -159,9 +159,9 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and
 
 Folitecta is released under the [MIT License](LICENSE). Folitecta is an independent
 implementation: it contains no code from, and is not affiliated with or endorsed by, any other
-PDF product. The crates it depends on directly keep their own MIT, Apache-2.0 or GNU licences;
-their own dependencies may also use other permissive licences (BSD, ISC, Zlib, Unicode). The
-allowed set is enforced by `deny.toml` (`cargo deny check licenses`).
+PDF product. The crates it depends on directly keep their own MIT, Apache-2.0, GNU or MPL-2.0
+licences; their own dependencies may also use other permissive licences (BSD, ISC, Zlib,
+Unicode) or the MPL-2.0. The allowed set is enforced by `deny.toml` (`cargo deny check licenses`).
 
 The icons of the interface are [Tabler Icons](https://tabler.io/icons) (MIT License,
 Copyright (c) 2020-2026 Paweł Kuna), used through the `icondata_tb` crate (MIT). Barcodes are

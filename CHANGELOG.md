@@ -6,6 +6,13 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Libraries under the Mozilla Public License 2.0 are accepted next to the MIT, Apache-2.0 and
+  GNU ones (`deny.toml`); option-ext, which Dioxus uses on Linux and macOS, is one.
+- The full continuous integration runs for release tags, pull requests and on demand; the
+  changes in between are checked locally before they are pushed.
+
 ## [0.0.12] - 2026-10-18
 
 ### Added

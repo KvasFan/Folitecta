@@ -398,6 +398,7 @@ pub fn Dialogs() -> Element {
         }
         Dialog::Barcodes(found) => rsx! { crate::ui::features::barcodes::BarcodesDialog { found } },
         Dialog::CalcOrder => rsx! { crate::ui::features::form_calc::CalcOrderDialog {} },
+        Dialog::NoteIcon(target) => rsx! { NoteIconDialog { target } },
     }
 }
 

@@ -108,6 +108,7 @@
   "dialog.move.before": "Sposta prima della pagina (1-{count})",
   "dialog.newblank.title": "Nuovo documento con pagine vuote",
   "dialog.note.author": "Autore",
+  "dialog.note.icon": "Icona",
   "dialog.note.text": "Testo",
   "dialog.note.title": "Testo del commento",
   "dialog.notimpl.body": "Il comando “{label}” fa parte del piano di sviluppo di Folitecta ma non è implementato nella versione {version}. Resta visibile per rendere esplorabile l'intero insieme di funzioni; lo stato è tracciato in docs/FEATURES.md.",

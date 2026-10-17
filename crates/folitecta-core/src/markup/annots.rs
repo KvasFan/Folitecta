@@ -221,11 +221,31 @@ impl Document {
         author: &str,
         color: [f32; 3],
     ) -> Result<ObjectId> {
+        self.add_note_with_icon(page, x, y, contents, author, color, "Comment")
+    }
+
+    /// Add a sticky note drawn with one of the [`NOTE_ICONS`](crate::appearance::NOTE_ICONS)
+    /// (an unknown name gets the comment bubble).
+    pub fn add_note_with_icon(
+        &mut self,
+        page: usize,
+        x: f32,
+        y: f32,
+        contents: &str,
+        author: &str,
+        color: [f32; 3],
+        icon: &str,
+    ) -> Result<ObjectId> {
+        let icon = if crate::appearance::NOTE_ICONS.contains(&icon) {
+            icon
+        } else {
+            "Comment"
+        };
         let page_id = self.page_id(page)?;
         self.begin_edit();
         let rect = [x, y - 20.0, x + 20.0, y];
         let mut annot = self.base_annotation(page_id, "Text", rect, author, contents, color);
-        annot.set("Name", Object::Name(b"Comment".to_vec()));
+        annot.set("Name", Object::Name(icon.as_bytes().to_vec()));
         annot.set("Open", false);
         self.finish_annotation(page_id, annot)
     }

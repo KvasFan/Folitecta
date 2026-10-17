@@ -9,6 +9,23 @@ pub(super) fn tool_done(st: AppState) {
     }
 }
 
+/// The interface icon that stands for a note icon in the lists.
+pub(crate) fn note_icon_symbol(name: &str) -> &'static str {
+    match name {
+        "Note" => "note",
+        "Key" => "key",
+        "Help" => "help",
+        "NewParagraph" => "new-paragraph",
+        "Paragraph" => "pilcrow",
+        "Insert" => "caret-up",
+        "Check" => "check",
+        "Circle" => "circle",
+        "Cross" => "close",
+        "Star" => "star",
+        _ => "comment",
+    }
+}
+
 #[component]
 pub(super) fn NoteDialog(page: usize, x: f32, y: f32) -> Element {
     let st = use_context::<AppState>();
@@ -16,18 +33,73 @@ pub(super) fn NoteDialog(page: usize, x: f32, y: f32) -> Element {
     let text = use_signal(String::new);
     let author = use_signal(|| st.ui.read().author.clone());
     let mut color = use_signal(|| st.ui.read().value("note.color").unwrap_or("#ffd833").to_string());
+    let mut icon = use_signal(|| st.ui.read().value("note.icon").unwrap_or("Comment").to_string());
     rsx! {
         Frame { title: t(lang, "dialog.note.title"),
             on_ok: move |_| {
-                let (c, a, col) = (text(), author(), color());
+                let (c, a, col, ic) = (text(), author(), color(), icon());
                 st.set_value("note.color", col.clone());
-                apply(st, |tab| tab.doc.add_note(page, x, y, &c, &a, parse_color(&col)).map(|_| ()));
+                st.set_value("note.icon", ic.clone());
+                apply(st, |tab| tab.doc.add_note_with_icon(page, x, y, &c, &a, parse_color(&col), &ic).map(|_| ()));
                 tool_done(st);
             },
             Area { label: t(lang, "dialog.note.text"), value: text, autofocus: true }
             div { class: "field-grid",
                 Text { label: t(lang, "dialog.note.author"), value: author }
                 div { class: "field", label { "{t(lang, \"dialog.watermark.color\")}" } input { r#type: "color", value: "{color}", oninput: move |e| color.set(e.value()) } }
+                div { class: "field", label { "{t(lang, \"dialog.note.icon\")}" }
+                    select { onchange: move |e| icon.set(e.value()),
+                        for name in folitecta_core::NOTE_ICONS.iter() {
+                            {
+                                let label = t(lang, &format!("annot.icon.{name}"));
+                                rsx! { option { key: "{name}", value: "{name}", selected: icon() == *name, "{label}" } }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// The icon of a note (or, with no note, of the new notes), picked from a grid.
+#[component]
+pub(super) fn NoteIconDialog(target: Option<(usize, usize)>) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let current = match target {
+        Some((page, index)) => st.read_active(|t| t.doc.note_icon_of(page, index)).flatten(),
+        None => st.ui.read().value("note.icon").map(str::to_string),
+    }
+    .unwrap_or_else(|| "Comment".into());
+    let pick = move |name: &'static str| match target {
+        Some((page, index)) => {
+            apply(st, |tab| tab.doc.set_note_icon(page, index, name));
+            st.with_active(|tab| tab.selected_annot = Some((page, index)));
+        }
+        None => {
+            st.set_value("note.icon", name);
+            st.set_dialog(Dialog::None);
+        }
+    };
+    rsx! {
+        Frame { title: t(lang, "annot.icon.title"),
+            if target.is_none() {
+                p { class: "hint", "{t(lang, \"annot.icon.new_notes\")}" }
+            }
+            div { class: "choice-grid note-icons",
+                for name in folitecta_core::NOTE_ICONS.iter().copied() {
+                    {
+                        let label = t(lang, &format!("annot.icon.{name}"));
+                        rsx! {
+                            button { class: if current == name { "choice on" } else { "choice" }, key: "{name}",
+                                onclick: move |_| pick(name),
+                                Icon { name: note_icon_symbol(name) }
+                                span { "{label}" }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

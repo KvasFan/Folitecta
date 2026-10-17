@@ -350,6 +350,8 @@ pub enum Dialog {
     Barcodes(Vec<folitecta_core::FoundBarcode>),
     /// The order in which calculated fields are calculated.
     CalcOrder,
+    /// The icon of a note (page and index), or of the new notes.
+    NoteIcon(Option<(usize, usize)>),
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

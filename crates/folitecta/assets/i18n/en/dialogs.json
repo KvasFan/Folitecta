@@ -108,6 +108,7 @@
   "dialog.move.before": "Move before page (1-{count})",
   "dialog.newblank.title": "New document with blank pages",
   "dialog.note.author": "Author",
+  "dialog.note.icon": "Icon",
   "dialog.note.text": "Text",
   "dialog.note.title": "Comment text",
   "dialog.notimpl.body": "The command “{label}” is part of the Folitecta roadmap but is not implemented in version {version}. It stays visible so the full feature set is discoverable; progress is tracked in docs/FEATURES.md.",

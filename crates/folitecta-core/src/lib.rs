@@ -46,7 +46,7 @@ pub use tags::{accessibility, structure};
 
 pub use annot_copy::AnnotSnapshot;
 pub use annots::{Annotation, Markup, Shape};
-pub use appearance::{AnnotStyle, LINE_ENDINGS};
+pub use appearance::{AnnotStyle, LINE_ENDINGS, NOTE_ICONS};
 pub use attachments::Attachment;
 pub use barcodes::{BarcodeKind, FoundBarcode};
 pub use commands::{Command, CommandKind, Registry, Status, registry};

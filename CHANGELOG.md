@@ -6,6 +6,18 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Note icons: a note can be drawn as a comment bubble, a note, a key, help, a new paragraph, a
+  paragraph, an insertion caret, a check mark, a circle, a cross or a star (Comments › Note Icon
+  for the selected note, or for the new notes; also in the dialog of a new note). Notes read
+  from other files keep their icon when they are drawn again.
+
+### Changed
+
+- The command modules of the interface and the modules of the core library are grouped in
+  folders by area (documents, comments, text, forms, navigation, protection, window).
+
 ## [0.0.11] - 2026-10-17
 
 ### Added

@@ -110,7 +110,16 @@ fn resize_text(st: AppState, delta: f32) {
     }
 }
 
+/// Comments › Note Icon: the icon of the selected note, or of the new notes.
+fn note_icon(st: AppState) {
+    let target = selected(st)
+        .filter(|(_, _, subtype, _)| subtype == "Text")
+        .map(|(p, i, _, _)| (p, i));
+    st.set_dialog(crate::state::Dialog::NoteIcon(target));
+}
+
 handlers! {
+    "noteIcon" => note_icon,
     "props" => show_properties,
     "props.makeDefault" => make_default,
     "props.applyDefault" => apply_default,

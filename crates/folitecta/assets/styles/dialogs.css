@@ -39,6 +39,12 @@
 .choice:disabled { opacity: .5; cursor: default; }
 .choice div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .choice .ic { width: 20px; height: 20px; color: var(--accent); }
+/* Choices in a grid (the icons of a note); the chosen one stands out. */
+.choice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.choice-grid .choice { padding: 8px 10px; gap: 10px; min-width: 0; }
+.choice-grid .choice span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.choice.on, .choice.on:hover:not(:disabled) { background: var(--active-bg); border-color: var(--active-border); color: var(--active-fg); }
+.choice.on .ic { color: var(--active-fg); }
 .stamp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .stamp-preview { border: 2.5px solid; border-radius: 8px; background: transparent; padding: 10px 6px; font-weight: 800; letter-spacing: .04em; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stamp-preview:hover { background: var(--surface-3); }

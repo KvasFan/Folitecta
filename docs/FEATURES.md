@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.4. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 854 |
-| 🟡 partial | 39 |
-| ⬜ planned | 1084 |
+| ✅ available | 915 |
+| 🟡 partial | 44 |
+| ⬜ planned | 1018 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -301,7 +301,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Search | `view.search` | ✅ available |
 | Signatures | `view.signatures` | ✅ available |
 | Spell Check | `view.spellCheck` | ✅ available |
-| Stamps Palette | `view.stamps` | ⬜ planned |
+| Stamps Palette | `view.stamps` | ✅ available |
 | Standard | `view.toolbar.standard` | ✅ available |
 | Tags | `view.tags` | ⬜ planned |
 | Thumbnails | `view.pageThumbnails` | ✅ available |
@@ -1488,8 +1488,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Signatures Pane | `signaturesView` | ⬜ planned |
 | Snap | `view.snapGroup` | ⬜ planned |
 | Spell Check | `view.spellCheck` | ✅ available |
-| Stamps Palette | `view.stamps` | ⬜ planned |
-| Stamps Pane | `stampsView` | ⬜ planned |
+| Stamps Palette | `view.stamps` | ✅ available |
+| Stamps Pane | `stampsView` | 🟡 partial |
 | Tab Title Style | `tabTitleStyle` | ✅ available |
 | Tags | `view.tags` | ⬜ planned |
 | Tags Pane | `tagsView` | ⬜ planned |
@@ -1679,7 +1679,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Show All Comments | `comments.showAll` | ✅ available |
 | Show/Hide All Comments | `comments.showhideAll` | ✅ available |
 | Sound | `sound` | ⬜ planned |
-| Stamp Designer | `stampCustom` | ⬜ planned |
+| Stamp Designer | `stampCustom` | 🟡 partial |
 | Stamps List | `stampsList` | ✅ available |
 | Stroke Color | `scolor` | ✅ available |
 | Stroke Opacity | `strokeOpacity` | ⬜ planned |
@@ -2297,52 +2297,52 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `signs.markup.signature` | Document › Signs › Placeholders › Signature | ✅ available |
 | `splitPages.removeLine.list` | Edit › Split Pages › Remove Line › List | ⬜ planned |
 | `splitPages.removeLine.preview` | Edit › Split Pages › Remove Line › Preview | ⬜ planned |
-| `stampCustom.add.curve` | Comments › Stamp Designer › Add › Curve | ⬜ planned |
-| `stampCustom.add.field` | Comments › Stamp Designer › Add › Field | ⬜ planned |
-| `stampCustom.add.field.counter` | Comments › Stamp Designer › Add › Field › Counter | ⬜ planned |
-| `stampCustom.add.field.custom` | Comments › Stamp Designer › Add › Field › Custom | ⬜ planned |
-| `stampCustom.add.field.date` | Comments › Stamp Designer › Add › Field › Date | ⬜ planned |
-| `stampCustom.add.field.identity` | Comments › Stamp Designer › Add › Field › Identity | ⬜ planned |
-| `stampCustom.add.field.identity.corporation` | Comments › Stamp Designer › Add › Field › Identity › Corporation | ⬜ planned |
-| `stampCustom.add.field.identity.email` | Comments › Stamp Designer › Add › Field › Identity › Email | ⬜ planned |
-| `stampCustom.add.field.identity.loginName` | Comments › Stamp Designer › Add › Field › Identity › Login Name | ⬜ planned |
-| `stampCustom.add.field.identity.name` | Comments › Stamp Designer › Add › Field › Identity › Name | ⬜ planned |
-| `stampCustom.add.field.macros` | Comments › Stamp Designer › Add › Field › Macros | ⬜ planned |
-| `stampCustom.add.file` | Comments › Stamp Designer › Add › File | ⬜ planned |
-| `stampCustom.add.line` | Comments › Stamp Designer › Add › Line | ⬜ planned |
-| `stampCustom.add.oval` | Comments › Stamp Designer › Add › Oval | ⬜ planned |
-| `stampCustom.add.polygon` | Comments › Stamp Designer › Add › Polygon | ⬜ planned |
-| `stampCustom.add.polyline` | Comments › Stamp Designer › Add › Polyline | ⬜ planned |
-| `stampCustom.add.rect` | Comments › Stamp Designer › Add › Rect | ⬜ planned |
-| `stampCustom.add.template` | Comments › Stamp Designer › Add › Template | ⬜ planned |
-| `stampCustom.add.text` | Comments › Stamp Designer › Add › Text | ⬜ planned |
-| `stampCustom.manage.dateFormats` | Comments › Stamp Designer › Manage › Date Formats | ⬜ planned |
-| `stampCustom.zoom.level` | Comments › Stamp Designer › Zoom › Level | ⬜ planned |
-| `stampCustom.zoom.level.fit` | Comments › Stamp Designer › Zoom › Level › Fit | ⬜ planned |
-| `stampsView.addCustom` | View › Stamps Pane › Add Custom | ⬜ planned |
-| `stampsView.addGroup` | View › Stamps Pane › Add Group | ⬜ planned |
-| `stampsView.addNew` | View › Stamps Pane › Add New | ⬜ planned |
-| `stampsView.addNewFromCb` | View › Stamps Pane › Add New from Clipboard | ⬜ planned |
+| `stampCustom.add.curve` | Comments › Stamp Designer › Add › Curve | ✅ available |
+| `stampCustom.add.field` | Comments › Stamp Designer › Add › Field | ✅ available |
+| `stampCustom.add.field.counter` | Comments › Stamp Designer › Add › Field › Counter | ✅ available |
+| `stampCustom.add.field.custom` | Comments › Stamp Designer › Add › Field › Custom | ✅ available |
+| `stampCustom.add.field.date` | Comments › Stamp Designer › Add › Field › Date | ✅ available |
+| `stampCustom.add.field.identity` | Comments › Stamp Designer › Add › Field › Identity | ✅ available |
+| `stampCustom.add.field.identity.corporation` | Comments › Stamp Designer › Add › Field › Identity › Corporation | ✅ available |
+| `stampCustom.add.field.identity.email` | Comments › Stamp Designer › Add › Field › Identity › Email | ✅ available |
+| `stampCustom.add.field.identity.loginName` | Comments › Stamp Designer › Add › Field › Identity › Login Name | ✅ available |
+| `stampCustom.add.field.identity.name` | Comments › Stamp Designer › Add › Field › Identity › Name | ✅ available |
+| `stampCustom.add.field.macros` | Comments › Stamp Designer › Add › Field › Macros | ✅ available |
+| `stampCustom.add.file` | Comments › Stamp Designer › Add › File | ✅ available |
+| `stampCustom.add.line` | Comments › Stamp Designer › Add › Line | ✅ available |
+| `stampCustom.add.oval` | Comments › Stamp Designer › Add › Oval | ✅ available |
+| `stampCustom.add.polygon` | Comments › Stamp Designer › Add › Polygon | ✅ available |
+| `stampCustom.add.polyline` | Comments › Stamp Designer › Add › Polyline | ✅ available |
+| `stampCustom.add.rect` | Comments › Stamp Designer › Add › Rect | ✅ available |
+| `stampCustom.add.template` | Comments › Stamp Designer › Add › Template | ✅ available |
+| `stampCustom.add.text` | Comments › Stamp Designer › Add › Text | ✅ available |
+| `stampCustom.manage.dateFormats` | Comments › Stamp Designer › Manage › Date Formats | ✅ available |
+| `stampCustom.zoom.level` | Comments › Stamp Designer › Zoom › Level | ✅ available |
+| `stampCustom.zoom.level.fit` | Comments › Stamp Designer › Zoom › Level › Fit | ✅ available |
+| `stampsView.addCustom` | View › Stamps Pane › Add Custom | ✅ available |
+| `stampsView.addGroup` | View › Stamps Pane › Add Group | ✅ available |
+| `stampsView.addNew` | View › Stamps Pane › Add New | ✅ available |
+| `stampsView.addNewFromCb` | View › Stamps Pane › Add New from Clipboard | ✅ available |
 | `stampsView.getFromWeb` | View › Stamps Pane › Get from Web | ⬜ planned |
-| `stampsView.options` | View › Stamps Pane › Options | ⬜ planned |
-| `stampsView.sel` | View › Stamps Pane › Selection | ⬜ planned |
-| `stampsView.sel.collection` | View › Stamps Pane › Selection › Collection | ⬜ planned |
-| `stampsView.sel.collection.sort` | View › Stamps Pane › Selection › Collection › Sort | ⬜ planned |
-| `stampsView.sel.stamp` | View › Stamps Pane › Selection › Stamp | ⬜ planned |
-| `stampsView.sel.stamp.duplicate` | View › Stamps Pane › Selection › Stamp › Duplicate | ⬜ planned |
-| `stampsView.selection` | View › Stamps Pane › Selection | ⬜ planned |
-| `stampsView.selection.edit` | View › Stamps Pane › Selection › Edit | ⬜ planned |
-| `stampsView.selection.recolor` | View › Stamps Pane › Selection › Recolor | ⬜ planned |
-| `stampsView.virtual` | View › Stamps Pane › Virtual | ⬜ planned |
-| `stampsView.virtual.favorites` | View › Stamps Pane › Virtual › Favorites | ⬜ planned |
-| `stampsView.virtual.favorites.add` | View › Stamps Pane › Virtual › Favorites › Add | ⬜ planned |
-| `stampsView.virtual.favorites.clear` | View › Stamps Pane › Virtual › Favorites › Clear | ⬜ planned |
-| `stampsView.virtual.favorites.remove` | View › Stamps Pane › Virtual › Favorites › Remove | ⬜ planned |
-| `stampsView.virtual.recents` | View › Stamps Pane › Virtual › Recents | ⬜ planned |
-| `stampsView.virtual.recents.clear` | View › Stamps Pane › Virtual › Recents › Clear | ⬜ planned |
-| `stampsView.virtual.recents.remove` | View › Stamps Pane › Virtual › Recents › Remove | ⬜ planned |
-| `stampsView.zoomIn` | View › Stamps Pane › Zoom in | ⬜ planned |
-| `stampsView.zoomOut` | View › Stamps Pane › Zoom Out | ⬜ planned |
+| `stampsView.options` | View › Stamps Pane › Options | ✅ available |
+| `stampsView.sel` | View › Stamps Pane › Selection | ✅ available |
+| `stampsView.sel.collection` | View › Stamps Pane › Selection › Collection | ✅ available |
+| `stampsView.sel.collection.sort` | View › Stamps Pane › Selection › Collection › Sort | ✅ available |
+| `stampsView.sel.stamp` | View › Stamps Pane › Selection › Stamp | ✅ available |
+| `stampsView.sel.stamp.duplicate` | View › Stamps Pane › Selection › Stamp › Duplicate | ✅ available |
+| `stampsView.selection` | View › Stamps Pane › Selection | ✅ available |
+| `stampsView.selection.edit` | View › Stamps Pane › Selection › Edit | ✅ available |
+| `stampsView.selection.recolor` | View › Stamps Pane › Selection › Recolor | ✅ available |
+| `stampsView.virtual` | View › Stamps Pane › Virtual | ✅ available |
+| `stampsView.virtual.favorites` | View › Stamps Pane › Virtual › Favorites | ✅ available |
+| `stampsView.virtual.favorites.add` | View › Stamps Pane › Virtual › Favorites › Add | ✅ available |
+| `stampsView.virtual.favorites.clear` | View › Stamps Pane › Virtual › Favorites › Clear | ✅ available |
+| `stampsView.virtual.favorites.remove` | View › Stamps Pane › Virtual › Favorites › Remove | ✅ available |
+| `stampsView.virtual.recents` | View › Stamps Pane › Virtual › Recents | ✅ available |
+| `stampsView.virtual.recents.clear` | View › Stamps Pane › Virtual › Recents › Clear | ✅ available |
+| `stampsView.virtual.recents.remove` | View › Stamps Pane › Virtual › Recents › Remove | ✅ available |
+| `stampsView.zoomIn` | View › Stamps Pane › Zoom in | ✅ available |
+| `stampsView.zoomOut` | View › Stamps Pane › Zoom Out | ✅ available |
 | `tabTitleStyle.auto` | View › Tab Title Style › Auto | ✅ available |
 | `tabTitleStyle.documentFilename` | View › Tab Title Style › Document Filename | ✅ available |
 | `tabTitleStyle.documentTitle` | View › Tab Title Style › Document Title | ✅ available |

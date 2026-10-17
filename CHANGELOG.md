@@ -13,6 +13,12 @@ All notable changes to Folitecta are documented here. The format follows
   at the page where a document was closed, pin, remove, copy the path, open the folder.
 - Sessions: save the open documents as a session, open a session instead of the open documents
   or next to them or in a new window, rename, remove, sort, export and import sessions as files.
+- Stamps pane: standard stamps, your own collections, favorites and recently used stamps, text
+  stamps, pictures from the clipboard, duplicate, recolor, sort, zoom.
+- Stamp designer: text, rectangles, ovals, lines, polylines, polygons, curves and pictures on a
+  sized background, templates, cropping to the content, and fields filled in when the stamp is
+  placed (date with a chosen format, name, e-mail, company, login, counter, values asked at
+  placement, page-mark macros).
 
 ## [0.0.4] - 2026-10-17
 

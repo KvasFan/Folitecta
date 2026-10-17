@@ -1611,7 +1611,59 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     st.ui_mut().left_pane = "thumbnails".into();
     pause(400).await;
 
-    // 32. Undo everything added above.
+    // 32. Stamps: a text stamp in the library, a designed stamp from a
+    // template with a counter, placed on the page.
+    {
+        let mut ui = st.ui_mut();
+        ui.left_pane = "stamps".into();
+        ui.show_left_pane = true;
+    }
+    crate::commands::dispatch(st, "stampsView.addCustom");
+    pause(400).await;
+    let _ = document::eval(
+        "const i = [...document.querySelectorAll('.dialog input')].find(e => e.placeholder === 'PAID'); if (i) { i.value = 'PAID'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
+    )
+    .await;
+    pause(250).await;
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(400).await;
+    let has_text = crate::commands::stamps::library()
+        .collections
+        .iter()
+        .any(|c| c.stamps.iter().any(|s| s.text == "PAID"));
+    record("text stamp added to the library", has_text, String::new());
+    crate::commands::dispatch(st, "stampsView.addNew");
+    pause(300).await;
+    crate::commands::dispatch(st, "stampCustom.openFromTemplate");
+    pause(300).await;
+    let _ = document::eval("document.querySelector('.stamp-template')?.click();").await;
+    pause(300).await;
+    crate::commands::dispatch(st, "stampCustom.add.field.counter");
+    pause(400).await;
+    let elements = crate::commands::stamps::DESIGNER.peek().design.elements.len();
+    let _ = capture_window(&dir.join("interaction-stamp-designer.png"));
+    let before = st
+        .read_active(|t| t.doc.annotations(0).map(|a| a.len()).unwrap_or(0))
+        .unwrap_or(0);
+    let counter = crate::commands::stamps::library().counter;
+    crate::commands::dispatch(st, "stampCustom.addStamp");
+    pause(400).await;
+    let _ = pointer_path(0, z, &[(200.0, 300.0), (200.0, 300.0)], false).await;
+    pause(600).await;
+    let after = st
+        .read_active(|t| t.doc.annotations(0).map(|a| a.len()).unwrap_or(0))
+        .unwrap_or(0);
+    let counted = crate::commands::stamps::library().counter == counter + 1;
+    record(
+        "designed stamp placed with its counter",
+        elements >= 2 && after == before + 1 && counted,
+        format!("{elements} elements, {before} -> {after} annotations"),
+    );
+    let _ = capture_window(&dir.join("interaction-stamps.png"));
+    st.set_tool(Tool::Hand);
+    st.ui_mut().left_pane = "thumbnails".into();
+
+    // 33. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..30 {
         crate::commands::dispatch(st, "undo");

@@ -37,6 +37,7 @@ pub mod scripts;
 pub mod search;
 pub mod security;
 pub mod signmarks;
+pub mod stamp_design;
 pub mod stamps;
 pub mod text;
 pub mod textdoc;

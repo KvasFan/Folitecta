@@ -279,6 +279,12 @@ pub fn Dialogs() -> Element {
         Dialog::PortfolioItem(file) => rsx! { crate::ui::portfolio::PortfolioItemDialog { file } },
         Dialog::PortfolioProps => rsx! { crate::ui::portfolio::PortfolioPropsDialog {} },
         Dialog::SessionName(index) => rsx! { crate::ui::history_pane::SessionNameDialog { index } },
+        Dialog::StampValues(id) => rsx! { crate::ui::stamps::StampValuesDialog { id } },
+        Dialog::StampText(id) => rsx! { crate::ui::stamps::StampTextDialog { id } },
+        Dialog::StampGroup(index) => rsx! { crate::ui::stamps::StampGroupDialog { index } },
+        Dialog::StampOptions => rsx! { crate::ui::stamps::StampOptionsDialog {} },
+        Dialog::StampRecolor(id) => rsx! { crate::ui::stamps::StampRecolorDialog { id } },
+        Dialog::StampDesigner => rsx! { crate::ui::stamps::StampDesignerDialog {} },
     }
 }
 
@@ -2070,6 +2076,7 @@ fn StampPicker() -> Element {
     let custom = use_signal(|| st.ui.read().value("stamp.custom").unwrap_or("").to_string());
     let mut color = use_signal(|| st.ui.read().value("stamp.color").unwrap_or("#c81e1e").to_string());
     let choose = move |text: String| {
+        crate::commands::stamps::clear_pending();
         st.set_value("stamp.text", text);
         st.set_value("stamp.color", color());
         st.set_value("stamp.kind", "text");

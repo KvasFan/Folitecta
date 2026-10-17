@@ -28,6 +28,7 @@ fn pane_icon(p: &Pane) -> &'static str {
         Pane::Signatures => "signature",
         Pane::History => "history",
         Pane::Sessions => "window",
+        Pane::Stamps => "tag",
         Pane::Other(_) => "grid",
     }
 }
@@ -291,6 +292,8 @@ pub fn PanePanel() -> Element {
         rsx! { crate::ui::history_pane::HistoryPane {} }
     } else if pane == Pane::Sessions {
         rsx! { crate::ui::history_pane::SessionsPane {} }
+    } else if pane == Pane::Stamps {
+        rsx! { crate::ui::stamps::StampsPane {} }
     } else if !has_doc {
         rsx! { div { class: "pane-empty", "{t(lang, \"toast.no_document\")}" } }
     } else {
@@ -305,7 +308,7 @@ pub fn PanePanel() -> Element {
             Pane::Destinations => rsx! { crate::ui::bookmarks_pane::DestinationsPane {} },
             Pane::Search => rsx! { SearchPane {} },
             Pane::Signatures => rsx! { crate::ui::signatures::SignaturesPane {} },
-            Pane::History | Pane::Sessions => rsx! {},
+            Pane::History | Pane::Sessions | Pane::Stamps => rsx! {},
             Pane::Other(id) => rsx! { PlannedPane { pane_id: id.clone() } },
         }
     };

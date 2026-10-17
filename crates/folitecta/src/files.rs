@@ -707,6 +707,7 @@ pub fn pick_image_stamp(st: AppState) {
         let data = file.read().await;
         match Document::image_size(&data) {
             Ok(_) => {
+                crate::commands::stamps::clear_pending();
                 st.set_pending_image(Some(data));
                 st.set_value("stamp.kind", "image");
                 st.set_tool(crate::state::Tool::Stamp);

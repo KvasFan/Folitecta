@@ -263,6 +263,7 @@ pub enum Pane {
     Signatures,
     History,
     Sessions,
+    Stamps,
     Other(String),
 }
 
@@ -281,6 +282,7 @@ impl Pane {
             Pane::Signatures => "signatures".into(),
             Pane::History => "history".into(),
             Pane::Sessions => "sessions".into(),
+            Pane::Stamps => "stamps".into(),
             Pane::Other(s) => s.clone(),
         }
     }
@@ -299,6 +301,7 @@ impl Pane {
             "signatures" => Pane::Signatures,
             "history" => Pane::History,
             "sessions" => Pane::Sessions,
+            "stamps" => Pane::Stamps,
             other => Pane::Other(other.to_string()),
         }
     }
@@ -1042,6 +1045,18 @@ pub enum Dialog {
     PortfolioProps,
     /// Name of a new session (`None`: save the open documents) or of a saved one.
     SessionName(Option<usize>),
+    /// Values of the custom fields of a stamp before placing it.
+    StampValues(u64),
+    /// A new text stamp (`None`) or a stamp's name, text and colour.
+    StampText(Option<u64>),
+    /// A new stamp collection (`None`) or a collection's name.
+    StampGroup(Option<usize>),
+    /// Options of the stamps pane.
+    StampOptions,
+    /// New colour of a stamp.
+    StampRecolor(u64),
+    /// The stamp designer.
+    StampDesigner,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

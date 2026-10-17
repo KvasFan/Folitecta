@@ -29,6 +29,7 @@ pub(crate) mod search;
 pub(crate) mod sessions;
 pub(crate) mod signatures;
 pub(crate) mod signs;
+pub(crate) mod stamps;
 mod view;
 
 use std::collections::{HashMap, HashSet};
@@ -75,6 +76,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     portfolio::HANDLERS,
     history::HANDLERS,
     sessions::HANDLERS,
+    stamps::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -107,6 +109,11 @@ pub const PARTIAL: &[&str] = &[
     // There are no tab groups: the files open in this window.
     "sessions.open.addToActiveGroup",
     "sessions.open.addToNewGroup",
+    // The first stamp made with the design is selected.
+    "stampCustom.selectAnnots",
+    // They show the stamps pane.
+    "stampCustom.menu",
+    "stampCustom.recentsMenu",
 ];
 
 /// View options toggled by command id; their state lives in the preferences.
@@ -194,6 +201,8 @@ pub const DEFAULT_ON: &[&str] = &[
     "view.spellCheck",
     "search.pageText",
     "portfolio.tools",
+    "stamps.favorites",
+    "stamps.recents",
     "historyList.group.show",
     "historyList.options.showPath",
     "historyList.options.showPinned",
@@ -260,6 +269,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| portfolio::portfolio_state(st, id))
         .or_else(|| history::history_state(st, id))
         .or_else(|| sessions::sessions_state(st, id))
+        .or_else(|| stamps::stamps_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

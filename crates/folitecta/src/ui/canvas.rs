@@ -1063,7 +1063,14 @@ fn PageView(
                 None
             }
             Tool::Redact if !tiny => st.with_active(|t| t.doc.add_redaction(page, rect, &author).map(|_| ())),
+            Tool::Stamp if st.ui.read().value("stamp.kind") == Some("design") => {
+                let c = rect_to_pdf(&size, [x0, y0, x0, y0]);
+                crate::commands::stamps::place_design(st, page, rect, tiny, (c[0], c[1]))
+            }
             Tool::Stamp => {
+                if let Some(p) = crate::commands::stamps::pending() {
+                    crate::commands::stamps::placed(p.item.id);
+                }
                 let image = if st.ui.read().value("stamp.kind") == Some("image") {
                     st.pending_image.peek().clone()
                 } else {

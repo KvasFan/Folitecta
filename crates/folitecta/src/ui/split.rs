@@ -87,6 +87,9 @@ pub fn SplitPagesDialog() -> Element {
     let move_to = move |x: f32, y: f32| {
         let mut w = SPLIT.write();
         if let Some(i) = w.dragging {
+            // A line moved by hand: the lines are no longer a grid.
+            w.grid = None;
+            w.confirm_clear = false;
             if let Some(l) = w.lines.get_mut(i) {
                 l.pos = if l.horizontal {
                     (y / z).clamp(0.0, ph)
@@ -106,6 +109,13 @@ pub fn SplitPagesDialog() -> Element {
     rsx! {
         Frame { title: label_of(lang, "splitPages"), wide: true, ok_label: Some(t(lang, "split.apply")),
             on_ok: move |_| apply(st),
+            // Enter takes a typed value or presses a button; Split is a click.
+            div { class: "split-editor",
+                onkeydown: move |e| {
+                    if e.key() == Key::Enter {
+                        e.stop_propagation();
+                    }
+                },
             div { class: "pane-toolbar icon-toolbar split-toolbar",
                 button { class: "tbtn", onclick: move |_| dispatch(st, "splitPages.addHorizontal"), Icon { name: "insert" } span { "{label_of(lang, \"splitPages.addHorizontal\")}" } }
                 button { class: "tbtn", onclick: move |_| dispatch(st, "splitPages.addVertical"), Icon { name: "insert" } span { "{label_of(lang, \"splitPages.addVertical\")}" } }
@@ -212,16 +222,25 @@ pub fn SplitPagesDialog() -> Element {
                                         input { id: "split-line-{i}", r#type: "number", step: "0.1", min: "0", value: "{value}",
                                             onfocus: move |_| SPLIT.write().selected = Some(i),
                                             onchange: move |e| {
-                                                if let Ok(v) = e.value().replace(',', ".").parse::<f32>() {
-                                                    let max = if l.horizontal { ph } else { pw };
-                                                    if let Some(line) = SPLIT.write().lines.get_mut(i) {
-                                                        line.pos = (v * unit_pt).clamp(0.0, max);
-                                                    }
+                                                let typed = e.value();
+                                                let Ok(v) = typed.replace(',', ".").parse::<f32>() else { return };
+                                                let max = if l.horizontal { ph } else { pw };
+                                                let pos = (v * unit_pt).clamp(0.0, max);
+                                                crate::commands::split::edited_by_hand();
+                                                if let Some(line) = SPLIT.write().lines.get_mut(i) {
+                                                    line.pos = pos;
+                                                }
+                                                // A value out of the page shows where the line really is.
+                                                if (pos - v * unit_pt).abs() > 1e-3 {
+                                                    let shown = format!("{:.2}", pos / unit_pt);
+                                                    spawn(async move {
+                                                        let _ = document::eval(&format!("const i = document.getElementById('split-line-{i}'); if (i) i.value = '{shown}';")).await;
+                                                    });
                                                 }
                                             }
                                         }
                                         span { class: "muted", "{unit}" }
-                                        button { class: "ibtn", title: "{label_of(lang, \"splitPages.removeLine.list\")}",
+                                        button { class: "ibtn", title: "{label_of(lang, \"splitPages.removeLine\")}",
                                             onclick: move |e| {
                                                 e.stop_propagation();
                                                 SPLIT.write().selected = Some(i);
@@ -244,6 +263,8 @@ pub fn SplitPagesDialog() -> Element {
                                 let mut w = SPLIT.write();
                                 w.lines = even_lines((pw, ph), c, r);
                                 w.selected = None;
+                                w.confirm_clear = false;
+                                w.grid = Some((c, r));
                             },
                             "{t(lang, \"split.grid\")}"
                         }
@@ -256,6 +277,7 @@ pub fn SplitPagesDialog() -> Element {
                 }
             }
             p { class: "hint", "{parts_text}" }
+            }
         }
     }
 }

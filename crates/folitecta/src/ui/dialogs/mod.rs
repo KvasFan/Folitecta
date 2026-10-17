@@ -49,13 +49,33 @@ pub fn Frame(
         t(lang, "dialog.close")
     };
     let ok2 = on_ok;
+    // A press inside the dialog, so the click that ends it (a drag released
+    // over the backdrop) does not close the dialog.
+    let mut pressed_inside = use_signal(|| false);
+    let mut pressed_outside = use_signal(|| false);
     rsx! {
-        div { class: "backdrop", onclick: move |_| st.set_dialog(Dialog::None),
+        div { class: "backdrop",
+            onmousedown: move |_| {
+                pressed_outside.set(!*pressed_inside.peek());
+                pressed_inside.set(false);
+            },
+            onclick: move |_| {
+                if *pressed_outside.peek() {
+                    st.set_dialog(Dialog::None);
+                }
+            },
             div { class: if wide { "dialog wide" } else { "dialog" }, onclick: move |e| e.stop_propagation(),
+                onmousedown: move |_| pressed_inside.set(true),
                 onkeydown: move |e| {
                     e.stop_propagation();
                     if e.key() == Key::Enter {
-                        if let Some(h) = ok2 { h.call(()); }
+                        // After the field being typed in takes its value.
+                        if let Some(h) = ok2 {
+                            spawn(async move {
+                                tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+                                h.call(());
+                            });
+                        }
                     } else if e.key() == Key::Escape {
                         st.set_dialog(Dialog::None);
                     }

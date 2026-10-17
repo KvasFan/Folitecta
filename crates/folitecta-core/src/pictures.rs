@@ -207,12 +207,17 @@ fn filters(d: &Dictionary) -> Vec<Vec<u8>> {
 fn info(doc: &lopdf::Document, index: usize, d: &Draw) -> Option<PageImage> {
     let s = doc.get_object(d.id).ok()?.as_stream().ok()?;
     let (width, height) = dims(&s.dict);
-    let bits = int(&s.dict, b"BitsPerComponent").unwrap_or(1).clamp(1, 16) as u8;
-    let colors = if flag(&s.dict, b"ImageMask") {
+    let mask = flag(&s.dict, b"ImageMask");
+    // JPEG 2000 pictures may leave the bits out: they are not one-bit pictures.
+    let bits = int(&s.dict, b"BitsPerComponent")
+        .unwrap_or(if mask { 1 } else { 8 })
+        .clamp(1, 16) as u8;
+    let jpx = filters(&s.dict).last().is_some_and(|f| f == b"JPXDecode");
+    let colors = if mask {
         Colors::BlackWhite
     } else {
         match colour_space(doc, s.dict.get(b"ColorSpace").ok()) {
-            Some(Cs::Gray) if bits == 1 => Colors::BlackWhite,
+            Some(Cs::Gray) if bits == 1 && !jpx => Colors::BlackWhite,
             Some(Cs::Gray) => Colors::Gray,
             Some(Cs::Indexed { .. }) => Colors::Indexed,
             _ => Colors::Color,
@@ -410,7 +415,21 @@ fn decode_direct(doc: &lopdf::Document, s: &Stream, with_mask: bool) -> Option<R
         return None;
     }
     let fs = filters(d);
+    let cs = colour_space(doc, d.get(b"ColorSpace").ok())?;
+    // Gray and RGB only: CMYK needs the colour management of the renderer
+    // (and JPEG decoders guess at inverted CMYK).
+    let plain = |c: &Cs| matches!(c, Cs::Gray | Cs::Rgb);
+    let supported = match &cs {
+        Cs::Indexed { base, .. } => plain(base),
+        c => plain(c),
+    };
+    if !supported {
+        return None;
+    }
     let mut img = if fs.len() == 1 && fs[0] == b"DCTDecode" {
+        if !plain(&cs) {
+            return None;
+        }
         image::load_from_memory_with_format(&s.content, image::ImageFormat::Jpeg)
             .ok()?
             .to_rgba8()
@@ -425,8 +444,11 @@ fn decode_direct(doc: &lopdf::Document, s: &Stream, with_mask: bool) -> Option<R
         if fs.iter().any(|f| !known.contains(&f.as_slice())) {
             return None;
         }
-        let bpc = int(d, b"BitsPerComponent").unwrap_or(8) as usize;
-        let cs = colour_space(doc, d.get(b"ColorSpace").ok())?;
+        let bpc = int(d, b"BitsPerComponent").unwrap_or(8);
+        if !matches!(bpc, 1 | 2 | 4 | 8 | 16) {
+            return None;
+        }
+        let bpc = bpc as usize;
         let need = (w as usize * cs.comps() * bpc).div_ceil(8) * h as usize;
         let raw = s
             .decompressed_content_with_limit(need.saturating_mul(2) + (1 << 20))
@@ -793,8 +815,70 @@ struct Splice {
     with: Vec<u8>,
 }
 
+/// Width over height of a drawing on the page (and whether it is mirrored,
+/// as the sign).
+fn sides_ratio(m: Affine) -> f64 {
+    let c = m.as_coeffs();
+    let (a, b) = (c[0].hypot(c[1]), c[2].hypot(c[3]));
+    let sign = if m.determinant() < 0.0 { -1.0 } else { 1.0 };
+    if b > 1e-9 { sign * a / b } else { sign }
+}
+
+/// A stencil mask of the opaque pixels (sample 0 paints).
+fn encode_stencil(px: &RgbaImage) -> Result<Stream> {
+    let (w, h) = px.dimensions();
+    let row = (w as usize).div_ceil(8);
+    let mut bits = vec![0u8; row * h as usize];
+    for (x, y, p) in px.enumerate_pixels() {
+        if p[3] < 128 {
+            bits[y as usize * row + x as usize / 8] |= 0x80 >> (x % 8);
+        }
+    }
+    let mut s = Stream::new(
+        dictionary! {
+            "Type" => "XObject",
+            "Subtype" => "Image",
+            "Width" => w as i64,
+            "Height" => h as i64,
+            "ImageMask" => true,
+            "BitsPerComponent" => 1i64,
+        },
+        bits,
+    );
+    s.compress()?;
+    Ok(s)
+}
+
+/// The page's /Contents is an array object other pages point at too.
+fn shared_contents_array(doc: &lopdf::Document, page_id: ObjectId) -> bool {
+    match doc
+        .get_dictionary(page_id)
+        .ok()
+        .and_then(|d| d.get(b"Contents").ok())
+    {
+        Some(Object::Reference(r)) => {
+            doc.get_object(*r).map(|o| o.as_array().is_ok()).unwrap_or(false) && count_refs(doc, *r) > 1
+        }
+        _ => false,
+    }
+}
+
+/// A resource name for a new picture that the page does not use yet.
+fn free_name(doc: &lopdf::Document, page_id: ObjectId, id: ObjectId) -> String {
+    let taken = page_xobjects(doc, page_id);
+    let mut name = format!("FoliImg{}", id.0);
+    let mut n = 1;
+    while taken.has(name.as_bytes()) {
+        name = format!("FoliImg{}_{n}", id.0);
+        n += 1;
+    }
+    name
+}
+
 /// Apply changes to the joined content of a page, stream by stream.
 fn rewrite(doc: &mut lopdf::Document, page_id: ObjectId, j: &Joined, splices: &[Splice]) -> Result<()> {
+    // Streams reached through an array other pages share are shared too.
+    let array_shared = shared_contents_array(doc, page_id);
     let mut by_stream: std::collections::BTreeMap<usize, Vec<&Splice>> = Default::default();
     for s in splices {
         let (k, _, _) = stream_span(j, s.start, s.end)?;
@@ -815,7 +899,7 @@ fn rewrite(doc: &mut lopdf::Document, page_id: ObjectId, j: &Joined, splices: &[
         }
         let mut s = Stream::new(dict, data);
         let _ = s.compress();
-        if count_refs(doc, sid) > 1 {
+        if array_shared || count_refs(doc, sid) > 1 {
             // A stream shared with other pages: this page gets a copy of its own.
             let nid = doc.add_object(s);
             replace_content_ref(doc, page_id, sid, nid)?;
@@ -926,7 +1010,13 @@ impl Document {
         let old = self.inner.get_object(id)?.as_stream()?;
         let was_jpeg = filters(&old.dict).last().is_some_and(|f| f == b"DCTDecode");
         let jpeg = was_jpeg && matches!(colors, Colors::Color | Colors::Gray);
-        let (mut stream, smask) = encode_pixels(pixels, colors, jpeg)?;
+        // A stencil mask stays one: painted where the pixels are opaque, with
+        // the fill colour of the page.
+        let (mut stream, smask) = if flag(&old.dict, b"ImageMask") {
+            (encode_stencil(pixels)?, None)
+        } else {
+            encode_pixels(pixels, colors, jpeg)?
+        };
         for key in [
             b"OC".as_slice(),
             b"Interpolate",
@@ -995,6 +1085,9 @@ impl Document {
             self.put_picture(d.id, stream, smask, old_mask);
             d.name.clone()
         } else {
+            let mut stream = stream;
+            // The structure tree knows the old picture only.
+            stream.dict.remove(b"StructParent");
             self.inherit_attributes(&[pid]);
             let xid = self.add_image_object(ImageObject {
                 stream,
@@ -1002,7 +1095,7 @@ impl Document {
                 width: pixels.width() as f32,
                 height: pixels.height() as f32,
             });
-            let name = format!("FoliImg{}", xid.0);
+            let name = free_name(&self.inner, pid, xid);
             self.inner.add_xobject(pid, name.as_str(), xid)?;
             format!("/{name}").into_bytes()
         };
@@ -1035,9 +1128,9 @@ impl Document {
     ) -> Result<usize> {
         let pid = self.page_id(page)?;
         let j = joined(&self.inner, pid);
-        let id = draws(&self.inner, pid, &j.data)
+        let (id, shape) = draws(&self.inner, pid, &j.data)
             .get(index)
-            .map(|d| d.id)
+            .map(|d| (d.id, sides_ratio(d.ctm)))
             .ok_or_else(|| Error::Invalid("the picture is not on the page".into()))?;
         let (stream, smask, old_mask) = self.new_picture(id, pixels, colors)?;
         let place = Affine::new(placement);
@@ -1046,9 +1139,23 @@ impl Document {
         let mut count = 0;
         for p in self.page_ids() {
             let j = joined(&self.inner, p);
-            let mine: Vec<Splice> = draws(&self.inner, p, &j.data)
+            let found: Vec<Draw> = draws(&self.inner, p, &j.data)
                 .into_iter()
                 .filter(|d| d.id == id)
+                .collect();
+            // A change of shape made for one drawing fits the others only
+            // when they have the same proportions.
+            if !is_identity(place)
+                && found
+                    .iter()
+                    .any(|d| (sides_ratio(d.ctm) / shape - 1.0).abs() > 0.01)
+            {
+                return Err(Error::Invalid(
+                    "the picture is drawn with other proportions elsewhere: change this drawing only".into(),
+                ));
+            }
+            let mine: Vec<Splice> = found
+                .into_iter()
                 .map(|d| Splice {
                     start: d.start,
                     end: d.end,

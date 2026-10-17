@@ -1,8 +1,8 @@
 //! Pictures on the pages: the tool that selects them, quick edits, the
 //! picture editor and editing in another app.
 
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 
 use dioxus::prelude::*;
@@ -15,9 +15,7 @@ use crate::state::{AppState, Dialog, DocTab, ToastKind, Tool};
 
 /// A picture open in the editor.
 pub struct Session {
-    pub tab: u64,
-    pub page: usize,
-    pub index: usize,
+    pub at: Origin,
     pub work: Work,
     /// Earlier states, for undo inside the editor.
     pub undo: Vec<Work>,
@@ -69,12 +67,13 @@ pub fn selected(st: AppState) -> Option<(usize, usize)> {
     st.read_active(|t| t.image_sel).flatten()
 }
 
-/// The selected picture, or the largest one of the current page.
+/// The picture selected with the pictures tool (while it is the tool in
+/// use), or else the largest one of the current page.
 fn target(st: AppState) -> Option<(usize, usize)> {
     if no_doc(st) {
         return None;
     }
-    if let Some(s) = selected(st) {
+    if let Some(s) = selected(st).filter(|_| *st.tool.peek() == Tool::EditImages) {
         let exists = st
             .read_active(|t| t.doc.page_images(s.0).map(|l| s.1 < l.len()).unwrap_or(false))
             .unwrap_or(false);
@@ -112,43 +111,78 @@ fn with_tab<T>(st: AppState, id: u64, f: impl FnOnce(&mut DocTab) -> T) -> Optio
     Some(out)
 }
 
+/// A picture taken from a page to be edited: its tab, the revision of the
+/// document it was taken from, its page and index.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Origin {
+    pub tab: u64,
+    pub rev: u64,
+    pub page: usize,
+    pub index: usize,
+}
+
 /// The picture as a work to edit.
-fn load(st: AppState, page: usize, index: usize) -> Option<(u64, Work)> {
+fn load(st: AppState, page: usize, index: usize) -> Option<(Origin, Work)> {
     let loaded = st
         .read_active(|t| {
             let im = t.doc.page_images(page).ok()?.get(index).cloned()?;
-            Some((t.id, im, t.doc.image_pixels(page, index)))
+            Some((t.id, t.doc.revision(), im, t.doc.image_pixels(page, index)))
         })
         .flatten()?;
     match loaded {
-        (tab, im, Ok(px)) => Some((tab, Work::new(px, im.matrix, im.colors))),
-        (_, _, Err(e)) => {
+        (tab, rev, im, Ok(px)) => Some((
+            Origin {
+                tab,
+                rev,
+                page,
+                index,
+            },
+            Work::new(px, im.matrix, im.colors),
+        )),
+        (_, _, _, Err(e)) => {
             st.error(e);
             None
         }
     }
 }
 
-/// Put an edited picture back on its page.
-fn store(st: AppState, tab: u64, page: usize, index: usize, work: &Work) {
+/// Put an edited picture back on its page, unless the document changed
+/// since the picture was taken (its place may then hold another picture).
+/// Returns the revision of the document afterwards.
+fn store(st: AppState, at: Origin, work: &Work) -> Option<u64> {
     let everywhere = option_on(st, "editImage.applyToAll");
-    let r = with_tab(st, tab, |t| {
-        if everywhere {
+    let r = with_tab(st, at.tab, |t| {
+        if t.doc.revision() != at.rev {
+            return Ok(None);
+        }
+        let done = if everywhere {
             t.doc
-                .replace_image_everywhere(page, index, &work.pixels, work.placement, work.colors)
+                .replace_image_everywhere(at.page, at.index, &work.pixels, work.placement, work.colors)
                 .map(|_| ())
         } else {
             t.doc
-                .replace_page_image(page, index, &work.pixels, work.placement, work.colors)
-        }
+                .replace_page_image(at.page, at.index, &work.pixels, work.placement, work.colors)
+        };
+        done.map(|_| Some(t.doc.revision()))
     });
     match r {
-        Some(Err(e)) => st.error(e),
-        Some(Ok(())) => {
-            with_tab(st, tab, |t| t.image_sel = Some((page, index)));
-            crate::files::set_window_title(st);
+        Some(Err(e)) => {
+            st.error(e);
+            None
         }
-        None => {}
+        Some(Ok(Some(rev))) => {
+            with_tab(st, at.tab, |t| t.image_sel = Some((at.page, at.index)));
+            crate::files::set_window_title(st);
+            Some(rev)
+        }
+        Some(Ok(None)) => {
+            st.toast(ToastKind::Warn, t(st.lang(), "toast.picture_changed"), "");
+            None
+        }
+        None => {
+            st.toast(ToastKind::Warn, t(st.lang(), "toast.picture_gone"), "");
+            None
+        }
     }
 }
 
@@ -209,11 +243,25 @@ fn operate(st: AppState, op: Op) {
     }
 }
 
+/// A quick edit is running (one at a time).
+static QUICK_BUSY: AtomicBool = AtomicBool::new(false);
+
 fn quick(st: AppState, op: Op) {
+    if QUICK_BUSY.load(Ordering::Acquire) {
+        st.toast(ToastKind::Info, t(st.lang(), "picture.working"), "");
+        return;
+    }
     let Some((page, index)) = target(st) else { return };
-    let Some((tab, mut work)) = load(st, page, index) else {
+    let Some((at, mut work)) = load(st, page, index) else {
         return;
     };
+    // Converting to the format the picture already has changes nothing.
+    if let Op::Edit(Edit::Convert(f)) = op {
+        if work.format() == f {
+            return;
+        }
+    }
+    QUICK_BUSY.store(true, Ordering::Release);
     // Not tied to the toolbar that asked: it goes away with the selection.
     dioxus::core::spawn_forever(async move {
         let done = tokio::task::spawn_blocking(move || {
@@ -221,30 +269,22 @@ fn quick(st: AppState, op: Op) {
             (work, a)
         })
         .await;
+        QUICK_BUSY.store(false, Ordering::Release);
         if let Ok((work, angle)) = done {
             if !(op == Op::Deskew && angle == 0.0) {
-                store(st, tab, page, index, &work);
+                store(st, at, &work);
             }
             report_deskew(st, op, angle);
         }
     });
 }
 
-fn start_session(
-    tab: u64,
-    page: usize,
-    index: usize,
-    work: Work,
-    cropping: bool,
-    menu: Option<&'static str>,
-) {
+fn start_session(at: Origin, work: Work, cropping: bool, menu: Option<&'static str>) {
     let generation = next_generation();
     let (size, format) = (work.size(), work.format());
     if let Ok(mut s) = SESSION.lock() {
         *s = Some(Session {
-            tab,
-            page,
-            index,
+            at,
             work,
             undo: Vec::new(),
             generation,
@@ -275,10 +315,10 @@ fn open_with(st: AppState, cropping: bool, menu: Option<&'static str>) {
         return;
     }
     let Some((page, index)) = target(st) else { return };
-    let Some((tab, work)) = load(st, page, index) else {
+    let Some((at, work)) = load(st, page, index) else {
         return;
     };
-    start_session(tab, page, index, work, cropping, menu);
+    start_session(at, work, cropping, menu);
     st.set_dialog(Dialog::ImageEditor);
 }
 
@@ -289,9 +329,16 @@ fn edit_in_editor(st: AppState, op: Op) {
     let taken = SESSION
         .lock()
         .ok()
-        .and_then(|s| s.as_ref().map(|s| s.work.clone()));
-    let Some(mut work) = taken else { return };
+        .and_then(|s| s.as_ref().map(|s| (s.work.clone(), s.generation)));
+    let Some((mut work, started)) = taken else { return };
+    if let Op::Edit(Edit::Convert(f)) = op {
+        if work.format() == f {
+            return;
+        }
+    }
     EDITOR.write().busy = true;
+    // The editor this edit belongs to is still open (not closed, not another one).
+    let mine = move || EDITOR.peek().generation == started;
     dioxus::core::spawn_forever(async move {
         let before = work.clone();
         let done = tokio::task::spawn_blocking(move || {
@@ -300,9 +347,14 @@ fn edit_in_editor(st: AppState, op: Op) {
         })
         .await;
         let Ok((work, angle)) = done else {
-            EDITOR.write().busy = false;
+            if mine() {
+                EDITOR.write().busy = false;
+            }
             return;
         };
+        if !mine() {
+            return;
+        }
         report_deskew(st, op, angle);
         if op == Op::Deskew && angle == 0.0 {
             EDITOR.write().busy = false;
@@ -310,8 +362,9 @@ fn edit_in_editor(st: AppState, op: Op) {
         }
         let generation = next_generation();
         let (size, format) = (work.size(), work.format());
+        let mut kept = false;
         if let Ok(mut s) = SESSION.lock() {
-            if let Some(s) = s.as_mut() {
+            if let Some(s) = s.as_mut().filter(|s| s.generation == started) {
                 s.undo.push(before);
                 // Keep the undo states within a memory budget.
                 while s.undo.len() > 1 && s.undo.iter().map(|w| w.pixels.len()).sum::<usize>() > UNDO_BYTES {
@@ -319,7 +372,12 @@ fn edit_in_editor(st: AppState, op: Op) {
                 }
                 s.work = work;
                 s.generation = generation;
+                kept = true;
             }
+        }
+        if !kept {
+            EDITOR.write().busy = false;
+            return;
         }
         let mut v = EDITOR.write();
         v.busy = false;
@@ -366,7 +424,7 @@ pub fn apply_editor(st: AppState) {
     *EDITOR.write() = EditorView::default();
     if let Some(s) = taken {
         if !s.undo.is_empty() {
-            store(st, s.tab, s.page, s.index, &s.work);
+            store(st, s.at, &s.work);
         }
     }
 }
@@ -381,13 +439,16 @@ fn crop(st: AppState) {
         match area {
             Some(r) if cropping => {
                 let px = [
-                    r[0].min(r[2]).max(0.0) as u32,
-                    r[1].min(r[3]).max(0.0) as u32,
-                    r[0].max(r[2]).ceil() as u32,
-                    r[1].max(r[3]).ceil() as u32,
+                    r[0].min(r[2]).max(0.0).round() as u32,
+                    r[1].min(r[3]).max(0.0).round() as u32,
+                    r[0].max(r[2]).round() as u32,
+                    r[1].max(r[3]).round() as u32,
                 ];
-                if px[2] > px[0] && px[3] > px[1] {
+                // An area too small to mean anything (a click) is ignored.
+                if px[2] >= px[0] + 2 && px[3] >= px[1] + 2 {
                     edit_in_editor(st, Op::Edit(Edit::Crop(px)));
+                } else {
+                    st.toast(ToastKind::Info, t(st.lang(), "toast.crop_drag"), "");
                 }
             }
             _ => {
@@ -415,7 +476,7 @@ fn zoom_by(st: AppState, up: bool) {
             .rev()
             .copied()
             .find(|z| *z < current - 1e-3)
-            .unwrap_or(0.1)
+            .unwrap_or(current)
     };
     EDITOR.write().zoom = Some(next);
 }
@@ -466,9 +527,7 @@ fn filter(st: AppState, f: Filter) {
 /// The picture being edited in another app: where it is and where its file is.
 #[derive(Debug, Clone, PartialEq)]
 pub struct External {
-    pub tab: u64,
-    pub page: usize,
-    pub index: usize,
+    pub at: Origin,
     pub path: PathBuf,
     pub modified: Option<std::time::SystemTime>,
 }
@@ -505,24 +564,67 @@ pub fn edit_selected(st: AppState) {
     }
 }
 
+/// Open a picture file in the app chosen for pictures.
+pub fn launch(st: AppState, path: &Path) {
+    let r = if editor_choice(st) == "app" {
+        std::process::Command::new(st.value("image.editor.app"))
+            .arg(path)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    } else {
+        crate::util::open_external(&path.display().to_string()).map_err(|e| e.to_string())
+    };
+    if let Err(e) = r {
+        st.error(e);
+    }
+}
+
+/// Folder of the picture files given to other apps; files older than a
+/// day (left by an app that was closed while editing) are removed.
+fn outside_dir() -> PathBuf {
+    let dir = std::env::temp_dir().join("folitecta-pictures");
+    let _ = std::fs::create_dir_all(&dir);
+    let day = std::time::Duration::from_secs(24 * 3600);
+    for e in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+        let old = e
+            .metadata()
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|m| m.elapsed().ok())
+            .is_some_and(|age| age > day);
+        if old {
+            let _ = std::fs::remove_file(e.path());
+        }
+    }
+    dir
+}
+
 /// Write the picture to a file for another app; with `launch` the app opens it.
-pub fn edit_outside(st: AppState, launch: bool) {
+pub fn edit_outside(st: AppState, launch_app: bool) {
     let Some((page, index)) = target(st) else { return };
-    let Some((tab, work)) = load(st, page, index) else {
+    let Some((at, work)) = load(st, page, index) else {
         return;
     };
     let ext = edit_type(st);
-    let dir = std::env::temp_dir().join("folitecta-pictures");
-    let _ = std::fs::create_dir_all(&dir);
-    let path = dir.join(format!(
-        "picture-{tab}-{}-{}-{}.{ext}",
+    let path = outside_dir().join(format!(
+        "picture-{}-{}-{}-{}.{ext}",
+        at.tab,
         page + 1,
         index + 1,
         next_generation()
     ));
     let written = match ext.as_str() {
-        // JPEG and BMP have no transparency.
-        "jpg" | "bmp" => image::DynamicImage::ImageRgba8(work.pixels).to_rgb8().save(&path),
+        // JPEG and BMP have no transparency: the picture is laid on white.
+        "jpg" | "bmp" => {
+            let rgb = image::RgbImage::from_fn(work.pixels.width(), work.pixels.height(), |x, y| {
+                let p = work.pixels.get_pixel(x, y);
+                let a = p[3] as u32;
+                let mix = |c: u8| ((c as u32 * a + 255 * (255 - a) + 127) / 255) as u8;
+                image::Rgb([mix(p[0]), mix(p[1]), mix(p[2])])
+            });
+            rgb.save(&path)
+        }
         _ => work.pixels.save(&path),
     };
     if let Err(e) = written {
@@ -531,26 +633,13 @@ pub fn edit_outside(st: AppState, launch: bool) {
     }
     let modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
     *EXTERNAL.write() = Some(External {
-        tab,
-        page,
-        index,
+        at,
         path: path.clone(),
         modified,
     });
     st.set_dialog(Dialog::ExternalPicture);
-    if launch {
-        let r = if editor_choice(st) == "app" {
-            std::process::Command::new(st.value("image.editor.app"))
-                .arg(&path)
-                .spawn()
-                .map(|_| ())
-                .map_err(|e| e.to_string())
-        } else {
-            crate::util::open_external(&path.display().to_string()).map_err(|e| e.to_string())
-        };
-        if let Err(e) = r {
-            st.error(e);
-        }
+    if launch_app {
+        launch(st, &path);
     }
 }
 
@@ -576,13 +665,19 @@ pub fn update_from_outside(st: AppState) {
         .docs
         .read()
         .iter()
-        .find(|t| t.id == x.tab)
-        .and_then(|t| t.doc.page_images(x.page).ok()?.get(x.index).cloned());
-    let Some(im) = current else { return };
+        .find(|t| t.id == x.at.tab)
+        .and_then(|t| t.doc.page_images(x.at.page).ok()?.get(x.at.index).cloned());
+    let Some(im) = current else {
+        st.toast(ToastKind::Warn, t(st.lang(), "toast.picture_gone"), "");
+        return;
+    };
     let work = Work::replacing((im.width, im.height), pixels, im.matrix, im.colors);
-    store(st, x.tab, x.page, x.index, &work);
-    if let Some(e) = EXTERNAL.write().as_mut() {
-        e.modified = std::fs::metadata(&e.path).and_then(|m| m.modified()).ok();
+    if let Some(rev) = store(st, x.at, &work) {
+        // The next update replaces this one.
+        if let Some(e) = EXTERNAL.write().as_mut() {
+            e.at.rev = rev;
+            e.modified = std::fs::metadata(&e.path).and_then(|m| m.modified()).ok();
+        }
     }
 }
 
@@ -614,7 +709,8 @@ static PREVIEW: LazyLock<Mutex<Preview>> = LazyLock::new(|| Mutex::new(None));
 
 /// The preview of the editor as PNG (`/imgedit/{generation}.png`).
 pub fn preview(_path: &str) -> Option<Arc<Vec<u8>>> {
-    let (generation, small) = {
+    // A copy of the pixels, so the editor is not held while they shrink.
+    let (generation, full) = {
         let s = SESSION.lock().ok()?;
         let s = s.as_ref()?;
         if let Some((g, png)) = PREVIEW.lock().ok()?.as_ref() {
@@ -622,18 +718,18 @@ pub fn preview(_path: &str) -> Option<Arc<Vec<u8>>> {
                 return Some(png.clone());
             }
         }
-        let (w, h) = s.work.size();
-        let small = if w.max(h) > PREVIEW_EDGE {
-            let k = PREVIEW_EDGE as f32 / w.max(h) as f32;
-            image::imageops::thumbnail(
-                &s.work.pixels,
-                ((w as f32 * k) as u32).max(1),
-                ((h as f32 * k) as u32).max(1),
-            )
-        } else {
-            s.work.pixels.clone()
-        };
-        (s.generation, small)
+        (s.generation, s.work.pixels.clone())
+    };
+    let (w, h) = full.dimensions();
+    let small = if w.max(h) > PREVIEW_EDGE {
+        let k = PREVIEW_EDGE as f32 / w.max(h) as f32;
+        image::imageops::thumbnail(
+            &full,
+            ((w as f32 * k) as u32).max(1),
+            ((h as f32 * k) as u32).max(1),
+        )
+    } else {
+        full
     };
     let mut out = std::io::Cursor::new(Vec::new());
     small.write_to(&mut out, image::ImageFormat::Png).ok()?;
@@ -646,7 +742,8 @@ pub fn preview(_path: &str) -> Option<Arc<Vec<u8>>> {
 
 /// Check states of the picture commands.
 pub fn pictures_state(st: AppState, id: &str) -> Option<bool> {
-    let format = || EDITOR.peek().format;
+    // Formats are checked for the picture open in the editor only.
+    let format = || editor_open(st).then(|| EDITOR.peek().format).flatten();
     match id {
         "tool.editContent.images" => Some((st.tool)() == Tool::EditImages),
         "editImage.builtin" => Some(editor_choice(st) == "builtin"),

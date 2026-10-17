@@ -148,7 +148,19 @@ impl Work {
         }
     }
 
+    /// The picture is drawn mirrored on the page: turning its pixels one way
+    /// turns it the other way on the page.
+    fn mirrored(&self) -> bool {
+        (Affine::new(self.page_matrix) * Affine::new(self.placement)).determinant() < 0.0
+    }
+
     pub fn apply(&mut self, edit: Edit) {
+        // Quarter turns are meant as seen on the page.
+        let edit = match edit {
+            Edit::RotateRight if self.mirrored() => Edit::RotateLeft,
+            Edit::RotateLeft if self.mirrored() => Edit::RotateRight,
+            e => e,
+        };
         let px = &mut self.pixels;
         match edit {
             Edit::RotateRight => {
@@ -324,7 +336,10 @@ pub fn quantize(px: &mut RgbaImage, colors: usize) {
     }
     let nq = color_quant::NeuQuant::new(10, colors, px.as_raw());
     for p in px.pixels_mut() {
+        // The palette is for the colours: transparency stays as it was.
+        let alpha = p[3];
         nq.map_pixel(&mut p.0);
+        p[3] = alpha;
     }
 }
 
@@ -651,6 +666,24 @@ mod tests {
         quantize(&mut many, 256);
         let colors: std::collections::HashSet<[u8; 3]> = many.pixels().map(|p| [p[0], p[1], p[2]]).collect();
         assert!(colors.len() <= 256, "{}", colors.len());
+        assert!(
+            many.pixels().all(|p| p[3] == 255),
+            "a palette keeps the picture opaque"
+        );
+    }
+
+    #[test]
+    fn quarter_turns_follow_the_page_when_mirrored() {
+        // Drawn upside down (mirrored vertically): row 0 is at the bottom of the page.
+        let mut px = RgbaImage::from_pixel(4, 2, Rgba([255, 255, 255, 255]));
+        px.put_pixel(0, 0, Rgba([0, 0, 0, 255]));
+        let mut w = Work::new(px, [40.0, 0.0, 0.0, -20.0, 0.0, 20.0], Colors::Color);
+        w.apply(Edit::RotateRight);
+        // Seen on the page the dark pixel was at the bottom left; turned
+        // right it goes to the top left, which in this mirrored drawing is
+        // the last row of the pixels.
+        assert_eq!(w.size(), (2, 4));
+        assert_eq!(w.pixels.get_pixel(0, 3)[0], 0, "{:?}", w.pixels);
     }
 
     #[test]

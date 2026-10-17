@@ -29,6 +29,9 @@ pub struct SplitEditor {
     pub dragging: Option<usize>,
     /// Clearing the lines waits for a confirmation.
     pub confirm_clear: bool,
+    /// The lines are a grid of equal parts: columns and rows (each page is
+    /// then cut by its own size).
+    pub grid: Option<(usize, usize)>,
 }
 
 pub static SPLIT: GlobalSignal<SplitEditor> = Signal::global(SplitEditor::default);
@@ -94,11 +97,11 @@ pub fn even_lines(size: (f32, f32), cols: usize, rows: usize) -> Vec<CutLine> {
     out
 }
 
-/// Where a new line goes: the middle of the widest free span.
+/// Where a new line goes: the middle of the widest free span of the page.
 pub fn free_spot(lines: &[CutLine], horizontal: bool, length: f32) -> f32 {
     let mut cuts: Vec<f32> = lines
         .iter()
-        .filter(|l| l.horizontal == horizontal)
+        .filter(|l| l.horizontal == horizontal && l.pos > 0.0 && l.pos < length)
         .map(|l| l.pos)
         .collect();
     cuts.push(0.0);
@@ -109,7 +112,7 @@ pub fn free_spot(lines: &[CutLine], horizontal: bool, length: f32) -> f32 {
         .map(|w| (w[0], w[1]))
         .max_by(|x, y| (x.1 - x.0).total_cmp(&(y.1 - y.0)))
         .unwrap_or((0.0, length));
-    (a + b) / 2.0
+    ((a + b) / 2.0).clamp(0.0, length.max(0.0))
 }
 
 /// How many parts a page of `size` becomes.
@@ -150,22 +153,38 @@ pub fn open(st: AppState) {
     st.set_dialog(Dialog::SplitPages);
 }
 
-fn add(st: AppState, horizontal: bool) {
+/// Open the editor when it is not; false when there is no document.
+fn ensure_open(st: AppState) -> bool {
     open(st);
-    if !is_open(st) {
+    is_open(st)
+}
+
+/// The lines changed by hand: they are no longer a grid, and a pending
+/// clearing is forgotten.
+pub fn edited_by_hand() {
+    let mut s = SPLIT.write();
+    s.grid = None;
+    s.confirm_clear = false;
+}
+
+fn add(st: AppState, horizontal: bool) {
+    if !ensure_open(st) {
         return;
     }
     let page = SPLIT.peek().page;
     let (w, h) = page_size(st, page);
+    edited_by_hand();
     let mut s = SPLIT.write();
     let pos = free_spot(&s.lines, horizontal, if horizontal { h } else { w });
     s.lines.push(CutLine { horizontal, pos });
     s.selected = Some(s.lines.len() - 1);
-    s.confirm_clear = false;
 }
 
 fn remove_selected(st: AppState) {
-    open(st);
+    if !ensure_open(st) {
+        return;
+    }
+    edited_by_hand();
     let mut s = SPLIT.write();
     match s.selected {
         Some(i) if i < s.lines.len() => {
@@ -184,22 +203,28 @@ fn remove_selected(st: AppState) {
 }
 
 fn clear(st: AppState) {
-    open(st);
+    if !ensure_open(st) {
+        return;
+    }
     let mut s = SPLIT.write();
     if s.lines.is_empty() {
+        s.confirm_clear = false;
         return;
     }
     if s.confirm_clear {
         s.lines.clear();
         s.selected = None;
         s.confirm_clear = false;
+        s.grid = None;
     } else {
         s.confirm_clear = true;
     }
 }
 
 fn edit_line(st: AppState) {
-    open(st);
+    if !ensure_open(st) {
+        return;
+    }
     let target = {
         let mut s = SPLIT.write();
         if s.selected.is_none() && !s.lines.is_empty() {
@@ -221,21 +246,27 @@ fn edit_line(st: AppState) {
 }
 
 fn cycle_units(st: AppState) {
-    open(st);
+    if !ensure_open(st) {
+        return;
+    }
     let (u, _) = units(st);
     let i = UNITS.iter().position(|(n, _)| *n == u).unwrap_or(0);
     st.set_value("split.units", UNITS[(i + 1) % UNITS.len()].0);
 }
 
 fn cycle_every(st: AppState) {
-    open(st);
+    if !ensure_open(st) {
+        return;
+    }
     let e = every(st);
     let i = EVERY.iter().position(|n| *n == e).unwrap_or(0);
     st.set_value("split.every", EVERY[(i + 1) % EVERY.len()]);
 }
 
 fn pick_color(st: AppState) {
-    open(st);
+    if !ensure_open(st) {
+        return;
+    }
     spawn(async move {
         let _ =
             document::eval("setTimeout(() => document.getElementById('split-color')?.click(), 60);").await;
@@ -259,7 +290,9 @@ pub fn fit_zoom(size: (f32, f32), stage: (f32, f32)) -> f32 {
 }
 
 fn zoom_by(st: AppState, up: bool) {
-    open(st);
+    if !ensure_open(st) {
+        return;
+    }
     let z = zoom_now(st);
     let next = if up {
         ZOOMS.iter().copied().find(|v| *v > z + 1e-3).unwrap_or(2.0)
@@ -275,7 +308,9 @@ fn zoom_by(st: AppState, up: bool) {
 }
 
 fn zoom_combo(st: AppState) {
-    open(st);
+    if !ensure_open(st) {
+        return;
+    }
     spawn(async move {
         let _ = document::eval("setTimeout(() => document.getElementById('split-zoom')?.focus(), 60);").await;
     });
@@ -283,18 +318,35 @@ fn zoom_combo(st: AppState) {
 
 /// Cut the pages along the lines.
 pub fn apply(st: AppState) {
-    let (lines, page) = {
+    let (lines, page, grid) = {
         let s = SPLIT.peek();
-        (s.lines.clone(), s.page)
+        (s.lines.clone(), s.page, s.grid)
     };
     if lines.is_empty() {
         st.toast(ToastKind::Info, t(st.lang(), "toast.split_no_lines"), "");
         return;
     }
+    let pages = pages_for(every(st), st.page_count(), page);
+    // A grid divides every page by its own size; lines cut where they are.
+    let crossed = match grid {
+        Some((c, r)) => c * r > 1,
+        None => pages.iter().any(|p| parts(&lines, page_size(st, *p)) > 1),
+    };
+    if pages.is_empty() || !crossed {
+        st.toast(ToastKind::Info, t(st.lang(), "toast.split_nothing"), "");
+        return;
+    }
     let xs: Vec<f32> = lines.iter().filter(|l| !l.horizontal).map(|l| l.pos).collect();
     let ys: Vec<f32> = lines.iter().filter(|l| l.horizontal).map(|l| l.pos).collect();
-    let pages = pages_for(every(st), st.page_count(), page);
-    match st.with_active(|t| t.doc.split_pages_at(&pages, &xs, &ys)) {
+    let before = st.page_count();
+    let result = st.with_active(|t| match grid {
+        Some((c, r)) => t
+            .doc
+            .split_pages_grid(&pages, c, r)
+            .map(|_| t.doc.page_count() - before),
+        None => t.doc.split_pages_at(&pages, &xs, &ys),
+    });
+    match result {
         Some(Ok(n)) => {
             st.set_dialog(Dialog::None);
             crate::files::set_window_title(st);
@@ -328,7 +380,7 @@ handlers! {
     "splitPages.units" => cycle_units,
     "splitPages.every" => cycle_every,
     "splitPages.colorPicker" => pick_color,
-    "splitPages.showRulers" => |st| { open(st); let on = option_on(st, "split.rulers"); st.set_option("split.rulers", !on); },
+    "splitPages.showRulers" => |st| { if ensure_open(st) { let on = option_on(st, "split.rulers"); st.set_option("split.rulers", !on); } },
     "splitPages.zoomIn" => |st| zoom_by(st, true),
     "splitPages.zoomOut" => |st| zoom_by(st, false),
     "splitPages.zoomCombo" => zoom_combo,
@@ -356,6 +408,12 @@ mod tests {
         }];
         assert!((free_spot(&one, true, 800.0) - 300.0).abs() < 1e-3);
         assert!((free_spot(&one, false, 600.0) - 300.0).abs() < 1e-3);
+        // Lines beyond a smaller page are left out; the new line stays on it.
+        let far = [CutLine {
+            horizontal: true,
+            pos: 1300.0,
+        }];
+        assert!((free_spot(&far, true, 595.0) - 297.5).abs() < 1e-3);
         // Lines on the edges cut nothing.
         assert_eq!(
             parts(

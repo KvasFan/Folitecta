@@ -101,6 +101,11 @@ fn an_edited_picture_takes_the_place_of_the_old_one() {
 
 /// The sample picture drawn a second time, smaller, at (400, 600).
 fn doc_drawing_twice() -> Document {
+    doc_drawing_twice_at("q 40 0 0 20 400 600 cm")
+}
+
+/// The sample picture drawn a second time with the matrix given.
+fn doc_drawing_twice_at(placement: &str) -> Document {
     let mut doc = doc_with_picture();
     // Draw the same picture a second time, smaller, elsewhere.
     let name = {
@@ -135,7 +140,7 @@ fn doc_drawing_twice() -> Document {
     let page = doc.inner().get_pages()[&1];
     let extra = doc.inner_mut().add_object(Stream::new(
         dictionary! {},
-        format!("q 40 0 0 20 400 600 cm /{name} Do Q\n").into_bytes(),
+        format!("{placement} /{name} Do Q\n").into_bytes(),
     ));
     let contents = doc
         .inner()
@@ -286,4 +291,148 @@ fn jpeg_pictures_stay_jpeg() {
     let bw = doc.page_images(0).unwrap()[0].clone();
     assert_eq!((bw.colors, bw.bits), (Colors::BlackWhite, 1));
     assert_eq!(bw.filter, "FlateDecode");
+}
+
+/// A page drawing `content` with the XObjects given (name, stream).
+fn page_drawing(content: &str, xobjects: Vec<(&str, Stream)>) -> Document {
+    let mut doc = Document::new_blank(1, 300.0, 300.0).unwrap();
+    let page = doc.inner().get_pages()[&1];
+    for (name, s) in xobjects {
+        let id = doc.inner_mut().add_object(s);
+        doc.inner_mut().add_xobject(page, name, id).unwrap();
+    }
+    let c = doc
+        .inner_mut()
+        .add_object(Stream::new(dictionary! {}, content.as_bytes().to_vec()));
+    doc.inner_mut()
+        .get_dictionary_mut(page)
+        .unwrap()
+        .set("Contents", c);
+    doc.commit().unwrap();
+    doc
+}
+
+#[test]
+fn cmyk_pictures_are_read_with_the_renderer_colours() {
+    // 100% cyan: a plain formula would give pure cyan (0, 255, 255).
+    let cmyk = Stream::new(
+        dictionary! {
+            "Type" => "XObject", "Subtype" => "Image", "Width" => 2i64, "Height" => 2i64,
+            "ColorSpace" => "DeviceCMYK", "BitsPerComponent" => 8i64,
+        },
+        [255u8, 0, 0, 0].repeat(4),
+    );
+    let doc = page_drawing("q 100 0 0 100 50 50 cm /C Do Q", vec![("C", cmyk)]);
+    let px = doc.image_pixels(0, 0).unwrap();
+
+    let p = px.get_pixel(0, 0);
+    assert!(p[0] < 40 && p[2] > 150, "{p:?}");
+    assert_ne!(
+        p.0,
+        [0, 255, 255, 255],
+        "decoded by the renderer, not by a plain formula"
+    );
+}
+
+#[test]
+fn stencil_masks_stay_stencil_masks() {
+    let mask = Stream::new(
+        dictionary! {
+            "Type" => "XObject", "Subtype" => "Image", "Width" => 8i64, "Height" => 1i64,
+            "ImageMask" => true, "BitsPerComponent" => 1i64,
+        },
+        vec![0b0000_1111],
+    );
+    let mut doc = page_drawing("q 1 0 0 rg 80 0 0 10 50 50 cm /M Do Q", vec![("M", mask)]);
+    let im = doc.page_images(0).unwrap()[0].clone();
+    assert_eq!(im.colors, Colors::BlackWhite);
+    let px = doc.image_pixels(0, 0).unwrap();
+    // Painted (opaque) where the samples are 0.
+    assert!(
+        px.get_pixel(0, 0)[3] > 200 && px.get_pixel(7, 0)[3] < 50,
+        "{px:?}"
+    );
+    let mut work = Work::new(px, im.matrix, im.colors);
+    work.apply(Edit::FlipHorizontal);
+    doc.replace_page_image(0, 0, &work.pixels, work.placement, work.colors)
+        .unwrap();
+    let id = doc.page_images(0).unwrap()[0].object;
+    let dict = doc
+        .inner()
+        .get_object(id)
+        .unwrap()
+        .as_stream()
+        .unwrap()
+        .dict
+        .clone();
+    assert!(dict.get(b"ImageMask").unwrap().as_bool().unwrap());
+    assert!(!dict.has(b"ColorSpace") && !dict.has(b"SMask"));
+    let after = doc.image_pixels(0, 0).unwrap();
+    assert!(
+        after.get_pixel(7, 0)[3] > 200 && after.get_pixel(0, 0)[3] < 50,
+        "{after:?}"
+    );
+}
+
+#[test]
+fn a_contents_array_shared_by_two_pages_is_not_changed_for_both() {
+    let mut doc = doc_with_picture();
+    // A second page sharing the first page's content through one array object.
+    let inner = doc.inner_mut();
+    let first = inner.get_pages()[&1];
+    let contents = inner
+        .get_dictionary(first)
+        .unwrap()
+        .get(b"Contents")
+        .unwrap()
+        .clone();
+    let list = match contents {
+        Object::Array(a) => a,
+        other => vec![other],
+    };
+    let arr = inner.add_object(Object::Array(list));
+    inner
+        .get_dictionary_mut(first)
+        .unwrap()
+        .set("Contents", Object::Reference(arr));
+    doc.commit().unwrap();
+    doc.duplicate_pages(&[0]).unwrap();
+    let second = doc.page_id(1).unwrap();
+    doc.inner_mut()
+        .get_dictionary_mut(second)
+        .unwrap()
+        .set("Contents", Object::Reference(arr));
+    doc.commit().unwrap();
+    assert_eq!(doc.page_images(1).unwrap().len(), 1);
+    let im = doc.page_images(0).unwrap()[0].clone();
+    let mut work = Work::new(sample_pixels(), im.matrix, im.colors);
+    work.apply(Edit::RotateRight);
+    doc.replace_page_image(0, 0, &work.pixels, work.placement, work.colors)
+        .unwrap();
+    // The other page still draws its picture, unturned.
+    let other = doc.page_images(1).unwrap();
+    assert_eq!(other.len(), 1);
+    assert_eq!((other[0].width, other[0].height), (40, 20));
+    assert_eq!(doc.page_images(0).unwrap()[0].width, 20);
+}
+
+#[test]
+fn a_turn_everywhere_needs_drawings_of_the_same_shape() {
+    let mut doc = doc_drawing_twice_at("q 40 0 0 40 400 600 cm");
+    let first = doc.page_images(0).unwrap()[0].clone();
+    let mut work = Work::new(sample_pixels(), first.matrix, Colors::Color);
+    work.apply(Edit::RotateLeft);
+    // A square drawing would be stretched by a turn made for a 2:1 one.
+    assert!(
+        doc.replace_image_everywhere(0, 0, &work.pixels, work.placement, work.colors)
+            .is_err()
+    );
+    // Pixels alone change everywhere.
+    let mut same = Work::new(sample_pixels(), first.matrix, Colors::Color);
+    same.apply(Edit::Invert);
+    assert_eq!(
+        doc.replace_image_everywhere(0, 0, &same.pixels, same.placement, same.colors)
+            .unwrap(),
+        2
+    );
 }

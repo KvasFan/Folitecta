@@ -1370,5 +1370,9 @@
   "split.every.all": "Every page",
   "split.every.odd": "Odd pages",
   "split.every.even": "Even pages",
-  "split.every.current": "This page"
+  "split.every.current": "This page",
+  "toast.picture_changed": "The document changed while the picture was being edited: nothing was replaced",
+  "toast.picture_gone": "The picture is no longer in the document",
+  "toast.crop_drag": "Drag over the picture to choose the area to keep",
+  "toast.split_nothing": "No line crosses the chosen pages"
 }

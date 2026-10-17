@@ -95,7 +95,8 @@ pub fn ImageEditorDialog() -> Element {
             *s = None;
         }
     });
-    let mut dragging = use_signal(|| false);
+    // Where the drag that draws the crop area started (picture pixels).
+    let mut drag_from = use_signal(|| None::<(f32, f32)>);
     let (pw, ph) = v.size;
     let (w, h) = (pw as f32, ph as f32);
     let z = v.zoom.unwrap_or_else(|| fit_zoom(v.size, v.stage));
@@ -173,22 +174,16 @@ pub fn ImageEditorDialog() -> Element {
                             return;
                         }
                         e.prevent_default();
-                        let (x, y) = point(&e);
-                        EDITOR.write().crop = Some([x, y, x, y]);
-                        dragging.set(true);
+                        // The area drawn so far stays until the pointer moves.
+                        drag_from.set(Some(point(&e)));
                     },
                     onmousemove: move |e| {
-                        if !dragging() {
-                            return;
-                        }
+                        let Some((x0, y0)) = drag_from() else { return };
                         let (x, y) = point(&e);
-                        if let Some(r) = EDITOR.write().crop.as_mut() {
-                            r[2] = x;
-                            r[3] = y;
-                        }
+                        EDITOR.write().crop = Some([x0, y0, x, y]);
                     },
-                    onmouseup: move |_| dragging.set(false),
-                    onmouseleave: move |_| dragging.set(false),
+                    onmouseup: move |_| drag_from.set(None),
+                    onmouseleave: move |_| drag_from.set(None),
                     ondoubleclick: move |_| {
                         if EDITOR.peek().cropping && EDITOR.peek().crop.is_some() {
                             dispatch(st, "imageEditor.crop");
@@ -279,9 +274,7 @@ pub fn ExternalPictureDialog() -> Element {
             div { class: "row",
                 button { class: "tbtn", onclick: move |_| {
                         if let Some(p) = &reopen {
-                            if let Err(e) = crate::util::open_external(&p.display().to_string()) {
-                                st.error(e);
-                            }
+                            crate::commands::pictures::launch(st, p);
                         }
                     },
                     "{t(lang, \"picture.open_again\")}"

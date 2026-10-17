@@ -3377,5 +3377,9 @@
   "split.every.all": "Tutte le pagine",
   "split.every.odd": "Pagine dispari",
   "split.every.even": "Pagine pari",
-  "split.every.current": "Questa pagina"
+  "split.every.current": "Questa pagina",
+  "toast.picture_changed": "Il documento è cambiato mentre l'immagine veniva modificata: non è stato sostituito nulla",
+  "toast.picture_gone": "L'immagine non è più nel documento",
+  "toast.crop_drag": "Trascina sull'immagine per scegliere l'area da tenere",
+  "toast.split_nothing": "Nessuna linea attraversa le pagine scelte"
 }

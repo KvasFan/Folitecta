@@ -26,6 +26,8 @@ fn pane_icon(p: &Pane) -> &'static str {
         Pane::Destinations => "star",
         Pane::Search => "search",
         Pane::Signatures => "signature",
+        Pane::History => "history",
+        Pane::Sessions => "window",
         Pane::Other(_) => "grid",
     }
 }
@@ -233,11 +235,14 @@ pub fn PaneStrip() -> Element {
                         {
                             let id_s = id.to_string();
                             let shown = ui_label(lang, "pane", id, label);
+                            let pane = Pane::from_id(id);
+                            let planned = matches!(pane, Pane::Other(_));
                             rsx! {
                                 div { class: "menu-item", key: "{id}",
                                     onclick: move |_| { let mut ui = st.ui_mut(); ui.show_left_pane = true; ui.left_pane = id_s.clone(); drop(ui); st.set_open_dropdown(None); st.save_prefs(); },
+                                    if !planned { Icon { name: pane_icon(&pane) } }
                                     span { class: "label", "{shown}" }
-                                    span { class: "badge planned", "{t(lang, \"label.planned\").to_lowercase()}" }
+                                    if planned { span { class: "badge planned", "{t(lang, \"label.planned\").to_lowercase()}" } }
                                 }
                             }
                         }
@@ -281,7 +286,12 @@ pub fn PanePanel() -> Element {
     };
     let (mx, my) = (st.dropdown_pos)();
     let max_h = ((st.viewport)().1 - my - 8.0).max(160.0);
-    let body = if !has_doc {
+    // History and sessions work without a document.
+    let body = if pane == Pane::History {
+        rsx! { crate::ui::history_pane::HistoryPane {} }
+    } else if pane == Pane::Sessions {
+        rsx! { crate::ui::history_pane::SessionsPane {} }
+    } else if !has_doc {
         rsx! { div { class: "pane-empty", "{t(lang, \"toast.no_document\")}" } }
     } else {
         match &pane {
@@ -295,6 +305,7 @@ pub fn PanePanel() -> Element {
             Pane::Destinations => rsx! { crate::ui::bookmarks_pane::DestinationsPane {} },
             Pane::Search => rsx! { SearchPane {} },
             Pane::Signatures => rsx! { crate::ui::signatures::SignaturesPane {} },
+            Pane::History | Pane::Sessions => rsx! {},
             Pane::Other(id) => rsx! { PlannedPane { pane_id: id.clone() } },
         }
     };

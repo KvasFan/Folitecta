@@ -33,11 +33,13 @@ pub fn open_path(st: AppState, path: PathBuf, password: Option<&str>) {
     match result {
         Ok(doc) => {
             let name = doc.display_name();
+            let (title, pages) = (doc.info().title, doc.page_count());
             let id = st.alloc_id();
             st.docs_mut().push(DocTab::new(id, doc));
             let idx = st.docs.read().len() - 1;
             st.set_active(idx);
             st.ui_mut().push_recent(&path);
+            crate::commands::history::record_open(st, &path, &title, pages);
             crate::commands::attachments::auto_show(st);
             st.save_prefs();
             set_window_title(st);
@@ -268,8 +270,9 @@ pub fn close_tab(st: AppState, id: u64, force: bool, then: AfterUnsaved) {
         st.set_dialog(Dialog::Unsaved { tab: id, then });
         return;
     }
-    st.docs_mut().remove(idx);
+    let tab = st.docs_mut().remove(idx);
     if let Some(p) = path {
+        crate::commands::history::record_close(st, &p, tab.page, &tab.doc);
         st.closed_mut().push(p);
     }
     let n = st.docs.read().len();

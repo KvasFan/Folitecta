@@ -278,6 +278,7 @@ pub fn Dialogs() -> Element {
         Dialog::PortfolioFolder { id } => rsx! { crate::ui::portfolio::PortfolioFolderDialog { id } },
         Dialog::PortfolioItem(file) => rsx! { crate::ui::portfolio::PortfolioItemDialog { file } },
         Dialog::PortfolioProps => rsx! { crate::ui::portfolio::PortfolioPropsDialog {} },
+        Dialog::SessionName(index) => rsx! { crate::ui::history_pane::SessionNameDialog { index } },
     }
 }
 

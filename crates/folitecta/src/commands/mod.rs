@@ -16,6 +16,7 @@ mod file;
 mod format;
 mod forms;
 mod help;
+pub(crate) mod history;
 pub(crate) mod interface;
 pub(crate) mod layers;
 pub(crate) mod macros;
@@ -25,6 +26,7 @@ pub(crate) mod portfolio;
 mod protect;
 pub(crate) mod review;
 pub(crate) mod search;
+pub(crate) mod sessions;
 pub(crate) mod signatures;
 pub(crate) mod signs;
 mod view;
@@ -71,6 +73,8 @@ const TABLES: &[&[(&str, Handler)]] = &[
     fields_pane::HANDLERS,
     search::HANDLERS,
     portfolio::HANDLERS,
+    history::HANDLERS,
+    sessions::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -100,6 +104,9 @@ pub const PARTIAL: &[&str] = &[
     "layersView.selectCorresponding.links",
     // Opens the PDF files and prints every open document.
     "view.portfolio.print",
+    // There are no tab groups: the files open in this window.
+    "sessions.open.addToActiveGroup",
+    "sessions.open.addToNewGroup",
 ];
 
 /// View options toggled by command id; their state lives in the preferences.
@@ -187,6 +194,11 @@ pub const DEFAULT_ON: &[&str] = &[
     "view.spellCheck",
     "search.pageText",
     "portfolio.tools",
+    "historyList.group.show",
+    "historyList.options.showPath",
+    "historyList.options.showPinned",
+    "historyList.options.showThumbnail",
+    "historyList.options.showPreviewPopUp",
     "searchView.results.showCommentTypes",
     "searchView.results.showIcon",
     "searchView.lookInSubFolders",
@@ -246,6 +258,8 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| fields_pane::fields_state(st, id))
         .or_else(|| search::search_state(st, id))
         .or_else(|| portfolio::portfolio_state(st, id))
+        .or_else(|| history::history_state(st, id))
+        .or_else(|| sessions::sessions_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

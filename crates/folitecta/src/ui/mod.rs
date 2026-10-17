@@ -6,6 +6,7 @@ pub mod dialogs;
 pub mod field_editor;
 pub mod fields_pane;
 pub mod form_fill;
+pub mod history_pane;
 pub mod layers_pane;
 pub mod macros;
 pub mod menubar;

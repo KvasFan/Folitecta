@@ -740,3 +740,25 @@ html.emulate-print .print-page img { max-width: 100%; max-height: 100%; object-f
 .pf-col { display: grid; grid-template-columns: auto minmax(0, 1fr) 150px; gap: 6px; align-items: center; padding: 3px 6px; border-radius: var(--radius-sm); border: 1px solid transparent; }
 .pf-col.selected { border-color: var(--accent); background: var(--accent-soft); }
 .pf-col input[type=checkbox] { margin: 0; }
+
+/* History and sessions */
+.history-list { display: flex; flex-direction: column; padding: 4px; min-width: 0; }
+.history-item { position: relative; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--radius-sm); cursor: default; min-width: 0; }
+.history-item:hover { background: var(--surface-3); }
+.history-item.selected { background: var(--accent-soft); }
+.history-item.missing { opacity: .55; }
+.history-item > .ic { width: 15px; height: 15px; flex: none; color: var(--muted); }
+.history-item .ellipsis { min-width: 0; }
+.history-thumb { width: 36px; height: 46px; object-fit: contain; border: 1px solid var(--border); background: #fff; flex: none; }
+.history-thumb.none { display: flex; align-items: center; justify-content: center; background: var(--surface-2); }
+.history-thumb.none .ic { width: 16px; height: 16px; color: var(--muted); }
+.history-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.history-name { display: flex; align-items: center; gap: 4px; font-size: 12.5px; min-width: 0; }
+.history-name .ic { width: 12px; height: 12px; color: #d97706; flex: none; }
+.history-path, .history-meta { font-size: 11px; color: var(--muted); }
+.history-pop { display: none; position: absolute; left: 48px; top: 100%; z-index: 30; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow, 0 4px 14px rgba(0,0,0,.18)); }
+.history-pop img { display: block; width: 150px; height: auto; background: #fff; }
+.history-item:hover .history-pop { display: block; }
+.result-group.selected { background: var(--accent-soft); }
+.result-group > .ic { width: 14px; height: 14px; flex: none; color: var(--muted); }
+.session-file { padding-left: 28px; font-size: 12px; }

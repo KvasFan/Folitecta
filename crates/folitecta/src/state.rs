@@ -261,6 +261,8 @@ pub enum Pane {
     Destinations,
     Search,
     Signatures,
+    History,
+    Sessions,
     Other(String),
 }
 
@@ -277,6 +279,8 @@ impl Pane {
             Pane::Destinations => "destinations".into(),
             Pane::Search => "search".into(),
             Pane::Signatures => "signatures".into(),
+            Pane::History => "history".into(),
+            Pane::Sessions => "sessions".into(),
             Pane::Other(s) => s.clone(),
         }
     }
@@ -293,6 +297,8 @@ impl Pane {
             "destinations" => Pane::Destinations,
             "search" => Pane::Search,
             "signatures" => Pane::Signatures,
+            "history" => Pane::History,
+            "sessions" => Pane::Sessions,
             other => Pane::Other(other.to_string()),
         }
     }
@@ -332,6 +338,51 @@ pub struct UiPrefs {
     pub options: std::collections::BTreeMap<String, bool>,
     /// Valued settings keyed by name (ruler units, thumbnail size, ...).
     pub values: std::collections::BTreeMap<String, String>,
+    /// Documents opened before, newest first.
+    pub history: Vec<HistoryEntry>,
+    /// Saved sets of open documents.
+    pub sessions: Vec<Session>,
+}
+
+/// A document in the history of opened files.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct HistoryEntry {
+    pub path: PathBuf,
+    /// Document title (empty when it has none).
+    pub title: String,
+    pub pages: usize,
+    /// When it was last opened and closed (seconds since 1970).
+    pub opened: u64,
+    pub closed: u64,
+    /// Page shown when it was closed.
+    pub page: usize,
+    pub pinned: bool,
+}
+
+/// A saved set of documents.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Session {
+    pub name: String,
+    pub created: u64,
+    pub opened: u64,
+    pub files: Vec<SessionFile>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SessionFile {
+    pub path: PathBuf,
+    pub page: usize,
+}
+
+/// Seconds since 1970.
+pub fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 
 impl Default for UiPrefs {
@@ -349,6 +400,8 @@ impl Default for UiPrefs {
             recent: Vec::new(),
             options: Default::default(),
             values: Default::default(),
+            history: Vec::new(),
+            sessions: Vec::new(),
         }
     }
 }
@@ -987,6 +1040,8 @@ pub enum Dialog {
     PortfolioItem(Vec<u8>),
     /// Layout, initial file, sort order and columns of a portfolio.
     PortfolioProps,
+    /// Name of a new session (`None`: save the open documents) or of a saved one.
+    SessionName(Option<usize>),
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.
@@ -1028,6 +1083,12 @@ pub struct AppState {
     pub fullscreen: Signal<bool>,
     pub next_id: Signal<u64>,
     pub closed_recently: Signal<Vec<PathBuf>>,
+    /// Selected documents of the history pane.
+    pub history_sel: Signal<Vec<PathBuf>>,
+    /// Collapsed groups of the history pane.
+    pub history_collapsed: Signal<HashSet<String>>,
+    /// Selected session and, inside it, file.
+    pub session_sel: Signal<Option<(usize, Option<usize>)>>,
     pub busy: Signal<bool>,
     /// Viewport position (CSS px) where the open ribbon/pane dropdown is anchored.
     pub dropdown_pos: Signal<(f64, f64)>,
@@ -1074,6 +1135,9 @@ impl AppState {
             fullscreen: use_signal(|| false),
             next_id: use_signal(|| 1),
             closed_recently: use_signal(Vec::new),
+            history_sel: use_signal(Vec::new),
+            history_collapsed: use_signal(HashSet::new),
+            session_sel: use_signal(|| None),
             busy: use_signal(|| false),
             dropdown_pos: use_signal(|| (0.0, 0.0)),
             submenus: use_signal(Vec::new),

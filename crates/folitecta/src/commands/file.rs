@@ -108,8 +108,8 @@ handlers! {
     },
     "recentFiles" => |st| st.set_palette(Some(String::new())),
     "recentsList" => |st| st.set_palette(Some(String::new())),
-    "manageHistory" => |st| { st.ui_mut().recent.clear(); st.save_prefs(); st.toast(ToastKind::Ok, t(st.lang(), "toast.history_cleared"), ""); },
-    "historyList.clear" => |st| { st.ui_mut().recent.clear(); st.save_prefs(); st.toast(ToastKind::Ok, t(st.lang(), "toast.history_cleared"), ""); },
+    "manageHistory" => |st| super::show_pane(st, crate::state::Pane::History),
+    "historyList.clear" => super::history::clear,
 }
 
 fn doc_dialog_or_blank(st: AppState) {

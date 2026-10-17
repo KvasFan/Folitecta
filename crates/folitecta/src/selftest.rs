@@ -1531,7 +1531,87 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
         Err(e) => record("portfolio shows its files", false, e.to_string()),
     }
 
-    // 31. Undo everything added above.
+    // 31. History and sessions: open and close a saved file, pin it, save the
+    // open documents as a session and open it again.
+    let file = dir.join("history-sample.pdf");
+    let written = st
+        .read_active(|t| std::fs::write(&file, t.doc.bytes().as_slice()).is_ok())
+        .unwrap_or(false);
+    crate::files::open_path(st, file.clone(), None);
+    pause(600).await;
+    let tab = st
+        .read_active(|t| (t.doc.path() == Some(file.as_path())).then_some(t.id))
+        .flatten();
+    if let Some(id) = tab {
+        crate::files::close_tab(st, id, true, crate::state::AfterUnsaved::Close);
+    }
+    pause(400).await;
+    let entry = st.ui.read().history.iter().find(|h| h.path == file).cloned();
+    let thumb = crate::commands::history::thumb_path(&file).is_some_and(|p| p.exists());
+    record(
+        "history keeps opened files with a thumbnail",
+        written && entry.as_ref().is_some_and(|e| e.closed > 0 && e.pages > 0) && thumb,
+        format!("{entry:?}"),
+    );
+    {
+        let mut ui = st.ui_mut();
+        ui.left_pane = "history".into();
+        ui.show_left_pane = true;
+    }
+    pause(400).await;
+    let _ = document::eval("[...document.querySelectorAll('.history-item')].find(e => e.textContent.includes('history-sample'))?.click();").await;
+    pause(200).await;
+    crate::commands::dispatch(st, "historyList.pin");
+    pause(300).await;
+    let pinned = st.ui.read().history.iter().any(|h| h.path == file && h.pinned);
+    record("history entry pinned", pinned, String::new());
+    let _ = capture_window(&dir.join("interaction-history.png"));
+    crate::files::open_path(st, file.clone(), None);
+    pause(500).await;
+    crate::commands::dispatch(st, "saveCurrentSession");
+    pause(400).await;
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(400).await;
+    let saved = st
+        .ui
+        .read()
+        .sessions
+        .iter()
+        .any(|s| s.files.iter().any(|f| f.path == file));
+    if let Some(id) = st
+        .read_active(|t| (t.doc.path() == Some(file.as_path())).then_some(t.id))
+        .flatten()
+    {
+        crate::files::close_tab(st, id, true, crate::state::AfterUnsaved::Close);
+    }
+    st.ui_mut().left_pane = "sessions".into();
+    pause(400).await;
+    let n = st.ui.read().sessions.len();
+    *st.session_sel.write_unchecked() = Some((n.saturating_sub(1), None));
+    crate::commands::dispatch(st, "sessions.open.addWholeSession");
+    pause(600).await;
+    let reopened = st
+        .docs
+        .read()
+        .iter()
+        .any(|t| t.doc.path() == Some(file.as_path()));
+    let _ = capture_window(&dir.join("interaction-sessions.png"));
+    record(
+        "session saved and opened again",
+        saved && reopened,
+        format!("{n} session(s)"),
+    );
+    if let Some(id) = st
+        .read_active(|t| (t.doc.path() == Some(file.as_path())).then_some(t.id))
+        .flatten()
+    {
+        crate::files::close_tab(st, id, true, crate::state::AfterUnsaved::Close);
+    }
+    st.set_active(0);
+    st.ui_mut().left_pane = "thumbnails".into();
+    pause(400).await;
+
+    // 32. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..30 {
         crate::commands::dispatch(st, "undo");

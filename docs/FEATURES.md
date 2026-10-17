@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.4. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 811 |
-| 🟡 partial | 36 |
-| ⬜ planned | 1130 |
+| ✅ available | 854 |
+| 🟡 partial | 39 |
+| ⬜ planned | 1084 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -250,7 +250,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Fields | `view.fields` | ✅ available |
 | File | `view.toolbar.file` | ✅ available |
 | Form | `view.toolbar.form` | ✅ available |
-| History | `view.history` | ⬜ planned |
+| History | `view.history` | ✅ available |
 | JavaScript Options… | `view.javaScriptOpts` | ⬜ planned |
 | Launch Application | `view.toolbar.launchApp` | ✅ available |
 | Layers | `view.layers` | ✅ available |
@@ -1196,7 +1196,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Open… | `open` | ✅ available |
 | Open From | `openFrom` | ✅ available |
 | Recent Files | `recentFiles` | ✅ available |
-| Sessions | `sessions` | ⬜ planned |
+| Sessions | `sessions` | 🟡 partial |
 | New Document | `newDoc` | ✅ available |
 | PDF Portfolio… | `newPortfolio` | ✅ available |
 | Save | `save` | ✅ available |
@@ -1243,15 +1243,15 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | From Selection… | `newDocSelection` | ⬜ planned |
 | From Text… | `newDocText` | ✅ available |
 | From Web Page… | `newDocHtml` | ⬜ planned |
-| History | `historyList` | 🟡 partial |
+| History | `historyList` | ✅ available |
 | History and Recents Options… | `manageHistory` | ✅ available |
 | History… | `showHistory` | ⬜ planned |
-| Manage Sessions… | `manageSessions` | ⬜ planned |
+| Manage Sessions… | `manageSessions` | ✅ available |
 | Move File… | `moveDoc` | ⬜ planned |
 | Move to Recycle Bin | `moveToTrash` | ⬜ planned |
 | Open | `openGroup` | ✅ available |
 | Open Containing Folder | `openSrcFolder` | ✅ available |
-| Open Session from File… | `openSessionFromFile` | ⬜ planned |
+| Open Session from File… | `openSessionFromFile` | ✅ available |
 | Open from URL… | `openFromURL` | ⬜ planned |
 | Places List Open | `placesListOpen` | ✅ available |
 | Places List Save | `placesListSave` | ✅ available |
@@ -1260,13 +1260,13 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Reopen Closed Document | `reopenJustClosedDoc` | ✅ available |
 | Save As | `saveAsGroup` | ✅ available |
 | Save Copy As… | `saveCopyAs` | ✅ available |
-| Save Current Session | `saveCurrentSession` | ⬜ planned |
-| Save Current Session to File… | `saveCurrentSessionToFile` | ⬜ planned |
+| Save Current Session | `saveCurrentSession` | ✅ available |
+| Save Current Session to File… | `saveCurrentSessionToFile` | ✅ available |
 | Save Image As… | `saveImage` | ✅ available |
 | Save Settings and History | `saveSettingsAndHistory` | ✅ available |
 | Save To | `saveTo` | ⬜ planned |
 | Save Unrestricted Copy… | `saveUnrestricted` | ✅ available |
-| Sessions | `sessionsList` | ⬜ planned |
+| Sessions | `sessionsList` | ✅ available |
 | Settings | `settings` | ✅ available |
 | Source Files | `newDocumentList` | ⬜ planned |
 | This Computer… | `openFromComp` | ✅ available |
@@ -1446,7 +1446,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Fields Pane | `fieldsView` | ✅ available |
 | Highlight | `highlight` | ✅ available |
 | Highlight Links | `view.highlightLinks` | ✅ available |
-| History | `view.history` | ⬜ planned |
+| History | `view.history` | ✅ available |
 | Inertial Scroll | `inertialScroll` | ⬜ planned |
 | Invert Vertical Axis | `view.mathY` | ✅ available |
 | JavaScript Console | `jsConsole` | ⬜ planned |
@@ -2038,29 +2038,29 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `forms.reset.selected` | Form › Forms › Reset Form › Reset Selected Fields | ✅ available |
 | `highlight.destination` | View › Highlight › Destination | ✅ available |
 | `historyList.clear` | File › History › Clear | ✅ available |
-| `historyList.collapseAll` | File › History › Collapse All | ⬜ planned |
-| `historyList.copyPath` | File › History › Copy Path | ⬜ planned |
-| `historyList.expandAll` | File › History › Expand All | ⬜ planned |
-| `historyList.folder` | File › History › Folder | ⬜ planned |
-| `historyList.group` | File › History › Group | ⬜ planned |
-| `historyList.group.show` | File › History › Group › Show | ⬜ planned |
-| `historyList.open` | File › History › Open | ⬜ planned |
-| `historyList.options` | File › History › Options | ⬜ planned |
-| `historyList.options.showCaptions` | File › History › Options › Show Captions | ⬜ planned |
-| `historyList.options.showPath` | File › History › Options › Show Path | ⬜ planned |
-| `historyList.options.showPinned` | File › History › Options › Show Pinned | ⬜ planned |
-| `historyList.options.showPreviewPopUp` | File › History › Options › Show Preview Pop Up | ⬜ planned |
-| `historyList.options.showThumbnail` | File › History › Options › Show Thumbnail | ⬜ planned |
-| `historyList.pin` | File › History › Pin | ⬜ planned |
-| `historyList.remove` | File › History › Remove | ⬜ planned |
-| `historyList.selectAll` | File › History › Select All | ⬜ planned |
-| `historyList.sort` | File › History › Sort | ⬜ planned |
-| `historyList.sort.alphabetical` | File › History › Sort › Alphabetical | ⬜ planned |
-| `historyList.sort.closetime` | File › History › Sort › Closetime | ⬜ planned |
-| `historyList.sort.modtime` | File › History › Sort › Modtime | ⬜ planned |
-| `historyList.sort.opentime` | File › History › Sort › Opentime | ⬜ planned |
-| `historyList.sortBy` | File › History › Sort by | ⬜ planned |
-| `historyList.unpin` | File › History › Unpin | ⬜ planned |
+| `historyList.collapseAll` | File › History › Collapse All | ✅ available |
+| `historyList.copyPath` | File › History › Copy Path | ✅ available |
+| `historyList.expandAll` | File › History › Expand All | ✅ available |
+| `historyList.folder` | File › History › Folder | ✅ available |
+| `historyList.group` | File › History › Group | ✅ available |
+| `historyList.group.show` | File › History › Group › Show | ✅ available |
+| `historyList.open` | File › History › Open | ✅ available |
+| `historyList.options` | File › History › Options | ✅ available |
+| `historyList.options.showCaptions` | File › History › Options › Show Captions | ✅ available |
+| `historyList.options.showPath` | File › History › Options › Show Path | ✅ available |
+| `historyList.options.showPinned` | File › History › Options › Show Pinned | ✅ available |
+| `historyList.options.showPreviewPopUp` | File › History › Options › Show Preview Pop Up | ✅ available |
+| `historyList.options.showThumbnail` | File › History › Options › Show Thumbnail | ✅ available |
+| `historyList.pin` | File › History › Pin | ✅ available |
+| `historyList.remove` | File › History › Remove | ✅ available |
+| `historyList.selectAll` | File › History › Select All | ✅ available |
+| `historyList.sort` | File › History › Sort | ✅ available |
+| `historyList.sort.alphabetical` | File › History › Sort › Alphabetical | ✅ available |
+| `historyList.sort.closetime` | File › History › Sort › Closetime | ✅ available |
+| `historyList.sort.modtime` | File › History › Sort › Modtime | ✅ available |
+| `historyList.sort.opentime` | File › History › Sort › Opentime | ✅ available |
+| `historyList.sortBy` | File › History › Sort by | ✅ available |
+| `historyList.unpin` | File › History › Unpin | ✅ available |
 | `imageEditor.convert.1bpp_indexed` | Edit › Image Editor › Convert › 1 bpp Indexed | ⬜ planned |
 | `imageEditor.convert.24bpp` | Edit › Image Editor › Convert › 24 bpp | ⬜ planned |
 | `imageEditor.convert.32bpp` | Edit › Image Editor › Convert › 32 bpp | ⬜ planned |
@@ -2270,22 +2270,22 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `searchView.results.wrapText` | View › Search Pane › Results › Wrap Text | ✅ available |
 | `searchView.wholeWords` | View › Search Pane › Whole Words | ✅ available |
 | `selection.stamp` | Comments › Selection › Stamp | ⬜ planned |
-| `sessions.clear` | File › Sessions › Clear | ⬜ planned |
-| `sessions.export` | File › Sessions › Export | ⬜ planned |
-| `sessions.import` | File › Sessions › Import | ⬜ planned |
-| `sessions.open` | File › Sessions › Open | ⬜ planned |
-| `sessions.open.addToActiveGroup` | File › Sessions › Open › Add to Active Group | ⬜ planned |
-| `sessions.open.addToNewFrame` | File › Sessions › Open › Add to New Frame | ⬜ planned |
-| `sessions.open.addToNewGroup` | File › Sessions › Open › Add to New Group | ⬜ planned |
-| `sessions.open.addWholeSession` | File › Sessions › Open › Add Whole Session | ⬜ planned |
-| `sessions.open.wholeSession` | File › Sessions › Open › Whole Session | ⬜ planned |
-| `sessions.remove` | File › Sessions › Remove | ⬜ planned |
-| `sessions.rename` | File › Sessions › Rename | ⬜ planned |
-| `sessions.sort` | File › Sessions › Sort | ⬜ planned |
-| `sessions.sort.alphabetical` | File › Sessions › Sort › Alphabetical | ⬜ planned |
-| `sessions.sort.createTime` | File › Sessions › Sort › Create Time | ⬜ planned |
-| `sessions.sort.openTime` | File › Sessions › Sort › Open Time | ⬜ planned |
-| `sessions.sortBy` | File › Sessions › Sort by | ⬜ planned |
+| `sessions.clear` | File › Sessions › Clear | ✅ available |
+| `sessions.export` | File › Sessions › Export | ✅ available |
+| `sessions.import` | File › Sessions › Import | ✅ available |
+| `sessions.open` | File › Sessions › Open | 🟡 partial |
+| `sessions.open.addToActiveGroup` | File › Sessions › Open › Add to Active Group | 🟡 partial |
+| `sessions.open.addToNewFrame` | File › Sessions › Open › Add to New Frame | ✅ available |
+| `sessions.open.addToNewGroup` | File › Sessions › Open › Add to New Group | 🟡 partial |
+| `sessions.open.addWholeSession` | File › Sessions › Open › Add Whole Session | ✅ available |
+| `sessions.open.wholeSession` | File › Sessions › Open › Whole Session | ✅ available |
+| `sessions.remove` | File › Sessions › Remove | ✅ available |
+| `sessions.rename` | File › Sessions › Rename | ✅ available |
+| `sessions.sort` | File › Sessions › Sort | ✅ available |
+| `sessions.sort.alphabetical` | File › Sessions › Sort › Alphabetical | ✅ available |
+| `sessions.sort.createTime` | File › Sessions › Sort › Create Time | ✅ available |
+| `sessions.sort.openTime` | File › Sessions › Sort › Open Time | ✅ available |
+| `sessions.sortBy` | File › Sessions › Sort by | ✅ available |
 | `signMarkup.popup.createNew` | Document › Sign Markup › Popup › Create New | ✅ available |
 | `signMarkup.popup.fromList` | Document › Sign Markup › Popup › From List | ✅ available |
 | `signaturesView.options` | View › Signatures Pane › Options | ⬜ planned |

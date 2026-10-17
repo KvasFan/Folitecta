@@ -21,6 +21,18 @@ pub fn today_display() -> String {
     now.format(&fmt).unwrap_or_default()
 }
 
+/// Seconds since 1970 as `YYYY-MM-DD HH:MM` (UTC); empty for 0.
+pub fn unix_display(secs: u64) -> String {
+    if secs == 0 {
+        return String::new();
+    }
+    let fmt = format_description!("[year]-[month]-[day] [hour]:[minute]");
+    OffsetDateTime::from_unix_timestamp(secs as i64)
+        .ok()
+        .and_then(|d| d.format(&fmt).ok())
+        .unwrap_or_default()
+}
+
 /// Convert a PDF date string into a readable `YYYY-MM-DD HH:MM` form.
 /// Returns the input unchanged when it does not look like a PDF date.
 pub fn pdf_date_display(raw: &str) -> String {

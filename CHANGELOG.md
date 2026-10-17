@@ -4,6 +4,16 @@ All notable changes to Folitecta are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- History pane: documents opened before, grouped by day, pinned ones first, sorted by opening,
+  closing or modification time or by name, with thumbnails, paths and a preview on hover; open
+  at the page where a document was closed, pin, remove, copy the path, open the folder.
+- Sessions: save the open documents as a session, open a session instead of the open documents
+  or next to them or in a new window, rename, remove, sort, export and import sessions as files.
+
 ## [0.0.4] - 2026-10-17
 
 ### Added

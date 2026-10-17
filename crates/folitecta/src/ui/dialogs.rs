@@ -314,6 +314,8 @@ pub fn Dialogs() -> Element {
         Dialog::JsConsole => rsx! { crate::ui::javascript::JsConsoleDialog {} },
         Dialog::JsPrefs => rsx! { crate::ui::javascript::JsPrefsDialog {} },
         Dialog::DocScripts(add) => rsx! { crate::ui::javascript::DocScriptsDialog { add } },
+        Dialog::MediaList => rsx! { crate::ui::media::MediaListDialog {} },
+        Dialog::MediaProps { page, index } => rsx! { crate::ui::media::MediaPropsDialog { page, index } },
     }
 }
 

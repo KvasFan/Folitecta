@@ -76,6 +76,8 @@ pub enum Tool {
     Table,
     Calculator,
     ZoomDyn,
+    Sound,
+    Video,
 }
 
 impl Tool {
@@ -150,6 +152,8 @@ impl Tool {
             Tool::Table => "tool.table.create",
             Tool::Calculator => "comments.accountingCalc",
             Tool::ZoomDyn => "tool.zoomDyn",
+            Tool::Sound => "tool.annot.sound",
+            Tool::Video => "tool.annot.editVideo",
         }
     }
 
@@ -203,6 +207,8 @@ impl Tool {
             Tool::Table => "tool.table",
             Tool::Calculator => "tool.calculator",
             Tool::ZoomDyn => "tool.zoom_dyn",
+            Tool::Sound => "tool.sound",
+            Tool::Video => "tool.video",
         }
     }
 
@@ -1213,6 +1219,13 @@ pub enum Dialog {
     JsPrefs,
     /// Named scripts of the document (Some: start a new one).
     DocScripts(Option<String>),
+    /// Sound and video comments of the document.
+    MediaList,
+    /// Properties of a sound or video comment.
+    MediaProps {
+        page: usize,
+        index: usize,
+    },
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

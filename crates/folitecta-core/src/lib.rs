@@ -31,6 +31,7 @@ pub mod layers;
 pub mod links;
 pub mod marks;
 pub mod markup_tools;
+pub mod media;
 pub mod metadata;
 pub mod outline;
 pub mod pages;

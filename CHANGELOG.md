@@ -27,6 +27,11 @@ All notable changes to Folitecta are documented here. The format follows
   time limit. Snippets saved as files in a folder of their own, cloned, deleted and edited.
 - Named document scripts: add, edit, rename, delete and run them; JavaScript options (time limit,
   changes allowed, alerts as messages).
+- Sound and video comments: sounds made from WAV files, audio and video files (MP4, WebM, Ogg,
+  MP3, M4A, WAV, FLAC) embedded in screen comments; a media player docked or floating, with play,
+  pause, stop, mute, controls, volume, position and full screen; a list of the media of the
+  document; titles and descriptions; media saved as files; playing turned off and on. Sounds and
+  media of other documents (sampled sound, renditions, rich media) play too.
 
 ### Fixed
 

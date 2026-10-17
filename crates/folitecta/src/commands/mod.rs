@@ -26,6 +26,7 @@ pub(crate) mod interface;
 pub(crate) mod javascript;
 pub(crate) mod layers;
 pub(crate) mod macros;
+pub(crate) mod media;
 mod pages;
 mod panes;
 pub(crate) mod portfolio;
@@ -91,6 +92,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     calculator::HANDLERS,
     fileops::HANDLERS,
     javascript::HANDLERS,
+    media::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -234,6 +236,7 @@ pub const DEFAULT_ON: &[&str] = &[
     "contentsView.displaySelected",
     "msp.hdr.tagName",
     "msp.hdr.value",
+    "media.enabled",
     "stamps.favorites",
     "stamps.recents",
     "historyList.group.show",
@@ -308,6 +311,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| accessibility::acc_state(st, id))
         .or_else(|| calculator::calc_state(st, id))
         .or_else(|| fileops::fileops_state(st, id))
+        .or_else(|| media::media_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

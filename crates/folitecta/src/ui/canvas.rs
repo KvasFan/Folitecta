@@ -1148,6 +1148,14 @@ fn PageView(
                 crate::commands::calculator::place(st, page, top_left);
                 None
             }
+            Tool::Sound => {
+                crate::commands::media::pick_sound(st, page, (rect[0], rect[3]));
+                None
+            }
+            Tool::Video => {
+                crate::commands::media::pick_media(st, page, rect);
+                None
+            }
             Tool::Stamp if st.ui.read().value("stamp.kind") == Some("design") => {
                 let c = rect_to_pdf(&size, [x0, y0, x0, y0]);
                 crate::commands::stamps::place_design(st, page, rect, tiny, (c[0], c[1]))
@@ -1651,6 +1659,10 @@ fn PageView(
                                     }
                                     // Calculator tapes open in the calculator pane.
                                     if crate::commands::calculator::edit_calculator(st, page, index) {
+                                        return;
+                                    }
+                                    // Sound and video comments play.
+                                    if crate::commands::media::play_item(st, page, index) {
                                         return;
                                     }
                                     let contents = contents.clone();

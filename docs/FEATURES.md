@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.5. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1145 |
-| 🟡 partial | 53 |
-| ⬜ planned | 779 |
+| ✅ available | 1181 |
+| 🟡 partial | 54 |
+| ⬜ planned | 742 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -31,13 +31,13 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Select Text | `tool.selectText` | ✅ available |
 | ↳ Copy as Rich | `tool.selectText.copyAsRich` | ✅ available |
 | Snapshot Tool | `tool.snapshot` | ✅ available |
-| Tools | `tools` | ⬜ planned |
+| Tools | `tools` | 🟡 partial |
 | ↳ Basic Tools | `tools.basic` | ⬜ planned |
 | ↳ Comment and Markup Tools | `tools.markup` | ⬜ planned |
 | ↳ Content Editing Tools | `tools.editContent` | ⬜ planned |
 | ↳ Link Tools | `tools.editLinks` | ⬜ planned |
 | ↳ Measuring Tools | `tools.measure` | ⬜ planned |
-| ↳ Media Tools | `tools.media` | ⬜ planned |
+| ↳ Media Tools | `tools.media` | ✅ available |
 | ↳ Zoom Tools | `tools.zoom` | ⬜ planned |
 | Zoom Tool | `tool.zoom` | ✅ available |
 | Zoom Tools | `zoomToolsGroup` | ⬜ planned |
@@ -360,7 +360,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Command | Id | Status |
 |---|---|---|
 | File Attachment | `tool.annot.fileAttachment` | ✅ available |
-| Sound | `tool.annot.sound` | ⬜ planned |
+| Sound | `tool.annot.sound` | ✅ available |
 
 **Text Markup**
 
@@ -487,44 +487,44 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Walk | `3d.walk` | ⬜ planned |
 | ↳ Zoom | `3d.zoom` | ⬜ planned |
 | Add/Edit 3D | `tool.annot.edit3D` | ⬜ planned |
-| Add/Edit Sound | `tool.annot.editSound` | ⬜ planned |
-| Add/Edit Video | `tool.annot.editVideo` | ⬜ planned |
+| Add/Edit Sound | `tool.annot.editSound` | ✅ available |
+| Add/Edit Video | `tool.annot.editVideo` | ✅ available |
 | Edit 3 D | `tool.edit3d` | ⬜ planned |
 | ↳ Edit JavaScript | `tool.edit3d.editJS` | ⬜ planned |
 | ↳ Poster | `tool.edit3d.poster` | ⬜ planned |
-| Media | `media` | ⬜ planned |
-| ↳ Media Configuration | `media.config` | ⬜ planned |
-| ↳ Media Controls | `media.contol` | ⬜ planned |
-| ↳ Media List | `media.list` | ⬜ planned |
-| ↳ Mute | `media.mute` | ⬜ planned |
-| ↳ Pause | `media.pause` | ⬜ planned |
-| ↳ Play | `media.play` | ⬜ planned |
-| ↳ Play Pause | `media.play_pause` | ⬜ planned |
-| ↳ Position | `media.position` | ⬜ planned |
-| ↳ Show Controls | `media.showControls` | ⬜ planned |
-| ↳ Stop | `media.stop` | ⬜ planned |
-| ↳ Volume | `media.volume` | ⬜ planned |
-| Media Annotation | `mediaAnnot` | ⬜ planned |
-| ↳ Disable Content | `mediaAnnot.disableContent` | ⬜ planned |
-| ↳ Enable Content | `mediaAnnot.enableContent` | ⬜ planned |
-| ↳ Properties | `mediaAnnot.properties` | ⬜ planned |
-| ↳ Save Audio | `mediaAnnot.saveAudio` | ⬜ planned |
-| ↳ Save Video | `mediaAnnot.saveVideo` | ⬜ planned |
-| ↳ Start Full Screen | `mediaAnnot.startFullScreen` | ⬜ planned |
-| ↳ Start View Floating | `mediaAnnot.startViewFloating` | ⬜ planned |
-| ↳ Stop Full Screen | `mediaAnnot.stopFullScreen` | ⬜ planned |
-| ↳ Stop View Floating | `mediaAnnot.stopViewFloating` | ⬜ planned |
+| Media | `media` | ✅ available |
+| ↳ Media Configuration | `media.config` | ✅ available |
+| ↳ Media Controls | `media.contol` | ✅ available |
+| ↳ Media List | `media.list` | ✅ available |
+| ↳ Mute | `media.mute` | ✅ available |
+| ↳ Pause | `media.pause` | ✅ available |
+| ↳ Play | `media.play` | ✅ available |
+| ↳ Play Pause | `media.play_pause` | ✅ available |
+| ↳ Position | `media.position` | ✅ available |
+| ↳ Show Controls | `media.showControls` | ✅ available |
+| ↳ Stop | `media.stop` | ✅ available |
+| ↳ Volume | `media.volume` | ✅ available |
+| Media Annotation | `mediaAnnot` | ✅ available |
+| ↳ Disable Content | `mediaAnnot.disableContent` | ✅ available |
+| ↳ Enable Content | `mediaAnnot.enableContent` | ✅ available |
+| ↳ Properties | `mediaAnnot.properties` | ✅ available |
+| ↳ Save Audio | `mediaAnnot.saveAudio` | ✅ available |
+| ↳ Save Video | `mediaAnnot.saveVideo` | ✅ available |
+| ↳ Start Full Screen | `mediaAnnot.startFullScreen` | ✅ available |
+| ↳ Start View Floating | `mediaAnnot.startViewFloating` | ✅ available |
+| ↳ Stop Full Screen | `mediaAnnot.stopFullScreen` | ✅ available |
+| ↳ Stop View Floating | `mediaAnnot.stopViewFloating` | ✅ available |
 
 **Sound**
 
 | Command | Id | Status |
 |---|---|---|
-| Sound | `sound` | ⬜ planned |
-| ↳ Mute | `sound.mute` | ⬜ planned |
-| ↳ Pause | `sound.pause` | ⬜ planned |
-| ↳ Play | `sound.play` | ⬜ planned |
-| ↳ Save Audio | `sound.saveAudio` | ⬜ planned |
-| ↳ Stop | `sound.stop` | ⬜ planned |
+| Sound | `sound` | ✅ available |
+| ↳ Mute | `sound.mute` | ✅ available |
+| ↳ Pause | `sound.pause` | ✅ available |
+| ↳ Play | `sound.play` | ✅ available |
+| ↳ Save Audio | `sound.saveAudio` | ✅ available |
+| ↳ Stop | `sound.stop` | ✅ available |
 
 ### Protect
 
@@ -1384,7 +1384,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Text Style | `textStyle` | 🟡 partial |
 | Thickness Scale | `thicknessScale` | ⬜ planned |
 | Ungroup | `ungroup` | ⬜ planned |
-| Volume | `volume` | ⬜ planned |
+| Volume | `volume` | ✅ available |
 | Widget | `widget` | ⬜ planned |
 
 ### View
@@ -1669,8 +1669,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Measure | `measure` | ⬜ planned |
 | Measure Edit | `measureEdit` | ⬜ planned |
 | Measure Info | `measureInfo` | ⬜ planned |
-| Media | `media` | ⬜ planned |
-| Media Annotation | `mediaAnnot` | ⬜ planned |
+| Media | `media` | ✅ available |
+| Media Annotation | `mediaAnnot` | ✅ available |
 | Note Icon | `noteIcon` | ⬜ planned |
 | Opacity | `opacity` | ✅ available |
 | Printable | `comments.printable` | ✅ available |
@@ -1678,7 +1678,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Selection | `selection` | ⬜ planned |
 | Show All Comments | `comments.showAll` | ✅ available |
 | Show/Hide All Comments | `comments.showhideAll` | ✅ available |
-| Sound | `sound` | ⬜ planned |
+| Sound | `sound` | ✅ available |
 | Stamp Designer | `stampCustom` | 🟡 partial |
 | Stamps List | `stampsList` | ✅ available |
 | Stroke Color | `scolor` | ✅ available |
@@ -1709,7 +1709,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Measuring Tools | `tools.measure` | ⬜ planned |
 | Content Editing Tools | `tools.editContent` | ⬜ planned |
 | Link Tools | `tools.editLinks` | ⬜ planned |
-| Media Tools | `tools.media` | ⬜ planned |
+| Media Tools | `tools.media` | ✅ available |
 | Zoom Tools | `tools.zoom` | ⬜ planned |
 | Compare Documents… | `compareDocs` | ✅ available |
 | Launch Application | `launchExternalApp` | ✅ available |
@@ -2148,8 +2148,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `macro.bates.options` | Comments › Macro › Bates Number › Bates Numbering Settings | ✅ available |
 | `macro.pageNumberingStyle.options` | Comments › Macro › Page Numbering Style › Options | ✅ available |
 | `macro.rowData.options` | Comments › Macro › Row Data › Options | ⬜ planned |
-| `media.position.Slider` | Comments › Media › Position › Position | ⬜ planned |
-| `media.volume.Slider` | Comments › Media › Volume › Volume | ⬜ planned |
+| `media.position.Slider` | Comments › Media › Position › Position | ✅ available |
+| `media.volume.Slider` | Comments › Media › Volume › Volume | ✅ available |
 | `msp.hdr` | Tools › Metadata › Columns | ✅ available |
 | `msp.hdr.tagName` | Tools › Metadata › Columns › Tag Name | ✅ available |
 | `msp.hdr.value` | Tools › Metadata › Columns › Value | ✅ available |
@@ -2404,7 +2404,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `view.portfolio.view.nav.next` | View › Portfolio › View › Navigation › Next | ✅ available |
 | `view.portfolio.view.nav.prev` | View › Portfolio › View › Navigation › Previous | ✅ available |
 | `view.portfolio.view.nav.up` | View › Portfolio › View › Navigation › Up | ✅ available |
-| `volume.Slider` | Edit › Volume › Volume | ⬜ planned |
+| `volume.Slider` | Edit › Volume › Volume | ✅ available |
 | `wdav.columns.created` | File › WebDAV › Columns › Created | ⬜ planned |
 | `wdav.columns.extension` | File › WebDAV › Columns › Extension | ⬜ planned |
 | `wdav.columns.modified` | File › WebDAV › Columns › Modified | ⬜ planned |

@@ -164,6 +164,21 @@ pub fn App() -> Element {
         }
     });
 
+    // Serve the media of the player at /media/{id}, with byte ranges for seeking.
+    use_asset_handler("media", move |request, responder| {
+        let range = request
+            .headers()
+            .get("range")
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string);
+        let (status, headers, body) = commands::media::serve(request.uri().path(), range.as_deref());
+        let mut resp = Response::builder().status(status);
+        for (k, v) in headers {
+            resp = resp.header(k, v);
+        }
+        responder.respond(resp.body(body).unwrap_or_else(|_| Response::new(Vec::new())));
+    });
+
     let theme = if st.ui.read().theme == Theme::Dark {
         "dark"
     } else {
@@ -353,6 +368,7 @@ pub fn App() -> Element {
                 ui::panes::PaneStrip {}
                 ui::panes::PanePanel {}
                 ui::canvas::CanvasArea {}
+                ui::media::MediaPlayer {}
                 if commands::calculator::CALC_EDIT.read().is_some() {
                     ui::calculator::CalculatorPane {}
                 } else if show_right {

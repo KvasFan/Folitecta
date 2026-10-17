@@ -2204,7 +2204,104 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     );
     st.set_dialog(Dialog::None);
 
-    // 40. Undo everything added above.
+    // 40. Sound and video comments: a sound and an embedded audio file, the
+    // player loading the media, the media list and the properties.
+    let tone: Vec<u8> = {
+        let pcm: Vec<u8> = (0..16000i32)
+            .flat_map(|i| (((i as f32 * 0.12).sin() * 6000.0) as i16).to_le_bytes())
+            .collect();
+        let mut w = Vec::new();
+        w.extend_from_slice(b"RIFF");
+        w.extend_from_slice(&(36 + pcm.len() as u32).to_le_bytes());
+        w.extend_from_slice(b"WAVEfmt ");
+        w.extend_from_slice(&16u32.to_le_bytes());
+        w.extend_from_slice(&1u16.to_le_bytes());
+        w.extend_from_slice(&1u16.to_le_bytes());
+        w.extend_from_slice(&16000u32.to_le_bytes());
+        w.extend_from_slice(&32000u32.to_le_bytes());
+        w.extend_from_slice(&2u16.to_le_bytes());
+        w.extend_from_slice(&16u16.to_le_bytes());
+        w.extend_from_slice(b"data");
+        w.extend_from_slice(&(pcm.len() as u32).to_le_bytes());
+        w.extend_from_slice(&pcm);
+        w
+    };
+    let before = st.read_active(|t| t.doc.media_items().len()).unwrap_or(0);
+    let added = st
+        .with_active(|t| {
+            let a = t.doc.add_sound(0, (40.0, 300.0), &tone, "Reviewer").is_ok();
+            let b = t
+                .doc
+                .add_media(
+                    0,
+                    [70.0, 200.0, 230.0, 300.0],
+                    "tone.wav",
+                    tone.clone(),
+                    "Reviewer",
+                )
+                .is_ok();
+            t.refresh();
+            a && b
+        })
+        .unwrap_or(false);
+    let items = st.read_active(|t| t.doc.media_items()).unwrap_or_default();
+    let last = items.last().map(|m| (m.page, m.index));
+    let mut loaded = 0.0;
+    if let Some((p, i)) = last {
+        crate::commands::media::play_item(st, p, i);
+        for _ in 0..40 {
+            pause(150).await;
+            loaded = document::eval(
+                "const m = document.getElementById('folitecta-media'); return m ? (m.duration || 0) : 0;",
+            )
+            .await
+            .ok()
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+            if loaded > 0.0 {
+                break;
+            }
+        }
+    }
+    let _ = capture_window(&dir.join("interaction-media-player.png"));
+    crate::commands::dispatch(st, "media.stop");
+    record(
+        "sound and audio comments, media loaded in the player",
+        added && items.len() == before + 2 && (loaded - 1.0).abs() < 0.1,
+        format!("{} items, duration {loaded:.2}", items.len()),
+    );
+    crate::commands::media::close_player();
+    crate::commands::dispatch(st, "media.list");
+    pause(400).await;
+    let rows = document::eval("return document.querySelectorAll('.media-list .media-row').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let _ = capture_window(&dir.join("interaction-media-list.png"));
+    if let Some((p, i)) = last {
+        st.set_dialog(Dialog::MediaProps { page: p, index: i });
+        pause(300).await;
+        let _ = document::eval(
+            "const i = document.querySelector('.dialog input'); if (i) { i.value = 'Tone'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
+        )
+        .await;
+        pause(200).await;
+        let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+        pause(400).await;
+    }
+    let titled = st
+        .read_active(|t| t.doc.media_items().last().map(|m| m.title.clone()))
+        .flatten()
+        .unwrap_or_default();
+    record(
+        "media list and properties",
+        rows as usize == before + 2 && titled == "Tone",
+        format!("{rows} rows, title {titled}"),
+    );
+    st.set_dialog(Dialog::None);
+
+    // 41. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..60 {
         crate::commands::dispatch(st, "undo");
@@ -2478,6 +2575,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("js-console", Dialog::JsConsole),
         ("js-prefs", Dialog::JsPrefs),
         ("doc-scripts", Dialog::DocScripts(Some(String::new()))),
+        ("media-list", Dialog::MediaList),
     ];
     // The editor shows the table being edited.
     *crate::commands::tables::TABLE_EDIT.write() = Some(crate::commands::tables::TableEdit {

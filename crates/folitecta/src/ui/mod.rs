@@ -16,6 +16,7 @@ pub mod history_pane;
 pub mod javascript;
 pub mod layers_pane;
 pub mod macros;
+pub mod media;
 pub mod menubar;
 pub mod palette;
 pub mod panes;

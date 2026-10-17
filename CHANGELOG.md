@@ -35,6 +35,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ### Changed
 
+- The project lives at [github.com/KvasFan/Folitecta](https://github.com/KvasFan/Folitecta), with
+  releases also on [gitlab.com/tirael8308/folitecta](https://gitlab.com/tirael8308/folitecta).
 - The first ribbon tab is called Edit, with a Text group (Edit Text, Insert, Replace and Delete
   Text, Find, Find and Replace) and a Clipboard group (undo, redo, cut, copy, paste, delete,
   select all).

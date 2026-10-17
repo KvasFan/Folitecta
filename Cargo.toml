@@ -6,8 +6,8 @@ members = ["crates/folitecta-core", "crates/folitecta"]
 version = "0.0.9"
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/KvasExpert/Folitecta"
-authors = ["KvasExpert"]
+repository = "https://github.com/KvasFan/Folitecta"
+authors = ["KvasFan"]
 rust-version = "1.92"
 
 [workspace.dependencies]

@@ -3,7 +3,7 @@
 use super::{handlers, open_url};
 use crate::state::Dialog;
 
-const REPO: &str = "https://github.com/KvasExpert/Folitecta";
+const REPO: &str = "https://github.com/KvasFan/Folitecta";
 
 handlers! {
     "help.about" => |st| st.set_dialog(Dialog::About),

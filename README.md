@@ -111,8 +111,9 @@ feature matrix.
 ## Download
 
 Binaries for Windows (x64), Linux (x64) and macOS (Apple silicon and Intel) are attached to each
-[GitHub release](https://github.com/KvasExpert/Folitecta/releases). On Linux the WebKitGTK 4.1
-runtime must be installed (`libwebkit2gtk-4.1-0`, `libgtk-3-0`).
+[GitHub release](https://github.com/KvasFan/Folitecta/releases); the
+[GitLab releases](https://gitlab.com/tirael8308/folitecta/-/releases) carry the same versions. On
+Linux the WebKitGTK 4.1 runtime must be installed (`libwebkit2gtk-4.1-0`, `libgtk-3-0`).
 
 ## Building from source
 

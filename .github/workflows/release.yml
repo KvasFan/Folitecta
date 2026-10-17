@@ -138,7 +138,7 @@ jobs:
           <plist version="1.0"><dict>
             <key>CFBundleName</key><string>Folitecta</string>
             <key>CFBundleDisplayName</key><string>Folitecta</string>
-            <key>CFBundleIdentifier</key><string>io.github.kvasexpert.folitecta</string>
+            <key>CFBundleIdentifier</key><string>io.github.kvasfan.folitecta</string>
             <key>CFBundleVersion</key><string>${VERSION}</string>
             <key>CFBundleShortVersionString</key><string>${VERSION}</string>
             <key>CFBundleExecutable</key><string>folitecta</string>

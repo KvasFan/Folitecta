@@ -136,7 +136,7 @@ fn set_size(w: f64, h: f64) {
 /// A sample document with text, marks, comments and bookmarks.
 fn sample_document() -> folitecta_core::Result<folitecta_core::Document> {
     let para = "Folitecta renders, annotates and organizes PDF documents. The quick brown fox jumps over the lazy dog. \
-Pack my box with five dozen liquor jugs. Visit https://github.com/KvasExpert/Folitecta for the source code. ";
+Pack my box with five dozen liquor jugs. Visit https://github.com/KvasFan/Folitecta for the source code. ";
     let mut text = String::new();
     for i in 1..=60 {
         text.push_str(&format!("Section {i}\n{}\n\n", para.repeat(3)));

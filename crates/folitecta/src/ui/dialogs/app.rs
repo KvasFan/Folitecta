@@ -163,7 +163,7 @@ pub(super) fn About() -> Element {
                         li { "Rendering: hayro (Apache-2.0 OR MIT)" }
                         li { "Document model: lopdf (MIT)" }
                         li { "User interface: Dioxus (MIT OR Apache-2.0)" }
-                        li { a { href: "https://github.com/KvasExpert/Folitecta", onclick: move |e| { e.prevent_default(); let _ = crate::util::open_external("https://github.com/KvasExpert/Folitecta"); }, "github.com/KvasExpert/Folitecta" } }
+                        li { a { href: "https://github.com/KvasFan/Folitecta", onclick: move |e| { e.prevent_default(); let _ = crate::util::open_external("https://github.com/KvasFan/Folitecta"); }, "github.com/KvasFan/Folitecta" } }
                     }
                     div { class: "row", style: "gap:8px; margin-top: 8px",
                         button { class: "tbtn", onclick: move |_| st.set_dialog(Dialog::Shortcuts), "{t(lang, \"dialog.shortcuts.title\")}" }

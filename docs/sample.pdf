@@ -9,7 +9,7 @@ endobj
 endstream 
 endobj
 3 0 obj
-<</Type/Page/Parent 1 0 R/MediaBox[0 0 595 842]/Contents[2 0 R 15 0 R 56 0 R]/Resources<</Font<</FoliHelv 55 0 R>>>>/Annots[22 0 R 26 0 R 29 0 R 32 0 R 35 0 R 38 0 R 41 0 R 44 0 R 46 0 R 50 0 R]>>
+<</Type/Page/Parent 1 0 R/MediaBox[0 0 595 842]/Contents[16 0 R 2 0 R 17 0 R 15 0 R 64 0 R]/Resources<</Font<</FoliHelv 63 0 R>>>>/Annots[30 0 R 34 0 R 37 0 R 40 0 R 43 0 R 46 0 R 49 0 R 52 0 R 54 0 R 58 0 R]>>
 endobj
 4 0 obj
 <</Length 0>>stream
@@ -17,7 +17,7 @@ endobj
 endstream 
 endobj
 5 0 obj
-<</Type/Page/Parent 1 0 R/MediaBox[0 0 595 842]/Contents[4 0 R 16 0 R 53 0 R 57 0 R]/Resources<</Font<</FoliHelv 55 0 R>>/ExtGState<</FoliGS40<</Type/ExtGState/CA 0.4/ca 0.4>>>>>>>>
+<</Type/Page/Parent 1 0 R/MediaBox[0 0 595 842]/Contents[19 0 R 4 0 R 20 0 R 18 0 R 61 0 R 65 0 R]/Resources<</Font<</FoliHelv 63 0 R>>/ExtGState<</FoliGS40<</Type/ExtGState/CA 0.4/ca 0.4>>>>>>>>
 endobj
 6 0 obj
 <</Length 0>>stream
@@ -25,7 +25,7 @@ endobj
 endstream 
 endobj
 7 0 obj
-<</Type/Page/Parent 1 0 R/MediaBox[0 0 595 842]/Contents[6 0 R 17 0 R 58 0 R]/Resources<</Font<</FoliHelv 55 0 R>>>>/Annots[63 0 R 65 0 R]>>
+<</Type/Page/Parent 1 0 R/MediaBox[0 0 595 842]/Contents[22 0 R 6 0 R 23 0 R 21 0 R 66 0 R]/Resources<</Font<</FoliHelv 63 0 R>>>>/Annots[71 0 R 73 0 R]>>
 endobj
 8 0 obj
 <</Length 0>>stream
@@ -33,253 +33,309 @@ endobj
 endstream 
 endobj
 9 0 obj
-<</Type/Page/Parent 1 0 R/MediaBox[0 0 595 842]/Contents[8 0 R 18 0 R 59 0 R 69 0 R]/Resources<</Font<</FoliHelv 68 0 R>>/ExtGState<</FoliGS40<</Type/ExtGState/CA 0.4/ca 0.4>>>>>>/Rotate 90>>
+<</Type/Page/Parent 1 0 R/MediaBox[0 0 595 842]/Contents[25 0 R 8 0 R 26 0 R 24 0 R 67 0 R 77 0 R]/Resources<</Font<</FoliHelv 76 0 R>>/ExtGState<</FoliGS40<</Type/ExtGState/CA 0.4/ca 0.4>>>>>>/Rotate 90>>
 endobj
 10 0 obj
-<</Type/Catalog/Pages 1 0 R/Outlines 71 0 R/Names 85 0 R>>
+<</Type/Catalog/Pages 1 0 R/Outlines 79 0 R/Names 88 0 R>>
 endobj
 11 0 obj
-<</Producer(Folitecta 0.0.1)/Creator(Folitecta)/CreationDate(D:20261016141958Z)/Title(Folitecta sample document)/Author(Folitecta)/Subject(Demonstration of the core API)/Keywords(folitecta, pdf, rust)/ModDate(D:20261016141958Z)>>
+<</Producer(Folitecta 0.0.9)/Creator(Folitecta)/CreationDate(D:20261017155250Z)/Title(Folitecta sample document)/Author(Folitecta)/Subject(Demonstration of the core API)/Keywords(folitecta, pdf, rust)/ModDate(D:20261017155250Z)>>
 endobj
 14 0 obj
 <</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>
 endobj
 15 0 obj
-<</FolitectaMark/HeaderFooter/Length 330>>stream
+<</FolitectaMark/HeaderFooter/Length 376>>stream
+/Artifact <</Type /Pagination>> BDC
 q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 28 804 Tm (Folitecta sample document) Tj ET Q
-q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 515 804 Tm (2026-10-16) Tj ET Q
-q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 268.9 28 Tm (Page 1 of 4) Tj ET Q
-q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 468.2 28 Tm (Folitecta Folitecta) Tj ET Q
+q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 515.86 804 Tm (2026-10-17) Tj ET Q
+q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 271.925 28 Tm (Page 1 of 4) Tj ET Q
+q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 488.64 28 Tm (Folitecta Folitecta) Tj ET Q
+EMC
 
 endstream 
 endobj
 16 0 obj
-<</FolitectaMark/HeaderFooter/Length 330>>stream
-q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 28 804 Tm (Folitecta sample document) Tj ET Q
-q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 515 804 Tm (2026-10-16) Tj ET Q
-q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 268.9 28 Tm (Page 2 of 4) Tj ET Q
-q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 468.2 28 Tm (Folitecta Folitecta) Tj ET Q
+<</FolitectaGuard true/Length 2>>stream
+q
 
 endstream 
 endobj
 17 0 obj
-<</FolitectaMark/HeaderFooter/Length 330>>stream
-q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 28 804 Tm (Folitecta sample document) Tj ET Q
-q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 515 804 Tm (2026-10-16) Tj ET Q
-q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 268.9 28 Tm (Page 3 of 4) Tj ET Q
-q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 468.2 28 Tm (Folitecta Folitecta) Tj ET Q
+<</FolitectaGuard true/Length 3>>stream
+
+Q
 
 endstream 
 endobj
 18 0 obj
-<</FolitectaMark/HeaderFooter/Length 330>>stream
+<</FolitectaMark/HeaderFooter/Length 376>>stream
+/Artifact <</Type /Pagination>> BDC
 q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 28 804 Tm (Folitecta sample document) Tj ET Q
-q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 515 804 Tm (2026-10-16) Tj ET Q
-q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 268.9 28 Tm (Page 4 of 4) Tj ET Q
-q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 468.2 28 Tm (Folitecta Folitecta) Tj ET Q
+q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 515.86 804 Tm (2026-10-17) Tj ET Q
+q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 271.925 28 Tm (Page 2 of 4) Tj ET Q
+q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 488.64 28 Tm (Folitecta Folitecta) Tj ET Q
+EMC
+
+endstream 
+endobj
+19 0 obj
+<</FolitectaGuard true/Length 2>>stream
+q
 
 endstream 
 endobj
 20 0 obj
-<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>
+<</FolitectaGuard true/Length 3>>stream
+
+Q
+
+endstream 
 endobj
 21 0 obj
-<</Type/XObject/Subtype/Form/BBox[60 700 535 790]/Resources<</Font<</Helv 20 0 R>>>>/Length 112>>stream
-q BT /Helv 26 Tf 0.3 0.27 0.9 rg 31.2 TL 63 762 Td (Folitecta) Tj T* (A free PDF editor written in Rust) Tj ET Q
+<</FolitectaMark/HeaderFooter/Length 376>>stream
+/Artifact <</Type /Pagination>> BDC
+q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 28 804 Tm (Folitecta sample document) Tj ET Q
+q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 515.86 804 Tm (2026-10-17) Tj ET Q
+q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 271.925 28 Tm (Page 3 of 4) Tj ET Q
+q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 488.64 28 Tm (Folitecta Folitecta) Tj ET Q
+EMC
+
 endstream 
 endobj
 22 0 obj
-<</Type/Annot/Subtype/FreeText/Rect[60 700 535 790]/P 3 0 R/F 4/CA 1/M(D:20261016141958Z)/CreationDate(D:20261016141958Z)/NM(folitecta-2-21)/C[0.3 0.27 0.9]/T(Folitecta)/Contents(Folitecta
-A free PDF editor written in Rust)/DA(/Helv 26 Tf 0.3 0.27 0.9 rg)/Q 0/AP<</N 21 0 R>>>>
+<</FolitectaGuard true/Length 2>>stream
+q
+
+endstream 
+endobj
+23 0 obj
+<</FolitectaGuard true/Length 3>>stream
+
+Q
+
+endstream 
 endobj
 24 0 obj
-<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>
+<</FolitectaMark/HeaderFooter/Length 376>>stream
+/Artifact <</Type /Pagination>> BDC
+q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 28 804 Tm (Folitecta sample document) Tj ET Q
+q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 515.86 804 Tm (2026-10-17) Tj ET Q
+q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 271.925 28 Tm (Page 4 of 4) Tj ET Q
+q BT /FoliHelv 10 Tf 0.2 0.2 0.3 rg 1 0 0 1 488.64 28 Tm (Folitecta Folitecta) Tj ET Q
+EMC
+
+endstream 
 endobj
 25 0 obj
-<</Type/XObject/Subtype/Form/BBox[60 560 535 680]/Resources<</Font<</Helv 24 0 R>>>>/Length 390>>stream
-q 1 1 1 rg 0.4 0.4 0.4 RG 1 w 60.5 560.5 474 119 re B BT /Helv 12 Tf 0.1 0.1 0.1 rg 14.4 TL 63 666 Td (This document was generated by the folitecta-core example.) Tj T* (Every element on these pages was created through the public API:) Tj T* (free text, shapes, lines, ink, highlights, notes, bookmarks, links,) Tj T* (attachments, headers and footers, watermarks and page numbers.) Tj ET Q
+<</FolitectaGuard true/Length 2>>stream
+q
+
 endstream 
 endobj
 26 0 obj
-<</Type/Annot/Subtype/FreeText/Rect[60 560 535 680]/P 3 0 R/F 4/CA 1/M(D:20261016141958Z)/CreationDate(D:20261016141958Z)/NM(folitecta-3-25)/C[0.1 0.1 0.1]/T(Folitecta)/Contents(This document was generated by the folitecta-core example.
-Every element on these pages was created through the public API:
-free text, shapes, lines, ink, highlights, notes, bookmarks, links,
-attachments, headers and footers, watermarks and page numbers.)/DA(/Helv 12 Tf 0.1 0.1 0.1 rg)/Q 0/AP<</N 25 0 R>>>>
+<</FolitectaGuard true/Length 3>>stream
+
+Q
+
+endstream 
 endobj
 28 0 obj
-<</Type/XObject/Subtype/Form/BBox[60 380 280 520]/Resources<<>>/Length 60>>stream
-q 2 w 0.86 0.15 0.15 RG 1 0.95 0.85 rg 61 381 218 138 re B Q
-endstream 
+<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>
 endobj
 29 0 obj
-<</Type/Annot/Subtype/Square/Rect[60 380 280 520]/P 3 0 R/F 4/CA 1/M(D:20261016141958Z)/CreationDate(D:20261016141958Z)/NM(folitecta-4-28)/C[0.86 0.15 0.15]/T(Folitecta)/Contents(A rectangle)/BS<</W 2/S/S>>/IC[1 0.95 0.85]/AP<</N 28 0 R>>>>
-endobj
-31 0 obj
-<</Type/XObject/Subtype/Form/BBox[315 380 535 520]/Resources<<>>/Length 188>>stream
-q 2 w 0.1 0.45 0.85 RG 0.9 0.95 1 rg 534 450 m 534 488.109 485.201 519 425 519 c 364.799 519 316 488.109 316 450 c 316 411.891 364.799 381 425 381 c 485.201 381 534 411.891 534 450 c h B Q
+<</Type/XObject/Subtype/Form/BBox[60 700 535 790]/Resources<</Font<</Helv 28 0 R>>/ExtGState<</GS0<</CA 1/ca 1/BM/Normal>>>>>>/FolitectaAP true/Length 166>>stream
+q /GS0 gs q 60 700 475 90 re W n BT /Helv 26 Tf 0.3 0.27 0.9 rg 1 0 0 1 62 765.12 Tm (Folitecta) Tj 1 0 0 1 62 733.92 Tm (A free PDF editor written in Rust) Tj ET Q Q
 endstream 
+endobj
+30 0 obj
+<</Type/Annot/Subtype/FreeText/Rect[60 700 535 790]/P 3 0 R/F 4/CA 1/M(D:20261017155250Z)/CreationDate(D:20261017155250Z)/NM(folitecta-2-28)/C[0.3 0.27 0.9]/T(Folitecta)/Contents(Folitecta
+A free PDF editor written in Rust)/BS<</W 0/S/S>>/DA(/Helv 26 Tf 0.3 0.27 0.9 rg)/Q 0/AP<</N 29 0 R>>>>
 endobj
 32 0 obj
-<</Type/Annot/Subtype/Circle/Rect[315 380 535 520]/P 3 0 R/F 4/CA 1/M(D:20261016141958Z)/CreationDate(D:20261016141958Z)/NM(folitecta-5-31)/C[0.1 0.45 0.85]/T(Folitecta)/Contents(An ellipse)/BS<</W 2/S/S>>/IC[0.9 0.95 1]/AP<</N 31 0 R>>>>
+<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>
+endobj
+33 0 obj
+<</Type/XObject/Subtype/Form/BBox[60 560 535 680]/Resources<</Font<</Helv 32 0 R>>/ExtGState<</GS0<</CA 1/ca 1/BM/Normal>>>>>>/FolitectaAP true/Length 508>>stream
+q /GS0 gs 1 1 1 rg 60 560 475 120 re f 1 w 0.4 0.4 0.4 RG 60.5 560.5 474 119 re S [] 0 d q 61 561 473 118 re W n BT /Helv 12 Tf 0.1 0.1 0.1 rg 1 0 0 1 63 666.44 Tm (This document was generated by the folitecta-core example.) Tj 1 0 0 1 63 652.04 Tm (Every element on these pages was created through the public API:) Tj 1 0 0 1 63 637.64 Tm (free text, shapes, lines, ink, highlights, notes, bookmarks, links,) Tj 1 0 0 1 63 623.24 Tm (attachments, headers and footers, watermarks and page numbers.) Tj ET Q Q
+endstream 
 endobj
 34 0 obj
-<</Type/XObject/Subtype/Form/BBox[48 328 547 352]/Resources<<>>/Length 85>>stream
-q 1.5 w 1 J 1 j 0.2 0.2 0.2 RG 60 340 m 535 340 l S 527 344 m 535 340 l 527 336 l S Q
-endstream 
+<</Type/Annot/Subtype/FreeText/Rect[60 560 535 680]/P 3 0 R/F 4/CA 1/M(D:20261017155250Z)/CreationDate(D:20261017155250Z)/NM(folitecta-3-32)/C[0.4 0.4 0.4]/T(Folitecta)/Contents(This document was generated by the folitecta-core example.
+Every element on these pages was created through the public API:
+free text, shapes, lines, ink, highlights, notes, bookmarks, links,
+attachments, headers and footers, watermarks and page numbers.)/IC[1 1 1]/BS<</W 1/S/S>>/DA(/Helv 12 Tf 0.1 0.1 0.1 rg)/Q 0/AP<</N 33 0 R>>>>
 endobj
-35 0 obj
-<</Type/Annot/Subtype/Line/Rect[48 328 547 352]/P 3 0 R/F 4/CA 1/M(D:20261016141958Z)/CreationDate(D:20261016141958Z)/NM(folitecta-6-34)/C[0.2 0.2 0.2]/T(Folitecta)/Contents(An arrow)/L[60 340 535 340]/BS<</W 1.5>>/LE[/None/OpenArrow]/AP<</N 34 0 R>>>>
+36 0 obj
+<</Type/XObject/Subtype/Form/BBox[60 380 280 520]/Resources<</ExtGState<</GS0<</CA 1/ca 1/BM/Normal>>>>>>/FolitectaAP true/Length 68>>stream
+q /GS0 gs 2 w 0.86 0.15 0.15 RG 1 0.95 0.85 rg 61 381 218 138 re B Q
+endstream 
 endobj
 37 0 obj
-<</Type/XObject/Subtype/Form/BBox[75.5 245.5 324.5 314.5]/Resources<<>>/Length 84>>stream
-q 2.5 w 1 J 1 j 0.2 0.2 0.75 RG 80 250 m 140 310 l 200 250 l 260 310 l 320 250 l S Q
-endstream 
+<</Type/Annot/Subtype/Square/Rect[60 380 280 520]/P 3 0 R/F 4/CA 1/M(D:20261017155250Z)/CreationDate(D:20261017155250Z)/NM(folitecta-4-36)/C[0.86 0.15 0.15]/T(Folitecta)/Contents(A rectangle)/IC[1 0.95 0.85]/BS<</W 2/S/S>>/AP<</N 36 0 R>>>>
 endobj
-38 0 obj
-<</Type/Annot/Subtype/Ink/Rect[75.5 245.5 324.5 314.5]/P 3 0 R/F 4/CA 1/M(D:20261016141958Z)/CreationDate(D:20261016141958Z)/NM(folitecta-7-37)/C[0.2 0.2 0.75]/T(Folitecta)/BS<</W 2.5>>/InkList[[80 250 140 310 200 250 260 310 320 250]]/AP<</N 37 0 R>>>>
+39 0 obj
+<</Type/XObject/Subtype/Form/BBox[315 380 535 520]/Resources<</ExtGState<</GS0<</CA 1/ca 1/BM/Normal>>>>>>/FolitectaAP true/Length 196>>stream
+q /GS0 gs 2 w 0.1 0.45 0.85 RG 0.9 0.95 1 rg 534 450 m 534 488.109 485.201 519 425 519 c 364.799 519 316 488.109 316 450 c 316 411.891 364.799 381 425 381 c 485.201 381 534 411.891 534 450 c h B Q
+endstream 
 endobj
 40 0 obj
-<</Type/XObject/Subtype/Form/BBox[60 672 300 690]/Resources<</ExtGState<</GS<</BM/Multiply/CA 1/ca 1>>>>>>/Length 55>>stream
-q /GS gs 1 0.9 0.2 rg 1 0.9 0.2 RG 60 672 240 18 re f Q
-endstream 
+<</Type/Annot/Subtype/Circle/Rect[315 380 535 520]/P 3 0 R/F 4/CA 1/M(D:20261017155250Z)/CreationDate(D:20261017155250Z)/NM(folitecta-5-39)/C[0.1 0.45 0.85]/T(Folitecta)/Contents(An ellipse)/IC[0.9 0.95 1]/BS<</W 2/S/S>>/AP<</N 39 0 R>>>>
 endobj
-41 0 obj
-<</Type/Annot/Subtype/Highlight/Rect[60 672 300 690]/P 3 0 R/F 4/CA 1/M(D:20261016141958Z)/CreationDate(D:20261016141958Z)/NM(folitecta-8-40)/C[1 0.9 0.2]/T(Folitecta)/QuadPoints[60 690 300 690 60 672 300 672]/AP<</N 40 0 R>>>>
+42 0 obj
+<</Type/XObject/Subtype/Form/BBox[50.5 330.5 544.5 349.5]/Resources<</ExtGState<</GS0<</CA 1/ca 1/BM/Normal>>>>>>/FolitectaAP true/Length 104>>stream
+q /GS0 gs 1 J 1 j 1.5 w 0.2 0.2 0.2 RG 60 340 m 535 340 l S [] 0 d 528 343.5 m 535 340 l 528 336.5 l S Q
+endstream 
 endobj
 43 0 obj
-<</Type/XObject/Subtype/Form/BBox[500 280 520 300]/Resources<<>>/Length 91>>stream
-q 1 0.85 0.2 rg 0.2 0.2 0.2 RG 1 w 501 285 18 14 re B 504 285 m 504 280.5 l 509 285 l h B Q
-endstream 
+<</Type/Annot/Subtype/Line/Rect[50.5 330.5 544.5 349.5]/P 3 0 R/F 4/CA 1/M(D:20261017155250Z)/CreationDate(D:20261017155250Z)/NM(folitecta-6-42)/C[0.2 0.2 0.2]/T(Folitecta)/Contents(An arrow)/L[60 340 535 340]/BS<</W 1.5/S/S>>/LE[/None/OpenArrow]/AP<</N 42 0 R>>>>
 endobj
-44 0 obj
-<</Type/Annot/Subtype/Text/Rect[500 280 520 300]/P 3 0 R/F 4/CA 1/M(D:20261016141958Z)/CreationDate(D:20261016141958Z)/NM(folitecta-9-43)/C[1 0.85 0.2]/T(Folitecta)/Contents(Sticky notes keep the author, date and text.)/Name/Comment/Open false/AP<</N 43 0 R>>>>
+45 0 obj
+<</Type/XObject/Subtype/Form/BBox[75.5 245.5 324.5 314.5]/Resources<</ExtGState<</GS0<</CA 1/ca 1/BM/Normal>>>>>>/FolitectaAP true/Length 156>>stream
+q /GS0 gs 1 J 1 j 2.5 w 0.2 0.2 0.75 RG 80 250 m 100 270 120 310 140 310 c 160 310 180 250 200 250 c 220 250 240 310 260 310 c 280 310 300 270 320 250 c S Q
+endstream 
 endobj
 46 0 obj
-<</Type/Annot/Subtype/Link/Rect[60 150 300 175]/Border[0 0 0]/P 3 0 R/A<</S/URI/URI(https://github.com/KvasExpert/Folitecta)>>>>
+<</Type/Annot/Subtype/Ink/Rect[75.5 245.5 324.5 314.5]/P 3 0 R/F 4/CA 1/M(D:20261017155250Z)/CreationDate(D:20261017155250Z)/NM(folitecta-7-45)/C[0.2 0.2 0.75]/T(Folitecta)/InkList[[80 250 140 310 200 250 260 310 320 250]]/BS<</W 2.5/S/S>>/AP<</N 45 0 R>>>>
 endobj
 48 0 obj
-<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>
+<</Type/XObject/Subtype/Form/BBox[60 672 300 690]/Resources<</ExtGState<</GS0<</CA 1/ca 1/BM/Multiply>>>>>>/FolitectaAP true/Length 79>>stream
+q /GS0 gs 1 0.9 0.2 rg 1 0.9 0.2 RG 60 690 m 300 690 l 300 672 l 60 672 l h f Q
+endstream 
 endobj
 49 0 obj
-<</Type/XObject/Subtype/Form/BBox[60 150 300 175]/Resources<</Font<</Helv 48 0 R>>>>/Length 91>>stream
-q BT /Helv 11 Tf 0.1 0.3 0.8 rg 13.2 TL 63 162 Td (github.com/KvasExpert/Folitecta) Tj ET Q
-endstream 
+<</Type/Annot/Subtype/Highlight/Rect[60 672 300 690]/P 3 0 R/F 4/CA 1/M(D:20261017155250Z)/CreationDate(D:20261017155250Z)/NM(folitecta-8-48)/C[1 0.9 0.2]/T(Folitecta)/QuadPoints[60 690 300 690 60 672 300 672]/AP<</N 48 0 R>>>>
 endobj
-50 0 obj
-<</Type/Annot/Subtype/FreeText/Rect[60 150 300 175]/P 3 0 R/F 4/CA 1/M(D:20261016141958Z)/CreationDate(D:20261016141958Z)/NM(folitecta-11-49)/C[0.1 0.3 0.8]/T(Folitecta)/Contents(github.com/KvasExpert/Folitecta)/DA(/Helv 11 Tf 0.1 0.3 0.8 rg)/Q 0/AP<</N 49 0 R>>>>
+51 0 obj
+<</Type/XObject/Subtype/Form/BBox[500 280 520 300]/Resources<</ExtGState<</GS0<</CA 1/ca 1/BM/Normal>>>>>>/FolitectaAP true/Length 197>>stream
+q /GS0 gs 1 0.85 0.2 rg 0.2 0.2 0.2 RG 1 w 501 285 18 14 re B 504 285 m 504 280.5 l 509 285 l h B 0.25 0.25 0.25 RG 0.8 w 504 295.5 m 515 295.5 l S 504 292 m 515 292 l S 504 288.5 m 515 288.5 l S Q
+endstream 
 endobj
 52 0 obj
-<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>
+<</Type/Annot/Subtype/Text/Rect[500 280 520 300]/P 3 0 R/F 4/CA 1/M(D:20261017155250Z)/CreationDate(D:20261017155250Z)/NM(folitecta-9-51)/C[1 0.85 0.2]/T(Folitecta)/Contents(Sticky notes keep the author, date and text.)/Name/Comment/Open false/AP<</N 51 0 R>>>>
 endobj
-53 0 obj
-<</FolitectaMark/Watermark/Length 113>>stream
-q /FoliGS40 gs BT /FoliHelv 72 Tf 0.75 0.75 0.75 rg 0.707 0.707 -0.707 0.707 235.897 323.759 Tm (SAMPLE) Tj ET Q
-
-endstream 
-endobj
-55 0 obj
-<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>
+54 0 obj
+<</Type/Annot/Subtype/Link/Rect[60 150 300 175]/Border[0 0 0]/P 3 0 R/A<</S/URI/URI(https://github.com/KvasFan/Folitecta)>>>>
 endobj
 56 0 obj
-<</FolitectaMark/PageNumber/Length 79>>stream
-q BT /FoliHelv 9 Tf 0.3 0.3 0.3 rg 1 0 0 1 491.52 781 Tm (FOLI-000001) Tj ET Q
-
-endstream 
+<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>
 endobj
 57 0 obj
-<</FolitectaMark/PageNumber/Length 79>>stream
-q BT /FoliHelv 9 Tf 0.3 0.3 0.3 rg 1 0 0 1 491.52 781 Tm (FOLI-000002) Tj ET Q
-
+<</Type/XObject/Subtype/Form/BBox[60 150 300 175]/Resources<</Font<</Helv 56 0 R>>/ExtGState<</GS0<</CA 1/ca 1/BM/Normal>>>>>>/FolitectaAP true/Length 124>>stream
+q /GS0 gs q 60 150 240 25 re W n BT /Helv 11 Tf 0.1 0.3 0.8 rg 1 0 0 1 62 163.32 Tm (github.com/KvasFan/Folitecta) Tj ET Q Q
 endstream 
 endobj
 58 0 obj
-<</FolitectaMark/PageNumber/Length 79>>stream
-q BT /FoliHelv 9 Tf 0.3 0.3 0.3 rg 1 0 0 1 491.52 781 Tm (FOLI-000003) Tj ET Q
-
-endstream 
+<</Type/Annot/Subtype/FreeText/Rect[60 150 300 175]/P 3 0 R/F 4/CA 1/M(D:20261017155250Z)/CreationDate(D:20261017155250Z)/NM(folitecta-11-56)/C[0.1 0.3 0.8]/T(Folitecta)/Contents(github.com/KvasFan/Folitecta)/BS<</W 0/S/S>>/DA(/Helv 11 Tf 0.1 0.3 0.8 rg)/Q 0/AP<</N 57 0 R>>>>
 endobj
-59 0 obj
-<</FolitectaMark/PageNumber/Length 79>>stream
-q BT /FoliHelv 9 Tf 0.3 0.3 0.3 rg 1 0 0 1 491.52 781 Tm (FOLI-000004) Tj ET Q
-
-endstream 
-endobj
-61 0 obj
+60 0 obj
 <</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>
 endobj
-62 0 obj
-<</Type/XObject/Subtype/Form/BBox[60 740 400 770]/Resources<</Font<</Helv 61 0 R>>>>/Length 82>>stream
-q BT /Helv 12 Tf 0.1 0.3 0.8 rg 14.4 TL 63 756 Td (Back to the first page) Tj ET Q
+61 0 obj
+<</FolitectaMark/Watermark/Length 173>>stream
+/Artifact <</Type /Pagination /Subtype /Watermark>> BDC
+q /FoliGS40 gs BT /FoliHelv 72 Tf 0.75 0.75 0.75 rg 0.707 0.707 -0.707 0.707 212.045 299.907 Tm (SAMPLE) Tj ET Q
+EMC
+
 endstream 
 endobj
 63 0 obj
-<</Type/Annot/Subtype/FreeText/Rect[60 740 400 770]/P 7 0 R/F 4/CA 1/M(D:20261016141958Z)/CreationDate(D:20261016141958Z)/NM(folitecta-14-62)/C[0.1 0.3 0.8]/T(Folitecta)/Contents(Back to the first page)/DA(/Helv 12 Tf 0.1 0.3 0.8 rg)/Q 0/AP<</N 62 0 R>>>>
-endobj
-65 0 obj
-<</Type/Annot/Subtype/Link/Rect[60 740 400 770]/Border[0 0 0]/P 7 0 R/A<</S/GoTo/D[3 0 R/Fit]>>>>
-endobj
-68 0 obj
 <</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>
 endobj
-69 0 obj
-<</FolitectaMark/Watermark/Length 97>>stream
-q /FoliGS40 gs BT /FoliHelv 72 Tf 0.75 0.75 0.75 rg 0 1 -1 0 322.7 252.52 Tm (LANDSCAPE) Tj ET Q
+64 0 obj
+<</FolitectaMark/PageNumber/Length 120>>stream
+/Artifact <</Type /Pagination>> BDC
+q BT /FoliHelv 9 Tf 0.3 0.3 0.3 rg 1 0 0 1 489.972 781 Tm (FOLI-000001) Tj ET Q
+EMC
 
 endstream 
 endobj
-71 0 obj
-<</First 72 0 R/Last 80 0 R/Count 4>>
+65 0 obj
+<</FolitectaMark/PageNumber/Length 120>>stream
+/Artifact <</Type /Pagination>> BDC
+q BT /FoliHelv 9 Tf 0.3 0.3 0.3 rg 1 0 0 1 489.972 781 Tm (FOLI-000002) Tj ET Q
+EMC
+
+endstream 
 endobj
-72 0 obj
-<</Parent 71 0 R/Title(Overview)/A 73 0 R/F 0/C[0 0 0]/First 74 0 R/Last 74 0 R/Count 1/Next 76 0 R>>
+66 0 obj
+<</FolitectaMark/PageNumber/Length 120>>stream
+/Artifact <</Type /Pagination>> BDC
+q BT /FoliHelv 9 Tf 0.3 0.3 0.3 rg 1 0 0 1 489.972 781 Tm (FOLI-000003) Tj ET Q
+EMC
+
+endstream 
+endobj
+67 0 obj
+<</FolitectaMark/PageNumber/Length 120>>stream
+/Artifact <</Type /Pagination>> BDC
+q BT /FoliHelv 9 Tf 0.3 0.3 0.3 rg 1 0 0 1 489.972 781 Tm (FOLI-000004) Tj ET Q
+EMC
+
+endstream 
+endobj
+69 0 obj
+<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>
+endobj
+70 0 obj
+<</Type/XObject/Subtype/Form/BBox[60 740 400 770]/Resources<</Font<</Helv 69 0 R>>/ExtGState<</GS0<</CA 1/ca 1/BM/Normal>>>>>>/FolitectaAP true/Length 118>>stream
+q /GS0 gs q 60 740 340 30 re W n BT /Helv 12 Tf 0.1 0.3 0.8 rg 1 0 0 1 62 757.44 Tm (Back to the first page) Tj ET Q Q
+endstream 
+endobj
+71 0 obj
+<</Type/Annot/Subtype/FreeText/Rect[60 740 400 770]/P 7 0 R/F 4/CA 1/M(D:20261017155250Z)/CreationDate(D:20261017155250Z)/NM(folitecta-14-69)/C[0.1 0.3 0.8]/T(Folitecta)/Contents(Back to the first page)/BS<</W 0/S/S>>/DA(/Helv 12 Tf 0.1 0.3 0.8 rg)/Q 0/AP<</N 70 0 R>>>>
 endobj
 73 0 obj
-<</D[3 0 R/Fit]/S/GoTo>>
-endobj
-74 0 obj
-<</Parent 72 0 R/Title(Comments)/A 75 0 R/F 0/C[0 0 0]>>
-endobj
-75 0 obj
-<</D[3 0 R/Fit]/S/GoTo>>
+<</Type/Annot/Subtype/Link/Rect[60 740 400 770]/Border[0 0 0]/P 7 0 R/A<</S/GoTo/D[3 0 R/Fit]>>>>
 endobj
 76 0 obj
-<</Parent 71 0 R/Title(Watermark)/A 77 0 R/F 0/C[0 0 0]/Prev 72 0 R/Next 78 0 R>>
+<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>
 endobj
 77 0 obj
-<</D[5 0 R/Fit]/S/GoTo>>
-endobj
-78 0 obj
-<</Parent 71 0 R/Title(Links)/A 79 0 R/F 0/C[0 0 0]/Prev 76 0 R/Next 80 0 R>>
+<</FolitectaMark/Watermark/Length 158>>stream
+/Artifact <</Type /Pagination /Subtype /Watermark>> BDC
+q /FoliGS40 gs BT /FoliHelv 72 Tf 0.75 0.75 0.75 rg 0 1 -1 0 322.7 202.948 Tm (LANDSCAPE) Tj ET Q
+EMC
+
+endstream 
 endobj
 79 0 obj
-<</D[7 0 R/Fit]/S/GoTo>>
+<</Type/Outlines/First 80 0 R/Last 83 0 R/Count 4>>
 endobj
 80 0 obj
-<</Parent 71 0 R/Title(Rotated page)/A 81 0 R/F 0/C[0 0 0]/Prev 78 0 R>>
+<</Title(Overview)/Parent 79 0 R/Next 81 0 R/Dest[3 0 R/Fit]/First 84 0 R/Last 84 0 R/Count -1>>
 endobj
 81 0 obj
-<</D[9 0 R/Fit]/S/GoTo>>
+<</Title(Watermark)/Parent 79 0 R/Prev 80 0 R/Next 82 0 R/Dest[5 0 R/Fit]>>
+endobj
+82 0 obj
+<</Title(Links)/Parent 79 0 R/Prev 81 0 R/Next 83 0 R/Dest[7 0 R/Fit]>>
 endobj
 83 0 obj
-<</Type/EmbeddedFile/Params<</Size 28/ModDate(D:20261016141958Z)>>/Subtype/text#232Fplain/Length 28>>stream
+<</Title(Rotated page)/Parent 79 0 R/Prev 82 0 R/Dest[9 0 R/Fit]>>
+endobj
+84 0 obj
+<</Title(Comments)/Parent 80 0 R/Dest[3 0 R/Fit]>>
+endobj
+86 0 obj
+<</Type/EmbeddedFile/Params<</Size 28/CreationDate(D:20261017155250Z)/ModDate(D:20261017155250Z)>>/Subtype/text#232Fplain/Length 28>>stream
 Generated by folitecta-core.
 endstream 
 endobj
-84 0 obj
-<</Type/Filespec/F(readme.txt)/UF(readme.txt)/EF<</F 83 0 R/UF 83 0 R>>/Desc(A tiny attachment)>>
-endobj
-85 0 obj
-<</EmbeddedFiles<</Names[(readme.txt) 84 0 R]>>>>
-endobj
 87 0 obj
-<</Root 10 0 R/Info 11 0 R/Type/XRef/Size 88/W[1 4 2]/Index[1 11 14 5 20 3 24 3 28 2 31 2 34 2 37 2 40 2 43 2 46 1 48 3 52 2 55 5 61 3 65 1 68 2 71 11 83 3 87 1]/Length 462>>stream
-        T     É    W    Ü    K    z        E        _    U    Æ    E    ‹    
-s    
-    c    W    }    ÷    ‡    ◊    Å    Ç    Æ    ≠    p    }    G    U    %        „    ˘    ä    „    ¡     ⁄    !3    !Ó    "G    "‡    #y    $    $´    %    %Ÿ    &È    '[    '¥    (^    (î    )
-    )3    )|    )•    *    *0    *é    *∑    +    +9    +›    ,O    ,ë  
+<</Type/Filespec/F(readme.txt)/UF(readme.txt)/EF<</F 86 0 R/UF 86 0 R>>/Desc(A tiny attachment)>>
+endobj
+88 0 obj
+<</EmbeddedFiles<</Names[(readme.txt) 87 0 R]>>>>
+endobj
+90 0 obj
+<</Root 10 0 R/Info 11 0 R/Type/XRef/Size 91/W[1 4 2]/Index[1 11 14 13 28 3 32 3 36 2 39 2 42 2 45 2 48 2 51 2 54 1 56 3 60 2 63 5 69 3 73 1 76 2 79 6 86 3 90 1]/Length 483>>stream
+        T     É    e    î    g    ñ    @    o    L    ó    ç    Ê    ´    Ò    8    	˝    
+C    
+ä    O    ï    ‹    °    Á    .    á    Ï    !    z    5    E    2    3    ¢    °    ª    ‘    "     4    !.    ""    #í    $®    %6    %è    &     'Ô    (H    )?    )ò    *[    +    +·    ,§    ,˝    .2    /Q    /√    0    1    1H    1π    2    2m    2¿    3    3«    49    4{  
 endstream 
 endobj
 
 startxref
-11409
+13435
 %%EOF

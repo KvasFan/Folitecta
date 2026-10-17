@@ -108,12 +108,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     doc.add_uri_link(
         0,
         [60.0, 150.0, 300.0, 175.0],
-        "https://github.com/KvasExpert/Folitecta",
+        "https://github.com/KvasFan/Folitecta",
     )?;
     doc.add_free_text(
         0,
         [60.0, 150.0, 300.0, 175.0],
-        "github.com/KvasExpert/Folitecta",
+        "github.com/KvasFan/Folitecta",
         "Folitecta",
         11.0,
         [0.1, 0.3, 0.8],

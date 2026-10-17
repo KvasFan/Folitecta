@@ -1106,7 +1106,15 @@ fn PageView(
             }
             Tool::Snapshot if !tiny => {
                 let png = st.read_active(|t| t.doc.render_region_png(page, [x0, y0, x1, y1], 2.0));
+                // "New stamp from selection" keeps the area as a stamp.
+                let to_stamp = st.ui.read().value("snapshot.target") == Some("stamp");
                 match png {
+                    Some(Ok(png)) if to_stamp => {
+                        st.set_value("snapshot.target", "");
+                        let name = t(st.lang(), "stamps.from_area");
+                        crate::commands::doctools::picture_stamp(st, png, name);
+                        st.set_tool(Tool::Hand);
+                    }
                     Some(Ok(png)) => match crate::clipboard::set_png(&png) {
                         Ok(()) => st.toast(ToastKind::Ok, t(st.lang(), "toast.snapshot_copied"), ""),
                         Err(e) => st.error(e),

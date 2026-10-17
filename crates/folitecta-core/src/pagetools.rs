@@ -33,7 +33,7 @@ pub const TRANSITIONS: &[&str] = &[
 ];
 
 impl Document {
-    fn check(&self, pages: &[usize]) -> Result<()> {
+    pub(crate) fn check(&self, pages: &[usize]) -> Result<()> {
         let n = self.page_count();
         match pages.iter().find(|p| **p >= n) {
             Some(p) => Err(Error::InvalidPage(*p)),

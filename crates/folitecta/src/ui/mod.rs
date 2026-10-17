@@ -3,6 +3,7 @@ pub mod bookmarks_pane;
 pub mod canvas;
 pub mod comments_pane;
 pub mod dialogs;
+pub mod doctools;
 pub mod field_editor;
 pub mod fields_pane;
 pub mod form_fill;

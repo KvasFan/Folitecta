@@ -203,6 +203,26 @@ impl Document {
         out
     }
 
+    /// Place copies of the signature mark `(page, index)` at the same spot on
+    /// other pages (one undo step). Returns the number placed.
+    pub fn repeat_signature_mark(&mut self, page: usize, index: usize, pages: &[usize]) -> Result<usize> {
+        if !self.signature_marks().contains(&(page, index)) {
+            return Err(Error::Invalid("select a placed signature first".into()));
+        }
+        let n = self.page_count();
+        if let Some(p) = pages.iter().find(|p| **p >= n) {
+            return Err(Error::InvalidPage(*p));
+        }
+        let snap = self.annotation_snapshot(page, index)?;
+        let targets: Vec<usize> = pages.iter().copied().filter(|p| *p != page).collect();
+        let mark = self.undo_mark();
+        for p in &targets {
+            self.paste_annotation_snapshot(*p, &snap, 0.0, 0.0)?;
+        }
+        self.squash_undo(&mark);
+        Ok(targets.len())
+    }
+
     /// Merge every placed signature mark into its page (one undo step).
     pub fn apply_signature_marks(&mut self) -> Result<usize> {
         let marks = self.signature_marks();

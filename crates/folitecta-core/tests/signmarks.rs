@@ -70,3 +70,23 @@ fn marks_are_placed_moved_applied_and_removed() {
     assert_eq!(doc.remove_signature_marks().unwrap(), 3);
     assert!(doc.comments().is_empty());
 }
+
+#[test]
+fn a_signature_is_repeated_on_other_pages() {
+    let mut doc = Document::new_blank(4, 300.0, 300.0).unwrap();
+    let mark = SignatureMark::Typed {
+        text: "Ann".into(),
+        color: [0.0, 0.0, 0.5],
+    };
+    doc.add_signature_mark(0, [20.0, 20.0, 120.0, 60.0], &mark, "Ann")
+        .unwrap();
+    assert!(doc.repeat_signature_mark(0, 5, &[1]).is_err());
+    assert_eq!(doc.repeat_signature_mark(0, 0, &[0, 1, 2, 3]).unwrap(), 3);
+    assert_eq!(doc.signature_marks().len(), 4);
+    assert_eq!(
+        doc.annotations(3).unwrap()[0].rect,
+        doc.annotations(0).unwrap()[0].rect
+    );
+    doc.undo().unwrap();
+    assert_eq!(doc.signature_marks().len(), 1, "one undo step");
+}

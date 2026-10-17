@@ -1057,6 +1057,18 @@ pub enum Dialog {
     StampRecolor(u64),
     /// The stamp designer.
     StampDesigner,
+    /// Pages with page marks of a kind (Watermark, HeaderFooter, PageNumber).
+    ManageMarks(String),
+    /// Space used by each kind of content.
+    SpaceAudit,
+    /// Recompress the pictures of the document (or of the current page).
+    Recompress(bool),
+    /// Pages of typed text inserted after the current page.
+    InsertTextPages,
+    /// The selected signature repeated on other pages.
+    MultiPlace,
+    /// Scripts run on document events.
+    DocumentActions,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

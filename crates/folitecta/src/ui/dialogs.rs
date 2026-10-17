@@ -285,6 +285,12 @@ pub fn Dialogs() -> Element {
         Dialog::StampOptions => rsx! { crate::ui::stamps::StampOptionsDialog {} },
         Dialog::StampRecolor(id) => rsx! { crate::ui::stamps::StampRecolorDialog { id } },
         Dialog::StampDesigner => rsx! { crate::ui::stamps::StampDesignerDialog {} },
+        Dialog::ManageMarks(kind) => rsx! { crate::ui::doctools::ManageMarksDialog { kind } },
+        Dialog::SpaceAudit => rsx! { crate::ui::doctools::SpaceAuditDialog {} },
+        Dialog::Recompress(current) => rsx! { crate::ui::doctools::RecompressDialog { current } },
+        Dialog::InsertTextPages => rsx! { crate::ui::doctools::InsertTextPagesDialog {} },
+        Dialog::MultiPlace => rsx! { crate::ui::doctools::MultiPlaceDialog {} },
+        Dialog::DocumentActions => rsx! { crate::ui::doctools::DocumentActionsDialog {} },
     }
 }
 

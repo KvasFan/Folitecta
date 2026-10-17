@@ -15,6 +15,7 @@ pub mod comment_review;
 pub mod comment_summary;
 pub(crate) mod content_lex;
 pub mod digsig;
+pub mod doctools;
 pub mod document;
 pub mod error;
 pub mod export;

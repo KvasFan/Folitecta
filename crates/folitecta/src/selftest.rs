@@ -1663,7 +1663,52 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     st.set_tool(Tool::Hand);
     st.ui_mut().left_pane = "thumbnails".into();
 
-    // 33. Undo everything added above.
+    // 33. Document tools: typed text inserted as pages, space audit,
+    // document actions.
+    let pages_before = st.page_count();
+    crate::commands::dispatch(st, "document.insertText");
+    pause(400).await;
+    let _ = document::eval(
+        "const a = document.querySelector('.dialog textarea'); if (a) { a.value = 'Inserted page\\nwith two lines'; a.dispatchEvent(new Event('input', { bubbles: true })); }",
+    )
+    .await;
+    pause(200).await;
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(500).await;
+    let pages_after = st.page_count();
+    record(
+        "typed text inserted as a page",
+        pages_after == pages_before + 1,
+        format!("{pages_before} -> {pages_after}"),
+    );
+    crate::commands::dispatch(st, "document.audit");
+    pause(500).await;
+    let rows = document::eval("return document.querySelectorAll('.audit-row:not(.head)').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let _ = capture_window(&dir.join("interaction-audit.png"));
+    record("space audit lists the content", rows >= 4, format!("{rows} rows"));
+    st.set_dialog(Dialog::None);
+    crate::commands::dispatch(st, "document.actions");
+    pause(400).await;
+    let _ = document::eval(
+        "const a = document.querySelector('.dialog textarea'); if (a) { a.value = 'console.println(\"opened\");'; a.dispatchEvent(new Event('input', { bubbles: true })); }",
+    )
+    .await;
+    pause(200).await;
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(400).await;
+    let actions = st.read_active(|t| t.doc.document_actions()).unwrap_or_default();
+    record(
+        "document action saved",
+        actions.iter().any(|(e, c)| e == "Open" && c.contains("opened")),
+        format!("{actions:?}"),
+    );
+    st.set_dialog(Dialog::None);
+
+    // 34. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..30 {
         crate::commands::dispatch(st, "undo");
@@ -1874,6 +1919,12 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("layer-options", Dialog::LayerOptions),
         ("attachment-options", Dialog::AttachmentOptions),
         ("fields-options", Dialog::FieldsOptions),
+        ("space-audit", Dialog::SpaceAudit),
+        ("recompress", Dialog::Recompress(false)),
+        ("insert-text", Dialog::InsertTextPages),
+        ("document-actions", Dialog::DocumentActions),
+        ("manage-marks", Dialog::ManageMarks("Watermark".into())),
+        ("stamp-designer", Dialog::StampDesigner),
     ];
     for lang in [crate::i18n::Lang::It, crate::i18n::Lang::En] {
         st.ui_mut().lang = lang;

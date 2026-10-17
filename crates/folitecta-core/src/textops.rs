@@ -129,9 +129,12 @@ impl Document {
         color: [f32; 3],
         author: &str,
     ) -> Result<usize> {
+        let mark = self.undo_mark();
         for h in hits {
             self.markup_text_range(h.page, h.start, h.end, kind, color, author)?;
         }
+        // One undo step for all of them.
+        self.squash_undo(&mark);
         Ok(hits.len())
     }
 
@@ -143,9 +146,11 @@ impl Document {
 
     /// Mark the given search hits for redaction. Returns the count.
     pub fn redact_hits(&mut self, hits: &[SearchHit], author: &str) -> Result<usize> {
+        let mark = self.undo_mark();
         for h in hits {
             self.redact_text_range(h.page, h.start, h.end, author)?;
         }
+        self.squash_undo(&mark);
         Ok(hits.len())
     }
 

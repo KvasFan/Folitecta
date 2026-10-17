@@ -19,6 +19,15 @@ All notable changes to Folitecta are documented here. The format follows
   sized background, templates, cropping to the content, and fields filled in when the stamp is
   placed (date with a chosen format, name, e-mail, company, login, counter, values asked at
   placement, page-mark macros).
+- Document tools: stamps from the current page or from an area, next and previous bookmark,
+  pages split at the guides, pages cut to their crop box, management of watermarks, headers and
+  footers and page numbers, a space usage audit, recompression of pictures as JPEG (with a size
+  limit), pages of typed text or of an RTF file, highlights for the phrases of a text file,
+  leaving PDF/A, a signature repeated on several pages, scripts for document events.
+
+### Changed
+
+- Marking or redacting many search results is a single undo step.
 
 ## [0.0.4] - 2026-10-17
 

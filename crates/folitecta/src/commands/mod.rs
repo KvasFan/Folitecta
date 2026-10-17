@@ -10,6 +10,7 @@ pub(crate) mod attachments;
 pub(crate) mod bookmarks;
 mod comments;
 mod convert;
+pub(crate) mod doctools;
 mod edit;
 pub(crate) mod fields_pane;
 mod file;
@@ -77,6 +78,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     history::HANDLERS,
     sessions::HANDLERS,
     stamps::HANDLERS,
+    doctools::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -114,6 +116,10 @@ pub const PARTIAL: &[&str] = &[
     // They show the stamps pane.
     "stampCustom.menu",
     "stampCustom.recentsMenu",
+    // The content outside the crop box is clipped, not deleted from the file.
+    "document.removeCroppedContent",
+    // The pictures of the current page (a single picture cannot be selected).
+    "document.recompressImage",
 ];
 
 /// View options toggled by command id; their state lives in the preferences.

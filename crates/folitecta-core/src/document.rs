@@ -324,6 +324,18 @@ impl Document {
     }
 
     /// Re-serialize after a mutation and bump the revision.
+    /// The current state, to join the edits made after it with `squash_undo`.
+    pub(crate) fn undo_mark(&self) -> Arc<Vec<u8>> {
+        self.bytes.clone()
+    }
+
+    /// Join every edit made since `undo_mark` returned `mark` into one undo step.
+    pub(crate) fn squash_undo(&mut self, mark: &Arc<Vec<u8>>) {
+        if let Some(pos) = self.undo.iter().rposition(|s| Arc::ptr_eq(s, mark)) {
+            self.undo.truncate(pos + 1);
+        }
+    }
+
     pub fn commit(&mut self) -> Result<()> {
         self.bytes = Arc::new(serialize(&mut self.inner)?);
         self.revision += 1;

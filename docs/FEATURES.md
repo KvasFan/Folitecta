@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.4. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 915 |
-| 🟡 partial | 44 |
-| ⬜ planned | 1018 |
+| ✅ available | 932 |
+| 🟡 partial | 46 |
+| ⬜ planned | 999 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -553,7 +553,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Signatures and Initials | `document.signatures.placesign` | ✅ available |
 | ↳ Timestamp… | `document.signatures.timestamp` | ⬜ planned |
 | ↳ Validate All Signatures | `document.signatures.validateAll` | ✅ available |
-| Multi-Place Signature… | `document.signature.multiPlace` | ⬜ planned |
+| Multi-Place Signature… | `document.signature.multiPlace` | ✅ available |
 
 **Signatures and Initials**
 
@@ -705,7 +705,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Up | `actions.up` | ⬜ planned |
 | Document Actions | `docActions` | ⬜ planned |
 | ↳ Clear… | `docActions.clear` | ⬜ planned |
-| Document Actions | `document.actions` | ⬜ planned |
+| Document Actions | `document.actions` | ✅ available |
 | Document JavaScript | `document.javaScript` | ✅ available |
 | Java Script | `javaScript` | ✅ available |
 | ↳ Edit All | `javaScript.editAll` | ✅ available |
@@ -745,9 +745,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Insert Images… | `document.insertImages` | ✅ available |
 | Insert Pages from Clipboard… | `document.insertPagesFromClipboard` | ✅ available |
 | Insert Pages… | `document.insertPages` | ✅ available |
-| Insert Rich Text… | `document.insertRTF` | ⬜ planned |
+| Insert Rich Text… | `document.insertRTF` | ✅ available |
 | Insert Scanned Pages… | `document.insertScannedPages` | ⬜ planned |
-| Insert Text… | `document.insertText` | ⬜ planned |
+| Insert Text… | `document.insertText` | ✅ available |
 | Merge Pages… | `document.mergePages` | ✅ available |
 | More Page Tools | `document.pagesMore` | ⬜ planned |
 | Move Pages… | `document.movePages` | ✅ available |
@@ -770,7 +770,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Zoom Combo | `splitPages.zoomCombo` | ⬜ planned |
 | ↳ Zoom Out | `splitPages.zoomOut` | ⬜ planned |
 | ↳ Zoom in | `splitPages.zoomIn` | ⬜ planned |
-| Split Pages by Guides… | `document.splitPagesByGuides` | ⬜ planned |
+| Split Pages by Guides… | `document.splitPagesByGuides` | ✅ available |
 | Split Pages… | `document.splitPages` | ✅ available |
 | Swap Pages… | `document.swapPages` | ✅ available |
 
@@ -796,7 +796,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Normalize Pages… | `document.normalizePages` | ✅ available |
 | Overlay Pages… | `document.overlayPages` | ✅ available |
 | Rasterize Pages… | `document.rasterizePages` | ✅ available |
-| Remove Cropped Content | `document.removeCroppedContent` | ⬜ planned |
+| Remove Cropped Content | `document.removeCroppedContent` | 🟡 partial |
 | Resize Pages… | `document.resizePages` | ✅ available |
 | Rotate Pages… | `document.rotatePages` | ✅ available |
 | ↳ Rotate 180° | `document.rotatePages.180` | ✅ available |
@@ -815,11 +815,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Bates Numbering | `document.batesNumbering` | ✅ available |
 | ↳ Add to Multiple Documents… | `document.batesNumbering.addMulti` | ✅ available |
 | ↳ Add… | `document.batesNumbering.add` | ✅ available |
-| ↳ Manage… | `document.batesNumbering.manage` | ⬜ planned |
+| ↳ Manage… | `document.batesNumbering.manage` | ✅ available |
 | ↳ Remove All… | `document.batesNumbering.removeAll` | ✅ available |
 | Header and Footer | `document.headerAndFooter` | ✅ available |
 | ↳ Add… | `document.headerAndFooter.add` | ✅ available |
-| ↳ Manage… | `document.headerAndFooter.manage` | ⬜ planned |
+| ↳ Manage… | `document.headerAndFooter.manage` | ✅ available |
 | ↳ Remove All… | `document.headerAndFooter.removeAll` | ✅ available |
 | Macro | `macro` | 🟡 partial |
 | ↳ Application Version | `macro.appVersion` | ✅ available |
@@ -870,7 +870,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Page Transitions | `document.pageTransitions` | ✅ available |
 | Watermarks | `document.watermarks` | ✅ available |
 | ↳ Add… | `document.watermarks.add` | ✅ available |
-| ↳ Manage… | `document.watermarks.manage` | ⬜ planned |
+| ↳ Manage… | `document.watermarks.manage` | ✅ available |
 | ↳ Remove All… | `document.watermarks.removeAll` | ✅ available |
 
 ### Convert
@@ -926,16 +926,16 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Audit Space Usage | `document.audit` | ⬜ planned |
+| Audit Space Usage | `document.audit` | ✅ available |
 | Detect Barcodes in Region… | `document.detectBarcodes` | ⬜ planned |
 | Detect Barcodes… | `document.detectImageBarcode` | ⬜ planned |
-| Enable Editing (Discard PDF/A) | `document.discardPDFA` | ⬜ planned |
+| Enable Editing (Discard PDF/A) | `document.discardPDFA` | ✅ available |
 | Font | `font` | ⬜ planned |
 | ↳ Repair to Unicode C Map | `font.repairToUnicodeCMap` | ⬜ planned |
-| Highlight from File | `document.highlightFile` | ⬜ planned |
+| Highlight from File | `document.highlightFile` | ✅ available |
 | Import Bookmarks | `document.importBookmarks` | ✅ available |
-| New Stamp from Active Document | `document.createStampFromActiveDoc` | ⬜ planned |
-| New Stamp from Selection… | `document.createStampFromSel` | ⬜ planned |
+| New Stamp from Active Document | `document.createStampFromActiveDoc` | ✅ available |
+| New Stamp from Selection… | `document.createStampFromSel` | ✅ available |
 | Options… | `document.options` | ⬜ planned |
 | Replace Fonts… | `document.replaceFonts` | ⬜ planned |
 | Show Problem Details… | `document.showProblems` | ⬜ planned |
@@ -983,8 +983,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Zoom in | `imageEditor.zoomIn` | ⬜ planned |
 | Recompress Images | `recompressImages` | ⬜ planned |
 | ↳ Edit… | `recompressImages.edit` | ⬜ planned |
-| Recompress Images… | `document.recompressImages` | ⬜ planned |
-| Recompress Image… | `document.recompressImage` | ⬜ planned |
+| Recompress Images… | `document.recompressImages` | ✅ available |
+| Recompress Image… | `document.recompressImage` | 🟡 partial |
 | Replace Image | `replaceImage` | ⬜ planned |
 | Replace Image Clipboard | `replaceImageClipboard` | ⬜ planned |
 
@@ -1536,13 +1536,13 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Bates Numbering | `document.batesNumbering` | ✅ available |
 | Page Numbering… | `document.pageNumbering` | ✅ available |
 | OCR Pages… | `document.OCRPages` | ⬜ planned |
-| Recompress Images… | `document.recompressImages` | ⬜ planned |
+| Recompress Images… | `document.recompressImages` | ✅ available |
 | Replace Fonts… | `document.replaceFonts` | ⬜ planned |
 | Digital Signatures | `document.signatures` | 🟡 partial |
 | Security Policies | `securityPolicies` | ⬜ planned |
 | Redaction | `document.redaction` | ⬜ planned |
 | Document JavaScript | `document.javaScript` | ✅ available |
-| Document Actions | `document.actions` | ⬜ planned |
+| Document Actions | `document.actions` | ✅ available |
 | Word Count | `document.wordCount` | ✅ available |
 | Accessibility | `acc` | ⬜ planned |
 | Accessibility | `accessibility` | ⬜ planned |
@@ -1553,7 +1553,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Add Link… | `addLink` | ✅ available |
 | Annotations | `annots` | ✅ available |
 | Apply All Redactions | `document.applyRedactions` | ✅ available |
-| Audit Space Usage | `document.audit` | ⬜ planned |
+| Audit Space Usage | `document.audit` | ✅ available |
 | Bookmarks | `bookmarks` | ✅ available |
 | Create Web Links from Barcodes | `createWebLinksFromBarcodes` | ⬜ planned |
 | Create Web Links from URLs | `createWebLinksFromText` | ✅ available |
@@ -1565,17 +1565,17 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Digital Signature | `digisig` | ✅ available |
 | Digital Signatures | `digiSigList` | ⬜ planned |
 | Document Actions | `docActions` | ⬜ planned |
-| Enable Editing (Discard PDF/A) | `document.discardPDFA` | ⬜ planned |
+| Enable Editing (Discard PDF/A) | `document.discardPDFA` | ✅ available |
 | Export All Bookmarks… | `document.exportBookmarks` | ✅ available |
 | Export Selected Bookmarks… | `document.exportSelBookmarks` | ✅ available |
 | Find | `document.find` | ✅ available |
 | Find Duplicate Pages | `document.findDuplicates` | ✅ available |
-| Highlight from File | `document.highlightFile` | ⬜ planned |
+| Highlight from File | `document.highlightFile` | ✅ available |
 | Import Bookmarks | `document.importBookmarks` | ✅ available |
 | Insert Pages from Clipboard… | `document.insertPagesFromClipboard` | ✅ available |
-| Insert Rich Text… | `document.insertRTF` | ⬜ planned |
+| Insert Rich Text… | `document.insertRTF` | ✅ available |
 | Insert Scanned Pages… | `document.insertScannedPages` | ⬜ planned |
-| Insert Text… | `document.insertText` | ⬜ planned |
+| Insert Text… | `document.insertText` | ✅ available |
 | Java Script | `javaScript` | ✅ available |
 | JavaScript Edit Snippets | `jsEditSnippets` | ⬜ planned |
 | JavaScript List | `javaScriptList` | ⬜ planned |
@@ -1584,9 +1584,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Link | `link` | ⬜ planned |
 | More Page Tools | `document.pagesMore` | ⬜ planned |
 | New Document from Selection… | `document.createNewDocFromSel` | ✅ available |
-| New Stamp from Active Document | `document.createStampFromActiveDoc` | ⬜ planned |
-| New Stamp from Selection… | `document.createStampFromSel` | ⬜ planned |
-| Next Bookmark | `document.nextBookm` | ⬜ planned |
+| New Stamp from Active Document | `document.createStampFromActiveDoc` | ✅ available |
+| New Stamp from Selection… | `document.createStampFromSel` | ✅ available |
+| Next Bookmark | `document.nextBookm` | ✅ available |
 | Normalize Pages… | `document.normalizePages` | ✅ available |
 | OCR Images… | `document.ocrImages` | ⬜ planned |
 | OCR Image… | `OCRImage` | ⬜ planned |
@@ -1597,22 +1597,22 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Page Marks | `pagemarks` | 🟡 partial |
 | Page Structure | `pageStructure` | ⬜ planned |
 | Page Transitions | `document.pageTransitions` | ✅ available |
-| Previous Bookmark | `document.prevBookm` | ⬜ planned |
+| Previous Bookmark | `document.prevBookm` | ✅ available |
 | Public Key Security | `pubsec` | ✅ available |
 | Rasterize Pages… | `document.rasterizePages` | ✅ available |
 | Recompress Images | `recompressImages` | ⬜ planned |
-| Recompress Image… | `document.recompressImage` | ⬜ planned |
+| Recompress Image… | `document.recompressImage` | 🟡 partial |
 | Redaction | `redaction` | ⬜ planned |
 | Remove All Web Links | `removeAllWebLinks` | ✅ available |
-| Remove Cropped Content | `document.removeCroppedContent` | ⬜ planned |
+| Remove Cropped Content | `document.removeCroppedContent` | 🟡 partial |
 | Security Policies | `secPoliciesList` | ⬜ planned |
 | Show Problem Details… | `document.showProblems` | ⬜ planned |
 | Sign Markup | `signMarkup` | ✅ available |
-| Signature | `document.signature` | ⬜ planned |
+| Signature | `document.signature` | ✅ available |
 | Signs | `signs` | ✅ available |
 | Spell Check and Replace | `document.spellCheckAndRepl` | ⬜ planned |
 | Split Document… | `document.split` | ✅ available |
-| Split Pages by Guides… | `document.splitPagesByGuides` | ⬜ planned |
+| Split Pages by Guides… | `document.splitPagesByGuides` | ✅ available |
 | Split Pages… | `document.splitPages` | ✅ available |
 | Standard Security Policy… | `standardSecPolicy` | ✅ available |
 | Tags | `tags` | ⬜ planned |

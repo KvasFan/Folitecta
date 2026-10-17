@@ -53,9 +53,10 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
 - **Measure**: distance, perimeter and area with a calibrated scale, precision and separators,
   labels on the page, CSV export.
 - **Forms**: draw text, check box, radio button, combo box, list box, button and signature
-  fields; edit their properties; fill them on the page; import and export values (XFDF, FDF,
+  fields; edit their properties; fill them on the page; fields calculated from others (sum,
+  product, average, smallest, largest) in a chosen order; import and export values (XFDF, FDF,
   CSV, text); one filled copy per row of a table (Populate Forms); reset; tab order; field
-  highlighting.
+  highlighting by kind.
 - **Pages**: insert blank pages, pages of another PDF or pictures, delete (also empty pages),
   duplicate, extract, move by dragging thumbnails, swap, reverse, replace with pages of another
   file, rotate, crop by margins or to the visible content, resize, add margins, normalise sizes,

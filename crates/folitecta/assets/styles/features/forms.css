@@ -2,3 +2,10 @@
 .field-mark { position: absolute; pointer-events: none; }
 .field-mark .num { position: absolute; left: -2px; top: -2px; transform: translate(-40%, -40%); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 10px; line-height: 16px; text-align: center; font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
 .field-mark .num.calc { left: auto; right: -2px; transform: translate(40%, -40%); background: #b45309; }
+/* The fields a calculation uses, and the order of the calculated fields */
+.calc-fields { display: flex; flex-direction: column; gap: 2px; max-height: 160px; overflow: auto; padding: 2px 0 6px; }
+.calc-fields .check span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calc-order { display: flex; flex-direction: column; gap: 4px; max-height: 46vh; overflow: auto; }
+.calc-order-row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); min-width: 0; }
+.calc-order-num { min-width: 22px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.calc-order-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

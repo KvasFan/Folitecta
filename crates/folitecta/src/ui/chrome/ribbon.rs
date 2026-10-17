@@ -96,7 +96,7 @@ pub fn is_active(st: AppState, id: &str) -> bool {
         }
         "zoom.level.fitWidth" => st.read_active(|t| t.zoom == Zoom::FitWidth).unwrap_or(false),
         "zoom.level.fitPage" => st.read_active(|t| t.zoom == Zoom::FitPage).unwrap_or(false),
-        "forms.highlight" | "forms.highlight.all" => st.read_active(|t| t.highlight_fields).unwrap_or(false),
+        "forms.highlight" => st.read_active(|t| t.highlight_fields).unwrap_or(false),
         _ => false,
     }
 }

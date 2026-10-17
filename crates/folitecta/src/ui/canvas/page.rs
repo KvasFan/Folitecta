@@ -266,6 +266,7 @@ pub(super) fn PageView(
                     .form_fields()
                     .into_iter()
                     .filter(|f| f.page == Some(page))
+                    .filter(|f| crate::commands::forms::highlighted(t, f))
                     .filter_map(|f| f.rect)
                     .map(|r| pdf_rect_to_display(&size, r))
                     .collect()

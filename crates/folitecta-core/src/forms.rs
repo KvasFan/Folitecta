@@ -277,10 +277,11 @@ impl Document {
         }
         self.begin_edit();
         self.write_field_value(&field, value)?;
+        self.recalculate()?;
         self.commit()
     }
 
-    fn write_field_value(&mut self, field: &FormField, value: &str) -> Result<()> {
+    pub(crate) fn write_field_value(&mut self, field: &FormField, value: &str) -> Result<()> {
         let id = field.id;
         match field.kind {
             FieldKind::CheckBox | FieldKind::RadioButton => {
@@ -349,6 +350,7 @@ impl Document {
         for (f, v) in &todo {
             self.write_field_value(f, v)?;
         }
+        self.recalculate()?;
         self.commit()?;
         Ok(todo.len())
     }
@@ -417,9 +419,11 @@ impl Document {
                 self.refresh_field(f.id)?;
             }
         }
+        self.recalculate()?;
         self.commit()?;
         Ok(count)
     }
+
     /// Signature fields with their signing information.
     pub fn signatures(&self) -> Vec<SignatureInfo> {
         let doc = &self.inner;

@@ -397,6 +397,7 @@ pub fn Dialogs() -> Element {
             rsx! { crate::ui::features::barcodes::BarcodeDialog { page, rect: rect.to_vec() } }
         }
         Dialog::Barcodes(found) => rsx! { crate::ui::features::barcodes::BarcodesDialog { found } },
+        Dialog::CalcOrder => rsx! { crate::ui::features::form_calc::CalcOrderDialog {} },
     }
 }
 

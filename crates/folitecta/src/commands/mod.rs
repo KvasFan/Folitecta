@@ -23,7 +23,7 @@ mod file;
 pub(crate) mod fileops;
 pub(crate) mod find_replace;
 mod format;
-mod forms;
+pub(crate) mod forms;
 mod help;
 pub(crate) mod history;
 pub(crate) mod interface;
@@ -332,6 +332,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| stamps::stamps_state(st, id))
         .or_else(|| compare::compare_state(st, id))
         .or_else(|| tables::tables_state(st, id))
+        .or_else(|| forms::forms_state(st, id))
         .or_else(|| accessibility::acc_state(st, id))
         .or_else(|| calculator::calc_state(st, id))
         .or_else(|| fileops::fileops_state(st, id))

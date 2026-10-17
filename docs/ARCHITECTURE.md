@@ -25,7 +25,8 @@ crates/
 
 Operations are grouped by module, for example `pages` and `pagetools` (page tree edits, crop,
 resize, split), `annots` and `appearance` (comments with generated appearance streams), `outline`
-(bookmarks), `forms` and `form_design`, `attachments`, `layers`, `links`, `text` and `textlayer`
+(bookmarks), `forms`, `form_design` and `form_calc` (simple field calculations, written as
+`AFSimple_Calculate` actions and computed in Rust in the `/CO` order), `attachments`, `layers`, `links`, `text` and `textlayer`
 (extraction, selection and search), `marks` (watermarks, headers and footers, page numbering),
 `structure` and `accessibility` (tags, reading order, the accessibility check), `digsig`
 (signatures), `compare`, `combine` (documents made from several files), `pictures` (the pictures

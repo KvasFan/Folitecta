@@ -1,14 +1,94 @@
 //! Form menu: field tools, editing mode, data exchange, highlighting, tab order and reset.
 
 use dioxus::prelude::ReadableExt;
+use folitecta_core::{FieldKind, FormField};
 
 use super::{confirm, core_result, handlers, no_doc, select_tool};
 use crate::files;
 use crate::i18n::{t, tf};
-use crate::state::{AppState, ConfirmAction, ToastKind, Tool};
+use crate::state::{AppState, ConfirmAction, Dialog, DocTab, ToastKind, Tool};
 
 fn toggle_highlight(st: AppState) {
     st.with_active(|t| t.highlight_fields = !t.highlight_fields);
+}
+
+/// Kinds of field highlighted on their own (Form › Highlight Fields),
+/// by the last word of their command ids.
+pub const FIELD_TYPES: &[&str] = &[
+    "textBox",
+    "checkBox",
+    "radioButton",
+    "comboBox",
+    "listBox",
+    "pushButton",
+    "signature",
+    "barcode",
+];
+
+fn type_of(f: &FormField) -> &'static str {
+    match f.kind {
+        _ if f.barcode => "barcode",
+        FieldKind::Text => "textBox",
+        FieldKind::CheckBox => "checkBox",
+        FieldKind::RadioButton => "radioButton",
+        FieldKind::ComboBox => "comboBox",
+        FieldKind::ListBox => "listBox",
+        FieldKind::PushButton => "pushButton",
+        FieldKind::Signature => "signature",
+        FieldKind::Unknown(_) => "",
+    }
+}
+
+/// Whether the field is among those highlighted.
+pub fn highlighted(t: &DocTab, f: &FormField) -> bool {
+    (t.highlight_kinds.is_empty() || t.highlight_kinds.contains(&type_of(f)))
+        && (!t.highlight_required || f.required)
+}
+
+/// Every field highlighted (again), or none when that is already so.
+fn highlight_all(st: AppState) {
+    st.with_active(|t| {
+        let all = t.highlight_fields && t.highlight_kinds.is_empty() && !t.highlight_required;
+        t.highlight_fields = !all;
+        t.highlight_kinds.clear();
+        t.highlight_required = false;
+    });
+}
+
+/// One more or one fewer kind of field highlighted.
+fn highlight_kind(st: AppState, kind: &'static str) {
+    st.with_active(|t| {
+        if !t.highlight_fields {
+            t.highlight_kinds.clear();
+        }
+        match t.highlight_kinds.iter().position(|k| *k == kind) {
+            Some(i) => {
+                t.highlight_kinds.remove(i);
+            }
+            None => t.highlight_kinds.push(kind),
+        }
+        t.highlight_fields = !t.highlight_kinds.is_empty() || t.highlight_required;
+    });
+}
+
+fn highlight_required(st: AppState) {
+    st.with_active(|t| {
+        t.highlight_required = !(t.highlight_fields && t.highlight_required);
+        t.highlight_fields = t.highlight_required || !t.highlight_kinds.is_empty();
+    });
+}
+
+/// Check states of the highlighting commands.
+pub fn forms_state(st: AppState, id: &str) -> Option<bool> {
+    let rest = id.strip_prefix("forms.highlight.")?;
+    st.read_active(|t| {
+        let on = t.highlight_fields;
+        match rest {
+            "all" => on && t.highlight_kinds.is_empty() && !t.highlight_required,
+            "onlyrequired" => on && t.highlight_required,
+            kind => on && FIELD_TYPES.contains(&kind) && t.highlight_kinds.contains(&kind),
+        }
+    })
 }
 
 /// The field of the selected widget, if a widget is selected.
@@ -111,7 +191,17 @@ handlers! {
     "forms.importData" => |st| { if !no_doc(st) { files::import_form_data(st) } },
     "forms.populate" => |st| { if !no_doc(st) { files::populate_forms(st) } },
     "forms.highlight" => toggle_highlight,
-    "forms.highlight.all" => toggle_highlight,
+    "forms.highlight.all" => highlight_all,
+    "forms.highlight.textBox" => |st| highlight_kind(st, "textBox"),
+    "forms.highlight.checkBox" => |st| highlight_kind(st, "checkBox"),
+    "forms.highlight.radioButton" => |st| highlight_kind(st, "radioButton"),
+    "forms.highlight.comboBox" => |st| highlight_kind(st, "comboBox"),
+    "forms.highlight.listBox" => |st| highlight_kind(st, "listBox"),
+    "forms.highlight.pushButton" => |st| highlight_kind(st, "pushButton"),
+    "forms.highlight.signature" => |st| highlight_kind(st, "signature"),
+    "forms.highlight.barcode" => |st| highlight_kind(st, "barcode"),
+    "forms.highlight.onlyrequired" => highlight_required,
+    "forms.calcOrder" => |st| { if !no_doc(st) { st.set_dialog(Dialog::CalcOrder) } },
     "fieldsView.tabOrder.row" => |st| tab_order(st, "R"),
     "fieldsView.tabOrder.column" => |st| tab_order(st, "C"),
     "fieldsView.tabOrder.structure" => |st| tab_order(st, "S"),

@@ -348,6 +348,8 @@ pub enum Dialog {
     },
     /// Barcodes read on the pages.
     Barcodes(Vec<folitecta_core::FoundBarcode>),
+    /// The order in which calculated fields are calculated.
+    CalcOrder,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

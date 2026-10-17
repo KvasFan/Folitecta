@@ -110,6 +110,9 @@ pub fn FieldEditor() -> Element {
                     input { class: "wide", value: "{props.caption}", onchange: { let p = p.clone(); move |e: Event<FormData>| { let mut n = p.clone(); n.caption = e.value(); apply(n); } } }
                 }
             }
+            if matches!(kind, FieldKind::Text | FieldKind::ComboBox) {
+                crate::ui::features::form_calc::FieldCalculation { field: id, page, index }
+            }
             div { class: "prop-head", "{t(lang, \"field.appearance\")}" }
             div { class: "style-row",
                 label { "{t(lang, \"style.font_size\")}" }

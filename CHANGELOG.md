@@ -6,6 +6,21 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Field calculations: in the properties of a text field or combo box, its value can be the sum,
+  product, average, smallest or largest value of other fields (a group stands for every field
+  in it). Values are calculated again whenever a field changes, reset or imported, in the same
+  undo step, and the calculation is written as the standard calculate action so other viewers
+  compute it too. Form › Set Field Calculation Order puts the calculated fields in the order in
+  which they are calculated.
+- Form › Highlight Fields highlights the fields of chosen kinds (text boxes, check boxes, radio
+  buttons, combo and list boxes, buttons, signatures, barcodes) or only the required ones.
+
+### Fixed
+
+- The Highlight Fields entry Only Required Fields had a garbled English name.
+
 ## [0.0.10] - 2026-10-17
 
 ### Added

@@ -82,6 +82,10 @@ pub struct DocTab {
     pub page_sizes: Vec<PageSize>,
     pub revision: u64,
     pub highlight_fields: bool,
+    /// The kinds of field highlighted (ids of `commands::forms::FIELD_TYPES`;
+    /// empty: every kind), and whether only required fields are.
+    pub highlight_kinds: Vec<&'static str>,
+    pub highlight_required: bool,
     /// Current text selection (characters of one page).
     pub text_sel: Option<TextSel>,
     /// Ruler guides (view only, not saved in the PDF).
@@ -230,6 +234,8 @@ impl DocTab {
             page_sizes,
             revision,
             highlight_fields: false,
+            highlight_kinds: Vec::new(),
+            highlight_required: false,
             text_sel: None,
             guides: Vec::new(),
             history: vec![0],

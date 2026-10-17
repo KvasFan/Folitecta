@@ -35,10 +35,32 @@ All notable changes to Folitecta are documented here. The format follows
   numbers shown on the fields.
 - Links: open the web address of the selected link in the browser.
 - Loupe: follow the mouse (on by default).
+- Accessibility: automatic tagging of a document from what its pages draw (headings by text
+  size, paragraphs, figures, links and other annotations, artifacts for drawings and for running
+  headers, footers and page numbers) and of its form fields only.
+- Tags pane: the structure tree with its marked content and annotations; new tags, children and
+  siblings, properties (type, title, alternate text, actual text, language), moving tags,
+  deleting them, turning them into artifacts, tags made from the selected text or annotation,
+  finding the tag of a selection, highlighting a tag's content on the page, copying its text,
+  deleting empty tags, role map and class map editors, applying the role map, marking the
+  document as tagged, removing the whole structure.
+- Order pane: the reading order of each page, numbered or with the tag types on the page, items
+  moved up and down, tagged again (headings, paragraph, figure, table, cell, list item, field,
+  formula, note, reference, caption) or made artifacts, neighbouring items joined, table cells
+  one by one, tables and figures only.
+- Content pane: the marked content of each page, artifacts and content without tags, shown on
+  the page and in the tags pane.
+- Accessibility check: 32 rules about the document, the page content, forms, alternate text,
+  tables, lists and headings, with the items found on the pages, automatic fixes (tags, title,
+  bookmarks, tagged annotations and fields, tab order, field descriptions), the language and
+  the alternate text of the figures asked in dialogs, rules passed, failed or skipped by hand,
+  explanations, and a report that can be saved as a web page.
 
 ### Changed
 
 - Marking or redacting many search results is a single undo step.
+- New watermarks, headers, footers and page numbers are marked as artifacts, so screen readers
+  leave them out.
 
 ### Fixed
 
@@ -46,6 +68,8 @@ All notable changes to Folitecta are documented here. The format follows
   label.
 - Messages shown by a dialog now close by themselves like the others, and jumps started from a
   dialog finish their scroll and highlight.
+- A macro chosen from the menu while a dialog is open goes into the dialog's field instead of
+  the clipboard when the last focused field is no longer known.
 
 ## [0.0.4] - 2026-10-17
 

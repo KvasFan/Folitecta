@@ -1,3 +1,5 @@
+pub mod acc_dialogs;
+pub mod accessibility;
 pub mod attachments_pane;
 pub mod bookmarks_pane;
 pub mod canvas;

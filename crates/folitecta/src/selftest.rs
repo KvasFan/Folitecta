@@ -8,7 +8,7 @@ use std::time::Duration;
 use dioxus::desktop::LogicalSize;
 use dioxus::prelude::*;
 
-use crate::state::{AppState, Dialog, DocTab, TextSel, Theme, Tool};
+use crate::state::{AppState, Dialog, DocTab, Pane, TextSel, Theme, Tool};
 
 /// Self-test configuration provided through the launch context.
 #[derive(Clone, Debug)]
@@ -1861,9 +1861,124 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     crate::commands::dispatch(st, "tool.editFields.showTabNumbers");
     st.set_tool(Tool::Hand);
 
-    // 36. Undo everything added above.
+    // 36. Accessibility: automatic tags, the tags, order and content panes,
+    // the check with a fix, and the report.
+    let count_js = |sel: &str| format!("return document.querySelectorAll('{sel}').length;");
+    let js_count = |sel: String| async move {
+        document::eval(&sel)
+            .await
+            .ok()
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0)
+    };
+    st.navigate(0, true);
+    crate::commands::dispatch(st, "acc.autotag.document");
+    pause(900).await;
+    let tagged = st
+        .read_active(|t| t.doc.has_structure() && t.doc.is_tagged())
+        .unwrap_or(false);
+    let tag_rows = js_count(count_js(".tag-tree .tag-row")).await;
+    let _ = capture_window(&dir.join("interaction-tags.png"));
+    record(
+        "document tagged automatically",
+        tagged && tag_rows > 3,
+        format!("{tag_rows} tag rows"),
+    );
+    let _ = document::eval("document.querySelectorAll('.tag-tree .tag-row')[2]?.click();").await;
+    pause(300).await;
+    let picked = crate::commands::accessibility::selected_tag(st);
+    let elems = |st: AppState| {
+        st.read_active(|t| {
+            let mut n = 0;
+            if let Some(tree) = t.doc.structure() {
+                tree.walk(&mut |_, _| n += 1);
+            }
+            n
+        })
+        .unwrap_or(0)
+    };
+    let before = elems(st);
+    crate::commands::dispatch(st, "tagsview.new");
+    pause(300).await;
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(500).await;
+    record(
+        "tag selected and a new tag added",
+        picked.is_some() && elems(st) == before + 1,
+        format!("{before} -> {} elements", elems(st)),
+    );
+    crate::commands::show_pane(st, Pane::Order);
+    pause(600).await;
+    let order_rows = js_count(count_js(".order-list .order-row")).await;
+    let boxes = js_count(count_js("#pg-0 .order-box")).await;
+    let _ = document::eval("document.querySelector('.order-list .order-row')?.click();").await;
+    pause(300).await;
+    let _ = capture_window(&dir.join("interaction-order.png"));
+    record(
+        "reading order listed and shown on the page",
+        order_rows > 0 && boxes as usize >= order_rows as usize,
+        format!("{order_rows} items, {boxes} boxes"),
+    );
+    crate::commands::show_pane(st, Pane::Content);
+    pause(500).await;
+    let content_rows = js_count(count_js(".content-list .content-row")).await;
+    let _ = capture_window(&dir.join("interaction-content.png"));
+    record(
+        "content pane lists the marked content",
+        content_rows > 0,
+        format!("{content_rows} rows"),
+    );
+    crate::commands::dispatch(st, "acc.check.document");
+    pause(900).await;
+    let rules = js_count(count_js(".acc-tree .acc-rule")).await;
+    let lang_failed = st
+        .read_active(|t| {
+            t.acc.check.as_ref().is_some_and(|c| {
+                c.results.iter().any(|r| {
+                    r.rule == "language" && r.status == folitecta_core::accessibility::CheckStatus::Failed
+                })
+            })
+        })
+        .unwrap_or(false);
+    let _ = capture_window(&dir.join("interaction-checker.png"));
+    st.with_active(|t| {
+        if let Some(c) = t.acc.check.as_mut() {
+            c.rule = Some("language".into());
+        }
+    });
+    crate::commands::dispatch(st, "chekerView.fix");
+    pause(400).await;
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(700).await;
+    let lang_passed = st
+        .read_active(|t| {
+            t.acc.check.as_ref().is_some_and(|c| {
+                c.results.iter().any(|r| {
+                    r.rule == "language" && r.status == folitecta_core::accessibility::CheckStatus::Passed
+                })
+            })
+        })
+        .unwrap_or(false);
+    record(
+        "accessibility check with a fix",
+        rules as usize == folitecta_core::accessibility::RULES.len() && lang_failed && lang_passed,
+        format!("{rules} rules"),
+    );
+    crate::commands::dispatch(st, "chekerView.showReport");
+    pause(500).await;
+    let report_rows = js_count(count_js(".acc-report .acc-report-row")).await;
+    let _ = capture_window(&dir.join("interaction-report.png"));
+    record(
+        "accessibility report shown",
+        report_rows > 0,
+        format!("{report_rows} rows"),
+    );
+    st.ui_mut().left_pane = "thumbnails".into();
+    pause(300).await;
+
+    // 37. Undo everything added above.
     st.set_tool(Tool::Hand);
-    for _ in 0..40 {
+    for _ in 0..50 {
         crate::commands::dispatch(st, "undo");
     }
     pause(500).await;
@@ -2009,6 +2124,33 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
                 t.refresh();
             });
         }
+        // Accessibility panes on the document tagged for the moment.
+        let tagged = st
+            .with_active(|t| {
+                let ok = t.doc.auto_tag().is_ok();
+                t.refresh();
+                ok
+            })
+            .unwrap_or(false);
+        if tagged {
+            crate::commands::accessibility::run_check(st);
+            for pane in [
+                "tags",
+                "order",
+                "content",
+                "accessibility-checker",
+                "accessibility-report",
+            ] {
+                st.ui_mut().left_pane = pane.into();
+                total += check(st, &dir, &format!("{tag}-pane-{pane}"), log).await;
+            }
+            st.with_active(|t| {
+                t.acc = Default::default();
+                t.flash = None;
+                let _ = t.doc.undo();
+                t.refresh();
+            });
+        }
         st.ui_mut().left_pane = "thumbnails".into();
         // A menu with a submenu opened on its first entry that has children,
         // and a ribbon overflow dropdown near the right edge.
@@ -2087,6 +2229,20 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ),
         ("table-editor", Dialog::TableEditor),
         ("field-copies", Dialog::FieldCopies((1, 0))),
+        (
+            "tag-new",
+            Dialog::TagNew {
+                parent: None,
+                index: None,
+            },
+        ),
+        ("role-map", Dialog::RoleMap),
+        ("class-map", Dialog::ClassMap),
+        ("alt-text", Dialog::AltText),
+        ("acc-options", Dialog::AccOptions("accessibility-checker".into())),
+        ("order-options", Dialog::AccOptions("order".into())),
+        ("rule-explain", Dialog::RuleExplain("tagged".into())),
+        ("doc-language", Dialog::DocLanguage),
     ];
     // The editor shows the table being edited.
     *crate::commands::tables::TABLE_EDIT.write() = Some(crate::commands::tables::TableEdit {

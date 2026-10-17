@@ -21,19 +21,20 @@ pub const LAUNCH_MACROS: &[(&str, &str)] = &[
 ];
 
 /// Insert `token` into the text field focused last, selecting `select` inside
-/// the inserted text when given. `in_dialog` restricts the target to the open
-/// dialog (its first text field when none of its fields was focused). Without
-/// a field the token goes to the clipboard.
-pub fn insert_token(st: AppState, token: &str, select: Option<&str>, in_dialog: bool) {
+/// the inserted text when given. While a dialog is open the token goes into
+/// one of its fields (the first text field when none of them was focused).
+/// Without a field the token goes to the clipboard.
+pub fn insert_token(st: AppState, token: &str, select: Option<&str>) {
     let tok = serde_json::to_string(token).unwrap_or_default();
     let sel = serde_json::to_string(&select.unwrap_or("")).unwrap_or_default();
     let js = format!(
         r#"
-const tok = {tok}, sel = {sel}, inDialog = {in_dialog};
+const tok = {tok}, sel = {sel};
 let f = window.__foliField;
 if (f && !document.contains(f)) f = null;
 const dlg = document.querySelector('.dialog');
-if (inDialog && dlg && (!f || !dlg.contains(f))) f = dlg.querySelector('input[type=text], input:not([type]), textarea');
+// A dialog is modal: its fields are the only ones being edited.
+if (dlg && (!f || !dlg.contains(f))) f = dlg.querySelector('input[type=text], input:not([type]), textarea');
 for (const s of document.querySelectorAll('.macro-picker select')) s.value = '';
 if (!f) return false;
 const s = f.selectionStart ?? f.value.length, e = f.selectionEnd ?? s;
@@ -63,12 +64,12 @@ return true;
 }
 
 fn put(st: AppState, token: &'static str) {
-    insert_token(st, token, None, false);
+    insert_token(st, token, None);
 }
 
 /// Insert a macro with a part (a name or key) for the user to replace.
 fn put_selecting(st: AppState, token: &'static str, part: &'static str) {
-    insert_token(st, token, Some(part), false);
+    insert_token(st, token, Some(part));
 }
 
 /// The Bates macro with the digits of the saved Bates format.
@@ -231,8 +232,8 @@ handlers! {
     "macro.pageLabel" => |st| put(st, "{label}"),
     "macro.srcPages" => |st| put(st, "{srcpages}"),
     "macro.imagenumber" => |st| put(st, "{imagenumber}"),
-    "macro.bates" => |st| { let tok = bates_token(st); insert_token(st, &tok, None, false) },
-    "macro.batesValue" => |st| { let tok = bates_format(st); insert_token(st, &tok, None, false) },
+    "macro.bates" => |st| { let tok = bates_token(st); insert_token(st, &tok, None) },
+    "macro.batesValue" => |st| { let tok = bates_format(st); insert_token(st, &tok, None) },
     "macro.autonumber" => |st| put(st, "{autonumber:4}"),
     "macro.docnumber" => |st| put(st, "{docnumber}"),
     "macro.date" => |st| put(st, "{date}"),

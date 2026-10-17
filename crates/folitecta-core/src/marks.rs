@@ -158,6 +158,16 @@ fn text_op(
     s
 }
 
+/// Watermarks, running headers and page numbers are artifacts: screen
+/// readers leave them out.
+fn pagination(content: String, subtype: Option<&str>) -> Vec<u8> {
+    let props = match subtype {
+        Some(s) => format!("<</Type /Pagination /Subtype /{s}>>"),
+        None => "<</Type /Pagination>>".to_string(),
+    };
+    format!("/Artifact {props} BDC\n{content}EMC\n").into_bytes()
+}
+
 /// Region of the system locale (`IT` for `it_IT.UTF-8`), from the locale
 /// environment variables; empty when they are not set.
 fn locale_region() -> String {
@@ -417,7 +427,7 @@ impl Document {
             let (x, y) = display_to_pdf(&size, u, v);
             let angle = opts.rotation + size.rotation as f32;
             let content = text_op(x, y, angle, opts.font_size, opts.color, gs.as_deref(), &text);
-            self.append_page_content(id, content.into_bytes(), Some("Watermark"))?;
+            self.append_page_content(id, pagination(content, Some("Watermark")), Some("Watermark"))?;
         }
         self.commit()
     }
@@ -474,7 +484,7 @@ impl Document {
                     &text,
                 ));
             }
-            self.append_page_content(id, content.into_bytes(), Some("HeaderFooter"))?;
+            self.append_page_content(id, pagination(content, None), Some("HeaderFooter"))?;
         }
         self.commit()
     }
@@ -511,7 +521,7 @@ impl Document {
             let (u, v) = anchor(&size, position, w, font_size, margin);
             let (x, y) = display_to_pdf(&size, u, v);
             let content = text_op(x, y, size.rotation as f32, font_size, color, None, &text);
-            self.append_page_content(id, content.into_bytes(), Some("PageNumber"))?;
+            self.append_page_content(id, pagination(content, None), Some("PageNumber"))?;
         }
         self.commit()
     }

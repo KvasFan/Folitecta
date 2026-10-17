@@ -771,7 +771,19 @@ fn PageView(
         flash: Option<[f32; 4]>,
         /// Tab order and calculation order numbers of the form fields: label, calculation, rectangle.
         field_marks: Vec<(String, bool, [f32; 4])>,
+        /// Reading order boxes: label, selected, rectangle (display space).
+        order_boxes: Vec<(String, bool, [f32; 4])>,
     }
+    let order_mode = {
+        let ui = st.ui.read();
+        (ui.show_left_pane && ui.left_pane == "order").then(|| crate::commands::accessibility::order_mode(st))
+    }
+    .filter(|m| m != "none");
+    let order_sel = (st.current_page() == page)
+        .then(|| st.read_active(|t| t.acc.order).flatten())
+        .flatten();
+    let order_cells = st.value("order.cells") == "1";
+    let order_only = st.value("order.tf") == "1";
     let show_tabs = option_on(st, "tool.editFields.showTabNumbers");
     let show_calc = option_on(st, "tool.editFields.showCalcOrdIdx");
     let designing = edit_fields || tool.new_field().is_some();
@@ -918,6 +930,30 @@ fn PageView(
                 popups,
                 flash: t.flash.filter(|(p, _)| *p == page).map(|(_, r)| r),
                 field_marks,
+                order_boxes: match &order_mode {
+                    Some(mode) => t
+                        .doc
+                        .reading_order(page, order_cells)
+                        .into_iter()
+                        .filter(|i| {
+                            !order_only || matches!(i.role.as_str(), "Table" | "Figure" | "TD" | "TH")
+                        })
+                        .enumerate()
+                        .filter(|(_, i)| i.rect[2] > i.rect[0])
+                        .map(|(n, i)| {
+                            (
+                                if mode == "type" {
+                                    i.tag
+                                } else {
+                                    (n + 1).to_string()
+                                },
+                                order_sel == Some(n),
+                                i.rect,
+                            )
+                        })
+                        .collect(),
+                    None => Vec::new(),
+                },
             })
         })
         .flatten()
@@ -1518,6 +1554,11 @@ fn PageView(
                 for (i, (label, calc, r)) in view.field_marks.iter().enumerate() {
                     div { key: "fm{i}", class: "field-mark", style: "{css(*r)}",
                         span { class: if *calc { "num calc" } else { "num" }, "{label}" }
+                    }
+                }
+                for (i, (label, selected, r)) in view.order_boxes.iter().enumerate() {
+                    div { key: "ob{i}", class: if *selected { "order-box selected" } else { "order-box" }, style: "{css(*r)}",
+                        span { class: "num", "{label}" }
                     }
                 }
                 for (i, r) in view.sel.iter().enumerate() {

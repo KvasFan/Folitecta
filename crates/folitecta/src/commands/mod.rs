@@ -6,6 +6,7 @@
 //! all derive from them.
 
 use dioxus::prelude::ReadableExt;
+pub(crate) mod accessibility;
 pub(crate) mod attachments;
 pub(crate) mod bookmarks;
 mod comments;
@@ -83,6 +84,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     doctools::HANDLERS,
     compare::HANDLERS,
     tables::HANDLERS,
+    accessibility::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -210,6 +212,8 @@ pub const VIEW_OPTIONS: &[&str] = &[
     "searchView.estimateFolder",
     "document.find.coloredResults",
     "tool.loupe.trackMouse",
+    "tagsview.highlightContent",
+    "contentsView.displaySelected",
 ];
 
 /// Options that are on unless the user turned them off.
@@ -218,6 +222,8 @@ pub const DEFAULT_ON: &[&str] = &[
     "search.pageText",
     "portfolio.tools",
     "tool.loupe.trackMouse",
+    "tagsview.highlightContent",
+    "contentsView.displaySelected",
     "stamps.favorites",
     "stamps.recents",
     "historyList.group.show",
@@ -289,6 +295,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| stamps::stamps_state(st, id))
         .or_else(|| compare::compare_state(st, id))
         .or_else(|| tables::tables_state(st, id))
+        .or_else(|| accessibility::acc_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

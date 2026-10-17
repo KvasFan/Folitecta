@@ -63,6 +63,8 @@ pub struct Document {
     pub(crate) source: Option<Arc<Vec<u8>>>,
     /// Positioned text of every page, keyed by revision.
     pub(crate) text_cache: std::sync::Mutex<Option<(u64, Arc<Vec<crate::textlayer::PageText>>)>>,
+    /// Marked content of the pages already measured, keyed by revision.
+    pub(crate) marked_cache: std::sync::Mutex<crate::structure::MarkedCache>,
 }
 
 impl std::fmt::Debug for Document {
@@ -76,7 +78,7 @@ impl std::fmt::Debug for Document {
     }
 }
 
-fn serialize(doc: &mut lopdf::Document) -> Result<Vec<u8>> {
+pub(crate) fn serialize(doc: &mut lopdf::Document) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     doc.save_to(&mut out)?;
     Ok(out)
@@ -136,6 +138,7 @@ impl Document {
             helv_font: None,
             source_encrypted,
             text_cache: Default::default(),
+            marked_cache: Default::default(),
         };
         if doc.page_count() == 0 {
             return Err(Error::Invalid("the file contains no pages".into()));
@@ -194,6 +197,7 @@ impl Document {
             helv_font: None,
             source_encrypted: false,
             text_cache: Default::default(),
+            marked_cache: Default::default(),
         })
     }
 

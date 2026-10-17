@@ -5,6 +5,7 @@
 //! hayro ([`render`]), and the command [`registry`](commands) that describes every
 //! user-facing command of the application.
 
+pub mod accessibility;
 pub mod annot_copy;
 pub mod annots;
 pub mod appearance;
@@ -41,6 +42,7 @@ pub mod security;
 pub mod signmarks;
 pub mod stamp_design;
 pub mod stamps;
+pub mod structure;
 pub mod tables;
 pub mod text;
 pub mod textdoc;

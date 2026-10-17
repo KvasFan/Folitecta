@@ -297,6 +297,17 @@ pub fn Dialogs() -> Element {
         }
         Dialog::TableEditor => rsx! { crate::ui::tables::TableEditorDialog {} },
         Dialog::FieldCopies(field) => rsx! { crate::ui::tables::FieldCopiesDialog { field } },
+        Dialog::TagNew { parent, index } => rsx! { crate::ui::acc_dialogs::TagNewDialog { parent, index } },
+        Dialog::TagProps(id) => rsx! { crate::ui::acc_dialogs::TagPropsDialog { id } },
+        Dialog::TagFromArea { page, rect } => {
+            rsx! { crate::ui::acc_dialogs::TagFromAreaDialog { page, rect: rect.to_vec() } }
+        }
+        Dialog::RoleMap => rsx! { crate::ui::acc_dialogs::RoleMapDialog {} },
+        Dialog::ClassMap => rsx! { crate::ui::acc_dialogs::ClassMapDialog {} },
+        Dialog::AltText => rsx! { crate::ui::acc_dialogs::AltTextDialog {} },
+        Dialog::AccOptions(pane) => rsx! { crate::ui::acc_dialogs::AccOptionsDialog { pane } },
+        Dialog::RuleExplain(id) => rsx! { crate::ui::acc_dialogs::RuleExplainDialog { id } },
+        Dialog::DocLanguage => rsx! { crate::ui::acc_dialogs::DocLanguageDialog {} },
     }
 }
 
@@ -1732,6 +1743,14 @@ fn Confirm(title: String, body: String, action: ConfirmAction) -> Element {
                     ConfirmAction::RemoveScripts => apply_count(st, "toast.scripts_removed", |tab| tab.doc.remove_scripts()),
                     ConfirmAction::ClearSignatures => {
                         apply_count(st, "toast.signatures_cleared", |tab| tab.doc.clear_signatures());
+                    }
+                    ConfirmAction::AutoTag => {
+                        st.set_dialog(Dialog::None);
+                        crate::commands::accessibility::run_auto_tag(st);
+                    }
+                    ConfirmAction::ClearStructure => {
+                        st.with_active(|t| { t.acc.tag = None; t.flash = None; });
+                        apply(st, |tab| tab.doc.clear_structure());
                     }
                     ConfirmAction::DeletePages(pages) => {
                         st.with_active(|t| t.selected_pages.clear());

@@ -269,6 +269,11 @@ pub enum Pane {
     Sessions,
     Stamps,
     Comparison,
+    Tags,
+    Order,
+    Content,
+    AccChecker,
+    AccReport,
     Other(String),
 }
 
@@ -289,6 +294,11 @@ impl Pane {
             Pane::Sessions => "sessions".into(),
             Pane::Stamps => "stamps".into(),
             Pane::Comparison => "comparison".into(),
+            Pane::Tags => "tags".into(),
+            Pane::Order => "order".into(),
+            Pane::Content => "content".into(),
+            Pane::AccChecker => "accessibility-checker".into(),
+            Pane::AccReport => "accessibility-report".into(),
             Pane::Other(s) => s.clone(),
         }
     }
@@ -309,6 +319,11 @@ impl Pane {
             "sessions" => Pane::Sessions,
             "stamps" => Pane::Stamps,
             "comparison" => Pane::Comparison,
+            "tags" => Pane::Tags,
+            "order" => Pane::Order,
+            "content" => Pane::Content,
+            "accessibility-checker" => Pane::AccChecker,
+            "accessibility-report" => Pane::AccReport,
             other => Pane::Other(other.to_string()),
         }
     }
@@ -607,6 +622,47 @@ pub struct DocTab {
     pub collapsed_fields: HashSet<String>,
     /// Files view of a portfolio.
     pub portfolio: PortfolioState,
+    /// Tags, reading order, content and accessibility check panes.
+    pub acc: AccState,
+}
+
+/// What the accessibility panes show and select.
+#[derive(Debug, Clone, Default)]
+pub struct AccState {
+    /// Selected element of the tags pane.
+    pub tag: Option<(u32, u16)>,
+    /// Collapsed elements of the tags pane.
+    pub collapsed: HashSet<(u32, u16)>,
+    /// Selected item of the order pane (on the current page).
+    pub order: Option<usize>,
+    /// Selected entry of the content pane: page and MCID (None: content outside tags).
+    pub content: Option<(usize, Option<i64>)>,
+    /// Last accessibility check.
+    pub check: Option<CheckState>,
+}
+
+/// What a person decided about a rule of the accessibility check.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Verdict {
+    Passed,
+    Failed,
+    Skipped,
+}
+
+/// Results of an accessibility check.
+#[derive(Debug, Clone, Default)]
+pub struct CheckState {
+    pub results: Vec<folitecta_core::accessibility::CheckResult>,
+    /// Rules passed, failed or skipped by hand.
+    pub verdicts: HashMap<String, Verdict>,
+    /// Selected rule and item.
+    pub rule: Option<String>,
+    pub item: Option<usize>,
+    /// Expanded rules and collapsed categories.
+    pub expanded: HashSet<String>,
+    pub collapsed: HashSet<String>,
+    /// When the check ran (shown in the report).
+    pub when: String,
 }
 
 /// Where the files view of a portfolio is and what is selected in it.
@@ -695,6 +751,7 @@ impl DocTab {
             selected_fields: Vec::new(),
             collapsed_fields: HashSet::new(),
             portfolio: PortfolioState::default(),
+            acc: AccState::default(),
         };
         // A portfolio opens on its initial file, when it names one.
         if let Some(key) = tab.doc.portfolio().and_then(|p| p.initial) {
@@ -873,6 +930,10 @@ pub enum ConfirmAction {
     DeletePages(Vec<usize>),
     /// Remove every digital signature.
     ClearSignatures,
+    /// Tag the document again (its tags are replaced).
+    AutoTag,
+    /// Remove the tags of the document.
+    ClearStructure,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1103,6 +1164,28 @@ pub enum Dialog {
     TableEditor,
     /// Copies of a form field in rows and columns.
     FieldCopies((u32, u16)),
+    /// A new tag inside `parent` (the root when None) at `index` among its kids.
+    TagNew {
+        parent: Option<(u32, u16)>,
+        index: Option<usize>,
+    },
+    /// Properties of a tag.
+    TagProps((u32, u16)),
+    /// A tag made from an area of a page (display space).
+    TagFromArea {
+        page: usize,
+        rect: [f32; 4],
+    },
+    RoleMap,
+    ClassMap,
+    /// Alternate text of the figures.
+    AltText,
+    /// Options of an accessibility pane (its id).
+    AccOptions(String),
+    /// What a rule of the accessibility check means.
+    RuleExplain(String),
+    /// Primary language of the document.
+    DocLanguage,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.
@@ -1274,6 +1357,11 @@ impl AppState {
     pub fn set_option(&self, id: &str, on: bool) {
         self.ui_mut().options.insert(id.to_string(), on);
         self.save_prefs();
+    }
+
+    /// A saved value of the interface (empty when unset).
+    pub fn value(&self, key: &str) -> String {
+        self.ui.read().value(key).unwrap_or_default().to_string()
     }
 
     pub fn set_value(&self, key: &str, value: impl Into<String>) {

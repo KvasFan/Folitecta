@@ -48,7 +48,7 @@ pub fn MacroPicker(#[props(default = false)] launch: bool) -> Element {
                 onchange: move |e| {
                     let v = e.value();
                     if !v.is_empty() {
-                        insert_token(st, &v, editable_part(&v), true);
+                        insert_token(st, &v, editable_part(&v));
                     }
                 },
                 option { value: "", selected: true, "{t(lang, \"macro.choose\")}" }

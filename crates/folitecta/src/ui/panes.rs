@@ -30,6 +30,11 @@ fn pane_icon(p: &Pane) -> &'static str {
         Pane::Sessions => "window",
         Pane::Stamps => "tag",
         Pane::Comparison => "swap",
+        Pane::Tags => "tags",
+        Pane::Order => "order",
+        Pane::Content => "content",
+        Pane::AccChecker => "accessibility",
+        Pane::AccReport => "check",
         Pane::Other(_) => "grid",
     }
 }
@@ -310,6 +315,11 @@ pub fn PanePanel() -> Element {
             Pane::Search => rsx! { SearchPane {} },
             Pane::Signatures => rsx! { crate::ui::signatures::SignaturesPane {} },
             Pane::Comparison => rsx! { crate::ui::compare::ComparisonPane {} },
+            Pane::Tags => rsx! { crate::ui::accessibility::TagsPane {} },
+            Pane::Order => rsx! { crate::ui::accessibility::OrderPane {} },
+            Pane::Content => rsx! { crate::ui::accessibility::ContentPane {} },
+            Pane::AccChecker => rsx! { crate::ui::accessibility::CheckerPane {} },
+            Pane::AccReport => rsx! { crate::ui::accessibility::ReportPane {} },
             Pane::History | Pane::Sessions | Pane::Stamps => rsx! {},
             Pane::Other(id) => rsx! { PlannedPane { pane_id: id.clone() } },
         }

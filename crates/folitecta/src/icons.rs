@@ -101,6 +101,11 @@ pub fn path(name: &str) -> &'static str {
         "3d" => "m12 2 8 4.5v9L12 20l-8-4.5v-9z M12 11l8-4.5 M12 11v9 M12 11 4 6.5",
         "accessibility" => "M12 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M5 9h14 M12 9v5 M12 14l-3 7 M12 14l3 7",
         "tag" => "M3 3h8l10 10-8 8L3 11z M7.5 7.5h.01",
+        "tags" => "M8 6l-6 6 6 6 M16 6l6 6-6 6 M14 4l-4 16",
+        "order" => {
+            "M10 6h11 M10 12h11 M10 18h11 M4 4v4 M3 18h3l-3 3h3 M3 11.5a1.5 1.5 0 0 1 3 0c0 1-3 2-3 3h3"
+        }
+        "content" => "M4 4h16v6H4z M4 14h7v6H4z M15 14h5 M15 17h5 M15 20h5",
         "history" => "M3 12a9 9 0 1 0 3-6.7 M3 4v5h5 M12 7v5l3 3",
         "convert" => "M4 7h12l-3-3 M20 17H8l3 3",
         "split" => "M12 3v18 M5 8h4 M15 8h4 M5 16h4 M15 16h4",

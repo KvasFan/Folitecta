@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.4. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 974 |
+| ✅ available | 1063 |
 | 🟡 partial | 54 |
-| ⬜ planned | 949 |
+| ⬜ planned | 860 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -231,15 +231,15 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Command | Id | Status |
 |---|---|---|
 | 3D Model Tree | `view.3DModelTree` | ⬜ planned |
-| Accessibility Checker | `view.accChecker` | ⬜ planned |
-| Accessibility Report | `view.accReport` | ⬜ planned |
+| Accessibility Checker | `view.accChecker` | ✅ available |
+| Accessibility Report | `view.accReport` | ✅ available |
 | Articles | `view.articles` | ⬜ planned |
 | Attachments | `view.attachments` | ✅ available |
 | Bookmarks | `view.bookmarks` | ✅ available |
 | Classic UI | `view.switchToClassicUI` | ✅ available |
 | Comment Styles Palette | `view.commentStyles` | ⬜ planned |
 | Comments | `view.comments` | ✅ available |
-| Content | `view.content` | ⬜ planned |
+| Content | `view.content` | ✅ available |
 | Content Editing | `view.toolbar.contentEditing` | ✅ available |
 | Customize Toolbars… | `view.toolbar.customize` | ✅ available |
 | Document Info Bar | `view.docInfoBar` | ✅ available |
@@ -264,7 +264,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Mouse-Optimized UI | `view.switchToMouseUI` | ✅ available |
 | Named Destinations | `view.destinations` | ✅ available |
 | Navigation | `view.toolbar.navigation` | ✅ available |
-| Order | `view.order` | ⬜ planned |
+| Order | `view.order` | ✅ available |
 | Other Panes | `view.otherPanes` | ⬜ planned |
 | Other Tools | `view.otherToolsGroup` | ⬜ planned |
 | Page Layout | `view.toolbar.pageLayout` | ✅ available |
@@ -303,7 +303,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Spell Check | `view.spellCheck` | ✅ available |
 | Stamps Palette | `view.stamps` | ✅ available |
 | Standard | `view.toolbar.standard` | ✅ available |
-| Tags | `view.tags` | ⬜ planned |
+| Tags | `view.tags` | ✅ available |
 | Thumbnails | `view.pageThumbnails` | ✅ available |
 | Toggle All Cmd Bars | `view.toggleAllCmdBars` | ✅ available |
 | Toggle All Cmd Panes | `view.toggleAllCmdPanes` | ✅ available |
@@ -1062,69 +1062,69 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Auto-Tag | `acc.autotag` | ⬜ planned |
-| ↳ Auto-Tag Document | `acc.autotag.document` | ⬜ planned |
-| ↳ Auto-Tag Form Fields | `acc.autotag.form` | ⬜ planned |
+| Auto-Tag | `acc.autotag` | ✅ available |
+| ↳ Auto-Tag Document | `acc.autotag.document` | ✅ available |
+| ↳ Auto-Tag Form Fields | `acc.autotag.form` | ✅ available |
 
 **Check**
 
 | Command | Id | Status |
 |---|---|---|
-| Accessibility Checker | `accCheckerView` | ⬜ planned |
-| ↳ Options… | `accCheckerView.options` | ⬜ planned |
-| Accessibility Report | `accReportView` | ⬜ planned |
-| ↳ Options… | `accReportView.options` | ⬜ planned |
-| Check | `acc.check` | ⬜ planned |
-| ↳ Accessibility Report | `acc.check.report` | ⬜ planned |
-| ↳ Check Accessibility | `acc.check.document` | ⬜ planned |
-| Checker | `chekerView` | ⬜ planned |
-| ↳ Explain | `chekerView.explain` | ⬜ planned |
-| ↳ Fail | `chekerView.fail` | ⬜ planned |
-| ↳ Fix | `chekerView.fix` | ⬜ planned |
-| ↳ Options… | `chekerView.options` | ⬜ planned |
-| ↳ Pass | `chekerView.pass` | ⬜ planned |
-| ↳ Re Check | `chekerView.reCheck` | ⬜ planned |
-| ↳ Show | `chekerView.show` | ⬜ planned |
-| ↳ Show Report | `chekerView.showReport` | ⬜ planned |
-| ↳ Skip | `chekerView.skip` | ⬜ planned |
+| Accessibility Checker | `accCheckerView` | ✅ available |
+| ↳ Options… | `accCheckerView.options` | ✅ available |
+| Accessibility Report | `accReportView` | ✅ available |
+| ↳ Options… | `accReportView.options` | ✅ available |
+| Check | `acc.check` | ✅ available |
+| ↳ Accessibility Report | `acc.check.report` | ✅ available |
+| ↳ Check Accessibility | `acc.check.document` | ✅ available |
+| Checker | `chekerView` | ✅ available |
+| ↳ Explain | `chekerView.explain` | ✅ available |
+| ↳ Fail | `chekerView.fail` | ✅ available |
+| ↳ Fix | `chekerView.fix` | ✅ available |
+| ↳ Options… | `chekerView.options` | ✅ available |
+| ↳ Pass | `chekerView.pass` | ✅ available |
+| ↳ Re Check | `chekerView.reCheck` | ✅ available |
+| ↳ Show | `chekerView.show` | ✅ available |
+| ↳ Show Report | `chekerView.showReport` | ✅ available |
+| ↳ Skip | `chekerView.skip` | ✅ available |
 
 **Edit**
 
 | Command | Id | Status |
 |---|---|---|
-| Accessibility | `accessibility` | ⬜ planned |
-| Alternate Text | `acc.alt` | ⬜ planned |
-| Order Pane | `orderView` | ⬜ planned |
-| ↳ Options… | `orderView.options` | ⬜ planned |
-| Order Pane | `orderview` | ⬜ planned |
-| ↳ Groupsimilar | `orderview.groupsimilar` | ⬜ planned |
-| ↳ Show | `orderview.show` | ⬜ planned |
-| ↳ Showmode | `orderview.showmode` | ⬜ planned |
-| ↳ Tag | `orderview.tag` | ⬜ planned |
-| Page Structure | `pageStructure` | ⬜ planned |
-| ↳ Clear… | `pageStructure.clear` | ⬜ planned |
-| ↳ Delete Item | `pageStructure.deleteItem` | ⬜ planned |
+| Accessibility | `accessibility` | ✅ available |
+| Alternate Text | `acc.alt` | ✅ available |
+| Order Pane | `orderView` | ✅ available |
+| ↳ Options… | `orderView.options` | ✅ available |
+| Order Pane | `orderview` | ✅ available |
+| ↳ Groupsimilar | `orderview.groupsimilar` | ✅ available |
+| ↳ Show | `orderview.show` | ✅ available |
+| ↳ Showmode | `orderview.showmode` | ✅ available |
+| ↳ Tag | `orderview.tag` | ✅ available |
+| Page Structure | `pageStructure` | ✅ available |
+| ↳ Clear… | `pageStructure.clear` | ✅ available |
+| ↳ Delete Item | `pageStructure.deleteItem` | ✅ available |
 | Reading Order | `tool.order` | ⬜ planned |
-| Tags | `tags` | ⬜ planned |
-| Tags Pane | `tagsView` | ⬜ planned |
-| ↳ Create Root | `tagsView.createRoot` | ⬜ planned |
-| ↳ Options… | `tagsView.options` | ⬜ planned |
-| Tags Pane | `tagsview` | ⬜ planned |
-| ↳ Apply Role Map | `tagsview.applyRoleMap` | ⬜ planned |
-| ↳ Change to Artifact | `tagsview.changeToArtifact` | ⬜ planned |
-| ↳ Copy Contents | `tagsview.copyContents` | ⬜ planned |
-| ↳ Create Tag from Selection | `tagsview.createTagFromSelection` | ⬜ planned |
-| ↳ Delete Empty | `tagsview.deleteEmpty` | ⬜ planned |
-| ↳ Edit Class Map | `tagsview.editClassMap` | ⬜ planned |
-| ↳ Edit Role Map | `tagsview.editRoleMap` | ⬜ planned |
-| ↳ Find Tag from Selection | `tagsview.findTagFromSelection` | ⬜ planned |
-| ↳ Highlight Content | `tagsview.highlightContent` | ⬜ planned |
-| ↳ Is Tagged | `tagsview.isTagged` | ⬜ planned |
-| ↳ New Child | `tagsview.newChild` | ⬜ planned |
-| ↳ New Sibling | `tagsview.newSibling` | ⬜ planned |
-| ↳ New… | `tagsview.new` | ⬜ planned |
-| ↳ Select Tag Content | `tagsview.selectTagContent` | ⬜ planned |
-| ↳ Show in Content | `tagsview.showInContent` | ⬜ planned |
+| Tags | `tags` | ✅ available |
+| Tags Pane | `tagsView` | ✅ available |
+| ↳ Create Root | `tagsView.createRoot` | ✅ available |
+| ↳ Options… | `tagsView.options` | ✅ available |
+| Tags Pane | `tagsview` | ✅ available |
+| ↳ Apply Role Map | `tagsview.applyRoleMap` | ✅ available |
+| ↳ Change to Artifact | `tagsview.changeToArtifact` | ✅ available |
+| ↳ Copy Contents | `tagsview.copyContents` | ✅ available |
+| ↳ Create Tag from Selection | `tagsview.createTagFromSelection` | ✅ available |
+| ↳ Delete Empty | `tagsview.deleteEmpty` | ✅ available |
+| ↳ Edit Class Map | `tagsview.editClassMap` | ✅ available |
+| ↳ Edit Role Map | `tagsview.editRoleMap` | ✅ available |
+| ↳ Find Tag from Selection | `tagsview.findTagFromSelection` | ✅ available |
+| ↳ Highlight Content | `tagsview.highlightContent` | ✅ available |
+| ↳ Is Tagged | `tagsview.isTagged` | ✅ available |
+| ↳ New Child | `tagsview.newChild` | ✅ available |
+| ↳ New Sibling | `tagsview.newSibling` | ✅ available |
+| ↳ New… | `tagsview.new` | ✅ available |
+| ↳ Select Tag Content | `tagsview.selectTagContent` | ✅ available |
+| ↳ Show in Content | `tagsview.showInContent` | ✅ available |
 
 ### Help
 
@@ -1421,22 +1421,22 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | 3D Model Tree | `3DModelTreeView` | ⬜ planned |
 | 3D Model Tree | `view.3DModelTree` | ⬜ planned |
 | AI Assistant | `aiView` | ⬜ planned |
-| Accessibility Checker | `accCheckerView` | ⬜ planned |
-| Accessibility Checker | `view.accChecker` | ⬜ planned |
-| Accessibility Report | `accReportView` | ⬜ planned |
-| Accessibility Report | `view.accReport` | ⬜ planned |
+| Accessibility Checker | `accCheckerView` | ✅ available |
+| Accessibility Checker | `view.accChecker` | ✅ available |
+| Accessibility Report | `accReportView` | ✅ available |
+| Accessibility Report | `view.accReport` | ✅ available |
 | Articles | `view.articles` | ⬜ planned |
 | Attachments Pane | `attachmentsView` | ✅ available |
 | Bookmarks Pane | `bookmarksView` | 🟡 partial |
-| Checker | `chekerView` | ⬜ planned |
+| Checker | `chekerView` | ✅ available |
 | Classic UI | `view.switchToClassicUI` | ✅ available |
 | Collapse All | `collapseAll` | ⬜ planned |
 | Comment Styles Palette | `view.commentStyles` | ⬜ planned |
 | Comments View | `commentsView` | ✅ available |
 | Compare Documents | `cmpDocs` | 🟡 partial |
 | Comparison | `comparisonView` | ✅ available |
-| Content | `view.content` | ⬜ planned |
-| Content Pane | `contentsView` | ⬜ planned |
+| Content | `view.content` | ✅ available |
+| Content Pane | `contentsView` | ✅ available |
 | Document Info Bar | `view.docInfoBar` | ✅ available |
 | Document Recovery | `view.recovery` | ⬜ planned |
 | Document Tabs | `view.docTabsGroup` | ⬜ planned |
@@ -1461,9 +1461,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Loupe | `view.loupe` | ✅ available |
 | Mouse-Optimized UI | `view.switchToMouseUI` | ✅ available |
 | Named Destinations Pane | `pdfNamedDestsView` | ✅ available |
-| Order | `view.order` | ⬜ planned |
-| Order Pane | `orderView` | ⬜ planned |
-| Order Pane | `orderview` | ⬜ planned |
+| Order | `view.order` | ✅ available |
+| Order Pane | `orderView` | ✅ available |
+| Order Pane | `orderview` | ✅ available |
 | Other Tools | `view.otherToolsGroup` | ⬜ planned |
 | Override Document Colors | `view.overrideDocumentColors` | ✅ available |
 | Page | `view.pageNumber` | ✅ available |
@@ -1491,9 +1491,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Stamps Palette | `view.stamps` | ✅ available |
 | Stamps Pane | `stampsView` | 🟡 partial |
 | Tab Title Style | `tabTitleStyle` | ✅ available |
-| Tags | `view.tags` | ⬜ planned |
-| Tags Pane | `tagsView` | ⬜ planned |
-| Tags Pane | `tagsview` | ⬜ planned |
+| Tags | `view.tags` | ✅ available |
+| Tags Pane | `tagsView` | ✅ available |
+| Tags Pane | `tagsview` | ✅ available |
 | Thin Lines | `view.thinLines` | ⬜ planned |
 | Thumbnails Pane | `thumbnailsView` | 🟡 partial |
 | Toggle All Cmd Bars | `view.toggleAllCmdBars` | ✅ available |
@@ -1544,8 +1544,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Document JavaScript | `document.javaScript` | ✅ available |
 | Document Actions | `document.actions` | ✅ available |
 | Word Count | `document.wordCount` | ✅ available |
-| Accessibility | `acc` | ⬜ planned |
-| Accessibility | `accessibility` | ⬜ planned |
+| Accessibility | `acc` | ✅ available |
+| Accessibility | `accessibility` | ✅ available |
 | Action | `action` | ⬜ planned |
 | Actions | `actions` | ⬜ planned |
 | Add Bookmark | `addBookmark` | ✅ available |
@@ -1595,7 +1595,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Overlay | `overlay` | ⬜ planned |
 | Overlay Pages… | `document.overlayPages` | ✅ available |
 | Page Marks | `pagemarks` | 🟡 partial |
-| Page Structure | `pageStructure` | ⬜ planned |
+| Page Structure | `pageStructure` | ✅ available |
 | Page Transitions | `document.pageTransitions` | ✅ available |
 | Previous Bookmark | `document.prevBookm` | ✅ available |
 | Public Key Security | `pubsec` | ✅ available |
@@ -1615,7 +1615,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Split Pages by Guides… | `document.splitPagesByGuides` | ✅ available |
 | Split Pages… | `document.splitPages` | ✅ available |
 | Standard Security Policy… | `standardSecPolicy` | ✅ available |
-| Tags | `tags` | ⬜ planned |
+| Tags | `tags` | ✅ available |
 | Web Links | `webLinksGroup` | ⬜ planned |
 
 ### Comments
@@ -1905,11 +1905,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `bwList.addFolder` | Tools › Allow/Block List › Add Folder | ⬜ planned |
 | `bwList.addHost` | Tools › Allow/Block List › Add Host | ⬜ planned |
 | `bwList.addPattern` | Tools › Allow/Block List › Add Pattern | ⬜ planned |
-| `chekerView.show.inComments` | View › Checker › Show › In Comments | ⬜ planned |
-| `chekerView.show.inContent` | View › Checker › Show › In Content | ⬜ planned |
-| `chekerView.show.inFields` | View › Checker › Show › In Fields | ⬜ planned |
-| `chekerView.show.inLinks` | View › Checker › Show › In Links | ⬜ planned |
-| `chekerView.show.inTags` | View › Checker › Show › In Tags | ⬜ planned |
+| `chekerView.show.inComments` | View › Checker › Show › In Comments | ✅ available |
+| `chekerView.show.inContent` | View › Checker › Show › In Content | ✅ available |
+| `chekerView.show.inFields` | View › Checker › Show › In Fields | ✅ available |
+| `chekerView.show.inLinks` | View › Checker › Show › In Links | ✅ available |
+| `chekerView.show.inTags` | View › Checker › Show › In Tags | ✅ available |
 | `cmpDocs.filter.all` | View › Compare Documents › Filter › All | ✅ available |
 | `cmpDocs.filter.list` | View › Compare Documents › Filter › List | ✅ available |
 | `cmpDocs.filter.none` | View › Compare Documents › Filter › None | ✅ available |
@@ -1969,9 +1969,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `commentsView.showCommentsFromHiddenLayers` | View › Comments View › Show Comments from Hidden Layers | ✅ available |
 | `commentsView.showHiddenComments` | View › Comments View › Show Hidden Comments | ✅ available |
 | `commentsView.showMenu` | View › Comments View › Show Menu | ✅ available |
-| `contentsView.displaySelected` | View › Content Pane › Display Selected | ⬜ planned |
-| `contentsView.options` | View › Content Pane › Options | ⬜ planned |
-| `contentsView.showInTags` | View › Content Pane › Show in Tags | ⬜ planned |
+| `contentsView.displaySelected` | View › Content Pane › Display Selected | ✅ available |
+| `contentsView.options` | View › Content Pane › Options | ✅ available |
+| `contentsView.showInTags` | View › Content Pane › Show in Tags | ✅ available |
 | `cryptAlterBar.allow.always` | Document › Crypt Alter Bar › Allow › Always | ⬜ planned |
 | `cryptAlterBar.allow.once` | Document › Crypt Alter Bar › Allow › Once | ⬜ planned |
 | `dao.changeState.Off` | Document › Layer Actions › Change State › Off | ⬜ planned |
@@ -2155,28 +2155,28 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `msp.hdr.value` | Tools › Metadata › Columns › Value | ⬜ planned |
 | `noProps` | No Properties | ⬜ planned |
 | `open.prefsPageDisplay` | File › Open › Preferences Page Display | ⬜ planned |
-| `orderview.show.tableCells` | View › Order Pane › Show › Table Cells | ⬜ planned |
-| `orderview.show.tablesAndFigures` | View › Order Pane › Show › Tables and Figures | ⬜ planned |
-| `orderview.showmode.none` | View › Order Pane › Showmode › None | ⬜ planned |
-| `orderview.showmode.order` | View › Order Pane › Showmode › Order | ⬜ planned |
-| `orderview.showmode.type` | View › Order Pane › Showmode › Type | ⬜ planned |
-| `orderview.tag.artifact` | View › Order Pane › Tag › Artifact | ⬜ planned |
-| `orderview.tag.caption` | View › Order Pane › Tag › Caption | ⬜ planned |
-| `orderview.tag.cell` | View › Order Pane › Tag › Cell | ⬜ planned |
-| `orderview.tag.field` | View › Order Pane › Tag › Field | ⬜ planned |
-| `orderview.tag.figure` | View › Order Pane › Tag › Figure | ⬜ planned |
-| `orderview.tag.formula` | View › Order Pane › Tag › Formula | ⬜ planned |
-| `orderview.tag.h1` | View › Order Pane › Tag › H 1 | ⬜ planned |
-| `orderview.tag.h2` | View › Order Pane › Tag › H 2 | ⬜ planned |
-| `orderview.tag.h3` | View › Order Pane › Tag › H 3 | ⬜ planned |
-| `orderview.tag.h4` | View › Order Pane › Tag › H 4 | ⬜ planned |
-| `orderview.tag.h5` | View › Order Pane › Tag › H 5 | ⬜ planned |
-| `orderview.tag.h6` | View › Order Pane › Tag › H 6 | ⬜ planned |
-| `orderview.tag.listItem` | View › Order Pane › Tag › List Item | ⬜ planned |
-| `orderview.tag.note` | View › Order Pane › Tag › Note | ⬜ planned |
-| `orderview.tag.p` | View › Order Pane › Tag › P | ⬜ planned |
-| `orderview.tag.ref` | View › Order Pane › Tag › Ref | ⬜ planned |
-| `orderview.tag.table` | View › Order Pane › Tag › Table | ⬜ planned |
+| `orderview.show.tableCells` | View › Order Pane › Show › Table Cells | ✅ available |
+| `orderview.show.tablesAndFigures` | View › Order Pane › Show › Tables and Figures | ✅ available |
+| `orderview.showmode.none` | View › Order Pane › Showmode › None | ✅ available |
+| `orderview.showmode.order` | View › Order Pane › Showmode › Order | ✅ available |
+| `orderview.showmode.type` | View › Order Pane › Showmode › Type | ✅ available |
+| `orderview.tag.artifact` | View › Order Pane › Tag › Artifact | ✅ available |
+| `orderview.tag.caption` | View › Order Pane › Tag › Caption | ✅ available |
+| `orderview.tag.cell` | View › Order Pane › Tag › Cell | ✅ available |
+| `orderview.tag.field` | View › Order Pane › Tag › Field | ✅ available |
+| `orderview.tag.figure` | View › Order Pane › Tag › Figure | ✅ available |
+| `orderview.tag.formula` | View › Order Pane › Tag › Formula | ✅ available |
+| `orderview.tag.h1` | View › Order Pane › Tag › H 1 | ✅ available |
+| `orderview.tag.h2` | View › Order Pane › Tag › H 2 | ✅ available |
+| `orderview.tag.h3` | View › Order Pane › Tag › H 3 | ✅ available |
+| `orderview.tag.h4` | View › Order Pane › Tag › H 4 | ✅ available |
+| `orderview.tag.h5` | View › Order Pane › Tag › H 5 | ✅ available |
+| `orderview.tag.h6` | View › Order Pane › Tag › H 6 | ✅ available |
+| `orderview.tag.listItem` | View › Order Pane › Tag › List Item | ✅ available |
+| `orderview.tag.note` | View › Order Pane › Tag › Note | ✅ available |
+| `orderview.tag.p` | View › Order Pane › Tag › P | ✅ available |
+| `orderview.tag.ref` | View › Order Pane › Tag › Ref | ✅ available |
+| `orderview.tag.table` | View › Order Pane › Tag › Table | ✅ available |
 | `panZoomView.snapshot` | View › Pan and Zoom › Snapshot | ⬜ planned |
 | `pathedit.3point.arc` | Edit › Path Editing › 3 Point › Arc | ⬜ planned |
 | `pathedit.3point.circle` | Edit › Path Editing › 3 Point › Circle | ⬜ planned |

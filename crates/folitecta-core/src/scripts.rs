@@ -1,6 +1,6 @@
 //! Document-level JavaScript: listing and removal.
 
-use lopdf::{Dictionary, Object};
+use lopdf::{Dictionary, Object, dictionary};
 
 use crate::document::Document;
 use crate::error::Result;
@@ -70,6 +70,67 @@ impl Document {
             }
         }
         out
+    }
+
+    /// Named document-level scripts (the `/JavaScript` name tree): name and code.
+    pub fn document_scripts(&self) -> Vec<(String, String)> {
+        self.scripts()
+            .into_iter()
+            .filter(|s| s.source == "Document")
+            .map(|s| (s.name, s.code))
+            .collect()
+    }
+
+    /// Replace the named document-level scripts (empty names are left out,
+    /// a repeated name keeps its first script).
+    pub fn set_document_scripts(&mut self, scripts: &[(String, String)]) -> Result<()> {
+        let mut entries: Vec<(String, String)> = Vec::new();
+        for (n, code) in scripts {
+            let n = n.trim();
+            if !n.is_empty() && !entries.iter().any(|(e, _)| e == n) {
+                entries.push((n.to_string(), code.clone()));
+            }
+        }
+        // Keys of a name tree are in byte order.
+        entries.sort_by(|a, b| a.0.as_bytes().cmp(b.0.as_bytes()));
+        self.begin_edit();
+        let tree = if entries.is_empty() {
+            None
+        } else {
+            let mut names = Vec::new();
+            for (n, code) in &entries {
+                let action = self.inner.add_object(dictionary! {
+                    "S" => "JavaScript",
+                    "JS" => lopdf::text_string(code),
+                });
+                names.push(Object::string_literal(n.as_bytes().to_vec()));
+                names.push(Object::Reference(action));
+            }
+            Some(self.inner.add_object(dictionary! { "Names" => names }))
+        };
+        let names_obj = self.inner.catalog()?.get(b"Names").ok().cloned();
+        let names_id = match names_obj {
+            Some(Object::Reference(r)) => r,
+            Some(Object::Dictionary(d)) => {
+                let id = self.inner.add_object(Object::Dictionary(d));
+                self.inner.catalog_mut()?.set("Names", Object::Reference(id));
+                id
+            }
+            _ => {
+                let id = self.inner.add_object(Dictionary::new());
+                self.inner.catalog_mut()?.set("Names", Object::Reference(id));
+                id
+            }
+        };
+        let names = self.inner.get_dictionary_mut(names_id)?;
+        match tree {
+            Some(t) => names.set("JavaScript", Object::Reference(t)),
+            None => {
+                names.remove(b"JavaScript");
+            }
+        }
+        self.inner.prune_objects();
+        self.commit()
     }
 
     /// Remove document-level scripts and a JavaScript open action. Returns the count removed.

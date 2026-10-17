@@ -1032,7 +1032,6 @@ pub enum Dialog {
     Rasterize,
     StampPicker,
     Security,
-    Scripts,
     Flatten,
     AddGuides,
     SplitTiles,
@@ -1208,6 +1207,12 @@ pub enum Dialog {
     MetaTemplates,
     /// Keep the document information as a template.
     MetaTemplateSave,
+    /// JavaScript console.
+    JsConsole,
+    /// JavaScript preferences.
+    JsPrefs,
+    /// Named scripts of the document (Some: start a new one).
+    DocScripts(Option<String>),
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

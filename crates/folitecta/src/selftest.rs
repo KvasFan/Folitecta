@@ -2119,9 +2119,94 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     st.set_active(0);
     pause(300).await;
 
-    // 39. Undo everything added above.
+    // 39. JavaScript console: a script that prints, returns and changes a
+    // field and the title; an endless loop stopped by the time limit; a
+    // snippet; a named document script.
+    let wait_console = || async {
+        for _ in 0..60 {
+            pause(100).await;
+            if !crate::commands::javascript::CONSOLE.peek().running {
+                break;
+            }
+        }
+    };
+    crate::commands::dispatch(st, "jsConsole.show");
+    pause(300).await;
+    crate::commands::javascript::CONSOLE.write().output.clear();
+    st.set_value(
+        "js.code",
+        "// Fill the name\nconsole.println(this.numPages);\nthis.getField('contact.name').value = 'Ada';\nthis.title = 'Scripted';\nthis.numPages * 2",
+    );
+    crate::commands::dispatch(st, "jsConsole.run");
+    wait_console().await;
+    pause(300).await;
+    let pages = st.page_count();
+    let output = crate::commands::javascript::CONSOLE.peek().output.clone();
+    let printed = output.iter().any(|(k, v)| k == "out" && *v == pages.to_string());
+    let returned = output
+        .iter()
+        .any(|(k, v)| k == "result" && *v == (pages * 2).to_string());
+    let field = st
+        .read_active(|t| {
+            t.doc
+                .form_fields()
+                .into_iter()
+                .find(|f| f.name == "contact.name")
+                .map(|f| f.value)
+        })
+        .flatten()
+        .unwrap_or_default();
+    let title = st.read_active(|t| t.doc.title()).unwrap_or_default();
+    let _ = capture_window(&dir.join("interaction-js-console.png"));
+    record(
+        "JavaScript console runs a script that changes the document",
+        printed && returned && field == "Ada" && title == "Scripted",
+        format!("{output:?}"),
+    );
+    st.set_value("js.timeout", "1");
+    st.set_value("js.code", "while (true) {}");
+    crate::commands::dispatch(st, "jsConsole.run");
+    wait_console().await;
+    let stopped = crate::commands::javascript::CONSOLE
+        .peek()
+        .output
+        .last()
+        .is_some_and(|(k, _)| k == "error");
+    st.set_value("js.timeout", "");
+    st.set_value("js.code", "// Fill the name\nthis.getField('contact.name').value");
+    crate::commands::dispatch(st, "jssnippet.add");
+    pause(300).await;
+    let snippet = crate::commands::javascript::snippets()
+        .iter()
+        .any(|(n, _)| n == "Fill the name");
+    record(
+        "endless script stopped, snippet saved",
+        stopped && snippet,
+        String::new(),
+    );
+    crate::commands::dispatch(st, "javaScriptList.add");
+    pause(400).await;
+    let _ = document::eval(
+        "const i = document.querySelector('.js-script-edit input'); if (i) { i.value = 'Totals'; i.dispatchEvent(new Event('input', { bubbles: true })); } const a = document.querySelector('.js-script-edit textarea'); if (a) { a.value = 'var total = 0;'; a.dispatchEvent(new Event('input', { bubbles: true })); }",
+    )
+    .await;
+    pause(300).await;
+    let _ = capture_window(&dir.join("interaction-js-scripts.png"));
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(400).await;
+    let scripts = st.read_active(|t| t.doc.document_scripts()).unwrap_or_default();
+    record(
+        "named document script added",
+        scripts
+            .iter()
+            .any(|(n, c)| n == "Totals" && c == "var total = 0;"),
+        format!("{scripts:?}"),
+    );
+    st.set_dialog(Dialog::None);
+
+    // 40. Undo everything added above.
     st.set_tool(Tool::Hand);
-    for _ in 0..50 {
+    for _ in 0..60 {
         crate::commands::dispatch(st, "undo");
     }
     pause(500).await;
@@ -2390,6 +2475,9 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("rename-doc", Dialog::RenameDoc("report-final-version.pdf".into())),
         ("meta-templates", Dialog::MetaTemplates),
         ("meta-template-save", Dialog::MetaTemplateSave),
+        ("js-console", Dialog::JsConsole),
+        ("js-prefs", Dialog::JsPrefs),
+        ("doc-scripts", Dialog::DocScripts(Some(String::new()))),
     ];
     // The editor shows the table being edited.
     *crate::commands::tables::TABLE_EDIT.write() = Some(crate::commands::tables::TableEdit {

@@ -20,6 +20,13 @@ All notable changes to Folitecta are documented here. The format follows
 - The document file: rename it, move it to another folder, move it to the recycle bin; Save To.
 - Continuous zoom tool: drag up to zoom in, down to zoom out.
 - Size of the current page and of the file; links exported as a text list.
+- JavaScript console: run scripts or the selected part of them against the open document
+  (`this.numPages`, `this.pageNum`, `this.getField(name).value`, `this.info`, `app.alert`,
+  `console.println`, `util.printf`); the field values, page and document information they change
+  are applied to the document. Scripts run in a worker apart from the window and stop after a
+  time limit. Snippets saved as files in a folder of their own, cloned, deleted and edited.
+- Named document scripts: add, edit, rename, delete and run them; JavaScript options (time limit,
+  changes allowed, alerts as messages).
 
 ### Fixed
 

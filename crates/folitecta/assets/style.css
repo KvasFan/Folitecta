@@ -913,3 +913,23 @@ textarea.code { font-family: ui-monospace, Consolas, monospace; font-size: 12px;
 .meta-prop:last-child { border-bottom: none; }
 .meta-prop.head { font-weight: 600; background: var(--surface-2); position: sticky; top: 0; }
 .meta-prop span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* JavaScript console */
+.js-console { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, 0.38fr); gap: 10px; min-height: 0; }
+.js-main { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.js-code { font-family: var(--mono); font-size: 12.5px; width: 100%; resize: vertical; min-height: 120px; }
+.js-output { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); padding: 6px; max-height: 200px; min-height: 80px; overflow: auto; font-size: 12px; }
+.js-line { display: flex; gap: 6px; align-items: flex-start; }
+.js-line pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var(--mono); min-width: 0; }
+.js-mark { width: 12px; flex: none; color: var(--muted); font-family: var(--mono); }
+.js-line.in pre { color: var(--muted); }
+.js-line.result pre { color: var(--accent); }
+.js-line.error pre, .js-line.error .js-mark { color: var(--danger); }
+.js-line.alert pre { font-weight: 600; }
+.js-snippets { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px; min-width: 0; max-height: 360px; overflow: auto; }
+.js-snippets-head { display: flex; align-items: center; gap: 2px; font-weight: 600; font-size: 12px; padding: 0 2px 4px; }
+.js-snippets-head .ibtn { width: 24px; height: 24px; padding: 0; }
+.js-hint { font-size: 12px; padding: 4px; }
+.js-scripts { display: grid; grid-template-columns: minmax(140px, 0.4fr) minmax(0, 1fr); gap: 10px; min-height: 0; }
+.js-script-list { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px; min-width: 0; max-height: 360px; overflow: auto; }
+.js-script-edit { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.js-script-edit > .tbtn { align-self: flex-start; }

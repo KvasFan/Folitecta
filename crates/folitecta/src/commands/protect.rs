@@ -39,6 +39,4 @@ handlers! {
     "document.security" => |st| doc_dialog(st, Dialog::Security),
     "standardSecPolicy" => |st| doc_dialog(st, Dialog::Security),
     "saveUnrestricted" => |st| files::save_copy(st),
-    "document.javaScript" => |st| doc_dialog(st, Dialog::Scripts),
-    "javaScript.editAll" => |st| doc_dialog(st, Dialog::Scripts),
 }

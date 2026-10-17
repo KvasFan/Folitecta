@@ -23,6 +23,7 @@ mod forms;
 mod help;
 pub(crate) mod history;
 pub(crate) mod interface;
+pub(crate) mod javascript;
 pub(crate) mod layers;
 pub(crate) mod macros;
 mod pages;
@@ -89,6 +90,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     accessibility::HANDLERS,
     calculator::HANDLERS,
     fileops::HANDLERS,
+    javascript::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,

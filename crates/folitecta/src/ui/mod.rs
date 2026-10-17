@@ -13,6 +13,7 @@ pub mod fields_pane;
 pub mod fileops;
 pub mod form_fill;
 pub mod history_pane;
+pub mod javascript;
 pub mod layers_pane;
 pub mod macros;
 pub mod menubar;

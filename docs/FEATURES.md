@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.5. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1128 |
+| ✅ available | 1145 |
 | 🟡 partial | 53 |
-| ⬜ planned | 796 |
+| ⬜ planned | 779 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -251,7 +251,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | File | `view.toolbar.file` | ✅ available |
 | Form | `view.toolbar.form` | ✅ available |
 | History | `view.history` | ✅ available |
-| JavaScript Options… | `view.javaScriptOpts` | ⬜ planned |
+| JavaScript Options… | `view.javaScriptOpts` | ✅ available |
 | Launch Application | `view.toolbar.launchApp` | ✅ available |
 | Layers | `view.layers` | ✅ available |
 | Links | `view.links` | ✅ available |
@@ -709,22 +709,22 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Document JavaScript | `document.javaScript` | ✅ available |
 | Java Script | `javaScript` | ✅ available |
 | ↳ Edit All | `javaScript.editAll` | ✅ available |
-| JavaScript Console | `jsConsole` | ⬜ planned |
-| ↳ Clear… | `jsConsole.clear` | ⬜ planned |
-| ↳ Open Folder | `jsConsole.openFolder` | ⬜ planned |
-| ↳ Preferences… | `jsConsole.prefs` | ⬜ planned |
-| ↳ Run | `jsConsole.run` | ⬜ planned |
-| ↳ Run Select | `jsConsole.runSelect` | ⬜ planned |
-| ↳ Show | `jsConsole.show` | ⬜ planned |
-| JavaScript Edit Snippets | `jsEditSnippets` | ⬜ planned |
-| JavaScript List | `javaScriptList` | ⬜ planned |
-| ↳ Add | `javaScriptList.add` | ⬜ planned |
-| ↳ Delete | `javaScriptList.delete` | ⬜ planned |
-| ↳ Edit… | `javaScriptList.edit` | ⬜ planned |
-| JavaScript Snippet | `jssnippet` | ⬜ planned |
-| ↳ Add | `jssnippet.add` | ⬜ planned |
-| ↳ Clone… | `jssnippet.clone` | ⬜ planned |
-| ↳ Delete | `jssnippet.delete` | ⬜ planned |
+| JavaScript Console | `jsConsole` | ✅ available |
+| ↳ Clear… | `jsConsole.clear` | ✅ available |
+| ↳ Open Folder | `jsConsole.openFolder` | ✅ available |
+| ↳ Preferences… | `jsConsole.prefs` | ✅ available |
+| ↳ Run | `jsConsole.run` | ✅ available |
+| ↳ Run Select | `jsConsole.runSelect` | ✅ available |
+| ↳ Show | `jsConsole.show` | ✅ available |
+| JavaScript Edit Snippets | `jsEditSnippets` | ✅ available |
+| JavaScript List | `javaScriptList` | ✅ available |
+| ↳ Add | `javaScriptList.add` | ✅ available |
+| ↳ Delete | `javaScriptList.delete` | ✅ available |
+| ↳ Edit… | `javaScriptList.edit` | ✅ available |
+| JavaScript Snippet | `jssnippet` | ✅ available |
+| ↳ Add | `jssnippet.add` | ✅ available |
+| ↳ Clone… | `jssnippet.clone` | ✅ available |
+| ↳ Delete | `jssnippet.delete` | ✅ available |
 | Layer Actions | `dao` | ⬜ planned |
 | ↳ Change State | `dao.changeState` | ⬜ planned |
 | ↳ Simplify Actions | `dao.simplifyActions` | ⬜ planned |
@@ -1449,8 +1449,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | History | `view.history` | ✅ available |
 | Inertial Scroll | `inertialScroll` | ⬜ planned |
 | Invert Vertical Axis | `view.mathY` | ✅ available |
-| JavaScript Console | `jsConsole` | ⬜ planned |
-| JavaScript Options… | `view.javaScriptOpts` | ⬜ planned |
+| JavaScript Console | `jsConsole` | ✅ available |
+| JavaScript Options… | `view.javaScriptOpts` | ✅ available |
 | Layers Pane | `layersView` | 🟡 partial |
 | Links Pane | `linksView` | 🟡 partial |
 | Lock All Cmd Bars | `view.lockAllCmdBars` | ⬜ planned |
@@ -1577,9 +1577,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Insert Scanned Pages… | `document.insertScannedPages` | ⬜ planned |
 | Insert Text… | `document.insertText` | ✅ available |
 | Java Script | `javaScript` | ✅ available |
-| JavaScript Edit Snippets | `jsEditSnippets` | ⬜ planned |
-| JavaScript List | `javaScriptList` | ⬜ planned |
-| JavaScript Snippet | `jssnippet` | ⬜ planned |
+| JavaScript Edit Snippets | `jsEditSnippets` | ✅ available |
+| JavaScript List | `javaScriptList` | ✅ available |
+| JavaScript Snippet | `jssnippet` | ✅ available |
 | Layer Actions | `dao` | ⬜ planned |
 | Link | `link` | ⬜ planned |
 | More Page Tools | `document.pagesMore` | ⬜ planned |

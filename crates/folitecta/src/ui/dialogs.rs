@@ -224,7 +224,6 @@ pub fn Dialogs() -> Element {
         Dialog::Rasterize => rsx! { Rasterize {} },
         Dialog::StampPicker => rsx! { StampPicker {} },
         Dialog::Security => rsx! { Security {} },
-        Dialog::Scripts => rsx! { Scripts {} },
         Dialog::Flatten => rsx! { Flatten {} },
         Dialog::AddGuides => rsx! { AddGuides {} },
         Dialog::SplitTiles => rsx! { SplitTiles {} },
@@ -312,6 +311,9 @@ pub fn Dialogs() -> Element {
         Dialog::RenameDoc(name) => rsx! { crate::ui::fileops::RenameDocDialog { name } },
         Dialog::MetaTemplates => rsx! { crate::ui::fileops::MetaTemplatesDialog {} },
         Dialog::MetaTemplateSave => rsx! { crate::ui::fileops::MetaTemplateSaveDialog {} },
+        Dialog::JsConsole => rsx! { crate::ui::javascript::JsConsoleDialog {} },
+        Dialog::JsPrefs => rsx! { crate::ui::javascript::JsPrefsDialog {} },
+        Dialog::DocScripts(add) => rsx! { crate::ui::javascript::DocScriptsDialog { add } },
     }
 }
 
@@ -2199,32 +2201,6 @@ fn Security() -> Element {
                         input { r#type: "checkbox", checked: on, onchange: move |_| toggle(&mut perms.write()) }
                         span { "{t(lang, key)}" }
                     }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-fn Scripts() -> Element {
-    let st = use_context::<AppState>();
-    let lang = st.lang();
-    let scripts = st.read_active(|t| t.doc.scripts()).unwrap_or_default();
-    let any = !scripts.is_empty();
-    rsx! {
-        Frame { title: t(lang, "dialog.scripts.title"), wide: true,
-            if !any { p { "{t(lang, \"dialog.scripts.none\")}" } }
-            div { class: "script-list",
-                for (i, s) in scripts.iter().enumerate() {
-                    div { class: "script-item", key: "{i}",
-                        div { class: "title", b { "{s.name}" } span { class: "chip", "{s.source}" } }
-                        pre { class: "mono code", "{s.code}" }
-                    }
-                }
-            }
-            if any {
-                button { class: "tbtn danger", onclick: move |_| crate::commands::confirm(st, "dialog.scripts.remove_all", "dialog.scripts.remove_body", ConfirmAction::RemoveScripts),
-                    Icon { name: "delete" } "{t(lang, \"dialog.scripts.remove_all\")}"
                 }
             }
         }

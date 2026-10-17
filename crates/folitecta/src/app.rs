@@ -179,6 +179,21 @@ pub fn App() -> Element {
         responder.respond(resp.body(body).unwrap_or_else(|_| Response::new(Vec::new())));
     });
 
+    // Thumbnails of PDF files in the explorer at /thumb/{hex path}.png, rendered on a thread.
+    use_asset_handler("thumb", move |request, responder| {
+        let path = request.uri().path().to_string();
+        std::thread::spawn(move || {
+            let resp = match commands::explorer::thumbnail(&path) {
+                Some(png) => Response::builder()
+                    .status(200)
+                    .header("Content-Type", "image/png")
+                    .body(png.to_vec()),
+                None => Response::builder().status(404).body(Vec::new()),
+            };
+            responder.respond(resp.unwrap_or_else(|_| Response::new(Vec::new())));
+        });
+    });
+
     let theme = if st.ui.read().theme == Theme::Dark {
         "dark"
     } else {

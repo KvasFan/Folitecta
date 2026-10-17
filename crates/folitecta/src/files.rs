@@ -80,49 +80,6 @@ pub fn new_blank(st: AppState, pages: usize, width: f32, height: f32) {
     }
 }
 
-/// Combine several files into one new document.
-pub fn combine_files(st: AppState) {
-    spawn(async move {
-        let Some(files) = pdf_dialog()
-            .set_title("Combine files into one PDF")
-            .pick_files()
-            .await
-        else {
-            return;
-        };
-        let mut paths: Vec<PathBuf> = files.into_iter().map(|f| f.path().to_path_buf()).collect();
-        if paths.is_empty() {
-            return;
-        }
-        let first = paths.remove(0);
-        let mut doc = match Document::open(&first) {
-            Ok(d) => d,
-            Err(e) => {
-                st.error(format!("{}: {e}", first.display()));
-                return;
-            }
-        };
-        for p in paths {
-            match Document::open(&p) {
-                Ok(other) => {
-                    let at = doc.page_count();
-                    if let Err(e) = doc.insert_document(at, &other, None) {
-                        st.error(format!("{}: {e}", p.display()));
-                    }
-                }
-                Err(e) => st.error(format!("{}: {e}", p.display())),
-            }
-        }
-        doc.set_path(None);
-        doc.clear_history();
-        let id = st.alloc_id();
-        st.docs_mut().push(DocTab::new(id, doc));
-        let idx = st.docs.read().len() - 1;
-        st.set_active(idx);
-        set_window_title(st);
-    });
-}
-
 pub fn set_window_title(st: AppState) {
     let title = match st.read_active(|t| (t.title(), t.doc.is_dirty())) {
         Some((name, dirty)) => format!("{}{} - Folitecta", name, if dirty { " •" } else { "" }),

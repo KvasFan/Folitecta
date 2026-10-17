@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.6. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1181 |
-| 🟡 partial | 54 |
-| ⬜ planned | 742 |
+| ✅ available | 1217 |
+| 🟡 partial | 55 |
+| ⬜ planned | 705 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -894,19 +894,19 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | From Web Page… | `newDocHtml` | ⬜ planned |
 | New Document | `newDoc` | ✅ available |
 | PDF Portfolio… | `newPortfolio` | ✅ available |
-| Source Files | `newDocumentList` | ⬜ planned |
-| ↳ Add File… | `newDocumentList.addFile` | ⬜ planned |
-| ↳ Add Folder… | `newDocumentList.addFolder` | ⬜ planned |
-| ↳ Bottom | `newDocumentList.bottom` | ⬜ planned |
-| ↳ Clear… | `newDocumentList.clear` | ⬜ planned |
-| ↳ Down | `newDocumentList.down` | ⬜ planned |
-| ↳ Edit… | `newDocumentList.edit` | ⬜ planned |
-| ↳ Import… | `newDocumentList.import` | ⬜ planned |
-| ↳ Range | `newDocumentList.range` | ⬜ planned |
-| ↳ Remove | `newDocumentList.remove` | ⬜ planned |
-| ↳ Top | `newDocumentList.top` | ⬜ planned |
-| ↳ Up | `newDocumentList.up` | ⬜ planned |
-| ↳ View Mode | `newDocumentList.viewMode` | ⬜ planned |
+| Source Files | `newDocumentList` | 🟡 partial |
+| ↳ Add File… | `newDocumentList.addFile` | ✅ available |
+| ↳ Add Folder… | `newDocumentList.addFolder` | ✅ available |
+| ↳ Bottom | `newDocumentList.bottom` | ✅ available |
+| ↳ Clear… | `newDocumentList.clear` | ✅ available |
+| ↳ Down | `newDocumentList.down` | ✅ available |
+| ↳ Edit… | `newDocumentList.edit` | ✅ available |
+| ↳ Import… | `newDocumentList.import` | ✅ available |
+| ↳ Range | `newDocumentList.range` | ✅ available |
+| ↳ Remove | `newDocumentList.remove` | ✅ available |
+| ↳ Top | `newDocumentList.top` | ✅ available |
+| ↳ Up | `newDocumentList.up` | ✅ available |
+| ↳ View Mode | `newDocumentList.viewMode` | ✅ available |
 | ↳ Webcam | `newDocumentList.webcam` | ⬜ planned |
 
 **Export**
@@ -994,7 +994,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Add Place | `addPlace` | ⬜ planned |
+| Add Place | `addPlace` | ✅ available |
 | Browse Places… | `openFromPlaces` | ✅ available |
 | Browse Places… | `saveToPlaces` | ✅ available |
 | Email All Open Documents as ZIP… | `sendByEmailOpenAllZip` | ⬜ planned |
@@ -1003,17 +1003,17 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Email Methods | `emailMethods` | ⬜ planned |
 | ↳ Manage… | `emailMethods.manage` | ⬜ planned |
 | Email as ZIP… | `sendByEmailZip` | ⬜ planned |
-| Explorer | `explorer` | ⬜ planned |
-| ↳ Delete | `explorer.delete` | ⬜ planned |
-| ↳ Folder | `explorer.folder` | ⬜ planned |
-| ↳ Places | `explorer.places` | ⬜ planned |
-| ↳ Refresh | `explorer.refresh` | ⬜ planned |
-| ↳ Thumbnail | `explorer.thumb` | ⬜ planned |
-| Folder Filters | `folderExts` | ⬜ planned |
-| ↳ Add Custom… | `folderExts.addCustom` | ⬜ planned |
-| ↳ Edit Custom… | `folderExts.editCustom` | ⬜ planned |
-| ↳ File List | `folderExts.fileList` | ⬜ planned |
-| ↳ Remove Custom… | `folderExts.removeCustom` | ⬜ planned |
+| Explorer | `explorer` | ✅ available |
+| ↳ Delete | `explorer.delete` | ✅ available |
+| ↳ Folder | `explorer.folder` | ✅ available |
+| ↳ Places | `explorer.places` | ✅ available |
+| ↳ Refresh | `explorer.refresh` | ✅ available |
+| ↳ Thumbnail | `explorer.thumb` | ✅ available |
+| Folder Filters | `folderExts` | ✅ available |
+| ↳ Add Custom… | `folderExts.addCustom` | ✅ available |
+| ↳ Edit Custom… | `folderExts.editCustom` | ✅ available |
+| ↳ File List | `folderExts.fileList` | ✅ available |
+| ↳ Remove Custom… | `folderExts.removeCustom` | ✅ available |
 | Places List Open | `placesListOpen` | ✅ available |
 | Places List Save | `placesListSave` | ✅ available |
 | Share | `shareGroup` | ⬜ planned |
@@ -1215,7 +1215,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Document Properties… | `docProps` | ✅ available |
 | Security Properties… | `document.security` | ✅ available |
 | Exit | `exit` | ✅ available |
-| Add Place | `addPlace` | ⬜ planned |
+| Add Place | `addPlace` | ✅ available |
 | Bates Numbering Files | `batesNumberingFiles` | ⬜ planned |
 | Blank Pages… | `newDocBlank` | ✅ available |
 | Browse Places… | `openFromPlaces` | ✅ available |
@@ -1232,8 +1232,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Email All Open Documents… | `sendByEmailOpenAll` | ⬜ planned |
 | Email Methods | `emailMethods` | ⬜ planned |
 | Email as ZIP… | `sendByEmailZip` | ⬜ planned |
-| Explorer | `explorer` | ⬜ planned |
-| Folder Filters | `folderExts` | ⬜ planned |
+| Explorer | `explorer` | ✅ available |
+| Folder Filters | `folderExts` | ✅ available |
 | From Clipboard… | `newDocClipboard` | ✅ available |
 | From Email… | `newDocEmail` | ⬜ planned |
 | From Files… | `newDocFromFiles` | ✅ available |
@@ -1268,7 +1268,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Save Unrestricted Copy… | `saveUnrestricted` | ✅ available |
 | Sessions | `sessionsList` | ✅ available |
 | Settings | `settings` | ✅ available |
-| Source Files | `newDocumentList` | ⬜ planned |
+| Source Files | `newDocumentList` | 🟡 partial |
 | This Computer… | `openFromComp` | ✅ available |
 | This Computer… | `saveToComp` | ✅ available |
 | WebDAV | `wdav` | ⬜ planned |
@@ -2004,15 +2004,15 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `editFields.items.moveDown` | Form › Field Editor › Items › Move Down | ⬜ planned |
 | `editFields.items.moveUp` | Form › Field Editor › Items › Move Up | ⬜ planned |
 | `editFields.items.sorted` | Form › Field Editor › Items › Sorted | ⬜ planned |
-| `explorer.folder.back` | File › Explorer › Folder › Back | ⬜ planned |
-| `explorer.folder.create` | File › Explorer › Folder › Create | ⬜ planned |
-| `explorer.folder.forward` | File › Explorer › Folder › Forward | ⬜ planned |
-| `explorer.folder.sync` | File › Explorer › Folder › Sync | ⬜ planned |
-| `explorer.folder.up` | File › Explorer › Folder › Up | ⬜ planned |
-| `explorer.places.nav` | File › Explorer › Places › Navigation | ⬜ planned |
-| `explorer.places.nav.down` | File › Explorer › Places › Navigation › Down | ⬜ planned |
-| `explorer.places.nav.up` | File › Explorer › Places › Navigation › Up | ⬜ planned |
-| `explorer.thumb.loading` | File › Explorer › Thumbnail › Loading | ⬜ planned |
+| `explorer.folder.back` | File › Explorer › Folder › Back | ✅ available |
+| `explorer.folder.create` | File › Explorer › Folder › Create | ✅ available |
+| `explorer.folder.forward` | File › Explorer › Folder › Forward | ✅ available |
+| `explorer.folder.sync` | File › Explorer › Folder › Sync | ✅ available |
+| `explorer.folder.up` | File › Explorer › Folder › Up | ✅ available |
+| `explorer.places.nav` | File › Explorer › Places › Navigation | ✅ available |
+| `explorer.places.nav.down` | File › Explorer › Places › Navigation › Down | ✅ available |
+| `explorer.places.nav.up` | File › Explorer › Places › Navigation › Up | ✅ available |
+| `explorer.thumb.loading` | File › Explorer › Thumbnail › Loading | ✅ available |
 | `fieldsView.collapseAll` | View › Fields Pane › Collapse All | ✅ available |
 | `fieldsView.expandAll` | View › Fields Pane › Expand All | ✅ available |
 | `fieldsView.options` | View › Fields Pane › Options | ✅ available |
@@ -2021,9 +2021,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `fieldsView.sort.alphabetic` | View › Fields Pane › Sort › Alphabetic | ✅ available |
 | `fieldsView.sort.pages` | View › Fields Pane › Sort › Pages | ✅ available |
 | `file` | File | ⬜ planned |
-| `folderExts.fileList.loadAll` | File › Folder Filters › File List › Load All | ⬜ planned |
-| `folderExts.fileList.saveAll` | File › Folder Filters › File List › Save All | ⬜ planned |
-| `folderExts.fileList.saveSel` | File › Folder Filters › File List › Save Selection | ⬜ planned |
+| `folderExts.fileList.loadAll` | File › Folder Filters › File List › Load All | ✅ available |
+| `folderExts.fileList.saveAll` | File › Folder Filters › File List › Save All | ✅ available |
+| `folderExts.fileList.saveSel` | File › Folder Filters › File List › Save Selection | ✅ available |
 | `form` | Form | ⬜ planned |
 | `forms.highlight.all` | Form › Forms › Highlight Form Fields › All | ✅ available |
 | `forms.highlight.barcode` | Form › Forms › Highlight Form Fields › Barcode | ⬜ planned |

@@ -348,6 +348,7 @@ fn annots_on(st: AppState, page: usize) -> Vec<folitecta_core::Annotation> {
 
 /// Exercise the canvas tools with simulated input; returns the number of failures.
 mod steps_features;
+mod steps_files;
 mod steps_panes;
 mod steps_review;
 mod steps_tools;
@@ -395,9 +396,10 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     steps_review::run(&mut cx).await;
     steps_panes::run(&mut cx).await;
     steps_features::run(&mut cx).await;
+    steps_files::run(&mut cx).await;
     let failures = cx.failures;
 
-    // 41. Undo everything added above.
+    // 42. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..60 {
         crate::commands::dispatch(st, "undo");
@@ -672,7 +674,20 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("js-prefs", Dialog::JsPrefs),
         ("doc-scripts", Dialog::DocScripts(Some(String::new()))),
         ("media-list", Dialog::MediaList),
+        ("new-folder", Dialog::NewFolder),
+        ("folder-filter", Dialog::FolderFilter(None)),
+        ("combine", Dialog::Combine),
     ];
+    // The list of source files shows the files of the explorer step.
+    let files = dir.join("explorer-files");
+    crate::commands::sources::add_paths(
+        st,
+        ["report.pdf", "picture.png", "notes.txt"]
+            .iter()
+            .map(|n| files.join(n))
+            .filter(|p| p.exists())
+            .collect(),
+    );
     // The editor shows the table being edited.
     *crate::commands::tables::TABLE_EDIT.write() = Some(crate::commands::tables::TableEdit {
         page: 0,
@@ -692,6 +707,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         st.set_dialog(Dialog::None);
     }
     *crate::commands::tables::TABLE_EDIT.write() = None;
+    *crate::commands::sources::SOURCES.write() = Default::default();
     st.ui_mut().theme = Theme::Dark;
     total += check(st, &dir, "960x620-dark", log).await;
     st.ui_mut().theme = Theme::Light;

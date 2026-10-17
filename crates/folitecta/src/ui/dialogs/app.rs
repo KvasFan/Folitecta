@@ -344,6 +344,10 @@ pub(super) fn Confirm(title: String, body: String, action: ConfirmAction) -> Ele
                         st.set_dialog(Dialog::None);
                         crate::commands::accessibility::run_auto_tag(st);
                     }
+                    ConfirmAction::TrashFiles => {
+                        st.set_dialog(Dialog::None);
+                        crate::commands::explorer::trash_selected(st);
+                    }
                     ConfirmAction::TrashDocument => {
                         st.set_dialog(Dialog::None);
                         crate::commands::fileops::trash_now(st);

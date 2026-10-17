@@ -282,6 +282,7 @@ pub enum Pane {
     Content,
     AccChecker,
     AccReport,
+    Explorer,
     Other(String),
 }
 
@@ -307,6 +308,7 @@ impl Pane {
             Pane::Content => "content".into(),
             Pane::AccChecker => "accessibility-checker".into(),
             Pane::AccReport => "accessibility-report".into(),
+            Pane::Explorer => "explorer".into(),
             Pane::Other(s) => s.clone(),
         }
     }
@@ -332,6 +334,7 @@ impl Pane {
             "content" => Pane::Content,
             "accessibility-checker" => Pane::AccChecker,
             "accessibility-report" => Pane::AccReport,
+            "explorer" => Pane::Explorer,
             other => Pane::Other(other.to_string()),
         }
     }

@@ -47,7 +47,7 @@ pub fn Welcome() -> Element {
                     b { "{t(lang, \"welcome.new\")}" }
                     span { "{t(lang, \"welcome.new.hint\")}" }
                 }
-                div { class: "card", onclick: move |_| files::combine_files(st),
+                div { class: "card", onclick: move |_| crate::commands::sources::open(st),
                     Icon { name: "merge" }
                     b { "{reg.get(\"newDocCombine\").map(|c| c.label.clone()).unwrap_or_default()}" }
                     span { "PDF + PDF → one document" }

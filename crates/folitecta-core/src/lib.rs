@@ -11,6 +11,7 @@ pub mod annots;
 pub mod appearance;
 pub mod attachments;
 pub mod calculator;
+pub mod combine;
 pub mod commands;
 pub mod comment_exchange;
 pub mod comment_review;

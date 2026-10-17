@@ -6,6 +6,27 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Explorer pane: the folders and files of the computer, back, forward, up and the folder of the
+  current document; places of your own (added, moved, removed) next to home, desktop, documents,
+  downloads and the drives; thumbnails of PDF files; new folders; files moved to the recycle bin
+  after a confirmation; double click opens a PDF file or enters a folder.
+- Folder filters: PDF files, every file that can be combined, all files, and filters of your own
+  (name and extensions) added, edited and removed; lists of the files shown or selected saved as
+  text, and the PDF files of such a list opened.
+- Source files of a combined document: PDF files, pictures and text files added one by one, from a
+  folder or from a list; moved up, down, to the top or the bottom (several together); the pages
+  to take from each PDF file; a details view with kind, pages and folder.
+
+### Changed
+
+- Comparing documents finds the common pages and words with a diff that keeps memory linear, with
+  a time limit on very different documents.
+- The tags tree is read once per change of the document for the panes that show it.
+- The code is organized in smaller modules (canvas, dialogs, panes, state, interface self-test,
+  tags); rectangles share one set of geometry helpers.
+
 ## [0.0.6] - 2026-10-17
 
 ### Added

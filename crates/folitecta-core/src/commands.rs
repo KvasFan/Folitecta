@@ -195,6 +195,7 @@ pub const PANES: &[(&str, &str)] = &[
     ("stamps", "Stamps"),
     ("history", "History"),
     ("sessions", "Sessions"),
+    ("explorer", "Explorer"),
     ("tags", "Tags"),
     ("order", "Order"),
     ("accessibility-checker", "Accessibility Checker"),

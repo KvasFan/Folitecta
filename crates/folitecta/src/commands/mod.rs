@@ -15,6 +15,7 @@ pub(crate) mod compare;
 mod convert;
 pub(crate) mod doctools;
 mod edit;
+pub(crate) mod explorer;
 pub(crate) mod fields_pane;
 mod file;
 pub(crate) mod fileops;
@@ -36,6 +37,7 @@ pub(crate) mod search;
 pub(crate) mod sessions;
 pub(crate) mod signatures;
 pub(crate) mod signs;
+pub(crate) mod sources;
 pub(crate) mod stamps;
 pub(crate) mod tables;
 mod view;
@@ -93,6 +95,8 @@ const TABLES: &[&[(&str, Handler)]] = &[
     fileops::HANDLERS,
     javascript::HANDLERS,
     media::HANDLERS,
+    explorer::HANDLERS,
+    sources::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -237,6 +241,7 @@ pub const DEFAULT_ON: &[&str] = &[
     "msp.hdr.tagName",
     "msp.hdr.value",
     "media.enabled",
+    "explorer.thumbs",
     "stamps.favorites",
     "stamps.recents",
     "historyList.group.show",
@@ -312,6 +317,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| calculator::calc_state(st, id))
         .or_else(|| fileops::fileops_state(st, id))
         .or_else(|| media::media_state(st, id))
+        .or_else(|| explorer::explorer_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

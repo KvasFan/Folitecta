@@ -330,6 +330,9 @@ pub fn Dialogs() -> Element {
         Dialog::DocScripts(add) => rsx! { crate::ui::javascript::DocScriptsDialog { add } },
         Dialog::MediaList => rsx! { crate::ui::media::MediaListDialog {} },
         Dialog::MediaProps { page, index } => rsx! { crate::ui::media::MediaPropsDialog { page, index } },
+        Dialog::NewFolder => rsx! { crate::ui::explorer::NewFolderDialog {} },
+        Dialog::FolderFilter(index) => rsx! { crate::ui::explorer::FolderFilterDialog { index } },
+        Dialog::Combine => rsx! { crate::ui::sources::CombineDialog {} },
     }
 }
 

@@ -65,8 +65,6 @@ handlers! {
     "newDoc" => |st| files::new_blank(st, 1, 595.0, 842.0),
     "newDocText" => |st| files::new_from_text_file(st),
     "window.newBlank" => |st| files::new_blank(st, 1, 595.0, 842.0),
-    "newDocFromFiles" => |st| files::combine_files(st),
-    "newDocCombine" => |st| files::combine_files(st),
     "save" => |st| files::save(st),
     "saveAs" => |st| files::save_as(st),
     "saveAsGroup" => |st| files::save_as(st),

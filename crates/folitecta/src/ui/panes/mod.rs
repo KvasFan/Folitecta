@@ -41,6 +41,7 @@ fn pane_icon(p: &Pane) -> &'static str {
         Pane::Content => "content",
         Pane::AccChecker => "accessibility",
         Pane::AccReport => "check",
+        Pane::Explorer => "folder",
         Pane::Other(_) => "grid",
     }
 }
@@ -196,6 +197,8 @@ pub fn PanePanel() -> Element {
         rsx! { crate::ui::history_pane::SessionsPane {} }
     } else if pane == Pane::Stamps {
         rsx! { crate::ui::stamps::StampsPane {} }
+    } else if pane == Pane::Explorer {
+        rsx! { crate::ui::explorer::ExplorerPane {} }
     } else if !has_doc {
         rsx! { div { class: "pane-empty", "{t(lang, \"toast.no_document\")}" } }
     } else {
@@ -216,7 +219,7 @@ pub fn PanePanel() -> Element {
             Pane::Content => rsx! { crate::ui::accessibility::ContentPane {} },
             Pane::AccChecker => rsx! { crate::ui::accessibility::CheckerPane {} },
             Pane::AccReport => rsx! { crate::ui::accessibility::ReportPane {} },
-            Pane::History | Pane::Sessions | Pane::Stamps => rsx! {},
+            Pane::History | Pane::Sessions | Pane::Stamps | Pane::Explorer => rsx! {},
             Pane::Other(id) => rsx! { PlannedPane { pane_id: id.clone() } },
         }
     };

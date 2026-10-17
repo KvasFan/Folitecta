@@ -36,6 +36,8 @@ pub enum ConfirmAction {
     ClearStructure,
     /// Move the document file to the recycle bin.
     TrashDocument,
+    /// Move the files selected in the explorer to the recycle bin.
+    TrashFiles,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -308,6 +310,12 @@ pub enum Dialog {
         page: usize,
         index: usize,
     },
+    /// A new folder in the explorer.
+    NewFolder,
+    /// A custom folder filter (None: a new one).
+    FolderFilter(Option<usize>),
+    /// Source files of a combined document.
+    Combine,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

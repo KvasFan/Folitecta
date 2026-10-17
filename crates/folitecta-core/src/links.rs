@@ -541,6 +541,48 @@ impl Document {
         self.push_link(page, rect, dictionary! { "S" => "GoTo", "D" => vec![Object::Reference(target), Object::Name(b"Fit".to_vec())] })
     }
 
+    /// Add a link that jumps to a named destination of the document.
+    pub fn add_named_link(&mut self, page: usize, rect: [f32; 4], name: &str) -> Result<ObjectId> {
+        if !self.named_destinations().iter().any(|d| d.name == name) {
+            return Err(Error::Invalid(format!("there is no destination named '{name}'")));
+        }
+        self.push_link(
+            page,
+            rect,
+            dictionary! { "S" => "GoTo", "D" => Object::string_literal(name.to_string()) },
+        )
+    }
+
+    /// Add a link that opens a file (a path absolute or relative to the document).
+    pub fn add_launch_link(&mut self, page: usize, rect: [f32; 4], file: &str) -> Result<ObjectId> {
+        let file = file.trim();
+        if file.is_empty() {
+            return Err(Error::Invalid("no file to open".into()));
+        }
+        let spec = dictionary! {
+            "Type" => "Filespec",
+            "F" => Object::string_literal(file.replace('\\', "/")),
+            "UF" => lopdf::text_string(file),
+        };
+        self.push_link(
+            page,
+            rect,
+            dictionary! { "S" => "Launch", "F" => spec, "NewWindow" => true },
+        )
+    }
+
+    /// Add a link that runs a script when clicked.
+    pub fn add_script_link(&mut self, page: usize, rect: [f32; 4], script: &str) -> Result<ObjectId> {
+        if script.trim().is_empty() {
+            return Err(Error::Invalid("the script is empty".into()));
+        }
+        self.push_link(
+            page,
+            rect,
+            dictionary! { "S" => "JavaScript", "JS" => lopdf::text_string(script) },
+        )
+    }
+
     /// Remove every link annotation of a page (or of the document).
     pub fn remove_links(&mut self, page: Option<usize>) -> Result<usize> {
         let pages: Vec<usize> = match page {

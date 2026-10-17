@@ -1,30 +1,31 @@
-## Folitecta 0.0.8 — page text editing, redaction overlays and comment styles
+## Folitecta 0.0.9 — resizable interface, readable themes, Find and Replace, recovery
 
 A free PDF editor written entirely in Rust with a Dioxus desktop interface.
 
 **Highlights**
 
-- Editing the text of the page, in the Edit group of Home: the Edit Text tool puts a caret in the
-  text; typing, Delete and Backspace, Insert Text, Replace Text and Delete Text change the text
-  drawn on the page and move the rest of the line to make room.
-- The comment tools stay comments: Insert Text, Replace Text and Text Correction in the Comments
-  tab suggest the change with a comment and leave the page as it is.
-- Shapes are shown as they will look while they are drawn (rectangles, ellipses, highlights, text
-  boxes, lines, arrows) with the style of their tool.
-- Pencil: a pencil cursor, smooth curves with at least twice as many pieces, and the tool stays
-  chosen for the next stroke.
-- Redaction overlays: a colour, blur or pixelation over the redacted areas, with overlay text and
-  sets of redaction codes.
-- Comment Styles pane: named styles for each kind of comment, a palette over the page to pick them,
-  and default styles reset.
+- Sizes you choose: drag the edge of the left or right pane to change its width, the bottom
+  edge of the ribbon for one to six rows of tools, the right edge of a ribbon group to show more
+  of its tools (all of them, without the More menu). A double click restores the automatic size.
+- Themes: light, white, dark and black; the dark theme is readable everywhere, and the chosen
+  tool stands out clearly in every theme.
+- New icons for every command (Tabler Icons, MIT).
+- The first ribbon tab is called Edit, with Text (Edit Text, Insert, Replace, Delete Text, Find,
+  Find and Replace) and Clipboard groups.
+- Find and Replace in the text of the pages: one occurrence at a time or all of them in one undo
+  step.
+- Replace a picture with a file or the clipboard; links that go to a named destination, open a
+  file or run a script; Populate Forms from a CSV table; separators for measurements.
+- Document Recovery: documents with unsaved changes are copied every minute and offered again
+  after the window ended without saving them.
 
 **Binaries**
 
 | Platform | File |
 |---|---|
-| Windows x64 | `folitecta-0.0.8-windows-x64.zip` |
-| Linux x64 | `folitecta-0.0.8-linux-x64.tar.gz` |
-| macOS (Apple silicon and Intel) | `folitecta-0.0.8-macos-universal.zip` (app bundle) or `.tar.gz` (binary) |
+| Windows x64 | `folitecta-0.0.9-windows-x64.zip` |
+| Linux x64 | `folitecta-0.0.9-linux-x64.tar.gz` |
+| macOS (Apple silicon and Intel) | `folitecta-0.0.9-macos-universal.zip` (app bundle) or `.tar.gz` (binary) |
 
 Linux needs the WebKitGTK 4.1 runtime (`libwebkit2gtk-4.1-0`). macOS builds are not notarized:
 right-click → Open on first launch.

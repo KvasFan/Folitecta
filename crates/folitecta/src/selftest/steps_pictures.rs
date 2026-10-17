@@ -276,6 +276,29 @@ if (img) {
         angle.is_some_and(|a| a.abs() < 0.3),
         format!("{angle:?}"),
     );
+
+    // A picture copied elsewhere replaces the selected one.
+    let mut png = std::io::Cursor::new(Vec::new());
+    let _ = image::RgbaImage::from_pixel(40, 20, image::Rgba([20, 160, 60, 255]))
+        .write_to(&mut png, image::ImageFormat::Png);
+    let copied = crate::clipboard::set_png(&png.into_inner()).is_ok();
+    let replaced = match scan {
+        Some(i) => {
+            st.set_tool(Tool::EditImages);
+            st.with_active(|t| t.image_sel = Some((0, i)));
+            crate::commands::dispatch(st, "replaceImageClipboard");
+            pause(700).await;
+            st.read_active(|t| t.doc.image_pixels(0, i).ok())
+                .flatten()
+                .map(|px| (px.dimensions(), px.get_pixel(px.width() / 2, px.height() / 2).0))
+        }
+        None => None,
+    };
+    cx.record(
+        "a picture from the clipboard replaces the selected one",
+        copied && replaced.is_some_and(|(size, p)| size == (40, 20) && p[1] > 120 && p[0] < 60),
+        format!("copied {copied}, {replaced:?}"),
+    );
     st.set_tool(Tool::Hand);
     pause(300).await;
 }

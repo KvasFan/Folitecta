@@ -94,6 +94,7 @@ handlers! {
     "view.theme.darkGray" => |st| set_theme(st, Theme::Dark),
     "view.theme.black" => |st| set_theme(st, Theme::Black),
     "view.theme.customize" => |st| st.set_dialog(Dialog::Prefs),
+    "view.recovery" => |st| st.set_dialog(Dialog::Recovery),
     "view.pageThumbnails" => |st| toggle_pane(st, Pane::Thumbnails),
     "view.bookmarks" => |st| toggle_pane(st, Pane::Bookmarks),
     "view.comments" => |st| toggle_pane(st, Pane::Comments),

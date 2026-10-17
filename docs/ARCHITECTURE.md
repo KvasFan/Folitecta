@@ -94,6 +94,9 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
   area (commands, interface, dialogs, messages, comments, pages, forms, protect, accessibility,
   search); a key lives in the file of the area of its first word. Italian command labels override
   the registry labels where provided.
+- `recovery.rs` — copies of the documents with unsaved changes (every minute, in
+  `<data folder>/recovery`, with a note of where each came from), removed when a document is
+  saved or closed and on Exit; copies whose window stopped updating them are offered at start.
 - `features.rs` — generates `docs/FEATURES.md` (`folitecta --features-md <path>`).
 - `selftest/` — the interface self-test (`folitecta --ui-selftest <dir>`): layout audits at
   several window sizes and simulated input on the canvas, with a report and screenshots.
@@ -109,6 +112,9 @@ Mouse coordinates on a page image are converted to PDF user space with
   drawings (form XObjects) and fonts whose codes cannot be matched to their glyphs are refused.
   The rest of the line moves to make room, but text does not flow to the next line. Characters
   missing from an embedded font come from a standard font of the same family (WinAnsi only).
+  Find and Replace uses the same edits, so the same occurrences are left (and counted).
+- Populate Forms reads one table row per line: values with line breaks inside quotes are not
+  supported.
 - The shapes of the page content cannot be edited. Pictures can, when the page content
   draws them itself (pictures inside forms and inline pictures are not found); edited pictures are
   written as 8-bit RGB, gray, palette or black and white pictures (CMYK, ICC profiles and 16-bit

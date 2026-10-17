@@ -12,6 +12,12 @@ fn tool(st: AppState, tool: Tool) {
     super::select_tool(st, tool);
 }
 
+/// The link tool, the links drawn next doing `kind` (web, page, file, script).
+fn link_tool(st: AppState, kind: &str) {
+    st.set_value("link.kind", kind);
+    tool(st, Tool::Link);
+}
+
 fn export_measures(st: AppState) {
     if no_doc(st) {
         return;
@@ -163,7 +169,7 @@ pub(crate) fn markup_selection(st: AppState, kind: Option<Markup>) {
 }
 
 /// Apply a markup (or redaction) to every result of the current search.
-fn markup_results(st: AppState, kind: Option<Markup>) {
+pub(crate) fn markup_results(st: AppState, kind: Option<Markup>) {
     if no_doc(st) {
         return;
     }
@@ -271,7 +277,10 @@ handlers! {
     "tool.annot.pencil" => |st| tool(st, Tool::Ink),
     "tool.annot.editLink" => |st| tool(st, Tool::Link),
     "addLink" => |st| tool(st, Tool::Link),
-    "addLink.uri" => |st| tool(st, Tool::Link),
+    "addLink.uri" => |st| link_tool(st, "web"),
+    "addLink.goto" => |st| link_tool(st, "page"),
+    "addLink.launch" => |st| link_tool(st, "file"),
+    "addLink.custom" => |st| link_tool(st, "script"),
     "tool.annot.stamp" => |st| doc_dialog(st, Dialog::StampPicker),
     "stampsList" => |st| doc_dialog(st, Dialog::StampPicker),
     "tool.annot.highlight" => |st| tool(st, Tool::TextHighlight),
@@ -289,6 +298,9 @@ handlers! {
     "tool.annot.fileAttachment" => |st| tool(st, Tool::FileAttachment),
     "tool.calibrate" => |st| doc_dialog(st, Dialog::Calibrate),
     "annot.measure.setScale" => |st| doc_dialog(st, Dialog::Calibrate),
+    "measure.precision" => |st| doc_dialog(st, Dialog::Calibrate),
+    "measure.decimalSeparator" => |st| doc_dialog(st, Dialog::Calibrate),
+    "measure.groupSeparator" => |st| doc_dialog(st, Dialog::Calibrate),
     "exportMeasuresToCSV" => export_measures,
     "textsel.addInsertTextNote" => |st| selection_mark(st, false),
     "textsel.addReplaceTextNote" => |st| selection_mark(st, true),

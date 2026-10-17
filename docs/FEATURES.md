@@ -1,19 +1,19 @@
 # Folitecta feature matrix
 
-Generated from the command registry for version 0.0.8. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
+Generated from the command registry for version 0.0.9. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1304 |
+| ✅ available | 1319 |
 | 🟡 partial | 56 |
-| ⬜ planned | 620 |
+| ⬜ planned | 605 |
 | total | 1980 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
 ## Ribbon
 
-### Home
+### Edit
 
 **Tools**
 
@@ -42,43 +42,29 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Zoom Tool | `tool.zoom` | ✅ available |
 | Zoom Tools | `zoomToolsGroup` | ⬜ planned |
 
-**View**
+**Text**
 
 | Command | Id | Status |
 |---|---|---|
-| Actual Size | `zoom.level.actual` | ✅ available |
-| First Page | `view.goto.firstPage` | ✅ available |
-| Fit Height | `zoom.level.fitHeight` | ✅ available |
-| Fit Page | `zoom.level.fitPage` | ✅ available |
-| Fit Visible | `zoom.level.fitVisible` | ✅ available |
-| Fit Width | `zoom.level.fitWidth` | ✅ available |
-| Last Page | `view.goto.lastPage` | ✅ available |
-| Next Page | `view.goto.nextPage` | ✅ available |
-| Page Number | `view.goto.pagesView` | ✅ available |
-| Previous Page | `view.goto.prevPage` | ✅ available |
-| Zoom In | `zoomIn` | ✅ available |
-| Zoom Level | `zoom.combo` | ✅ available |
-| Zoom Out | `zoomOut` | ✅ available |
-| Zoom To… | `zoom.to.level` | ✅ available |
+| Delete Text | `pageText.delete` | ✅ available |
+| Edit Text | `tool.editText` | ✅ available |
+| Find and Replace… | `findAndRepl` | ✅ available |
+| Find… | `find` | ✅ available |
+| ↳ Annotate Results | `find.annotateResults` | ✅ available |
+| ↳ Edit… | `find.edit` | ✅ available |
+| Insert Text | `pageText.insert` | ✅ available |
+| Replace Text | `pageText.replace` | ✅ available |
 
-**Edit**
+**Clipboard**
 
 | Command | Id | Status |
 |---|---|---|
 | Copy | `copy` | ✅ available |
 | Cut | `cut` | ✅ available |
 | Delete | `delete` | ✅ available |
-| Delete Text | `pageText.delete` | ✅ available |
-| Edit Text | `tool.editText` | ✅ available |
-| Find and Replace… | `findAndRepl` | ⬜ planned |
-| Find… | `find` | ✅ available |
-| ↳ Annotate Results | `find.annotateResults` | ⬜ planned |
-| ↳ Edit… | `find.edit` | ✅ available |
-| Insert Text | `pageText.insert` | ✅ available |
 | Paste | `paste` | ✅ available |
 | Paste Options | `pasteSpecial` | ✅ available |
 | Redo | `redo` | ✅ available |
-| Replace Text | `pageText.replace` | ✅ available |
 | Select All | `selectAll` | ✅ available |
 | Undo | `undo` | ✅ available |
 
@@ -114,14 +100,33 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Typewriter | `tool.annot.typeWriter` | ✅ available |
 | Underline Text | `tool.annot.underline` | ✅ available |
 
+**View**
+
+| Command | Id | Status |
+|---|---|---|
+| Actual Size | `zoom.level.actual` | ✅ available |
+| First Page | `view.goto.firstPage` | ✅ available |
+| Fit Height | `zoom.level.fitHeight` | ✅ available |
+| Fit Page | `zoom.level.fitPage` | ✅ available |
+| Fit Visible | `zoom.level.fitVisible` | ✅ available |
+| Fit Width | `zoom.level.fitWidth` | ✅ available |
+| Last Page | `view.goto.lastPage` | ✅ available |
+| Next Page | `view.goto.nextPage` | ✅ available |
+| Page Number | `view.goto.pagesView` | ✅ available |
+| Previous Page | `view.goto.prevPage` | ✅ available |
+| Zoom In | `zoomIn` | ✅ available |
+| Zoom Level | `zoom.combo` | ✅ available |
+| Zoom Out | `zoomOut` | ✅ available |
+| Zoom To… | `zoom.to.level` | ✅ available |
+
 **Links**
 
 | Command | Id | Status |
 |---|---|---|
 | Add Link… | `addLink` | ✅ available |
-| ↳ Add 'Go To' Link… | `addLink.goto` | ⬜ planned |
-| ↳ Add 'Open File' Link… | `addLink.launch` | ⬜ planned |
-| ↳ Add Custom Link… | `addLink.custom` | ⬜ planned |
+| ↳ Add 'Go To' Link… | `addLink.goto` | ✅ available |
+| ↳ Add 'Open File' Link… | `addLink.launch` | ✅ available |
+| ↳ Add Custom Link… | `addLink.custom` | ✅ available |
 | ↳ Add Web Link… | `addLink.uri` | ✅ available |
 | Add/Edit Links | `tool.annot.editLink` | ✅ available |
 | Create Web Links from Barcodes | `createWebLinksFromBarcodes` | ⬜ planned |
@@ -247,7 +252,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Customize Toolbars… | `view.toolbar.customize` | ✅ available |
 | Document Info Bar | `view.docInfoBar` | ✅ available |
 | Document Options | `view.toolbar.docOptions` | ✅ available |
-| Document Recovery | `view.recovery` | ⬜ planned |
+| Document Recovery | `view.recovery` | ✅ available |
 | Document Tabs | `view.docTabsGroup` | ⬜ planned |
 | Drawing | `view.toolbar.drawing` | ✅ available |
 | Fields | `view.fields` | ✅ available |
@@ -403,10 +408,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Calibrate Measurement | `tool.calibrate` | ✅ available |
 | Distance | `tool.annot.distance` | ✅ available |
 | Export Measures to CSV | `exportMeasuresToCSV` | ✅ available |
-| Measure | `measure` | ⬜ planned |
-| ↳ Decimal Separator | `measure.decimalSeparator` | ⬜ planned |
-| ↳ Group Separator | `measure.groupSeparator` | ⬜ planned |
-| ↳ Precision | `measure.precision` | ⬜ planned |
+| Measure | `measure` | ✅ available |
+| ↳ Decimal Separator | `measure.decimalSeparator` | ✅ available |
+| ↳ Group Separator | `measure.groupSeparator` | ✅ available |
+| ↳ Precision | `measure.precision` | ✅ available |
 | Measure Edit | `measureEdit` | ⬜ planned |
 | Measure Info | `measureInfo` | ⬜ planned |
 | ↳ Copy | `measureInfo.copy` | ⬜ planned |
@@ -689,7 +694,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Highlight Form Fields | `forms.highlight` | ✅ available |
 | ↳ Import Data… | `forms.importData` | ✅ available |
 | ↳ Manage Form Data | `forms.manageData` | ⬜ planned |
-| ↳ Populate Forms… | `forms.populate` | ⬜ planned |
+| ↳ Populate Forms… | `forms.populate` | ✅ available |
 | ↳ Reset Form | `forms.reset` | ✅ available |
 | ↳ Set Field Calculation Order… | `forms.calcOrder` | ⬜ planned |
 
@@ -864,8 +869,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Year | `macro.year` | ✅ available |
 | Page Marks | `pagemarks` | 🟡 partial |
 | ↳ Add | `pagemarks.add` | ✅ available |
-| ↳ Edit… | `pagemarks.edit` | ⬜ planned |
-| ↳ Remove | `pagemarks.remove` | ⬜ planned |
+| ↳ Edit… | `pagemarks.edit` | ✅ available |
+| ↳ Remove | `pagemarks.remove` | ✅ available |
 | ↳ Remove All | `pagemarks.removeAll` | ✅ available |
 | ↳ Zoom Out | `pagemarks.zoomOut` | ⬜ planned |
 | ↳ Zoom in | `pagemarks.zoomIn` | ⬜ planned |
@@ -988,8 +993,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Edit… | `recompressImages.edit` | ⬜ planned |
 | Recompress Images… | `document.recompressImages` | ✅ available |
 | Recompress Image… | `document.recompressImage` | 🟡 partial |
-| Replace Image | `replaceImage` | ⬜ planned |
-| Replace Image Clipboard | `replaceImageClipboard` | ⬜ planned |
+| Replace Image | `replaceImage` | ✅ available |
+| Replace Image Clipboard | `replaceImageClipboard` | ✅ available |
 
 ### Share
 
@@ -1292,7 +1297,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Invert Selection | `invertSelection` | ✅ available |
 | Deselect | `edit.deselect` | ✅ available |
 | Find… | `find` | ✅ available |
-| Find and Replace… | `findAndRepl` | ⬜ planned |
+| Find and Replace… | `findAndRepl` | ✅ available |
 | Search… | `search` | ✅ available |
 | Insert Text | `pageText.insert` | ✅ available |
 | Replace Text | `pageText.replace` | ✅ available |
@@ -1362,8 +1367,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Rename Toolbar | `renameToolbar` | ⬜ planned |
 | Rename… | `rename` | ✅ available |
 | Replace All Image Instances | `replaceAllImageInstances` | ⬜ planned |
-| Replace Image | `replaceImage` | ⬜ planned |
-| Replace Image Clipboard | `replaceImageClipboard` | ⬜ planned |
+| Replace Image | `replaceImage` | ✅ available |
+| Replace Image Clipboard | `replaceImageClipboard` | ✅ available |
 | Reset Menu | `resetMenu` | ⬜ planned |
 | Reset Toolbar | `resetToolbar` | ⬜ planned |
 | Search Providers | `searchProviders` | ⬜ planned |
@@ -1444,7 +1449,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Content | `view.content` | ✅ available |
 | Content Pane | `contentsView` | ✅ available |
 | Document Info Bar | `view.docInfoBar` | ✅ available |
-| Document Recovery | `view.recovery` | ⬜ planned |
+| Document Recovery | `view.recovery` | ✅ available |
 | Document Tabs | `view.docTabsGroup` | ⬜ planned |
 | Exit Full Screen | `view.fullScreenExit` | ✅ available |
 | Expand All | `expandAll` | ⬜ planned |
@@ -1672,7 +1677,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Line Start | `lineStart` | ✅ available |
 | Locked | `comments.locked` | ✅ available |
 | Macro | `macro` | 🟡 partial |
-| Measure | `measure` | ⬜ planned |
+| Measure | `measure` | ✅ available |
 | Measure Edit | `measureEdit` | ⬜ planned |
 | Measure Info | `measureInfo` | ⬜ planned |
 | Media | `media` | ✅ available |

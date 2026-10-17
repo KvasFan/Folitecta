@@ -19,6 +19,10 @@ pub struct MeasureScale {
     pub decimals: u8,
     /// Human-readable scale stored in the document, e.g. "1 cm = 1 m".
     pub ratio: String,
+    /// Separator of the decimals ("." or ",").
+    pub decimal_sep: String,
+    /// Separator of the thousands (empty for none).
+    pub group_sep: String,
 }
 
 impl Default for MeasureScale {
@@ -28,7 +32,32 @@ impl Default for MeasureScale {
             unit: "mm".into(),
             decimals: 1,
             ratio: "1 mm = 1 mm".into(),
+            decimal_sep: ".".into(),
+            group_sep: String::new(),
         }
+    }
+}
+
+/// A number with `decimals` places and the separators of a measurement.
+pub fn format_measure(v: f32, decimals: usize, decimal_sep: &str, group_sep: &str) -> String {
+    let text = format!("{:.*}", decimals, v.abs());
+    let (int, frac) = text.split_once('.').unwrap_or((&text, ""));
+    let mut grouped = String::new();
+    for (i, c) in int.chars().enumerate() {
+        if i > 0 && (int.len() - i) % 3 == 0 {
+            grouped.push_str(group_sep);
+        }
+        grouped.push(c);
+    }
+    let sign = if v < 0.0 && text.chars().any(|c| c.is_ascii_digit() && c != '0') {
+        "-"
+    } else {
+        ""
+    };
+    if frac.is_empty() {
+        format!("{sign}{grouped}")
+    } else {
+        format!("{sign}{grouped}{decimal_sep}{frac}")
     }
 }
 
@@ -68,7 +97,19 @@ impl MeasureScale {
                 util::fmt_num(real),
                 real_unit
             ),
+            ..MeasureScale::default()
         }
+    }
+
+    /// The same scale with these separators of the decimals and thousands.
+    pub fn with_separators(mut self, decimal_sep: &str, group_sep: &str) -> MeasureScale {
+        self.decimal_sep = if decimal_sep.is_empty() {
+            ".".into()
+        } else {
+            decimal_sep.to_string()
+        };
+        self.group_sep = group_sep.to_string();
+        self
     }
 }
 
@@ -83,14 +124,22 @@ pub enum MeasureKind {
     Area,
 }
 
-fn number_format(unit: &str, factor: f32, decimals: u8) -> Object {
-    Object::Array(vec![Object::Dictionary(dictionary! {
+fn number_format(unit: &str, factor: f32, scale: &MeasureScale) -> Object {
+    let mut d = dictionary! {
         "Type" => "NumberFormat",
         "U" => lopdf::text_string(unit),
         "C" => factor,
-        "D" => 10i64.pow(decimals.min(6) as u32),
+        "D" => 10i64.pow(scale.decimals.min(6) as u32),
         "F" => "D",
-    })])
+    };
+    // Written only when they differ from what readers assume without them.
+    if scale.decimal_sep != "." {
+        d.set("RD", lopdf::text_string(&scale.decimal_sep));
+    }
+    if !scale.group_sep.is_empty() {
+        d.set("RT", lopdf::text_string(&scale.group_sep));
+    }
+    Object::Array(vec![Object::Dictionary(d)])
 }
 
 fn flat(points: &[(f32, f32)]) -> Object {
@@ -194,9 +243,9 @@ impl Document {
                 "Type" => "Measure",
                 "Subtype" => "RL",
                 "R" => lopdf::text_string(&scale.ratio),
-                "X" => number_format(&scale.unit, scale.factor, scale.decimals),
-                "D" => number_format(&scale.unit, scale.factor, scale.decimals),
-                "A" => number_format(&area_unit, scale.factor * scale.factor, scale.decimals),
+                "X" => number_format(&scale.unit, scale.factor, scale),
+                "D" => number_format(&scale.unit, scale.factor, scale),
+                "A" => number_format(&area_unit, scale.factor * scale.factor, scale),
             },
         );
         apply_style(&mut annot, subtype, style);

@@ -52,7 +52,7 @@ const AREAS: &[(&str, &[&str])] = &[
         "interface",
         &[
             "app", "tab", "group", "menu", "pane", "label", "status", "palette", "welcome", "popup", "sel",
-            "tool", "layout", "filter", "pos", "props", "history", "session", "rename", "text",
+            "tool", "layout", "filter", "pos", "props", "history", "session", "rename", "text", "recovery",
         ],
     ),
     ("dialogs", &["dialog"]),
@@ -72,6 +72,7 @@ const AREAS: &[(&str, &[&str])] = &[
             "redact",
             "calc",
             "table",
+            "measure",
         ],
     ),
     (
@@ -114,7 +115,7 @@ const AREAS: &[(&str, &[&str])] = &[
     ),
     ("protect", &["sig", "signs"]),
     ("accessibility", &["acc", "tags", "alt", "order", "content"]),
-    ("search", &["search"]),
+    ("search", &["search", "findrepl"]),
 ];
 
 /// The area of a key: the file it belongs in.

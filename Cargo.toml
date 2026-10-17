@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/folitecta-core", "crates/folitecta"]
 
 [workspace.package]
-version = "0.0.8"
+version = "0.0.9"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/KvasExpert/Folitecta"
@@ -17,7 +17,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 lopdf = { version = "0.45", features = ["embed_image"] }
 hayro = "0.8"
-image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+# Every picture format a source file or a replaced picture may come in.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp", "gif", "tiff", "webp"] }
 base64 = "0.22"
 quick-xml = "0.41"
 time = { version = "0.3", features = ["formatting", "parsing", "macros"] }

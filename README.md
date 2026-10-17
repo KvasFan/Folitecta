@@ -8,10 +8,10 @@ software under MIT, Apache or GNU licences.
 
 ![Folitecta screenshot](docs/screenshot.png)
 
-## Status: version 0.0.8 (pre-release)
+## Status: version 0.0.9 (pre-release)
 
-Folitecta ships the **complete command surface of a professional PDF editor** — 1,977 commands
-across a ribbon with 11 tabs and 63 groups, 9 classic menus, 27 side panes and a command palette —
+Folitecta ships the **complete command surface of a professional PDF editor** — 1,980 commands
+across a ribbon with 11 tabs and 64 groups, 9 classic menus, 27 side panes and a command palette —
 so the whole feature set is discoverable. Each release turns more of those commands into working
 operations; the rest are listed and open a roadmap notice. The exact state of every command is in
 [docs/FEATURES.md](docs/FEATURES.md) (generated from the code) and in the in-app
@@ -20,9 +20,12 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
 ### Working today
 
 - **Viewing**: tabs, continuous / single / two-page layouts, fit width / fit page / free zoom
-  (`Ctrl`+wheel), view rotation, full screen, light and dark themes, dark and high-contrast page
-  modes, rulers (mm, cm, in, pt, pc), grid, guides with snapping, loupe, link and form-field
-  highlighting, transparency grid, document info bar, page labels, view history.
+  (`Ctrl`+wheel), view rotation, full screen, light, white, dark and black themes, dark and
+  high-contrast page modes, rulers (mm, cm, in, pt, pc), grid, guides with snapping, loupe, link
+  and form-field highlighting, transparency grid, document info bar, page labels, view history.
+- **Interface**: ribbon or classic menus and toolbars; the side panes, the rows of the ribbon and
+  the width of each ribbon group are changed by dragging their edges; document recovery after a
+  window ended with unsaved changes.
 - **Text and search**: text layer with mouse selection, copy, select all; search with match
   case, whole words and accents ignored, words near each other (adjacent, same paragraph, page or
   document) in separate colours, also in comments, bookmarks, form fields, document information,
@@ -30,25 +33,28 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
   previous/next navigation (`F3`); mark every result as highlight, underline, strikeout or
   redaction; word count; export to `.txt`.
 - **Page text**: the Edit Text tool and the Insert, Replace and Delete Text commands of
-  Home › Edit change the text drawn on the page; the rest of the line moves to make room.
+  Edit › Text change the text drawn on the page (the rest of the line moves to make room);
+  Find and Replace changes one occurrence or all of them in one undo step.
 - **Comments**: sticky notes, text boxes, callouts, typewriter text, rectangles, ellipses,
   polygons, polylines, clouds, lines, arrows (shown as they will look while drawn), smooth pencil
   strokes with eraser, area and free highlights, text highlight / underline / strikeout,
   insert-text and replace-text marks and text correction, stamps (presets, custom text, images),
-  file attachments, web and page links, each with a generated appearance stream.
-  Style editor (colour, fill, opacity, thickness, dashes, line endings, text size and alignment)
-  with per-tool defaults, named comment styles with a palette, and style copy/paste. Select, move and resize with handles, nudge with
-  the arrow keys, copy / cut / paste across documents, flatten one or all, hide/show, delete.
+  file attachments, links (web address, page, named destination, file to open, script), each with
+  a generated appearance stream. Style editor (colour, fill, opacity, thickness, dashes, line
+  endings, text size and alignment) with per-tool defaults, named comment styles with a palette,
+  and style copy/paste. Select, move and resize with handles, nudge with the arrow keys, copy /
+  cut / paste across documents, flatten one or all, hide/show, delete.
 - **Review**: replies, review states with history, check marks, filters, pop-up notes, comment
   summaries, export and import of comments as XFDF, FDF or PDF.
 - **Sign**: digital signatures and certification with PKCS#12 digital IDs (RSA, ECDSA),
   self-signed IDs, validation against trusted certificates, incremental saving that keeps
   signatures valid; handwritten signatures and initials from a library.
-- **Measure**: distance, perimeter and area with a calibrated scale, labels on the page, CSV
-  export.
+- **Measure**: distance, perimeter and area with a calibrated scale, precision and separators,
+  labels on the page, CSV export.
 - **Forms**: draw text, check box, radio button, combo box, list box, button and signature
   fields; edit their properties; fill them on the page; import and export values (XFDF, FDF,
-  CSV, text); reset; tab order; field highlighting.
+  CSV, text); one filled copy per row of a table (Populate Forms); reset; tab order; field
+  highlighting.
 - **Pages**: insert blank pages, pages of another PDF or pictures, delete (also empty pages),
   duplicate, extract, move by dragging thumbnails, swap, reverse, replace with pages of another
   file, rotate, crop by margins or to the visible content, resize, add margins, normalise sizes,
@@ -56,7 +62,8 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
   document, combine PDF files, pictures and text files from a list of source files.
 - **Pictures**: the pictures of a page are selected on the page and edited in place or in a picture
   editor (quarter turns, mirroring, cropping, straightening of tilted scans, filters, gray, black
-  and white, 256 colours) or in another app, once or everywhere the picture is drawn.
+  and white, 256 colours) or in another app, once or everywhere the picture is drawn; replaced
+  with a picture file or the clipboard.
 - **Page marks**: watermarks, backgrounds, headers and footers with macros (`{page}`,
   `{pages}`, `{label}`, `{date}`, `{time}`, `{title}`, `{file}`, `{author}`, `{bookmark}` and
   more, with a macro guide), page numbering and Bates numbering (`{bates:6}`, continued across

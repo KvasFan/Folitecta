@@ -1000,6 +1000,64 @@ impl Document {
         self.commit()?;
         Ok(report)
     }
+
+    /// Replace every occurrence of `query` in the text of `pages` (all when
+    /// None) with `with`, as one undo step. Occurrences whose text cannot be
+    /// changed are left and counted; the first reason is kept.
+    pub fn replace_page_text(
+        &mut self,
+        query: &str,
+        with: &str,
+        opts: crate::text::SearchOptions,
+        pages: Option<&[usize]>,
+    ) -> Result<ReplaceReport> {
+        if query.is_empty() {
+            return Err(Error::Invalid("nothing to find".into()));
+        }
+        let all: Vec<usize> = match pages {
+            Some(p) => p.iter().copied().filter(|p| *p < self.page_count()).collect(),
+            None => (0..self.page_count()).collect(),
+        };
+        let mark = self.undo_mark();
+        let mut report = ReplaceReport::default();
+        for page in all {
+            let Some(layer) = self.text_layer(page) else {
+                continue;
+            };
+            // From the last occurrence back: an edit moves only the text after it.
+            let hits = layer.find(query, opts);
+            for (start, end) in hits.into_iter().rev() {
+                match self.edit_page_text(page, start, end, with) {
+                    Ok(r) => {
+                        report.replaced += 1;
+                        for c in r.substituted.chars() {
+                            if !report.substituted.contains(c) {
+                                report.substituted.push(c);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        report.refused += 1;
+                        report.reason.get_or_insert_with(|| e.to_string());
+                    }
+                }
+            }
+        }
+        self.squash_undo(&mark);
+        Ok(report)
+    }
+}
+
+/// What a replacement in the text of the pages did.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ReplaceReport {
+    pub replaced: usize,
+    /// Occurrences left as they were.
+    pub refused: usize,
+    /// Why the first refused occurrence could not be changed.
+    pub reason: Option<String>,
+    /// Characters drawn with a standard font (see [`TextEditReport`]).
+    pub substituted: String,
 }
 
 #[cfg(test)]

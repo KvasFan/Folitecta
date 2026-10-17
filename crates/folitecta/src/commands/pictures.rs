@@ -681,6 +681,59 @@ pub fn update_from_outside(st: AppState) {
     }
 }
 
+/// Put other pixels in place of the selected picture (or the largest one of
+/// the page): the new picture keeps the centre of the old one and fits its
+/// longer side, as a picture edited elsewhere does.
+fn replace_with(st: AppState, pixels: image::RgbaImage) {
+    let Some((page, index)) = target(st) else { return };
+    let current = st
+        .read_active(|t| {
+            let im = t.doc.page_images(page).ok()?.get(index).cloned()?;
+            Some((t.id, t.doc.revision(), im))
+        })
+        .flatten();
+    let Some((tab, rev, im)) = current else { return };
+    let work = Work::replacing((im.width, im.height), pixels, im.matrix, im.colors);
+    let at = Origin {
+        tab,
+        rev,
+        page,
+        index,
+    };
+    if store(st, at, &work).is_some() {
+        st.toast(ToastKind::Ok, t(st.lang(), "toast.picture_replaced"), "");
+    }
+}
+
+/// Replace the picture with one from a file.
+fn replace_from_file(st: AppState) {
+    if target(st).is_none() {
+        return;
+    }
+    spawn(async move {
+        let Some(file) = rfd::AsyncFileDialog::new()
+            .add_filter(t(st.lang(), "dialog.picture_files"), &crate::files::PICTURE_EXTS)
+            .pick_file()
+            .await
+        else {
+            return;
+        };
+        match image::open(file.path()) {
+            Ok(img) => replace_with(st, img.to_rgba8()),
+            Err(e) => st.error(e.to_string()),
+        }
+    });
+}
+
+/// Replace the picture with the one on the clipboard.
+fn replace_from_clipboard(st: AppState) {
+    let pixels = crate::clipboard::get_png().and_then(|png| image::load_from_memory(&png).ok());
+    match pixels {
+        Some(img) => replace_with(st, img.to_rgba8()),
+        None => st.toast(ToastKind::Info, t(st.lang(), "toast.no_clipboard_picture"), ""),
+    }
+}
+
 fn choose_app(st: AppState) {
     spawn(async move {
         let Some(file) = rfd::AsyncFileDialog::new().pick_file().await else {
@@ -772,6 +825,8 @@ handlers! {
     "editImage.default" => |st| set_editor(st, "default"),
     "editImage.editWith" => choose_app,
     "editImage.editType" => |st| st.set_dialog(Dialog::PictureSettings),
+    "replaceImage" => replace_from_file,
+    "replaceImageClipboard" => replace_from_clipboard,
     "imageEditor.rotate90CW" => |st| operate(st, Op::Edit(Edit::RotateRight)),
     "imageEditor.rotate90CCW" => |st| operate(st, Op::Edit(Edit::RotateLeft)),
     "imageEditor.flipHorizontal" => |st| operate(st, Op::Edit(Edit::FlipHorizontal)),

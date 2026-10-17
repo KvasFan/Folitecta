@@ -8,6 +8,7 @@ mod features;
 mod files;
 mod i18n;
 mod icons;
+mod recovery;
 mod selftest;
 mod state;
 mod theme;

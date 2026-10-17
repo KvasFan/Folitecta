@@ -57,6 +57,37 @@ fn words_are_deleted_inserted_and_replaced() {
 }
 
 #[test]
+fn every_occurrence_is_replaced_in_one_undo_step() {
+    let mut doc = Document::from_text(
+        "the cat and the dog\nthe end\u{c}theory of the cat",
+        TextLayout::default(),
+    )
+    .unwrap();
+    let words = folitecta_core::SearchOptions {
+        whole_words: true,
+        ..Default::default()
+    };
+    let first = doc.page_text(0);
+    let r = doc.replace_page_text("the", "a", words, None).unwrap();
+    assert_eq!((r.replaced, r.refused), (4, 0), "{r:?}");
+    assert_eq!(doc.page_text(0), first.replace("the ", "a "), "from {first:?}");
+    // Whole words: "theory" stays.
+    assert_eq!(doc.page_text(1), "theory of a cat");
+    // Only the chosen pages; the replacement may contain what was found.
+    let r = doc
+        .replace_page_text("cat", "cats", Default::default(), Some(&[1]))
+        .unwrap();
+    assert_eq!(r.replaced, 1);
+    assert_eq!(doc.page_text(0), first.replace("the ", "a "));
+    assert_eq!(doc.page_text(1), "theory of a cats");
+    doc.undo().unwrap();
+    doc.undo().unwrap();
+    assert_eq!(doc.page_text(0), first);
+    assert_eq!(doc.page_text(1), "theory of the cat");
+    assert!(doc.replace_page_text("", "x", Default::default(), None).is_err());
+}
+
+#[test]
 fn adjustments_between_pieces_are_kept() {
     let mut doc = page_with(
         "BT /F1 12 Tf 72 700 Td [(Hel) -50 (lo) -400 (wor) 20 (ld)] TJ ET",

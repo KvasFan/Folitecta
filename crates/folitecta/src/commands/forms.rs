@@ -109,6 +109,7 @@ handlers! {
     "forms.reset.selected" => |st| with_selected_field(st, reset_field),
     "forms.exportData" => |st| { if !no_doc(st) { files::export_form_data(st) } },
     "forms.importData" => |st| { if !no_doc(st) { files::import_form_data(st) } },
+    "forms.populate" => |st| { if !no_doc(st) { files::populate_forms(st) } },
     "forms.highlight" => toggle_highlight,
     "forms.highlight.all" => toggle_highlight,
     "fieldsView.tabOrder.row" => |st| tab_order(st, "R"),

@@ -335,6 +335,12 @@ pub enum Dialog {
     RedactionCode {
         set: bool,
     },
+    /// Find and Replace in the text of the pages, starting with `find`.
+    FindReplace {
+        find: String,
+    },
+    /// Documents with unsaved changes left by a window that ended.
+    Recovery,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

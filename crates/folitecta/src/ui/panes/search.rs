@@ -2,11 +2,30 @@
 
 use super::*;
 
-/// Search the active document and show the first result.
+/// Search the active document and show the first result. With Annotate
+/// Results on, the results are also highlighted with comments.
 pub fn run_search(st: AppState, query: &str) {
+    let found = refresh_hits(st, query);
+    match found {
+        Some((0, 0)) if !query.trim().is_empty() => {
+            st.toast(ToastKind::Info, t(st.lang(), "toast.not_found"), "")
+        }
+        Some((n, _)) if n > 0 => {
+            reveal_hit(st, 0);
+            if option_on(st, "find.annotateResults") {
+                crate::commands::comments::markup_results(st, Some(folitecta_core::Markup::Highlight));
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Find `query` again (results in the page text and elsewhere) without
+/// moving: `(hits in the text, hits elsewhere)`.
+pub fn refresh_hits(st: AppState, query: &str) -> Option<(usize, usize)> {
     let q = query.to_string();
     let (opts, proximity, scopes) = crate::commands::search::search_settings(st);
-    let found = st.with_active(|t| {
+    st.with_active(|t| {
         t.search.query = q.clone();
         let empty = q.trim().is_empty();
         t.search.hits = if empty || !scopes.page_text {
@@ -22,14 +41,7 @@ pub fn run_search(st: AppState, query: &str) {
         t.search.current = 0;
         t.search.collapsed.clear();
         (t.search.hits.len(), t.search.other.len())
-    });
-    match found {
-        Some((0, 0)) if !q.trim().is_empty() => {
-            st.toast(ToastKind::Info, t(st.lang(), "toast.not_found"), "")
-        }
-        Some((n, _)) if n > 0 => reveal_hit(st, 0),
-        _ => {}
-    }
+    })
 }
 
 /// Result group of a match outside the page text.

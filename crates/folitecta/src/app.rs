@@ -103,6 +103,9 @@ pub fn App() -> Element {
         }
     });
 
+    // Copies of the documents with unsaved changes, and the ones left behind.
+    use_hook(|| crate::recovery::start(st));
+
     // Open files passed on the command line.
     use_future(move || {
         let files = startup.0.clone();

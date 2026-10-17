@@ -299,6 +299,12 @@ impl Document {
         self.dirty = false;
     }
 
+    /// Mark the document as having changes to save (a copy recovered after
+    /// the app ended without saving it).
+    pub fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+
     /// Merge the last two edits into one undo step (for operations built from
     /// two primitive edits).
     pub(crate) fn merge_last_undo(&mut self) {

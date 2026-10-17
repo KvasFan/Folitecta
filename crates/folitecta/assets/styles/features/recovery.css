@@ -1,0 +1,7 @@
+/* Document recovery */
+.recovery-list { display: flex; flex-direction: column; gap: 4px; max-height: 46vh; overflow: auto; }
+.recovery-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); min-width: 0; }
+.recovery-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.recovery-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recovery-text .muted { font-size: 12px; }
+.recovery-row .tbtn { flex: none; }

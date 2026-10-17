@@ -207,5 +207,8 @@ handlers! {
     "document.pageTransitions" => |st| doc_dialog(st, Dialog::Transitions),
     "pagemarks.removeAll" => |st| doc_dialog(st, Dialog::RemoveMarks),
     "pagemarks.add" => |st| doc_dialog(st, Dialog::PageNumbers),
+    // The marks of the pages listed, to change or remove one by one.
+    "pagemarks.edit" => |st| doc_dialog(st, Dialog::ManageMarks("PageNumber".into())),
+    "pagemarks.remove" => |st| doc_dialog(st, Dialog::ManageMarks("PageNumber".into())),
     "document.wordCount" => |st| { if !no_doc(st) { let (words, chars) = st.read_active(|t| t.doc.word_count()).unwrap_or((0, 0)); st.set_dialog(Dialog::WordCount { words, chars }); } },
 }

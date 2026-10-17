@@ -375,6 +375,9 @@ struct NumFmt {
     unit: String,
     factor: f32,
     decimals: usize,
+    /// Separators of the decimals (`/RD`) and the thousands (`/RT`, none when absent).
+    decimal_sep: String,
+    group_sep: String,
 }
 
 fn num_fmt(doc: &lopdf::Document, measure: &Dictionary, key: &[u8]) -> Option<NumFmt> {
@@ -403,10 +406,15 @@ fn num_fmt(doc: &lopdf::Document, measure: &Dictionary, key: &[u8]) -> Option<Nu
         .and_then(|v| num(deref(doc, v)))
         .unwrap_or(100.0)
         .max(1.0);
+    let text = |k: &[u8]| first.get(k).ok().and_then(|v| crate::util::text_of(doc, v));
     Some(NumFmt {
         unit,
         factor,
         decimals: denominator.log10().round().clamp(0.0, 6.0) as usize,
+        decimal_sep: text(b"RD")
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| ".".into()),
+        group_sep: text(b"RT").unwrap_or_default(),
     })
 }
 
@@ -432,9 +440,9 @@ fn measure_label(doc: &lopdf::Document, d: &Dictionary, pts: &[(f32, f32)]) -> O
         .and_then(|m| m.as_dict().ok())?;
     let n = pts.len();
     let fmt = |v: f32, nf: &NumFmt| {
-        format!("{:.*} {}", nf.decimals, v * nf.factor, nf.unit)
-            .trim()
-            .to_string()
+        let n =
+            crate::markup_tools::format_measure(v * nf.factor, nf.decimals, &nf.decimal_sep, &nf.group_sep);
+        format!("{n} {}", nf.unit).trim().to_string()
     };
     match it.as_str() {
         "LineDimension" if n >= 2 => {

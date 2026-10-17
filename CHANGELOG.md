@@ -6,6 +6,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-10-17
+
 ### Added
 
 - The width of the left and right panes changes by dragging their edge; the ribbon gets taller or
@@ -14,6 +16,22 @@ All notable changes to Folitecta are documented here. The format follows
   ribbon scrolls when the groups are wider than the window. A double click on an edge restores the
   automatic size; the sizes are kept between sessions.
 - White and black themes next to light and dark (View › Theme and the preferences).
+- Find and Replace (`Ctrl+H`) in the text of the pages: the next occurrence selected, one
+  replaced at a time or all of them (on every page or the current one) in one undo step, with
+  match case and whole words. Occurrences that cannot be changed are counted and left as they
+  were. Annotate Results highlights the results of every search.
+- Replace Image: the selected picture (or the largest one of the page) replaced with a picture
+  file or the picture on the clipboard, keeping its place on the page.
+- Links that go to a named destination, open a file or run a script, next to web and page links
+  (Add 'Go To' Link, Add 'Open File' Link, Add Custom Link).
+- Populate Forms: one filled copy of the document for every row of a CSV or tab-separated table
+  (the first row names the fields; a File column names the copies), saved in a folder.
+- Document Recovery: documents with unsaved changes are copied every minute; the copies of a
+  window that ended without saving are offered at the next start (open or delete them), and
+  View › Document Recovery lists them at any time.
+- Measurements: decimal and thousands separators next to the precision, in the scale dialog;
+  measurements made elsewhere show their own separators.
+- Page marks: Edit and Remove list the page and Bates numbers to change or remove them.
 
 ### Changed
 
@@ -28,6 +46,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 - Dark theme: the menu bar, the Open and Save buttons, pane titles and other text inherited the
   light colours and could not be read; native lists and scroll bars are dark too.
+- BMP, GIF, TIFF and WebP pictures can be read (combining files, new documents from pictures,
+  replaced pictures) and written (pictures edited in another app as BMP or TIFF).
 
 ## [0.0.8] - 2026-10-17
 

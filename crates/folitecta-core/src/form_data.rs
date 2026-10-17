@@ -409,6 +409,46 @@ impl Document {
         }
         self.set_field_values(&values)
     }
+
+    /// A copy of the document with its fields filled from `values` (field
+    /// name, value), and the number of fields filled.
+    pub fn filled_copy(&self, values: &[(String, String)]) -> Result<(Document, usize)> {
+        let mut copy = Document::from_bytes(self.bytes().as_ref().clone(), None, None)?;
+        let n = copy.set_field_values(values)?;
+        copy.clear_history();
+        Ok((copy, n))
+    }
+}
+
+/// The rows of a table of field values (CSV, or tab-separated text): the
+/// first row names the fields, every other row gives their values.
+pub fn form_rows(format: FormDataFormat, data: &[u8]) -> Result<Vec<Vec<(String, String)>>> {
+    let text = String::from_utf8_lossy(data);
+    let text = text.trim_start_matches('\u{feff}');
+    let split = |l: &str| -> Vec<String> {
+        if format == FormDataFormat::Csv {
+            csv_split(l)
+        } else {
+            l.split('\t').map(str::to_string).collect()
+        }
+    };
+    let mut lines = text.lines().filter(|l| !l.trim().is_empty());
+    let header: Vec<String> = lines
+        .next()
+        .map(split)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|h| h.trim().to_string())
+        .collect();
+    let rows: Vec<Vec<(String, String)>> = lines
+        .map(|l| header.iter().cloned().zip(split(l)).collect())
+        .collect();
+    if header.is_empty() || rows.is_empty() {
+        return Err(Error::Invalid(
+            "the file needs a row of field names and at least one row of values".into(),
+        ));
+    }
+    Ok(rows)
 }
 
 #[cfg(test)]

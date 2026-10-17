@@ -147,6 +147,59 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         in_home && removed,
         format!("in home {in_home}, deleted {removed}"),
     );
+
+    // Find and Replace: the next occurrence selected, one replaced, then
+    // every other one on the page at once, undone in one step.
+    st.with_active(|t| t.text_sel = None);
+    crate::commands::dispatch(st, "findAndRepl");
+    pause(400).await;
+    let set = |sel: &'static str, value: &'static str| async move {
+        let js = format!(
+            "const i = document.querySelector('.dialog .{sel}'); if (i) {{ i.value = {}; i.dispatchEvent(new Event('input', {{ bubbles: true }})); }}",
+            serde_json::to_string(value).unwrap_or_default()
+        );
+        let _ = document::eval(&js).await;
+        pause(200).await;
+    };
+    set("findrepl-find", "Pack my").await;
+    set("findrepl-with", "Fill my").await;
+    let packs = count(st, 0, "Pack my");
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(500).await;
+    let selected = st
+        .read_active(|t| {
+            t.text_sel.map(|s| {
+                t.doc
+                    .page_text(s.page)
+                    .chars()
+                    .skip(s.range().0)
+                    .take(7)
+                    .collect::<String>()
+            })
+        })
+        .flatten()
+        .unwrap_or_default();
+    let _ = document::eval("document.querySelector('.dialog .findrepl-replace')?.click();").await;
+    pause(900).await;
+    let one = count(st, 0, "Fill my") == 1 && count(st, 0, "Pack my") + 1 == packs;
+    let _ = capture_window(&dir.join("interaction-find-replace.png"));
+    let _ = document::eval(
+        "const r = document.querySelectorAll('.dialog input[name=findrepl-scope]'); if (r[1]) r[1].click();",
+    )
+    .await;
+    pause(200).await;
+    let _ = document::eval("document.querySelector('.dialog .findrepl-all')?.click();").await;
+    pause(2500).await;
+    let all = count(st, 0, "Pack my") == 0 && count(st, 0, "Fill my") == packs;
+    st.set_dialog(Dialog::None);
+    crate::commands::dispatch(st, "undo");
+    pause(600).await;
+    let undone = count(st, 0, "Fill my") == 1;
+    cx.record(
+        "Find and Replace: next occurrence, one replaced, all on the page, one undo",
+        packs > 1 && selected == "Pack my" && one && all && undone,
+        format!("{packs} found, selected {selected:?}, one {one}, all {all}, undone {undone}"),
+    );
     // A correction suggested with a comment leaves the text alone.
     crate::commands::dispatch(st, "tool.textCorrectionMarkup");
     let comments = st

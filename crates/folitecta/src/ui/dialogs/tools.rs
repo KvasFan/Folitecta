@@ -73,41 +73,107 @@ pub(super) fn TextBoxDialog(page: usize, rect: Vec<f32>, border: bool) -> Elemen
     }
 }
 
+/// What a new link does, in the order of its dialog.
+const LINK_KINDS: [&str; 5] = ["web", "page", "dest", "file", "script"];
+
 #[component]
 pub(super) fn LinkDialog(page: usize, rect: Vec<f32>) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
     let url = use_signal(|| "https://".to_string());
     let target_page = use_signal(|| "1".to_string());
-    let mut kind = use_signal(|| "web".to_string());
+    let mut file = use_signal(String::new);
+    let script = use_signal(|| "app.alert('…');".to_string());
+    // The kind chosen by the command that started the link tool.
+    let mut kind = use_signal(|| {
+        let k = st.value("link.kind");
+        if LINK_KINDS.contains(&k.as_str()) {
+            k
+        } else {
+            "web".to_string()
+        }
+    });
+    let dests: Vec<String> = st
+        .read_active(|t| t.doc.named_destinations().into_iter().map(|d| d.name).collect())
+        .unwrap_or_default();
+    let mut dest = use_signal(|| dests.first().cloned().unwrap_or_default());
     let count = st.page_count();
     let r = [rect[0], rect[1], rect[2], rect[3]];
     rsx! {
         Frame { title: t(lang, "dialog.link.title"),
             on_ok: move |_| {
-                if kind() == "page" {
-                    let p = num_or(&target_page, 1.0) as usize;
-                    if p < 1 || p > count {
-                        st.error(tf(st.lang(), "dialog.replace.bad_range", &[("count", &count.to_string())]));
-                        return;
+                match kind().as_str() {
+                    "page" => {
+                        let p = num_or(&target_page, 1.0) as usize;
+                        if p < 1 || p > count {
+                            st.error(tf(st.lang(), "dialog.replace.bad_range", &[("count", &count.to_string())]));
+                            return;
+                        }
+                        apply(st, |tab| tab.doc.add_page_link(page, r, p - 1).map(|_| ()));
                     }
-                    apply(st, |tab| tab.doc.add_page_link(page, r, p - 1).map(|_| ()));
-                } else {
-                    let u = url();
-                    apply(st, |tab| tab.doc.add_uri_link(page, r, &u).map(|_| ()));
+                    "dest" => {
+                        let d = dest();
+                        apply(st, |tab| tab.doc.add_named_link(page, r, &d).map(|_| ()));
+                    }
+                    "file" => {
+                        let f = file();
+                        apply(st, |tab| tab.doc.add_launch_link(page, r, &f).map(|_| ()));
+                    }
+                    "script" => {
+                        let s = script();
+                        apply(st, |tab| tab.doc.add_script_link(page, r, &s).map(|_| ()));
+                    }
+                    _ => {
+                        let u = url();
+                        apply(st, |tab| tab.doc.add_uri_link(page, r, &u).map(|_| ()));
+                    }
                 }
                 tool_done(st);
             },
             div { class: "field",
                 div { class: "radio-row",
-                    label { input { r#type: "radio", checked: kind() == "web", onchange: move |_| kind.set("web".into()) } "{t(lang, \"dialog.link.web\")}" }
-                    label { input { r#type: "radio", checked: kind() == "page", onchange: move |_| kind.set("page".into()) } "{t(lang, \"dialog.link.page\")}" }
+                    for k in LINK_KINDS {
+                        {
+                            let name = t(lang, &format!("dialog.link.{k}"));
+                            rsx! {
+                                label { key: "{k}",
+                                    input { r#type: "radio", name: "link-kind", checked: kind() == k, disabled: k == "dest" && dests.is_empty(),
+                                        onchange: move |_| kind.set(k.to_string()) }
+                                    span { "{name}" }
+                                }
+                            }
+                        }
+                    }
                 }
             }
-            if kind() == "page" {
-                Num { label: format!("{} (1-{count})", t(lang, "status.page")), value: target_page, min: "1", max: count.to_string() }
-            } else {
-                Text { label: t(lang, "dialog.link.url"), value: url, autofocus: true }
+            match kind().as_str() {
+                "page" => rsx! { Num { label: format!("{} (1-{count})", t(lang, "status.page")), value: target_page, min: "1", max: count.to_string() } },
+                "dest" => rsx! {
+                    div { class: "field", label { "{t(lang, \"dialog.link.dest\")}" }
+                        select { onchange: move |e| dest.set(e.value()),
+                            for d in dests.iter() { option { key: "{d}", value: "{d}", selected: *d == dest(), "{d}" } }
+                        }
+                    }
+                },
+                "file" => rsx! {
+                    div { class: "field", label { "{t(lang, \"dialog.link.file\")}" }
+                        div { class: "row",
+                            input { class: "grow", value: "{file}", autofocus: true, oninput: move |e| file.set(e.value()) }
+                            button { class: "tbtn", onclick: move |_| {
+                                    spawn(async move {
+                                        if let Some(f) = rfd::AsyncFileDialog::new().pick_file().await {
+                                            file.set(f.path().display().to_string());
+                                        }
+                                    });
+                                },
+                                "{t(lang, \"dialog.browse\")}"
+                            }
+                        }
+                        p { class: "hint", "{t(lang, \"dialog.link.file_hint\")}" }
+                    }
+                },
+                "script" => rsx! { Area { label: t(lang, "dialog.link.script"), value: script, autofocus: true } },
+                _ => rsx! { Text { label: t(lang, "dialog.link.url"), value: url, autofocus: true } },
             }
         }
     }

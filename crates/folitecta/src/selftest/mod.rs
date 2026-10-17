@@ -382,6 +382,7 @@ mod steps_files;
 mod steps_layout;
 mod steps_panes;
 mod steps_pictures;
+mod steps_recovery;
 mod steps_review;
 mod steps_split;
 mod steps_text;
@@ -435,9 +436,10 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     steps_split::run(&mut cx).await;
     steps_text::run(&mut cx).await;
     steps_layout::run(&mut cx).await;
+    steps_recovery::run(&mut cx).await;
     let failures = cx.failures;
 
-    // 46. Undo everything added above.
+    // 47. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..90 {
         crate::commands::dispatch(st, "undo");
@@ -719,6 +721,13 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("split-pages", Dialog::SplitPages),
         ("redaction-look", Dialog::RedactionLook),
         ("redaction-code", Dialog::RedactionCode { set: true }),
+        (
+            "find-replace",
+            Dialog::FindReplace {
+                find: "quick brown".into(),
+            },
+        ),
+        ("recovery", Dialog::Recovery),
         (
             "replace-text",
             Dialog::ReplaceText {

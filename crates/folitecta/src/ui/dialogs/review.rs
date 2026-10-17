@@ -348,7 +348,18 @@ pub fn measure_scale(st: AppState) -> folitecta_core::MeasureScale {
         &get("measure.real_unit", "mm"),
         decimals,
     )
+    .with_separators(&get("measure.decimal_sep", "."), &get("measure.group_sep", ""))
 }
+
+/// Separators offered for the decimals and the thousands of measurements: value and label key.
+const DECIMAL_SEPS: [(&str, &str); 2] = [(".", "measure.sep.point"), (",", "measure.sep.comma")];
+const GROUP_SEPS: [(&str, &str); 5] = [
+    ("", "measure.sep.none"),
+    (",", "measure.sep.comma"),
+    (".", "measure.sep.point"),
+    (" ", "measure.sep.space"),
+    ("'", "measure.sep.apostrophe"),
+];
 
 #[component]
 pub(super) fn SummarizeCommentsDialog() -> Element {
@@ -458,11 +469,20 @@ pub(super) fn CalibrateDialog() -> Element {
     let decimals = use_signal(|| get("measure.decimals", "1"));
     let mut paper_unit = use_signal(|| get("measure.paper_unit", "mm"));
     let mut real_unit = use_signal(|| get("measure.real_unit", "mm"));
+    let mut decimal_sep = use_signal(|| get("measure.decimal_sep", "."));
+    let mut group_sep = use_signal(|| get("measure.group_sep", ""));
     let preview = {
         let p: f32 = paper().replace(',', ".").parse().unwrap_or(1.0);
         let r: f32 = real().replace(',', ".").parse().unwrap_or(1.0);
         folitecta_core::MeasureScale::from_ratio(p, &paper_unit(), r, &real_unit(), 1).ratio
     };
+    // How a value looks with these settings.
+    let sample = folitecta_core::markup_tools::format_measure(
+        1234.5678,
+        decimals().parse().unwrap_or(1usize).min(6),
+        &decimal_sep(),
+        &group_sep(),
+    );
     rsx! {
         Frame { title: t(lang, "dialog.calibrate.title"),
             on_ok: move |_| {
@@ -471,6 +491,8 @@ pub(super) fn CalibrateDialog() -> Element {
                 st.set_value("measure.real", real());
                 st.set_value("measure.real_unit", real_unit());
                 st.set_value("measure.decimals", decimals());
+                st.set_value("measure.decimal_sep", decimal_sep());
+                st.set_value("measure.group_sep", group_sep());
                 st.set_dialog(Dialog::None);
             },
             div { class: "hint", "{t(lang, \"dialog.calibrate.hint\")}" }
@@ -488,8 +510,21 @@ pub(super) fn CalibrateDialog() -> Element {
                     }
                 }
                 Num { label: t(lang, "dialog.calibrate.decimals"), value: decimals, min: "0", max: "6" }
+                div { class: "field", label { "{t(lang, \"measure.decimal_sep\")}" }
+                    select { onchange: move |e| decimal_sep.set(e.value()),
+                        for (v, k) in DECIMAL_SEPS { option { key: "{k}", value: "{v}", selected: v == decimal_sep(), "{t(lang, k)}" } }
+                    }
+                }
+                div { class: "field", label { "{t(lang, \"measure.group_sep\")}" }
+                    select { onchange: move |e| group_sep.set(e.value()),
+                        for (v, k) in GROUP_SEPS { option { key: "{k}", value: "{v}", selected: v == group_sep(), "{t(lang, k)}" } }
+                    }
+                }
             }
-            div { class: "kv", span { class: "k", "{t(lang, \"dialog.calibrate.scale\")}" } span { class: "v", "{preview}" } }
+            div { class: "kv",
+                span { class: "k", "{t(lang, \"dialog.calibrate.scale\")}" } span { class: "v", "{preview}" }
+                span { class: "k", "{t(lang, \"measure.sample\")}" } span { class: "v", "{sample}" }
+            }
         }
     }
 }

@@ -93,6 +93,45 @@ fn measurements_label_their_values() {
 }
 
 #[test]
+fn measurements_use_their_separators() {
+    use folitecta_core::markup_tools::format_measure;
+    assert_eq!(format_measure(1234567.5, 2, ",", "."), "1.234.567,50");
+    assert_eq!(format_measure(1234.5, 1, ".", ""), "1234.5");
+    assert_eq!(format_measure(-999.95, 1, ".", " "), "-1 000.0");
+    assert_eq!(format_measure(12.0, 0, ",", "'"), "12");
+    assert_eq!(format_measure(-0.01, 1, ".", ""), "0.0");
+    let mut doc = blank();
+    // 1 cm on paper = 10 m: 72 pt (2.54 cm) is 25.4 m, written 25,40 m.
+    let scale = MeasureScale::from_ratio(1.0, "cm", 10.0, "m", 2).with_separators(",", ".");
+    doc.add_measurement(
+        0,
+        MeasureKind::Distance,
+        &[(100.0, 100.0), (172.0, 100.0)],
+        &style(),
+        &scale,
+        "t",
+    )
+    .unwrap();
+    // A long one: 7200 pt = 254 cm = 2540 m.
+    doc.add_measurement(
+        0,
+        MeasureKind::Distance,
+        &[(0.0, 50.0), (7200.0, 50.0)],
+        &style(),
+        &scale,
+        "t",
+    )
+    .unwrap();
+    let texts: Vec<String> = doc
+        .annotations(0)
+        .unwrap()
+        .into_iter()
+        .map(|a| a.contents)
+        .collect();
+    assert_eq!(texts, vec!["25,40 m", "2.540,00 m"]);
+}
+
+#[test]
 fn callouts_point_at_a_spot() {
     let mut doc = blank();
     let s = AnnotStyle {

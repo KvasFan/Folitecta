@@ -44,6 +44,7 @@ pub(crate) mod signatures;
 pub(crate) mod signs;
 pub(crate) mod sources;
 pub(crate) mod split;
+pub(crate) mod split_view;
 pub(crate) mod stamps;
 pub(crate) mod tables;
 pub(crate) mod textedit;
@@ -111,6 +112,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     comment_styles::HANDLERS,
     redaction::HANDLERS,
     split::HANDLERS,
+    split_view::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -333,6 +335,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| compare::compare_state(st, id))
         .or_else(|| tables::tables_state(st, id))
         .or_else(|| forms::forms_state(st, id))
+        .or_else(|| split_view::split_state(st, id))
         .or_else(|| accessibility::acc_state(st, id))
         .or_else(|| calculator::calc_state(st, id))
         .or_else(|| fileops::fileops_state(st, id))
@@ -436,30 +439,39 @@ pub(crate) fn confirm(st: AppState, title_key: &str, body_key: &str, action: Con
 
 /// Effective zoom factor of the active document (fit modes resolved).
 pub fn current_zoom(st: AppState) -> f32 {
-    let (cw, ch) = (st.canvas_size)();
-    // Rulers take extra room on the left and at the top of the pages.
+    let canvas = (st.canvas_size)();
     let rulers = option_on(st, "view.showRulers");
+    st.read_active(|t| zoom_for(t, &t.view_state(), canvas, rulers))
+        .unwrap_or(1.0)
+}
+
+/// The zoom of a view of the tab in a canvas of `canvas` pixels.
+pub fn zoom_for(
+    t: &crate::state::DocTab,
+    view: &crate::state::ViewState,
+    canvas: (f64, f64),
+    rulers: bool,
+) -> f32 {
+    let (cw, ch) = canvas;
+    // Rulers take extra room on the left and at the top of the pages.
     let (mx, my) = if rulers { (80.0, 88.0) } else { (56.0, 70.0) };
-    st.read_active(|t| {
-        let two = t.layout == crate::state::Layout::TwoPages;
-        match t.zoom {
-            Zoom::Fixed(z) => z,
-            Zoom::FitWidth => {
-                let widest = (0..t.doc.page_count())
-                    .map(|p| t.display_size(p).0)
-                    .fold(1.0, f32::max);
-                // Two pages side by side in the two-page layout.
-                let w = if two { widest * 2.0 + 18.0 } else { widest };
-                ((cw as f32 - mx) / w).clamp(0.1, 8.0)
-            }
-            Zoom::FitPage => {
-                let (w, h) = t.display_size(t.page);
-                let w = if two { w * 2.0 + 18.0 } else { w };
-                ((cw as f32 - mx) / w).min((ch as f32 - my) / h).clamp(0.1, 8.0)
-            }
+    let two = view.layout == crate::state::Layout::TwoPages;
+    match view.zoom {
+        Zoom::Fixed(z) => z,
+        Zoom::FitWidth => {
+            let widest = (0..t.doc.page_count())
+                .map(|p| t.display_size_turned(p, view.rotation).0)
+                .fold(1.0, f32::max);
+            // Two pages side by side in the two-page layout.
+            let w = if two { widest * 2.0 + 18.0 } else { widest };
+            ((cw as f32 - mx) / w).clamp(0.1, 8.0)
         }
-    })
-    .unwrap_or(1.0)
+        Zoom::FitPage => {
+            let (w, h) = t.display_size_turned(view.page, view.rotation);
+            let w = if two { w * 2.0 + 18.0 } else { w };
+            ((cw as f32 - mx) / w).min((ch as f32 - my) / h).clamp(0.1, 8.0)
+        }
+    }
 }
 
 // ---- Public API ------------------------------------------------------------

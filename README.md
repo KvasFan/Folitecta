@@ -20,7 +20,7 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
 ### Working today
 
 - **Viewing**: tabs, continuous / single / two-page layouts, fit width / fit page / free zoom
-  (`Ctrl`+wheel), view rotation, full screen, light, white, dark and black themes, dark and
+  (`Ctrl`+wheel), view rotation, split window with two views of a document, full screen, light, white, dark and black themes, dark and
   high-contrast page modes, rulers (mm, cm, in, pt, pc), grid, guides with snapping, loupe, link
   and form-field highlighting, transparency grid, document info bar, page labels, view history.
 - **Interface**: ribbon or classic menus and toolbars; the ribbon shows its tools as icons with

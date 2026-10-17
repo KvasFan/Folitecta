@@ -225,6 +225,27 @@ impl AppState {
     pub fn set_canvas_size(&self, v: (f64, f64)) {
         *self.canvas_size.write_unchecked() = v;
     }
+
+    /// Focus view `pane` of a split window: its page, zoom, layout and turn
+    /// become those of the tab (and its canvas size the canvas size), the
+    /// other view keeps those of before.
+    pub fn focus_view(&self, pane: u8) {
+        let size = *self.canvas_size.peek();
+        let swapped = self
+            .with_active(|t| {
+                let mine = t.view_state();
+                let s = t.split.as_mut().filter(|s| s.focus != pane)?;
+                let other = std::mem::replace(&mut s.other, mine);
+                let other_size = std::mem::replace(&mut s.other_size, size);
+                s.focus = pane;
+                t.set_view_state(other);
+                Some(other_size)
+            })
+            .flatten();
+        if let Some(size) = swapped {
+            self.set_canvas_size(size);
+        }
+    }
     pub fn set_dpr(&self, v: f64) {
         *self.dpr.write_unchecked() = v;
     }

@@ -387,6 +387,7 @@ mod steps_pictures;
 mod steps_recovery;
 mod steps_review;
 mod steps_split;
+mod steps_split_view;
 mod steps_text;
 mod steps_tools;
 
@@ -441,9 +442,10 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     steps_recovery::run(&mut cx).await;
     steps_barcodes::run(&mut cx).await;
     steps_calc::run(&mut cx).await;
+    steps_split_view::run(&mut cx).await;
     let failures = cx.failures;
 
-    // 49. Undo everything added above.
+    // 50. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..90 {
         crate::commands::dispatch(st, "undo");
@@ -822,6 +824,12 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
     st.set_value("ui.touch", "1");
     total += check(st, &dir, "960x620-touch", log).await;
     st.set_value("ui.touch", "");
+    // A split window, side by side and one view above the other.
+    crate::commands::dispatch(st, "window.split.vert");
+    total += check(st, &dir, "960x620-split-side", log).await;
+    crate::commands::dispatch(st, "window.split.horz");
+    total += check(st, &dir, "960x620-split-stacked", log).await;
+    crate::commands::dispatch(st, "window.removeSplit");
     // The names of the tools next to their icons, in both languages.
     st.set_option("view.ribbonLabels", true);
     for lang in [crate::i18n::Lang::It, crate::i18n::Lang::En] {

@@ -66,6 +66,30 @@ pub struct FolderHit {
     pub snippet: String,
 }
 
+/// What a view of a document shows: its page, zoom, layout and turn.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ViewState {
+    pub page: usize,
+    pub zoom: Zoom,
+    pub layout: Layout,
+    pub rotation: i32,
+}
+
+/// A second view of the document, beside or below the first (Window ›
+/// Split). The focused view is the one of the tab (`page`, `zoom`, ...), so
+/// every command acts on it; the other one is kept here, and they change
+/// places when the other one is clicked.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SplitView {
+    /// Side by side, or one above the other.
+    pub side_by_side: bool,
+    /// The focused view: 0 the first (left or top), 1 the second.
+    pub focus: u8,
+    /// The view not focused, and the size of its canvas.
+    pub other: ViewState,
+    pub other_size: (f64, f64),
+}
+
 /// One open document tab.
 pub struct DocTab {
     pub id: u64,
@@ -75,6 +99,8 @@ pub struct DocTab {
     pub zoom: Zoom,
     pub layout: Layout,
     pub view_rotation: i32,
+    /// The second view of the document, when the window is split.
+    pub split: Option<SplitView>,
     pub selected_pages: Vec<usize>,
     pub selected_annot: Option<(usize, usize)>,
     pub search: SearchState,
@@ -236,6 +262,7 @@ impl DocTab {
             highlight_fields: false,
             highlight_kinds: Vec::new(),
             highlight_required: false,
+            split: None,
             text_sel: None,
             guides: Vec::new(),
             history: vec![0],
@@ -320,6 +347,9 @@ impl DocTab {
             if self.page >= n {
                 self.page = n.saturating_sub(1);
             }
+            if let Some(s) = self.split.as_mut() {
+                s.other.page = s.other.page.min(n.saturating_sub(1));
+            }
             self.selected_pages.retain(|p| *p < n);
             self.selected_annot = None;
             self.text_sel = None;
@@ -391,6 +421,11 @@ impl DocTab {
 
     /// Display size of a page in points, after the view rotation.
     pub fn display_size(&self, page: usize) -> (f32, f32) {
+        self.display_size_turned(page, self.view_rotation)
+    }
+
+    /// The size of a page as a view turned by `rotation` shows it.
+    pub fn display_size_turned(&self, page: usize, rotation: i32) -> (f32, f32) {
         let s = self.page_sizes.get(page).copied().unwrap_or(PageSize {
             width: 595.0,
             height: 842.0,
@@ -398,10 +433,28 @@ impl DocTab {
             media_box: [0.0; 4],
             crop_box: [0.0; 4],
         });
-        if self.view_rotation % 180 != 0 {
+        if rotation % 180 != 0 {
             (s.height, s.width)
         } else {
             (s.width, s.height)
         }
+    }
+
+    /// The focused view.
+    pub fn view_state(&self) -> ViewState {
+        ViewState {
+            page: self.page,
+            zoom: self.zoom,
+            layout: self.layout,
+            rotation: self.view_rotation,
+        }
+    }
+
+    /// Make `view` the focused view.
+    pub fn set_view_state(&mut self, view: ViewState) {
+        self.page = view.page;
+        self.zoom = view.zoom;
+        self.layout = view.layout;
+        self.view_rotation = view.rotation;
     }
 }

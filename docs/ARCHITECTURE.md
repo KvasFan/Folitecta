@@ -89,7 +89,11 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
     preferences;
   - `panes/` — the left panes (thumbnails, bookmarks, comments, attachments, layers, fields,
     search, explorer, history, comment styles, accessibility) and `right` (properties);
-  - `canvas/` — document tabs, page images, drawing tools, comment and picture hit boxes;
+  - `canvas/` — document tabs, page images, drawing tools, comment and picture hit boxes. A
+    split window shows two views of a tab: the focused one keeps its state in the tab (`page`,
+    `zoom`, `layout`, `view_rotation`) and the ids `canvas` and `pg-N` the commands look for;
+    the other one (`SplitView`) shows the pictures of its pages, and the two change places when
+    it is clicked;
   - `dialogs/` and `features/` — dialogs, and the windows and editors of the features
     (pictures, stamps, signatures, forms, tables, media, calculator, scripts, …).
 - `theme.rs` and `assets/styles/` — `theme.css` holds the colour tokens of every theme (light,

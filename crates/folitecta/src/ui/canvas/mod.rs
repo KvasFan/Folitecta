@@ -49,6 +49,9 @@ pub fn CanvasArea() -> Element {
     let files = st
         .read_active(|t| !t.portfolio.cover && t.doc.portfolio().is_some_and(|p| p.view != "H"))
         .unwrap_or(false);
+    let split = st
+        .read_active(|t| t.split.as_ref().map(|s| s.side_by_side))
+        .flatten();
     rsx! {
         div { class: "canvas-wrap",
             DocTabs {}
@@ -59,7 +62,15 @@ pub fn CanvasArea() -> Element {
                 if st.read_active(|t| t.doc.is_portfolio()).unwrap_or(false) {
                     crate::ui::features::portfolio::CoverBar {}
                 }
-                Canvas {}
+                match split {
+                    None => rsx! { Canvas { pane: 0 } },
+                    Some(side) => rsx! {
+                        div { class: if side { "canvas-split side" } else { "canvas-split stacked" },
+                            Canvas { pane: 0 }
+                            Canvas { pane: 1 }
+                        }
+                    },
+                }
                 Loupe {}
                 if option_on(st, "view.panzoom") { PanZoomWindow {} }
                 if option_on(st, "view.commentStyles") { crate::ui::panes::comment_styles::StylesPalette {} }
@@ -304,36 +315,18 @@ const PAN_SCRIPT: &str = r#"
 })();
 "#;
 
-#[component]
-fn Canvas() -> Element {
-    let st = use_context::<AppState>();
-    use_hook(|| {
-        spawn(async move {
-            let _ = document::eval(PAN_SCRIPT).await;
-        });
-    });
-    let zoom = current_zoom(st);
-    let dpr = (st.dpr)();
-    let tool = (st.tool)();
-    let Some((tab_id, page, rev, layout, count, rotation)) = st.read_active(|t| {
-        (
-            t.id,
-            t.page,
-            t.view_rev(),
-            t.layout,
-            t.doc.page_count(),
-            t.view_rotation,
-        )
-    }) else {
-        return rsx! {};
-    };
-    let render_scale = ((zoom * dpr as f32) * 1000.0).round().clamp(50.0, 6000.0) as u32;
-    let labels = st.read_active(|t| t.doc.page_labels()).unwrap_or_default();
-    let gaps = option_on(st, "view.layout.showGaps");
-    let r2l = option_on(st, "view.layout.r2l");
-    let cover = option_on(st, "view.layout.showCover");
-    let rulers = option_on(st, "view.showRulers");
-    let horizontal = option_on(st, "view.layout.ribbon") && layout != Layout::Single;
+/// The rows of pages a view shows: its page alone, every page, or the pages
+/// two by two (the first alone when it is a cover); every page in one row
+/// when the pages scroll sideways, from the right when they read right to
+/// left.
+fn page_rows(
+    layout: Layout,
+    page: usize,
+    count: usize,
+    cover: bool,
+    horizontal: bool,
+    r2l: bool,
+) -> Vec<Vec<usize>> {
     let mut rows: Vec<Vec<usize>> = match layout {
         Layout::Single => vec![vec![page.min(count.saturating_sub(1))]],
         Layout::Continuous => (0..count).map(|p| vec![p]).collect(),
@@ -362,7 +355,55 @@ fn Canvas() -> Element {
     if r2l {
         rows.iter_mut().for_each(|r| r.reverse());
     }
+    rows
+}
+
+/// A view of the active document. Without a split window there is one,
+/// `pane` 0. In a split window the focused view is drawn with every tool
+/// (ids `canvas` and `pg-N`, which the commands look for); the other one
+/// shows the pictures of its pages (ids `canvas-other` and `spg-N`) and
+/// becomes the focused one when it is clicked. The scrolling element stays
+/// the same when the focus moves, so each view keeps its place.
+#[component]
+fn Canvas(pane: u8) -> Element {
+    let st = use_context::<AppState>();
+    use_hook(|| {
+        spawn(async move {
+            let _ = document::eval(PAN_SCRIPT).await;
+        });
+    });
+    let dpr = (st.dpr)();
+    let tool = (st.tool)();
+    let rulers = option_on(st, "view.showRulers");
+    let Some((tab_id, rev, count, split)) =
+        st.read_active(|t| (t.id, t.view_rev(), t.doc.page_count(), t.split.clone()))
+    else {
+        return rsx! {};
+    };
+    let split_on = split.is_some();
+    let focused = split.as_ref().is_none_or(|s| s.focus == pane);
+    let (view, zoom) = match split.as_ref().filter(|_| !focused) {
+        Some(s) => (
+            s.other,
+            st.read_active(|t| commands::zoom_for(t, &s.other, s.other_size, rulers))
+                .unwrap_or(1.0),
+        ),
+        None => match st.read_active(|t| t.view_state()) {
+            Some(v) => (v, current_zoom(st)),
+            None => return rsx! {},
+        },
+    };
+    let (page, layout, rotation) = (view.page, view.layout, view.rotation);
+    let render_scale = ((zoom * dpr as f32) * 1000.0).round().clamp(50.0, 6000.0) as u32;
+    let labels = st.read_active(|t| t.doc.page_labels()).unwrap_or_default();
+    let gaps = option_on(st, "view.layout.showGaps");
+    let r2l = option_on(st, "view.layout.r2l");
+    let cover = option_on(st, "view.layout.showCover");
+    let horizontal = option_on(st, "view.layout.ribbon") && layout != Layout::Single;
+    let rows = page_rows(layout, page, count, cover, horizontal, r2l);
+    let canvas_id = if focused { "canvas" } else { "canvas-other" };
     let tool_class = match tool {
+        _ if !focused => "other",
         Tool::Hand => "tool-hand",
         Tool::Select | Tool::TextHighlight | Tool::TextUnderline | Tool::TextStrike => "tool-text",
         Tool::Zoom | Tool::ZoomDyn => "tool-zoom",
@@ -376,25 +417,48 @@ fn Canvas() -> Element {
     if !gaps {
         pages_class.push_str(" nogap");
     }
-    if rulers {
+    if rulers && focused {
         pages_class.push_str(" with-rulers");
     }
     if horizontal {
         pages_class.push_str(" horizontal");
     }
+    let canvas_class = if split_on && focused {
+        format!("canvas {tool_class} focused")
+    } else {
+        format!("canvas {tool_class}")
+    };
 
     rsx! {
         div {
-            id: "canvas",
-            class: "canvas {tool_class}",
+            id: canvas_id,
+            class: "{canvas_class}",
             onresize: move |evt| {
                 if let Ok(size) = evt.data().get_content_box_size() {
-                    st.set_canvas_size((size.width, size.height));
+                    let size = (size.width, size.height);
+                    if focused {
+                        st.set_canvas_size(size);
+                    } else if st.read_active(|t| t.split.as_ref().map(|s| s.other_size)).flatten() != Some(size) {
+                        st.with_active(|t| {
+                            if let Some(s) = t.split.as_mut() {
+                                s.other_size = size;
+                            }
+                        });
+                    }
+                }
+            },
+            // A press in the other view of a split window focuses it.
+            onmousedown: move |_| {
+                if !focused {
+                    st.focus_view(pane);
                 }
             },
             onwheel: move |evt| {
                 if evt.modifiers().ctrl() {
                     evt.prevent_default();
+                    if !focused {
+                        st.focus_view(pane);
+                    }
                     let dy = match evt.delta() {
                         WheelDelta::Pixels(v) => v.y,
                         WheelDelta::Lines(v) => v.y * 40.0,
@@ -416,16 +480,25 @@ fn Canvas() -> Element {
                 scroll_pending.set(true);
                 spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_millis(90)).await;
-                    let js = if horizontal {
-                        "const c=document.getElementById('canvas'); if(!c) return -1; const r=c.getBoundingClientRect(); let best=-1,bd=1e9; c.querySelectorAll('.page').forEach(el=>{const d=Math.abs(el.getBoundingClientRect().left-r.left-24); if(d<bd){bd=d;best=parseInt(el.dataset.page);}}); return best;"
-                    } else {
-                        "const c=document.getElementById('canvas'); if(!c) return -1; const r=c.getBoundingClientRect(); let best=-1,bd=1e9; c.querySelectorAll('.page').forEach(el=>{const d=Math.abs(el.getBoundingClientRect().top-r.top-24); if(d<bd){bd=d;best=parseInt(el.dataset.page);}}); return best;"
-                    };
-                    if let Ok(v) = document::eval(js).await {
+                    // The page nearest the top (or the left) of this view.
+                    let edge = if horizontal { "left" } else { "top" };
+                    let js = format!(
+                        "const c=document.getElementById('{canvas_id}'); if(!c) return -1; const r=c.getBoundingClientRect(); let best=-1,bd=1e9; c.querySelectorAll('.page').forEach(el=>{{const d=Math.abs(el.getBoundingClientRect().{edge}-r.{edge}-24); if(d<bd){{bd=d;best=parseInt(el.dataset.page);}}}}); return best;"
+                    );
+                    if let Ok(v) = document::eval(&js).await {
                         if let Some(i) = v.as_i64().filter(|i| *i >= 0) {
                             let i = i as usize;
-                            if st.read_active(|t| t.page).unwrap_or(0) != i {
-                                st.with_active(|t| t.page = i);
+                            let shown = st
+                                .read_active(|t| match t.split.as_ref().filter(|_| !focused) {
+                                    Some(s) => s.other.page,
+                                    None => t.page,
+                                })
+                                .unwrap_or(0);
+                            if shown != i {
+                                st.with_active(|t| match t.split.as_mut().filter(|_| !focused) {
+                                    Some(s) => s.other.page = i,
+                                    None => t.page = i,
+                                });
                             }
                         }
                     }
@@ -436,11 +509,70 @@ fn Canvas() -> Element {
                 for (ri, row) in rows.into_iter().enumerate() {
                     div { class: "page-row", key: "row-{ri}",
                         for p in row {
-                            PageView { key: "{tab_id}-{p}", tab_id, page: p, rev, scale: render_scale, zoom, current: p == page, tool, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default() }
+                            if focused {
+                                PageView { key: "{tab_id}-{p}", tab_id, page: p, rev, scale: render_scale, zoom, current: p == page, tool, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default() }
+                            } else {
+                                StillPage { key: "s{tab_id}-{p}", tab_id, page: p, rev, scale: render_scale, zoom, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default() }
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+/// A page of the view that is not focused: its picture (comments included)
+/// and its number.
+#[component]
+fn StillPage(
+    tab_id: u64,
+    page: usize,
+    rev: u64,
+    scale: u32,
+    zoom: f32,
+    view_rotation: i32,
+    label: String,
+) -> Element {
+    let st = use_context::<AppState>();
+    let Some(size) = st.read_active(|t| t.page_sizes.get(page).copied()).flatten() else {
+        return rsx! {};
+    };
+    let mut filter = String::new();
+    if option_on(st, "view.darkPageMode") {
+        filter.push_str("invert(1) hue-rotate(180deg) ");
+    }
+    if option_on(st, "view.overrideDocumentColors") {
+        filter.push_str("grayscale(1) contrast(1.6) ");
+    }
+    let img_style = if filter.is_empty() {
+        String::new()
+    } else {
+        format!("filter:{filter}")
+    };
+    let (inner_w, inner_h) = (size.width * zoom, size.height * zoom);
+    let (outer_w, outer_h) = if view_rotation % 180 != 0 {
+        (inner_h, inner_w)
+    } else {
+        (inner_w, inner_h)
+    };
+    let transform = match view_rotation {
+        90 => format!("translate({inner_h}px,0) rotate(90deg)"),
+        180 => format!("translate({inner_w}px,{inner_h}px) rotate(180deg)"),
+        270 => format!("translate(0,{inner_w}px) rotate(270deg)"),
+        _ => String::new(),
+    };
+    let number = if !label.is_empty() && label != (page + 1).to_string() {
+        format!("{label} ({})", page + 1)
+    } else {
+        (page + 1).to_string()
+    };
+    rsx! {
+        div { id: "spg-{page}", class: "page", "data-page": "{page}", style: "width:{outer_w}px;height:{outer_h}px",
+            div { class: "page-inner", style: "width:{inner_w}px;height:{inner_h}px;transform:{transform}",
+                img { class: "page-img", src: "/page/{tab_id}/{page}/{rev}/{scale}.png", alt: "", loading: "lazy", draggable: "false", style: "{img_style}" }
+            }
+            div { class: "page-label", "{number}" }
         }
     }
 }

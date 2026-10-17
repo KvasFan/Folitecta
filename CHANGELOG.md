@@ -16,6 +16,9 @@ All notable changes to Folitecta are documented here. The format follows
   which they are calculated.
 - Form › Highlight Fields highlights the fields of chosen kinds (text boxes, check boxes, radio
   buttons, combo and list boxes, buttons, signatures, barcodes) or only the required ones.
+- Window › Split shows the document in two views, side by side or one above the other, each with
+  its own page, zoom, layout and turn: the outlined view is the one the tools and commands work
+  on, and a click in the other view makes it that one. Remove Split keeps the outlined view.
 
 ### Fixed
 

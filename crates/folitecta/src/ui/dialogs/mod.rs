@@ -240,7 +240,7 @@ pub fn Dialogs() -> Element {
         Dialog::Security => rsx! { Security {} },
         Dialog::Flatten => rsx! { Flatten {} },
         Dialog::AddGuides => rsx! { AddGuides {} },
-        Dialog::SplitTiles => rsx! { SplitTiles {} },
+        Dialog::SplitPages => rsx! { crate::ui::split::SplitPagesDialog {} },
         Dialog::Background => rsx! { Background {} },
         Dialog::PageLabels => rsx! { PageLabels {} },
         Dialog::Transitions => rsx! { Transitions {} },
@@ -333,6 +333,9 @@ pub fn Dialogs() -> Element {
         Dialog::NewFolder => rsx! { crate::ui::explorer::NewFolderDialog {} },
         Dialog::FolderFilter(index) => rsx! { crate::ui::explorer::FolderFilterDialog { index } },
         Dialog::Combine => rsx! { crate::ui::sources::CombineDialog {} },
+        Dialog::ImageEditor => rsx! { crate::ui::pictures::ImageEditorDialog {} },
+        Dialog::ExternalPicture => rsx! { crate::ui::pictures::ExternalPictureDialog {} },
+        Dialog::PictureSettings => rsx! { crate::ui::pictures::PictureSettingsDialog {} },
     }
 }
 

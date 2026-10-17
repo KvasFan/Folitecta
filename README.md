@@ -3,12 +3,12 @@
 **Folitecta** is a free PDF editor written entirely in Rust, with a modern desktop
 interface built on [Dioxus](https://dioxuslabs.com). It renders pages with the pure-Rust
 [hayro](https://github.com/LaurenzV/hayro) rasterizer and edits documents through the
-[lopdf](https://github.com/J-F-Liu/lopdf) object model. Every dependency is free software under
-an MIT, Apache or GNU licence.
+[lopdf](https://github.com/J-F-Liu/lopdf) object model. The libraries it uses directly are free
+software under MIT, Apache or GNU licences.
 
 ![Folitecta screenshot](docs/screenshot.png)
 
-## Status: version 0.0.6 (pre-release)
+## Status: version 0.0.7 (pre-release)
 
 Folitecta ships the **complete command surface of a professional PDF editor** — 1,977 commands
 across a ribbon with 11 tabs and 63 groups, 9 classic menus, 27 side panes and a command palette —
@@ -49,7 +49,11 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
 - **Pages**: insert blank pages, pages of another PDF or pictures, delete (also empty pages),
   duplicate, extract, move by dragging thumbnails, swap, reverse, replace with pages of another
   file, rotate, crop by margins or to the visible content, resize, add margins, normalise sizes,
-  split into tiles, rasterise, find duplicates, split a document, combine several files.
+  cut along lines drawn over a page (split pages editor), rasterise, find duplicates, split a
+  document, combine PDF files, pictures and text files from a list of source files.
+- **Pictures**: the pictures of a page are selected on the page and edited in place or in a picture
+  editor (quarter turns, mirroring, cropping, straightening of tilted scans, filters, gray, black
+  and white, 256 colours) or in another app, once or everywhere the picture is drawn.
 - **Page marks**: watermarks, backgrounds, headers and footers with macros (`{page}`,
   `{pages}`, `{label}`, `{date}`, `{time}`, `{title}`, `{file}`, `{author}`, `{bookmark}` and
   more, with a macro guide), page numbering and Bates numbering (`{bates:6}`, continued across
@@ -78,8 +82,9 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
   documents saved and opened again.
 - **Calculator, scripts and media**: accounting calculator tapes on the page; a JavaScript console
   with snippets and named document scripts; sound and video comments with a media player.
-- **Files and metadata**: rename, move or recycle the document file; metadata templates and XMP;
-  guides saved to files.
+- **Files and metadata**: an explorer pane with places, folder filters, thumbnails of PDF files and
+  lists of files; rename, move or recycle the document file; metadata templates and XMP; guides
+  saved to files.
 - **Document tools**: typed or RTF text as pages, space usage audit, picture recompression,
   document scripts, pages split at guides or cut to the crop box, leaving PDF/A.
 - **Interface**: ribbon or classic menus and toolbars that adapt to any window size, page
@@ -88,9 +93,9 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
 
 ### Planned
 
-OCR, timestamped signatures, content editing (text and image objects), PDF/A conversion,
-optimisation, cloud connectors and the remaining commands listed as *planned* in the feature
-matrix.
+OCR, timestamped signatures, editing of the text and shapes of the page content, PDF/A
+conversion, optimisation, cloud connectors and the remaining commands listed as *planned* in the
+feature matrix.
 
 ## Download
 
@@ -135,5 +140,6 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and
 
 Folitecta is released under the [MIT License](LICENSE). Folitecta is an independent
 implementation: it contains no code from, and is not affiliated with or endorsed by, any other
-PDF product. Third-party crates keep their own MIT, Apache-2.0 or GNU licences; the allowed set is
-enforced by `deny.toml` (`cargo deny check licenses`).
+PDF product. The crates it depends on directly keep their own MIT, Apache-2.0 or GNU licences;
+their own dependencies may also use other permissive licences (BSD, ISC, Zlib, Unicode). The
+allowed set is enforced by `deny.toml` (`cargo deny check licenses`).

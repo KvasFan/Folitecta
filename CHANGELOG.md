@@ -6,6 +6,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-10-17
+
 ### Added
 
 - Explorer pane: the folders and files of the computer, back, forward, up and the folder of the
@@ -18,6 +20,21 @@ All notable changes to Folitecta are documented here. The format follows
 - Source files of a combined document: PDF files, pictures and text files added one by one, from a
   folder or from a list; moved up, down, to the top or the bottom (several together); the pages
   to take from each PDF file; a details view with kind, pages and folder.
+- Pictures of the pages: the Edit Content › Images tool outlines the pictures a page draws; a
+  click selects one and shows its toolbar, a double click opens it in the picture editor.
+- Picture editor: quarter turns (the picture keeps its centre on the page), mirroring, gray,
+  cropping by dragging (the kept part stays where it was), straightening of tilted scans, filters
+  (smooth, Gaussian blur, sharpen, mean removal, despeckle, edge detection, four embosses), pixel
+  formats (24 and 32 bits, gray with or without transparency, 256 colours from a palette, black
+  and white), zoom and undo. Turns, mirroring, gray, straightening, filters and pixel formats also
+  work on the selected picture without the editor.
+- Pictures edited in another app (the system app for pictures or one chosen), as PNG, JPEG, BMP
+  or TIFF, and put back on the page with Update once saved there. Apply to All changes a picture drawn in
+  several places everywhere; otherwise only the selected drawing changes.
+- Split pages editor: horizontal and vertical cut lines over a page, dragged or typed in
+  millimetres, centimetres, inches or points; a grid of equal parts; lines removed from the list
+  or the preview, or all of them after a confirmation; rulers, line colour and zoom; every page,
+  odd or even pages, or the page shown. It replaces the dialog that cut pages into tiles.
 
 ### Changed
 

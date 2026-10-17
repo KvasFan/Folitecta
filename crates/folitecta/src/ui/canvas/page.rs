@@ -68,6 +68,10 @@ pub(super) fn PageView(
         field_marks: Vec<(String, bool, [f32; 4])>,
         /// Reading order boxes: label, selected, rectangle (display space).
         order_boxes: Vec<(String, bool, [f32; 4])>,
+        /// Pictures of the page for the pictures tool: index and rectangle (display space).
+        images: Vec<(usize, [f32; 4])>,
+        /// The picture selected on this page.
+        image_sel: Option<usize>,
     }
     let order_mode = {
         let ui = st.ui.read();
@@ -212,6 +216,18 @@ pub(super) fn PageView(
             } else {
                 Vec::new()
             };
+            let images = if tool == Tool::EditImages {
+                t.doc
+                    .page_images(page)
+                    .map(|list| {
+                        list.iter()
+                            .map(|im| (im.index, pdf_rect_to_display(&size, im.rect)))
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            } else {
+                Vec::new()
+            };
             Some(View {
                 size,
                 annots,
@@ -224,6 +240,8 @@ pub(super) fn PageView(
                 widgets,
                 popups,
                 flash: t.flash.filter(|(p, _)| *p == page).map(|(_, r)| r),
+                images,
+                image_sel: t.image_sel.filter(|(p, _)| *p == page).map(|(_, i)| i),
                 field_marks,
                 order_boxes: match &order_mode {
                     Some(mode) => t
@@ -737,6 +755,10 @@ pub(super) fn PageView(
                         st.with_active(|t| t.selected_annot = None);
                         return;
                     }
+                    if tool == Tool::EditImages {
+                        st.with_active(|t| t.image_sel = None);
+                        return;
+                    }
                     if tool.is_drawing() {
                         let (sx, sy) = snap(st, page, x, y, z);
                         let start = ((sx * z) as f64, (sy * z) as f64);
@@ -890,6 +912,22 @@ pub(super) fn PageView(
                     div { key: "ob{i}", class: if *selected { "order-box selected" } else { "order-box" }, style: "{css(*r)}",
                         span { class: "num", "{label}" }
                     }
+                }
+                for (i, r) in view.images.iter().copied() {
+                    div { key: "im{i}", class: if view.image_sel == Some(i) { "image-box selected" } else { "image-box" }, style: "{css(r)}",
+                        onmousedown: move |e| {
+                            e.stop_propagation();
+                            st.with_active(|t| t.image_sel = Some((page, i)));
+                        },
+                        ondoubleclick: move |e| {
+                            e.stop_propagation();
+                            st.with_active(|t| t.image_sel = Some((page, i)));
+                            crate::commands::pictures::edit_selected(st);
+                        },
+                    }
+                }
+                if let Some(r) = view.image_sel.and_then(|i| view.images.iter().find(|(k, _)| *k == i).map(|(_, r)| *r)) {
+                    crate::ui::pictures::PictureToolbar { left: r[0] * z, top: (r[1] * z - 38.0).max(2.0) }
                 }
                 for (i, r) in view.sel.iter().enumerate() {
                     div { key: "s{i}", class: "sel", style: "{css(*r)}" }

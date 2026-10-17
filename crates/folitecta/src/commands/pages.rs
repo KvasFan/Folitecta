@@ -188,7 +188,6 @@ handlers! {
     "document.rasterizePages" => |st| doc_dialog(st, Dialog::Rasterize),
     "document.split" => |st| doc_dialog(st, Dialog::Split),
     "document.splitGroup" => |st| doc_dialog(st, Dialog::Split),
-    "document.splitPages" => |st| doc_dialog(st, Dialog::SplitTiles),
     "document.watermarks" => |st| doc_dialog(st, Dialog::Watermark),
     "document.watermarks.add" => |st| doc_dialog(st, Dialog::Watermark),
     "document.watermarks.removeAll" => |st| remove_marks(st, "Watermark"),

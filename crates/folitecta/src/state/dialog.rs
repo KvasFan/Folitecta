@@ -124,7 +124,8 @@ pub enum Dialog {
     Security,
     Flatten,
     AddGuides,
-    SplitTiles,
+    /// Cut lines over a page, then the pages cut along them.
+    SplitPages,
     Background,
     PageLabels,
     Transitions,
@@ -316,6 +317,12 @@ pub enum Dialog {
     FolderFilter(Option<usize>),
     /// Source files of a combined document.
     Combine,
+    /// The picture editor.
+    ImageEditor,
+    /// A picture being edited in another app.
+    ExternalPicture,
+    /// How pictures are edited: the editor, the file type, every drawing.
+    PictureSettings,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.6. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1217 |
-| 🟡 partial | 55 |
-| ⬜ planned | 705 |
+| ✅ available | 1272 |
+| 🟡 partial | 56 |
+| ⬜ planned | 649 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -86,9 +86,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Add Image… | `document.addImage` | ✅ available |
 | Add Image… | `tool.selImagePlace` | ✅ available |
 | Add Text | `tool.addText` | ✅ available |
-| Edit Content | `tool.editContent` | ⬜ planned |
+| Edit Content | `tool.editContent` | 🟡 partial |
 | ↳ All | `tool.editContent.all` | ⬜ planned |
-| ↳ Images | `tool.editContent.images` | ⬜ planned |
+| ↳ Images | `tool.editContent.images` | ✅ available |
 | ↳ Shades | `tool.editContent.shades` | ⬜ planned |
 | ↳ Shapes | `tool.editContent.shapes` | ⬜ planned |
 | ↳ Text | `tool.editContent.text` | ⬜ planned |
@@ -757,19 +757,19 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Select Pages | `selectPages` | ✅ available |
 | Split | `document.splitGroup` | ✅ available |
 | Split Document… | `document.split` | ✅ available |
-| Split Pages | `splitPages` | ⬜ planned |
-| ↳ Add Horizontal | `splitPages.addHorizontal` | ⬜ planned |
-| ↳ Add Vertical | `splitPages.addVertical` | ⬜ planned |
-| ↳ Clear… | `splitPages.clear` | ⬜ planned |
-| ↳ Color Picker | `splitPages.colorPicker` | ⬜ planned |
-| ↳ Edit Line | `splitPages.editLine` | ⬜ planned |
-| ↳ Every | `splitPages.every` | ⬜ planned |
-| ↳ Remove Line | `splitPages.removeLine` | ⬜ planned |
-| ↳ Show Rulers | `splitPages.showRulers` | ⬜ planned |
-| ↳ Units | `splitPages.units` | ⬜ planned |
-| ↳ Zoom Combo | `splitPages.zoomCombo` | ⬜ planned |
-| ↳ Zoom Out | `splitPages.zoomOut` | ⬜ planned |
-| ↳ Zoom in | `splitPages.zoomIn` | ⬜ planned |
+| Split Pages | `splitPages` | ✅ available |
+| ↳ Add Horizontal | `splitPages.addHorizontal` | ✅ available |
+| ↳ Add Vertical | `splitPages.addVertical` | ✅ available |
+| ↳ Clear… | `splitPages.clear` | ✅ available |
+| ↳ Color Picker | `splitPages.colorPicker` | ✅ available |
+| ↳ Edit Line | `splitPages.editLine` | ✅ available |
+| ↳ Every | `splitPages.every` | ✅ available |
+| ↳ Remove Line | `splitPages.removeLine` | ✅ available |
+| ↳ Show Rulers | `splitPages.showRulers` | ✅ available |
+| ↳ Units | `splitPages.units` | ✅ available |
+| ↳ Zoom Combo | `splitPages.zoomCombo` | ✅ available |
+| ↳ Zoom Out | `splitPages.zoomOut` | ✅ available |
+| ↳ Zoom in | `splitPages.zoomIn` | ✅ available |
 | Split Pages by Guides… | `document.splitPagesByGuides` | ✅ available |
 | Split Pages… | `document.splitPages` | ✅ available |
 | Swap Pages… | `document.swapPages` | ✅ available |
@@ -961,26 +961,26 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Edit Image | `editImage` | ⬜ planned |
-| ↳ Apply to All | `editImage.applyToAll` | ⬜ planned |
-| ↳ Builtin | `editImage.builtin` | ⬜ planned |
-| ↳ Default | `editImage.default` | ⬜ planned |
-| ↳ Edit Type | `editImage.editType` | ⬜ planned |
-| ↳ Edit with | `editImage.editWith` | ⬜ planned |
-| Image Editor | `imageEditor` | ⬜ planned |
-| ↳ Convert | `imageEditor.convert` | ⬜ planned |
-| ↳ Crop | `imageEditor.crop` | ⬜ planned |
-| ↳ Deskew | `imageEditor.deskew` | ⬜ planned |
-| ↳ Filters | `imageEditor.filters` | ⬜ planned |
-| ↳ Fit Visible | `imageEditor.fitVisible` | ⬜ planned |
-| ↳ Flip Horizontal | `imageEditor.flipHorizontal` | ⬜ planned |
-| ↳ Flip Vertical | `imageEditor.flipVertical` | ⬜ planned |
-| ↳ Grayscale | `imageEditor.grayscale` | ⬜ planned |
-| ↳ Rotate 90 Clockwise | `imageEditor.rotate90CW` | ⬜ planned |
-| ↳ Rotate 90 Counterclockwise | `imageEditor.rotate90CCW` | ⬜ planned |
-| ↳ Zoom | `imageEditor.zoom` | ⬜ planned |
-| ↳ Zoom Out | `imageEditor.zoomOut` | ⬜ planned |
-| ↳ Zoom in | `imageEditor.zoomIn` | ⬜ planned |
+| Edit Image | `editImage` | ✅ available |
+| ↳ Apply to All | `editImage.applyToAll` | ✅ available |
+| ↳ Builtin | `editImage.builtin` | ✅ available |
+| ↳ Default | `editImage.default` | ✅ available |
+| ↳ Edit Type | `editImage.editType` | ✅ available |
+| ↳ Edit with | `editImage.editWith` | ✅ available |
+| Image Editor | `imageEditor` | ✅ available |
+| ↳ Convert | `imageEditor.convert` | ✅ available |
+| ↳ Crop | `imageEditor.crop` | ✅ available |
+| ↳ Deskew | `imageEditor.deskew` | ✅ available |
+| ↳ Filters | `imageEditor.filters` | ✅ available |
+| ↳ Fit Visible | `imageEditor.fitVisible` | ✅ available |
+| ↳ Flip Horizontal | `imageEditor.flipHorizontal` | ✅ available |
+| ↳ Flip Vertical | `imageEditor.flipVertical` | ✅ available |
+| ↳ Grayscale | `imageEditor.grayscale` | ✅ available |
+| ↳ Rotate 90 Clockwise | `imageEditor.rotate90CW` | ✅ available |
+| ↳ Rotate 90 Counterclockwise | `imageEditor.rotate90CCW` | ✅ available |
+| ↳ Zoom | `imageEditor.zoom` | ✅ available |
+| ↳ Zoom Out | `imageEditor.zoomOut` | ✅ available |
+| ↳ Zoom in | `imageEditor.zoomIn` | ✅ available |
 | Recompress Images | `recompressImages` | ⬜ planned |
 | ↳ Edit… | `recompressImages.edit` | ⬜ planned |
 | Recompress Images… | `document.recompressImages` | ✅ available |
@@ -1307,7 +1307,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Distribute Vertically | `distribVert` | ⬜ planned |
 | Distribute to | `distributeTo` | ⬜ planned |
 | Document Size | `dsd` | ✅ available |
-| Edit Image | `editImage` | ⬜ planned |
+| Edit Image | `editImage` | ✅ available |
 | Edit Link | `editLink` | ⬜ planned |
 | Edit Object | `editObject` | ⬜ planned |
 | Eraser Diameter | `eraserDiameter` | ⬜ planned |
@@ -1323,7 +1323,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Group | `group` | ⬜ planned |
 | Guides Select All | `guidesSelectAll` | ⬜ planned |
 | Guides Select on Page | `guidesSelectOnPage` | ⬜ planned |
-| Image Editor | `imageEditor` | ⬜ planned |
+| Image Editor | `imageEditor` | ✅ available |
 | Ink Smooth Level | `inkSmoothLevel` | ⬜ planned |
 | Item | `item` | ⬜ planned |
 | Line Width Profile | `lineWidthProfile` | ⬜ planned |
@@ -1372,7 +1372,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Show Quick Access Toolbar Above Ribbon | `QABarAbove` | ⬜ planned |
 | Show Quick Access Toolbar Below Ribbon | `QABarBelow` | ⬜ planned |
 | Snapshot | `snapshot` | 🟡 partial |
-| Split Pages | `splitPages` | ⬜ planned |
+| Split Pages | `splitPages` | ✅ available |
 | Substitute Fonts | `saf` | ⬜ planned |
 | Text | `text` | ⬜ planned |
 | Text Align | `textAlign` | 🟡 partial |
@@ -2061,25 +2061,25 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `historyList.sort.opentime` | File › History › Sort › Opentime | ✅ available |
 | `historyList.sortBy` | File › History › Sort by | ✅ available |
 | `historyList.unpin` | File › History › Unpin | ✅ available |
-| `imageEditor.convert.1bpp_indexed` | Edit › Image Editor › Convert › 1 bpp Indexed | ⬜ planned |
-| `imageEditor.convert.24bpp` | Edit › Image Editor › Convert › 24 bpp | ⬜ planned |
-| `imageEditor.convert.32bpp` | Edit › Image Editor › Convert › 32 bpp | ⬜ planned |
-| `imageEditor.convert.8bpp_grayscale` | Edit › Image Editor › Convert › 8 bpp Grayscale | ⬜ planned |
-| `imageEditor.convert.8bpp_indexed` | Edit › Image Editor › Convert › 8 bpp Indexed | ⬜ planned |
-| `imageEditor.convert.grayscaleAlpha` | Edit › Image Editor › Convert › Grayscale Alpha | ⬜ planned |
-| `imageEditor.convert.rcm` | Edit › Image Editor › Convert › Convert To | ⬜ planned |
-| `imageEditor.filters.despeckle` | Edit › Image Editor › Filters › Despeckle | ⬜ planned |
-| `imageEditor.filters.edgeDetect` | Edit › Image Editor › Filters › Edge Detect | ⬜ planned |
-| `imageEditor.filters.embossAllDirections` | Edit › Image Editor › Filters › Emboss All Directions | ⬜ planned |
-| `imageEditor.filters.embossHorzVert` | Edit › Image Editor › Filters › Emboss Horizontal Vertical | ⬜ planned |
-| `imageEditor.filters.embossLaplascian` | Edit › Image Editor › Filters › Emboss Laplascian | ⬜ planned |
-| `imageEditor.filters.embossLossy` | Edit › Image Editor › Filters › Emboss Lossy | ⬜ planned |
-| `imageEditor.filters.gaussianBlur` | Edit › Image Editor › Filters › Gaussian Blur | ⬜ planned |
-| `imageEditor.filters.meanRemoval` | Edit › Image Editor › Filters › Mean Removal | ⬜ planned |
-| `imageEditor.filters.rcm` | Edit › Image Editor › Filters › Apply Filter | ⬜ planned |
-| `imageEditor.filters.sharpen` | Edit › Image Editor › Filters › Sharpen | ⬜ planned |
-| `imageEditor.filters.smooth` | Edit › Image Editor › Filters › Smooth | ⬜ planned |
-| `imageEditor.zoom.combo` | Edit › Image Editor › Zoom › Zoom | ⬜ planned |
+| `imageEditor.convert.1bpp_indexed` | Edit › Image Editor › Convert › 1 bpp Indexed | ✅ available |
+| `imageEditor.convert.24bpp` | Edit › Image Editor › Convert › 24 bpp | ✅ available |
+| `imageEditor.convert.32bpp` | Edit › Image Editor › Convert › 32 bpp | ✅ available |
+| `imageEditor.convert.8bpp_grayscale` | Edit › Image Editor › Convert › 8 bpp Grayscale | ✅ available |
+| `imageEditor.convert.8bpp_indexed` | Edit › Image Editor › Convert › 8 bpp Indexed | ✅ available |
+| `imageEditor.convert.grayscaleAlpha` | Edit › Image Editor › Convert › Grayscale Alpha | ✅ available |
+| `imageEditor.convert.rcm` | Edit › Image Editor › Convert › Convert To | ✅ available |
+| `imageEditor.filters.despeckle` | Edit › Image Editor › Filters › Despeckle | ✅ available |
+| `imageEditor.filters.edgeDetect` | Edit › Image Editor › Filters › Edge Detect | ✅ available |
+| `imageEditor.filters.embossAllDirections` | Edit › Image Editor › Filters › Emboss All Directions | ✅ available |
+| `imageEditor.filters.embossHorzVert` | Edit › Image Editor › Filters › Emboss Horizontal Vertical | ✅ available |
+| `imageEditor.filters.embossLaplascian` | Edit › Image Editor › Filters › Emboss Laplascian | ✅ available |
+| `imageEditor.filters.embossLossy` | Edit › Image Editor › Filters › Emboss Lossy | ✅ available |
+| `imageEditor.filters.gaussianBlur` | Edit › Image Editor › Filters › Gaussian Blur | ✅ available |
+| `imageEditor.filters.meanRemoval` | Edit › Image Editor › Filters › Mean Removal | ✅ available |
+| `imageEditor.filters.rcm` | Edit › Image Editor › Filters › Apply Filter | ✅ available |
+| `imageEditor.filters.sharpen` | Edit › Image Editor › Filters › Sharpen | ✅ available |
+| `imageEditor.filters.smooth` | Edit › Image Editor › Filters › Smooth | ✅ available |
+| `imageEditor.zoom.combo` | Edit › Image Editor › Zoom › Zoom | ✅ available |
 | `layersView.addNewGroup` | View › Layers Pane › Add New Group | ✅ available |
 | `layersView.addNewLayer` | View › Layers Pane › Add New Layer | ✅ available |
 | `layersView.applyOverrides` | View › Layers Pane › Apply Overrides | ✅ available |
@@ -2295,8 +2295,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `signs.markup.initials` | Document › Signs › Placeholders › Initials | ✅ available |
 | `signs.markup.name` | Document › Signs › Placeholders › Name | ✅ available |
 | `signs.markup.signature` | Document › Signs › Placeholders › Signature | ✅ available |
-| `splitPages.removeLine.list` | Edit › Split Pages › Remove Line › List | ⬜ planned |
-| `splitPages.removeLine.preview` | Edit › Split Pages › Remove Line › Preview | ⬜ planned |
+| `splitPages.removeLine.list` | Edit › Split Pages › Remove Line › List | ✅ available |
+| `splitPages.removeLine.preview` | Edit › Split Pages › Remove Line › Preview | ✅ available |
 | `stampCustom.add.curve` | Comments › Stamp Designer › Add › Curve | ✅ available |
 | `stampCustom.add.field` | Comments › Stamp Designer › Add › Field | ✅ available |
 | `stampCustom.add.field.counter` | Comments › Stamp Designer › Add › Field › Counter | ✅ available |

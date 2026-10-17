@@ -68,6 +68,8 @@ pub enum Tool {
     ZoomDyn,
     Sound,
     Video,
+    /// Select the pictures of the pages to edit them.
+    EditImages,
 }
 
 impl Tool {
@@ -82,6 +84,7 @@ impl Tool {
                 | Tool::ZoomDyn
                 | Tool::Loupe
                 | Tool::EditFields
+                | Tool::EditImages
         )
     }
 
@@ -144,6 +147,7 @@ impl Tool {
             Tool::ZoomDyn => "tool.zoomDyn",
             Tool::Sound => "tool.annot.sound",
             Tool::Video => "tool.annot.editVideo",
+            Tool::EditImages => "tool.editContent.images",
         }
     }
 
@@ -199,6 +203,7 @@ impl Tool {
             Tool::ZoomDyn => "tool.zoom_dyn",
             Tool::Sound => "tool.sound",
             Tool::Video => "tool.video",
+            Tool::EditImages => "tool.edit_images",
         }
     }
 

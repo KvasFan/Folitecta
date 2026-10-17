@@ -116,6 +116,11 @@ pub fn path(name: &str) -> &'static str {
         "palette" => {
             "M12 2a10 10 0 0 0 0 20c1.4 0 2-1 2-2v-1a2 2 0 0 1 2-2h2a4 4 0 0 0 4-4 10 10 0 0 0-10-11z M7.5 11h.01 M10.5 7h.01 M14.5 7h.01"
         }
+        "flip-h" => "M12 3v3 M12 9v3 M12 15v3 M12 21v0 M9 6 3 18h6z M15 6l6 12h-6z",
+        "flip-v" => "M3 12h3 M9 12h3 M15 12h3 M21 12h0 M6 9l12-6v6z M6 15l12 6v-6z",
+        "deskew" => "M6 6.5 17 4l2.2 9.6-11 2.5z M3 20h18",
+        "filter" => "M3 5h18l-7 8v6l-4 2v-8z",
+        "gray" => "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 3v18",
         _ => "M4 5h16v14H4z M8 9h8 M8 13h5",
     }
 }
@@ -148,6 +153,14 @@ pub fn for_command(id: &str) -> &'static str {
         "view.layout.onePage" => return "single",
         "view.layout.oneColumn" => return "continuous",
         "view.layout.twoPages" | "view.layout.twoColumns" => return "two",
+        "imageEditor.flipHorizontal" => return "flip-h",
+        "imageEditor.flipVertical" => return "flip-v",
+        "imageEditor.deskew" => return "deskew",
+        "imageEditor.grayscale" | "imageEditor.convert.8bpp_grayscale" => return "gray",
+        "imageEditor.filters" | "imageEditor.filters.rcm" => return "filter",
+        "imageEditor.fitVisible" => return "fit",
+        "editImage" | "editImage.builtin" => return "pencil",
+        "tool.editContent.images" => return "image",
         _ => {}
     }
     if has("zoomin") || has("zoom.level.actual") {

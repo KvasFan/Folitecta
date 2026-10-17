@@ -454,30 +454,6 @@ pub(super) fn AddGuides() -> Element {
     }
 }
 
-#[component]
-pub(super) fn SplitTiles() -> Element {
-    let st = use_context::<AppState>();
-    let lang = st.lang();
-    let mode = use_signal(|| default_scope(st));
-    let range = use_signal(String::new);
-    let cols = use_signal(|| "2".to_string());
-    let rows = use_signal(|| "1".to_string());
-    rsx! {
-        Frame { title: cmd_label(lang, registry().get("document.splitPages").unwrap()),
-            on_ok: move |_| match scope_pages(st, mode(), &range()) {
-                Ok(pages) => { let c = num_or(&cols, 2.0).clamp(1.0, 20.0) as usize; let r = num_or(&rows, 1.0).clamp(1.0, 20.0) as usize; apply(st, |tab| tab.doc.split_pages_grid(&pages, c, r)); }
-                Err(e) => st.error(e),
-            },
-            div { class: "hint", "{t(lang, \"dialog.tiles.hint\")}" }
-            div { class: "field-grid",
-                Num { label: t(lang, "dialog.tiles.cols"), value: cols, min: "1", max: "20" }
-                Num { label: t(lang, "dialog.tiles.rows"), value: rows, min: "1", max: "20" }
-            }
-            PageScope { mode, range }
-        }
-    }
-}
-
 /// One page-label range being edited: start page, style, prefix, first number.
 pub(super) type LabelRow = (String, String, String, String);
 

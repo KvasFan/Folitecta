@@ -128,6 +128,12 @@ impl Renderer {
         let cache = RenderCache::new();
         render_with(&self.pdf, &cache, page, scale, annotations)
     }
+
+    /// Render with every option (a transparent page among them).
+    pub fn render_page_with(&self, page: usize, scale: f32, opts: RenderOpts) -> Result<RenderedPage> {
+        let cache = RenderCache::new();
+        render_with_opts(&self.pdf, &cache, page, scale, opts)
+    }
 }
 
 type Reply<T> = Box<dyn FnOnce(T) + Send + 'static>;

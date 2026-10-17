@@ -350,7 +350,9 @@ fn annots_on(st: AppState, page: usize) -> Vec<folitecta_core::Annotation> {
 mod steps_features;
 mod steps_files;
 mod steps_panes;
+mod steps_pictures;
 mod steps_review;
+mod steps_split;
 mod steps_tools;
 
 /// What the interaction steps share: the app, where the screenshots go,
@@ -397,11 +399,13 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     steps_panes::run(&mut cx).await;
     steps_features::run(&mut cx).await;
     steps_files::run(&mut cx).await;
+    steps_pictures::run(&mut cx).await;
+    steps_split::run(&mut cx).await;
     let failures = cx.failures;
 
-    // 42. Undo everything added above.
+    // 44. Undo everything added above.
     st.set_tool(Tool::Hand);
-    for _ in 0..60 {
+    for _ in 0..80 {
         crate::commands::dispatch(st, "undo");
     }
     pause(500).await;
@@ -677,6 +681,8 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("new-folder", Dialog::NewFolder),
         ("folder-filter", Dialog::FolderFilter(None)),
         ("combine", Dialog::Combine),
+        ("picture-settings", Dialog::PictureSettings),
+        ("split-pages", Dialog::SplitPages),
     ];
     // The list of source files shows the files of the explorer step.
     let files = dir.join("explorer-files");

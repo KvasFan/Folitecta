@@ -111,6 +111,9 @@ pub struct DocTab {
     pub portfolio: PortfolioState,
     /// Tags, reading order, content and accessibility check panes.
     pub acc: AccState,
+    /// Picture selected with the pictures tool: page and index among the
+    /// pictures of the page.
+    pub image_sel: Option<(usize, usize)>,
 }
 
 /// What the accessibility panes show and select.
@@ -239,6 +242,7 @@ impl DocTab {
             collapsed_fields: HashSet::new(),
             portfolio: PortfolioState::default(),
             acc: AccState::default(),
+            image_sel: None,
         };
         // A portfolio opens on its initial file, when it names one.
         if let Some(key) = tab.doc.portfolio().and_then(|p| p.initial) {
@@ -307,6 +311,7 @@ impl DocTab {
             self.selected_pages.retain(|p| *p < n);
             self.selected_annot = None;
             self.text_sel = None;
+            self.image_sel = None;
             // Search rectangles refer to the previous revision.
             self.search.hits.clear();
         }

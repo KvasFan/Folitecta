@@ -1,13 +1,13 @@
 # Folitecta feature matrix
 
-Generated from the command registry for version 0.0.7. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
+Generated from the command registry for version 0.0.8. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1272 |
+| ✅ available | 1304 |
 | 🟡 partial | 56 |
-| ⬜ planned | 649 |
-| total | 1977 |
+| ⬜ planned | 620 |
+| total | 1980 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -68,13 +68,17 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Copy | `copy` | ✅ available |
 | Cut | `cut` | ✅ available |
 | Delete | `delete` | ✅ available |
+| Delete Text | `pageText.delete` | ✅ available |
+| Edit Text | `tool.editText` | ✅ available |
 | Find and Replace… | `findAndRepl` | ⬜ planned |
 | Find… | `find` | ✅ available |
 | ↳ Annotate Results | `find.annotateResults` | ⬜ planned |
 | ↳ Edit… | `find.edit` | ✅ available |
+| Insert Text | `pageText.insert` | ✅ available |
 | Paste | `paste` | ✅ available |
 | Paste Options | `pasteSpecial` | ✅ available |
 | Redo | `redo` | ✅ available |
+| Replace Text | `pageText.replace` | ✅ available |
 | Select All | `selectAll` | ✅ available |
 | Undo | `undo` | ✅ available |
 
@@ -91,8 +95,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Images | `tool.editContent.images` | ✅ available |
 | ↳ Shades | `tool.editContent.shades` | ⬜ planned |
 | ↳ Shapes | `tool.editContent.shapes` | ⬜ planned |
-| ↳ Text | `tool.editContent.text` | ⬜ planned |
-| Edit Text | `tool.editText` | ⬜ planned |
+| ↳ Text | `tool.editContent.text` | ✅ available |
 
 **Comment**
 
@@ -237,7 +240,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Attachments | `view.attachments` | ✅ available |
 | Bookmarks | `view.bookmarks` | ✅ available |
 | Classic UI | `view.switchToClassicUI` | ✅ available |
-| Comment Styles Palette | `view.commentStyles` | ⬜ planned |
+| Comment Styles Palette | `view.commentStyles` | ✅ available |
 | Comments | `view.comments` | ✅ available |
 | Content | `view.content` | ✅ available |
 | Content Editing | `view.toolbar.contentEditing` | ✅ available |
@@ -377,7 +380,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Redaction | `addAnnotBySelect.redaction` | ✅ available |
 | Replace Text | `tool.annot.replaceText` | ✅ available |
 | Strikeout | `addAnnotBySelect.strikeout` | ✅ available |
-| Text Correction | `tool.textCorrectionMarkup` | ⬜ planned |
+| Text Correction | `tool.textCorrectionMarkup` | ✅ available |
 | Underline | `addAnnotBySelect.underline` | ✅ available |
 
 **Drawing**
@@ -419,14 +422,14 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Accounting Calculator | `comments.accountingCalc` | ✅ available |
 | Add Comments | `comments.newGroup` | ⬜ planned |
 | Comment Styles | `annotStylesList` | ⬜ planned |
-| Comment Styles | `commentStyles` | ⬜ planned |
-| ↳ Apply Style | `commentStyles.applyStyle` | ⬜ planned |
-| ↳ Clone… | `commentStyles.clone` | ⬜ planned |
-| ↳ Delete | `commentStyles.delete` | ⬜ planned |
-| ↳ Rename… | `commentStyles.rename` | ⬜ planned |
-| ↳ Reset | `commentStyles.reset` | ⬜ planned |
-| ↳ Reset Style | `commentStyles.resetStyle` | ⬜ planned |
-| ↳ Show Properties | `commentStyles.showProps` | ⬜ planned |
+| Comment Styles | `commentStyles` | ✅ available |
+| ↳ Apply Style | `commentStyles.applyStyle` | ✅ available |
+| ↳ Clone… | `commentStyles.clone` | ✅ available |
+| ↳ Delete | `commentStyles.delete` | ✅ available |
+| ↳ Rename… | `commentStyles.rename` | ✅ available |
+| ↳ Reset | `commentStyles.reset` | ✅ available |
+| ↳ Reset Style | `commentStyles.resetStyle` | ✅ available |
+| ↳ Show Properties | `commentStyles.showProps` | ✅ available |
 | Copy | `annotStyle.copy` | ✅ available |
 | Delete All Comments | `comments.deleteAllDoc` | ✅ available |
 | Delete All Visible Comments | `comments.deleteAllShown` | ✅ available |
@@ -582,20 +585,20 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 |---|---|---|
 | Apply All Redactions | `document.applyRedactions` | ✅ available |
 | Apply Selected Redactions | `annots.applyRedactions` | ✅ available |
-| Overlay | `overlay` | ⬜ planned |
-| ↳ Fill Color | `overlay.fcolor` | ⬜ planned |
-| ↳ Font Name | `overlay.fontName` | ⬜ planned |
-| ↳ Font Size | `overlay.fontSize` | ⬜ planned |
-| ↳ Repeat Text | `overlay.repeatText` | ⬜ planned |
-| ↳ Text Color | `overlay.textColor` | ⬜ planned |
+| Overlay | `overlay` | ✅ available |
+| ↳ Fill Color | `overlay.fcolor` | ✅ available |
+| ↳ Font Name | `overlay.fontName` | ✅ available |
+| ↳ Font Size | `overlay.fontSize` | ✅ available |
+| ↳ Repeat Text | `overlay.repeatText` | ✅ available |
+| ↳ Text Color | `overlay.textColor` | ✅ available |
 | Redaction | `addAnnotsByFindResult.redaction` | ✅ available |
 | Redaction | `addAnnotsBySearchResult.redaction` | ✅ available |
-| Redaction | `document.redaction` | ⬜ planned |
-| Redaction | `redaction` | ⬜ planned |
-| ↳ Add Code | `redaction.addTextCode` | ⬜ planned |
-| ↳ Add Code Set | `redaction.addTextCodeSet` | ⬜ planned |
-| ↳ Overlay | `redaction.overlay` | ⬜ planned |
-| ↳ Overlay Type | `redaction.overlayType` | ⬜ planned |
+| Redaction | `document.redaction` | ✅ available |
+| Redaction | `redaction` | ✅ available |
+| ↳ Add Code | `redaction.addTextCode` | ✅ available |
+| ↳ Add Code Set | `redaction.addTextCodeSet` | ✅ available |
+| ↳ Overlay | `redaction.overlay` | ✅ available |
+| ↳ Overlay Type | `redaction.overlayType` | ✅ available |
 
 **Document Security**
 
@@ -1291,6 +1294,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Find… | `find` | ✅ available |
 | Find and Replace… | `findAndRepl` | ⬜ planned |
 | Search… | `search` | ✅ available |
+| Insert Text | `pageText.insert` | ✅ available |
+| Replace Text | `pageText.replace` | ✅ available |
+| Delete Text | `pageText.delete` | ✅ available |
 | Arrange | `arrange` | ⬜ planned |
 | Object | `object` | ⬜ planned |
 | Preferences… | `prefs` | ✅ available |
@@ -1431,7 +1437,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Checker | `chekerView` | ✅ available |
 | Classic UI | `view.switchToClassicUI` | ✅ available |
 | Collapse All | `collapseAll` | ⬜ planned |
-| Comment Styles Palette | `view.commentStyles` | ⬜ planned |
+| Comment Styles Palette | `view.commentStyles` | ✅ available |
 | Comments View | `commentsView` | ✅ available |
 | Compare Documents | `cmpDocs` | 🟡 partial |
 | Comparison | `comparisonView` | ✅ available |
@@ -1540,7 +1546,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Replace Fonts… | `document.replaceFonts` | ⬜ planned |
 | Digital Signatures | `document.signatures` | 🟡 partial |
 | Security Policies | `securityPolicies` | ⬜ planned |
-| Redaction | `document.redaction` | ⬜ planned |
+| Redaction | `document.redaction` | ✅ available |
 | Document JavaScript | `document.javaScript` | ✅ available |
 | Document Actions | `document.actions` | ✅ available |
 | Word Count | `document.wordCount` | ✅ available |
@@ -1592,7 +1598,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | OCR Image… | `OCRImage` | ⬜ planned |
 | OCR Selected Region… | `document.OCRSelRgn` | ⬜ planned |
 | Options… | `document.options` | ⬜ planned |
-| Overlay | `overlay` | ⬜ planned |
+| Overlay | `overlay` | ✅ available |
 | Overlay Pages… | `document.overlayPages` | ✅ available |
 | Page Marks | `pagemarks` | 🟡 partial |
 | Page Structure | `pageStructure` | ✅ available |
@@ -1602,7 +1608,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Rasterize Pages… | `document.rasterizePages` | ✅ available |
 | Recompress Images | `recompressImages` | ⬜ planned |
 | Recompress Image… | `document.recompressImage` | 🟡 partial |
-| Redaction | `redaction` | ⬜ planned |
+| Redaction | `redaction` | ✅ available |
 | Remove All Web Links | `removeAllWebLinks` | ✅ available |
 | Remove Cropped Content | `document.removeCroppedContent` | 🟡 partial |
 | Security Policies | `secPoliciesList` | ⬜ planned |
@@ -1634,7 +1640,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Export Comments to Data File… | `comments.export` | ✅ available |
 | Summarize Comments… | `comments.summarize` | ✅ available |
 | Comment Styles | `annotStylesList` | ⬜ planned |
-| Comment Styles | `commentStyles` | ⬜ planned |
+| Comment Styles | `commentStyles` | ✅ available |
 | 3D | `3d` | ⬜ planned |
 | Accounting Calculator | `ac` | ✅ available |
 | Accounting Calculator | `comments.ac` | ✅ available |
@@ -2225,11 +2231,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `pubsec.cert.remove` | Document › Public Key Security › Cert › Remove | ✅ available |
 | `recoveryView.options` | View › Recovery Pane › Options | ⬜ planned |
 | `recoveryView.recovery` | View › Recovery Pane › Recovery | ⬜ planned |
-| `redaction.overlay.blur` | Document › Redaction › Overlay › Blur | ⬜ planned |
-| `redaction.overlay.blurExtra` | Document › Redaction › Overlay › Blur Extra | ⬜ planned |
-| `redaction.overlay.pixelate` | Document › Redaction › Overlay › Pixelate | ⬜ planned |
-| `redaction.overlay.pixelateExtra` | Document › Redaction › Overlay › Pixelate Extra | ⬜ planned |
-| `redaction.overlay.standard` | Document › Redaction › Overlay › Standard | ⬜ planned |
+| `redaction.overlay.blur` | Document › Redaction › Overlay › Blur | ✅ available |
+| `redaction.overlay.blurExtra` | Document › Redaction › Overlay › Blur Extra | ✅ available |
+| `redaction.overlay.pixelate` | Document › Redaction › Overlay › Pixelate | ✅ available |
+| `redaction.overlay.pixelateExtra` | Document › Redaction › Overlay › Pixelate Extra | ✅ available |
+| `redaction.overlay.standard` | Document › Redaction › Overlay › Standard | ✅ available |
 | `rulers.units.centimeters` | View › Rulers › Units › Centimeters | ✅ available |
 | `rulers.units.inches` | View › Rulers › Units › Inches | ✅ available |
 | `rulers.units.millimeters` | View › Rulers › Units › Millimeters | ✅ available |

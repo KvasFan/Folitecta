@@ -1,28 +1,30 @@
-## Folitecta 0.0.7 — explorer, picture editor and split pages
+## Folitecta 0.0.8 — page text editing, redaction overlays and comment styles
 
 A free PDF editor written entirely in Rust with a Dioxus desktop interface.
 
 **Highlights**
 
-- Explorer pane: the folders and files of the computer with places of your own, folder filters,
-  thumbnails of PDF files, new folders, files moved to the recycle bin and lists of files.
-- Combine files: a list of source files (PDF files, pictures, text files) added one by one, from
-  a folder or from a list, reordered, with the pages to take from each PDF file.
-- Picture editor: select a picture on the page with Edit Content › Images, then turn, mirror,
-  crop, straighten, filter or convert it (gray, black and white, 256 colours) in place, in the
-  editor or in another app; Apply to All changes it everywhere it is drawn.
-- Split pages editor: cut lines drawn, dragged or typed over a page, a grid of equal parts,
-  rulers and units, on every page, odd or even pages, or the page shown.
-- Under the hood: smaller modules, a comparison that keeps memory linear, the tags tree read once
-  per change for the panes.
+- Editing the text of the page, in the Edit group of Home: the Edit Text tool puts a caret in the
+  text; typing, Delete and Backspace, Insert Text, Replace Text and Delete Text change the text
+  drawn on the page and move the rest of the line to make room.
+- The comment tools stay comments: Insert Text, Replace Text and Text Correction in the Comments
+  tab suggest the change with a comment and leave the page as it is.
+- Shapes are shown as they will look while they are drawn (rectangles, ellipses, highlights, text
+  boxes, lines, arrows) with the style of their tool.
+- Pencil: a pencil cursor, smooth curves with at least twice as many pieces, and the tool stays
+  chosen for the next stroke.
+- Redaction overlays: a colour, blur or pixelation over the redacted areas, with overlay text and
+  sets of redaction codes.
+- Comment Styles pane: named styles for each kind of comment, a palette over the page to pick them,
+  and default styles reset.
 
 **Binaries**
 
 | Platform | File |
 |---|---|
-| Windows x64 | `folitecta-0.0.7-windows-x64.zip` |
-| Linux x64 | `folitecta-0.0.7-linux-x64.tar.gz` |
-| macOS (Apple silicon and Intel) | `folitecta-0.0.7-macos-universal.zip` (app bundle) or `.tar.gz` (binary) |
+| Windows x64 | `folitecta-0.0.8-windows-x64.zip` |
+| Linux x64 | `folitecta-0.0.8-linux-x64.tar.gz` |
+| macOS (Apple silicon and Intel) | `folitecta-0.0.8-macos-universal.zip` (app bundle) or `.tar.gz` (binary) |
 
 Linux needs the WebKitGTK 4.1 runtime (`libwebkit2gtk-4.1-0`). macOS builds are not notarized:
 right-click → Open on first launch.

@@ -139,17 +139,21 @@ pub enum Dialog {
         tip: (f32, f32),
         rect: [f32; 4],
     },
-    /// Text to insert before (or after) character `index` of a page.
+    /// Text to insert before (or after) character `index` of a page: in the
+    /// text of the page, or (`note`) as a correction comment.
     InsertText {
         page: usize,
         index: usize,
         after: bool,
+        note: bool,
     },
-    /// Replacement for the characters `start..end` of a page.
+    /// Replacement for the characters `start..end` of a page: in the text of
+    /// the page, or (`note`) as a correction comment.
     ReplaceText {
         page: usize,
         start: usize,
         end: usize,
+        note: bool,
     },
     /// Scale of measurement comments.
     Calibrate,
@@ -323,6 +327,14 @@ pub enum Dialog {
     ExternalPicture,
     /// How pictures are edited: the editor, the file type, every drawing.
     PictureSettings,
+    /// The name of a named comment style.
+    StyleName(usize),
+    /// How redacted areas look once applied.
+    RedactionLook,
+    /// A new redaction code, or (set) a new set of codes.
+    RedactionCode {
+        set: bool,
+    },
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

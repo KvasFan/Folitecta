@@ -9,7 +9,7 @@ use crate::state::{AppState, Tool};
 /// Serializable mirror of [`AnnotStyle`] for the preferences file.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
-struct Stored {
+pub struct Stored {
     color: Option<[f32; 3]>,
     fill: Option<[f32; 3]>,
     opacity: f32,
@@ -227,6 +227,77 @@ pub fn set_default_style(st: AppState, kind: &str, style: &AnnotStyle) {
     if let Ok(json) = serde_json::to_string(&Stored::from(style)) {
         st.set_value(&format!("style.{kind}"), json);
     }
+}
+
+/// Every style kind (subtypes plus tool variants such as typewriter or callout).
+pub const KINDS: &[&str] = &[
+    "Text",
+    "Square",
+    "Circle",
+    "Line",
+    "Polygon",
+    "PolyLine",
+    "HighlightArea",
+    "FreeText",
+    "Typewriter",
+    "Ink",
+    "Stamp",
+    "Redact",
+    "Highlight",
+    "Underline",
+    "StrikeOut",
+    "Squiggly",
+    "Cloud",
+    "Callout",
+    "Distance",
+    "Perimeter",
+    "Area",
+    "FreeHighlight",
+    "Caret",
+    "FileAttachment",
+];
+
+/// A comment style kept by name, for comments of one kind.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NamedStyle {
+    pub name: String,
+    pub kind: String,
+    pub style: Stored,
+}
+
+impl NamedStyle {
+    pub fn new(name: String, kind: &str, style: &AnnotStyle) -> Self {
+        NamedStyle {
+            name,
+            kind: kind.to_string(),
+            style: Stored::from(style),
+        }
+    }
+
+    pub fn style(&self) -> AnnotStyle {
+        AnnotStyle::from(self.style.clone())
+    }
+}
+
+/// The comment styles kept by name.
+pub fn named_styles(st: AppState) -> Vec<NamedStyle> {
+    st.ui
+        .peek()
+        .value("comment.styles")
+        .and_then(|json| serde_json::from_str(json).ok())
+        .unwrap_or_default()
+}
+
+pub fn save_named_styles(st: AppState, list: &[NamedStyle]) {
+    if let Ok(json) = serde_json::to_string(list) {
+        st.set_value("comment.styles", json);
+    }
+}
+
+/// Forget the default style of new comments of `kind` (the built-in one applies).
+pub fn reset_default_style(st: AppState, kind: &str) {
+    st.ui_mut().values.remove(&format!("style.{kind}"));
+    st.save_prefs();
 }
 
 /// Style kind of an existing comment (typewriter text is a borderless text box).

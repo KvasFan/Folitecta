@@ -211,6 +211,18 @@ fn poly(points: &[(f32, f32)], close: bool) -> String {
     s
 }
 
+/// A smooth path through the points: the curves of [`crate::smooth::curves`].
+fn curve_path(points: &[(f32, f32)]) -> String {
+    let mut s = format!("{} {} m ", fmt_num(points[0].0), fmt_num(points[0].1));
+    for c in crate::smooth::curves(points) {
+        for p in [c.p1, c.p2, c.p3] {
+            s.push_str(&format!("{} {} ", fmt_num(p.x as f32), fmt_num(p.y as f32)));
+        }
+        s.push_str("c ");
+    }
+    s
+}
+
 /// Size of a line ending for a stroke width.
 fn ending_size(width: f32) -> f32 {
     (width * 4.0).max(7.0)
@@ -787,10 +799,12 @@ impl Document {
                 body.push_str("1 J 1 j ");
                 stroke_setup(&mut body);
                 for p in &paths {
-                    if p.len() == 1 {
-                        body.push_str(&poly(&[p[0], (p[0].0 + 0.01, p[0].1)], false));
-                    } else {
-                        body.push_str(&poly(p, false));
+                    match p.len() {
+                        0 => continue,
+                        1 => body.push_str(&poly(&[p[0], (p[0].0 + 0.01, p[0].1)], false)),
+                        2 => body.push_str(&poly(p, false)),
+                        // Freehand strokes are drawn as curves through their points.
+                        _ => body.push_str(&curve_path(p)),
                     }
                     body.push_str("S ");
                 }

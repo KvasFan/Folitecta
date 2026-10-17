@@ -166,7 +166,10 @@ pub fn finish_drawing(st: AppState) {
 
 pub(super) fn after_create(st: AppState) {
     files::set_window_title(st);
-    if !option_on(st, "tool.keepSelected") {
+    // A freehand drawing takes many strokes: the pencil and the free
+    // highlighter stay chosen.
+    let freehand = matches!(*st.tool.peek(), Tool::Ink | Tool::FreeHighlight);
+    if !freehand && !option_on(st, "tool.keepSelected") {
         st.set_tool(Tool::Hand);
     }
 }

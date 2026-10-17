@@ -285,6 +285,11 @@ pub fn App() -> Element {
             }
             return;
         }
+        // The edit text tool: Delete, Backspace and typing change the page text.
+        if !mods.ctrl() && !mods.alt() && !mods.meta() && commands::textedit::key(st, &key) {
+            evt.prevent_default();
+            return;
+        }
         if let Key::Character(c) = &key {
             if mods.ctrl() && mods.shift() && c.eq_ignore_ascii_case("p") {
                 evt.prevent_default();

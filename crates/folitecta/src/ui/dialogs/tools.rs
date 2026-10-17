@@ -229,48 +229,109 @@ pub(super) fn CalloutDialog(page: usize, tip_x: f32, tip_y: f32, rect: Vec<f32>)
     }
 }
 
+/// The text typed on the page that opened a text dialog (taken once).
+fn typed_text() -> String {
+    let typed = crate::commands::textedit::TYPED.peek().clone();
+    if !typed.is_empty() {
+        spawn(async {
+            crate::commands::textedit::TYPED.write().clear();
+        });
+    }
+    typed
+}
+
+/// Change the text of the page, or suggest the change with a comment.
 #[component]
-pub(super) fn InsertTextDialog(page: usize, index: usize, after: bool) -> Element {
+fn TextMode(note: Signal<bool>) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
-    let text = use_signal(String::new);
+    let mut note = note;
     rsx! {
-        Frame { title: t(lang, "tool.insert_text"),
-            on_ok: move |_| {
-                let c = text();
-                let author = st.ui.read().author.clone();
-                let color = crate::styles::default_style(st, "Caret").color.unwrap_or([0.1, 0.4, 0.95]);
-                apply(st, |tab| tab.doc.insert_text_mark(page, index, after, &c, color, &author).map(|_| ()));
-                tool_done(st);
-            },
-            Area { label: t(lang, "dialog.insert_text.text"), value: text, autofocus: true }
+        div { class: "radio-col",
+            label { class: "check",
+                input { r#type: "radio", name: "text-mode", checked: !note(), onchange: move |_| note.set(false) }
+                span { "{t(lang, \"text.mode.page\")}" }
+            }
+            label { class: "check",
+                input { r#type: "radio", name: "text-mode", checked: note(), onchange: move |_| note.set(true) }
+                span { "{t(lang, \"text.mode.note\")}" }
+            }
         }
     }
 }
 
 #[component]
-pub(super) fn ReplaceTextDialog(page: usize, start: usize, end: usize) -> Element {
+pub(super) fn InsertTextDialog(page: usize, index: usize, after: bool, note: bool) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    // What was typed on the page to open the dialog comes first.
+    let text = use_signal(typed_text);
+    let as_note = use_signal(|| note);
+    rsx! {
+        Frame { title: t(lang, "tool.insert_text"),
+            on_ok: move |_| {
+                let c = text();
+                if as_note() {
+                    let author = st.ui.read().author.clone();
+                    let color = crate::styles::default_style(st, "Caret").color.unwrap_or([0.1, 0.4, 0.95]);
+                    apply(st, |tab| tab.doc.insert_text_mark(page, index, after, &c, color, &author).map(|_| ()));
+                } else {
+                    let at = if after { index + 1 } else { index };
+                    if crate::commands::textedit::edit_text(st, page, at, at, &c) {
+                        st.set_dialog(Dialog::None);
+                    }
+                }
+                tool_done(st);
+            },
+            Area { label: t(lang, "dialog.insert_text.text"), value: text, autofocus: true }
+            TextMode { note: as_note }
+        }
+    }
+}
+
+#[component]
+pub(super) fn ReplaceTextDialog(page: usize, start: usize, end: usize, note: bool) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
     let original = st
         .read_active(|t| t.doc.text_range(page, start, end))
         .unwrap_or_default();
-    let text = use_signal(String::new);
+    // What was typed on the page comes first; otherwise changing the page
+    // starts from the text there, and a suggestion from nothing.
+    let start_text = original.clone();
+    let text = use_signal(move || {
+        let typed = typed_text();
+        if !typed.is_empty() {
+            typed
+        } else if note {
+            String::new()
+        } else {
+            start_text.clone()
+        }
+    });
+    let as_note = use_signal(|| note);
     rsx! {
         Frame { title: t(lang, "tool.replace_text"),
             on_ok: move |_| {
                 let c = text();
-                let author = st.ui.read().author.clone();
-                let color = crate::styles::default_style(st, "Caret").color.unwrap_or([0.1, 0.4, 0.95]);
-                apply(st, |tab| {
-                    let r = tab.doc.replace_text_range(page, start, end, &c, color, &author);
-                    tab.text_sel = None;
-                    r
-                });
+                if as_note() {
+                    let author = st.ui.read().author.clone();
+                    let color = crate::styles::default_style(st, "Caret").color.unwrap_or([0.1, 0.4, 0.95]);
+                    apply(st, |tab| {
+                        let r = tab.doc.replace_text_range(page, start, end, &c, color, &author);
+                        tab.text_sel = None;
+                        r
+                    });
+                } else {
+                    if crate::commands::textedit::edit_text(st, page, start, end, &c) {
+                        st.set_dialog(Dialog::None);
+                    }
+                }
                 tool_done(st);
             },
             div { class: "kv", span { class: "k", "{t(lang, \"dialog.replace_text.original\")}" } span { class: "v", "{original}" } }
             Area { label: t(lang, "dialog.replace_text.with"), value: text, autofocus: true }
+            TextMode { note: as_note }
         }
     }
 }

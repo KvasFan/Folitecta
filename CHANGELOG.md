@@ -6,6 +6,38 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-10-17
+
+### Added
+
+- Editing the text of a page, in the Edit group of Home (and the Edit menu): the Edit Text tool
+  places a caret in the text, Delete and Backspace remove the selected characters from the page,
+  typing opens Insert Text with what was typed; Insert Text, Replace Text and Delete Text change
+  the text drawn on the page (the rest of the line moves to make room). Characters missing from an
+  embedded font are written with a standard font of the same family, and a message says so.
+- The toolbar of a text selection replaces or deletes the selected text in the page.
+- Text Correction tool: insertions and replacements suggested with comments. Insert Text and
+  Replace Text of the Comments tab keep suggesting changes with comments; their dialog can switch
+  to changing the page instead.
+- Rectangles, ellipses, highlights, text boxes, lines and arrows are drawn as they will look while
+  the pointer moves, with the style of the tool, instead of a selection frame. With Shift held,
+  rectangles and ellipses become squares and circles, and lines go in steps of 45 degrees.
+- The pencil shows a pencil cursor, stays chosen after each stroke, and draws smooth curves: the
+  stroke follows curves through the points of the pointer, with at least twice as many pieces,
+  both while drawing and in the comment.
+- Redaction overlays: areas filled with a colour, blurred or pixelated (normal or strong) when the
+  redactions are applied; overlay text with its font, size and colour, fitted to the area or
+  repeated; the look of new redactions or of the selected one.
+- Redaction codes: sets of codes (added, chosen) whose codes become the overlay text.
+- Comment Styles pane: named styles per kind of comment, cloned from the default or the selected
+  comment, renamed, edited, deleted, made the default of the tool and applied to the selected
+  comment; default styles reset. A styles palette over the page picks a style for the tool.
+
+### Changed
+
+- Pencil comments, including those made elsewhere, are drawn as smooth curves through their points.
+- The Edit Text tool moved from Objects to the Edit group of Home.
+
 ## [0.0.7] - 2026-10-17
 
 ### Added

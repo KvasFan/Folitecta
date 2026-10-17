@@ -16,39 +16,15 @@ enum Target {
     Comment(usize, usize, &'static str),
     /// Defaults of new comments of a kind.
     Defaults(&'static str),
+    /// A comment style kept by name (its index) and its kind.
+    Named(usize, &'static str),
 }
 
-/// Every style kind (subtypes plus tool variants such as typewriter or callout).
-const KINDS: &[&str] = &[
-    "Text",
-    "Square",
-    "Circle",
-    "Line",
-    "Polygon",
-    "PolyLine",
-    "HighlightArea",
-    "FreeText",
-    "Typewriter",
-    "Ink",
-    "Stamp",
-    "Redact",
-    "Highlight",
-    "Underline",
-    "StrikeOut",
-    "Squiggly",
-    "Cloud",
-    "Callout",
-    "Distance",
-    "Perimeter",
-    "Area",
-    "FreeHighlight",
-    "Caret",
-    "FileAttachment",
-];
-
-fn static_kind(kind: &str) -> &'static str {
+pub(crate) fn static_kind(kind: &str) -> &'static str {
     KINDS.iter().find(|k| **k == kind).copied().unwrap_or("Square")
 }
+
+use crate::styles::{KINDS, named_styles, save_named_styles};
 
 /// What the editor offers for a kind of comment.
 struct Caps {
@@ -137,21 +113,28 @@ pub fn StyleEditor() -> Element {
             Some((p, i, a.subtype, style))
         })
         .flatten();
-    let (target, style) = match selected {
-        Some((p, i, subtype, style))
+    // A style chosen in the comment styles pane, when no comment is selected.
+    let editing = crate::commands::comment_styles::EDITING();
+    let (target, style) = match (selected, editing.clone()) {
+        (Some((p, i, subtype, style)), _)
             if folitecta_core::appearance::GENERATED_SUBTYPES.contains(&subtype.as_str()) =>
         {
             let kind = comment_kind(st, p, i, &subtype, &style);
             (Target::Comment(p, i, static_kind(&kind)), style)
         }
-        Some(_) => return rsx! {},
-        None => match tool_subtype(tool) {
+        (Some(_), _) => return rsx! {},
+        (None, Some((kind, Some(i)))) => match named_styles(st).get(i) {
+            Some(n) => (Target::Named(i, static_kind(&kind)), n.style()),
+            None => return rsx! {},
+        },
+        (None, Some((kind, None))) => (Target::Defaults(static_kind(&kind)), default_style(st, &kind)),
+        (None, None) => match tool_subtype(tool) {
             Some(kind) => (Target::Defaults(static_kind(kind)), default_style(st, kind)),
             None => return rsx! {},
         },
     };
     let kind = match target {
-        Target::Comment(_, _, k) | Target::Defaults(k) => k,
+        Target::Comment(_, _, k) | Target::Defaults(k) | Target::Named(_, k) => k,
     };
     let caps = caps(kind);
     let apply = move |new: AnnotStyle| match target {
@@ -169,10 +152,33 @@ pub fn StyleEditor() -> Element {
             }
         }
         Target::Defaults(kind) => set_default_style(st, kind, &new),
+        Target::Named(i, _) => {
+            let mut list = named_styles(st);
+            if let Some(n) = list.get_mut(i) {
+                *n = crate::styles::NamedStyle::new(n.name.clone(), &n.kind, &new);
+                save_named_styles(st, &list);
+            }
+        }
     };
     let title = match target {
         Target::Comment(..) => t(lang, "style.title_comment"),
+        Target::Defaults(k) if editing.is_some() => tf(
+            lang,
+            "style.title_named",
+            &[("name", &crate::commands::comment_styles::default_name(lang, k))],
+        ),
         Target::Defaults(_) => tf(lang, "style.title_tool", &[("tool", &t(lang, tool.label_key()))]),
+        Target::Named(i, _) => tf(
+            lang,
+            "style.title_named",
+            &[(
+                "name",
+                &named_styles(st)
+                    .get(i)
+                    .map(|n| n.name.clone())
+                    .unwrap_or_default(),
+            )],
+        ),
     };
     let color = style.color;
     let fill = style.fill;
@@ -280,6 +286,12 @@ pub fn StyleEditor() -> Element {
                         }
                     }
                     Target::Defaults(k) => rsx! { button { class: "tbtn", onclick: move |_| set_default_style(st, k, &builtin(k)), "{t(lang, \"style.reset_default\")}" } },
+                    Target::Named(_, k) => {
+                        let s1 = s.clone();
+                        rsx! {
+                            button { class: "tbtn", title: "{t(lang, \"style.make_default_hint\")}", onclick: move |_| { set_default_style(st, k, &s1); st.toast(crate::state::ToastKind::Ok, t(st.lang(), "style.default_saved"), ""); }, "{t(lang, \"style.make_default\")}" }
+                        }
+                    }
                 }
             }
         }

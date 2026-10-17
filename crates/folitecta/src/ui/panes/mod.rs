@@ -199,6 +199,8 @@ pub fn PanePanel() -> Element {
         rsx! { crate::ui::stamps::StampsPane {} }
     } else if pane == Pane::Explorer {
         rsx! { crate::ui::explorer::ExplorerPane {} }
+    } else if pane == Pane::Other("comment-styles".into()) {
+        rsx! { crate::ui::comment_styles::CommentStylesPane {} }
     } else if !has_doc {
         rsx! { div { class: "pane-empty", "{t(lang, \"toast.no_document\")}" } }
     } else {

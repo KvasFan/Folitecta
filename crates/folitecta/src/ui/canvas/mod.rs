@@ -62,6 +62,7 @@ pub fn CanvasArea() -> Element {
                 Canvas {}
                 Loupe {}
                 if option_on(st, "view.panzoom") { PanZoomWindow {} }
+                if option_on(st, "view.commentStyles") { crate::ui::comment_styles::StylesPalette {} }
             }
         }
     }
@@ -367,6 +368,7 @@ fn Canvas() -> Element {
         Tool::Zoom | Tool::ZoomDyn => "tool-zoom",
         Tool::Loupe => "tool-loupe",
         Tool::EditAnnots => "tool-edit",
+        Tool::Ink => "tool-pencil",
         _ => "tool-draw",
     };
     let mut scroll_pending = use_signal(|| false);

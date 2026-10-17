@@ -12,6 +12,7 @@ use image::RgbaImage;
 use image::imageops::FilterType;
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
+use crate::content_edit::{Joined, Splice, count_refs, joined, rewrite, stream_span};
 use crate::content_lex::{name_of, operations};
 use crate::document::Document;
 use crate::error::{Error, Result};
@@ -66,31 +67,6 @@ impl PageImage {
 
 /// Pictures of the pages already looked at, keyed by revision.
 pub(crate) type ImageCache = Option<(u64, HashMap<usize, Arc<Vec<PageImage>>>)>;
-
-/// The content streams of a page joined, with where each starts.
-struct Joined {
-    ids: Vec<ObjectId>,
-    starts: Vec<usize>,
-    data: Vec<u8>,
-}
-
-fn joined(doc: &lopdf::Document, page_id: ObjectId) -> Joined {
-    let mut j = Joined {
-        ids: Vec::new(),
-        starts: Vec::new(),
-        data: Vec::new(),
-    };
-    for id in doc.get_page_contents(page_id) {
-        j.ids.push(id);
-        j.starts.push(j.data.len());
-        if let Ok(s) = doc.get_object(id).and_then(Object::as_stream) {
-            j.data
-                .extend(s.decompressed_content().unwrap_or_else(|_| s.content.clone()));
-        }
-        j.data.push(b'\n');
-    }
-    j
-}
 
 /// One picture drawn with `Do` by the page content.
 struct Draw {
@@ -722,21 +698,6 @@ pub(crate) fn encode_pixels(
 
 // ---- Putting a picture back ---------------------------------------------------
 
-/// How many times an object is referred to.
-fn count_refs(doc: &lopdf::Document, target: ObjectId) -> usize {
-    fn walk(o: &Object, t: ObjectId) -> usize {
-        match o {
-            Object::Reference(r) => usize::from(*r == t),
-            Object::Array(a) => a.iter().map(|x| walk(x, t)).sum(),
-            Object::Dictionary(d) => d.iter().map(|(_, x)| walk(x, t)).sum(),
-            Object::Stream(s) => s.dict.iter().map(|(_, x)| walk(x, t)).sum(),
-            _ => 0,
-        }
-    }
-    doc.objects.values().map(|o| walk(o, target)).sum::<usize>()
-        + doc.trailer.iter().map(|(_, x)| walk(x, target)).sum::<usize>()
-}
-
 /// A matrix for `cm`, precise enough for the unit square of a large picture.
 fn matrix_text(m: Affine) -> String {
     m.as_coeffs()
@@ -758,61 +719,6 @@ fn is_identity(m: Affine) -> bool {
         .iter()
         .zip(Affine::IDENTITY.as_coeffs())
         .all(|(a, b)| (a - b).abs() < 1e-6)
-}
-
-/// Point a page at `new` instead of the content stream `old`.
-fn replace_content_ref(
-    doc: &mut lopdf::Document,
-    page_id: ObjectId,
-    old: ObjectId,
-    new: ObjectId,
-) -> Result<()> {
-    let contents = doc.get_dictionary(page_id)?.get(b"Contents")?.clone();
-    let replaced = match contents {
-        Object::Reference(r) if r == old => Object::Reference(new),
-        Object::Reference(r) => {
-            let arr = doc.get_object(r)?.as_array()?.clone();
-            Object::Array(swap_ref(arr, old, new))
-        }
-        Object::Array(a) => Object::Array(swap_ref(a, old, new)),
-        other => other,
-    };
-    doc.get_dictionary_mut(page_id)?.set("Contents", replaced);
-    Ok(())
-}
-
-fn swap_ref(arr: Vec<Object>, old: ObjectId, new: ObjectId) -> Vec<Object> {
-    arr.into_iter()
-        .map(|o| match o {
-            Object::Reference(r) if r == old => Object::Reference(new),
-            o => o,
-        })
-        .collect()
-}
-
-/// The content stream holding bytes `start..end` of the joined content:
-/// its position and where it starts and ends.
-fn stream_span(j: &Joined, start: usize, end: usize) -> Result<(usize, usize, usize)> {
-    let k = j.starts.partition_point(|s| *s <= start).saturating_sub(1);
-    if k >= j.ids.len() {
-        return Err(Error::Invalid("the page has no content".into()));
-    }
-    let base = j.starts[k];
-    // Each stream is followed by the newline that joins it to the next.
-    let stream_end = j.starts.get(k + 1).copied().unwrap_or(j.data.len()) - 1;
-    if end > stream_end {
-        return Err(Error::Invalid(
-            "the picture is drawn across two content streams".into(),
-        ));
-    }
-    Ok((k, base, stream_end))
-}
-
-/// A change of the joined content: bytes `start..end` become `with`.
-struct Splice {
-    start: usize,
-    end: usize,
-    with: Vec<u8>,
 }
 
 /// Width over height of a drawing on the page (and whether it is mirrored,
@@ -849,20 +755,6 @@ fn encode_stencil(px: &RgbaImage) -> Result<Stream> {
     Ok(s)
 }
 
-/// The page's /Contents is an array object other pages point at too.
-fn shared_contents_array(doc: &lopdf::Document, page_id: ObjectId) -> bool {
-    match doc
-        .get_dictionary(page_id)
-        .ok()
-        .and_then(|d| d.get(b"Contents").ok())
-    {
-        Some(Object::Reference(r)) => {
-            doc.get_object(*r).map(|o| o.as_array().is_ok()).unwrap_or(false) && count_refs(doc, *r) > 1
-        }
-        _ => false,
-    }
-}
-
 /// A resource name for a new picture that the page does not use yet.
 fn free_name(doc: &lopdf::Document, page_id: ObjectId, id: ObjectId) -> String {
     let taken = page_xobjects(doc, page_id);
@@ -873,41 +765,6 @@ fn free_name(doc: &lopdf::Document, page_id: ObjectId, id: ObjectId) -> String {
         n += 1;
     }
     name
-}
-
-/// Apply changes to the joined content of a page, stream by stream.
-fn rewrite(doc: &mut lopdf::Document, page_id: ObjectId, j: &Joined, splices: &[Splice]) -> Result<()> {
-    // Streams reached through an array other pages share are shared too.
-    let array_shared = shared_contents_array(doc, page_id);
-    let mut by_stream: std::collections::BTreeMap<usize, Vec<&Splice>> = Default::default();
-    for s in splices {
-        let (k, _, _) = stream_span(j, s.start, s.end)?;
-        by_stream.entry(k).or_default().push(s);
-    }
-    for (k, mut list) in by_stream {
-        let (_, base, stream_end) = stream_span(j, j.starts[k], j.starts[k])?;
-        let sid = j.ids[k];
-        let mut data = j.data[base..stream_end].to_vec();
-        // From the end, so earlier ranges keep their offsets.
-        list.sort_by_key(|s| std::cmp::Reverse(s.start));
-        for s in list {
-            data.splice(s.start - base..s.end - base, s.with.iter().copied());
-        }
-        let mut dict = doc.get_object(sid)?.as_stream()?.dict.clone();
-        for key in [b"Filter".as_slice(), b"DecodeParms", b"Length"] {
-            dict.remove(key);
-        }
-        let mut s = Stream::new(dict, data);
-        let _ = s.compress();
-        if array_shared || count_refs(doc, sid) > 1 {
-            // A stream shared with other pages: this page gets a copy of its own.
-            let nid = doc.add_object(s);
-            replace_content_ref(doc, page_id, sid, nid)?;
-        } else {
-            doc.objects.insert(sid, Object::Stream(s));
-        }
-    }
-    Ok(())
 }
 
 /// The drawing operation of a picture moved by `place` within its old square.

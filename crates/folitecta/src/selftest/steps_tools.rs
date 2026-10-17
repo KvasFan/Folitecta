@@ -313,12 +313,20 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         format!("ink comments {inks_before}, strokes after erasing {ink_paths:?}"),
     );
 
-    // 17. Insert text and replace text open their dialogs.
+    // 17. Insert text and replace text of the comments open their dialogs,
+    // set to suggest the change with a comment.
     crate::commands::dispatch(st, "tool.annot.insertText");
     pause(300).await;
     let _ = pointer_path(0, z, &[(70.0, 92.0), (70.0, 92.0)], false).await;
     pause(500).await;
-    let insert = matches!((st.dialog)(), Dialog::InsertText { page: 0, .. });
+    let insert = matches!(
+        (st.dialog)(),
+        Dialog::InsertText {
+            page: 0,
+            note: true,
+            ..
+        }
+    );
     st.set_dialog(Dialog::None);
     cx.record(
         "insert text tool opens its dialog",
@@ -329,7 +337,14 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     pause(300).await;
     let _ = pointer_path(0, z, &line((58.0, 92.0), (200.0, 92.0), 6), false).await;
     pause(500).await;
-    let replace = matches!((st.dialog)(), Dialog::ReplaceText { page: 0, .. });
+    let replace = matches!(
+        (st.dialog)(),
+        Dialog::ReplaceText {
+            page: 0,
+            note: true,
+            ..
+        }
+    );
     st.set_dialog(Dialog::None);
     cx.record("replace text tool opens its dialog", replace, String::new());
 

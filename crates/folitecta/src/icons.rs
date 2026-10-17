@@ -121,6 +121,10 @@ pub fn path(name: &str) -> &'static str {
         "deskew" => "M6 6.5 17 4l2.2 9.6-11 2.5z M3 20h18",
         "filter" => "M3 5h18l-7 8v6l-4 2v-8z",
         "gray" => "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 3v18",
+        "text-edit" => "M3 5h11 M8.5 5v13 M6 18h5 M13.5 21l.7-3 6-6 2.3 2.3-6 6z",
+        "text-insert" => "M3 5h11 M8.5 5v13 M6 18h5 M18 10v8 M14 14h8",
+        "text-replace" => "M3 5h11 M8.5 5v13 M6 18h5 M14 11h7l-2-2 M21 16h-7l2 2",
+        "text-delete" => "M3 5h11 M8.5 5v13 M6 18h5 M15 11l6 6 M21 11l-6 6",
         _ => "M4 5h16v14H4z M8 9h8 M8 13h5",
     }
 }
@@ -161,6 +165,10 @@ pub fn for_command(id: &str) -> &'static str {
         "imageEditor.fitVisible" => return "fit",
         "editImage" | "editImage.builtin" => return "pencil",
         "tool.editContent.images" => return "image",
+        "tool.editText" | "tool.editContent.text" => return "text-edit",
+        "pageText.insert" => return "text-insert",
+        "pageText.replace" => return "text-replace",
+        "pageText.delete" => return "text-delete",
         _ => {}
     }
     if has("zoomin") || has("zoom.level.actual") {

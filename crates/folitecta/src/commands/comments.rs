@@ -46,12 +46,14 @@ fn selection_mark(st: AppState, replace: bool) {
                     page: sel.page,
                     start,
                     end,
+                    note: true,
                 }
             } else {
                 Dialog::InsertText {
                     page: sel.page,
                     index: end.saturating_sub(1),
                     after: true,
+                    note: true,
                 }
             });
         }

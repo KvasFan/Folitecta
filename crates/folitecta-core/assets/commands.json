@@ -21858,7 +21858,49 @@
    "menu": "tools",
    "ribbon": {
     "tab": "home",
-    "group": "objects"
+    "group": "edit"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
+   "id": "pageText.insert",
+   "label": "Insert Text",
+   "parent": null,
+   "menu": "edit",
+   "ribbon": {
+    "tab": "home",
+    "group": "edit"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
+   "id": "pageText.replace",
+   "label": "Replace Text",
+   "parent": null,
+   "menu": "edit",
+   "ribbon": {
+    "tab": "home",
+    "group": "edit"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
+   "id": "pageText.delete",
+   "label": "Delete Text",
+   "parent": null,
+   "menu": "edit",
+   "ribbon": {
+    "tab": "home",
+    "group": "edit"
    },
    "pane": null,
    "kind": "command",

@@ -70,6 +70,10 @@ pub enum Tool {
     Video,
     /// Select the pictures of the pages to edit them.
     EditImages,
+    /// Select the text of the pages to change it (delete, type over, insert).
+    EditText,
+    /// Select text to suggest corrections with comments.
+    TextCorrection,
 }
 
 impl Tool {
@@ -85,6 +89,8 @@ impl Tool {
                 | Tool::Loupe
                 | Tool::EditFields
                 | Tool::EditImages
+                | Tool::EditText
+                | Tool::TextCorrection
         )
     }
 
@@ -92,7 +98,13 @@ impl Tool {
     pub fn is_text(&self) -> bool {
         matches!(
             self,
-            Tool::Select | Tool::TextHighlight | Tool::TextUnderline | Tool::TextStrike | Tool::ReplaceText
+            Tool::Select
+                | Tool::TextHighlight
+                | Tool::TextUnderline
+                | Tool::TextStrike
+                | Tool::ReplaceText
+                | Tool::EditText
+                | Tool::TextCorrection
         )
     }
 
@@ -148,6 +160,8 @@ impl Tool {
             Tool::Sound => "tool.annot.sound",
             Tool::Video => "tool.annot.editVideo",
             Tool::EditImages => "tool.editContent.images",
+            Tool::EditText => "tool.editContent.text",
+            Tool::TextCorrection => "tool.textCorrectionMarkup",
         }
     }
 
@@ -204,6 +218,8 @@ impl Tool {
             Tool::Sound => "tool.sound",
             Tool::Video => "tool.video",
             Tool::EditImages => "tool.edit_images",
+            Tool::EditText => "tool.edit_text",
+            Tool::TextCorrection => "tool.text_correction",
         }
     }
 

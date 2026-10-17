@@ -58,6 +58,10 @@ pub const RIBBON: &[RTab] = &[
                 "edit",
                 "Edit",
                 [
+                    "tool.editText",
+                    "pageText.insert",
+                    "pageText.replace",
+                    "pageText.delete",
                     "undo",
                     "redo",
                     "copy",
@@ -76,8 +80,7 @@ pub const RIBBON: &[RTab] = &[
                     "tool.addText",
                     "document.addImage",
                     "tool.selBarcodePlace",
-                    "tool.editContent",
-                    "tool.editText"
+                    "tool.editContent"
                 ]
             ),
             group!(

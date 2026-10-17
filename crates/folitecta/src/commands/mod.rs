@@ -10,6 +10,7 @@ pub(crate) mod accessibility;
 pub(crate) mod attachments;
 pub(crate) mod bookmarks;
 pub(crate) mod calculator;
+pub(crate) mod comment_styles;
 mod comments;
 pub(crate) mod compare;
 mod convert;
@@ -33,6 +34,7 @@ mod panes;
 pub(crate) mod pictures;
 pub(crate) mod portfolio;
 mod protect;
+pub(crate) mod redaction;
 pub(crate) mod review;
 pub(crate) mod search;
 pub(crate) mod sessions;
@@ -42,6 +44,7 @@ pub(crate) mod sources;
 pub(crate) mod split;
 pub(crate) mod stamps;
 pub(crate) mod tables;
+pub(crate) mod textedit;
 mod view;
 
 use std::collections::{HashMap, HashSet};
@@ -100,6 +103,9 @@ const TABLES: &[&[(&str, Handler)]] = &[
     explorer::HANDLERS,
     sources::HANDLERS,
     pictures::HANDLERS,
+    textedit::HANDLERS,
+    comment_styles::HANDLERS,
+    redaction::HANDLERS,
     split::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
@@ -233,6 +239,7 @@ pub const VIEW_OPTIONS: &[&str] = &[
     "msp.hdr.tagName",
     "msp.hdr.value",
     "editImage.applyToAll",
+    "view.commentStyles",
 ];
 
 /// Options that are on unless the user turned them off.
@@ -324,6 +331,8 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| media::media_state(st, id))
         .or_else(|| explorer::explorer_state(st, id))
         .or_else(|| pictures::pictures_state(st, id))
+        .or_else(|| textedit::textedit_state(st, id))
+        .or_else(|| redaction::redaction_state(st, id))
         .or_else(|| split::split_state(st, id))
 }
 

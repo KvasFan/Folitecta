@@ -270,8 +270,19 @@ pub fn Dialogs() -> Element {
         Dialog::Callout { page, tip, rect } => {
             rsx! { CalloutDialog { page, tip_x: tip.0, tip_y: tip.1, rect: rect.to_vec() } }
         }
-        Dialog::InsertText { page, index, after } => rsx! { InsertTextDialog { page, index, after } },
-        Dialog::ReplaceText { page, start, end } => rsx! { ReplaceTextDialog { page, start, end } },
+        // Keyed: another place or mode starts a new dialog, not the old one's state.
+        Dialog::InsertText {
+            page,
+            index,
+            after,
+            note,
+        } => rsx! { InsertTextDialog { key: "{page}-{index}-{after}-{note}", page, index, after, note } },
+        Dialog::ReplaceText {
+            page,
+            start,
+            end,
+            note,
+        } => rsx! { ReplaceTextDialog { key: "{page}-{start}-{end}-{note}", page, start, end, note } },
         Dialog::Calibrate => rsx! { CalibrateDialog {} },
         Dialog::SummarizeComments => rsx! { SummarizeCommentsDialog {} },
         Dialog::Reply { page, index } => rsx! { ReplyDialog { page, index } },
@@ -356,6 +367,9 @@ pub fn Dialogs() -> Element {
         Dialog::ImageEditor => rsx! { crate::ui::pictures::ImageEditorDialog {} },
         Dialog::ExternalPicture => rsx! { crate::ui::pictures::ExternalPictureDialog {} },
         Dialog::PictureSettings => rsx! { crate::ui::pictures::PictureSettingsDialog {} },
+        Dialog::StyleName(index) => rsx! { crate::ui::comment_styles::StyleNameDialog { index } },
+        Dialog::RedactionLook => rsx! { crate::ui::redaction::RedactionLookDialog {} },
+        Dialog::RedactionCode { set } => rsx! { crate::ui::redaction::RedactionCodeDialog { set } },
     }
 }
 

@@ -168,6 +168,7 @@ pub fn ribbon_button(st: AppState, lang: Lang, cmd: &'static Command, style: Btn
                 class: "{class}",
                 style: "{width_style}",
                 title: "{tip}",
+                "data-cmd": "{cmd.id}",
                 onclick: move |e| {
                     e.stop_propagation();
                     if has_menu {

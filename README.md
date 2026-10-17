@@ -8,7 +8,7 @@ software under MIT, Apache or GNU licences.
 
 ![Folitecta screenshot](docs/screenshot.png)
 
-## Status: version 0.0.7 (pre-release)
+## Status: version 0.0.8 (pre-release)
 
 Folitecta ships the **complete command surface of a professional PDF editor** — 1,977 commands
 across a ribbon with 11 tabs and 63 groups, 9 classic menus, 27 side panes and a command palette —
@@ -29,12 +29,15 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
   attachments and links, or through the PDF files of a folder; grouped results with
   previous/next navigation (`F3`); mark every result as highlight, underline, strikeout or
   redaction; word count; export to `.txt`.
+- **Page text**: the Edit Text tool and the Insert, Replace and Delete Text commands of
+  Home › Edit change the text drawn on the page; the rest of the line moves to make room.
 - **Comments**: sticky notes, text boxes, callouts, typewriter text, rectangles, ellipses,
-  polygons, polylines, clouds, lines, arrows, pencil with eraser, area and free highlights, text
-  highlight / underline / strikeout, insert-text and replace-text marks, stamps (presets, custom
-  text, images), file attachments, web and page links, each with a generated appearance stream.
+  polygons, polylines, clouds, lines, arrows (shown as they will look while drawn), smooth pencil
+  strokes with eraser, area and free highlights, text highlight / underline / strikeout,
+  insert-text and replace-text marks and text correction, stamps (presets, custom text, images),
+  file attachments, web and page links, each with a generated appearance stream.
   Style editor (colour, fill, opacity, thickness, dashes, line endings, text size and alignment)
-  with per-tool defaults and style copy/paste. Select, move and resize with handles, nudge with
+  with per-tool defaults, named comment styles with a palette, and style copy/paste. Select, move and resize with handles, nudge with
   the arrow keys, copy / cut / paste across documents, flatten one or all, hide/show, delete.
 - **Review**: replies, review states with history, check marks, filters, pop-up notes, comment
   summaries, export and import of comments as XFDF, FDF or PDF.
@@ -59,7 +62,8 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
   more, with a macro guide), page numbering and Bates numbering (`{bates:6}`, continued across
   runs and several files), page labels (roman, letters, prefixes), page transitions, overlays and
   underlays from another PDF, removal of any mark Folitecta added.
-- **Protect**: redaction (mark areas or text, apply to destroy the content underneath), password
+- **Protect**: redaction (mark areas or text, apply to destroy the content underneath) with
+  colour, blur or pixelated overlays, overlay text and sets of redaction codes; password
   protection with AES-128 and permissions, document script listing and removal.
 - **Create and convert**: blank documents of any paper size, from pictures, from text files, from
   the clipboard; export pages to PNG/JPEG, extract embedded images; snapshot of an area to the

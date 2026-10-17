@@ -353,6 +353,7 @@ mod steps_panes;
 mod steps_pictures;
 mod steps_review;
 mod steps_split;
+mod steps_text;
 mod steps_tools;
 
 /// What the interaction steps share: the app, where the screenshots go,
@@ -401,11 +402,12 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     steps_files::run(&mut cx).await;
     steps_pictures::run(&mut cx).await;
     steps_split::run(&mut cx).await;
+    steps_text::run(&mut cx).await;
     let failures = cx.failures;
 
-    // 44. Undo everything added above.
+    // 45. Undo everything added above.
     st.set_tool(Tool::Hand);
-    for _ in 0..80 {
+    for _ in 0..90 {
         crate::commands::dispatch(st, "undo");
     }
     pause(500).await;
@@ -683,6 +685,17 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("combine", Dialog::Combine),
         ("picture-settings", Dialog::PictureSettings),
         ("split-pages", Dialog::SplitPages),
+        ("redaction-look", Dialog::RedactionLook),
+        ("redaction-code", Dialog::RedactionCode { set: true }),
+        (
+            "replace-text",
+            Dialog::ReplaceText {
+                page: 0,
+                start: 0,
+                end: 7,
+                note: false,
+            },
+        ),
     ];
     // The list of source files shows the files of the explorer step.
     let files = dir.join("explorer-files");

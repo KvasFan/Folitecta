@@ -89,7 +89,11 @@ Mouse coordinates on a page image are converted to PDF user space with
 
 ## Known limitations
 
-- The text and shapes of the page content cannot be edited. Pictures can, when the page content
+- The text of the page content can be changed when the page draws it itself: text inside reused
+  drawings (form XObjects) and fonts whose codes cannot be matched to their glyphs are refused.
+  The rest of the line moves to make room, but text does not flow to the next line. Characters
+  missing from an embedded font come from a standard font of the same family (WinAnsi only).
+- The shapes of the page content cannot be edited. Pictures can, when the page content
   draws them itself (pictures inside forms and inline pictures are not found); edited pictures are
   written as 8-bit RGB, gray, palette or black and white pictures (CMYK, ICC profiles and 16-bit
   samples are not kept, and stencil masks become black and white pictures).

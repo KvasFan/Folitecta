@@ -190,6 +190,11 @@ pub(super) fn SelToolbar(left: f32, top: f32) -> Element {
             button { title: "{t(lang, \"sel.underline\")}", onclick: act("textsel.addUnderline"), span { class: "u", "U" } }
             button { title: "{t(lang, \"sel.strike\")}", onclick: act("textsel.addStrikeout"), span { class: "s", "S" } }
             button { title: "{t(lang, \"sel.redact\")}", onclick: act("addAnnotBySelect.redaction"), Icon { name: "redact" } }
+            span { class: "sep" }
+            button { class: "sel-edit", title: "{t(lang, \"sel.replace_text\")}",
+                onclick: move |e| { e.stop_propagation(); crate::commands::textedit::replace_selection(st); }, Icon { name: "pencil" } }
+            button { class: "sel-delete", title: "{t(lang, \"sel.delete_text\")}",
+                onclick: move |e| { e.stop_propagation(); crate::commands::textedit::delete_selection(st); }, Icon { name: "delete" } }
         }
     }
 }

@@ -653,3 +653,22 @@ html.emulate-print .print-page img { max-width: 100%; max-height: 100%; object-f
 .layer-group-icon .ic { width: 14px; height: 14px; }
 .layer-row .page-ref { margin-left: 4px; }
 .layer-foot { border-top: 1px solid var(--border); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+
+/* Attachments and fields panes */
+.list-item.attachment { cursor: pointer; }
+.list-item.attachment.selected { background: var(--accent-soft); border-color: var(--accent); }
+.attach-cols { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; font-size: 11.5px; margin-top: 4px; min-width: 0; }
+.attach-cols .k { color: var(--muted); white-space: nowrap; }
+.attach-cols .v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.field-tree .field-row { gap: 6px; }
+.field-tree .field-row .ic { width: 14px; height: 14px; flex: none; color: var(--muted); }
+.field-tree .field-row .chip { flex: none; }
+.field-tree .field-row input[type=checkbox] { flex: none; margin: 0; }
+.field-tree .field-row .ibtn { width: 22px; height: 22px; padding: 0; flex: none; }
+.field-tree .field-row .ibtn .ic { width: 13px; height: 13px; }
+.field-value { color: var(--muted); font-size: 11.5px; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; }
+.field-group .tree-label { font-weight: 600; }
+.field-page { padding: 6px 8px 2px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.fields-manual { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-bottom: 1px solid var(--border); }
+.fields-manual .tbtn { align-self: flex-start; }
+.pane-toolbar .ibtn.on { color: var(--accent); background: var(--accent-soft); }

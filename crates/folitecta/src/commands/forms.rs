@@ -63,6 +63,7 @@ fn tab_order(st: AppState, order: &str) {
         return;
     }
     let order = order.to_string();
+    st.set_value("fields.manual", "");
     let r = st.with_active(|t| t.doc.set_tab_order(&order));
     core_result(st, r);
     st.toast(

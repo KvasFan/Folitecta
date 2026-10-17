@@ -316,3 +316,26 @@ fn form_data_round_trips_through_every_format() {
         assert_eq!(widgets[1].on_state, "Yes");
     }
 }
+
+#[test]
+fn widgets_move_in_the_manual_tab_order() {
+    let mut doc = blank();
+    let props = FieldProps::default();
+    for i in 0..3 {
+        let y = 350.0 - i as f32 * 50.0;
+        doc.add_form_field(0, NewField::Text, [40.0, y - 30.0, 220.0, y], &props)
+            .unwrap();
+    }
+    doc.set_tab_order("R").unwrap();
+    let fields = doc.form_fields();
+    let ids: Vec<lopdf::ObjectId> = fields.iter().map(|f| f.widgets[0]).collect();
+    assert_eq!(doc.widget_order(0), ids);
+    assert!(fields.iter().all(|f| f.short_name() == f.name && !f.barcode));
+    assert!(doc.move_widget_in_tab_order(ids[2], -1).unwrap());
+    assert_eq!(doc.widget_order(0), vec![ids[0], ids[2], ids[1]]);
+    assert!(!doc.move_widget_in_tab_order(ids[0], -1).unwrap());
+    let page = doc.inner().get_dictionary(doc.page_id(0).unwrap()).unwrap();
+    assert!(!page.has(b"Tabs"), "the page follows its annotation order");
+    doc.undo().unwrap();
+    assert_eq!(doc.widget_order(0), ids);
+}

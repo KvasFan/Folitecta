@@ -496,6 +496,12 @@ pub struct DocTab {
     pub selected_layers: Vec<Vec<usize>>,
     /// Collapsed entries of the layers pane.
     pub collapsed_layers: HashSet<String>,
+    /// Selected attachment (index in the attachments list).
+    pub selected_attachment: Option<usize>,
+    /// Selected form fields.
+    pub selected_fields: Vec<(u32, u16)>,
+    /// Collapsed name groups of the fields pane.
+    pub collapsed_fields: HashSet<String>,
 }
 
 /// Hidden parent layers hide their children in the view (a view option).
@@ -551,6 +557,9 @@ impl DocTab {
             layer_view: HashMap::new(),
             selected_layers: Vec::new(),
             collapsed_layers: HashSet::new(),
+            selected_attachment: None,
+            selected_fields: Vec::new(),
+            collapsed_fields: HashSet::new(),
         };
         if LAYER_INHERIT.load(std::sync::atomic::Ordering::Relaxed) && !tab.doc.layers().is_empty() {
             tab.update_render();
@@ -904,6 +913,12 @@ pub enum Dialog {
     ImportLayer(PathBuf),
     /// Options of the layers pane.
     LayerOptions,
+    /// Name, description, relationship and contents of an attachment.
+    AttachmentEdit(usize),
+    /// Columns of the attachments pane.
+    AttachmentOptions,
+    /// Options of the fields pane.
+    FieldsOptions,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

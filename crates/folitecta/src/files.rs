@@ -38,6 +38,7 @@ pub fn open_path(st: AppState, path: PathBuf, password: Option<&str>) {
             let idx = st.docs.read().len() - 1;
             st.set_active(idx);
             st.ui_mut().push_recent(&path);
+            crate::commands::attachments::auto_show(st);
             st.save_prefs();
             set_window_title(st);
             st.toast(

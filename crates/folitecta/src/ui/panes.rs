@@ -10,7 +10,7 @@ use crate::commands::{dispatch, option_on};
 use crate::files;
 use crate::i18n::{cmd_label, t, tf, ui_label};
 use crate::icons::Icon;
-use crate::state::{AppState, Dialog, Pane, ToastKind};
+use crate::state::{AppState, Pane, ToastKind};
 use crate::ui::{MENU_W, status_badge};
 
 fn pane_icon(p: &Pane) -> &'static str {
@@ -238,9 +238,9 @@ pub fn PanePanel() -> Element {
             Pane::Thumbnails => rsx! { ThumbnailsPane {} },
             Pane::Bookmarks => rsx! { crate::ui::bookmarks_pane::BookmarksPane {} },
             Pane::Comments => rsx! { crate::ui::comments_pane::CommentsPane {} },
-            Pane::Attachments => rsx! { AttachmentsPane {} },
+            Pane::Attachments => rsx! { crate::ui::attachments_pane::AttachmentsPane {} },
             Pane::Layers => rsx! { crate::ui::layers_pane::LayersPane {} },
-            Pane::Fields => rsx! { FieldsPane {} },
+            Pane::Fields => rsx! { crate::ui::fields_pane::FieldsPane {} },
             Pane::Links => rsx! { LinksPane {} },
             Pane::Destinations => rsx! { crate::ui::bookmarks_pane::DestinationsPane {} },
             Pane::Search => rsx! { SearchPane {} },
@@ -412,88 +412,6 @@ fn ThumbnailsPane() -> Element {
 }
 
 // ---- Attachments, layers, fields, links, destinations, signatures ------------------
-
-#[component]
-fn AttachmentsPane() -> Element {
-    let st = use_context::<AppState>();
-    let lang = st.lang();
-    let Some(atts) = st.read_active(|t| t.doc.attachments()) else {
-        return rsx! {};
-    };
-    rsx! {
-        if atts.is_empty() { div { class: "pane-empty", "{t(lang, \"label.none\")}" } }
-        for att in atts {
-            {
-                let a_save = att.clone();
-                let a_rm = att.clone();
-                let size = att.size.map(crate::util::human_size).unwrap_or_default();
-                rsx! {
-                    div { class: "list-item", key: "{att.name}-{att.stream.0}",
-                        div { class: "title", Icon { name: "attachment" } span { class: "ellipsis", "{att.name}" } }
-                        div { class: "meta", span { "{size}" } span { "{att.mime}" } span { "{att.modified}" } if let Some(p) = att.page { span { "{t(lang, \"status.page\")} {p + 1}" } } }
-                        if !att.description.is_empty() { div { class: "body", "{att.description}" } }
-                        div { class: "row", style: "gap:6px",
-                            button { class: "tbtn", onclick: move |_| files::save_attachment(st, a_save.clone()), Icon { name: "save" } "{t(lang, \"cmd.attachmentsView.save\")}" }
-                            if att.key.is_some() {
-                                button { class: "tbtn danger", title: "{t(lang, \"label.delete\")}", onclick: move |_| { if let Some(Err(e)) = st.with_active(|t| t.doc.remove_attachment(&a_rm)) { st.error(e); } }, Icon { name: "delete" } }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-fn FieldsPane() -> Element {
-    let st = use_context::<AppState>();
-    let lang = st.lang();
-    let Some(fields) = st.read_active(|t| t.doc.form_fields()) else {
-        return rsx! {};
-    };
-    rsx! {
-        if fields.is_empty() { div { class: "pane-empty", "{t(lang, \"label.none\")}" } }
-        for f in fields {
-            {
-                let id = f.id;
-                let name = f.name.clone();
-                let value = f.value.clone();
-                let kind = f.kind.clone();
-                let is_check = matches!(kind, folitecta_core::FieldKind::CheckBox | folitecta_core::FieldKind::RadioButton);
-                let editable = matches!(kind, folitecta_core::FieldKind::Text | folitecta_core::FieldKind::ComboBox | folitecta_core::FieldKind::ListBox);
-                let checked = !value.is_empty() && value != "Off";
-                let page = f.page;
-                rsx! {
-                    div { class: "list-item", key: "{id.0}-{id.1}",
-                        onclick: move |_| {
-                            if let Some(p) = page {
-                                st.go_to_page(p);
-                            }
-                            if editable {
-                                st.set_dialog(Dialog::FieldValue { id, name: name.clone(), value: value.clone() });
-                            }
-                        },
-                        div { class: "title", Icon { name: "field" } span { class: "ellipsis", "{f.name}" } span { class: "chip", "{kind.label()}" } }
-                        div { class: "meta",
-                            if let Some(p) = page { span { "{t(lang, \"status.page\")} {p + 1}" } }
-                            if f.required { span { "{t(lang, \"label.required\")}" } }
-                            if f.read_only { span { "{t(lang, \"label.read_only\")}" } }
-                        }
-                        if is_check {
-                            label { class: "check", onclick: move |e| e.stop_propagation(),
-                                input { r#type: "checkbox", checked: checked, onchange: move |_| { let v = if checked { "Off" } else { "Yes" }; if let Some(Err(e)) = st.with_active(|t| t.doc.set_field_value(id, v)) { st.error(e); } } }
-                                span { "{f.value}" }
-                            }
-                        } else if !f.value.is_empty() {
-                            div { class: "body", "{f.value}" }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 #[component]
 fn LinksPane() -> Element {

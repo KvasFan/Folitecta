@@ -1314,7 +1314,103 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     st.ui_mut().left_pane = "thumbnails".into();
     let _ = std::fs::remove_file(&source);
 
-    // 27. Undo everything added above.
+    // 27. Attachments pane: select an attachment and edit its description.
+    st.with_active(|t| {
+        let _ = t.doc.add_attachment(
+            "notes.txt",
+            b"Notes for the review".to_vec(),
+            "",
+            Some("text/plain"),
+        );
+        t.refresh();
+    });
+    {
+        let mut ui = st.ui_mut();
+        ui.left_pane = "attachments".into();
+        ui.show_left_pane = true;
+    }
+    pause(500).await;
+    let _ = document::eval("document.querySelector('.list-item.attachment')?.click();").await;
+    pause(300).await;
+    crate::commands::dispatch(st, "attachmentsView.edit");
+    pause(500).await;
+    let _ = document::eval(
+        "const a = document.querySelector('.dialog textarea'); if (a) { a.value = 'Reviewer notes'; a.dispatchEvent(new Event('input', { bubbles: true })); }",
+    )
+    .await;
+    pause(250).await;
+    let _ = capture_window(&dir.join("interaction-attachment-edit.png"));
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(500).await;
+    let desc = st
+        .read_active(|t| t.doc.attachments().first().map(|a| a.description.clone()))
+        .flatten()
+        .unwrap_or_default();
+    record("attachment selected and edited", desc == "Reviewer notes", desc);
+
+    // 28. Fields pane: name groups, selection by type, manual tab order.
+    let added = st
+        .with_active(|t| {
+            let mut ids = Vec::new();
+            for (i, name) in ["contact.name", "contact.email", "contact.phone"]
+                .iter()
+                .enumerate()
+            {
+                let y = 700.0 - i as f32 * 40.0;
+                let props = folitecta_core::FieldProps {
+                    name: name.to_string(),
+                    ..folitecta_core::FieldProps::default()
+                };
+                ids.push(
+                    t.doc
+                        .add_form_field(
+                            0,
+                            folitecta_core::NewField::Text,
+                            [60.0, y - 24.0, 300.0, y],
+                            &props,
+                        )
+                        .ok()?,
+                );
+            }
+            t.refresh();
+            Some(ids.len())
+        })
+        .flatten()
+        .unwrap_or(0);
+    st.ui_mut().left_pane = "fields".into();
+    pause(500).await;
+    let groups = document::eval("return document.querySelectorAll('.field-tree .field-group').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    crate::commands::dispatch(st, "fieldsView.select.text");
+    pause(300).await;
+    let selected = st.read_active(|t| t.selected_fields.len()).unwrap_or(0);
+    record(
+        "fields grouped by name and selected by type",
+        added == 3 && groups >= 1 && selected >= 3,
+        format!("{groups} group(s), {selected} selected"),
+    );
+    crate::commands::dispatch(st, "fieldsView.tabOrder.manually");
+    pause(500).await;
+    let before = st.read_active(|t| t.doc.widget_order(0)).unwrap_or_default();
+    let _ = document::eval(
+        "const b = document.querySelectorAll('.field-tree .field-row .ibtn')[1]; if (b) b.click();",
+    )
+    .await;
+    pause(500).await;
+    let after = st.read_active(|t| t.doc.widget_order(0)).unwrap_or_default();
+    let _ = capture_window(&dir.join("interaction-fields-tab-order.png"));
+    record(
+        "field moved in the manual tab order",
+        before.len() >= 3 && after.len() == before.len() && after[0] == before[1] && after[1] == before[0],
+        format!("{} widgets", after.len()),
+    );
+    st.set_value("fields.manual", "");
+    st.ui_mut().left_pane = "thumbnails".into();
+
+    // 29. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..30 {
         crate::commands::dispatch(st, "undo");
@@ -1523,6 +1619,8 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ),
         ("layer-overrides", Dialog::LayerOverrides),
         ("layer-options", Dialog::LayerOptions),
+        ("attachment-options", Dialog::AttachmentOptions),
+        ("fields-options", Dialog::FieldsOptions),
     ];
     for lang in [crate::i18n::Lang::It, crate::i18n::Lang::En] {
         st.ui_mut().lang = lang;

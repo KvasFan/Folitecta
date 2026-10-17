@@ -50,7 +50,6 @@ fn thumbs_zoom(st: AppState, factor: f32) {
 }
 
 handlers! {
-    "attachmentsView.new" => |st| { if !no_doc(st) { files::add_attachment(st) } },
     "thumbnailsView.select.empty" => |st| { let empty = st.read_active(|t| t.doc.empty_pages()).unwrap_or_default(); select_pages_where(st, move |_, p| empty.contains(&p)) },
     "thumbnailsView.select.landscape" => |st| select_pages_where(st, |t, p| { let s = t.display_size(p); s.0 > s.1 }),
     "thumbnailsView.select.portrait" => |st| select_pages_where(st, |t, p| { let s = t.display_size(p); s.0 <= s.1 }),

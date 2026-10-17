@@ -6,10 +6,12 @@
 //! all derive from them.
 
 use dioxus::prelude::ReadableExt;
+pub(crate) mod attachments;
 pub(crate) mod bookmarks;
 mod comments;
 mod convert;
 mod edit;
+pub(crate) mod fields_pane;
 mod file;
 mod format;
 mod forms;
@@ -63,6 +65,8 @@ const TABLES: &[&[(&str, Handler)]] = &[
     signs::HANDLERS,
     macros::HANDLERS,
     layers::HANDLERS,
+    attachments::HANDLERS,
+    fields_pane::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -154,11 +158,26 @@ pub const VIEW_OPTIONS: &[&str] = &[
     "searchView.results.showPageNum",
     "searchView.results.wrapText",
     "thumbnailsView.logicalVisible",
+    "attachmentsView.autoShowPane",
+    "attachmentsView.hdr.name",
+    "attachmentsView.hdr.description",
+    "attachmentsView.hdr.modified",
+    "attachmentsView.hdr.size",
+    "attachmentsView.hdr.compressed",
+    "attachmentsView.hdr.location",
+    "attachmentsView.hdr.type",
+    "attachmentsView.hdr.relationship",
+    "fieldsView.showFullNames",
 ];
 
 /// Options that are on unless the user turned them off.
 pub const DEFAULT_ON: &[&str] = &[
     "view.spellCheck",
+    "attachmentsView.hdr.name",
+    "attachmentsView.hdr.description",
+    "attachmentsView.hdr.modified",
+    "attachmentsView.hdr.size",
+    "attachmentsView.hdr.location",
     "bookmarksView.autoExpandBookmarks",
     "bookmarksView.ensureVisibility",
     "bookmarksView.markInvalid",
@@ -206,6 +225,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| bookmarks::bookmark_state(st, id))
         .or_else(|| interface::interface_state(st, id))
         .or_else(|| layers::layers_state(st, id))
+        .or_else(|| fields_pane::fields_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

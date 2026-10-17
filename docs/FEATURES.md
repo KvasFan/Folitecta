@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.3. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 709 |
-| 🟡 partial | 40 |
-| ⬜ planned | 1228 |
+| ✅ available | 743 |
+| 🟡 partial | 37 |
+| ⬜ planned | 1197 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -658,18 +658,18 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Items | `editFields.items` | ⬜ planned |
 | Listbox | `listbox` | ⬜ planned |
 | ↳ Items | `listbox.items` | ⬜ planned |
-| Select | `fieldsView.select` | ⬜ planned |
-| ↳ Barcode | `fieldsView.select.barcode` | ⬜ planned |
-| ↳ Button | `fieldsView.select.button` | ⬜ planned |
-| ↳ Check | `fieldsView.select.check` | ⬜ planned |
-| ↳ Combo Box | `fieldsView.select.combo` | ⬜ planned |
-| ↳ List | `fieldsView.select.list` | ⬜ planned |
-| ↳ Radio | `fieldsView.select.radio` | ⬜ planned |
-| ↳ Signature | `fieldsView.select.signature` | ⬜ planned |
-| ↳ Text Fields | `fieldsView.select.text` | ⬜ planned |
-| Tab Order | `fieldsView.tabOrder` | 🟡 partial |
+| Select | `fieldsView.select` | ✅ available |
+| ↳ Barcode | `fieldsView.select.barcode` | ✅ available |
+| ↳ Button | `fieldsView.select.button` | ✅ available |
+| ↳ Check | `fieldsView.select.check` | ✅ available |
+| ↳ Combo Box | `fieldsView.select.combo` | ✅ available |
+| ↳ List | `fieldsView.select.list` | ✅ available |
+| ↳ Radio | `fieldsView.select.radio` | ✅ available |
+| ↳ Signature | `fieldsView.select.signature` | ✅ available |
+| ↳ Text Fields | `fieldsView.select.text` | ✅ available |
+| Tab Order | `fieldsView.tabOrder` | ✅ available |
 | ↳ Column | `fieldsView.tabOrder.column` | ✅ available |
-| ↳ Manually | `fieldsView.tabOrder.manually` | ⬜ planned |
+| ↳ Manually | `fieldsView.tabOrder.manually` | ✅ available |
 | ↳ Row | `fieldsView.tabOrder.row` | ✅ available |
 | ↳ Structure | `fieldsView.tabOrder.structure` | ✅ available |
 | ↳ Unspecified | `fieldsView.tabOrder.unspecified` | ✅ available |
@@ -1426,7 +1426,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Accessibility Report | `accReportView` | ⬜ planned |
 | Accessibility Report | `view.accReport` | ⬜ planned |
 | Articles | `view.articles` | ⬜ planned |
-| Attachments Pane | `attachmentsView` | 🟡 partial |
+| Attachments Pane | `attachmentsView` | ✅ available |
 | Bookmarks Pane | `bookmarksView` | 🟡 partial |
 | Checker | `chekerView` | ⬜ planned |
 | Classic UI | `view.switchToClassicUI` | ✅ available |
@@ -1443,7 +1443,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Exit Full Screen | `view.fullScreenExit` | ✅ available |
 | Expand All | `expandAll` | ⬜ planned |
 | Expand All Descendants | `expandAllDescendants` | ⬜ planned |
-| Fields Pane | `fieldsView` | 🟡 partial |
+| Fields Pane | `fieldsView` | ✅ available |
 | Highlight | `highlight` | ✅ available |
 | Highlight Links | `view.highlightLinks` | ✅ available |
 | History | `view.history` | ⬜ planned |
@@ -1823,21 +1823,21 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `annot.poly` | Comments › Annotation › Poly | ⬜ planned |
 | `annot.popup` | Comments › Annotation › Popup | ✅ available |
 | `annot.redact` | Comments › Annotation › Redact | ⬜ planned |
-| `attachmentsView.autoShowPane` | View › Attachments Pane › Auto Show Pane | ⬜ planned |
-| `attachmentsView.edit` | View › Attachments Pane › Edit | ⬜ planned |
-| `attachmentsView.hdr` | View › Attachments Pane › Columns | ⬜ planned |
-| `attachmentsView.hdr.compressed` | View › Attachments Pane › Columns › Compressed | ⬜ planned |
-| `attachmentsView.hdr.description` | View › Attachments Pane › Columns › Description | ⬜ planned |
-| `attachmentsView.hdr.location` | View › Attachments Pane › Columns › Location | ⬜ planned |
-| `attachmentsView.hdr.modified` | View › Attachments Pane › Columns › Modified | ⬜ planned |
-| `attachmentsView.hdr.name` | View › Attachments Pane › Columns › Name | ⬜ planned |
-| `attachmentsView.hdr.relationship` | View › Attachments Pane › Columns › Relationship | ⬜ planned |
-| `attachmentsView.hdr.size` | View › Attachments Pane › Columns › Size | ⬜ planned |
-| `attachmentsView.hdr.type` | View › Attachments Pane › Columns › Type | ⬜ planned |
+| `attachmentsView.autoShowPane` | View › Attachments Pane › Auto Show Pane | ✅ available |
+| `attachmentsView.edit` | View › Attachments Pane › Edit | ✅ available |
+| `attachmentsView.hdr` | View › Attachments Pane › Columns | ✅ available |
+| `attachmentsView.hdr.compressed` | View › Attachments Pane › Columns › Compressed | ✅ available |
+| `attachmentsView.hdr.description` | View › Attachments Pane › Columns › Description | ✅ available |
+| `attachmentsView.hdr.location` | View › Attachments Pane › Columns › Location | ✅ available |
+| `attachmentsView.hdr.modified` | View › Attachments Pane › Columns › Modified | ✅ available |
+| `attachmentsView.hdr.name` | View › Attachments Pane › Columns › Name | ✅ available |
+| `attachmentsView.hdr.relationship` | View › Attachments Pane › Columns › Relationship | ✅ available |
+| `attachmentsView.hdr.size` | View › Attachments Pane › Columns › Size | ✅ available |
+| `attachmentsView.hdr.type` | View › Attachments Pane › Columns › Type | ✅ available |
 | `attachmentsView.new` | View › Attachments Pane › New | ✅ available |
-| `attachmentsView.open` | View › Attachments Pane › Open | ⬜ planned |
-| `attachmentsView.options` | View › Attachments Pane › Options | ⬜ planned |
-| `attachmentsView.save` | View › Attachments Pane › Save | ⬜ planned |
+| `attachmentsView.open` | View › Attachments Pane › Open | ✅ available |
+| `attachmentsView.options` | View › Attachments Pane › Options | ✅ available |
+| `attachmentsView.save` | View › Attachments Pane › Save | ✅ available |
 | `batesNumberingFiles.hdr` | File › Bates Numbering Files › Columns | ⬜ planned |
 | `batesNumberingFiles.hdr.location` | File › Bates Numbering Files › Columns › Location | ⬜ planned |
 | `batesNumberingFiles.hdr.modified` | File › Bates Numbering Files › Columns › Modified | ⬜ planned |
@@ -2013,13 +2013,13 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `explorer.places.nav.down` | File › Explorer › Places › Navigation › Down | ⬜ planned |
 | `explorer.places.nav.up` | File › Explorer › Places › Navigation › Up | ⬜ planned |
 | `explorer.thumb.loading` | File › Explorer › Thumbnail › Loading | ⬜ planned |
-| `fieldsView.collapseAll` | View › Fields Pane › Collapse All | ⬜ planned |
-| `fieldsView.expandAll` | View › Fields Pane › Expand All | ⬜ planned |
-| `fieldsView.options` | View › Fields Pane › Options | ⬜ planned |
-| `fieldsView.showFullNames` | View › Fields Pane › Show Full Names | ⬜ planned |
-| `fieldsView.sort` | View › Fields Pane › Sort | ⬜ planned |
-| `fieldsView.sort.alphabetic` | View › Fields Pane › Sort › Alphabetic | ⬜ planned |
-| `fieldsView.sort.pages` | View › Fields Pane › Sort › Pages | ⬜ planned |
+| `fieldsView.collapseAll` | View › Fields Pane › Collapse All | ✅ available |
+| `fieldsView.expandAll` | View › Fields Pane › Expand All | ✅ available |
+| `fieldsView.options` | View › Fields Pane › Options | ✅ available |
+| `fieldsView.showFullNames` | View › Fields Pane › Show Full Names | ✅ available |
+| `fieldsView.sort` | View › Fields Pane › Sort | ✅ available |
+| `fieldsView.sort.alphabetic` | View › Fields Pane › Sort › Alphabetic | ✅ available |
+| `fieldsView.sort.pages` | View › Fields Pane › Sort › Pages | ✅ available |
 | `file` | File | ⬜ planned |
 | `folderExts.fileList.loadAll` | File › Folder Filters › File List › Load All | ⬜ planned |
 | `folderExts.fileList.saveAll` | File › Folder Filters › File List › Save All | ⬜ planned |

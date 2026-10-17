@@ -1134,6 +1134,71 @@ impl Document {
         }
         self.commit()
     }
+
+    /// Widgets of a page in tab order when the order follows the page's
+    /// annotation list (no row, column or structure order).
+    pub fn widget_order(&self, page: usize) -> Vec<ObjectId> {
+        let Ok(pid) = self.page_id(page) else {
+            return Vec::new();
+        };
+        let doc = &self.inner;
+        let Ok(pd) = doc.get_dictionary(pid) else {
+            return Vec::new();
+        };
+        pd.get(b"Annots")
+            .ok()
+            .and_then(|a| deref(doc, a).as_array().ok())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|o| o.as_reference().ok())
+                    .filter(|id| {
+                        doc.get_dictionary(*id)
+                            .ok()
+                            .and_then(|d| d.get(b"Subtype").ok())
+                            .and_then(|s| s.as_name().ok())
+                            == Some(b"Widget".as_slice())
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Move a widget earlier (`delta < 0`) or later in the tab order of its
+    /// page; the page then follows its annotation order. Returns whether it moved.
+    pub fn move_widget_in_tab_order(&mut self, widget: ObjectId, delta: i32) -> Result<bool> {
+        let page = (0..self.page_count())
+            .find(|p| self.widget_order(*p).contains(&widget))
+            .ok_or_else(|| Error::Invalid("the field has no widget on a page".into()))?;
+        let order = self.widget_order(page);
+        let pos = order.iter().position(|w| *w == widget).expect("found above");
+        let target = pos as i64 + delta as i64;
+        if target < 0 || target >= order.len() as i64 || delta == 0 {
+            return Ok(false);
+        }
+        let other = order[target as usize];
+        let pid = self.page_id(page)?;
+        self.begin_edit();
+        let annots_obj = self.inner.get_dictionary(pid)?.get(b"Annots")?.clone();
+        let mut arr = deref(&self.inner, &annots_obj).as_array()?.clone();
+        let a = arr.iter().position(|o| o.as_reference().ok() == Some(widget));
+        let b = arr.iter().position(|o| o.as_reference().ok() == Some(other));
+        if let (Some(a), Some(b)) = (a, b) {
+            arr.swap(a, b);
+        }
+        match annots_obj {
+            Object::Reference(r) => {
+                self.inner.objects.insert(r, Object::Array(arr));
+            }
+            _ => {
+                self.inner
+                    .get_dictionary_mut(pid)?
+                    .set("Annots", Object::Array(arr));
+            }
+        }
+        self.inner.get_dictionary_mut(pid)?.remove(b"Tabs");
+        self.commit()?;
+        Ok(true)
+    }
 }
 
 #[cfg(test)]

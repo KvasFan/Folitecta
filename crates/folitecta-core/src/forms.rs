@@ -47,6 +47,17 @@ pub struct FormField {
     pub read_only: bool,
     /// Export values / options for choice fields and buttons.
     pub options: Vec<String>,
+    /// A text field drawn as a barcode (`/PMD`).
+    pub barcode: bool,
+    /// The widget annotations of the field.
+    pub widgets: Vec<ObjectId>,
+}
+
+impl FormField {
+    /// Last part of the name (`c` for `a.b.c`).
+    pub fn short_name(&self) -> &str {
+        self.name.rsplit('.').next().unwrap_or(&self.name)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -244,6 +255,8 @@ impl Document {
             required: ff & 2 != 0,
             read_only: ff & 1 != 0,
             options: opt,
+            barcode: dict.has(b"PMD"),
+            widgets: if kids.is_empty() { vec![id] } else { kids },
         });
     }
 

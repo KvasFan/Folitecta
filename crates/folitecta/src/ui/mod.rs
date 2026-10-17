@@ -1,8 +1,10 @@
+pub mod attachments_pane;
 pub mod bookmarks_pane;
 pub mod canvas;
 pub mod comments_pane;
 pub mod dialogs;
 pub mod field_editor;
+pub mod fields_pane;
 pub mod form_fill;
 pub mod layers_pane;
 pub mod macros;

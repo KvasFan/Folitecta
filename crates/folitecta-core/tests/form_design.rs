@@ -339,3 +339,37 @@ fn widgets_move_in_the_manual_tab_order() {
     doc.undo().unwrap();
     assert_eq!(doc.widget_order(0), ids);
 }
+
+#[test]
+fn fields_are_copied_in_rows_and_columns() {
+    let mut doc = blank();
+    let props = FieldProps {
+        name: "qty".into(),
+        ..FieldProps::default()
+    };
+    let id = doc
+        .add_form_field(0, NewField::Text, [40.0, 300.0, 140.0, 320.0], &props)
+        .unwrap();
+    assert_eq!(doc.copy_field(id, 3, 2, 120.0, -30.0).unwrap(), 5);
+    let fields = doc.form_fields();
+    assert_eq!(fields.len(), 6);
+    let names: std::collections::HashSet<String> = fields.iter().map(|f| f.name.clone()).collect();
+    assert_eq!(names.len(), 6, "names stay unique: {names:?}");
+    let last = fields.iter().map(|f| f.rect.unwrap()).fold([0.0f32; 4], |a, r| {
+        if r[0] >= a[0] && (r[1] <= a[1] || a[1] == 0.0) {
+            r
+        } else {
+            a
+        }
+    });
+    assert!(
+        (last[0] - 160.0).abs() < 0.5 && (last[1] - 240.0).abs() < 0.5,
+        "{last:?}"
+    );
+    doc.undo().unwrap();
+    assert_eq!(doc.form_fields().len(), 1, "one undo step");
+    assert_eq!(doc.page_tab_order(0), "");
+    doc.set_tab_order("R").unwrap();
+    assert_eq!(doc.page_tab_order(0), "R");
+    assert!(doc.calculation_order().is_empty());
+}

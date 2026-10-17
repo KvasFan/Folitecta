@@ -149,3 +149,19 @@ fn templates_and_cropping() {
             .is_err()
     );
 }
+
+#[test]
+fn moved_designed_stamps_keep_their_drawing() {
+    let d = StampDesign::template("approved").unwrap();
+    let mut doc = Document::new_blank(1, 300.0, 300.0).unwrap();
+    doc.add_designed_stamp(0, [10.0, 10.0, 230.0, 90.0], &d, &values(), "Ann", "Approved")
+        .unwrap();
+    let before = appearance_on(&doc, 0);
+    doc.move_annotation(0, 0, 20.0, 30.0).unwrap();
+    let after = appearance_on(&doc, 0);
+    assert!(
+        after.contains("(APPROVED)") && after.contains("(by Ann Example)"),
+        "{after}"
+    );
+    assert_eq!(before, after);
+}

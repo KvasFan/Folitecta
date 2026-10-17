@@ -1135,6 +1135,83 @@ impl Document {
         self.commit()
     }
 
+    /// Copies of a field in `rows` x `cols` (the field is the first), each
+    /// `dx` / `dy` points apart (PDF space, `dy` downwards when negative);
+    /// the copies get numbered names. One undo step; returns the copies made.
+    pub fn copy_field(
+        &mut self,
+        field: ObjectId,
+        rows: usize,
+        cols: usize,
+        dx: f32,
+        dy: f32,
+    ) -> Result<usize> {
+        let f = self
+            .form_fields()
+            .into_iter()
+            .find(|x| x.id == field)
+            .ok_or_else(|| Error::Invalid("field not found".into()))?;
+        let kind = match f.kind {
+            crate::forms::FieldKind::Text => NewField::Text,
+            crate::forms::FieldKind::CheckBox => NewField::CheckBox,
+            crate::forms::FieldKind::ComboBox => NewField::ComboBox,
+            crate::forms::FieldKind::ListBox => NewField::ListBox,
+            crate::forms::FieldKind::PushButton => NewField::PushButton,
+            crate::forms::FieldKind::Signature => NewField::Signature,
+            _ => return Err(Error::Invalid("radio groups cannot be copied this way".into())),
+        };
+        let (Some(page), Some(rect)) = (f.page, f.rect) else {
+            return Err(Error::Invalid("the field has no widget on a page".into()));
+        };
+        let (rows, cols) = (rows.clamp(1, 100), cols.clamp(1, 100));
+        if rows * cols == 1 {
+            return Ok(0);
+        }
+        let base = self.field_props(field)?;
+        let mark = self.undo_mark();
+        let mut made = 0;
+        for r in 0..rows {
+            for c in 0..cols {
+                if r == 0 && c == 0 {
+                    continue;
+                }
+                let (ox, oy) = (c as f32 * dx, r as f32 * dy);
+                let mut props = base.clone();
+                props.name = self.unique_field_name(&format!("{}.", f.name));
+                let nr = [rect[0] + ox, rect[1] + oy, rect[2] + ox, rect[3] + oy];
+                self.add_form_field(page, kind, nr, &props)?;
+                made += 1;
+            }
+        }
+        self.squash_undo(&mark);
+        Ok(made)
+    }
+
+    /// Tab order of a page: `R` rows, `C` columns, `S` structure, or empty
+    /// (the order of the page's annotations).
+    pub fn page_tab_order(&self, page: usize) -> String {
+        self.page_id(page)
+            .ok()
+            .and_then(|id| self.inner.get_dictionary(id).ok())
+            .and_then(|d| d.get(b"Tabs").ok())
+            .and_then(|t| t.as_name().ok())
+            .map(|n| String::from_utf8_lossy(n).to_string())
+            .unwrap_or_default()
+    }
+
+    /// Fields in the order their values are calculated (`/CO`).
+    pub fn calculation_order(&self) -> Vec<ObjectId> {
+        let doc = &self.inner;
+        doc.catalog()
+            .ok()
+            .and_then(|c| c.get(b"AcroForm").ok())
+            .and_then(|a| deref(doc, a).as_dict().ok())
+            .and_then(|a| a.get(b"CO").ok())
+            .and_then(|co| deref(doc, co).as_array().ok())
+            .map(|arr| arr.iter().filter_map(|o| o.as_reference().ok()).collect())
+            .unwrap_or_default()
+    }
+
     /// Widgets of a page in tab order when the order follows the page's
     /// annotation list (no row, column or structure order).
     pub fn widget_order(&self, page: usize) -> Vec<ObjectId> {

@@ -1019,5 +1019,22 @@
   "toast.compare_first": "Compare two documents first",
   "toast.compare_same": "The texts are the same",
   "toast.compare_done": "{count} difference(s) found",
-  "toast.compare_closed": "That document was closed"
+  "toast.compare_closed": "That document was closed",
+  "tool.table": "Table",
+  "table.new": "New table",
+  "table.rows": "Rows",
+  "table.cols": "Columns",
+  "table.header": "First row is a header",
+  "table.editor": "Edit table",
+  "table.text_color": "Text color",
+  "table.hint": "Click a cell to select it, Shift+click to select a range. Double-click a table on the page to edit it again.",
+  "fieldcopies.title": "Create multiple copies",
+  "fieldcopies.dx": "Horizontal spacing (pt)",
+  "fieldcopies.dy": "Vertical spacing (pt)",
+  "fieldcopies.hint": "Copies get the field name followed by a number. Rows go down the page, columns to the right.",
+  "toast.select_table": "Select a table first",
+  "toast.cell_not_merged": "The cell is not merged",
+  "toast.select_web_link": "Select a link to a web address first",
+  "toast.fields_copied": "Copies created: {count}",
+  "table.line_color": "Line color"
 }

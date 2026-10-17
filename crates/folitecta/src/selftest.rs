@@ -1756,9 +1756,114 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
         pause(400).await;
     }
 
-    // 35. Undo everything added above.
+    // 35. Tables: one drawn with the table tool, a cell typed, two cells
+    // merged and a row added in the editor; then copies of a form field and
+    // the tab order numbers of the fields.
+    let count = |st: AppState| {
+        st.read_active(|t| t.doc.annotations(0).map(|a| a.len()).unwrap_or(0))
+            .unwrap_or(0)
+    };
+    let before = count(st);
+    crate::commands::dispatch(st, "tool.table.create");
+    pause(300).await;
+    let _ = pointer_path(0, z, &line((330.0, 430.0), (560.0, 530.0), 6), false).await;
+    pause(500).await;
+    let asked = matches!((st.dialog)(), Dialog::TableNew { .. });
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(600).await;
+    let editor = (st.dialog)() == Dialog::TableEditor;
+    let _ = document::eval(
+        "const a = document.querySelector('.table-grid textarea'); if (a) { a.value = 'Item'; a.dispatchEvent(new Event('input', { bubbles: true })); }",
+    )
+    .await;
+    pause(200).await;
+    let _ = document::eval(
+        "const c = document.querySelectorAll('.table-grid .table-cell'); c[3]?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); c[4]?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, shiftKey: true }));",
+    )
+    .await;
+    pause(300).await;
+    crate::commands::dispatch(st, "tool.table.cell.merge");
+    pause(300).await;
+    crate::commands::dispatch(st, "tool.table.insert.rows.below");
+    pause(400).await;
+    let _ = capture_window(&dir.join("interaction-table-editor.png"));
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(700).await;
+    let after = count(st);
+    let table = st
+        .read_active(|t| t.doc.table_at(0, after.saturating_sub(1)))
+        .flatten();
+    let _ = capture_window(&dir.join("interaction-table.png"));
+    record(
+        "table drawn and edited",
+        asked
+            && editor
+            && after == before + 1
+            && table.as_ref().is_some_and(|t| {
+                t.cells[0][0].text == "Item" && t.cells[1][0].colspan == 2 && t.row_count() == 4
+            }),
+        format!(
+            "{before} -> {after} annotations, {:?}",
+            table.as_ref().map(|t| (t.row_count(), t.col_count()))
+        ),
+    );
+    st.with_active(|t| t.selected_annot = None);
+    crate::commands::dispatch(st, "tool.editFields");
+    pause(300).await;
+    let widget = st
+        .with_active(|t| {
+            let f = t
+                .doc
+                .form_fields()
+                .into_iter()
+                .find(|f| f.name == "contact.name")?;
+            let wid = *f.widgets.first()?;
+            let i = t
+                .doc
+                .annotations(0)
+                .ok()?
+                .into_iter()
+                .position(|a| a.id == Some(wid))?;
+            t.selected_annot = Some((0, i));
+            Some(f.id)
+        })
+        .flatten();
+    let fields_before = st.read_active(|t| t.doc.form_fields().len()).unwrap_or(0);
+    crate::commands::dispatch(st, "tool.editFields.createMulti");
+    pause(400).await;
+    let copies_asked = matches!((st.dialog)(), Dialog::FieldCopies(f) if Some(f) == widget);
+    let _ = document::eval(
+        "const i = document.querySelectorAll('.dialog input'); const set = (e, v) => { if (e) { e.value = v; e.dispatchEvent(new Event('input', { bubbles: true })); } }; set(i[0], '1'); set(i[1], '2');",
+    )
+    .await;
+    pause(250).await;
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(500).await;
+    let fields_after = st.read_active(|t| t.doc.form_fields().len()).unwrap_or(0);
+    record(
+        "copies of a form field created",
+        copies_asked && fields_after == fields_before + 1,
+        format!("{fields_before} -> {fields_after} fields"),
+    );
+    crate::commands::dispatch(st, "tool.editFields.showTabNumbers");
+    pause(500).await;
+    let numbers = document::eval("return document.querySelectorAll('#pg-0 .field-mark .num').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let _ = capture_window(&dir.join("interaction-field-tab-numbers.png"));
+    record(
+        "tab order numbers shown on the fields",
+        numbers as usize >= 4,
+        format!("{numbers} numbers"),
+    );
+    crate::commands::dispatch(st, "tool.editFields.showTabNumbers");
     st.set_tool(Tool::Hand);
-    for _ in 0..30 {
+
+    // 36. Undo everything added above.
+    st.set_tool(Tool::Hand);
+    for _ in 0..40 {
         crate::commands::dispatch(st, "undo");
     }
     pause(500).await;
@@ -1973,7 +2078,24 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("document-actions", Dialog::DocumentActions),
         ("manage-marks", Dialog::ManageMarks("Watermark".into())),
         ("stamp-designer", Dialog::StampDesigner),
+        (
+            "table-new",
+            Dialog::TableNew {
+                page: 0,
+                rect: [100.0, 100.0, 300.0, 200.0],
+            },
+        ),
+        ("table-editor", Dialog::TableEditor),
+        ("field-copies", Dialog::FieldCopies((1, 0))),
     ];
+    // The editor shows the table being edited.
+    *crate::commands::tables::TABLE_EDIT.write() = Some(crate::commands::tables::TableEdit {
+        page: 0,
+        index: 0,
+        table: folitecta_core::tables::Table::new(4, 3),
+        sel: (1, 1, 0, 1),
+        fill: [0.9, 0.93, 1.0],
+    });
     for lang in [crate::i18n::Lang::It, crate::i18n::Lang::En] {
         st.ui_mut().lang = lang;
         let code = lang.code();
@@ -1984,6 +2106,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         }
         st.set_dialog(Dialog::None);
     }
+    *crate::commands::tables::TABLE_EDIT.write() = None;
     st.ui_mut().theme = Theme::Dark;
     total += check(st, &dir, "960x620-dark", log).await;
     st.ui_mut().theme = Theme::Light;

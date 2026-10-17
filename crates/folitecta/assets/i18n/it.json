@@ -3026,5 +3026,22 @@
   "toast.compare_first": "Confronta prima due documenti",
   "toast.compare_same": "I testi sono uguali",
   "toast.compare_done": "Trovate {count} differenze",
-  "toast.compare_closed": "Quel documento è stato chiuso"
+  "toast.compare_closed": "Quel documento è stato chiuso",
+  "tool.table": "Tabella",
+  "table.new": "Nuova tabella",
+  "table.rows": "Righe",
+  "table.cols": "Colonne",
+  "table.header": "La prima riga è un'intestazione",
+  "table.editor": "Modifica tabella",
+  "table.text_color": "Colore testo",
+  "table.hint": "Fai clic su una cella per selezionarla, Maiusc+clic per selezionare un intervallo. Fai doppio clic su una tabella nella pagina per modificarla di nuovo.",
+  "fieldcopies.title": "Crea più copie",
+  "fieldcopies.dx": "Spaziatura orizzontale (pt)",
+  "fieldcopies.dy": "Spaziatura verticale (pt)",
+  "fieldcopies.hint": "Le copie hanno il nome del campo seguito da un numero. Le righe vanno verso il basso, le colonne verso destra.",
+  "toast.select_table": "Seleziona prima una tabella",
+  "toast.cell_not_merged": "La cella non è unita",
+  "toast.select_web_link": "Seleziona prima un collegamento a un indirizzo web",
+  "toast.fields_copied": "Copie create: {count}",
+  "table.line_color": "Colore linee"
 }

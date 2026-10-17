@@ -32,6 +32,7 @@ pub(crate) mod sessions;
 pub(crate) mod signatures;
 pub(crate) mod signs;
 pub(crate) mod stamps;
+pub(crate) mod tables;
 mod view;
 
 use std::collections::{HashMap, HashSet};
@@ -81,6 +82,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     stamps::HANDLERS,
     doctools::HANDLERS,
     compare::HANDLERS,
+    tables::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -124,6 +126,9 @@ pub const PARTIAL: &[&str] = &[
     "document.recompressImage",
     // There is no side-by-side view: it switches between the two documents.
     "cmpDocs.show.both",
+    // The system decides where the browser opens a link.
+    "tool.link.openInBrowser.newTab",
+    "tool.link.openInBrowser.newWindow",
 ];
 
 /// View options toggled by command id; their state lives in the preferences.
@@ -204,6 +209,7 @@ pub const VIEW_OPTIONS: &[&str] = &[
     "searchView.lookInSubFolders",
     "searchView.estimateFolder",
     "document.find.coloredResults",
+    "tool.loupe.trackMouse",
 ];
 
 /// Options that are on unless the user turned them off.
@@ -211,6 +217,7 @@ pub const DEFAULT_ON: &[&str] = &[
     "view.spellCheck",
     "search.pageText",
     "portfolio.tools",
+    "tool.loupe.trackMouse",
     "stamps.favorites",
     "stamps.recents",
     "historyList.group.show",
@@ -281,6 +288,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| sessions::sessions_state(st, id))
         .or_else(|| stamps::stamps_state(st, id))
         .or_else(|| compare::compare_state(st, id))
+        .or_else(|| tables::tables_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

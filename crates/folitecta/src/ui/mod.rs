@@ -23,6 +23,7 @@ pub mod signs;
 pub mod stamps;
 pub mod statusbar;
 pub mod style_editor;
+pub mod tables;
 pub mod toasts;
 pub mod toolbars;
 pub mod welcome;

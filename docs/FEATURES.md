@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.4. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 952 |
-| 🟡 partial | 49 |
-| ⬜ planned | 976 |
+| ✅ available | 974 |
+| 🟡 partial | 54 |
+| ⬜ planned | 949 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -23,7 +23,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Hand Tool | `tool.hand` | ✅ available |
 | ↳ Selection Text Images | `tool.hand.selTextImages` | ✅ available |
 | Loupe Tool | `tool.loupe` | ✅ available |
-| ↳ Track Mouse | `tool.loupe.trackMouse` | ⬜ planned |
+| ↳ Track Mouse | `tool.loupe.trackMouse` | ✅ available |
 | Other Tools | `comment.otherToolsGroup` | ⬜ planned |
 | Other Tools | `otherToolsGroup` | ⬜ planned |
 | Pan and Zoom Tool | `tool.panZoom` | ✅ available |
@@ -647,13 +647,13 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Edit Document Forms | `tool.edit.form` | ⬜ planned |
 | Edit Form | `tool.editFields` | ✅ available |
 | ↳ Add New Field | `tool.editFields.addNewField` | ✅ available |
-| ↳ Create Multi | `tool.editFields.createMulti` | ⬜ planned |
+| ↳ Create Multi | `tool.editFields.createMulti` | ✅ available |
 | ↳ Field Type | `tool.editFields.mode` | 🟡 partial |
 | ↳ Keep Mode | `tool.editFields.keepMode` | ✅ available |
 | ↳ Rename Field | `tool.editFields.renameField` | ✅ available |
 | ↳ Set as Required | `tool.editFields.setAsRequired` | ✅ available |
-| ↳ Show Calculation Ord Index | `tool.editFields.showCalcOrdIdx` | ⬜ planned |
-| ↳ Show Tab Numbers | `tool.editFields.showTabNumbers` | ⬜ planned |
+| ↳ Show Calculation Ord Index | `tool.editFields.showCalcOrdIdx` | ✅ available |
+| ↳ Show Tab Numbers | `tool.editFields.showTabNumbers` | ✅ available |
 | Field Editor | `editFields` | ⬜ planned |
 | ↳ Items | `editFields.items` | ⬜ planned |
 | Listbox | `listbox` | ⬜ planned |
@@ -2383,23 +2383,23 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `tool.editFields.mode.select` | Form › Tool › Edit Form › Field Type › Select | ✅ available |
 | `tool.editFields.mode.signature` | Form › Tool › Edit Form › Field Type › Signature | ✅ available |
 | `tool.editFields.mode.text` | Form › Tool › Edit Form › Field Type › Text | ✅ available |
-| `tool.link.openInBrowser.newTab` | Tools › Tool › Link › Open in Browser › New Tab | ⬜ planned |
-| `tool.link.openInBrowser.newWindow` | Tools › Tool › Link › Open in Browser › New Window | ⬜ planned |
+| `tool.link.openInBrowser.newTab` | Tools › Tool › Link › Open in Browser › New Tab | 🟡 partial |
+| `tool.link.openInBrowser.newWindow` | Tools › Tool › Link › Open in Browser › New Window | 🟡 partial |
 | `tool.sign` | Tools › Tool › Sign | ✅ available |
 | `tool.sign.and` | Tools › Tool › Sign › And | ✅ available |
-| `tool.table.cell.fill` | Tools › Tool › Create/Edit Tables › Cell › Fill | ⬜ planned |
-| `tool.table.cell.merge` | Tools › Tool › Create/Edit Tables › Cell › Merge | ⬜ planned |
-| `tool.table.cell.split` | Tools › Tool › Create/Edit Tables › Cell › Split | ⬜ planned |
-| `tool.table.delete.columns` | Tools › Tool › Create/Edit Tables › Delete › Columns | ⬜ planned |
-| `tool.table.delete.rows` | Tools › Tool › Create/Edit Tables › Delete › Rows | ⬜ planned |
-| `tool.table.delete.table` | Tools › Tool › Create/Edit Tables › Delete › Table | ⬜ planned |
-| `tool.table.insert.columns` | Tools › Tool › Create/Edit Tables › Insert › Columns | ⬜ planned |
-| `tool.table.insert.columns.left` | Tools › Tool › Create/Edit Tables › Insert › Columns › Left | ⬜ planned |
-| `tool.table.insert.columns.right` | Tools › Tool › Create/Edit Tables › Insert › Columns › Right | ⬜ planned |
-| `tool.table.insert.rows` | Tools › Tool › Create/Edit Tables › Insert › Rows | ⬜ planned |
-| `tool.table.insert.rows.above` | Tools › Tool › Create/Edit Tables › Insert › Rows › Above | ⬜ planned |
-| `tool.table.insert.rows.below` | Tools › Tool › Create/Edit Tables › Insert › Rows › Below | ⬜ planned |
-| `tool.table.line.color` | Tools › Tool › Create/Edit Tables › Line › Color | ⬜ planned |
+| `tool.table.cell.fill` | Tools › Tool › Create/Edit Tables › Cell › Fill | ✅ available |
+| `tool.table.cell.merge` | Tools › Tool › Create/Edit Tables › Cell › Merge | ✅ available |
+| `tool.table.cell.split` | Tools › Tool › Create/Edit Tables › Cell › Split | ✅ available |
+| `tool.table.delete.columns` | Tools › Tool › Create/Edit Tables › Delete › Columns | ✅ available |
+| `tool.table.delete.rows` | Tools › Tool › Create/Edit Tables › Delete › Rows | ✅ available |
+| `tool.table.delete.table` | Tools › Tool › Create/Edit Tables › Delete › Table | ✅ available |
+| `tool.table.insert.columns` | Tools › Tool › Create/Edit Tables › Insert › Columns | ✅ available |
+| `tool.table.insert.columns.left` | Tools › Tool › Create/Edit Tables › Insert › Columns › Left | ✅ available |
+| `tool.table.insert.columns.right` | Tools › Tool › Create/Edit Tables › Insert › Columns › Right | ✅ available |
+| `tool.table.insert.rows` | Tools › Tool › Create/Edit Tables › Insert › Rows | ✅ available |
+| `tool.table.insert.rows.above` | Tools › Tool › Create/Edit Tables › Insert › Rows › Above | ✅ available |
+| `tool.table.insert.rows.below` | Tools › Tool › Create/Edit Tables › Insert › Rows › Below | ✅ available |
+| `tool.table.line.color` | Tools › Tool › Create/Edit Tables › Line › Color | ✅ available |
 | `view` | View | 🟡 partial |
 | `view.portfolio.view.nav.next` | View › Portfolio › View › Navigation › Next | ✅ available |
 | `view.portfolio.view.nav.prev` | View › Portfolio › View › Navigation › Previous | ✅ available |

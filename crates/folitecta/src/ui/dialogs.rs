@@ -292,6 +292,11 @@ pub fn Dialogs() -> Element {
         Dialog::MultiPlace => rsx! { crate::ui::doctools::MultiPlaceDialog {} },
         Dialog::DocumentActions => rsx! { crate::ui::doctools::DocumentActionsDialog {} },
         Dialog::Compare => rsx! { crate::ui::compare::CompareDialog {} },
+        Dialog::TableNew { page, rect } => {
+            rsx! { crate::ui::tables::TableNewDialog { page, rect: rect.to_vec() } }
+        }
+        Dialog::TableEditor => rsx! { crate::ui::tables::TableEditorDialog {} },
+        Dialog::FieldCopies(field) => rsx! { crate::ui::tables::FieldCopiesDialog { field } },
     }
 }
 

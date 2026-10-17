@@ -72,6 +72,8 @@ pub enum Tool {
     SignArea,
     /// Place a signature, initials or a profile text.
     PlaceSignature,
+    /// Draw the rectangle of a new table.
+    Table,
 }
 
 impl Tool {
@@ -137,6 +139,7 @@ impl Tool {
             Tool::FieldSignature => "tool.editFields.mode.signature",
             Tool::SignArea => "tool.digisig",
             Tool::PlaceSignature => "tool.sign.and.initials",
+            Tool::Table => "tool.table.create",
         }
     }
 
@@ -187,6 +190,7 @@ impl Tool {
             Tool::FieldSignature => "tool.field_signature",
             Tool::SignArea => "tool.sign_area",
             Tool::PlaceSignature => "tool.place_signature",
+            Tool::Table => "tool.table",
         }
     }
 
@@ -1090,6 +1094,15 @@ pub enum Dialog {
     DocumentActions,
     /// Choose the documents to compare.
     Compare,
+    /// Rows and columns of a new table drawn at `rect` (PDF space).
+    TableNew {
+        page: usize,
+        rect: [f32; 4],
+    },
+    /// The table editor.
+    TableEditor,
+    /// Copies of a form field in rows and columns.
+    FieldCopies((u32, u16)),
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.
@@ -1365,7 +1378,9 @@ impl AppState {
             message: message.into(),
         });
         let toasts = self.toasts;
-        spawn(async move {
+        // On the root scope: a dialog that shows a message closes right away,
+        // and a task of its own scope would stop with it.
+        dioxus::core::spawn_forever(async move {
             tokio::time::sleep(std::time::Duration::from_millis(if kind == ToastKind::Error {
                 9000
             } else {
@@ -1452,7 +1467,8 @@ impl AppState {
         let display = folitecta_core::marks::pdf_rect_to_display(&size, band);
         self.with_active(|t| t.flash = Some((page, display)));
         let st = *self;
-        spawn(async move {
+        // On the root scope, like the messages: the caller may be a dialog that closes.
+        dioxus::core::spawn_forever(async move {
             // Let the new zoom lay the pages out before scrolling inside the page.
             tokio::time::sleep(std::time::Duration::from_millis(160)).await;
             let zoom = crate::commands::current_zoom(st);

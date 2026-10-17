@@ -27,10 +27,25 @@ All notable changes to Folitecta are documented here. The format follows
 - Compare documents: the text of two documents compared word by word, changes, insertions and
   deletions highlighted on both (words or whole rows), a list of the differences with previous,
   next, first and last, the pages that differ, and a comparison report document.
+- Tables: drawn on the page with the table tool, with a header row; an editor for the cell text,
+  rows and columns inserted above, below, left or right, deleted rows and columns, merged and
+  split cells, cell fill, bold text and alignment, line and text colour, line width and text
+  size. Double-click a table to edit it again.
+- Form editor: copies of a field in rows and columns, and the tab order and calculation order
+  numbers shown on the fields.
+- Links: open the web address of the selected link in the browser.
+- Loupe: follow the mouse (on by default).
 
 ### Changed
 
 - Marking or redacting many search results is a single undo step.
+
+### Fixed
+
+- Moving or resizing a stamp made with the stamp designer no longer redraws it as a plain text
+  label.
+- Messages shown by a dialog now close by themselves like the others, and jumps started from a
+  dialog finish their scroll and highlight.
 
 ## [0.0.4] - 2026-10-17
 

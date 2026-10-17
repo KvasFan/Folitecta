@@ -392,7 +392,7 @@ fn Canvas() -> Element {
                 }
             },
             onmouseleave: move |_| {
-                if st.loupe.peek().is_some() { st.set_loupe(None); }
+                if st.loupe.peek().is_some() && option_on(st, "tool.loupe.trackMouse") { st.set_loupe(None); }
                 if st.pointer.peek().is_some() { st.set_pointer(None); }
             },
             onscroll: move |_| {
@@ -769,7 +769,12 @@ fn PageView(
         widgets: Vec<(folitecta_core::PageWidget, [f32; 4])>,
         popups: Vec<PopupView>,
         flash: Option<[f32; 4]>,
+        /// Tab order and calculation order numbers of the form fields: label, calculation, rectangle.
+        field_marks: Vec<(String, bool, [f32; 4])>,
     }
+    let show_tabs = option_on(st, "tool.editFields.showTabNumbers");
+    let show_calc = option_on(st, "tool.editFields.showCalcOrdIdx");
+    let designing = edit_fields || tool.new_field().is_some();
     let Some(view) = st
         .read_active(|t| {
             let size = t.page_sizes.get(page).copied()?;
@@ -866,6 +871,40 @@ fn PageView(
             } else {
                 Vec::new()
             };
+            let field_marks = if designing && (show_tabs || show_calc) && t.doc.has_form() {
+                let mut ws = t.doc.page_widgets(page);
+                let mut out = Vec::new();
+                if show_tabs {
+                    // Rows: top to bottom then left to right; columns: the other way round.
+                    match t.doc.page_tab_order(page).as_str() {
+                        "R" => ws.sort_by(|a, b| {
+                            b.rect[3]
+                                .total_cmp(&a.rect[3])
+                                .then(a.rect[0].total_cmp(&b.rect[0]))
+                        }),
+                        "C" => ws.sort_by(|a, b| {
+                            a.rect[0]
+                                .total_cmp(&b.rect[0])
+                                .then(b.rect[3].total_cmp(&a.rect[3]))
+                        }),
+                        _ => {}
+                    }
+                    for (n, w) in ws.iter().enumerate() {
+                        out.push(((n + 1).to_string(), false, pdf_rect_to_display(&size, w.rect)));
+                    }
+                }
+                if show_calc {
+                    let co = t.doc.calculation_order();
+                    for w in &ws {
+                        if let Some(k) = co.iter().position(|f| *f == w.field) {
+                            out.push((format!("c{}", k + 1), true, pdf_rect_to_display(&size, w.rect)));
+                        }
+                    }
+                }
+                out
+            } else {
+                Vec::new()
+            };
             Some(View {
                 size,
                 annots,
@@ -878,6 +917,7 @@ fn PageView(
                 widgets,
                 popups,
                 flash: t.flash.filter(|(p, _)| *p == page).map(|(_, r)| r),
+                field_marks,
             })
         })
         .flatten()
@@ -1063,6 +1103,10 @@ fn PageView(
                 None
             }
             Tool::Redact if !tiny => st.with_active(|t| t.doc.add_redaction(page, rect, &author).map(|_| ())),
+            Tool::Table if !tiny => {
+                st.set_dialog(Dialog::TableNew { page, rect });
+                None
+            }
             Tool::Stamp if st.ui.read().value("stamp.kind") == Some("design") => {
                 let c = rect_to_pdf(&size, [x0, y0, x0, y0]);
                 crate::commands::stamps::place_design(st, page, rect, tiny, (c[0], c[1]))
@@ -1357,7 +1401,8 @@ fn PageView(
                     if track_pointer {
                         st.set_pointer(Some((page, x, y)));
                     }
-                    if tool == Tool::Loupe {
+                    // Without mouse tracking the loupe stays where it was clicked.
+                    if tool == Tool::Loupe && (option_on(st, "tool.loupe.trackMouse") || evt.held_buttons().contains(dioxus::html::input_data::MouseButton::Primary)) {
                         let c = evt.client_coordinates();
                         st.set_loupe(Some((page, x, y, c.x, c.y)));
                     }
@@ -1470,6 +1515,11 @@ fn PageView(
                 for (i, (class, r)) in cmp_marks.iter().enumerate() {
                     div { key: "c{i}", class: "{class}", style: "{css(*r)}" }
                 }
+                for (i, (label, calc, r)) in view.field_marks.iter().enumerate() {
+                    div { key: "fm{i}", class: "field-mark", style: "{css(*r)}",
+                        span { class: if *calc { "num calc" } else { "num" }, "{label}" }
+                    }
+                }
                 for (i, r) in view.sel.iter().enumerate() {
                     div { key: "s{i}", class: "sel", style: "{css(*r)}" }
                 }
@@ -1525,6 +1575,10 @@ fn PageView(
                                     e.stop_propagation();
                                     if is_widget {
                                         st.ui_mut().show_right_pane = true;
+                                        return;
+                                    }
+                                    // Tables open in the table editor.
+                                    if crate::commands::tables::edit_table(st, page, index) {
                                         return;
                                     }
                                     let contents = contents.clone();

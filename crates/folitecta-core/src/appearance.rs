@@ -1005,11 +1005,23 @@ impl Document {
             }
             "Stamp" => {
                 let name = name_of(d, b"Name").unwrap_or_default();
-                if name == crate::signmarks::SIGNATURE_STAMP {
-                    // Handwritten signatures keep their drawing (it scales with the rectangle).
+                if name == crate::signmarks::SIGNATURE_STAMP || name.starts_with("FolitectaDesign") {
+                    // Handwritten signatures and designed stamps keep their drawing
+                    // (it scales with the rectangle).
                     return Ok(false);
                 }
-                if name == "FolitectaImage" {
+                if name == crate::tables::TABLE_STAMP {
+                    // Tables are drawn again from their data for the new rectangle.
+                    let table: Option<crate::tables::Table> = match d.get(b"FolitectaTable") {
+                        Ok(Object::String(s, _)) => serde_json::from_slice(s).ok(),
+                        _ => None,
+                    };
+                    let Some(table) = table else { return Ok(false) };
+                    for (k, v) in self.table_resources().iter() {
+                        resources.set(k.clone(), v.clone());
+                    }
+                    body.push_str(&table.content(rect));
+                } else if name == "FolitectaImage" {
                     // Keep the picture of the existing appearance, change only the opacity.
                     let img = d
                         .get(b"AP")

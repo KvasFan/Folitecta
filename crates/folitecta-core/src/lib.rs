@@ -41,6 +41,7 @@ pub mod security;
 pub mod signmarks;
 pub mod stamp_design;
 pub mod stamps;
+pub mod tables;
 pub mod text;
 pub mod textdoc;
 pub mod textlayer;

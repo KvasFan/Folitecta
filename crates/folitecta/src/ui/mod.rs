@@ -2,6 +2,7 @@ pub mod attachments_pane;
 pub mod bookmarks_pane;
 pub mod canvas;
 pub mod comments_pane;
+pub mod compare;
 pub mod dialogs;
 pub mod doctools;
 pub mod field_editor;

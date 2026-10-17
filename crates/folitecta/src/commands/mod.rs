@@ -9,6 +9,7 @@ use dioxus::prelude::ReadableExt;
 pub(crate) mod attachments;
 pub(crate) mod bookmarks;
 mod comments;
+pub(crate) mod compare;
 mod convert;
 pub(crate) mod doctools;
 mod edit;
@@ -79,6 +80,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     sessions::HANDLERS,
     stamps::HANDLERS,
     doctools::HANDLERS,
+    compare::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -120,6 +122,8 @@ pub const PARTIAL: &[&str] = &[
     "document.removeCroppedContent",
     // The pictures of the current page (a single picture cannot be selected).
     "document.recompressImage",
+    // There is no side-by-side view: it switches between the two documents.
+    "cmpDocs.show.both",
 ];
 
 /// View options toggled by command id; their state lives in the preferences.
@@ -276,6 +280,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| history::history_state(st, id))
         .or_else(|| sessions::sessions_state(st, id))
         .or_else(|| stamps::stamps_state(st, id))
+        .or_else(|| compare::compare_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

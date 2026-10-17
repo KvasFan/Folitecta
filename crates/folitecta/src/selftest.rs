@@ -1708,7 +1708,55 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     );
     st.set_dialog(Dialog::None);
 
-    // 34. Undo everything added above.
+    // 34. Compare two documents: differences listed, highlighted, visited.
+    let make = |text: &str| folitecta_core::Document::from_text(text, Default::default());
+    if let (Ok(a), Ok(b)) = (
+        make("Folitecta compares documents word by word.\n\nThe old version has a brown fox and a lazy dog."),
+        make(
+            "Folitecta compares documents word by word.\n\nThe new version has a red fox and a dog that sleeps.",
+        ),
+    ) {
+        crate::files::open_document_tab(st, a);
+        let old = st.read_active(|t| t.id).unwrap_or(0);
+        crate::files::open_document_tab(st, b);
+        let new = st.read_active(|t| t.id).unwrap_or(0);
+        crate::commands::compare::run(st, old, new, false);
+        let mut found = 0;
+        for _ in 0..40 {
+            pause(150).await;
+            found = st
+                .comparison
+                .read()
+                .as_ref()
+                .map(|c| c.result.differences.len())
+                .unwrap_or(0);
+            if found > 0 {
+                break;
+            }
+        }
+        pause(500).await;
+        let marks = document::eval("return document.querySelectorAll('#canvas .cmp').length;")
+            .await
+            .ok()
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        crate::commands::dispatch(st, "comparisonView.next");
+        pause(400).await;
+        let current = st.comparison.read().as_ref().map(|c| c.current).unwrap_or(0);
+        let _ = capture_window(&dir.join("interaction-compare.png"));
+        record(
+            "documents compared with highlighted differences",
+            found >= 3 && marks > 0 && current == 1,
+            format!("{found} differences, {marks} marks"),
+        );
+        *st.comparison.write_unchecked() = None;
+        st.docs_mut().retain(|t| t.id != old && t.id != new);
+        st.set_active(0);
+        st.ui_mut().left_pane = "thumbnails".into();
+        pause(400).await;
+    }
+
+    // 35. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..30 {
         crate::commands::dispatch(st, "undo");

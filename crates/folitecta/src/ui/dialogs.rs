@@ -291,6 +291,7 @@ pub fn Dialogs() -> Element {
         Dialog::InsertTextPages => rsx! { crate::ui::doctools::InsertTextPagesDialog {} },
         Dialog::MultiPlace => rsx! { crate::ui::doctools::MultiPlaceDialog {} },
         Dialog::DocumentActions => rsx! { crate::ui::doctools::DocumentActionsDialog {} },
+        Dialog::Compare => rsx! { crate::ui::compare::CompareDialog {} },
     }
 }
 

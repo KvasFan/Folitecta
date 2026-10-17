@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.4. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 932 |
-| 🟡 partial | 46 |
-| ⬜ planned | 999 |
+| ✅ available | 952 |
+| 🟡 partial | 49 |
+| ⬜ planned | 976 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -1044,17 +1044,17 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Compare Documents | `cmpDocs` | ⬜ planned |
-| ↳ Filter | `cmpDocs.filter` | ⬜ planned |
-| ↳ Go to | `cmpDocs.goto` | ⬜ planned |
-| ↳ Show | `cmpDocs.show` | ⬜ planned |
-| Compare Documents… | `compareDocs` | ⬜ planned |
-| Comparison | `comparisonView` | ⬜ planned |
-| ↳ First | `comparisonView.first` | ⬜ planned |
-| ↳ Last | `comparisonView.last` | ⬜ planned |
-| ↳ Next | `comparisonView.next` | ⬜ planned |
-| ↳ Previous | `comparisonView.prev` | ⬜ planned |
-| ↳ Show Differs | `comparisonView.showDiffers` | ⬜ planned |
+| Compare Documents | `cmpDocs` | 🟡 partial |
+| ↳ Filter | `cmpDocs.filter` | ✅ available |
+| ↳ Go to | `cmpDocs.goto` | ✅ available |
+| ↳ Show | `cmpDocs.show` | 🟡 partial |
+| Compare Documents… | `compareDocs` | ✅ available |
+| Comparison | `comparisonView` | ✅ available |
+| ↳ First | `comparisonView.first` | ✅ available |
+| ↳ Last | `comparisonView.last` | ✅ available |
+| ↳ Next | `comparisonView.next` | ✅ available |
+| ↳ Previous | `comparisonView.prev` | ✅ available |
+| ↳ Show Differs | `comparisonView.showDiffers` | ✅ available |
 
 ### Accessibility
 
@@ -1433,8 +1433,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Collapse All | `collapseAll` | ⬜ planned |
 | Comment Styles Palette | `view.commentStyles` | ⬜ planned |
 | Comments View | `commentsView` | ✅ available |
-| Compare Documents | `cmpDocs` | ⬜ planned |
-| Comparison | `comparisonView` | ⬜ planned |
+| Compare Documents | `cmpDocs` | 🟡 partial |
+| Comparison | `comparisonView` | ✅ available |
 | Content | `view.content` | ⬜ planned |
 | Content Pane | `contentsView` | ⬜ planned |
 | Document Info Bar | `view.docInfoBar` | ✅ available |
@@ -1711,7 +1711,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Link Tools | `tools.editLinks` | ⬜ planned |
 | Media Tools | `tools.media` | ⬜ planned |
 | Zoom Tools | `tools.zoom` | ⬜ planned |
-| Compare Documents… | `compareDocs` | ⬜ planned |
+| Compare Documents… | `compareDocs` | ✅ available |
 | Launch Application | `launchExternalApp` | ✅ available |
 | Allow/Block List | `bwList` | ⬜ planned |
 | Metadata | `msp` | ⬜ planned |
@@ -1910,18 +1910,18 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `chekerView.show.inFields` | View › Checker › Show › In Fields | ⬜ planned |
 | `chekerView.show.inLinks` | View › Checker › Show › In Links | ⬜ planned |
 | `chekerView.show.inTags` | View › Checker › Show › In Tags | ⬜ planned |
-| `cmpDocs.filter.all` | View › Compare Documents › Filter › All | ⬜ planned |
-| `cmpDocs.filter.list` | View › Compare Documents › Filter › List | ⬜ planned |
-| `cmpDocs.filter.none` | View › Compare Documents › Filter › None | ⬜ planned |
-| `cmpDocs.goto.nextDiff` | View › Compare Documents › Go to › Next Diff | ⬜ planned |
-| `cmpDocs.goto.prevDiff` | View › Compare Documents › Go to › Previous Diff | ⬜ planned |
-| `cmpDocs.show.allDiffs` | View › Compare Documents › Show › All Diffs | ⬜ planned |
-| `cmpDocs.show.both` | View › Compare Documents › Show › Both | ⬜ planned |
-| `cmpDocs.show.new` | View › Compare Documents › Show › New | ⬜ planned |
-| `cmpDocs.show.old` | View › Compare Documents › Show › Old | ⬜ planned |
-| `cmpDocs.show.results` | View › Compare Documents › Show › Results | ⬜ planned |
-| `cmpDocs.show.rowHighlights` | View › Compare Documents › Show › Row Highlights | ⬜ planned |
-| `cmpDocs.show.summary` | View › Compare Documents › Show › Summary | ⬜ planned |
+| `cmpDocs.filter.all` | View › Compare Documents › Filter › All | ✅ available |
+| `cmpDocs.filter.list` | View › Compare Documents › Filter › List | ✅ available |
+| `cmpDocs.filter.none` | View › Compare Documents › Filter › None | ✅ available |
+| `cmpDocs.goto.nextDiff` | View › Compare Documents › Go to › Next Diff | ✅ available |
+| `cmpDocs.goto.prevDiff` | View › Compare Documents › Go to › Previous Diff | ✅ available |
+| `cmpDocs.show.allDiffs` | View › Compare Documents › Show › All Diffs | ✅ available |
+| `cmpDocs.show.both` | View › Compare Documents › Show › Both | 🟡 partial |
+| `cmpDocs.show.new` | View › Compare Documents › Show › New | ✅ available |
+| `cmpDocs.show.old` | View › Compare Documents › Show › Old | ✅ available |
+| `cmpDocs.show.results` | View › Compare Documents › Show › Results | ✅ available |
+| `cmpDocs.show.rowHighlights` | View › Compare Documents › Show › Row Highlights | ✅ available |
+| `cmpDocs.show.summary` | View › Compare Documents › Show › Summary | ✅ available |
 | `comments` | Comments | 🟡 partial |
 | `comments.ac.closeAll` | Comments › Accounting Calculator › Close All | ⬜ planned |
 | `comments.show.byAuthor.all` | Comments › Show Comments › By Author › All | ✅ available |

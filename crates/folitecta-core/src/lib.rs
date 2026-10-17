@@ -13,6 +13,7 @@ pub mod commands;
 pub mod comment_exchange;
 pub mod comment_review;
 pub mod comment_summary;
+pub mod compare;
 pub(crate) mod content_lex;
 pub mod digsig;
 pub mod doctools;

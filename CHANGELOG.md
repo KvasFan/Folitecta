@@ -24,6 +24,9 @@ All notable changes to Folitecta are documented here. The format follows
   footers and page numbers, a space usage audit, recompression of pictures as JPEG (with a size
   limit), pages of typed text or of an RTF file, highlights for the phrases of a text file,
   leaving PDF/A, a signature repeated on several pages, scripts for document events.
+- Compare documents: the text of two documents compared word by word, changes, insertions and
+  deletions highlighted on both (words or whole rows), a list of the differences with previous,
+  next, first and last, the pages that differ, and a comparison report document.
 
 ### Changed
 

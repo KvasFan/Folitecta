@@ -264,6 +264,7 @@ pub enum Pane {
     History,
     Sessions,
     Stamps,
+    Comparison,
     Other(String),
 }
 
@@ -283,6 +284,7 @@ impl Pane {
             Pane::History => "history".into(),
             Pane::Sessions => "sessions".into(),
             Pane::Stamps => "stamps".into(),
+            Pane::Comparison => "comparison".into(),
             Pane::Other(s) => s.clone(),
         }
     }
@@ -302,6 +304,7 @@ impl Pane {
             "history" => Pane::History,
             "sessions" => Pane::Sessions,
             "stamps" => Pane::Stamps,
+            "comparison" => Pane::Comparison,
             other => Pane::Other(other.to_string()),
         }
     }
@@ -378,6 +381,22 @@ pub struct Session {
 pub struct SessionFile {
     pub path: PathBuf,
     pub page: usize,
+}
+
+/// A comparison of two open documents.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompareState {
+    pub old_tab: u64,
+    pub new_tab: u64,
+    pub old_name: String,
+    pub new_name: String,
+    pub result: folitecta_core::compare::Comparison,
+    /// Current difference.
+    pub current: usize,
+    /// Differences shown on the pages: `all`, `list` (the current one) or `none`.
+    pub filter: String,
+    /// Whole text rows are highlighted.
+    pub rows: bool,
 }
 
 /// Seconds since 1970.
@@ -1069,6 +1088,8 @@ pub enum Dialog {
     MultiPlace,
     /// Scripts run on document events.
     DocumentActions,
+    /// Choose the documents to compare.
+    Compare,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.
@@ -1116,6 +1137,8 @@ pub struct AppState {
     pub history_collapsed: Signal<HashSet<String>>,
     /// Selected session and, inside it, file.
     pub session_sel: Signal<Option<(usize, Option<usize>)>>,
+    /// The last comparison of two documents.
+    pub comparison: Signal<Option<CompareState>>,
     pub busy: Signal<bool>,
     /// Viewport position (CSS px) where the open ribbon/pane dropdown is anchored.
     pub dropdown_pos: Signal<(f64, f64)>,
@@ -1165,6 +1188,7 @@ impl AppState {
             history_sel: use_signal(Vec::new),
             history_collapsed: use_signal(HashSet::new),
             session_sel: use_signal(|| None),
+            comparison: use_signal(|| None),
             busy: use_signal(|| false),
             dropdown_pos: use_signal(|| (0.0, 0.0)),
             submenus: use_signal(Vec::new),

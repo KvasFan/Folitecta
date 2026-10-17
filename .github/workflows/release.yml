@@ -233,7 +233,10 @@ jobs:
         if: env.GITLAB_TOKEN != ''
         run: |
           set -euo pipefail
-          git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@gitlab.com/${GITLAB_PROJECT}.git"
+          # The token travels in a header, never in a remote URL.
+          AUTH="Authorization: Basic $(printf 'oauth2:%s' "${GITLAB_TOKEN}" | base64 -w0)"
           git fetch origin main
-          git push gitlab origin/main:refs/heads/main
-          git push gitlab "refs/tags/${RELEASE_TAG}"
+          for ref in "origin/main:refs/heads/main" "refs/tags/${RELEASE_TAG}"; do
+            git -c credential.helper= -c "http.https://gitlab.com/.extraHeader=${AUTH}" \
+              push "https://gitlab.com/${GITLAB_PROJECT}.git" "$ref"
+          done

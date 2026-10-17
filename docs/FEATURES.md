@@ -1,12 +1,12 @@
 # Folitecta feature matrix
 
-Generated from the command registry for version 0.0.11. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
+Generated from the command registry for version 0.0.12. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1344 |
-| 🟡 partial | 57 |
-| ⬜ planned | 580 |
+| ✅ available | 1377 |
+| 🟡 partial | 62 |
+| ⬜ planned | 542 |
 | total | 1981 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -1307,17 +1307,17 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Object | `object` | ⬜ planned |
 | Preferences… | `prefs` | ✅ available |
 | Add Object Group | `addObjectGroup` | ⬜ planned |
-| Align | `align` | ⬜ planned |
-| Alignto | `alignto` | ⬜ planned |
+| Align | `align` | ✅ available |
+| Align To | `alignto` | ✅ available |
 | Choose Layer | `chooseLayer` | ⬜ planned |
 | Clipboard | `clipboardGroup` | ⬜ planned |
 | Crop | `crop` | ⬜ planned |
 | Crop Page | `cropPage` | ⬜ planned |
 | Customize Toolbars | `customizeToolbars` | ⬜ planned |
 | Default Layer | `defaultLayer` | ⬜ planned |
-| Distribute Horizontally | `distribHorz` | ⬜ planned |
-| Distribute Vertically | `distribVert` | ⬜ planned |
-| Distribute to | `distributeTo` | ⬜ planned |
+| Distribute Horizontally | `distribHorz` | 🟡 partial |
+| Distribute Vertically | `distribVert` | 🟡 partial |
+| Distribute to | `distributeTo` | 🟡 partial |
 | Document Size | `dsd` | ✅ available |
 | Edit Image | `editImage` | ✅ available |
 | Edit Link | `editLink` | ⬜ planned |
@@ -1340,12 +1340,12 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Item | `item` | ⬜ planned |
 | Line Width Profile | `lineWidthProfile` | ⬜ planned |
 | List | `list` | ⬜ planned |
-| Make Same Height | `makeSameHeight` | ⬜ planned |
-| Make Same Size | `makeSameSize` | ⬜ planned |
-| Make Same Width | `makeSameWidth` | ⬜ planned |
+| Make Same Height | `makeSameHeight` | ✅ available |
+| Make Same Size | `makeSameSize` | ✅ available |
+| Make Same Width | `makeSameWidth` | ✅ available |
 | Manage Search Providers | `manageSearchProviders` | ⬜ planned |
 | Move to New Layer | `moveToNewLayer` | ⬜ planned |
-| Order | `order` | ⬜ planned |
+| Order | `order` | 🟡 partial |
 | Paste Annotations | `pasteAnnots` | ✅ available |
 | Paste Bookmarks | `pasteBookmarks` | ✅ available |
 | Paste Contents | `pasteContents` | ⬜ planned |
@@ -1469,7 +1469,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Lock All Cmd Panes | `view.lockAllCmdPanes` | ⬜ planned |
 | Lock Unlock All Cmd Bars | `view.lockUnlockAllCmdBars` | ⬜ planned |
 | Lock Unlock All Cmd Panes | `view.lockUnlockAllCmdPanes` | ⬜ planned |
-| Loupe | `loupeView` | ⬜ planned |
+| Loupe | `loupeView` | 🟡 partial |
 | Loupe | `view.loupe` | ✅ available |
 | Mouse-Optimized UI | `view.switchToMouseUI` | ✅ available |
 | Named Destinations Pane | `pdfNamedDestsView` | ✅ available |
@@ -1684,7 +1684,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Measure Info | `measureInfo` | ⬜ planned |
 | Media | `media` | ✅ available |
 | Media Annotation | `mediaAnnot` | ✅ available |
-| Note Icon | `noteIcon` | ⬜ planned |
+| Note Icon | `noteIcon` | ✅ available |
 | Opacity | `opacity` | ✅ available |
 | Printable | `comments.printable` | ✅ available |
 | Selected Text | `textsel` | 🟡 partial |
@@ -2147,8 +2147,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `loupeView.snapshot` | View › Loupe › Snapshot | ⬜ planned |
 | `loupeView.zoom` | View › Loupe › Zoom | ⬜ planned |
 | `loupeView.zoom.combo` | View › Loupe › Zoom › Zoom | ⬜ planned |
-| `loupeView.zoomIn` | View › Loupe › Zoom in | ⬜ planned |
-| `loupeView.zoomOut` | View › Loupe › Zoom Out | ⬜ planned |
+| `loupeView.zoomIn` | View › Loupe › Zoom in | ✅ available |
+| `loupeView.zoomOut` | View › Loupe › Zoom Out | ✅ available |
 | `macro.LaunchApp.CurrentPage` | Comments › Macro › Launch Application › Current Page | ✅ available |
 | `macro.LaunchApp.CurrentPage0` | Comments › Macro › Launch Application › Current Page 0 | ✅ available |
 | `macro.LaunchApp.FileName` | Comments › Macro › Launch Application › File Name | ✅ available |
@@ -2363,7 +2363,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `tabTitleStyle.midEllipsis` | View › Tab Title Style › Mid Ellipsis | ✅ available |
 | `textPara.indent.decrease` | Edit › Text Para › Indent › Decrease | ⬜ planned |
 | `textPara.indent.increase` | Edit › Text Para › Indent › Increase | ⬜ planned |
-| `thumbnailsView.highlightVisible` | View › Thumbnails Pane › Highlight Visible | ⬜ planned |
+| `thumbnailsView.highlightVisible` | View › Thumbnails Pane › Highlight Visible | ✅ available |
 | `thumbnailsView.interactiveVisible` | View › Thumbnails Pane › Interactive Visible | ⬜ planned |
 | `thumbnailsView.logicalVisible` | View › Thumbnails Pane › Logical Visible | ✅ available |
 | `thumbnailsView.options` | View › Thumbnails Pane › Options | ⬜ planned |

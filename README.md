@@ -8,7 +8,7 @@ software under MIT, Apache or GNU licences.
 
 ![Folitecta screenshot](docs/screenshot.png)
 
-## Status: version 0.0.11 (pre-release)
+## Status: version 0.0.12 (pre-release)
 
 Folitecta ships the **complete command surface of a professional PDF editor** — 1,981 commands
 across a ribbon with 11 tabs and 64 groups, 9 classic menus, 27 side panes and a command palette —
@@ -44,8 +44,9 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
   file attachments, links (web address, page, named destination, file to open, script), each with
   a generated appearance stream. Style editor (colour, fill, opacity, thickness, dashes, line
   endings, text size and alignment) with per-tool defaults, named comment styles with a palette,
-  and style copy/paste. Select, move and resize with handles, nudge with the arrow keys, copy /
-  cut / paste across documents, flatten one or all, hide/show, delete.
+  and style copy/paste. Select, move and resize with handles, nudge with the arrow keys, choose
+  several with Shift to align, distribute, size alike and stack them, copy / cut / paste across
+  documents, flatten one or all, hide/show, delete.
 - **Review**: replies, review states with history, check marks, filters, pop-up notes, comment
   summaries, export and import of comments as XFDF, FDF or PDF.
 - **Sign**: digital signatures and certification with PKCS#12 digital IDs (RSA, ECDSA),

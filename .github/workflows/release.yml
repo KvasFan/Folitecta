@@ -190,3 +190,50 @@ jobs:
           files: artifacts/*
           draft: false
           prerelease: true
+
+  # The same release on GitLab: the Windows and macOS packages go to the
+  # generic package registry of the GitLab project, then main and the tag are
+  # pushed there, and the tag pipeline (.gitlab-ci.yml) builds Linux and
+  # publishes the release. Runs only when the repository has a GITLAB_TOKEN
+  # secret (a GitLab access token with the api and write_repository scopes).
+  gitlab:
+    name: Publish GitLab release
+    needs: [release]
+    runs-on: ubuntu-latest
+    env:
+      GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+      GITLAB_PROJECT: tirael8308/folitecta
+    steps:
+      - name: Without a GitLab token
+        if: env.GITLAB_TOKEN == ''
+        run: echo "No GITLAB_TOKEN secret, the GitLab release is left out."
+      - uses: actions/checkout@v4
+        if: env.GITLAB_TOKEN != ''
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        if: env.GITLAB_TOKEN != ''
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Upload the Windows and macOS packages
+        if: env.GITLAB_TOKEN != ''
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#v}"
+          PROJECT="${GITLAB_PROJECT//\//%2F}"
+          for f in artifacts/*windows* artifacts/*macos*; do
+            curl --fail --silent --show-error --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+              --upload-file "$f" \
+              "https://gitlab.com/api/v4/projects/${PROJECT}/packages/generic/folitecta/${VERSION}/$(basename "$f")"
+            echo "uploaded $(basename "$f")"
+          done
+      - name: Push main and the tag
+        if: env.GITLAB_TOKEN != ''
+        run: |
+          set -euo pipefail
+          git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@gitlab.com/${GITLAB_PROJECT}.git"
+          git fetch origin main
+          git push gitlab origin/main:refs/heads/main
+          git push gitlab "refs/tags/${RELEASE_TAG}"

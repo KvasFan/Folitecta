@@ -5,7 +5,8 @@
 # The free GitLab plan has no Windows or macOS build machines: the Windows and
 # macOS packages are the ones the GitHub release workflow built for the same
 # tag (.github/workflows/release.yml), copied to the same registry path
-# (packages/generic/folitecta/<version>/) before the tag is pushed here.
+# (packages/generic/folitecta/<version>/) before the tag is pushed here — by
+# its gitlab job when the GitHub repository has a GITLAB_TOKEN secret.
 # Branch pushes run nothing.
 
 stages: [build, release]

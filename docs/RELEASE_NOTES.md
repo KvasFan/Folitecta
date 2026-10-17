@@ -1,26 +1,25 @@
-## Folitecta 0.0.11 — split window, field calculations
+## Folitecta 0.0.12 — arrange comments, note icons
 
 A free PDF editor written entirely in Rust with a Dioxus desktop interface.
 
 **Highlights**
 
-- Window › Split: two views of a document, side by side or one above the other, each with its own
-  page, zoom and layout. The outlined view is the one you work in; a click in the other one
-  switches.
-- Field calculations: a text field or combo box can be the sum, product, average, smallest or
-  largest value of other fields, calculated whenever a value changes (in the same undo step) and
-  written so other viewers calculate it too; Form › Set Field Calculation Order sets the order.
-- Form › Highlight Fields by kind of field, or only the required ones.
-- Links pane: select a link to see it on its page, copy or open its address from the pane menu,
-  double-click to follow it. View › Expand All / Collapse All work on the visible pane.
+- Arrange comments: Shift- or Ctrl-click to choose several, then align them (with the selection,
+  the page or the first one chosen), spread them evenly, give them the same size, or bring them
+  to the front or the back — from the Arrange tab shown while comments are selected. Each
+  arrangement is one undo step, also on turned pages.
+- Note icons: a comment bubble, note, key, help, paragraph marks, caret, check mark, circle,
+  cross or star, for the selected note or for new notes; notes from other files keep theirs.
+- Thumbnails can outline the part of the page the window shows; the loupe enlarges more or less.
+- The code is organized by area, in the interface and in the core library.
 
 **Binaries**
 
 | Platform | File |
 |---|---|
-| Windows x64 | `folitecta-0.0.11-windows-x64.zip` |
-| Linux x64 | `folitecta-0.0.11-linux-x64.tar.gz` |
-| macOS (Apple silicon and Intel) | `folitecta-0.0.11-macos-universal.zip` (app bundle) or `.tar.gz` (binary) |
+| Windows x64 | `folitecta-0.0.12-windows-x64.zip` |
+| Linux x64 | `folitecta-0.0.12-linux-x64.tar.gz` |
+| macOS (Apple silicon and Intel) | `folitecta-0.0.12-macos-universal.zip` (app bundle) or `.tar.gz` (binary) |
 
 Linux needs the WebKitGTK 4.1 runtime (`libwebkit2gtk-4.1-0`). macOS builds are not notarized:
 right-click → Open on first launch.

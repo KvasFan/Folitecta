@@ -837,6 +837,23 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
     crate::commands::dispatch(st, "window.split.horz");
     total += check(st, &dir, "960x620-split-stacked", log).await;
     crate::commands::dispatch(st, "window.removeSplit");
+    // The Arrange tab of a selected comment.
+    let comment = st
+        .read_active(|t| {
+            let annots = t.doc.annotations(t.page).ok()?;
+            annots
+                .iter()
+                .find(|a| a.subtype != "Widget" && a.subtype != "Popup")
+                .map(|a| (t.page, a.index))
+        })
+        .flatten();
+    if let Some((p, i)) = comment {
+        st.with_active(|t| t.set_chosen(p, &[i]));
+        st.set_ribbon_tab("ctx.arrange".into());
+        total += check(st, &dir, "960x620-arrange-tab", log).await;
+        st.with_active(|t| t.set_chosen(p, &[]));
+        st.set_ribbon_tab("home".into());
+    }
     // The names of the tools next to their icons, in both languages.
     st.set_option("view.ribbonLabels", true);
     for lang in [crate::i18n::Lang::It, crate::i18n::Lang::En] {

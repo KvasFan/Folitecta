@@ -6,6 +6,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.0.12] - 2026-10-18
+
 ### Added
 
 - Note icons: a note can be drawn as a comment bubble, a note, a key, help, a new paragraph, a
@@ -27,6 +29,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 - The command modules of the interface and the modules of the core library are grouped in
   folders by area (documents, comments, text, forms, navigation, protection, window).
+- The release workflow also publishes the release on GitLab when the repository has a
+  `GITLAB_TOKEN` secret (packages of every platform, the same tag and notes).
 
 ## [0.0.11] - 2026-10-17
 

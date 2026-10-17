@@ -1752,7 +1752,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "folitecta"
-version = "0.0.11"
+version = "0.0.12"
 dependencies = [
  "anyhow",
  "base64",
@@ -1772,7 +1772,7 @@ dependencies = [
 
 [[package]]
 name = "folitecta-core"
-version = "0.0.11"
+version = "0.0.12"
 dependencies = [
  "aes 0.8.4",
  "anyhow",

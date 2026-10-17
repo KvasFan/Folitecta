@@ -40,6 +40,12 @@ pub struct SearchState {
     pub folder: Option<FolderSearch>,
     /// Collapsed result groups.
     pub collapsed: HashSet<String>,
+    /// The hits cover the whole query (not words of it found near each
+    /// other): Find and Replace may step through and replace them.
+    pub phrase: bool,
+    /// The search (query and options) whose results Annotate Results
+    /// already highlighted, so finding them again does not add more.
+    pub annotated: Option<String>,
 }
 
 /// A search through the PDF files of a folder.

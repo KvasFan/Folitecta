@@ -26,9 +26,10 @@ All notable changes to Folitecta are documented here. The format follows
   (Add 'Go To' Link, Add 'Open File' Link, Add Custom Link).
 - Populate Forms: one filled copy of the document for every row of a CSV or tab-separated table
   (the first row names the fields; a File column names the copies), saved in a folder.
-- Document Recovery: documents with unsaved changes are copied every minute; the copies of a
-  window that ended without saving are offered at the next start (open or delete them), and
-  View › Document Recovery lists them at any time.
+- Document Recovery: documents with unsaved changes are copied every minute (in the local data
+  folder); the copies of a window that ended without saving are offered at the next start (open
+  or delete them), and View › Document Recovery lists them at any time. Documents opened from
+  encrypted files are not copied; signed documents keep their signatures in the copy.
 - Measurements: decimal and thousands separators next to the precision, in the scale dialog;
   measurements made elsewhere show their own separators.
 - Page marks: Edit and Remove list the page and Bates numbers to change or remove them.
@@ -43,9 +44,11 @@ All notable changes to Folitecta are documented here. The format follows
 - New icons for every command, drawn from the Tabler Icons set (MIT), with a chosen icon for the
   tools used most and no command left on a generic picture.
 - The chosen tool, toggle or mode stands out clearly in every theme.
+- Changing the text of a page reads again only the text of that page, not of the whole document.
 
 ### Fixed
 
+- Enter on a focused button of a dialog presses only that button, not also the default one.
 - Dark theme: the menu bar, the Open and Save buttons, pane titles and other text inherited the
   light colours and could not be read; native lists and scroll bars are dark too.
 - BMP, GIF, TIFF and WebP pictures can be read (combining files, new documents from pictures,

@@ -43,7 +43,7 @@ pub fn RecoveryDialog() -> Element {
                             let meta = tf(lang, key, &[("pages", &e.pages.to_string()), ("when", &when(e.saved))]);
                             let (open, drop) = (e.clone(), e.clone());
                             rsx! {
-                                div { class: "recovery-row", key: "{e.pid}-{e.tab}",
+                                div { class: "recovery-row", key: "{e.session}-{e.tab}",
                                     div { class: "recovery-text",
                                         span { class: "recovery-name", "{e.title}" }
                                         span { class: "muted ellipsis", "{place}" }

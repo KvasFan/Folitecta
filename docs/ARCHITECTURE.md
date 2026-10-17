@@ -94,9 +94,13 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
   area (commands, interface, dialogs, messages, comments, pages, forms, protect, accessibility,
   search); a key lives in the file of the area of its first word. Italian command labels override
   the registry labels where provided.
-- `recovery.rs` — copies of the documents with unsaved changes (every minute, in
-  `<data folder>/recovery`, with a note of where each came from), removed when a document is
-  saved or closed and on Exit; copies whose window stopped updating them are offered at start.
+- `recovery.rs` — copies of the documents with unsaved changes (every minute and after saving or
+  closing, in the local data folder `Folitecta/recovery`, with a note of where each came from),
+  removed when a document is saved or closed and on Exit. Each window is a session (process id
+  and start time) holding a lock file while it runs; copies of sessions whose lock is free are
+  offered. Copies are written through a temporary file, one checkpoint at a time, off the
+  interface thread; documents opened from encrypted files are not copied, signed ones are copied
+  as an incremental update.
 - `features.rs` — generates `docs/FEATURES.md` (`folitecta --features-md <path>`).
 - `selftest/` — the interface self-test (`folitecta --ui-selftest <dir>`): layout audits at
   several window sizes and simulated input on the canvas, with a report and screenshots.

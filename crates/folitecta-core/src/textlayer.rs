@@ -302,6 +302,13 @@ pub fn extract_all(bytes: Arc<Vec<u8>>) -> Result<Vec<PageText>> {
     Ok(pdf.pages().iter().map(extract_page).collect())
 }
 
+/// Extract the text layer of one page of a serialized document.
+pub fn extract_one(bytes: Arc<Vec<u8>>, page: usize) -> Result<PageText> {
+    let pdf = Pdf::new(bytes).map_err(|e| Error::Render(format!("cannot parse document: {e:?}")))?;
+    let p = pdf.pages().get(page).ok_or(Error::InvalidPage(page))?;
+    Ok(extract_page(p))
+}
+
 /// Base letter of an accented Latin letter (`é` gives `e`); other characters
 /// are returned unchanged.
 pub fn strip_diacritic(c: char) -> char {

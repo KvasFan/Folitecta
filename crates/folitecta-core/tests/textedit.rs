@@ -88,6 +88,29 @@ fn every_occurrence_is_replaced_in_one_undo_step() {
 }
 
 #[test]
+fn many_replacements_are_still_one_undo_step() {
+    // More occurrences than the undo history keeps steps.
+    let line = "alpha beta ".repeat(8);
+    let text = format!("{}\u{c}{}", [line.as_str(); 6].join("\n"), "beta alpha");
+    let mut doc = Document::from_text(&text, TextLayout::default()).unwrap();
+    let before: Vec<String> = (0..doc.page_count()).map(|p| doc.page_text(p)).collect();
+    let r = doc
+        .replace_page_text("beta", "gamma", Default::default(), None)
+        .unwrap();
+    assert_eq!((r.replaced, r.refused), (49, 0), "{r:?}");
+    // The text kept page by page is the text of the saved document.
+    let again = Document::from_bytes(doc.bytes().as_ref().clone(), None, None).unwrap();
+    for p in 0..doc.page_count() {
+        assert_eq!(doc.page_text(p), again.page_text(p), "page {p}");
+        assert!(!doc.page_text(p).contains("beta"));
+    }
+    doc.undo().unwrap();
+    let after: Vec<String> = (0..doc.page_count()).map(|p| doc.page_text(p)).collect();
+    assert_eq!(after, before);
+    assert!(!doc.can_undo());
+}
+
+#[test]
 fn adjustments_between_pieces_are_kept() {
     let mut doc = page_with(
         "BT /F1 12 Tf 72 700 Td [(Hel) -50 (lo) -400 (wor) 20 (ld)] TJ ET",

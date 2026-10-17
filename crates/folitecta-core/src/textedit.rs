@@ -696,6 +696,19 @@ impl Document {
         end: usize,
         text: &str,
     ) -> Result<TextEditReport> {
+        self.edit_text_of(page, start, end, text, true)
+    }
+
+    /// [`Document::edit_page_text`], recording an undo step or (for the
+    /// edits after the first of a bulk change) not.
+    fn edit_text_of(
+        &mut self,
+        page: usize,
+        start: usize,
+        end: usize,
+        text: &str,
+        record_undo: bool,
+    ) -> Result<TextEditReport> {
         let layer = self.text_layer(page).ok_or(Error::InvalidPage(page))?;
         let (start, end) = (start.min(end), start.max(end).min(layer.char_glyph.len()));
         if start == end && text.is_empty() {
@@ -980,7 +993,10 @@ impl Document {
             });
         }
         check_splices(&j, &splices)?;
-        self.begin_edit();
+        if record_undo {
+            self.begin_edit();
+        }
+        let before = self.revision();
         if let (Some(font), Some(name)) = (fallback, fallback_name) {
             self.inherit_attributes(&[page_id]);
             let fid = self.inner.add_object(dictionary! {
@@ -998,12 +1014,16 @@ impl Document {
         }
         rewrite(&mut self.inner, page_id, &j, &splices)?;
         self.commit()?;
+        // Only this page changed: its text is extracted again, not every page's.
+        self.refresh_text_layer(page, before);
         Ok(report)
     }
 
     /// Replace every occurrence of `query` in the text of `pages` (all when
     /// None) with `with`, as one undo step. Occurrences whose text cannot be
-    /// changed are left and counted; the first reason is kept.
+    /// changed are left and counted, with the first reason; so are
+    /// occurrences that begin or end inside a glyph drawing several letters
+    /// (a ligature such as "ffi"), which an edit would cut.
     pub fn replace_page_text(
         &mut self,
         query: &str,
@@ -1018,17 +1038,28 @@ impl Document {
             Some(p) => p.iter().copied().filter(|p| *p < self.page_count()).collect(),
             None => (0..self.page_count()).collect(),
         };
-        let mark = self.undo_mark();
         let mut report = ReplaceReport::default();
+        // One undo step: the state before the first edit that succeeds.
+        let mut recorded = false;
         for page in all {
             let Some(layer) = self.text_layer(page) else {
                 continue;
             };
+            let glyph = |i: usize| layer.char_glyph.get(i).copied().flatten();
+            let cuts_glyph = |at: usize| at > 0 && glyph(at).is_some() && glyph(at) == glyph(at - 1);
             // From the last occurrence back: an edit moves only the text after it.
             let hits = layer.find(query, opts);
             for (start, end) in hits.into_iter().rev() {
-                match self.edit_page_text(page, start, end, with) {
+                if cuts_glyph(start) || cuts_glyph(end) {
+                    report.refused += 1;
+                    report.reason.get_or_insert_with(|| {
+                        "the text begins or ends inside a glyph of several letters".into()
+                    });
+                    continue;
+                }
+                match self.edit_text_of(page, start, end, with, !recorded) {
                     Ok(r) => {
+                        recorded = true;
                         report.replaced += 1;
                         for c in r.substituted.chars() {
                             if !report.substituted.contains(c) {
@@ -1043,7 +1074,6 @@ impl Document {
                 }
             }
         }
-        self.squash_undo(&mark);
         Ok(report)
     }
 }

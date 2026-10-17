@@ -3,7 +3,8 @@
 use super::*;
 
 /// Search the active document and show the first result. With Annotate
-/// Results on, the results are also highlighted with comments.
+/// Results on, the results of a search not annotated yet are also
+/// highlighted with comments (once: finding them again adds nothing).
 pub fn run_search(st: AppState, query: &str) {
     let found = refresh_hits(st, query);
     match found {
@@ -11,10 +12,20 @@ pub fn run_search(st: AppState, query: &str) {
             st.toast(ToastKind::Info, t(st.lang(), "toast.not_found"), "")
         }
         Some((n, _)) if n > 0 => {
-            reveal_hit(st, 0);
             if option_on(st, "find.annotateResults") {
-                crate::commands::comments::markup_results(st, Some(folitecta_core::Markup::Highlight));
+                let (opts, proximity, _) = crate::commands::search::search_settings(st);
+                let key = format!("{query}\u{1}{opts:?}{proximity:?}");
+                let done = st
+                    .read_active(|t| t.search.annotated.as_deref() == Some(key.as_str()))
+                    .unwrap_or(true);
+                if !done {
+                    crate::commands::comments::markup_results(st, Some(folitecta_core::Markup::Highlight));
+                    st.with_active(|t| t.search.annotated = Some(key));
+                    // The comments changed the document, which cleared the results.
+                    refresh_hits(st, query);
+                }
             }
+            reveal_hit(st, 0);
         }
         _ => {}
     }
@@ -40,6 +51,9 @@ pub fn refresh_hits(st: AppState, query: &str) -> Option<(usize, usize)> {
         };
         t.search.current = 0;
         t.search.collapsed.clear();
+        // Words near each other give one hit per word, not per occurrence.
+        t.search.phrase =
+            proximity == folitecta_core::search::Proximity::Phrase || q.split_whitespace().count() < 2;
         (t.search.hits.len(), t.search.other.len())
     })
 }

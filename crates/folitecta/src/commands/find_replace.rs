@@ -16,14 +16,16 @@ fn open(st: AppState) {
     }
     let find = st
         .read_active(|t| {
+            // The selection is in characters of the text layer; its line
+            // breaks and runs of spaces become single spaces, as a query
+            // matches any run of whitespace.
             let selected = t.text_sel.filter(|s| !s.is_empty()).map(|s| {
                 let (a, b) = s.range();
                 t.doc
-                    .page_text(s.page)
-                    .chars()
-                    .skip(a)
-                    .take(b - a)
-                    .collect::<String>()
+                    .text_range(s.page, a, b)
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ")
             });
             selected.unwrap_or_else(|| t.search.query.clone())
         })
@@ -41,9 +43,34 @@ fn find_all(st: AppState, query: &str) -> usize {
         t.search.other.clear();
         t.search.current = 0;
         t.search.collapsed.clear();
+        t.search.phrase = true;
         t.search.hits.len()
     })
     .unwrap_or(0)
+}
+
+/// Find `query` again (after an option changed), keeping the place: the
+/// first occurrence from the current page is shown when there is one.
+pub fn find_again(st: AppState, query: &str) {
+    if query.is_empty() {
+        return;
+    }
+    let n = find_all(st, query);
+    let page = st.current_page();
+    let first = st
+        .read_active(|t| t.search.hits.iter().position(|h| h.page >= page))
+        .flatten()
+        .or((n > 0).then_some(0));
+    if let Some(i) = first {
+        select_hit(st, i);
+    }
+}
+
+/// The occurrences shown are whole occurrences of `query` (not words of it
+/// found near each other by the search pane).
+fn phrase_hits_of(st: AppState, query: &str) -> bool {
+    st.read_active(|t| t.search.query == query && t.search.phrase && !t.search.hits.is_empty())
+        .unwrap_or(false)
 }
 
 /// Show occurrence `i` and select its text.
@@ -66,12 +93,11 @@ pub fn find_next(st: AppState, query: &str) -> bool {
     if query.is_empty() {
         return false;
     }
-    let shown = st
-        .read_active(|t| {
-            (t.search.query == query && !t.search.hits.is_empty())
-                .then_some((t.search.current, t.search.hits.len()))
-        })
-        .flatten();
+    let shown = if phrase_hits_of(st, query) {
+        st.read_active(|t| (t.search.current, t.search.hits.len()))
+    } else {
+        None
+    };
     let next = match shown {
         Some((cur, n)) => Some((cur + 1) % n),
         None => {
@@ -102,7 +128,7 @@ pub fn replace_one(st: AppState, query: &str, with: &str) {
     }
     let current = st
         .read_active(|t| {
-            if t.search.query != query {
+            if t.search.query != query || !t.search.phrase {
                 return None;
             }
             let h = t.search.hits.get(t.search.current)?;
@@ -117,18 +143,13 @@ pub fn replace_one(st: AppState, query: &str, with: &str) {
     if !textedit::edit_text(st, page, start, end, with) {
         return;
     }
-    // The next occurrence after the new text (a replacement that contains
-    // what was found is not found again).
+    // The next occurrence after the new text. There is no going round to the
+    // first page: a replacement that contains what was found would be found
+    // and replaced again.
     find_all(st, query);
     let after = (page, start + with.chars().count());
     let next = st
-        .read_active(|t| {
-            t.search
-                .hits
-                .iter()
-                .position(|h| (h.page, h.start) >= after)
-                .or((!t.search.hits.is_empty()).then_some(0))
-        })
+        .read_active(|t| t.search.hits.iter().position(|h| (h.page, h.start) >= after))
         .flatten();
     match next {
         Some(i) => select_hit(st, i),

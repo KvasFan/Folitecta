@@ -96,6 +96,28 @@ impl Document {
         layers
     }
 
+    /// After an edit that changed one page only, made at revision `before`:
+    /// the text of that page is extracted again and the cached text of the
+    /// other pages kept, instead of extracting every page at the next
+    /// [`Document::text_layers`] call. Nothing happens when the cache was not
+    /// of revision `before`.
+    pub(crate) fn refresh_text_layer(&self, page: usize, before: u64) {
+        let mut cache = self.text_cache.lock().unwrap_or_else(|e| e.into_inner());
+        let Some((rev, layers)) = cache.as_ref() else {
+            return;
+        };
+        if *rev != before || page >= layers.len() {
+            return;
+        }
+        let Ok(fresh) = crate::textlayer::extract_one(self.bytes(), page) else {
+            *cache = None;
+            return;
+        };
+        let mut all = (**layers).clone();
+        all[page] = fresh;
+        *cache = Some((self.revision(), Arc::new(all)));
+    }
+
     /// Positioned text of one page.
     pub fn text_layer(&self, page: usize) -> Option<PageText> {
         self.text_layers().get(page).cloned()

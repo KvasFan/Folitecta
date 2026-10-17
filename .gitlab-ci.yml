@@ -1,7 +1,12 @@
-# Releases on GitLab. A pushed tag v* builds the Linux package here and
-# publishes a release whose Windows and macOS packages are the ones built for
-# the same tag at github.com/KvasFan/Folitecta (GitLab has no free macOS
-# runners). Branch pushes run nothing.
+# Releases on GitLab. A pushed tag v* builds the Linux package here, stores it
+# in the generic package registry of the project (packages do not expire) and
+# publishes a release with the Linux, Windows and macOS packages.
+#
+# The free GitLab plan has no Windows or macOS build machines: the Windows and
+# macOS packages are the ones the GitHub release workflow built for the same
+# tag (.github/workflows/release.yml), copied to the same registry path
+# (packages/generic/folitecta/<version>/) before the tag is pushed here.
+# Branch pushes run nothing.
 
 stages: [build, release]
 
@@ -9,7 +14,7 @@ variables:
   CARGO_HOME: "$CI_PROJECT_DIR/.cargo"
   CARGO_INCREMENTAL: "0"
   CARGO_TERM_COLOR: always
-  GITHUB_RELEASES: "https://github.com/KvasFan/Folitecta/releases/download"
+  PACKAGES: "$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/generic/folitecta"
 
 .release-tag:
   rules:
@@ -20,7 +25,7 @@ build-linux:
   stage: build
   # The oldest system the package must run on (the same as the GitHub builds).
   image: ubuntu:22.04
-  timeout: 90 minutes
+  timeout: 2h
   cache:
     key: cargo-linux
     paths: [.cargo/registry, .cargo/git, target]
@@ -41,6 +46,8 @@ build-linux:
     - printf '[Desktop Entry]\nType=Application\nName=Folitecta\nComment=Free PDF editor\nExec=folitecta %%F\nIcon=folitecta\nMimeType=application/pdf;\nCategories=Office;Viewer;\n' > "dist/${NAME}/folitecta.desktop"
     - tar -C dist -czf "${NAME}.tar.gz" "${NAME}"
     - sha256sum "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256"
+    - 'curl --fail --silent --show-error --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file "${NAME}.tar.gz" "$PACKAGES/${VERSION}/${NAME}.tar.gz"'
+    - 'curl --fail --silent --show-error --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file "${NAME}.tar.gz.sha256" "$PACKAGES/${VERSION}/${NAME}.tar.gz.sha256"'
     - echo "VERSION=${VERSION}" > release.env
   artifacts:
     paths:
@@ -48,7 +55,7 @@ build-linux:
       - folitecta-*-linux-x64.tar.gz.sha256
     reports:
       dotenv: release.env
-    expire_in: never
+    expire_in: 30 days
 
 release:
   extends: .release-tag
@@ -66,11 +73,26 @@ release:
     assets:
       links:
         - name: "folitecta-$VERSION-linux-x64.tar.gz"
-          url: "$CI_PROJECT_URL/-/jobs/artifacts/$CI_COMMIT_TAG/raw/folitecta-$VERSION-linux-x64.tar.gz?job=build-linux"
+          url: "$PACKAGES/$VERSION/folitecta-$VERSION-linux-x64.tar.gz"
           link_type: package
+        - name: "folitecta-$VERSION-linux-x64.tar.gz.sha256"
+          url: "$PACKAGES/$VERSION/folitecta-$VERSION-linux-x64.tar.gz.sha256"
+          link_type: other
         - name: "folitecta-$VERSION-windows-x64.zip"
-          url: "$GITHUB_RELEASES/$CI_COMMIT_TAG/folitecta-$VERSION-windows-x64.zip"
+          url: "$PACKAGES/$VERSION/folitecta-$VERSION-windows-x64.zip"
           link_type: package
+        - name: "folitecta-$VERSION-windows-x64.zip.sha256"
+          url: "$PACKAGES/$VERSION/folitecta-$VERSION-windows-x64.zip.sha256"
+          link_type: other
         - name: "folitecta-$VERSION-macos-universal.zip"
-          url: "$GITHUB_RELEASES/$CI_COMMIT_TAG/folitecta-$VERSION-macos-universal.zip"
+          url: "$PACKAGES/$VERSION/folitecta-$VERSION-macos-universal.zip"
           link_type: package
+        - name: "folitecta-$VERSION-macos-universal.zip.sha256"
+          url: "$PACKAGES/$VERSION/folitecta-$VERSION-macos-universal.zip.sha256"
+          link_type: other
+        - name: "folitecta-$VERSION-macos-universal.tar.gz"
+          url: "$PACKAGES/$VERSION/folitecta-$VERSION-macos-universal.tar.gz"
+          link_type: package
+        - name: "folitecta-$VERSION-macos-universal.tar.gz.sha256"
+          url: "$PACKAGES/$VERSION/folitecta-$VERSION-macos-universal.tar.gz.sha256"
+          link_type: other

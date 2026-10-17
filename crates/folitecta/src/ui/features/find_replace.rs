@@ -4,7 +4,7 @@
 use dioxus::prelude::*;
 use folitecta_core::registry;
 
-use crate::commands::find_replace::{find_next, replace_all, replace_one};
+use crate::commands::find_replace::{find_again, find_next, replace_all, replace_one};
 use crate::i18n::{cmd_label, t, tf};
 use crate::state::AppState;
 use crate::ui::dialogs::Frame;
@@ -19,11 +19,15 @@ pub fn FindReplaceDialog(find: String) -> Element {
     let (case, words) = st
         .read_active(|t| (t.search.case_sensitive, t.search.whole_words))
         .unwrap_or((false, false));
+    // The place among the occurrences, once they were found for this text
+    // (an empty list may only mean that nothing was searched yet).
     let found = st
-        .read_active(|t| (t.search.query == what()).then_some((t.search.current, t.search.hits.len())))
+        .read_active(|t| {
+            (t.search.query == what() && t.search.phrase && !t.search.hits.is_empty())
+                .then_some((t.search.current, t.search.hits.len()))
+        })
         .flatten();
     let count = match found {
-        Some((_, 0)) => t(lang, "toast.not_found"),
         Some((cur, n)) => tf(
             lang,
             "findrepl.count",
@@ -36,8 +40,8 @@ pub fn FindReplaceDialog(find: String) -> Element {
         .get("findAndRepl")
         .map(|c| cmd_label(lang, c).trim_end_matches('…').to_string())
         .unwrap_or_default();
-    // A changed option finds again.
-    let forget = move || st.with_active(|t| t.search.hits.clear());
+    // A changed option finds again (when there is something to find).
+    let again = move || find_again(st, &what.peek());
     rsx! {
         Frame { title, ok_label: Some(t(lang, "findrepl.next")),
             on_ok: move |_| { find_next(st, &what()); },
@@ -50,12 +54,12 @@ pub fn FindReplaceDialog(find: String) -> Element {
             div { class: "check-row",
                 label { class: "check",
                     input { r#type: "checkbox", checked: case,
-                        onchange: move |_| { st.with_active(|t| t.search.case_sensitive = !t.search.case_sensitive); forget(); } }
+                        onchange: move |_| { st.with_active(|t| t.search.case_sensitive = !t.search.case_sensitive); again(); } }
                     span { "{t(lang, \"findrepl.case\")}" }
                 }
                 label { class: "check",
                     input { r#type: "checkbox", checked: words,
-                        onchange: move |_| { st.with_active(|t| t.search.whole_words = !t.search.whole_words); forget(); } }
+                        onchange: move |_| { st.with_active(|t| t.search.whole_words = !t.search.whole_words); again(); } }
                     span { "{t(lang, \"findrepl.words\")}" }
                 }
             }

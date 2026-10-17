@@ -274,6 +274,24 @@ impl Document {
         self.bytes.clone()
     }
 
+    /// Bytes of a copy of the current state that opens as this document: an
+    /// incremental update of the opened file when that file carries
+    /// signatures (writing it whole would break them), else the current bytes.
+    pub fn copy_bytes(&self) -> Arc<Vec<u8>> {
+        if self.has_signatures() {
+            if let Ok(Some(bytes)) = self.incremental_bytes() {
+                return Arc::new(bytes);
+            }
+        }
+        self.bytes.clone()
+    }
+
+    /// The document was opened from an encrypted file (it is kept decrypted
+    /// in memory).
+    pub fn from_encrypted_file(&self) -> bool {
+        self.source_encrypted
+    }
+
     /// Monotonic revision counter, incremented on every change.
     pub fn revision(&self) -> u64 {
         self.revision

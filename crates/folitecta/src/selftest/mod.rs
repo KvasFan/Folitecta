@@ -517,6 +517,8 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
         "ui self-test finished: {total} problem(s); report in {}",
         dir.display()
     );
+    // Leaving on purpose: no recovery copies for the next run.
+    crate::recovery::forget_session();
     std::process::exit(if total == 0 { 0 } else { 3 });
 }
 

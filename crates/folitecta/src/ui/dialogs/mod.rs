@@ -69,11 +69,20 @@ pub fn Frame(
                 onkeydown: move |e| {
                     e.stop_propagation();
                     if e.key() == Key::Enter {
-                        // After the field being typed in takes its value.
+                        // After the field being typed in takes its value. Enter on a
+                        // button is that button's click (the browser makes it one):
+                        // the dialog's OK must not run as well.
                         if let Some(h) = ok2 {
                             spawn(async move {
                                 tokio::time::sleep(std::time::Duration::from_millis(30)).await;
-                                h.call(());
+                                let on_button = document::eval("return document.activeElement?.tagName === 'BUTTON';")
+                                    .await
+                                    .ok()
+                                    .and_then(|v| v.as_bool())
+                                    .unwrap_or(false);
+                                if !on_button {
+                                    h.call(());
+                                }
                             });
                         }
                     } else if e.key() == Key::Escape {

@@ -147,6 +147,8 @@ pub fn save_as(st: AppState) {
                 st.ui_mut().push_recent(&path);
                 st.save_prefs();
                 set_window_title(st);
+                // Saved: its recovery copy goes.
+                crate::recovery::checkpoint(st);
                 st.toast(
                     ToastKind::Ok,
                     tf(
@@ -213,6 +215,7 @@ pub fn save_all(st: AppState) {
         st.error(e);
     }
     set_window_title(st);
+    crate::recovery::checkpoint(st);
 }
 
 /// Close a tab by id; asks about unsaved changes unless `force`.
@@ -322,6 +325,8 @@ pub fn revert(st: AppState) {
                 t.revision = u64::MAX; // force refresh
             });
             set_window_title(st);
+            // Back to the file: no changes left to recover.
+            crate::recovery::checkpoint(st);
         }
         Err(e) => st.error(e),
     }

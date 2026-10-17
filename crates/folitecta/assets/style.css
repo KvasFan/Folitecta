@@ -638,3 +638,18 @@ html.emulate-print .print-page img { max-width: 100%; max-height: 100%; object-f
 .macro-row code { font-size: 11.5px; color: var(--accent); }
 .macro-value { color: var(--muted); }
 .macro-preview { padding: 6px 8px; border: 1px dashed var(--border); border-radius: var(--radius-sm); font-size: 12px; overflow-wrap: anywhere; min-height: 28px; }
+
+/* Layers pane */
+.layer-tree .layer-row { gap: 2px; }
+.layer-row .ibtn.eye, .layer-row .ibtn.lock-btn { width: 22px; height: 22px; padding: 0; flex: none; }
+.layer-row .ibtn.eye .ic, .layer-row .ibtn.lock-btn .ic { width: 14px; height: 14px; }
+.layer-row .ibtn.eye.changed { color: var(--accent); }
+.layer-row .lock-btn { opacity: 0; }
+.layer-row:hover .lock-btn, .layer-row .lock-btn.on { opacity: 1; }
+.layer-row .lock-btn.on { color: var(--accent); }
+.layer-row.hidden-layer .tree-label { color: var(--muted); }
+.layer-row.layer-group .tree-label { font-weight: 600; }
+.layer-group-icon { display: inline-flex; width: 22px; justify-content: center; color: var(--muted); flex: none; }
+.layer-group-icon .ic { width: 14px; height: 14px; }
+.layer-row .page-ref { margin-left: 4px; }
+.layer-foot { border-top: 1px solid var(--border); padding: 8px; display: flex; flex-direction: column; gap: 6px; }

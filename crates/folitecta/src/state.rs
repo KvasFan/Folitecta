@@ -1,6 +1,6 @@
 //! Application state shared through the Dioxus context.
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -386,10 +386,17 @@ impl UiPrefs {
     }
 
     pub fn load() -> UiPrefs {
-        Self::path()
+        let prefs: UiPrefs = Self::path()
             .and_then(|p| std::fs::read_to_string(p).ok())
             .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default()
+            .unwrap_or_default();
+        let inherit = prefs
+            .options
+            .get("layersView.overrideByParent")
+            .copied()
+            .unwrap_or(false);
+        LAYER_INHERIT.store(inherit, std::sync::atomic::Ordering::Relaxed);
+        prefs
     }
 
     pub fn save(&self) {
@@ -483,7 +490,16 @@ pub struct DocTab {
     pub flash: Option<(usize, [f32; 4])>,
     /// Signature validation results for a revision.
     pub sig_status: Option<(u64, Vec<folitecta_core::digsig::SignatureStatus>)>,
+    /// Layer visibility of the view where it differs from the document's default.
+    pub layer_view: HashMap<(u32, u16), bool>,
+    /// Selected entries of the layers pane (tree paths).
+    pub selected_layers: Vec<Vec<usize>>,
+    /// Collapsed entries of the layers pane.
+    pub collapsed_layers: HashSet<String>,
 }
+
+/// Hidden parent layers hide their children in the view (a view option).
+pub static LAYER_INHERIT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 impl DocTab {
     pub fn new(id: u64, doc: Document) -> Self {
@@ -507,7 +523,7 @@ impl DocTab {
         let render = Arc::new(RenderService::new(doc.bytes()));
         let page_sizes = doc.page_sizes();
         let revision = doc.revision();
-        DocTab {
+        let mut tab = DocTab {
             id,
             doc,
             render,
@@ -532,7 +548,45 @@ impl DocTab {
             selected_dest: None,
             flash: None,
             sig_status: None,
+            layer_view: HashMap::new(),
+            selected_layers: Vec::new(),
+            collapsed_layers: HashSet::new(),
+        };
+        if LAYER_INHERIT.load(std::sync::atomic::Ordering::Relaxed) && !tab.doc.layers().is_empty() {
+            tab.update_render();
         }
+        tab
+    }
+
+    /// Layer visibility shown by the view (empty when it is the default one).
+    pub fn view_layer_states(&self) -> HashMap<(u32, u16), bool> {
+        let inherit = LAYER_INHERIT.load(std::sync::atomic::Ordering::Relaxed);
+        if self.layer_view.is_empty() && !inherit {
+            return HashMap::new();
+        }
+        let mut states = self.doc.layer_defaults();
+        states.extend(self.layer_view.iter().map(|(k, v)| (*k, *v)));
+        if inherit {
+            folitecta_core::layers::inherit_visibility(&self.doc.layer_tree(), &mut states);
+        }
+        states
+    }
+
+    /// Whether a layer is shown in the view (its own state, parents aside).
+    pub fn layer_visible(&self, id: (u32, u16), default: bool) -> bool {
+        self.layer_view.get(&id).copied().unwrap_or(default)
+    }
+
+    /// Change the layer visibility of the view and redraw the pages.
+    pub fn set_layer_view(&mut self, states: HashMap<(u32, u16), bool>) {
+        let defaults = self.doc.layer_defaults();
+        // Keep only what differs from the document.
+        self.layer_view = states
+            .into_iter()
+            .filter(|(id, v)| defaults.get(id).is_some_and(|d| d != v))
+            .collect();
+        self.view_gen += 1;
+        self.update_render();
     }
 
     /// Record a navigation to `page` in the view history.
@@ -581,11 +635,17 @@ impl DocTab {
 
     /// Give the renderer the document as displayed (comments hidden by the filter).
     pub fn update_render(&mut self) {
-        let bytes = if self.comment_filter.is_empty() {
+        let hidden = if self.comment_filter.is_empty() {
+            HashSet::new()
+        } else {
+            self.filtered_out()
+        };
+        let layers = self.view_layer_states();
+        let bytes = if hidden.is_empty() && layers.is_empty() {
             self.doc.bytes()
         } else {
             self.doc
-                .bytes_hiding(&self.filtered_out())
+                .view_bytes(&hidden, &layers)
                 .unwrap_or_else(|_| self.doc.bytes())
         };
         self.render.replace(bytes);
@@ -831,6 +891,19 @@ pub enum Dialog {
     MacroGuide,
     /// External application launched with details of the view.
     LaunchApp,
+    /// Name of a new layer or group (`group`), or of the entry at `rename`.
+    LayerName {
+        group: bool,
+        rename: Option<Vec<usize>>,
+    },
+    /// Show or hide every layer in the view.
+    LayerOverrides,
+    /// Merge the selected layers into a chosen one.
+    LayerMerge,
+    /// Draw the pages of a file as a new layer.
+    ImportLayer(PathBuf),
+    /// Options of the layers pane.
+    LayerOptions,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

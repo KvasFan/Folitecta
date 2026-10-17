@@ -1228,7 +1228,93 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
         expected,
     );
 
-    // 26. Undo everything added above.
+    // 26. Layers: a new layer from the pane, pages imported as a layer, view
+    // visibility made the default, then everything flattened.
+    {
+        let mut ui = st.ui_mut();
+        ui.left_pane = "layers".into();
+        ui.show_left_pane = true;
+    }
+    crate::commands::dispatch(st, "layersView.addNewLayer");
+    pause(500).await;
+    let _ = document::eval(
+        "const i = document.querySelector('.dialog input'); if (i) { i.value = 'Review marks'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
+    )
+    .await;
+    pause(250).await;
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(500).await;
+    let names = st
+        .read_active(|t| t.doc.layers().iter().map(|l| l.name.clone()).collect::<Vec<_>>())
+        .unwrap_or_default();
+    record(
+        "layer created from the layers pane",
+        names == ["Review marks"],
+        names.join(", "),
+    );
+    let source = dir.join("layer-source.pdf");
+    let written = st
+        .read_active(|t| std::fs::write(&source, t.doc.bytes().as_slice()).is_ok())
+        .unwrap_or(false);
+    st.set_dialog(Dialog::ImportLayer(source.clone()));
+    pause(500).await;
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(900).await;
+    let count = st.read_active(|t| t.doc.layers().len()).unwrap_or(0);
+    record(
+        "pages imported as a layer",
+        written && count == 2,
+        format!("{count} layers"),
+    );
+    let _ = document::eval(
+        "const b = [...document.querySelectorAll('.layer-row .ibtn.eye')].pop(); if (b) b.click();",
+    )
+    .await;
+    pause(600).await;
+    let (overrides, defaults_hidden) = st
+        .read_active(|t| {
+            (
+                t.layer_view.len(),
+                t.doc.layers().iter().filter(|l| !l.visible).count(),
+            )
+        })
+        .unwrap_or((0, 9));
+    let foot = document::eval("return !!document.querySelector('.layer-foot');")
+        .await
+        .ok()
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    record(
+        "layer hidden in the view only",
+        overrides == 1 && defaults_hidden == 0 && foot,
+        format!("{overrides} override(s), {defaults_hidden} hidden by default"),
+    );
+    let _ = capture_window(&dir.join("interaction-layers.png"));
+    crate::commands::dispatch(st, "layersView.setCurrentStatesAsDefault");
+    pause(500).await;
+    let (overrides, defaults_hidden) = st
+        .read_active(|t| {
+            (
+                t.layer_view.len(),
+                t.doc.layers().iter().filter(|l| !l.visible).count(),
+            )
+        })
+        .unwrap_or((9, 0));
+    record(
+        "view visibility made the default",
+        overrides == 0 && defaults_hidden == 1,
+        format!("{overrides} override(s), {defaults_hidden} hidden by default"),
+    );
+    crate::commands::dispatch(st, "layersView.flattenOC");
+    pause(600).await;
+    let left = st.read_active(|t| t.doc.layers().len()).unwrap_or(9);
+    record("layers flattened", left == 0, format!("{left} left"));
+    crate::commands::dispatch(st, "undo");
+    pause(400).await;
+    st.ui_mut().left_pane = "thumbnails".into();
+    let _ = std::fs::remove_file(&source);
+
+    // 27. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..30 {
         crate::commands::dispatch(st, "undo");
@@ -1351,6 +1437,31 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         total += check(st, &dir, &format!("{tag}-comments-rulers"), log).await;
         st.set_option("view.showRulers", false);
         st.set_option("view.showGrid", false);
+        // Layers pane with a group, nested layers and a view override.
+        let added = st.with_active(|t| {
+            let g = t
+                .doc
+                .add_layer_group("Annotations layer group with a long name", &[])
+                .ok()?;
+            let (a, _) = t.doc.add_layer("Drawings", &g).ok()?;
+            t.doc.add_layer("Measurements and dimensions", &[]).ok()?;
+            t.selected_layers = vec![g];
+            t.refresh();
+            t.set_layer_view(std::collections::HashMap::from([(a, false)]));
+            Some(())
+        });
+        st.ui_mut().left_pane = "layers".into();
+        total += check(st, &dir, &format!("{tag}-layers-pane"), log).await;
+        if added.flatten().is_some() {
+            st.with_active(|t| {
+                t.layer_view.clear();
+                t.selected_layers.clear();
+                for _ in 0..3 {
+                    let _ = t.doc.undo();
+                }
+                t.refresh();
+            });
+        }
         st.ui_mut().left_pane = "thumbnails".into();
         // A menu with a submenu opened on its first entry that has children,
         // and a ribbon overflow dropdown near the right edge.
@@ -1403,6 +1514,15 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("bates", Dialog::Bates),
         ("macro-guide", Dialog::MacroGuide),
         ("launch-app", Dialog::LaunchApp),
+        (
+            "layer-name",
+            Dialog::LayerName {
+                group: false,
+                rename: None,
+            },
+        ),
+        ("layer-overrides", Dialog::LayerOverrides),
+        ("layer-options", Dialog::LayerOptions),
     ];
     for lang in [crate::i18n::Lang::It, crate::i18n::Lang::En] {
         st.ui_mut().lang = lang;

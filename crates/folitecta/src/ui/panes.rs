@@ -239,7 +239,7 @@ pub fn PanePanel() -> Element {
             Pane::Bookmarks => rsx! { crate::ui::bookmarks_pane::BookmarksPane {} },
             Pane::Comments => rsx! { crate::ui::comments_pane::CommentsPane {} },
             Pane::Attachments => rsx! { AttachmentsPane {} },
-            Pane::Layers => rsx! { LayersPane {} },
+            Pane::Layers => rsx! { crate::ui::layers_pane::LayersPane {} },
             Pane::Fields => rsx! { FieldsPane {} },
             Pane::Links => rsx! { LinksPane {} },
             Pane::Destinations => rsx! { crate::ui::bookmarks_pane::DestinationsPane {} },
@@ -438,31 +438,6 @@ fn AttachmentsPane() -> Element {
                                 button { class: "tbtn danger", title: "{t(lang, \"label.delete\")}", onclick: move |_| { if let Some(Err(e)) = st.with_active(|t| t.doc.remove_attachment(&a_rm)) { st.error(e); } }, Icon { name: "delete" } }
                             }
                         }
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-fn LayersPane() -> Element {
-    let st = use_context::<AppState>();
-    let lang = st.lang();
-    let Some(layers) = st.read_active(|t| t.doc.layers()) else {
-        return rsx! {};
-    };
-    rsx! {
-        if layers.is_empty() { div { class: "pane-empty", "{t(lang, \"label.none\")}" } }
-        for layer in layers {
-            {
-                let id = layer.id;
-                let visible = layer.visible;
-                rsx! {
-                    label { class: "check layer", key: "{id.0}",
-                        input { r#type: "checkbox", checked: visible, onchange: move |_| { if let Some(Err(e)) = st.with_active(|t| t.doc.set_layer_visible(id, !visible)) { st.error(e); } } }
-                        span { class: "ellipsis", "{layer.name}" }
-                        if layer.locked { Icon { name: "lock" } }
                     }
                 }
             }

@@ -271,6 +271,17 @@ impl Document {
     /// Draw the pages of `other` behind (`behind = true`) or over the given pages,
     /// scaled to fit each page. Page `i` uses page `i mod n` of `other`.
     pub fn overlay_document(&mut self, other: &Document, pages: &[usize], behind: bool) -> Result<()> {
+        self.overlay_document_on_layer(other, pages, behind, None)
+    }
+
+    /// Like [`Document::overlay_document`], with the drawn pages on a layer.
+    pub(crate) fn overlay_document_on_layer(
+        &mut self,
+        other: &Document,
+        pages: &[usize],
+        behind: bool,
+        layer: Option<ObjectId>,
+    ) -> Result<()> {
         self.check(pages)?;
         let n = other.page_count();
         if n == 0 {
@@ -282,7 +293,11 @@ impl Document {
         for (k, &p) in pages.iter().enumerate() {
             let src = k % n;
             if forms[src].is_none() {
-                forms[src] = Some(self.import_page_as_form(other, src)?);
+                let (fid, fb) = self.import_page_as_form(other, src)?;
+                if let (Some(oc), Ok(Object::Stream(s))) = (layer, self.inner.get_object_mut(fid)) {
+                    s.dict.set("OC", Object::Reference(oc));
+                }
+                forms[src] = Some((fid, fb));
             }
             let (fid, fb) = forms[src].unwrap();
             let size = self.page_size_of(ids[p]);

@@ -4,6 +4,7 @@ pub mod comments_pane;
 pub mod dialogs;
 pub mod field_editor;
 pub mod form_fill;
+pub mod layers_pane;
 pub mod macros;
 pub mod menubar;
 pub mod palette;

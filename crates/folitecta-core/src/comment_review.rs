@@ -442,20 +442,25 @@ impl Document {
             return Ok(self.bytes());
         }
         let mut copy = self.inner.clone();
-        for id in ids {
-            if let Ok(d) = copy.get_dictionary_mut(*id) {
-                let flags = flags_of(d);
-                d.set("F", flags | FLAG_HIDDEN);
-                // Pop-up notes of hidden comments close as well.
-                if let Ok(p) = d.get(b"Popup").and_then(|p| p.as_reference()) {
-                    if let Ok(pd) = copy.get_dictionary_mut(p) {
-                        pd.set("Open", false);
-                    }
-                }
-            }
-        }
+        hide_annotations_in(&mut copy, ids);
         let mut out = Vec::new();
         copy.save_to(&mut out)?;
         Ok(Arc::new(out))
+    }
+}
+
+/// Set the hidden flag of annotations (and close their pop-up notes).
+pub(crate) fn hide_annotations_in(copy: &mut lopdf::Document, ids: &HashSet<ObjectId>) {
+    for id in ids {
+        if let Ok(d) = copy.get_dictionary_mut(*id) {
+            let flags = flags_of(d);
+            d.set("F", flags | FLAG_HIDDEN);
+            // Pop-up notes of hidden comments close as well.
+            if let Ok(p) = d.get(b"Popup").and_then(|p| p.as_reference()) {
+                if let Ok(pd) = copy.get_dictionary_mut(p) {
+                    pd.set("Open", false);
+                }
+            }
+        }
     }
 }

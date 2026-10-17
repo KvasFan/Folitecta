@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.3. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 680 |
-| 🟡 partial | 36 |
-| ⬜ planned | 1261 |
+| ✅ available | 709 |
+| 🟡 partial | 40 |
+| ⬜ planned | 1228 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -2080,42 +2080,42 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `imageEditor.filters.sharpen` | Edit › Image Editor › Filters › Sharpen | ⬜ planned |
 | `imageEditor.filters.smooth` | Edit › Image Editor › Filters › Smooth | ⬜ planned |
 | `imageEditor.zoom.combo` | Edit › Image Editor › Zoom › Zoom | ⬜ planned |
-| `layersView.addNewGroup` | View › Layers Pane › Add New Group | ⬜ planned |
-| `layersView.addNewLayer` | View › Layers Pane › Add New Layer | ⬜ planned |
-| `layersView.applyOverrides` | View › Layers Pane › Apply Overrides | ⬜ planned |
-| `layersView.extract` | View › Layers Pane › Extract | ⬜ planned |
-| `layersView.extract.selected` | View › Layers Pane › Extract › Selected | ⬜ planned |
-| `layersView.extract.visible` | View › Layers Pane › Extract › Visible | ⬜ planned |
-| `layersView.flattenOC` | View › Layers Pane › Flatten Optional Content | ⬜ planned |
-| `layersView.flattenSelected` | View › Layers Pane › Flatten Selected | ⬜ planned |
+| `layersView.addNewGroup` | View › Layers Pane › Add New Group | ✅ available |
+| `layersView.addNewLayer` | View › Layers Pane › Add New Layer | ✅ available |
+| `layersView.applyOverrides` | View › Layers Pane › Apply Overrides | ✅ available |
+| `layersView.extract` | View › Layers Pane › Extract | ✅ available |
+| `layersView.extract.selected` | View › Layers Pane › Extract › Selected | ✅ available |
+| `layersView.extract.visible` | View › Layers Pane › Extract › Visible | ✅ available |
+| `layersView.flattenOC` | View › Layers Pane › Flatten Optional Content | ✅ available |
+| `layersView.flattenSelected` | View › Layers Pane › Flatten Selected | ✅ available |
 | `layersView.hideSelected` | View › Layers Pane › Hide Selected | ✅ available |
-| `layersView.importAsLayer` | View › Layers Pane › Import as Layer | ⬜ planned |
-| `layersView.merge` | View › Layers Pane › Merge | ⬜ planned |
-| `layersView.mergeSelectedOnly` | View › Layers Pane › Merge Selected Only | ⬜ planned |
-| `layersView.mergeSelectedWithChildren` | View › Layers Pane › Merge Selected with Children | ⬜ planned |
-| `layersView.options` | View › Layers Pane › Options | ⬜ planned |
-| `layersView.overrideByParent` | View › Layers Pane › Override by Parent | ⬜ planned |
-| `layersView.resetOverrides` | View › Layers Pane › Reset Overrides | ⬜ planned |
-| `layersView.select` | View › Layers Pane › Select | ⬜ planned |
-| `layersView.selectCorresponding` | View › Layers Pane › Select Corresponding | ⬜ planned |
-| `layersView.selectCorresponding.comments` | View › Layers Pane › Select Corresponding › Comments | ⬜ planned |
+| `layersView.importAsLayer` | View › Layers Pane › Import as Layer | ✅ available |
+| `layersView.merge` | View › Layers Pane › Merge | ✅ available |
+| `layersView.mergeSelectedOnly` | View › Layers Pane › Merge Selected Only | ✅ available |
+| `layersView.mergeSelectedWithChildren` | View › Layers Pane › Merge Selected with Children | ✅ available |
+| `layersView.options` | View › Layers Pane › Options | ✅ available |
+| `layersView.overrideByParent` | View › Layers Pane › Override by Parent | ✅ available |
+| `layersView.resetOverrides` | View › Layers Pane › Reset Overrides | ✅ available |
+| `layersView.select` | View › Layers Pane › Select | ✅ available |
+| `layersView.selectCorresponding` | View › Layers Pane › Select Corresponding | 🟡 partial |
+| `layersView.selectCorresponding.comments` | View › Layers Pane › Select Corresponding › Comments | 🟡 partial |
 | `layersView.selectCorresponding.content` | View › Layers Pane › Select Corresponding › Content | ⬜ planned |
-| `layersView.selectCorresponding.fields` | View › Layers Pane › Select Corresponding › Fields | ⬜ planned |
-| `layersView.selectCorresponding.links` | View › Layers Pane › Select Corresponding › Links | ⬜ planned |
-| `layersView.selectCorresponding.pages` | View › Layers Pane › Select Corresponding › Pages | ⬜ planned |
-| `layersView.selectEmptyLayers` | View › Layers Pane › Select Empty Layers | ⬜ planned |
-| `layersView.selectHiddenLayers` | View › Layers Pane › Select Hidden Layers | ⬜ planned |
-| `layersView.selectLayers` | View › Layers Pane › Select Layers | ⬜ planned |
-| `layersView.selectTextLabels` | View › Layers Pane › Select Text Labels | ⬜ planned |
-| `layersView.selectVisibleLayers` | View › Layers Pane › Select Visible Layers | ⬜ planned |
-| `layersView.setAsDefault` | View › Layers Pane › Set as Default | ⬜ planned |
-| `layersView.setCurrentStatesAsDefault` | View › Layers Pane › Set Current States as Default | ⬜ planned |
+| `layersView.selectCorresponding.fields` | View › Layers Pane › Select Corresponding › Fields | 🟡 partial |
+| `layersView.selectCorresponding.links` | View › Layers Pane › Select Corresponding › Links | 🟡 partial |
+| `layersView.selectCorresponding.pages` | View › Layers Pane › Select Corresponding › Pages | ✅ available |
+| `layersView.selectEmptyLayers` | View › Layers Pane › Select Empty Layers | ✅ available |
+| `layersView.selectHiddenLayers` | View › Layers Pane › Select Hidden Layers | ✅ available |
+| `layersView.selectLayers` | View › Layers Pane › Select Layers | ✅ available |
+| `layersView.selectTextLabels` | View › Layers Pane › Select Text Labels | ✅ available |
+| `layersView.selectVisibleLayers` | View › Layers Pane › Select Visible Layers | ✅ available |
+| `layersView.setAsDefault` | View › Layers Pane › Set as Default | ✅ available |
+| `layersView.setCurrentStatesAsDefault` | View › Layers Pane › Set Current States as Default | ✅ available |
 | `layersView.showSelected` | View › Layers Pane › Show Selected | ✅ available |
-| `layersView.sort` | View › Layers Pane › Sort | ⬜ planned |
-| `layersView.sort.alphabetical` | View › Layers Pane › Sort › Alphabetical | ⬜ planned |
-| `layersView.toggleSelected` | View › Layers Pane › Toggle Selected | ⬜ planned |
-| `layersView.viewAllPages` | View › Layers Pane › View All Pages | ⬜ planned |
-| `layersView.viewVisiblePages` | View › Layers Pane › View Visible Pages | ⬜ planned |
+| `layersView.sort` | View › Layers Pane › Sort | ✅ available |
+| `layersView.sort.alphabetical` | View › Layers Pane › Sort › Alphabetical | ✅ available |
+| `layersView.toggleSelected` | View › Layers Pane › Toggle Selected | ✅ available |
+| `layersView.viewAllPages` | View › Layers Pane › View All Pages | ✅ available |
+| `layersView.viewVisiblePages` | View › Layers Pane › View Visible Pages | ✅ available |
 | `link.batch` | Document › Link › Batch Link | ⬜ planned |
 | `linksView.import` | View › Links Pane › Import | ⬜ planned |
 | `linksView.link` | View › Links Pane › Link | ⬜ planned |

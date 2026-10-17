@@ -15,6 +15,7 @@ mod format;
 mod forms;
 mod help;
 pub(crate) mod interface;
+pub(crate) mod layers;
 pub(crate) mod macros;
 mod pages;
 mod panes;
@@ -61,6 +62,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     signatures::HANDLERS,
     signs::HANDLERS,
     macros::HANDLERS,
+    layers::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -84,6 +86,10 @@ pub const PARTIAL: &[&str] = &[
     "copySrcFile",
     // From the locale environment variables only.
     "macro.region",
+    // The first matching annotation is selected (the selection holds one).
+    "layersView.selectCorresponding.comments",
+    "layersView.selectCorresponding.fields",
+    "layersView.selectCorresponding.links",
 ];
 
 /// View options toggled by command id; their state lives in the preferences.
@@ -199,6 +205,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| review::review_state(st, id))
         .or_else(|| bookmarks::bookmark_state(st, id))
         .or_else(|| interface::interface_state(st, id))
+        .or_else(|| layers::layers_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

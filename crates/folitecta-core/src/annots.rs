@@ -54,7 +54,7 @@ const NON_COMMENT_SUBTYPES: &[&str] = &[
     "Watermark",
 ];
 
-fn annot_refs(doc: &lopdf::Document, page: &Dictionary) -> Vec<(Option<ObjectId>, Dictionary)> {
+pub(crate) fn annot_refs(doc: &lopdf::Document, page: &Dictionary) -> Vec<(Option<ObjectId>, Dictionary)> {
     let Some(annots) = page.get(b"Annots").ok() else {
         return Vec::new();
     };

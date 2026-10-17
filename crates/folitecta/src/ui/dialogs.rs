@@ -263,6 +263,15 @@ pub fn Dialogs() -> Element {
         Dialog::SignatureLibrary => rsx! { crate::ui::signs::SignatureLibraryDialog {} },
         Dialog::MacroGuide => rsx! { crate::ui::macros::MacroGuideDialog {} },
         Dialog::LaunchApp => rsx! { crate::ui::macros::LaunchAppDialog {} },
+        Dialog::LayerName { group, rename } => {
+            rsx! { crate::ui::layers_pane::LayerNameDialog { group, rename } }
+        }
+        Dialog::LayerOverrides => rsx! { crate::ui::layers_pane::LayerOverridesDialog {} },
+        Dialog::LayerMerge => rsx! { crate::ui::layers_pane::LayerMergeDialog {} },
+        Dialog::ImportLayer(path) => {
+            rsx! { crate::ui::layers_pane::ImportLayerDialog { path: path.display().to_string() } }
+        }
+        Dialog::LayerOptions => rsx! { crate::ui::layers_pane::LayerOptionsDialog {} },
     }
 }
 

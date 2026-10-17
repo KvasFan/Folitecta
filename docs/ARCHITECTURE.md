@@ -23,6 +23,12 @@ crates/
 - caches keyed by revision: the positioned text of the pages, the measured marked content, the
   structure tree shown by the panes and the pictures of the pages.
 
+The modules are grouped in folders by area — `organize` (pages and documents), `markup`
+(comments), `graphics` (pictures and barcodes), `page_text`, `interactive` (forms and scripts),
+`navigation`, `protection` and `tags` — while the document model, rendering, the registry and the
+shared helpers (`util`, `geom`, `xml`) stay at the root; the root re-exports every module, so
+paths such as `folitecta_core::pages` stay short.
+
 Operations are grouped by module, for example `pages` and `pagetools` (page tree edits, crop,
 resize, split), `annots` and `appearance` (comments with generated appearance streams), `outline`
 (bookmarks), `forms`, `form_design` and `form_calc` (simple field calculations, written as

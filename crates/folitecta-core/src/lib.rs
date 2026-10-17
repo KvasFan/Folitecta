@@ -4,64 +4,45 @@
 //! (lopdf) with an undo-aware [`Document`], a CPU rasterizer service built on
 //! hayro ([`render`]), and the command [`registry`](commands) that describes every
 //! user-facing command of the application.
+//!
+//! The modules are grouped by area: [`organize`] (pages and documents),
+//! [`markup`] (comments), [`graphics`] (pictures and barcodes), [`page_text`],
+//! [`interactive`] (forms and scripts), [`navigation`], [`protection`] and
+//! [`tags`]; the document model, rendering, the registry and the shared
+//! helpers stay at the root. Every module is also reachable from the root
+//! (`folitecta_core::pages`, ...).
 
-pub mod accessibility;
-pub mod annot_copy;
-pub mod annots;
-pub mod appearance;
-pub mod attachments;
-pub mod barcodes;
-pub mod calculator;
-pub mod combine;
 pub mod commands;
-pub mod comment_exchange;
-pub mod comment_review;
-pub mod comment_summary;
-pub mod compare;
-pub(crate) mod content_edit;
-pub(crate) mod content_lex;
-pub mod digsig;
-pub mod doctools;
 pub mod document;
 pub mod error;
-pub mod export;
-pub mod flatten;
-pub mod form_calc;
-pub mod form_data;
-pub mod form_design;
-pub mod forms;
 pub mod geom;
-pub mod images;
-pub mod imaging;
-pub mod layers;
-pub mod links;
-pub mod marks;
-pub mod markup_tools;
-pub mod media;
-pub mod metadata;
-pub mod outline;
-pub mod pages;
-pub mod pagetools;
-pub mod pictures;
-pub mod portfolio;
-pub mod redaction;
 pub mod render;
-pub mod scripts;
-pub mod search;
-pub mod security;
-pub mod signmarks;
-pub mod smooth;
-pub mod stamp_design;
-pub mod stamps;
-pub mod structure;
-pub mod tables;
-pub mod text;
-pub mod textdoc;
-pub mod textedit;
-pub mod textlayer;
-pub mod textops;
 pub mod util;
 pub mod xml;
+
+pub mod graphics;
+pub mod interactive;
+pub mod markup;
+pub mod navigation;
+pub mod organize;
+pub mod page_text;
+pub mod protection;
+pub mod tags;
+
+pub use graphics::{barcodes, images, imaging, pictures};
+pub use interactive::{form_calc, form_data, form_design, forms, scripts};
+pub use markup::{
+    annot_copy, annots, appearance, calculator, comment_exchange, comment_review, comment_summary, flatten,
+    markup_tools, media, signmarks, smooth, stamp_design, stamps, tables,
+};
+pub use navigation::{layers, links, outline};
+pub use organize::{
+    attachments, combine, compare, doctools, export, marks, metadata, pages, pagetools, portfolio, textdoc,
+};
+pub(crate) use page_text::{content_edit, content_lex};
+pub use page_text::{search, text, textedit, textlayer, textops};
+pub use protection::{digsig, redaction, security};
+pub use tags::{accessibility, structure};
 
 pub use annot_copy::AnnotSnapshot;
 pub use annots::{Annotation, Markup, Shape};

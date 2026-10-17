@@ -51,6 +51,9 @@ const BY_ID: &[(&str, &str)] = &[
     ("tool.addText", "text"),
     ("document.addImage", "image-add"),
     ("tool.selBarcodePlace", "barcode"),
+    ("document.detectImageBarcode", "barcode-read"),
+    ("document.detectBarcodes", "barcode-area"),
+    ("createWebLinksFromBarcodes", "barcode-link"),
     // Comments.
     ("tool.annot.stickyNote", "note"),
     ("tool.annot.typeWriter", "typewriter"),

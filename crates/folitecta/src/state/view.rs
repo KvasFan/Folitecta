@@ -64,6 +64,10 @@ pub enum Tool {
     PlaceSignature,
     /// Draw the rectangle of a new table.
     Table,
+    /// Draw the rectangle of a new barcode.
+    Barcode,
+    /// Draw the area of a page whose barcodes are read.
+    BarcodeScan,
     Calculator,
     ZoomDyn,
     Sound,
@@ -155,6 +159,8 @@ impl Tool {
             Tool::SignArea => "tool.digisig",
             Tool::PlaceSignature => "tool.sign.and.initials",
             Tool::Table => "tool.table.create",
+            Tool::Barcode => "tool.selBarcodePlace",
+            Tool::BarcodeScan => "document.detectBarcodes",
             Tool::Calculator => "comments.accountingCalc",
             Tool::ZoomDyn => "tool.zoomDyn",
             Tool::Sound => "tool.annot.sound",
@@ -213,6 +219,8 @@ impl Tool {
             Tool::SignArea => "tool.sign_area",
             Tool::PlaceSignature => "tool.place_signature",
             Tool::Table => "tool.table",
+            Tool::Barcode => "tool.barcode",
+            Tool::BarcodeScan => "tool.barcode_scan",
             Tool::Calculator => "tool.calculator",
             Tool::ZoomDyn => "tool.zoom_dyn",
             Tool::Sound => "tool.sound",

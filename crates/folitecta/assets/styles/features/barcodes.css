@@ -1,0 +1,7 @@
+/* Barcodes read on the pages */
+.barcode-list { display: flex; flex-direction: column; gap: 4px; max-height: 46vh; overflow: auto; }
+.barcode-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); min-width: 0; }
+.barcode-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.barcode-value { font-family: var(--mono); overflow-wrap: anywhere; user-select: text; }
+.barcode-text .muted { font-size: 12px; }
+.barcode-row .tbtn { flex: none; }

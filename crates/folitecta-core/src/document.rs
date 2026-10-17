@@ -359,7 +359,6 @@ impl Document {
         self.redo.clear();
     }
 
-    /// Re-serialize after a mutation and bump the revision.
     /// The current state, to join the edits made after it with `squash_undo`.
     pub(crate) fn undo_mark(&self) -> Arc<Vec<u8>> {
         self.bytes.clone()
@@ -372,6 +371,7 @@ impl Document {
         }
     }
 
+    /// Re-serialize after a mutation and bump the revision.
     pub fn commit(&mut self) -> Result<()> {
         self.bytes = Arc::new(serialize(&mut self.inner)?);
         self.revision += 1;

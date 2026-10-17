@@ -205,6 +205,8 @@
   "text.mode.page": "Modifica il testo della pagina",
   "tool.area": "Area",
   "tool.arrow": "Freccia",
+  "tool.barcode": "Codice a barre",
+  "tool.barcode_scan": "Lettura dei codici a barre",
   "tool.calculator": "Calcolatrice contabile",
   "tool.callout": "Richiamo",
   "tool.cloud": "Nuvola",

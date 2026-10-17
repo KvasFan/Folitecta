@@ -488,8 +488,31 @@ impl Document {
     }
 
     fn push_link(&mut self, page: usize, rect: [f32; 4], action: Dictionary) -> Result<ObjectId> {
-        let page_id = self.page_id(page)?;
+        self.page_id(page)?;
         self.begin_edit();
+        let id = self.push_link_raw(page, rect, action)?;
+        self.commit()?;
+        Ok(id)
+    }
+
+    /// Add web links (page, rectangle, address) in one undo step.
+    pub(crate) fn push_uri_links(&mut self, links: &[(usize, [f32; 4], String)]) -> Result<usize> {
+        if links.is_empty() {
+            return Ok(0);
+        }
+        self.begin_edit();
+        for (page, rect, uri) in links {
+            let action =
+                dictionary! { "S" => "URI", "URI" => Object::string_literal(uri.trim().to_string()) };
+            self.push_link_raw(*page, *rect, action)?;
+        }
+        self.commit()?;
+        Ok(links.len())
+    }
+
+    /// Add a link annotation, without an undo step of its own.
+    fn push_link_raw(&mut self, page: usize, rect: [f32; 4], action: Dictionary) -> Result<ObjectId> {
+        let page_id = self.page_id(page)?;
         let annot = dictionary! {
             "Type" => "Annot",
             "Subtype" => "Link",
@@ -519,7 +542,6 @@ impl Document {
             _ => Object::Array(vec![Object::Reference(annot_id)]),
         };
         self.inner.get_dictionary_mut(page_id)?.set("Annots", value);
-        self.commit()?;
         Ok(annot_id)
     }
 

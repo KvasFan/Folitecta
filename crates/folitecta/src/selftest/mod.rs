@@ -377,6 +377,7 @@ fn annots_on(st: AppState, page: usize) -> Vec<folitecta_core::Annotation> {
 }
 
 /// Exercise the canvas tools with simulated input; returns the number of failures.
+mod steps_barcodes;
 mod steps_features;
 mod steps_files;
 mod steps_layout;
@@ -437,9 +438,10 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     steps_text::run(&mut cx).await;
     steps_layout::run(&mut cx).await;
     steps_recovery::run(&mut cx).await;
+    steps_barcodes::run(&mut cx).await;
     let failures = cx.failures;
 
-    // 47. Undo everything added above.
+    // 48. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..90 {
         crate::commands::dispatch(st, "undo");
@@ -730,6 +732,31 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
             },
         ),
         ("recovery", Dialog::Recovery),
+        (
+            "barcode",
+            Dialog::Barcode {
+                page: 0,
+                rect: [100.0, 100.0, 300.0, 180.0],
+            },
+        ),
+        (
+            "barcodes",
+            Dialog::Barcodes(vec![
+                folitecta_core::FoundBarcode {
+                    page: 0,
+                    kind: "QR Code".into(),
+                    text: "https://github.com/KvasFan/Folitecta/releases/tag/v0.0.10-with-a-long-address"
+                        .into(),
+                    rect: [100.0, 100.0, 200.0, 200.0],
+                },
+                folitecta_core::FoundBarcode {
+                    page: 3,
+                    kind: "EAN-13".into(),
+                    text: "5901234123457".into(),
+                    rect: [100.0, 300.0, 300.0, 360.0],
+                },
+            ]),
+        ),
         (
             "replace-text",
             Dialog::ReplaceText {

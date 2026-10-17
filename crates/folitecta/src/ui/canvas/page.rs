@@ -613,6 +613,20 @@ pub(super) fn PageView(
                 st.set_dialog(Dialog::TableNew { page, rect });
                 None
             }
+            Tool::Barcode => {
+                // A click places a barcode of 100 points around it.
+                let r = if tiny {
+                    [x0 - 50.0, y0 - 50.0, x0 + 50.0, y0 + 50.0]
+                } else {
+                    [x0, y0, x1, y1]
+                };
+                st.set_dialog(Dialog::Barcode { page, rect: r });
+                None
+            }
+            Tool::BarcodeScan if !tiny => {
+                crate::commands::barcodes::read_area(st, page, [x0, y0, x1, y1]);
+                None
+            }
             Tool::Calculator => {
                 let top_left = (rect[0], rect[3]);
                 crate::commands::calculator::place(st, page, top_left);

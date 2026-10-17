@@ -2,6 +2,7 @@
 //! the calculator, scripts and the other tools.
 
 pub mod acc_dialogs;
+pub mod barcodes;
 pub mod calculator;
 pub mod compare;
 pub mod doctools;

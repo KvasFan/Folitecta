@@ -8,6 +8,7 @@
 use dioxus::prelude::ReadableExt;
 pub(crate) mod accessibility;
 pub(crate) mod attachments;
+pub(crate) mod barcodes;
 pub(crate) mod bookmarks;
 pub(crate) mod calculator;
 pub(crate) mod comment_styles;
@@ -96,6 +97,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     doctools::HANDLERS,
     compare::HANDLERS,
     tables::HANDLERS,
+    barcodes::HANDLERS,
     accessibility::HANDLERS,
     calculator::HANDLERS,
     fileops::HANDLERS,

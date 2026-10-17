@@ -159,6 +159,8 @@
   "text.mode.page": "Change the text of the page",
   "tool.area": "Area",
   "tool.arrow": "Arrow",
+  "tool.barcode": "Barcode",
+  "tool.barcode_scan": "Read barcodes",
   "tool.calculator": "Accounting calculator",
   "tool.callout": "Callout",
   "tool.cloud": "Cloud",

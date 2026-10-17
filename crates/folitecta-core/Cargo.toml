@@ -21,6 +21,11 @@ hayro.workspace = true
 image.workspace = true
 # Rendered pages encoded with the fast DEFLATE of fdeflate (MIT/Apache-2.0)
 png = "0.18"
+# Barcodes written and read: the Rust port of ZXing (Apache-2.0), without its
+# picture loading (pages are rendered here)
+rxing = { version = "0.9", default-features = false, features = ["encoders", "decoders", "full_barcode_format_support", "encoding_rs"] }
+# Pages searched side by side (MIT/Apache-2.0)
+rayon = "1"
 time.workspace = true
 quick-xml.workspace = true
 base64.workspace = true

@@ -10,7 +10,7 @@ use crate::render::{RenderOpts, Renderer};
 use crate::util::fmt_num;
 
 /// PDF-space direction vectors of the display u (rightwards) and v (upwards) axes.
-fn display_axes(rotation: i32) -> ((f32, f32), (f32, f32)) {
+pub(crate) fn display_axes(rotation: i32) -> ((f32, f32), (f32, f32)) {
     match rotation {
         90 => ((0.0, 1.0), (-1.0, 0.0)),
         180 => ((-1.0, 0.0), (0.0, -1.0)),

@@ -155,10 +155,11 @@ impl Document {
     }
 
     /// Create web links over every `http(s)://` / `www.` address found in the
-    /// text of the given pages (addresses already covered by a link are skipped).
+    /// text of the given pages (addresses already covered by a link are
+    /// skipped), in one undo step.
     pub fn create_links_from_urls(&mut self, pages: &[usize]) -> Result<usize> {
         let layers = self.text_layers();
-        let mut count = 0;
+        let mut links = Vec::new();
         for &p in pages {
             let Some(layer) = layers.get(p) else {
                 return Err(Error::InvalidPage(p));
@@ -168,18 +169,21 @@ impl Document {
             for (start, end, url) in layer.urls() {
                 for r in layer.range_rects(start, end) {
                     let pr = display_rect_to_pdf(&size, r);
-                    let covered = existing.iter().any(|e| {
-                        let ix = (e[2].min(pr[2]) - e[0].max(pr[0])).max(0.0);
-                        let iy = (e[3].min(pr[3]) - e[1].max(pr[1])).max(0.0);
-                        ix * iy > 0.5 * (pr[2] - pr[0]) * (pr[3] - pr[1])
-                    });
-                    if !covered {
-                        self.add_uri_link(p, pr, &url)?;
-                        count += 1;
+                    if !covered_by(&existing, pr) {
+                        links.push((p, pr, url.clone()));
                     }
                 }
             }
         }
-        Ok(count)
+        self.push_uri_links(&links)
     }
+}
+
+/// Whether more than half of `r` lies under one of the `existing` rectangles.
+pub(crate) fn covered_by(existing: &[[f32; 4]], r: [f32; 4]) -> bool {
+    existing.iter().any(|e| {
+        let ix = (e[2].min(r[2]) - e[0].max(r[0])).max(0.0);
+        let iy = (e[3].min(r[3]) - e[1].max(r[1])).max(0.0);
+        ix * iy > 0.5 * (r[2] - r[0]) * (r[3] - r[1])
+    })
 }

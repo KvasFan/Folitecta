@@ -6,11 +6,29 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Barcodes: Add Barcode draws a QR Code, Data Matrix, PDF417, Aztec, Code 128, Code 39, Code 93,
+  EAN-13, EAN-8, UPC-A, UPC-E, ITF or Codabar where it is dragged (the text of a linear barcode
+  can be written below it). Detect Barcodes reads every barcode of the document, or of an area,
+  with its kind, content and page (Show goes to it, Copy copies it), and Create Web Links from
+  Barcodes puts a link over each barcode that holds a web address. Barcodes are written and read
+  with rxing, the Rust port of ZXing (Apache-2.0).
+
 ### Changed
 
 - The ribbon shows the tools as icons, with their names in the tooltip, so more than twice as
   many tools fit in the same space. View › Tool Names, or the preferences, puts the names next
   to the icons again.
+- Pages appear sooner: each document draws its pages on up to three threads at once, and the
+  picture of a page is encoded about four times faster. Rasterizing, redacting, cropping to the
+  white margins, finding duplicate pages and exporting pages as pictures no longer encode and
+  read back a picture of every page.
+
+### Fixed
+
+- Create Web Links from URLs adds all its links in one undo step, and writes the document once
+  instead of once for every link.
 
 ## [0.0.9] - 2026-10-17
 

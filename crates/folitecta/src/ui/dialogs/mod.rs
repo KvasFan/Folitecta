@@ -393,6 +393,10 @@ pub fn Dialogs() -> Element {
             rsx! { crate::ui::features::find_replace::FindReplaceDialog { find } }
         }
         Dialog::Recovery => rsx! { crate::ui::features::recovery::RecoveryDialog {} },
+        Dialog::Barcode { page, rect } => {
+            rsx! { crate::ui::features::barcodes::BarcodeDialog { page, rect: rect.to_vec() } }
+        }
+        Dialog::Barcodes(found) => rsx! { crate::ui::features::barcodes::BarcodesDialog { found } },
     }
 }
 

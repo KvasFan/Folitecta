@@ -341,6 +341,13 @@ pub enum Dialog {
     },
     /// Documents with unsaved changes left by a window that ended.
     Recovery,
+    /// The kind and content of a barcode drawn at `rect` (display points, y down).
+    Barcode {
+        page: usize,
+        rect: [f32; 4],
+    },
+    /// Barcodes read on the pages.
+    Barcodes(Vec<folitecta_core::FoundBarcode>),
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

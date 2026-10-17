@@ -107,6 +107,7 @@ pub const RIBBON: &[RTab] = &[
                     "addLink",
                     "tool.annot.editLink",
                     "createWebLinksFromText",
+                    "createWebLinksFromBarcodes",
                     "removeAllWebLinks"
                 ]
             ),
@@ -454,6 +455,8 @@ pub const RIBBON: &[RTab] = &[
                     "document.replaceFonts",
                     "document.audit",
                     "document.wordCount",
+                    "document.detectImageBarcode",
+                    "document.detectBarcodes",
                     "xmp"
                 ]
             ),

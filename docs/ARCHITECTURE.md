@@ -29,8 +29,11 @@ resize, split), `annots` and `appearance` (comments with generated appearance st
 (extraction, selection and search), `marks` (watermarks, headers and footers, page numbering),
 `structure` and `accessibility` (tags, reading order, the accessibility check), `digsig`
 (signatures), `compare`, `combine` (documents made from several files), `pictures` (the pictures
-a page draws: where they are, their pixels, an edited picture put back) and `imaging` (turning,
-cropping, straightening, filters and pixel formats). `geom` holds the rectangle helpers shared by
+a page draws: where they are, their pixels, an edited picture put back), `imaging` (turning,
+cropping, straightening, filters and pixel formats) and `barcodes` (barcodes written by rxing and
+drawn as vector shapes; read from rendered pages one at a time, each painted out before the next
+read, with bullseye and dark-area searches for the codes rxing finds only near the middle of a
+picture; pages read side by side with rayon). `geom` holds the rectangle helpers shared by
 the modules; matrices and paths use kurbo, the geometry library of the renderer.
 
 Page-tree edits always go through `set_page_order`, which first copies inheritable attributes
@@ -46,10 +49,13 @@ incremental update, which keeps their signatures valid.
 
 ### Rendering
 
-`render::Renderer` rasterizes pages with hayro (CPU only, no GPU dependency) and returns PNG bytes.
-`render::RenderService` runs one worker thread per open document that owns the parsed PDF, a hayro
-render cache and a small memo of recent renders. The UI never blocks on rendering: the webview
-requests `/page/{tab}/{page}/{revision}/{scale}.png` and the response is produced on the worker
+`render::Renderer` rasterizes pages with hayro (CPU only, no GPU dependency) and returns PNG bytes,
+encoded with the fast DEFLATE of fdeflate, or the pixels themselves (`render_rgba`) for the
+operations that work on them. `render::RenderService` runs up to three worker threads per open
+document; each owns its own parse of the PDF, a hayro render cache and a small memo of recent
+renders, and a page always goes to the same thread (page number modulo the threads), so visible
+pages are drawn side by side and keep their cache. The UI never blocks on rendering: the webview
+requests `/page/{tab}/{page}/{revision}/{scale}.png` and the response is produced on a worker
 thread. Because the revision is part of the URL the browser cache stays valid until the document
 changes.
 
@@ -76,7 +82,8 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
 - `ui/` — the interface, in four parts:
   - `chrome/` — the frame of the window: `menubar` (classic menus generated from the registry),
     `ribbon` and `ribbon_layout` (tabs, groups, the fitting of the buttons to the width, overflow
-    menus, contextual tabs), `toolbars`, `statusbar`, `palette`, `toasts`, `welcome`, and
+    menus, contextual tabs; the tools are icons with their names in the tooltips unless the
+    View › Tool Names option is on), `toolbars`, `statusbar`, `palette`, `toasts`, `welcome`, and
     `layout`, the sizes the user drags (pane widths, rows of the ribbon, group widths), saved as
     preferences;
   - `panes/` — the left panes (thumbnails, bookmarks, comments, attachments, layers, fields,

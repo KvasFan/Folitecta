@@ -23,9 +23,10 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
   (`Ctrl`+wheel), view rotation, full screen, light, white, dark and black themes, dark and
   high-contrast page modes, rulers (mm, cm, in, pt, pc), grid, guides with snapping, loupe, link
   and form-field highlighting, transparency grid, document info bar, page labels, view history.
-- **Interface**: ribbon or classic menus and toolbars; the side panes, the rows of the ribbon and
-  the width of each ribbon group are changed by dragging their edges; document recovery after a
-  window ended with unsaved changes.
+- **Interface**: ribbon or classic menus and toolbars; the ribbon shows its tools as icons with
+  their names in the tooltips (or with the names next to them: View › Tool Names); the side panes,
+  the rows of the ribbon and the width of each ribbon group are changed by dragging their edges;
+  pages drawn on several threads; document recovery after a window ended with unsaved changes.
 - **Text and search**: text layer with mouse selection, copy, select all; search with match
   case, whole words and accents ignored, words near each other (adjacent, same paragraph, page or
   document) in separate colours, also in comments, bookmarks, form fields, document information,
@@ -75,6 +76,9 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
 - **Create and convert**: blank documents of any paper size, from pictures, from text files, from
   the clipboard; export pages to PNG/JPEG, extract embedded images; snapshot of an area to the
   clipboard; paste pictures onto pages and text as text boxes.
+- **Barcodes**: QR Code, Data Matrix, PDF417, Aztec and linear barcodes (Code 128, Code 39,
+  Code 93, EAN, UPC, ITF, Codabar) drawn on the pages; the barcodes of a document or of an area
+  read and listed; web links made over the barcodes that hold an address.
 - **Print**: page range, resolution, with or without comments, fit to paper, every open document.
 - **Navigation data**: bookmark tree editing (drag and drop, styles, destinations, import and
   export), named destinations, links; layers (view visibility, defaults, groups, merge, flatten,
@@ -142,7 +146,7 @@ writes a report with a screenshot of every state (screenshots on Windows).
 
 | Crate | Purpose |
 |---|---|
-| `crates/folitecta-core` | Document model (lopdf), page operations, comments and review, bookmarks, forms, attachments, layers, portfolios, links, text and search, page marks, stamps, tables, comparison, tags and accessibility check, digital signatures, hayro render service, command registry |
+| `crates/folitecta-core` | Document model (lopdf), page operations, comments and review, bookmarks, forms, attachments, layers, portfolios, links, text and search, page marks, stamps, tables, barcodes, comparison, tags and accessibility check, digital signatures, hayro render service, command registry |
 | `crates/folitecta` | Dioxus desktop application: ribbon, menus, panes, canvas with drawing tools, dialogs, palette, localization; `assets/styles` holds the theme tokens and one style sheet per part, `assets/i18n` the translations |
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and
@@ -157,4 +161,6 @@ their own dependencies may also use other permissive licences (BSD, ISC, Zlib, U
 allowed set is enforced by `deny.toml` (`cargo deny check licenses`).
 
 The icons of the interface are [Tabler Icons](https://tabler.io/icons) (MIT License,
-Copyright (c) 2020-2026 Paweł Kuna), used through the `icondata_tb` crate (MIT).
+Copyright (c) 2020-2026 Paweł Kuna), used through the `icondata_tb` crate (MIT). Barcodes are
+written and read with [rxing](https://github.com/rxing-core/rxing), the Rust port of ZXing
+(Apache-2.0).

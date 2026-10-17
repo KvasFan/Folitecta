@@ -567,6 +567,23 @@ pub const RIBBON: &[RTab] = &[
             ),
         ],
     },
+    // Shown while a calculator tape is being edited.
+    RTab {
+        id: "ctx.calculator",
+        label: "Calculator",
+        groups: &[group!(
+            "tape",
+            "Tape",
+            [
+                "ac.addLine",
+                "ac.delLine",
+                "ac.clearTape",
+                "ac.undo",
+                "ac.redo",
+                "ac.settings"
+            ]
+        )],
+    },
 ];
 
 pub const CONTEXT_TAB: &str = "ctx.format";

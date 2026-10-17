@@ -9,6 +9,7 @@ use dioxus::prelude::ReadableExt;
 pub(crate) mod accessibility;
 pub(crate) mod attachments;
 pub(crate) mod bookmarks;
+pub(crate) mod calculator;
 mod comments;
 pub(crate) mod compare;
 mod convert;
@@ -16,6 +17,7 @@ pub(crate) mod doctools;
 mod edit;
 pub(crate) mod fields_pane;
 mod file;
+pub(crate) mod fileops;
 mod format;
 mod forms;
 mod help;
@@ -85,6 +87,8 @@ const TABLES: &[&[(&str, Handler)]] = &[
     compare::HANDLERS,
     tables::HANDLERS,
     accessibility::HANDLERS,
+    calculator::HANDLERS,
+    fileops::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -214,6 +218,8 @@ pub const VIEW_OPTIONS: &[&str] = &[
     "tool.loupe.trackMouse",
     "tagsview.highlightContent",
     "contentsView.displaySelected",
+    "msp.hdr.tagName",
+    "msp.hdr.value",
 ];
 
 /// Options that are on unless the user turned them off.
@@ -224,6 +230,8 @@ pub const DEFAULT_ON: &[&str] = &[
     "tool.loupe.trackMouse",
     "tagsview.highlightContent",
     "contentsView.displaySelected",
+    "msp.hdr.tagName",
+    "msp.hdr.value",
     "stamps.favorites",
     "stamps.recents",
     "historyList.group.show",
@@ -296,6 +304,8 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| compare::compare_state(st, id))
         .or_else(|| tables::tables_state(st, id))
         .or_else(|| accessibility::acc_state(st, id))
+        .or_else(|| calculator::calc_state(st, id))
+        .or_else(|| fileops::fileops_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

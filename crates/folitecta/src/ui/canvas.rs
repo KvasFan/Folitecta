@@ -352,7 +352,7 @@ fn Canvas() -> Element {
     let tool_class = match tool {
         Tool::Hand => "tool-hand",
         Tool::Select | Tool::TextHighlight | Tool::TextUnderline | Tool::TextStrike => "tool-text",
-        Tool::Zoom => "tool-zoom",
+        Tool::Zoom | Tool::ZoomDyn => "tool-zoom",
         Tool::Loupe => "tool-loupe",
         Tool::EditAnnots => "tool-edit",
         _ => "tool-draw",
@@ -1143,6 +1143,11 @@ fn PageView(
                 st.set_dialog(Dialog::TableNew { page, rect });
                 None
             }
+            Tool::Calculator => {
+                let top_left = (rect[0], rect[3]);
+                crate::commands::calculator::place(st, page, top_left);
+                None
+            }
             Tool::Stamp if st.ui.read().value("stamp.kind") == Some("design") => {
                 let c = rect_to_pdf(&size, [x0, y0, x0, y0]);
                 crate::commands::stamps::place_design(st, page, rect, tiny, (c[0], c[1]))
@@ -1377,6 +1382,11 @@ fn PageView(
                     if !current {
                         st.with_active(|t| t.page = page);
                     }
+                    if tool == Tool::ZoomDyn {
+                        let c = evt.client_coordinates();
+                        *crate::commands::fileops::ZOOM_DRAG.write() = Some((c.y, current_zoom(st)));
+                        return;
+                    }
                     if tool.is_text() {
                         let idx = st.read_active(|t| t.doc.text_layers().get(page).and_then(|l| l.char_at(x, y))).flatten();
                         match idx {
@@ -1432,6 +1442,20 @@ fn PageView(
                     }
                 },
                 onmousemove: move |evt| {
+                    if tool == Tool::ZoomDyn {
+                        // Up zooms in, down zooms out, while the button is held.
+                        let start = *crate::commands::fileops::ZOOM_DRAG.peek();
+                        if let Some((y0, z0)) = start {
+                            if evt.held_buttons().contains(MouseButton::Primary) {
+                                let dy = evt.client_coordinates().y - y0;
+                                let nz = crate::commands::fileops::dyn_zoom(z0, dy);
+                                st.with_active(|t| t.zoom = Zoom::Fixed(nz));
+                            } else {
+                                *crate::commands::fileops::ZOOM_DRAG.write() = None;
+                            }
+                        }
+                        return;
+                    }
                     let p = evt.element_coordinates();
                     let (x, y) = ((p.x as f32) / z, (p.y as f32) / z);
                     if track_pointer {
@@ -1478,6 +1502,9 @@ fn PageView(
                     }
                 },
                 onmouseup: move |_| {
+                    if crate::commands::fileops::ZOOM_DRAG.peek().is_some() {
+                        *crate::commands::fileops::ZOOM_DRAG.write() = None;
+                    }
                     if *sel_drag.peek() {
                         finish_text();
                     }
@@ -1620,6 +1647,10 @@ fn PageView(
                                     }
                                     // Tables open in the table editor.
                                     if crate::commands::tables::edit_table(st, page, index) {
+                                        return;
+                                    }
+                                    // Calculator tapes open in the calculator pane.
+                                    if crate::commands::calculator::edit_calculator(st, page, index) {
                                         return;
                                     }
                                     let contents = contents.clone();

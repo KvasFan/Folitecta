@@ -120,6 +120,100 @@ pub fn open_external(target: &str) -> Result<(), String> {
     open::that_detached(target).map_err(|e| e.to_string())
 }
 
+/// Move a file to the recycle bin (the trash on Linux and macOS).
+#[cfg(target_os = "windows")]
+pub fn move_to_trash(path: &std::path::Path) -> Result<(), String> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows::Win32::UI::Shell::{
+        FO_DELETE, FOF_ALLOWUNDO, FOF_NOCONFIRMATION, FOF_NOERRORUI, FOF_SILENT, SHFILEOPSTRUCTW,
+        SHFileOperationW,
+    };
+    use windows::core::PCWSTR;
+    let full = std::fs::canonicalize(path).map_err(|e| e.to_string())?;
+    // The shell wants a plain path, not the extended `\\?\` form.
+    let shown = full.to_string_lossy().trim_start_matches(r"\\?\").to_string();
+    // A list of paths ending with two zeros.
+    let from: Vec<u16> = std::ffi::OsStr::new(&shown).encode_wide().chain([0, 0]).collect();
+    let mut op = SHFILEOPSTRUCTW {
+        wFunc: FO_DELETE,
+        pFrom: PCWSTR(from.as_ptr()),
+        fFlags: (FOF_ALLOWUNDO.0 | FOF_NOCONFIRMATION.0 | FOF_SILENT.0 | FOF_NOERRORUI.0) as u16,
+        ..Default::default()
+    };
+    let r = unsafe { SHFileOperationW(&mut op) };
+    if r != 0 || op.fAnyOperationsAborted.as_bool() {
+        return Err(format!(
+            "the file could not be moved to the recycle bin (error {r})"
+        ));
+    }
+    Ok(())
+}
+
+/// Move a file to the trash (freedesktop.org trash specification).
+#[cfg(target_os = "linux")]
+pub fn move_to_trash(path: &std::path::Path) -> Result<(), String> {
+    let full = std::fs::canonicalize(path).map_err(|e| e.to_string())?;
+    let data = std::env::var_os("XDG_DATA_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".local/share")))
+        .ok_or("no home folder")?;
+    let trash = data.join("Trash");
+    let (files, info) = (trash.join("files"), trash.join("info"));
+    std::fs::create_dir_all(&files).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&info).map_err(|e| e.to_string())?;
+    let name = full
+        .file_name()
+        .ok_or("no file name")?
+        .to_string_lossy()
+        .to_string();
+    // A name not used yet in the trash.
+    let mut target = name.clone();
+    let mut n = 1;
+    while files.join(&target).exists() || info.join(format!("{target}.trashinfo")).exists() {
+        n += 1;
+        target = format!("{n} {name}");
+    }
+    let mut encoded = String::new();
+    for b in full.to_string_lossy().bytes() {
+        if b.is_ascii_alphanumeric() || b"/-_.~".contains(&b) {
+            encoded.push(b as char);
+        } else {
+            encoded.push_str(&format!("%{b:02X}"));
+        }
+    }
+    let date = folitecta_core::util::unix_display(crate::state::now_secs()).replace(' ', "T");
+    std::fs::write(
+        info.join(format!("{target}.trashinfo")),
+        format!("[Trash Info]\nPath={encoded}\nDeletionDate={date}:00\n"),
+    )
+    .map_err(|e| e.to_string())?;
+    let dest = files.join(&target);
+    if std::fs::rename(&full, &dest).is_err() {
+        std::fs::copy(&full, &dest).map_err(|e| e.to_string())?;
+        std::fs::remove_file(&full).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Move a file to the trash through the Finder.
+#[cfg(target_os = "macos")]
+pub fn move_to_trash(path: &std::path::Path) -> Result<(), String> {
+    let full = std::fs::canonicalize(path).map_err(|e| e.to_string())?;
+    let p = full.to_string_lossy().replace('\\', "\\\\").replace('"', "\\\"");
+    let status = std::process::Command::new("osascript")
+        .args([
+            "-e",
+            &format!("tell application \"Finder\" to delete POSIX file \"{p}\""),
+        ])
+        .status()
+        .map_err(|e| e.to_string())?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err("the Finder could not move the file to the trash".into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

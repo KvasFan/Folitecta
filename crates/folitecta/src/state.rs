@@ -74,6 +74,8 @@ pub enum Tool {
     PlaceSignature,
     /// Draw the rectangle of a new table.
     Table,
+    Calculator,
+    ZoomDyn,
 }
 
 impl Tool {
@@ -81,7 +83,13 @@ impl Tool {
     pub fn is_drawing(&self) -> bool {
         !matches!(
             self,
-            Tool::Hand | Tool::Select | Tool::EditAnnots | Tool::Zoom | Tool::Loupe | Tool::EditFields
+            Tool::Hand
+                | Tool::Select
+                | Tool::EditAnnots
+                | Tool::Zoom
+                | Tool::ZoomDyn
+                | Tool::Loupe
+                | Tool::EditFields
         )
     }
 
@@ -140,6 +148,8 @@ impl Tool {
             Tool::SignArea => "tool.digisig",
             Tool::PlaceSignature => "tool.sign.and.initials",
             Tool::Table => "tool.table.create",
+            Tool::Calculator => "comments.accountingCalc",
+            Tool::ZoomDyn => "tool.zoomDyn",
         }
     }
 
@@ -191,6 +201,8 @@ impl Tool {
             Tool::SignArea => "tool.sign_area",
             Tool::PlaceSignature => "tool.place_signature",
             Tool::Table => "tool.table",
+            Tool::Calculator => "tool.calculator",
+            Tool::ZoomDyn => "tool.zoom_dyn",
         }
     }
 
@@ -934,6 +946,8 @@ pub enum ConfirmAction {
     AutoTag,
     /// Remove the tags of the document.
     ClearStructure,
+    /// Move the document file to the recycle bin.
+    TrashDocument,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1186,6 +1200,14 @@ pub enum Dialog {
     RuleExplain(String),
     /// Primary language of the document.
     DocLanguage,
+    /// Settings of new calculator tapes.
+    CalcSettings,
+    /// New name of the document file (its current name).
+    RenameDoc(String),
+    /// Metadata templates and the XMP properties of the document.
+    MetaTemplates,
+    /// Keep the document information as a template.
+    MetaTemplateSave,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.
@@ -1459,12 +1481,18 @@ impl AppState {
 
     pub fn toast(&self, kind: ToastKind, title: impl Into<String>, message: impl Into<String>) {
         let id = self.alloc_id();
-        self.toasts_mut().push(Toast {
-            id,
-            kind,
-            title: title.into(),
-            message: message.into(),
-        });
+        {
+            let mut toasts = self.toasts_mut();
+            toasts.push(Toast {
+                id,
+                kind,
+                title: title.into(),
+                message: message.into(),
+            });
+            // The latest messages only: a pile taller than the window would leave it.
+            let extra = toasts.len().saturating_sub(4);
+            toasts.drain(..extra);
+        }
         let toasts = self.toasts;
         // On the root scope: a dialog that shows a message closes right away,
         // and a task of its own scope would stop with it.

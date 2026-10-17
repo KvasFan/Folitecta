@@ -308,6 +308,10 @@ pub fn Dialogs() -> Element {
         Dialog::AccOptions(pane) => rsx! { crate::ui::acc_dialogs::AccOptionsDialog { pane } },
         Dialog::RuleExplain(id) => rsx! { crate::ui::acc_dialogs::RuleExplainDialog { id } },
         Dialog::DocLanguage => rsx! { crate::ui::acc_dialogs::DocLanguageDialog {} },
+        Dialog::CalcSettings => rsx! { crate::ui::calculator::CalcSettingsDialog {} },
+        Dialog::RenameDoc(name) => rsx! { crate::ui::fileops::RenameDocDialog { name } },
+        Dialog::MetaTemplates => rsx! { crate::ui::fileops::MetaTemplatesDialog {} },
+        Dialog::MetaTemplateSave => rsx! { crate::ui::fileops::MetaTemplateSaveDialog {} },
     }
 }
 
@@ -1747,6 +1751,10 @@ fn Confirm(title: String, body: String, action: ConfirmAction) -> Element {
                     ConfirmAction::AutoTag => {
                         st.set_dialog(Dialog::None);
                         crate::commands::accessibility::run_auto_tag(st);
+                    }
+                    ConfirmAction::TrashDocument => {
+                        st.set_dialog(Dialog::None);
+                        crate::commands::fileops::trash_now(st);
                     }
                     ConfirmAction::ClearStructure => {
                         st.with_active(|t| { t.acc.tag = None; t.flash = None; });

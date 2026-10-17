@@ -126,6 +126,13 @@ pub fn for_command(id: &str) -> &'static str {
     let has = |s: &str| l.contains(s);
     // Specific tools first.
     match id {
+        "ac.addLine" => return "insert",
+        "ac.delLine" => return "delete",
+        "ac.clearTape" | "ac.tape" | "ac.tape.reset" => return "close",
+        "ac.decimal" | "ac.rounding" => return "number",
+        "ac.dateTime" => return "history",
+        "ac.list" => return "list",
+        "ac.preview" => return "palette",
         "tool.annot.distance" => return "line",
         "tool.annot.perimeter" => return "pencil",
         "tool.annot.area" => return "rect",

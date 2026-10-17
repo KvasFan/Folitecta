@@ -241,8 +241,14 @@ pub fn Ribbon() -> Element {
     let (vw, _) = (st.viewport)();
     let tool = (st.tool)();
     let show_ctx = tool.is_drawing() || st.read_active(|t| t.selected_annot.is_some()).unwrap_or(false);
+    let show_calc = crate::commands::calculator::CALC_EDIT.read().is_some();
+    let calc_tab = crate::commands::calculator::CALC_TAB;
     let tab = ribbon_layout::tab(&active_tab)
-        .filter(|t| show_ctx || !t.id.starts_with("ctx."))
+        .filter(|t| match t.id {
+            CONTEXT_TAB => show_ctx,
+            id if id == calc_tab => show_calc,
+            _ => true,
+        })
         .unwrap_or(&ribbon_layout::RIBBON[0]);
     let tab_id = tab.id;
 
@@ -299,6 +305,18 @@ pub fn Ribbon() -> Element {
                         rsx! {
                             button { class: if tab_id == CONTEXT_TAB { "ribbon-tab ctx active" } else { "ribbon-tab ctx" }, title: "{title}",
                                 onclick: move |_| st.set_ribbon_tab(CONTEXT_TAB.to_string()),
+                                "{title}"
+                            }
+                        }
+                    }
+                }
+                if show_calc {
+                    {
+                        let ctx = ribbon_layout::tab(calc_tab).unwrap();
+                        let title = ui_label(lang, "tab", ctx.id, ctx.label);
+                        rsx! {
+                            button { class: if tab_id == calc_tab { "ribbon-tab ctx active" } else { "ribbon-tab ctx" }, title: "{title}",
+                                onclick: move |_| st.set_ribbon_tab(calc_tab.to_string()),
                                 "{title}"
                             }
                         }

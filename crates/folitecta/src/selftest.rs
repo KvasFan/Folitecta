@@ -1976,7 +1976,150 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     st.ui_mut().left_pane = "thumbnails".into();
     pause(300).await;
 
-    // 37. Undo everything added above.
+    // 37. Accounting calculator: a tape placed on the page, amounts typed with
+    // the keypad, decimals changed and taken back in the pane.
+    crate::commands::dispatch(st, "comments.accountingCalc");
+    pause(300).await;
+    let _ = pointer_path(0, z, &[(380.0, 120.0), (380.0, 120.0)], false).await;
+    pause(600).await;
+    let opened = crate::commands::calculator::CALC_EDIT.peek().is_some();
+    for (amount, op) in [("125.5", "+"), ("20", "−"), ("", "=")] {
+        let js = format!(
+            "const i = document.getElementById('calc-entry'); if (i) {{ i.value = '{amount}'; i.dispatchEvent(new Event('input', {{ bubbles: true }})); }}"
+        );
+        let _ = document::eval(&js).await;
+        pause(150).await;
+        let js = format!(
+            "[...document.querySelectorAll('.calc-key.op')].find(b => b.textContent.trim() === '{op}')?.click();"
+        );
+        let _ = document::eval(&js).await;
+        pause(350).await;
+    }
+    let tape = |st: AppState| {
+        crate::commands::calculator::CALC_EDIT
+            .peek()
+            .as_ref()
+            .and_then(|e| st.read_active(|t| t.doc.calculator_at(e.page, e.index)).flatten())
+    };
+    let typed = tape(st);
+    crate::commands::dispatch(st, "ac.decimal.zero");
+    pause(300).await;
+    let zero = tape(st).map(|t| t.decimals);
+    let ctx_tab = document::eval("return [...document.querySelectorAll('.ribbon-tab.ctx')].length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let _ = capture_window(&dir.join("interaction-calculator.png"));
+    crate::commands::dispatch(st, "ac.undo");
+    pause(300).await;
+    let back = tape(st).map(|t| t.decimals);
+    record(
+        "calculator tape typed on the keypad",
+        opened
+            && typed
+                .as_ref()
+                .is_some_and(|t| t.lines.len() == 3 && (t.total() - 105.5).abs() < 1e-9)
+            && zero == Some(Some(0))
+            && back == Some(Some(2))
+            && (!st.ui.peek().ribbon || ctx_tab > 0),
+        format!("{:?}", typed.map(|t| t.text())),
+    );
+    crate::commands::dispatch(st, "comments.ac.closeAll");
+    pause(300).await;
+    st.with_active(|t| t.selected_annot = None);
+
+    // 38. Metadata templates, guides copied to every page, the continuous
+    // zoom tool and renaming the document file.
+    crate::commands::dispatch(st, "xmp.export.template");
+    pause(300).await;
+    let _ = document::eval(
+        "const i = document.querySelector('.dialog input'); if (i) { i.value = 'Team'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
+    )
+    .await;
+    pause(200).await;
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(400).await;
+    let saved = crate::commands::fileops::templates(st)
+        .iter()
+        .any(|x| x.name == "Team");
+    let listed = (st.dialog)() == Dialog::MetaTemplates;
+    let _ = capture_window(&dir.join("interaction-metadata.png"));
+    st.set_dialog(Dialog::None);
+    record(
+        "metadata template saved and listed",
+        saved && listed,
+        String::new(),
+    );
+    st.with_active(|t| {
+        t.guides.push(crate::state::Guide {
+            page: Some(0),
+            horizontal: true,
+            pos: 123.0,
+        })
+    });
+    st.navigate(0, true);
+    let copied = crate::commands::fileops::duplicate_guides(st);
+    let imported =
+        crate::commands::fileops::import_guides_from(st, r#"[{"page":null,"horizontal":false,"pos":77.0}]"#);
+    let pages = st.page_count();
+    let n123 = st
+        .read_active(|t| t.guides.iter().filter(|g| g.pos == 123.0).count())
+        .unwrap_or(0);
+    record(
+        "guides copied to every page and imported",
+        copied + 1 == pages && n123 == pages && imported == Ok(1),
+        format!("{copied} copies, {n123} on {pages} pages"),
+    );
+    st.with_active(|t| t.guides.clear());
+    crate::commands::dispatch(st, "tool.zoomDyn");
+    pause(200).await;
+    let z0 = crate::commands::current_zoom(st);
+    let _ = pointer_path(0, z0, &[(200.0, 400.0), (200.0, 370.0), (200.0, 340.0)], false).await;
+    pause(400).await;
+    let z1 = crate::commands::current_zoom(st);
+    record(
+        "continuous zoom by dragging up",
+        z1 > z0 * 1.3,
+        format!("{z0:.2} -> {z1:.2}"),
+    );
+    st.set_tool(Tool::Hand);
+    st.with_active(|t| t.zoom = crate::state::Zoom::FitWidth);
+    let file = dir.join("rename-me.pdf");
+    let renamed = dir.join("renamed-doc.pdf");
+    let _ = std::fs::remove_file(&renamed);
+    let written = st
+        .read_active(|t| std::fs::write(&file, t.doc.bytes().as_slice()).is_ok())
+        .unwrap_or(false);
+    crate::files::open_path(st, file.clone(), None);
+    pause(600).await;
+    crate::commands::dispatch(st, "renameDoc");
+    pause(300).await;
+    let _ = document::eval(
+        "const i = document.querySelector('.dialog input'); if (i) { i.value = 'renamed-doc'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
+    )
+    .await;
+    pause(200).await;
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(400).await;
+    let now = st
+        .read_active(|t| t.doc.path().map(|p| p.to_path_buf()))
+        .flatten();
+    record(
+        "document file renamed",
+        written && renamed.exists() && !file.exists() && now.as_deref() == Some(renamed.as_path()),
+        format!("{now:?}"),
+    );
+    if let Some(id) = st
+        .read_active(|t| (t.doc.path() == Some(renamed.as_path())).then_some(t.id))
+        .flatten()
+    {
+        crate::files::close_tab(st, id, true, crate::state::AfterUnsaved::Close);
+    }
+    st.set_active(0);
+    pause(300).await;
+
+    // 39. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..50 {
         crate::commands::dispatch(st, "undo");
@@ -2243,6 +2386,10 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("order-options", Dialog::AccOptions("order".into())),
         ("rule-explain", Dialog::RuleExplain("tagged".into())),
         ("doc-language", Dialog::DocLanguage),
+        ("calc-settings", Dialog::CalcSettings),
+        ("rename-doc", Dialog::RenameDoc("report-final-version.pdf".into())),
+        ("meta-templates", Dialog::MetaTemplates),
+        ("meta-template-save", Dialog::MetaTemplateSave),
     ];
     // The editor shows the table being edited.
     *crate::commands::tables::TABLE_EDIT.write() = Some(crate::commands::tables::TableEdit {

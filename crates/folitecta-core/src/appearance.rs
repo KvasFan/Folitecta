@@ -1021,6 +1021,17 @@ impl Document {
                         resources.set(k.clone(), v.clone());
                     }
                     body.push_str(&table.content(rect));
+                } else if name == crate::calculator::CALC_STAMP {
+                    // Calculator tapes are drawn again from their data.
+                    let tape: Option<crate::calculator::Tape> = match d.get(b"FolitectaCalc") {
+                        Ok(Object::String(s, _)) => serde_json::from_slice(s).ok(),
+                        _ => None,
+                    };
+                    let Some(tape) = tape else { return Ok(false) };
+                    for (k, v) in self.table_resources().iter() {
+                        resources.set(k.clone(), v.clone());
+                    }
+                    body.push_str(&tape.content(rect));
                 } else if name == "FolitectaImage" {
                     // Keep the picture of the existing appearance, change only the opacity.
                     let img = d

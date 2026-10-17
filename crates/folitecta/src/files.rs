@@ -539,9 +539,21 @@ pub fn export_text(st: AppState) {
 /// Write arbitrary text to a user-chosen file (summaries, form data).
 pub fn save_text_file(st: AppState, suggested: &str, contents: String) {
     let suggested = suggested.to_string();
+    // The filter follows the extension of the suggested name.
+    let ext = std::path::Path::new(&suggested)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("txt")
+        .to_lowercase();
+    let exts: Vec<String> = if ext == "txt" || ext == "csv" {
+        vec!["txt".into(), "csv".into()]
+    } else {
+        vec![ext.clone()]
+    };
     spawn(async move {
+        let refs: Vec<&str> = exts.iter().map(String::as_str).collect();
         let Some(file) = rfd::AsyncFileDialog::new()
-            .add_filter("Text", &["txt", "csv"])
+            .add_filter(ext.to_uppercase(), &refs)
             .set_file_name(&suggested)
             .save_file()
             .await

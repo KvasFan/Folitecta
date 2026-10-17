@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.5. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1063 |
-| 🟡 partial | 54 |
-| ⬜ planned | 860 |
+| ✅ available | 1128 |
+| 🟡 partial | 53 |
+| ⬜ planned | 796 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -19,7 +19,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Continuous Zoom | `tool.zoomDyn` | ⬜ planned |
+| Continuous Zoom | `tool.zoomDyn` | ✅ available |
 | Hand Tool | `tool.hand` | ✅ available |
 | ↳ Selection Text Images | `tool.hand.selTextImages` | ✅ available |
 | Loupe Tool | `tool.loupe` | ✅ available |
@@ -206,13 +206,13 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Rotate Clockwise | `view.rotate.CW` | ✅ available |
 | ↳ Rotate Counterclockwise | `view.rotate.CCW` | ✅ available |
 | Rotate View | `view.rotateViewGroup` | ⬜ planned |
-| Rulers | `rulers` | 🟡 partial |
+| Rulers | `rulers` | ✅ available |
 | ↳ Add New Guides | `rulers.addNewGuides` | ✅ available |
 | ↳ Delete All Guides | `rulers.deleteAllGuides` | ✅ available |
 | ↳ Delete Guides on Current Page | `rulers.deleteGuidesOnCurrentPage` | ✅ available |
-| ↳ Duplicate Guides | `rulers.duplicateGuides` | ⬜ planned |
-| ↳ Export Guides | `rulers.exportGuides` | ⬜ planned |
-| ↳ Import Guides | `rulers.importGuides` | ⬜ planned |
+| ↳ Duplicate Guides | `rulers.duplicateGuides` | ✅ available |
+| ↳ Export Guides | `rulers.exportGuides` | ✅ available |
+| ↳ Import Guides | `rulers.importGuides` | ✅ available |
 | ↳ Units | `rulers.units` | ✅ available |
 | Rulers | `view.showRulers` | ✅ available |
 | Show | `view.show` | ⬜ planned |
@@ -416,7 +416,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Accounting Calculator | `comments.accountingCalc` | ⬜ planned |
+| Accounting Calculator | `comments.accountingCalc` | ✅ available |
 | Add Comments | `comments.newGroup` | ⬜ planned |
 | Comment Styles | `annotStylesList` | ⬜ planned |
 | Comment Styles | `commentStyles` | ⬜ planned |
@@ -919,7 +919,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Export All Bookmarks… | `document.exportBookmarks` | ✅ available |
 | Export Selected Bookmarks… | `document.exportSelBookmarks` | ✅ available |
 | Export to CSV… | `linksView.exportToCSV` | ✅ available |
-| Export… | `linksView.export` | ⬜ planned |
+| Export… | `linksView.export` | ✅ available |
 | Save Image As… | `saveImage` | ✅ available |
 
 **Modify**
@@ -944,9 +944,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Reset All Fonts | `saf.resetAllFonts` | ⬜ planned |
 | ↳ Reset Font | `saf.resetFont` | ⬜ planned |
 | Word Count | `document.wordCount` | ✅ available |
-| XMP | `xmp` | ⬜ planned |
-| ↳ Export | `xmp.export` | ⬜ planned |
-| ↳ Show | `xmp.show` | ⬜ planned |
+| XMP | `xmp` | ✅ available |
+| ↳ Export | `xmp.export` | ✅ available |
+| ↳ Show | `xmp.show` | ✅ available |
 
 **OCR**
 
@@ -1247,8 +1247,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | History and Recents Options… | `manageHistory` | ✅ available |
 | History… | `showHistory` | ⬜ planned |
 | Manage Sessions… | `manageSessions` | ✅ available |
-| Move File… | `moveDoc` | ⬜ planned |
-| Move to Recycle Bin | `moveToTrash` | ⬜ planned |
+| Move File… | `moveDoc` | ✅ available |
+| Move to Recycle Bin | `moveToTrash` | ✅ available |
 | Open | `openGroup` | ✅ available |
 | Open Containing Folder | `openSrcFolder` | ✅ available |
 | Open Session from File… | `openSessionFromFile` | ✅ available |
@@ -1256,7 +1256,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Places List Open | `placesListOpen` | ✅ available |
 | Places List Save | `placesListSave` | ✅ available |
 | Recent | `recentsList` | ✅ available |
-| Rename… | `renameDoc` | ⬜ planned |
+| Rename… | `renameDoc` | ✅ available |
 | Reopen Closed Document | `reopenJustClosedDoc` | ✅ available |
 | Save As | `saveAsGroup` | ✅ available |
 | Save Copy As… | `saveCopyAs` | ✅ available |
@@ -1264,7 +1264,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Save Current Session to File… | `saveCurrentSessionToFile` | ✅ available |
 | Save Image As… | `saveImage` | ✅ available |
 | Save Settings and History | `saveSettingsAndHistory` | ✅ available |
-| Save To | `saveTo` | ⬜ planned |
+| Save To | `saveTo` | ✅ available |
 | Save Unrestricted Copy… | `saveUnrestricted` | ✅ available |
 | Sessions | `sessionsList` | ✅ available |
 | Settings | `settings` | ✅ available |
@@ -1272,7 +1272,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | This Computer… | `openFromComp` | ✅ available |
 | This Computer… | `saveToComp` | ✅ available |
 | WebDAV | `wdav` | ⬜ planned |
-| XMP | `xmp` | ⬜ planned |
+| XMP | `xmp` | ✅ available |
 
 ### Edit
 
@@ -1306,7 +1306,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Distribute Horizontally | `distribHorz` | ⬜ planned |
 | Distribute Vertically | `distribVert` | ⬜ planned |
 | Distribute to | `distributeTo` | ⬜ planned |
-| Document Size | `dsd` | ⬜ planned |
+| Document Size | `dsd` | ✅ available |
 | Edit Image | `editImage` | ⬜ planned |
 | Edit Link | `editLink` | ⬜ planned |
 | Edit Object | `editObject` | ⬜ planned |
@@ -1354,7 +1354,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Properties… | `props` | ✅ available |
 | Remove Clip | `removeClip` | ⬜ planned |
 | Rename Toolbar | `renameToolbar` | ⬜ planned |
-| Rename… | `rename` | ⬜ planned |
+| Rename… | `rename` | ✅ available |
 | Replace All Image Instances | `replaceAllImageInstances` | ⬜ planned |
 | Replace Image | `replaceImage` | ⬜ planned |
 | Replace Image Clipboard | `replaceImageClipboard` | ⬜ planned |
@@ -1480,7 +1480,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Ribbon / Classic UI | `view.ribbonClassicUI` | ✅ available |
 | Ribbon UI | `view.switchToRibbonUI` | ✅ available |
 | Rotate View | `view.rotateViewGroup` | ⬜ planned |
-| Rulers | `rulers` | 🟡 partial |
+| Rulers | `rulers` | ✅ available |
 | Search Pane | `searchView` | ✅ available |
 | Show | `view.show` | ⬜ planned |
 | Show Page Size | `view.showPageMeasureInfo` | ✅ available |
@@ -1636,9 +1636,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Comment Styles | `annotStylesList` | ⬜ planned |
 | Comment Styles | `commentStyles` | ⬜ planned |
 | 3D | `3d` | ⬜ planned |
-| Accounting Calculator | `ac` | ⬜ planned |
-| Accounting Calculator | `comments.ac` | ⬜ planned |
-| Accounting Calculator | `comments.accountingCalc` | ⬜ planned |
+| Accounting Calculator | `ac` | ✅ available |
+| Accounting Calculator | `comments.ac` | ✅ available |
+| Accounting Calculator | `comments.accountingCalc` | ✅ available |
 | Add Annotation by Select | `addAnnotBySelect` | ✅ available |
 | Add Annotations by Find Result | `addAnnotsByFindResult` | ✅ available |
 | Add Annotations by Search Result | `addAnnotsBySearchResult` | ✅ available |
@@ -1714,7 +1714,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Compare Documents… | `compareDocs` | ✅ available |
 | Launch Application | `launchExternalApp` | ✅ available |
 | Allow/Block List | `bwList` | ⬜ planned |
-| Metadata | `msp` | ⬜ planned |
+| Metadata | `msp` | ✅ available |
 | Other Tools | `otherToolsGroup` | ⬜ planned |
 | Portfolio Schema | `portfolioSchemaList` | ✅ available |
 | Quick Launch | `quickLaunch` | ✅ available |
@@ -1767,33 +1767,33 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Command | Path | Status |
 |---|---|---|
 | `3DModelTreeView.options` | View › 3D Model Tree › Options | ⬜ planned |
-| `ac.dateTime.hide` | Comments › Accounting Calculator › Date Time › Hide | ⬜ planned |
-| `ac.dateTime.show` | Comments › Accounting Calculator › Date Time › Show | ⬜ planned |
-| `ac.decimal.f` | Comments › Accounting Calculator › Decimal › Floating | ⬜ planned |
-| `ac.decimal.five` | Comments › Accounting Calculator › Decimal › Five | ⬜ planned |
-| `ac.decimal.four` | Comments › Accounting Calculator › Decimal › Four | ⬜ planned |
-| `ac.decimal.one` | Comments › Accounting Calculator › Decimal › One | ⬜ planned |
-| `ac.decimal.six` | Comments › Accounting Calculator › Decimal › Six | ⬜ planned |
-| `ac.decimal.three` | Comments › Accounting Calculator › Decimal › Three | ⬜ planned |
-| `ac.decimal.two` | Comments › Accounting Calculator › Decimal › Two | ⬜ planned |
-| `ac.decimal.zero` | Comments › Accounting Calculator › Decimal › Zero | ⬜ planned |
-| `ac.list.edit` | Comments › Accounting Calculator › List › Edit | ⬜ planned |
-| `ac.list.edit.amount` | Comments › Accounting Calculator › List › Edit › Amount | ⬜ planned |
-| `ac.list.edit.comment` | Comments › Accounting Calculator › List › Edit › Comment | ⬜ planned |
-| `ac.list.edit.oper` | Comments › Accounting Calculator › List › Edit › Oper | ⬜ planned |
-| `ac.list.invertSel` | Comments › Accounting Calculator › List › Invert Selection | ⬜ planned |
-| `ac.list.selectAll` | Comments › Accounting Calculator › List › Select All | ⬜ planned |
-| `ac.list.unselect` | Comments › Accounting Calculator › List › Unselect | ⬜ planned |
-| `ac.preview.background` | Comments › Accounting Calculator › Preview › Background | ⬜ planned |
-| `ac.preview.borderColor` | Comments › Accounting Calculator › Preview › Border Color | ⬜ planned |
-| `ac.preview.borderStyle` | Comments › Accounting Calculator › Preview › Border Style | ⬜ planned |
-| `ac.preview.borderWidth` | Comments › Accounting Calculator › Preview › Border Width | ⬜ planned |
-| `ac.preview.font` | Comments › Accounting Calculator › Preview › Font | ⬜ planned |
-| `ac.preview.reset` | Comments › Accounting Calculator › Preview › Reset | ⬜ planned |
-| `ac.rounding.default` | Comments › Accounting Calculator › Rounding › Default | ⬜ planned |
-| `ac.rounding.down` | Comments › Accounting Calculator › Rounding › Down | ⬜ planned |
-| `ac.rounding.up` | Comments › Accounting Calculator › Rounding › Up | ⬜ planned |
-| `ac.tape.reset` | Comments › Accounting Calculator › Tape › Reset | ⬜ planned |
+| `ac.dateTime.hide` | Comments › Accounting Calculator › Date Time › Hide | ✅ available |
+| `ac.dateTime.show` | Comments › Accounting Calculator › Date Time › Show | ✅ available |
+| `ac.decimal.f` | Comments › Accounting Calculator › Decimal › Floating | ✅ available |
+| `ac.decimal.five` | Comments › Accounting Calculator › Decimal › Five | ✅ available |
+| `ac.decimal.four` | Comments › Accounting Calculator › Decimal › Four | ✅ available |
+| `ac.decimal.one` | Comments › Accounting Calculator › Decimal › One | ✅ available |
+| `ac.decimal.six` | Comments › Accounting Calculator › Decimal › Six | ✅ available |
+| `ac.decimal.three` | Comments › Accounting Calculator › Decimal › Three | ✅ available |
+| `ac.decimal.two` | Comments › Accounting Calculator › Decimal › Two | ✅ available |
+| `ac.decimal.zero` | Comments › Accounting Calculator › Decimal › Zero | ✅ available |
+| `ac.list.edit` | Comments › Accounting Calculator › List › Edit | ✅ available |
+| `ac.list.edit.amount` | Comments › Accounting Calculator › List › Edit › Amount | ✅ available |
+| `ac.list.edit.comment` | Comments › Accounting Calculator › List › Edit › Comment | ✅ available |
+| `ac.list.edit.oper` | Comments › Accounting Calculator › List › Edit › Oper | ✅ available |
+| `ac.list.invertSel` | Comments › Accounting Calculator › List › Invert Selection | ✅ available |
+| `ac.list.selectAll` | Comments › Accounting Calculator › List › Select All | ✅ available |
+| `ac.list.unselect` | Comments › Accounting Calculator › List › Unselect | ✅ available |
+| `ac.preview.background` | Comments › Accounting Calculator › Preview › Background | ✅ available |
+| `ac.preview.borderColor` | Comments › Accounting Calculator › Preview › Border Color | ✅ available |
+| `ac.preview.borderStyle` | Comments › Accounting Calculator › Preview › Border Style | ✅ available |
+| `ac.preview.borderWidth` | Comments › Accounting Calculator › Preview › Border Width | ✅ available |
+| `ac.preview.font` | Comments › Accounting Calculator › Preview › Font | ✅ available |
+| `ac.preview.reset` | Comments › Accounting Calculator › Preview › Reset | ✅ available |
+| `ac.rounding.default` | Comments › Accounting Calculator › Rounding › Default | ✅ available |
+| `ac.rounding.down` | Comments › Accounting Calculator › Rounding › Down | ✅ available |
+| `ac.rounding.up` | Comments › Accounting Calculator › Rounding › Up | ✅ available |
+| `ac.tape.reset` | Comments › Accounting Calculator › Tape › Reset | ✅ available |
 | `action.goto.addCurrentView` | Document › Action › Go to › Add Current View | ⬜ planned |
 | `action.goto.delete` | Document › Action › Go to › Delete | ⬜ planned |
 | `action.goto.edit` | Document › Action › Go to › Edit | ⬜ planned |
@@ -1923,7 +1923,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `cmpDocs.show.rowHighlights` | View › Compare Documents › Show › Row Highlights | ✅ available |
 | `cmpDocs.show.summary` | View › Compare Documents › Show › Summary | ✅ available |
 | `comments` | Comments | 🟡 partial |
-| `comments.ac.closeAll` | Comments › Accounting Calculator › Close All | ⬜ planned |
+| `comments.ac.closeAll` | Comments › Accounting Calculator › Close All | ✅ available |
 | `comments.show.byAuthor.all` | Comments › Show Comments › By Author › All | ✅ available |
 | `comments.show.byType.all` | Comments › Show Comments › By Type › All | ✅ available |
 | `comments.show.checked.all` | Comments › Show Comments › By Check Mark › All | ✅ available |
@@ -1997,7 +1997,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `document.find.includePageText` | Document › Find › Include Page Text | ✅ available |
 | `document.find.wholeWords` | Document › Find › Whole Words | ✅ available |
 | `document.signatures.certify.invisible` | Document › Digital Signatures › Certify (Visible) › Certify (Invisible) | ✅ available |
-| `dsd.pageSize` | Edit › Document Size › Page Size | ⬜ planned |
+| `dsd.pageSize` | Edit › Document Size › Page Size | ✅ available |
 | `edit` | Edit | ✅ available |
 | `editFields.items.add` | Form › Field Editor › Items › Add | ⬜ planned |
 | `editFields.items.delete` | Form › Field Editor › Items › Delete | ⬜ planned |
@@ -2150,9 +2150,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `macro.rowData.options` | Comments › Macro › Row Data › Options | ⬜ planned |
 | `media.position.Slider` | Comments › Media › Position › Position | ⬜ planned |
 | `media.volume.Slider` | Comments › Media › Volume › Volume | ⬜ planned |
-| `msp.hdr` | Tools › Metadata › Columns | ⬜ planned |
-| `msp.hdr.tagName` | Tools › Metadata › Columns › Tag Name | ⬜ planned |
-| `msp.hdr.value` | Tools › Metadata › Columns › Value | ⬜ planned |
+| `msp.hdr` | Tools › Metadata › Columns | ✅ available |
+| `msp.hdr.tagName` | Tools › Metadata › Columns › Tag Name | ✅ available |
+| `msp.hdr.value` | Tools › Metadata › Columns › Value | ✅ available |
 | `noProps` | No Properties | ⬜ planned |
 | `open.prefsPageDisplay` | File › Open › Preferences Page Display | ⬜ planned |
 | `orderview.show.tableCells` | View › Order Pane › Show › Table Cells | ✅ available |
@@ -2424,5 +2424,5 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `window.split.horz` | Window › Split › Split Horizontally | ⬜ planned |
 | `window.split.spreadsheet` | Window › Split › Spreadsheet Split | ⬜ planned |
 | `window.split.vert` | Window › Split › Split Vertically | ⬜ planned |
-| `xmp.export.template` | File › XMP › Export › Template | ⬜ planned |
-| `xmp.show.templates` | File › XMP › Show › Templates | ⬜ planned |
+| `xmp.export.template` | File › XMP › Export › Template | ✅ available |
+| `xmp.show.templates` | File › XMP › Show › Templates | ✅ available |

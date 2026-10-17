@@ -6,6 +6,26 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Accounting calculator: tapes of amounts placed on the page as comments, typed on a keypad or
+  the keyboard (Enter adds), with running totals, comments on each line, lines added, deleted
+  and edited, decimals (none to six, or floating), rounding (half, up, down), date and time,
+  background, border and text look, undo and redo in the pane, a Calculator ribbon tab and
+  settings for new tapes. Moving a tape keeps it editable.
+- Metadata templates: keep the title, author, subject and keywords of a document and give them
+  to others; the XMP properties of the document with name and value columns; save the XMP
+  packet (one made from the document information when there is none).
+- Guides: export them to a file, import them, copy the guides of the current page to every page.
+- The document file: rename it, move it to another folder, move it to the recycle bin; Save To.
+- Continuous zoom tool: drag up to zoom in, down to zoom out.
+- Size of the current page and of the file; links exported as a text list.
+
+### Fixed
+
+- Text files are offered with the type of their extension in the save dialog (web pages, JSON,
+  XMP), not always as text or CSV.
+
 ## [0.0.5] - 2026-10-17
 
 ### Added

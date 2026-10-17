@@ -353,7 +353,9 @@ pub fn App() -> Element {
                 ui::panes::PaneStrip {}
                 ui::panes::PanePanel {}
                 ui::canvas::CanvasArea {}
-                if show_right {
+                if commands::calculator::CALC_EDIT.read().is_some() {
+                    ui::calculator::CalculatorPane {}
+                } else if show_right {
                     ui::rightpane::RightPane {}
                 }
             }

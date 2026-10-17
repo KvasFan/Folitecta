@@ -65,6 +65,8 @@ pub struct Document {
     pub(crate) text_cache: std::sync::Mutex<Option<(u64, Arc<Vec<crate::textlayer::PageText>>)>>,
     /// Marked content of the pages already measured, keyed by revision.
     pub(crate) marked_cache: std::sync::Mutex<crate::structure::MarkedCache>,
+    /// Structure tree read for a revision (for views, never while editing).
+    pub(crate) struct_cache: std::sync::Mutex<crate::structure::StructCache>,
 }
 
 impl std::fmt::Debug for Document {
@@ -139,6 +141,7 @@ impl Document {
             source_encrypted,
             text_cache: Default::default(),
             marked_cache: Default::default(),
+            struct_cache: Default::default(),
         };
         if doc.page_count() == 0 {
             return Err(Error::Invalid("the file contains no pages".into()));
@@ -198,6 +201,7 @@ impl Document {
             source_encrypted: false,
             text_cache: Default::default(),
             marked_cache: Default::default(),
+            struct_cache: Default::default(),
         })
     }
 

@@ -10,7 +10,7 @@ impl Document {
     /// Elements of a page in reading order: blocks with their content, tables,
     /// figures and lists as a whole (cells one by one with `table_cells`).
     pub fn reading_order(&self, page: usize, table_cells: bool) -> Vec<OrderItem> {
-        let Some(tree) = self.structure() else {
+        let Some(tree) = self.structure_view() else {
             return Vec::new();
         };
         let marked = self.marked_content(page);

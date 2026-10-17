@@ -287,6 +287,9 @@ pub struct MarkedItem {
     pub font_size: f32,
 }
 
+/// Structure tree read for a revision.
+pub type StructCache = Option<(u64, Option<Arc<StructElem>>)>;
+
 /// Marked content of pages measured for a revision.
 pub type MarkedCache = Option<(u64, HashMap<usize, Arc<Vec<MarkedItem>>>)>;
 

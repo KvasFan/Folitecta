@@ -380,6 +380,20 @@ impl Document {
         Some(e)
     }
 
+    /// The structure tree for views, read once per revision. Editing code
+    /// reads [Document::structure] instead: it sees changes not committed yet.
+    pub fn structure_view(&self) -> Option<Arc<StructElem>> {
+        let mut cache = self.struct_cache.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((rev, tree)) = cache.as_ref() {
+            if *rev == self.revision() {
+                return tree.clone();
+            }
+        }
+        let tree = self.structure().map(Arc::new);
+        *cache = Some((self.revision(), tree.clone()));
+        tree
+    }
+
     /// Marked content of a page and where it is drawn (cached per revision).
     pub fn marked_content(&self, page: usize) -> Arc<Vec<MarkedItem>> {
         self.marked_content_pages(&[page])

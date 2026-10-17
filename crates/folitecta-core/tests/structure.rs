@@ -247,6 +247,35 @@ fn marks_stay_artifacts_in_their_own_streams() {
 }
 
 #[test]
+fn the_structure_view_follows_each_revision() {
+    let mut doc = sample();
+    assert!(doc.structure_view().is_none());
+    doc.auto_tag().unwrap();
+    let a = doc.structure_view().unwrap();
+    let b = doc.structure_view().unwrap();
+    assert!(std::sync::Arc::ptr_eq(&a, &b), "read once per revision");
+    let document = a.children().next().unwrap().id;
+    doc.add_struct_elem(Some(document), None, "Sect", "").unwrap();
+    let c = doc.structure_view().unwrap();
+    assert!(!std::sync::Arc::ptr_eq(&a, &c));
+    assert_eq!(
+        c.children().next().unwrap().children().count(),
+        a.children().next().unwrap().children().count() + 1
+    );
+    doc.undo().unwrap();
+    assert_eq!(
+        doc.structure_view()
+            .unwrap()
+            .children()
+            .next()
+            .unwrap()
+            .children()
+            .count(),
+        a.children().next().unwrap().children().count()
+    );
+}
+
+#[test]
 fn role_map_and_class_map() {
     let mut doc = sample();
     doc.create_struct_root().unwrap();

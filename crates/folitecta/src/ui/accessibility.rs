@@ -145,7 +145,7 @@ pub fn TagsPane() -> Element {
     let lang = st.lang();
     let Some((tree, sel, collapsed, tagged)) = st.read_active(|t| {
         (
-            t.doc.structure(),
+            t.doc.structure_view(),
             t.acc.tag,
             t.acc.collapsed.clone(),
             t.doc.is_tagged(),

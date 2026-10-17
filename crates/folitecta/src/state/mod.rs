@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::i18n::Lang;
 
+pub mod comment_styles;
 mod dialog;
 mod doc_tab;
 mod prefs;

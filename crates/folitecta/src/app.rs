@@ -11,7 +11,8 @@ use folitecta_core::textops::display_rect_to_pdf;
 
 use crate::commands;
 use crate::files;
-use crate::state::{AppState, Dialog, Theme, Tool};
+use crate::i18n::t;
+use crate::state::{AppState, Dialog, Tool};
 use crate::ui;
 use crate::{ICON_PNG, SelfTest, StartupFiles};
 
@@ -209,11 +210,7 @@ pub fn App() -> Element {
         });
     });
 
-    let theme = if st.ui.read().theme == Theme::Dark {
-        "dark"
-    } else {
-        "light"
-    };
+    let theme = st.ui.read().theme.attr();
     let ribbon = st.ui.read().ribbon;
     let fullscreen = (st.fullscreen)();
     let show_left = st.ui.read().show_left_pane;
@@ -226,6 +223,20 @@ pub fn App() -> Element {
         ""
     };
     let compact = format!("{compact}{touch}");
+    // Widths of the side panes chosen by dragging their edges.
+    use ui::chrome::layout::{Axis, LEFT_W, RIGHT_W, Splitter, size};
+    let (def_left, def_right) = ui::chrome::layout::default_widths(vw);
+    let left_w = size(st, LEFT_W);
+    let right_w = size(st, RIGHT_W);
+    // Always both widths (the defaults as well): an empty style attribute
+    // would not take away the widths dragged before.
+    let main_style = format!(
+        "--pane-w:{}px;--right-w:{}px",
+        left_w.unwrap_or(def_left),
+        right_w.unwrap_or(def_right)
+    );
+    let calc_open = commands::calculator::CALC_EDIT.read().is_some();
+    let resize_title = t(st.lang(), "layout.resize");
     let spellcheck = if commands::option_on(st, "view.spellCheck") {
         "true"
     } else {
@@ -393,27 +404,36 @@ pub fn App() -> Element {
             autofocus: true,
             onkeydown: on_key,
             onclick: move |_| st.close_menus(),
-            ui::menubar::Menubar {}
+            ui::chrome::menubar::Menubar {}
             if ribbon {
-                ui::ribbon::Ribbon {}
+                ui::chrome::ribbon::Ribbon {}
             } else {
-                ui::toolbars::ClassicToolbars {}
+                ui::chrome::toolbars::ClassicToolbars {}
             }
-            div { class: if show_left { "main" } else { "main no-left" },
+            div { class: if show_left { "main" } else { "main no-left" }, style: "{main_style}",
                 ui::panes::PaneStrip {}
                 ui::panes::PanePanel {}
                 ui::canvas::CanvasArea {}
-                ui::media::MediaPlayer {}
-                if commands::calculator::CALC_EDIT.read().is_some() {
-                    ui::calculator::CalculatorPane {}
+                ui::features::media::MediaPlayer {}
+                if calc_open {
+                    ui::features::calculator::CalculatorPane {}
                 } else if show_right {
-                    ui::rightpane::RightPane {}
+                    ui::panes::right::RightPane {}
+                }
+                if show_left {
+                    Splitter { name: LEFT_W, axis: Axis::X, class: "left-edge", title: resize_title.clone(),
+                        base: left_w.unwrap_or(def_left), per_px: 1.0, min: 170.0, max: (vw * 0.6).min(760.0) }
+                }
+                if show_right && !calc_open {
+                    Splitter { name: RIGHT_W, axis: Axis::X, class: "right-edge", title: resize_title.clone(),
+                        base: right_w.unwrap_or(def_right), per_px: -1.0, min: 200.0, max: (vw * 0.5).min(700.0) }
                 }
             }
-            ui::statusbar::StatusBar {}
+            ui::chrome::statusbar::StatusBar {}
             ui::dialogs::Dialogs {}
-            ui::palette::Palette {}
-            ui::toasts::Toasts {}
+            ui::chrome::palette::Palette {}
+            ui::chrome::toasts::Toasts {}
+            ui::chrome::layout::DragShield {}
         }
         ui::dialogs::PrintView {}
     }

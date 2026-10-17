@@ -1,0 +1,26 @@
+/* Digital signatures */
+.sig-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.sig-dot.ok { background: var(--ok); }
+.sig-dot.warn { background: var(--warn); }
+.sig-dot.bad { background: var(--danger); }
+.sig-state { font-size: 12px; font-weight: 600; }
+.sig-state.ok { color: var(--ok); }
+.sig-state.warn { color: var(--warn); }
+.sig-state.bad { color: var(--danger); }
+.sig-state.big { font-size: 14px; padding: 6px 0; }
+.kv-grid { display: grid; grid-template-columns: minmax(90px, 150px) minmax(0, 1fr); gap: 4px 10px; padding: 4px 0; }
+.kv-grid .k { color: var(--muted); }
+.kv-grid .v { user-select: text; overflow-wrap: anywhere; min-width: 0; }
+.kv-grid .v.mono { font-size: 11.5px; }
+.problems { margin: 4px 0; padding-left: 20px; color: var(--danger); }
+.callout.error { border-color: var(--danger); background: rgba(217,56,56,.08); }
+.id-list { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow: auto; }
+/* Signatures and initials library */
+.sig-library { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; max-height: 240px; overflow: auto; }
+.sig-card { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sig-preview { height: 56px; display: grid; place-items: center; background: #fff; border-radius: 4px; overflow: hidden; }
+.sig-img { max-height: 52px; max-width: 100%; }
+.typed-sig { font-family: "Segoe Script", "Brush Script MT", "Times New Roman", serif; font-style: italic; font-size: 22px; color: #1c2a6b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.typed-sig.big { font-size: 30px; padding: 8px; background: #fff; border-radius: 4px; }
+.sign-pad { position: relative; background: #fff; border: 1px dashed var(--border); border-radius: var(--radius-sm); cursor: crosshair; max-width: 100%; overflow: hidden; touch-action: none; }
+.sign-pad svg { display: block; pointer-events: none; }

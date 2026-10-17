@@ -65,19 +65,35 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
 
 - `state/` — `AppState` is a bundle of Dioxus signals (open tabs, active tab, preferences,
   current dialog, toasts, palette, tool). `DocTab` pairs a `Document` with its `RenderService`,
-  view state (page, zoom, layout, rotation), selections and search state.
+  view state (page, zoom, layout, rotation), selections and search state. `comment_styles`
+  keeps the default and named styles of the comment tools; `prefs` the saved preferences,
+  including the `Theme`.
 - `commands/` — one module per area, each with a `HANDLERS` table that maps registry ids to
   functions. Together they are the **single source of truth** for what is implemented: the
   feature matrix, the badges in menus and the roadmap notices all derive from them. `PARTIAL`
   marks reduced implementations.
 - `files.rs` — open/save/export flows with native dialogs (rfd), unsaved-changes handling.
-- `ui/` — `menubar` (classic menus generated from the registry), `ribbon` (tabs, groups, large
-  buttons, overflow menus, contextual tabs), `panes` (thumbnails, bookmarks, comments,
-  attachments, layers, fields, search, explorer and more), `canvas` (document tabs, page images,
-  drawing tools, comment and picture hit boxes), `dialogs`, `rightpane` (properties),
-  `statusbar`, `palette`, `toasts`, `welcome`.
-- `i18n.rs` — embedded English and Italian string tables; Italian command labels override the
-  registry labels where provided.
+- `ui/` — the interface, in four parts:
+  - `chrome/` — the frame of the window: `menubar` (classic menus generated from the registry),
+    `ribbon` and `ribbon_layout` (tabs, groups, the fitting of the buttons to the width, overflow
+    menus, contextual tabs), `toolbars`, `statusbar`, `palette`, `toasts`, `welcome`, and
+    `layout`, the sizes the user drags (pane widths, rows of the ribbon, group widths), saved as
+    preferences;
+  - `panes/` — the left panes (thumbnails, bookmarks, comments, attachments, layers, fields,
+    search, explorer, history, comment styles, accessibility) and `right` (properties);
+  - `canvas/` — document tabs, page images, drawing tools, comment and picture hit boxes;
+  - `dialogs/` and `features/` — dialogs, and the windows and editors of the features
+    (pictures, stamps, signatures, forms, tables, media, calculator, scripts, …).
+- `theme.rs` and `assets/styles/` — `theme.css` holds the colour tokens of every theme (light,
+  white, dark, black); one style sheet per part of the window and per feature uses only those
+  tokens. `theme::CSS` puts them together in cascade order.
+- `icons/` — `set` gives each icon name its drawing (Tabler Icons, MIT, from `icondata_tb`),
+  `commands` picks the icon of every command (a table for the main tools, word rules for the
+  rest), `Icon` draws one.
+- `i18n.rs` and `assets/i18n/<lang>/<area>.json` — English and Italian strings, one file per
+  area (commands, interface, dialogs, messages, comments, pages, forms, protect, accessibility,
+  search); a key lives in the file of the area of its first word. Italian command labels override
+  the registry labels where provided.
 - `features.rs` — generates `docs/FEATURES.md` (`folitecta --features-md <path>`).
 - `selftest/` — the interface self-test (`folitecta --ui-selftest <dir>`): layout audits at
   several window sizes and simulated input on the canvas, with a report and screenshots.

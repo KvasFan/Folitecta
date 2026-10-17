@@ -1,0 +1,17 @@
+/* Welcome ----------------------------------------------------------------- */
+.welcome { flex: 1; overflow: auto; display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 22px; padding: 32px 24px; background: var(--bg); min-height: 0; }
+.welcome .hero { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; justify-content: center; }
+.welcome .hero img { width: 72px; height: 72px; }
+.welcome h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.02em; }
+.welcome p { margin: 4px 0 0; color: var(--muted); }
+.welcome .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.welcome .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; width: 210px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; box-shadow: var(--shadow-sm); cursor: pointer; text-align: left; }
+.welcome .card > * { pointer-events: none; }
+.welcome .card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.welcome .card .ic { width: 22px; height: 22px; color: var(--accent); }
+.welcome .card b { font-size: 14px; }
+.welcome .card span { color: var(--muted); font-size: 12px; }
+.welcome .recent { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); width: min(760px, 100%); }
+.welcome .recent h3 { margin: 0; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--muted); font-weight: 600; }
+.welcome .recent .list-item { margin: 4px 6px; }
+.welcome .stats { color: var(--muted); font-size: 12px; display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; text-align: center; }

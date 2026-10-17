@@ -87,7 +87,8 @@ pub const MENUS: &[(&str, &str)] = &[
 
 /// Main ribbon tabs, in order.
 pub const RIBBON_TABS: &[(&str, &str)] = &[
-    ("home", "Home"),
+    // The first tab (id "home"): the tools and editing of the pages.
+    ("home", "Edit"),
     ("view", "View"),
     ("comment", "Comment"),
     ("protect", "Protect"),
@@ -115,10 +116,11 @@ pub const CONTEXT_TABS: &[(&str, &str)] = &[
 /// Ribbon groups `(tab, group, label)` in display order.
 pub const RIBBON_GROUPS: &[(&str, &str, &str)] = &[
     ("home", "tools", "Tools"),
-    ("home", "view", "View"),
-    ("home", "edit", "Edit"),
+    ("home", "text", "Text"),
+    ("home", "edit", "Clipboard"),
     ("home", "objects", "Objects"),
     ("home", "comment", "Comment"),
+    ("home", "view", "View"),
     ("home", "links", "Links"),
     ("home", "protect", "Protect"),
     ("view", "tools", "Tools"),

@@ -1,0 +1,12 @@
+/* Metadata templates */
+.dialog-sub { margin: 4px 0 6px; font-size: 13px; }
+.meta-templates { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.meta-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); min-width: 0; }
+.meta-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.meta-text .muted { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meta-name { font-weight: 600; }
+.meta-props { display: flex; flex-direction: column; max-height: 220px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 6px; }
+.meta-prop { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 8px; padding: 3px 8px; font-size: 12px; border-bottom: 1px solid var(--border); }
+.meta-prop:last-child { border-bottom: none; }
+.meta-prop.head { font-weight: 600; background: var(--surface-2); position: sticky; top: 0; }
+.meta-prop span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

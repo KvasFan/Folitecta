@@ -8,7 +8,7 @@ use dioxus::prelude::*;
 use super::{handlers, no_doc, option_on};
 use crate::i18n::t;
 use crate::state::{AppState, Dialog, Pane, ToastKind};
-use crate::ui::toolbars::{
+use crate::ui::chrome::toolbars::{
     DEFAULT_TOOLBARS, TOOLBARS, menubar_visible, set_visible_toolbars, visible_toolbars,
 };
 

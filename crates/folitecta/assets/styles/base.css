@@ -1,0 +1,52 @@
+/* Base: page reset, scrollbars, utilities and the frame of the app ------- */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body {
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+input, select, textarea { user-select: text; min-width: 0; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(120, 130, 160, 0.35); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(120, 130, 160, 0.6); }
+::-webkit-scrollbar-track { background: transparent; }
+.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.nowrap { white-space: nowrap; }
+
+/* App frame --------------------------------------------------------------- */
+.app {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  outline: none;
+  /* The theme is chosen on .app: its text colour and background must come
+     from there, or everything that inherits keeps the light colours. */
+  color: var(--text);
+  background: var(--bg);
+}
+.app.fullscreen .menubar, .app.fullscreen .ribbon, .app.fullscreen .statusbar, .app.fullscreen .pane-strip, .app.fullscreen .pane-panel, .app.fullscreen .right-pane { display: none; }
+.app.compact { --pane-w: 230px; --right-w: 230px; }
+.app input::placeholder, .app textarea::placeholder { color: var(--muted); opacity: .8; }
+
+/* Splitters: dragged to resize the panes and the ribbon. */
+.splitter { position: absolute; z-index: 20; background: transparent; transition: background .12s; }
+.splitter:hover, .splitter.dragging { background: var(--splitter); }
+.splitter.v { top: 0; bottom: 0; width: 6px; cursor: col-resize; }
+.splitter.h { left: 0; right: 0; height: 6px; cursor: row-resize; }
+.drag-shield { position: fixed; inset: 0; z-index: 1000; }
+.drag-shield.v { cursor: col-resize; }
+.drag-shield.h { cursor: row-resize; }
+
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; background: var(--surface-3); font-size: 11px; color: var(--muted); white-space: nowrap; min-width: 0; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--mono); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

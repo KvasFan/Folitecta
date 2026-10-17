@@ -1,44 +1,8 @@
-pub mod acc_dialogs;
-pub mod accessibility;
-pub mod attachments_pane;
-pub mod bookmarks_pane;
-pub mod calculator;
 pub mod canvas;
-pub mod comment_styles;
-pub mod comments_pane;
-pub mod compare;
+pub mod chrome;
 pub mod dialogs;
-pub mod doctools;
-pub mod explorer;
-pub mod field_editor;
-pub mod fields_pane;
-pub mod fileops;
-pub mod form_fill;
-pub mod history_pane;
-pub mod javascript;
-pub mod layers_pane;
-pub mod macros;
-pub mod media;
-pub mod menubar;
-pub mod palette;
+pub mod features;
 pub mod panes;
-pub mod pictures;
-pub mod portfolio;
-pub mod redaction;
-pub mod ribbon;
-pub mod ribbon_layout;
-pub mod rightpane;
-pub mod signatures;
-pub mod signs;
-pub mod sources;
-pub mod split;
-pub mod stamps;
-pub mod statusbar;
-pub mod style_editor;
-pub mod tables;
-pub mod toasts;
-pub mod toolbars;
-pub mod welcome;
 
 use dioxus::html::{InteractionElementOffset, InteractionLocation};
 use dioxus::prelude::*;
@@ -275,8 +239,8 @@ pub fn menu_entry(st: AppState, lang: Lang, cmd: &'static Command, depth: usize)
         };
     }
     let shortcut = cmd.shortcut.clone().unwrap_or_default();
-    let checked =
-        commands::toggle_state(st, &cmd.id).or_else(|| ribbon::is_active(st, &cmd.id).then_some(true));
+    let checked = commands::toggle_state(st, &cmd.id)
+        .or_else(|| chrome::ribbon::is_active(st, &cmd.id).then_some(true));
     rsx! {
         div { class: "menu-item",
             onmouseenter: move |_| {

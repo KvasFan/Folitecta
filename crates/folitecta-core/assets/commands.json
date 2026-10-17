@@ -8872,7 +8872,7 @@
    "menu": "edit",
    "ribbon": {
     "tab": "home",
-    "group": "edit"
+    "group": "text"
    },
    "pane": null,
    "kind": "submenu",
@@ -8908,7 +8908,7 @@
    "menu": "edit",
    "ribbon": {
     "tab": "home",
-    "group": "edit"
+    "group": "text"
    },
    "pane": null,
    "kind": "command",
@@ -21858,7 +21858,7 @@
    "menu": "tools",
    "ribbon": {
     "tab": "home",
-    "group": "edit"
+    "group": "text"
    },
    "pane": null,
    "kind": "command",
@@ -21872,7 +21872,7 @@
    "menu": "edit",
    "ribbon": {
     "tab": "home",
-    "group": "edit"
+    "group": "text"
    },
    "pane": null,
    "kind": "command",
@@ -21886,7 +21886,7 @@
    "menu": "edit",
    "ribbon": {
     "tab": "home",
-    "group": "edit"
+    "group": "text"
    },
    "pane": null,
    "kind": "command",
@@ -21900,7 +21900,7 @@
    "menu": "edit",
    "ribbon": {
     "tab": "home",
-    "group": "edit"
+    "group": "text"
    },
    "pane": null,
    "kind": "command",

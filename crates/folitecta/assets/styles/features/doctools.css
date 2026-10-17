@@ -1,0 +1,11 @@
+/* Document tools */
+.audit-table { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.audit-row { display: grid; grid-template-columns: minmax(120px, 1.4fr) minmax(70px, .8fr) minmax(120px, 2fr) minmax(60px, .6fr); gap: 10px; align-items: center; padding: 5px 10px; border-bottom: 1px solid var(--border); font-size: 12.5px; min-width: 0; }
+.audit-row:last-child { border-bottom: none; }
+.audit-row.head { font-weight: 600; background: var(--surface-2); }
+.audit-row > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.audit-bar { position: relative; height: 14px; background: var(--surface-2); border-radius: 7px; overflow: hidden; }
+.audit-bar .fill { position: absolute; inset: 0 auto 0 0; background: var(--accent); opacity: .55; }
+.audit-bar .pct { position: relative; font-size: 10.5px; padding-left: 6px; line-height: 14px; }
+textarea.tall { min-height: 200px; }
+textarea.code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }

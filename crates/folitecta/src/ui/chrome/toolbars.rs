@@ -5,7 +5,7 @@ use dioxus::prelude::*;
 use folitecta_core::registry;
 
 use crate::state::AppState;
-use crate::ui::ribbon::{BtnStyle, ribbon_button};
+use crate::ui::chrome::ribbon::{BtnStyle, ribbon_button};
 
 /// Toolbars: id (as in `view.toolbar.<id>`) and commands.
 pub const TOOLBARS: &[(&str, &[&str])] = &[

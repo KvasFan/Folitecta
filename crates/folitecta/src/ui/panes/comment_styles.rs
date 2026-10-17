@@ -8,8 +8,8 @@ use crate::commands::comment_styles::{EDITING, STYLES, current_kind, default_nam
 use crate::commands::dispatch;
 use crate::i18n::{Lang, annot_name, cmd_label, t};
 use crate::icons::Icon;
+use crate::state::comment_styles::{KINDS, default_style, named_styles, save_named_styles, tool_subtype};
 use crate::state::{AppState, Dialog};
-use crate::styles::{KINDS, default_style, named_styles, save_named_styles, tool_subtype};
 use crate::ui::dialogs::Frame;
 use crate::util::color_hex;
 
@@ -57,7 +57,7 @@ pub fn CommentStylesPane() -> Element {
     });
     let v = STYLES();
     let kind = v.kind.clone();
-    let named: Vec<(usize, crate::styles::NamedStyle)> = named_styles(st)
+    let named: Vec<(usize, crate::state::comment_styles::NamedStyle)> = named_styles(st)
         .into_iter()
         .enumerate()
         .filter(|(_, n)| n.kind == kind)
@@ -110,7 +110,7 @@ pub fn StylesPalette() -> Element {
     let tool = (st.tool)();
     let kind = tool_subtype(tool);
     let current = kind.map(|k| default_style(st, k));
-    let named: Vec<(usize, crate::styles::NamedStyle)> = match kind {
+    let named: Vec<(usize, crate::state::comment_styles::NamedStyle)> = match kind {
         Some(k) => named_styles(st)
             .into_iter()
             .enumerate()
@@ -128,7 +128,7 @@ pub fn StylesPalette() -> Element {
                 None => rsx! { p { class: "hint pad", "{t(lang, \"styles.palette_hint\")}" } },
                 Some(k) => rsx! {
                     button { class: "palette-item", title: "{t(lang, \"styles.builtin\")}", onclick: move |_| use_for_tool(st, k, None),
-                        Swatch { style: crate::styles::builtin(k) }
+                        Swatch { style: crate::state::comment_styles::builtin(k) }
                         span { class: "ellipsis", "{t(lang, \"styles.builtin\")}" }
                     }
                     for (i, n) in named.into_iter() {

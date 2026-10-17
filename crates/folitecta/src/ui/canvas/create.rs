@@ -121,7 +121,7 @@ pub fn finish_drawing(st: AppState) {
     pts.dedup_by(|a, b| (a.0 - b.0).abs() < 0.5 && (a.1 - b.1).abs() < 0.5);
     let pdf: Vec<(f32, f32)> = pts.iter().map(|(x, y)| to_pdf(&size, *x, *y)).collect();
     let author = st.ui.peek().author.clone();
-    let style = |kind: &str| crate::styles::default_style(st, kind);
+    let style = |kind: &str| crate::state::comment_styles::default_style(st, kind);
     let scale = crate::ui::dialogs::measure_scale(st);
     let r = st.with_active(|t| match tool {
         Tool::Polygon => t

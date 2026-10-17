@@ -1,0 +1,23 @@
+/* Pictures on the pages and the picture editor */
+.image-box { position: absolute; border: 1.5px dashed rgba(79,70,229,.55); background: rgba(79,70,229,.04); cursor: pointer; box-sizing: border-box; }
+.image-box:hover { border-color: var(--accent); background: rgba(79,70,229,.1); }
+.image-box.selected { border: 2px solid var(--accent); background: rgba(79,70,229,.08); }
+.picture-toolbar button .ic { width: 16px; height: 16px; }
+.imged-toolbar { flex-wrap: wrap; row-gap: 4px; }
+.imged-toolbar .gap { width: 6px; flex: none; }
+.imged-toolbar .tbtn { display: inline-flex; align-items: center; gap: 4px; }
+.imged-toolbar .tbtn.on { background: var(--active-bg); color: var(--active-fg); border-color: var(--active-border); }
+.imged-zoom { height: 26px; font-size: 12px; max-width: 120px; }
+.imged-menu { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 0; }
+.imged-menu .tbtn { font-size: 12px; padding: 2px 8px; height: auto; min-height: 24px; }
+.imged-menu .tbtn.on { background: var(--active-bg); color: var(--active-fg); border-color: var(--active-border); }
+.imged-stage { position: relative; height: 52vh; min-height: 220px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); display: flex; padding: 4px;
+  background-color: #f4f4f6; background-image: linear-gradient(45deg, #e6e6ea 25%, transparent 25%, transparent 75%, #e6e6ea 75%), linear-gradient(45deg, #e6e6ea 25%, transparent 25%, transparent 75%, #e6e6ea 75%);
+  background-size: 16px 16px; background-position: 0 0, 8px 8px; }
+.imged-stage.cropping .imged-canvas { cursor: crosshair; }
+.imged-canvas { position: relative; margin: auto; flex: none; user-select: none; }
+.imged-img { display: block; width: 100%; height: 100%; image-rendering: auto; }
+.imged-crop { position: absolute; border: 1.5px dashed #fff; outline: 1.5px dashed #111; box-shadow: 0 0 0 9999px rgba(0,0,0,.35); pointer-events: none; }
+.imged-busy { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.55); font-weight: 600; color: var(--muted); }
+.picture-state { margin: 6px 0; color: var(--muted); }
+.picture-state.changed { color: var(--ok); font-weight: 600; }

@@ -1,0 +1,14 @@
+/* Comment styles */
+.styles-kind { padding: 0 6px 6px; }
+.styles-kind select { width: 100%; }
+.styles-list { padding: 2px 4px; }
+.style-row { gap: 8px; }
+.style-swatch { display: inline-block; width: 26px; height: 16px; border-radius: 3px; flex: none; box-sizing: border-box; }
+.hint.pad { padding: 4px 8px; }
+.styles-palette { position: absolute; right: 18px; top: 52px; z-index: 30; width: 190px; max-height: 60%; overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: 0 6px 18px rgba(0,0,0,.18); padding: 4px; display: flex; flex-direction: column; gap: 2px; }
+.styles-palette-head { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 2px 4px 4px; }
+.styles-palette-head .ellipsis { flex: 1; min-width: 0; }
+.palette-item { display: flex; align-items: center; gap: 8px; border: 1px solid transparent; background: transparent; padding: 3px 6px; border-radius: var(--radius-sm); text-align: left; cursor: pointer; color: inherit; min-width: 0; }
+.palette-item:hover { background: var(--surface-3); }
+.palette-item.on { border-color: var(--active-border); background: var(--active-bg); color: var(--active-fg); }
+.palette-item .ellipsis { min-width: 0; }

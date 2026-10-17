@@ -135,7 +135,7 @@ writes a report with a screenshot of every state (screenshots on Windows).
 | Crate | Purpose |
 |---|---|
 | `crates/folitecta-core` | Document model (lopdf), page operations, comments and review, bookmarks, forms, attachments, layers, portfolios, links, text and search, page marks, stamps, tables, comparison, tags and accessibility check, digital signatures, hayro render service, command registry |
-| `crates/folitecta` | Dioxus desktop application: ribbon, menus, panes, canvas with drawing tools, dialogs, palette, localization |
+| `crates/folitecta` | Dioxus desktop application: ribbon, menus, panes, canvas with drawing tools, dialogs, palette, localization; `assets/styles` holds the theme tokens and one style sheet per part, `assets/i18n` the translations |
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and
 [docs/FEATURES.md](docs/FEATURES.md) for the command-by-command status.
@@ -147,3 +147,6 @@ implementation: it contains no code from, and is not affiliated with or endorsed
 PDF product. The crates it depends on directly keep their own MIT, Apache-2.0 or GNU licences;
 their own dependencies may also use other permissive licences (BSD, ISC, Zlib, Unicode). The
 allowed set is enforced by `deny.toml` (`cargo deny check licenses`).
+
+The icons of the interface are [Tabler Icons](https://tabler.io/icons) (MIT License,
+Copyright (c) 2020-2026 Paweł Kuna), used through the `icondata_tb` crate (MIT).

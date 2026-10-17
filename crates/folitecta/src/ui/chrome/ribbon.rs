@@ -8,8 +8,11 @@ use crate::commands::{self, is_implemented};
 use crate::i18n::{Lang, cmd_label, t, ui_label};
 use crate::icons::{self, Icon};
 use crate::state::{AppState, Layout, Pane, Theme, Tool, Zoom};
+use crate::ui::chrome::layout;
+use crate::ui::chrome::ribbon_layout::{
+    self, CONTEXT_TAB, GroupSpec, RGroup, fit_ribbon, large_width, small_width,
+};
 use crate::ui::menu_entry;
-use crate::ui::ribbon_layout::{self, CONTEXT_TAB, GroupSpec, RGroup, fit_ribbon, large_width, small_width};
 
 const LARGE_H: f64 = 62.0;
 const SMALL_H: f64 = 20.0;
@@ -70,8 +73,11 @@ pub fn is_active(st: AppState, id: &str) -> bool {
         "view.signatures" => pane_on(Pane::Signatures),
         "view.search" | "find" | "search" => pane_on(Pane::Search),
         "view.properties" => ui.show_right_pane,
-        "view.darkPageMode" | "view.theme.darkGray" | "view.theme.black" => ui.theme == Theme::Dark,
-        "view.theme.white" | "view.theme.default" => ui.theme == Theme::Light,
+        "view.darkPageMode" => ui.theme.is_dark(),
+        "view.theme.default" => ui.theme == Theme::Light,
+        "view.theme.white" => ui.theme == Theme::White,
+        "view.theme.darkGray" => ui.theme == Theme::Dark,
+        "view.theme.black" => ui.theme == Theme::Black,
         "view.switchToRibbonUI" => ui.ribbon,
         "view.switchToClassicUI" => !ui.ribbon,
         "view.fullScreen" => (st.fullscreen)(),
@@ -225,6 +231,16 @@ fn overflow_button(
     }
 }
 
+/// The tools of a ribbon group: the curated ones (all of them when the user
+/// chose the width of the group), the others of the registry, and the chosen
+/// number of tools shown.
+struct GroupTools {
+    group: &'static RGroup,
+    items: Vec<&'static Command>,
+    extras: Vec<&'static Command>,
+    fixed: Option<usize>,
+}
+
 fn group_label(lang: Lang, tab: &str, g: &RGroup) -> String {
     ui_label(lang, "group", &format!("{tab}.{}", g.id), g.label)
 }
@@ -253,32 +269,57 @@ pub fn Ribbon() -> Element {
         .unwrap_or(&ribbon_layout::RIBBON[0]);
     let tab_id = tab.id;
 
-    let groups: Vec<(&'static RGroup, Vec<&'static Command>, Vec<&'static Command>)> = tab
+    // Rows of the ribbon and groups widened by hand (see ui::chrome::layout).
+    let rows = layout::ribbon_rows(st);
+    let groups: Vec<GroupTools> = tab
         .groups
         .iter()
         .map(|g| {
-            let items: Vec<&'static Command> = g.items.iter().filter_map(|id| reg.get(id)).collect();
-            let extras: Vec<&'static Command> = reg
+            let mut items: Vec<&'static Command> = g.items.iter().filter_map(|id| reg.get(id)).collect();
+            let mut extras: Vec<&'static Command> = reg
                 .ribbon_group(tab_id, g.id)
                 .into_iter()
                 .filter(|c| !g.items.contains(&c.id.as_str()))
                 .collect();
-            (g, items, extras)
+            // A group of a chosen width can show every tool of its group,
+            // the curated ones first.
+            let fixed = layout::size(st, &layout::group_key(tab_id, g.id)).map(|n| n.max(1.0) as usize);
+            if fixed.is_some() {
+                items.append(&mut extras);
+            }
+            GroupTools {
+                group: g,
+                items,
+                extras,
+                fixed,
+            }
         })
         .collect();
     let more_w = small_width(&format!("{} (99)", t(lang, "label.more")));
     let specs: Vec<GroupSpec> = groups
         .iter()
-        .map(|(g, items, extras)| GroupSpec {
-            small_w: items.iter().map(|c| small_width(&cmd_label(lang, c))).collect(),
-            large_w: items.iter().map(|c| large_width(&cmd_label(lang, c))).collect(),
-            extra: !extras.is_empty(),
-            title: title_width(&group_label(lang, tab_id, g)),
+        .map(|gt| GroupSpec {
+            small_w: gt
+                .items
+                .iter()
+                .map(|c| small_width(&cmd_label(lang, c)))
+                .collect(),
+            large_w: gt
+                .items
+                .iter()
+                .map(|c| large_width(&cmd_label(lang, c)))
+                .collect(),
+            extra: !gt.extras.is_empty(),
+            title: title_width(&group_label(lang, tab_id, gt.group)),
             more_w,
-            collapsed_w: large_width(&group_label(lang, tab_id, g)),
+            collapsed_w: large_width(&group_label(lang, tab_id, gt.group)),
+            fixed: gt.fixed,
         })
         .collect();
-    let fits = fit_ribbon(&specs, vw - 28.0);
+    let fits = fit_ribbon(&specs, vw - 28.0, rows);
+    let body_h = ribbon_layout::body_height(rows);
+    let resize_title = t(lang, "layout.resize");
+    let group_title = t(lang, "layout.group_width");
     let open_label = cmd_label(lang, reg.get("open").unwrap());
     let save_label = cmd_label(lang, reg.get("save").unwrap());
     let undo_label = cmd_label(lang, reg.get("undo").unwrap());
@@ -331,29 +372,32 @@ pub fn Ribbon() -> Element {
                     button { class: "ibtn", title: "{redo_label} (Ctrl+Y)", onclick: move |_| commands::dispatch(st, "redo"), Icon { name: "redo" } }
                 }
             }
-            div { class: "ribbon-body",
-                for (i, (g, items, extras)) in groups.into_iter().enumerate() {
+            div { class: "ribbon-body", style: "height:{body_h}px",
+                for (i, GroupTools { group: g, items, extras, fixed }) in groups.into_iter().enumerate() {
                     {
                         let (large, small) = fits.get(i).copied().unwrap_or((0, 0));
                         let large = large.min(items.len());
                         let small = small.min(items.len() - large);
                         let shown = large + small;
                         let label = group_label(lang, tab_id, g);
+                        let all_tools = items.len() + extras.len();
                         let mut overflow: Vec<&'static Command> = items[shown..].to_vec();
                         overflow.extend(extras);
                         let more_key = format!("more:{tab_id}:{}", g.id);
                         let collapsed = shown == 0;
                         let more_label = if collapsed { label.clone() } else { format!("{} ({})", t(lang, "label.more"), overflow.len()) };
                         let more_icon = if collapsed { icons::for_command(g.items.first().copied().unwrap_or("more")) } else { "more" };
-                        // Small buttons stack three per column; the overflow button joins the last column.
+                        // Small buttons stack `rows` per column; the overflow button joins the last column.
                         let mut stack: Vec<Option<&'static Command>> = items[large..shown].iter().map(|c| Some(*c)).collect();
                         let more_in_stack = small > 0 && !overflow.is_empty();
                         if more_in_stack {
                             stack.push(None);
                         }
-                        let columns: Vec<Vec<Option<&'static Command>>> = stack.chunks(3).map(|c| c.to_vec()).collect();
+                        let columns: Vec<Vec<Option<&'static Command>>> = stack.chunks(rows).map(|c| c.to_vec()).collect();
+                        let group_class = if fixed.is_some() { "ribbon-group fixed" } else { "ribbon-group" };
+                        let grip_key = layout::group_key(tab_id, g.id);
                         rsx! {
-                            div { class: "ribbon-group", key: "{tab_id}-{g.id}",
+                            div { class: "{group_class}", key: "{tab_id}-{g.id}", "data-group": "{g.id}",
                                 div { class: "ribbon-group-items",
                                     for c in items[..large].iter() {
                                         {ribbon_button(st, lang, c, BtnStyle::Large)}
@@ -373,11 +417,18 @@ pub fn Ribbon() -> Element {
                                     }
                                 }
                                 div { class: "ribbon-group-title", "{label}" }
+                                // Dragged right, the group shows more of its tools (all of them
+                                // at the end); a double click lets the ribbon choose again.
+                                layout::Splitter { name: grip_key, axis: layout::Axis::X, class: "group-grip", title: group_title.clone(),
+                                    base: shown as f64, per_px: rows as f64 / ribbon_layout::COLUMN_W, min: 1.0, max: all_tools as f64 }
                             }
                         }
                     }
                 }
             }
+            // The bottom edge: dragged down, more rows of tools in every column.
+            layout::Splitter { name: layout::RIBBON_ROWS, axis: layout::Axis::Y, class: "ribbon-edge", title: resize_title,
+                base: rows as f64, per_px: 1.0 / ribbon_layout::ROW_H, min: 1.0, max: 6.0 }
         }
     }
 }

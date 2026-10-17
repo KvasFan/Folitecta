@@ -260,7 +260,7 @@ pub fn Dialogs() -> Element {
         Dialog::Security => rsx! { Security {} },
         Dialog::Flatten => rsx! { Flatten {} },
         Dialog::AddGuides => rsx! { AddGuides {} },
-        Dialog::SplitPages => rsx! { crate::ui::split::SplitPagesDialog {} },
+        Dialog::SplitPages => rsx! { crate::ui::features::split::SplitPagesDialog {} },
         Dialog::Background => rsx! { Background {} },
         Dialog::PageLabels => rsx! { PageLabels {} },
         Dialog::Transitions => rsx! { Transitions {} },
@@ -300,76 +300,86 @@ pub fn Dialogs() -> Element {
             certify,
             invisible,
             field,
-        } => rsx! { crate::ui::signatures::SignDialog { certify, invisible, field } },
-        Dialog::SignatureDetails(field) => rsx! { crate::ui::signatures::SignatureDetailsDialog { field } },
-        Dialog::DigitalIds => rsx! { crate::ui::signatures::DigitalIdsDialog {} },
-        Dialog::TrustedCerts => rsx! { crate::ui::signatures::TrustedCertsDialog {} },
-        Dialog::SignatureLibrary => rsx! { crate::ui::signs::SignatureLibraryDialog {} },
-        Dialog::MacroGuide => rsx! { crate::ui::macros::MacroGuideDialog {} },
-        Dialog::LaunchApp => rsx! { crate::ui::macros::LaunchAppDialog {} },
+        } => rsx! { crate::ui::features::signatures::SignDialog { certify, invisible, field } },
+        Dialog::SignatureDetails(field) => {
+            rsx! { crate::ui::features::signatures::SignatureDetailsDialog { field } }
+        }
+        Dialog::DigitalIds => rsx! { crate::ui::features::signatures::DigitalIdsDialog {} },
+        Dialog::TrustedCerts => rsx! { crate::ui::features::signatures::TrustedCertsDialog {} },
+        Dialog::SignatureLibrary => rsx! { crate::ui::features::signs::SignatureLibraryDialog {} },
+        Dialog::MacroGuide => rsx! { crate::ui::features::macros::MacroGuideDialog {} },
+        Dialog::LaunchApp => rsx! { crate::ui::features::macros::LaunchAppDialog {} },
         Dialog::LayerName { group, rename } => {
-            rsx! { crate::ui::layers_pane::LayerNameDialog { group, rename } }
+            rsx! { crate::ui::panes::layers::LayerNameDialog { group, rename } }
         }
-        Dialog::LayerOverrides => rsx! { crate::ui::layers_pane::LayerOverridesDialog {} },
-        Dialog::LayerMerge => rsx! { crate::ui::layers_pane::LayerMergeDialog {} },
+        Dialog::LayerOverrides => rsx! { crate::ui::panes::layers::LayerOverridesDialog {} },
+        Dialog::LayerMerge => rsx! { crate::ui::panes::layers::LayerMergeDialog {} },
         Dialog::ImportLayer(path) => {
-            rsx! { crate::ui::layers_pane::ImportLayerDialog { path: path.display().to_string() } }
+            rsx! { crate::ui::panes::layers::ImportLayerDialog { path: path.display().to_string() } }
         }
-        Dialog::LayerOptions => rsx! { crate::ui::layers_pane::LayerOptionsDialog {} },
-        Dialog::AttachmentEdit(index) => rsx! { crate::ui::attachments_pane::AttachmentEditDialog { index } },
-        Dialog::AttachmentOptions => rsx! { crate::ui::attachments_pane::AttachmentOptionsDialog {} },
-        Dialog::FieldsOptions => rsx! { crate::ui::fields_pane::FieldsOptionsDialog {} },
-        Dialog::PortfolioFolder { id } => rsx! { crate::ui::portfolio::PortfolioFolderDialog { id } },
-        Dialog::PortfolioItem(file) => rsx! { crate::ui::portfolio::PortfolioItemDialog { file } },
-        Dialog::PortfolioProps => rsx! { crate::ui::portfolio::PortfolioPropsDialog {} },
-        Dialog::SessionName(index) => rsx! { crate::ui::history_pane::SessionNameDialog { index } },
-        Dialog::StampValues(id) => rsx! { crate::ui::stamps::StampValuesDialog { id } },
-        Dialog::StampText(id) => rsx! { crate::ui::stamps::StampTextDialog { id } },
-        Dialog::StampGroup(index) => rsx! { crate::ui::stamps::StampGroupDialog { index } },
-        Dialog::StampOptions => rsx! { crate::ui::stamps::StampOptionsDialog {} },
-        Dialog::StampRecolor(id) => rsx! { crate::ui::stamps::StampRecolorDialog { id } },
-        Dialog::StampDesigner => rsx! { crate::ui::stamps::StampDesignerDialog {} },
-        Dialog::ManageMarks(kind) => rsx! { crate::ui::doctools::ManageMarksDialog { kind } },
-        Dialog::SpaceAudit => rsx! { crate::ui::doctools::SpaceAuditDialog {} },
-        Dialog::Recompress(current) => rsx! { crate::ui::doctools::RecompressDialog { current } },
-        Dialog::InsertTextPages => rsx! { crate::ui::doctools::InsertTextPagesDialog {} },
-        Dialog::MultiPlace => rsx! { crate::ui::doctools::MultiPlaceDialog {} },
-        Dialog::DocumentActions => rsx! { crate::ui::doctools::DocumentActionsDialog {} },
-        Dialog::Compare => rsx! { crate::ui::compare::CompareDialog {} },
+        Dialog::LayerOptions => rsx! { crate::ui::panes::layers::LayerOptionsDialog {} },
+        Dialog::AttachmentEdit(index) => {
+            rsx! { crate::ui::panes::attachments::AttachmentEditDialog { index } }
+        }
+        Dialog::AttachmentOptions => rsx! { crate::ui::panes::attachments::AttachmentOptionsDialog {} },
+        Dialog::FieldsOptions => rsx! { crate::ui::panes::fields::FieldsOptionsDialog {} },
+        Dialog::PortfolioFolder { id } => {
+            rsx! { crate::ui::features::portfolio::PortfolioFolderDialog { id } }
+        }
+        Dialog::PortfolioItem(file) => rsx! { crate::ui::features::portfolio::PortfolioItemDialog { file } },
+        Dialog::PortfolioProps => rsx! { crate::ui::features::portfolio::PortfolioPropsDialog {} },
+        Dialog::SessionName(index) => rsx! { crate::ui::panes::history::SessionNameDialog { index } },
+        Dialog::StampValues(id) => rsx! { crate::ui::features::stamps::StampValuesDialog { id } },
+        Dialog::StampText(id) => rsx! { crate::ui::features::stamps::StampTextDialog { id } },
+        Dialog::StampGroup(index) => rsx! { crate::ui::features::stamps::StampGroupDialog { index } },
+        Dialog::StampOptions => rsx! { crate::ui::features::stamps::StampOptionsDialog {} },
+        Dialog::StampRecolor(id) => rsx! { crate::ui::features::stamps::StampRecolorDialog { id } },
+        Dialog::StampDesigner => rsx! { crate::ui::features::stamps::StampDesignerDialog {} },
+        Dialog::ManageMarks(kind) => rsx! { crate::ui::features::doctools::ManageMarksDialog { kind } },
+        Dialog::SpaceAudit => rsx! { crate::ui::features::doctools::SpaceAuditDialog {} },
+        Dialog::Recompress(current) => rsx! { crate::ui::features::doctools::RecompressDialog { current } },
+        Dialog::InsertTextPages => rsx! { crate::ui::features::doctools::InsertTextPagesDialog {} },
+        Dialog::MultiPlace => rsx! { crate::ui::features::doctools::MultiPlaceDialog {} },
+        Dialog::DocumentActions => rsx! { crate::ui::features::doctools::DocumentActionsDialog {} },
+        Dialog::Compare => rsx! { crate::ui::features::compare::CompareDialog {} },
         Dialog::TableNew { page, rect } => {
-            rsx! { crate::ui::tables::TableNewDialog { page, rect: rect.to_vec() } }
+            rsx! { crate::ui::features::tables::TableNewDialog { page, rect: rect.to_vec() } }
         }
-        Dialog::TableEditor => rsx! { crate::ui::tables::TableEditorDialog {} },
-        Dialog::FieldCopies(field) => rsx! { crate::ui::tables::FieldCopiesDialog { field } },
-        Dialog::TagNew { parent, index } => rsx! { crate::ui::acc_dialogs::TagNewDialog { parent, index } },
-        Dialog::TagProps(id) => rsx! { crate::ui::acc_dialogs::TagPropsDialog { id } },
+        Dialog::TableEditor => rsx! { crate::ui::features::tables::TableEditorDialog {} },
+        Dialog::FieldCopies(field) => rsx! { crate::ui::features::tables::FieldCopiesDialog { field } },
+        Dialog::TagNew { parent, index } => {
+            rsx! { crate::ui::features::acc_dialogs::TagNewDialog { parent, index } }
+        }
+        Dialog::TagProps(id) => rsx! { crate::ui::features::acc_dialogs::TagPropsDialog { id } },
         Dialog::TagFromArea { page, rect } => {
-            rsx! { crate::ui::acc_dialogs::TagFromAreaDialog { page, rect: rect.to_vec() } }
+            rsx! { crate::ui::features::acc_dialogs::TagFromAreaDialog { page, rect: rect.to_vec() } }
         }
-        Dialog::RoleMap => rsx! { crate::ui::acc_dialogs::RoleMapDialog {} },
-        Dialog::ClassMap => rsx! { crate::ui::acc_dialogs::ClassMapDialog {} },
-        Dialog::AltText => rsx! { crate::ui::acc_dialogs::AltTextDialog {} },
-        Dialog::AccOptions(pane) => rsx! { crate::ui::acc_dialogs::AccOptionsDialog { pane } },
-        Dialog::RuleExplain(id) => rsx! { crate::ui::acc_dialogs::RuleExplainDialog { id } },
-        Dialog::DocLanguage => rsx! { crate::ui::acc_dialogs::DocLanguageDialog {} },
-        Dialog::CalcSettings => rsx! { crate::ui::calculator::CalcSettingsDialog {} },
-        Dialog::RenameDoc(name) => rsx! { crate::ui::fileops::RenameDocDialog { name } },
-        Dialog::MetaTemplates => rsx! { crate::ui::fileops::MetaTemplatesDialog {} },
-        Dialog::MetaTemplateSave => rsx! { crate::ui::fileops::MetaTemplateSaveDialog {} },
-        Dialog::JsConsole => rsx! { crate::ui::javascript::JsConsoleDialog {} },
-        Dialog::JsPrefs => rsx! { crate::ui::javascript::JsPrefsDialog {} },
-        Dialog::DocScripts(add) => rsx! { crate::ui::javascript::DocScriptsDialog { add } },
-        Dialog::MediaList => rsx! { crate::ui::media::MediaListDialog {} },
-        Dialog::MediaProps { page, index } => rsx! { crate::ui::media::MediaPropsDialog { page, index } },
-        Dialog::NewFolder => rsx! { crate::ui::explorer::NewFolderDialog {} },
-        Dialog::FolderFilter(index) => rsx! { crate::ui::explorer::FolderFilterDialog { index } },
-        Dialog::Combine => rsx! { crate::ui::sources::CombineDialog {} },
-        Dialog::ImageEditor => rsx! { crate::ui::pictures::ImageEditorDialog {} },
-        Dialog::ExternalPicture => rsx! { crate::ui::pictures::ExternalPictureDialog {} },
-        Dialog::PictureSettings => rsx! { crate::ui::pictures::PictureSettingsDialog {} },
-        Dialog::StyleName(index) => rsx! { crate::ui::comment_styles::StyleNameDialog { index } },
-        Dialog::RedactionLook => rsx! { crate::ui::redaction::RedactionLookDialog {} },
-        Dialog::RedactionCode { set } => rsx! { crate::ui::redaction::RedactionCodeDialog { set } },
+        Dialog::RoleMap => rsx! { crate::ui::features::acc_dialogs::RoleMapDialog {} },
+        Dialog::ClassMap => rsx! { crate::ui::features::acc_dialogs::ClassMapDialog {} },
+        Dialog::AltText => rsx! { crate::ui::features::acc_dialogs::AltTextDialog {} },
+        Dialog::AccOptions(pane) => rsx! { crate::ui::features::acc_dialogs::AccOptionsDialog { pane } },
+        Dialog::RuleExplain(id) => rsx! { crate::ui::features::acc_dialogs::RuleExplainDialog { id } },
+        Dialog::DocLanguage => rsx! { crate::ui::features::acc_dialogs::DocLanguageDialog {} },
+        Dialog::CalcSettings => rsx! { crate::ui::features::calculator::CalcSettingsDialog {} },
+        Dialog::RenameDoc(name) => rsx! { crate::ui::features::fileops::RenameDocDialog { name } },
+        Dialog::MetaTemplates => rsx! { crate::ui::features::fileops::MetaTemplatesDialog {} },
+        Dialog::MetaTemplateSave => rsx! { crate::ui::features::fileops::MetaTemplateSaveDialog {} },
+        Dialog::JsConsole => rsx! { crate::ui::features::javascript::JsConsoleDialog {} },
+        Dialog::JsPrefs => rsx! { crate::ui::features::javascript::JsPrefsDialog {} },
+        Dialog::DocScripts(add) => rsx! { crate::ui::features::javascript::DocScriptsDialog { add } },
+        Dialog::MediaList => rsx! { crate::ui::features::media::MediaListDialog {} },
+        Dialog::MediaProps { page, index } => {
+            rsx! { crate::ui::features::media::MediaPropsDialog { page, index } }
+        }
+        Dialog::NewFolder => rsx! { crate::ui::panes::explorer::NewFolderDialog {} },
+        Dialog::FolderFilter(index) => rsx! { crate::ui::panes::explorer::FolderFilterDialog { index } },
+        Dialog::Combine => rsx! { crate::ui::features::sources::CombineDialog {} },
+        Dialog::ImageEditor => rsx! { crate::ui::features::pictures::ImageEditorDialog {} },
+        Dialog::ExternalPicture => rsx! { crate::ui::features::pictures::ExternalPictureDialog {} },
+        Dialog::PictureSettings => rsx! { crate::ui::features::pictures::PictureSettingsDialog {} },
+        Dialog::StyleName(index) => rsx! { crate::ui::panes::comment_styles::StyleNameDialog { index } },
+        Dialog::RedactionLook => rsx! { crate::ui::features::redaction::RedactionLookDialog {} },
+        Dialog::RedactionCode { set } => rsx! { crate::ui::features::redaction::RedactionCodeDialog { set } },
     }
 }
 

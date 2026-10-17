@@ -27,6 +27,9 @@ base64.workspace = true
 open = "5"
 tokio = { version = "1", features = ["time", "rt"] }
 image.workspace = true
+# The drawings of the interface icons: Tabler Icons (MIT).
+icondata_tb = "0.1"
+icondata_core = "0.1"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.61", features = ["Win32_Foundation", "Win32_System_DataExchange", "Win32_System_Memory", "Win32_System_Ole", "Win32_Graphics_Gdi", "Win32_Storage_Xps", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }

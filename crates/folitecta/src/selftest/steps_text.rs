@@ -332,19 +332,19 @@ return shown;
     pause(200).await;
     let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(400).await;
-    let mut list = crate::styles::named_styles(st);
+    let mut list = crate::state::comment_styles::named_styles(st);
     let named = list.len() == 1 && list[0].name == "Red frame";
     if let Some(n) = list.first_mut() {
         let mut s = n.style();
         s.color = Some([1.0, 0.0, 0.0]);
-        *n = crate::styles::NamedStyle::new(n.name.clone(), "Square", &s);
+        *n = crate::state::comment_styles::NamedStyle::new(n.name.clone(), "Square", &s);
     }
-    crate::styles::save_named_styles(st, &list);
+    crate::state::comment_styles::save_named_styles(st, &list);
     STYLES.write().chosen = Some(Some(0));
     st.with_active(|t| t.selected_annot = None);
     crate::commands::dispatch(st, "commentStyles.applyStyle");
     pause(300).await;
-    let red = crate::styles::default_style(st, "Square").color == Some([1.0, 0.0, 0.0]);
+    let red = crate::state::comment_styles::default_style(st, "Square").color == Some([1.0, 0.0, 0.0]);
     st.set_option("view.commentStyles", true);
     pause(400).await;
     let palette = document::eval("return document.querySelectorAll('.styles-palette .palette-item').length;")
@@ -356,8 +356,9 @@ return shown;
     st.set_option("view.commentStyles", false);
     crate::commands::dispatch(st, "commentStyles.reset");
     pause(300).await;
-    let reset = crate::styles::named_styles(st).is_empty()
-        && crate::styles::default_style(st, "Square") == crate::styles::builtin("Square");
+    let reset = crate::state::comment_styles::named_styles(st).is_empty()
+        && crate::state::comment_styles::default_style(st, "Square")
+            == crate::state::comment_styles::builtin("Square");
     cx.record(
         "comment styles: cloned, named, made the default, in the palette, reset",
         named && red && palette == 2 && reset,

@@ -10,7 +10,7 @@ mod i18n;
 mod icons;
 mod selftest;
 mod state;
-mod styles;
+mod theme;
 mod ui;
 mod util;
 
@@ -20,7 +20,6 @@ use dioxus::desktop::tao::window::Icon;
 use dioxus::desktop::{Config, LogicalSize, WindowBuilder, icon_from_memory};
 use dioxus::prelude::*;
 
-const CSS: &str = include_str!("../assets/style.css");
 const ICON_PNG: &[u8] = include_bytes!("../assets/icon-256.png");
 
 /// Files passed on the command line, provided to the UI through the launch context.
@@ -89,7 +88,7 @@ fn main() {
     let mut config = Config::new()
         .with_window(window)
         .with_menu(None::<dioxus::desktop::muda::Menu>)
-        .with_custom_head(format!("<meta charset=\"utf-8\"><style>{CSS}</style>"))
+        .with_custom_head(format!("<meta charset=\"utf-8\"><style>{}</style>", theme::CSS))
         .with_disable_context_menu(!cfg!(debug_assertions))
         .with_background_color((238, 240, 246, 255));
     if let Some(icon) = icon {

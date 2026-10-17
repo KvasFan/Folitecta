@@ -1729,6 +1729,8 @@ dependencies = [
  "dioxus",
  "folitecta-core",
  "gtk",
+ "icondata_core",
+ "icondata_tb",
  "image",
  "open",
  "rfd",
@@ -2507,6 +2509,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f31827a206f56af32e590ba56d5d2d085f558508192593743f16b2306495269f"
 dependencies = [
  "cc",
+]
+
+[[package]]
+name = "icondata_core"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c97be924215abd5e630d84e95a47c710138a6559b4c55039f4f33aa897fa859"
+
+[[package]]
+name = "icondata_tb"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16f08d4ae577034728dc8856d3bdbced6a406aadfd7386e0e24e5efb7be98685"
+dependencies = [
+ "icondata_core",
 ]
 
 [[package]]

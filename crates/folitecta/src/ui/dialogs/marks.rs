@@ -40,7 +40,7 @@ pub(super) fn Watermark() -> Element {
                 Err(e) => st.error(e),
             },
             Text { label: t(lang, "dialog.watermark.text"), value: text, autofocus: true }
-            crate::ui::macros::MacroPicker {}
+            crate::ui::features::macros::MacroPicker {}
             div { class: "field-grid three",
                 Num { label: t(lang, "dialog.watermark.size"), value: size, min: "6", max: "400" }
                 Num { label: t(lang, "dialog.watermark.opacity"), value: opacity, min: "5", max: "100" }
@@ -90,7 +90,7 @@ pub(super) fn HeaderFooter() -> Element {
             b { "{t(lang, \"dialog.hf.footer\")}" }
             div { class: "field-grid three", Text { label: t(lang, "dialog.hf.left"), value: fl } Text { label: t(lang, "dialog.hf.center"), value: fc } Text { label: t(lang, "dialog.hf.right"), value: fr } }
             div { class: "field-grid", Num { label: t(lang, "dialog.watermark.size"), value: size, min: "5", max: "72" } Num { label: t(lang, "dialog.margin.pt"), value: margin, min: "0", max: "200" } }
-            crate::ui::macros::MacroPicker {}
+            crate::ui::features::macros::MacroPicker {}
             PageScope { mode, range }
         }
     }
@@ -149,7 +149,7 @@ pub(super) fn PageNumbers(bates: bool) -> Element {
             },
             Text { label: t(lang, "dialog.numbers.format"), value: format, autofocus: true }
             div { class: "hint", "{t(lang, \"dialog.hf.hint\")}" }
-            crate::ui::macros::MacroPicker {}
+            crate::ui::features::macros::MacroPicker {}
             div { class: "field-grid three",
                 Num { label: t(lang, "dialog.numbers.start"), value: start, min: "0" }
                 Num { label: t(lang, "dialog.watermark.size"), value: size, min: "5", max: "72" }

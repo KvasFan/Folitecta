@@ -2,10 +2,43 @@
 
 use super::*;
 
+/// Colour theme of the interface; the colours are tokens in `assets/styles/theme.css`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Theme {
     Light,
+    White,
     Dark,
+    Black,
+}
+
+impl Theme {
+    pub const ALL: [Theme; 4] = [Theme::Light, Theme::White, Theme::Dark, Theme::Black];
+
+    /// Value of `data-theme` that selects the tokens of the theme.
+    pub fn attr(self) -> &'static str {
+        match self {
+            Theme::Light => "light",
+            Theme::White => "white",
+            Theme::Dark => "dark",
+            Theme::Black => "black",
+        }
+    }
+
+    pub fn from_attr(s: &str) -> Theme {
+        Theme::ALL
+            .into_iter()
+            .find(|t| t.attr() == s)
+            .unwrap_or(Theme::Light)
+    }
+
+    pub fn is_dark(self) -> bool {
+        matches!(self, Theme::Dark | Theme::Black)
+    }
+
+    /// The theme of the other brightness (the switch of the menu bar).
+    pub fn toggled(self) -> Theme {
+        if self.is_dark() { Theme::Light } else { Theme::Dark }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

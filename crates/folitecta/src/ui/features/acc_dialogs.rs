@@ -12,7 +12,7 @@ use crate::commands::accessibility::{Id, fix_rule, run_check, select_tag};
 use crate::commands::{option_on, show_pane};
 use crate::i18n::{Lang, cmd_label, t};
 use crate::state::{AppState, Dialog, Pane};
-use crate::ui::accessibility::rule_name;
+use crate::ui::panes::accessibility::rule_name;
 
 fn mode_label(lang: Lang, m: &str) -> String {
     label_of(lang, &format!("orderview.showmode.{m}"))

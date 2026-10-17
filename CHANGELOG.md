@@ -6,6 +6,29 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The width of the left and right panes changes by dragging their edge; the ribbon gets taller or
+  shorter by dragging its bottom edge (one to six rows of tools in each column); each ribbon group
+  gets wider by dragging its right edge, up to every tool of the group without its More menu. The
+  ribbon scrolls when the groups are wider than the window. A double click on an edge restores the
+  automatic size; the sizes are kept between sessions.
+- White and black themes next to light and dark (View › Theme and the preferences).
+
+### Changed
+
+- The first ribbon tab is called Edit, with a Text group (Edit Text, Insert, Replace and Delete
+  Text, Find, Find and Replace) and a Clipboard group (undo, redo, cut, copy, paste, delete,
+  select all).
+- New icons for every command, drawn from the Tabler Icons set (MIT), with a chosen icon for the
+  tools used most and no command left on a generic picture.
+- The chosen tool, toggle or mode stands out clearly in every theme.
+
+### Fixed
+
+- Dark theme: the menu bar, the Open and Save buttons, pane titles and other text inherited the
+  light colours and could not be read; native lists and scroll bars are dark too.
+
 ## [0.0.8] - 2026-10-17
 
 ### Added

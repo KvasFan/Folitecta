@@ -6,8 +6,8 @@ use folitecta_core::AnnotStyle;
 use super::{handlers, no_doc};
 use crate::files;
 use crate::i18n::t;
+use crate::state::comment_styles::{default_style, kind_of, set_default_style, tool_subtype};
 use crate::state::{AppState, ToastKind};
-use crate::styles::{default_style, kind_of, set_default_style, tool_subtype};
 
 /// Open the properties pane, where the style editor lives.
 fn show_properties(st: AppState) {

@@ -7,7 +7,7 @@ use folitecta_core::registry;
 use crate::app::icon_data_url;
 use crate::i18n::{Lang, t, ui_label};
 use crate::icons::Icon;
-use crate::state::{AppState, Theme};
+use crate::state::AppState;
 use crate::ui::menu_entry;
 
 #[component]
@@ -17,10 +17,10 @@ pub fn Menubar() -> Element {
     let open = (st.open_menu)();
     let reg = registry();
     let icon = icon_data_url();
-    let theme_dark = st.ui.read().theme == Theme::Dark;
-    let theme_icon: &'static str = if theme_dark { "sun" } else { "moon" };
+    let theme = st.ui.read().theme;
+    let theme_icon: &'static str = if theme.is_dark() { "sun" } else { "moon" };
     // A hidden menu bar shows its menus only while one of them is open.
-    let show_menus = crate::ui::toolbars::menubar_visible(st) || open.is_some();
+    let show_menus = crate::ui::chrome::toolbars::menubar_visible(st) || open.is_some();
 
     rsx! {
         div { class: "menubar", onclick: move |e| e.stop_propagation(),
@@ -70,7 +70,7 @@ pub fn Menubar() -> Element {
             div { style: "flex:1" }
             button { class: "ibtn", title: "{t(lang, \"palette.placeholder\")} (Ctrl+Shift+P)", onclick: move |_| st.set_palette(Some(String::new())), Icon { name: "palette" } }
             button { class: "ibtn", title: "{t(lang, \"dialog.prefs.theme\")}",
-                onclick: move |_| { let next = if theme_dark { Theme::Light } else { Theme::Dark }; st.ui_mut().theme = next; st.save_prefs(); },
+                onclick: move |_| { st.ui_mut().theme = theme.toggled(); st.save_prefs(); },
                 Icon { name: theme_icon }
             }
             button { class: "ibtn", title: "{t(lang, \"dialog.prefs.language\")}", style: "font-size:11px;font-weight:700",

@@ -104,7 +104,7 @@ pub fn BookmarksPane() -> Element {
         icons: option_on(st, "bookmarksView.showIcons"),
         colors: option_on(st, "bookmarksView.showContrastText"),
         invalid: option_on(st, "bookmarksView.markInvalid"),
-        dark: st.ui.read().theme == crate::state::Theme::Dark,
+        dark: st.ui.read().theme.is_dark(),
     };
     let wrap = option_on(st, "bookmarksView.wrapTitles");
     let size = st

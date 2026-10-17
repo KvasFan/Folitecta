@@ -1,0 +1,23 @@
+/* Responsive -------------------------------------------------------------- */
+@media (max-width: 1400px) {
+  .statusbar .sb-opt2 { display: none; }
+}
+@media (max-width: 1180px) {
+  .ribbon-tabs .ribbon-right .txt { display: none; }
+  .ribbon-tab { padding: 6px 9px; }
+  .menu-title { padding: 4px 7px; }
+}
+@media (max-width: 1060px) {
+  .statusbar .sb-opt { display: none; }
+  .menubar .brand span, .menubar .brand { margin-right: 4px; }
+}
+
+/* Touch-optimised interface: larger targets */
+.app.touch .ibtn { width: 36px; height: 36px; }
+.app.touch .tbtn { min-height: 36px; padding-top: 6px; padding-bottom: 6px; }
+.app.touch .menu-item { min-height: 40px; }
+.app.touch .tree-item { padding-top: 8px; padding-bottom: 8px; }
+.app.touch .list-item { padding: 10px 10px; }
+.app.touch .doc-tab { min-height: 36px; }
+.app.touch .statusbar { padding-top: 6px; padding-bottom: 6px; }
+.app.touch .check { padding-top: 8px; padding-bottom: 8px; }

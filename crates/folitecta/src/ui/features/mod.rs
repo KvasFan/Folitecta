@@ -1,0 +1,23 @@
+//! The windows and editors of the features: pictures, stamps, signatures, forms, tables, media,
+//! the calculator, scripts and the other tools.
+
+pub mod acc_dialogs;
+pub mod calculator;
+pub mod compare;
+pub mod doctools;
+pub mod field_editor;
+pub mod fileops;
+pub mod form_fill;
+pub mod javascript;
+pub mod macros;
+pub mod media;
+pub mod pictures;
+pub mod portfolio;
+pub mod redaction;
+pub mod signatures;
+pub mod signs;
+pub mod sources;
+pub mod split;
+pub mod stamps;
+pub mod style_editor;
+pub mod tables;

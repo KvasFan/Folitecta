@@ -90,6 +90,36 @@ const rb = document.querySelector('.ribbon-body');
 if (rb && rb.scrollWidth > rb.clientWidth + 2) problems.push({ kind: 'ribbon-overflow', need: rb.scrollWidth, have: rb.clientWidth });
 const app = document.querySelector('.app');
 if (app && (app.scrollWidth > vw + 1 || app.scrollHeight > vh + 1)) problems.push({ kind: 'app-overflow', w: app.scrollWidth, h: app.scrollHeight });
+// 5. Text and icons of the interface stand out from what is behind them
+// (contrast ratio of at least 3, the backgrounds of the ancestors composed).
+const rgba = c => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return null; const p = m[1].split(/[ ,/]+/).filter(Boolean).map(Number); return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1]; };
+const lum = c => { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+const behind = el => {
+  const chain = [];
+  for (let p = el; p; p = p.parentElement) chain.push(p);
+  let base = [255, 255, 255];
+  for (const p of chain.reverse()) {
+    const b = rgba(getComputedStyle(p).backgroundColor);
+    if (b && b[3] > 0) base = base.map((v, i) => b[i] * b[3] + v * (1 - b[3]));
+  }
+  return base;
+};
+const faded = el => { for (let p = el; p; p = p.parentElement) { if (parseFloat(getComputedStyle(p).opacity) < 0.9) return true; } return false; };
+const chrome = '.menubar, .ribbon, .pane-strip, .pane-header, .pane-toolbar, .statusbar, .menu-dropdown, .submenu, .rbtn-menu, .dialog-head, .dialog-foot, .doc-tabs';
+for (const root of document.querySelectorAll(chrome)) {
+  if (!visible(root)) continue;
+  for (const el of [root, ...root.querySelectorAll('*')]) {
+    const isIcon = el.tagName.toLowerCase() === 'svg' && el.classList.contains('ic');
+    const hasText = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
+    if (!(isIcon || hasText) || !visible(el) || faded(el) || el.disabled) continue;
+    const fg = rgba(getComputedStyle(el).color);
+    if (!fg) continue;
+    const bg = behind(el);
+    const a = lum(fg), b = lum(bg);
+    const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    if (ratio < 3) problems.push({ kind: 'low-contrast', el: desc(el), ratio: Math.round(ratio * 100) / 100 });
+  }
+}
 return JSON.stringify({ vw, vh, problems });
 "#;
 
@@ -349,6 +379,7 @@ fn annots_on(st: AppState, page: usize) -> Vec<folitecta_core::Annotation> {
 /// Exercise the canvas tools with simulated input; returns the number of failures.
 mod steps_features;
 mod steps_files;
+mod steps_layout;
 mod steps_panes;
 mod steps_pictures;
 mod steps_review;
@@ -403,9 +434,10 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     steps_pictures::run(&mut cx).await;
     steps_split::run(&mut cx).await;
     steps_text::run(&mut cx).await;
+    steps_layout::run(&mut cx).await;
     let failures = cx.failures;
 
-    // 45. Undo everything added above.
+    // 46. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..90 {
         crate::commands::dispatch(st, "undo");
@@ -727,17 +759,22 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
     }
     *crate::commands::tables::TABLE_EDIT.write() = None;
     *crate::commands::sources::SOURCES.write() = Default::default();
-    st.ui_mut().theme = Theme::Dark;
-    total += check(st, &dir, "960x620-dark", log).await;
+    // Every theme, with a menu open: its text must stand out from its background.
+    for theme in [Theme::Dark, Theme::Black, Theme::White] {
+        st.ui_mut().theme = theme;
+        st.set_open_menu(Some("edit".into()));
+        total += check(st, &dir, &format!("960x620-{}", theme.attr()), log).await;
+        st.set_open_menu(None);
+    }
     st.ui_mut().theme = Theme::Light;
     st.ui_mut().ribbon = false;
     total += check(st, &dir, "960x620-classic", log).await;
     // Every toolbar of the classic interface, then the touch interface.
-    let all: Vec<String> = crate::ui::toolbars::TOOLBARS
+    let all: Vec<String> = crate::ui::chrome::toolbars::TOOLBARS
         .iter()
         .map(|(id, _)| id.to_string())
         .collect();
-    crate::ui::toolbars::set_visible_toolbars(st, &all);
+    crate::ui::chrome::toolbars::set_visible_toolbars(st, &all);
     total += check(st, &dir, "960x620-classic-all-toolbars", log).await;
     st.ui_mut().values.remove("toolbars");
     st.ui_mut().ribbon = true;

@@ -6,11 +6,11 @@ use dioxus::prelude::*;
 
 use super::{handlers, show_pane};
 use crate::i18n::{Lang, annot_name, t, tf};
-use crate::state::{AppState, Dialog, Pane, ToastKind};
-use crate::styles::{
+use crate::state::comment_styles::{
     NamedStyle, builtin, default_style, kind_of, named_styles, reset_default_style, save_named_styles,
     set_default_style, tool_subtype,
 };
+use crate::state::{AppState, Dialog, Pane, ToastKind};
 
 /// What the styles pane shows: a kind of comment and the style chosen
 /// (None: the default style of the kind, Some(i): the i-th named style).
@@ -158,7 +158,7 @@ fn rename_style(st: AppState) {
 /// Every style back to the built-in ones: named styles go.
 fn reset_all(st: AppState) {
     save_named_styles(st, &[]);
-    for kind in crate::styles::KINDS {
+    for kind in crate::state::comment_styles::KINDS {
         reset_default_style(st, kind);
     }
     STYLES.write().chosen = None;

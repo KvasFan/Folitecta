@@ -17,6 +17,17 @@ use crate::ui::{MENU_W, status_badge};
 mod search;
 mod thumbnails;
 
+pub mod accessibility;
+pub mod attachments;
+pub mod bookmarks;
+pub mod comment_styles;
+pub mod comments;
+pub mod explorer;
+pub mod fields;
+pub mod history;
+pub mod layers;
+pub mod right;
+
 pub use search::*;
 use thumbnails::*;
 
@@ -192,35 +203,35 @@ pub fn PanePanel() -> Element {
     let max_h = ((st.viewport)().1 - my - 8.0).max(160.0);
     // History and sessions work without a document.
     let body = if pane == Pane::History {
-        rsx! { crate::ui::history_pane::HistoryPane {} }
+        rsx! { crate::ui::panes::history::HistoryPane {} }
     } else if pane == Pane::Sessions {
-        rsx! { crate::ui::history_pane::SessionsPane {} }
+        rsx! { crate::ui::panes::history::SessionsPane {} }
     } else if pane == Pane::Stamps {
-        rsx! { crate::ui::stamps::StampsPane {} }
+        rsx! { crate::ui::features::stamps::StampsPane {} }
     } else if pane == Pane::Explorer {
-        rsx! { crate::ui::explorer::ExplorerPane {} }
+        rsx! { crate::ui::panes::explorer::ExplorerPane {} }
     } else if pane == Pane::Other("comment-styles".into()) {
-        rsx! { crate::ui::comment_styles::CommentStylesPane {} }
+        rsx! { crate::ui::panes::comment_styles::CommentStylesPane {} }
     } else if !has_doc {
         rsx! { div { class: "pane-empty", "{t(lang, \"toast.no_document\")}" } }
     } else {
         match &pane {
             Pane::Thumbnails => rsx! { ThumbnailsPane {} },
-            Pane::Bookmarks => rsx! { crate::ui::bookmarks_pane::BookmarksPane {} },
-            Pane::Comments => rsx! { crate::ui::comments_pane::CommentsPane {} },
-            Pane::Attachments => rsx! { crate::ui::attachments_pane::AttachmentsPane {} },
-            Pane::Layers => rsx! { crate::ui::layers_pane::LayersPane {} },
-            Pane::Fields => rsx! { crate::ui::fields_pane::FieldsPane {} },
+            Pane::Bookmarks => rsx! { crate::ui::panes::bookmarks::BookmarksPane {} },
+            Pane::Comments => rsx! { crate::ui::panes::comments::CommentsPane {} },
+            Pane::Attachments => rsx! { crate::ui::panes::attachments::AttachmentsPane {} },
+            Pane::Layers => rsx! { crate::ui::panes::layers::LayersPane {} },
+            Pane::Fields => rsx! { crate::ui::panes::fields::FieldsPane {} },
             Pane::Links => rsx! { LinksPane {} },
-            Pane::Destinations => rsx! { crate::ui::bookmarks_pane::DestinationsPane {} },
+            Pane::Destinations => rsx! { crate::ui::panes::bookmarks::DestinationsPane {} },
             Pane::Search => rsx! { SearchPane {} },
-            Pane::Signatures => rsx! { crate::ui::signatures::SignaturesPane {} },
-            Pane::Comparison => rsx! { crate::ui::compare::ComparisonPane {} },
-            Pane::Tags => rsx! { crate::ui::accessibility::TagsPane {} },
-            Pane::Order => rsx! { crate::ui::accessibility::OrderPane {} },
-            Pane::Content => rsx! { crate::ui::accessibility::ContentPane {} },
-            Pane::AccChecker => rsx! { crate::ui::accessibility::CheckerPane {} },
-            Pane::AccReport => rsx! { crate::ui::accessibility::ReportPane {} },
+            Pane::Signatures => rsx! { crate::ui::features::signatures::SignaturesPane {} },
+            Pane::Comparison => rsx! { crate::ui::features::compare::ComparisonPane {} },
+            Pane::Tags => rsx! { crate::ui::panes::accessibility::TagsPane {} },
+            Pane::Order => rsx! { crate::ui::panes::accessibility::OrderPane {} },
+            Pane::Content => rsx! { crate::ui::panes::accessibility::ContentPane {} },
+            Pane::AccChecker => rsx! { crate::ui::panes::accessibility::CheckerPane {} },
+            Pane::AccReport => rsx! { crate::ui::panes::accessibility::ReportPane {} },
             Pane::History | Pane::Sessions | Pane::Stamps | Pane::Explorer => rsx! {},
             Pane::Other(id) => rsx! { PlannedPane { pane_id: id.clone() } },
         }

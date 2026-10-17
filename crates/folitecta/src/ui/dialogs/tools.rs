@@ -220,7 +220,7 @@ pub(super) fn CalloutDialog(page: usize, tip_x: f32, tip_y: f32, rect: Vec<f32>)
             on_ok: move |_| {
                 let c = text();
                 let author = st.ui.read().author.clone();
-                let style = crate::styles::default_style(st, "Callout");
+                let style = crate::state::comment_styles::default_style(st, "Callout");
                 apply(st, |tab| tab.doc.add_callout(page, (tip_x, tip_y), r, &c, &style, &author).map(|_| ()));
                 tool_done(st);
             },
@@ -273,7 +273,7 @@ pub(super) fn InsertTextDialog(page: usize, index: usize, after: bool, note: boo
                 let c = text();
                 if as_note() {
                     let author = st.ui.read().author.clone();
-                    let color = crate::styles::default_style(st, "Caret").color.unwrap_or([0.1, 0.4, 0.95]);
+                    let color = crate::state::comment_styles::default_style(st, "Caret").color.unwrap_or([0.1, 0.4, 0.95]);
                     apply(st, |tab| tab.doc.insert_text_mark(page, index, after, &c, color, &author).map(|_| ()));
                 } else {
                     let at = if after { index + 1 } else { index };
@@ -316,7 +316,7 @@ pub(super) fn ReplaceTextDialog(page: usize, start: usize, end: usize, note: boo
                 let c = text();
                 if as_note() {
                     let author = st.ui.read().author.clone();
-                    let color = crate::styles::default_style(st, "Caret").color.unwrap_or([0.1, 0.4, 0.95]);
+                    let color = crate::state::comment_styles::default_style(st, "Caret").color.unwrap_or([0.1, 0.4, 0.95]);
                     apply(st, |tab| {
                         let r = tab.doc.replace_text_range(page, start, end, &c, color, &author);
                         tab.text_sel = None;

@@ -68,7 +68,7 @@ fn shape_preview(st: AppState, tool: Tool, d: Drag, z: f32) -> Option<Element> {
         Tool::Callout => "Callout",
         _ => return None,
     };
-    let s = crate::styles::default_style(st, kind);
+    let s = crate::state::comment_styles::default_style(st, kind);
     // A style with neither border nor fill still shows where the shape goes.
     let invisible = s.color.is_none() && s.fill.is_none();
     let stroke = match s.color {
@@ -483,7 +483,7 @@ pub(super) fn PageView(
         let rect = rect_to_pdf(&size, [x0, y0, x1, y1]);
         let start_pdf = to_pdf(&size, d.start.0 as f32 / z, d.start.1 as f32 / z);
         let point = to_pdf(&size, d.current.0 as f32 / z, d.current.1 as f32 / z);
-        let style = |kind: &str| crate::styles::default_style(st, kind);
+        let style = |kind: &str| crate::state::comment_styles::default_style(st, kind);
         let path_pdf = || -> Vec<(f32, f32)> {
             points
                 .iter()
@@ -1106,7 +1106,7 @@ pub(super) fn PageView(
                     }
                 }
                 if let Some(r) = view.image_sel.and_then(|i| view.images.iter().find(|(k, _)| *k == i).map(|(_, r)| *r)) {
-                    crate::ui::pictures::PictureToolbar { left: r[0] * z, top: (r[1] * z - 38.0).max(2.0) }
+                    crate::ui::features::pictures::PictureToolbar { left: r[0] * z, top: (r[1] * z - 38.0).max(2.0) }
                 }
                 if let Some(r) = view.caret {
                     div { class: "text-caret", style: "{css(r)}" }
@@ -1223,7 +1223,7 @@ pub(super) fn PageView(
                                 Tool::Eraser => rsx! { polyline { points: "{ink_points}", fill: "none", stroke: "rgba(220,38,38,0.45)", stroke_width: "12", stroke_linecap: "round", stroke_linejoin: "round" } },
                                 Tool::FreeHighlight => rsx! { polyline { points: "{ink_points}", fill: "none", stroke: "rgba(250,204,21,0.5)", stroke_width: "{12.0 * z}", stroke_linecap: "round", stroke_linejoin: "round" } },
                                 _ => {
-                                    let s = crate::styles::default_style(st, "Ink");
+                                    let s = crate::state::comment_styles::default_style(st, "Ink");
                                     let color = css_color(s.color.unwrap_or([0.23, 0.23, 0.75]));
                                     let width = (s.width * z).max(1.0);
                                     let opacity = s.opacity.clamp(0.05, 1.0);

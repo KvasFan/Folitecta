@@ -7,8 +7,8 @@ pub(super) fn ToolbarsDialog() -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
     let reg = registry();
-    let visible = crate::ui::toolbars::visible_toolbars(st);
-    let menu_on = crate::ui::toolbars::menubar_visible(st);
+    let visible = crate::ui::chrome::toolbars::visible_toolbars(st);
+    let menu_on = crate::ui::chrome::toolbars::menubar_visible(st);
     let ribbon = st.ui.read().ribbon;
     rsx! {
         Frame { title: t(lang, "cmd.view.toolbars"),
@@ -20,7 +20,7 @@ pub(super) fn ToolbarsDialog() -> Element {
                     input { r#type: "checkbox", checked: menu_on, onchange: move |_| crate::commands::dispatch(st, "view.toolbar.menu") }
                     span { "{reg.get(\"view.toolbar.menu\").map(|c| cmd_label(lang, c)).unwrap_or_default()}" }
                 }
-                for (id, cmds) in crate::ui::toolbars::TOOLBARS.iter().copied() {
+                for (id, cmds) in crate::ui::chrome::toolbars::TOOLBARS.iter().copied() {
                     {
                         let on = visible.iter().any(|v| v == id);
                         let cmd_id = format!("view.toolbar.{id}");
@@ -262,9 +262,13 @@ pub(super) fn Prefs() -> Element {
         Frame { title: t(lang, "dialog.prefs.title"), on_ok: move |_| { st.ui_mut().author = author(); st.save_prefs(); st.set_dialog(Dialog::None); },
             div { class: "field-grid",
                 div { class: "field", label { "{t(lang, \"dialog.prefs.theme\")}" }
-                    select { onchange: move |e| { st.ui_mut().theme = if e.value() == "dark" { Theme::Dark } else { Theme::Light }; st.save_prefs(); },
-                        option { value: "light", selected: prefs.theme == Theme::Light, "{t(lang, \"dialog.prefs.theme.light\")}" }
-                        option { value: "dark", selected: prefs.theme == Theme::Dark, "{t(lang, \"dialog.prefs.theme.dark\")}" }
+                    select { onchange: move |e| { st.ui_mut().theme = Theme::from_attr(&e.value()); st.save_prefs(); },
+                        for th in Theme::ALL {
+                            {
+                                let name = t(lang, &format!("dialog.prefs.theme.{}", th.attr()));
+                                rsx! { option { key: "{th.attr()}", value: "{th.attr()}", selected: prefs.theme == th, "{name}" } }
+                            }
+                        }
                     }
                 }
                 div { class: "field", label { "{t(lang, \"dialog.prefs.language\")}" }

@@ -12,8 +12,8 @@ use crate::files;
 use crate::i18n::t;
 use crate::icons::Icon;
 use crate::state::{AfterUnsaved, AppState, Dialog, Layout, TextSel, ToastKind, Tool, Zoom};
-use crate::ui::form_fill::{FieldInput, fill_field};
-use crate::ui::welcome::Welcome;
+use crate::ui::chrome::welcome::Welcome;
+use crate::ui::features::form_fill::{FieldInput, fill_field};
 
 mod create;
 mod geometry;
@@ -54,15 +54,15 @@ pub fn CanvasArea() -> Element {
             DocTabs {}
             if info_bar { DocInfoBar {} }
             if files {
-                crate::ui::portfolio::PortfolioView {}
+                crate::ui::features::portfolio::PortfolioView {}
             } else {
                 if st.read_active(|t| t.doc.is_portfolio()).unwrap_or(false) {
-                    crate::ui::portfolio::CoverBar {}
+                    crate::ui::features::portfolio::CoverBar {}
                 }
                 Canvas {}
                 Loupe {}
                 if option_on(st, "view.panzoom") { PanZoomWindow {} }
-                if option_on(st, "view.commentStyles") { crate::ui::comment_styles::StylesPalette {} }
+                if option_on(st, "view.commentStyles") { crate::ui::panes::comment_styles::StylesPalette {} }
             }
         }
     }

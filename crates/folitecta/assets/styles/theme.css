@@ -1,0 +1,94 @@
+/* Colour themes -----------------------------------------------------------
+   Every colour of the interface comes from these tokens; a theme only
+   changes tokens. `data-theme` on `.app` chooses one: light (default),
+   white, dark or black. */
+:root {
+  color-scheme: light;
+  --bg: #eef0f6;
+  --surface: #ffffff;
+  --surface-2: #f6f7fb;
+  --surface-3: #eceef5;
+  --border: #dfe2ec;
+  --text: #1c2130;
+  --muted: #646c7d;
+  --accent: #4f46e5;
+  --accent-2: #7c3aed;
+  --accent-soft: #e6e7fd;
+  --accent-text: #ffffff;
+  /* The chosen tool, toggle or mode: a clear tint, dark text and a border. */
+  --active-bg: #d4d2fb;
+  --active-fg: #2a2478;
+  --active-border: #4f46e5;
+  --danger: #d93838;
+  --warn: #c27a00;
+  --ok: #1f9d55;
+  --canvas: #cfd3df;
+  --splitter: rgba(79, 70, 229, 0.55);
+  /* Chips and notes with a meaning. */
+  --partial-bg: #fff3d6;
+  --partial-fg: #8a5a00;
+  --ok-bg: #e3f7ea;
+  --ok-fg: #137a3f;
+  --warn-bg: #fff6e0;
+  --warn-fg: #92400e;
+  --ins-fg: #15803d;
+  --del-fg: #b91c1c;
+  --chg-fg: #b45309;
+  --shadow: 0 10px 30px rgba(20, 24, 40, 0.16);
+  --shadow-sm: 0 1px 3px rgba(20, 24, 40, 0.12);
+  --radius: 10px;
+  --radius-sm: 6px;
+  --pane-w: clamp(220px, 22vw, 320px);
+  --right-w: clamp(220px, 20vw, 300px);
+  --font: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --mono: Consolas, "SF Mono", Menlo, monospace;
+}
+[data-theme="white"] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #fafafb;
+  --surface-3: #f0f1f4;
+  --border: #e2e4ea;
+  --canvas: #e4e6ec;
+}
+[data-theme="dark"], [data-theme="black"] {
+  color-scheme: dark;
+  --bg: #12141c;
+  --surface: #1b1e28;
+  --surface-2: #222634;
+  --surface-3: #2c3142;
+  --border: #363c4e;
+  --text: #e9ebf2;
+  --muted: #a3abbd;
+  --accent: #9a9eff;
+  --accent-2: #bd9bff;
+  --accent-soft: #30355e;
+  --accent-text: #0e1020;
+  --active-bg: #4d51b8;
+  --active-fg: #ffffff;
+  --active-border: #b3b6ff;
+  --danger: #f06b6b;
+  --warn: #f0b03c;
+  --ok: #4fd18b;
+  --canvas: #0b0d13;
+  --splitter: rgba(154, 158, 255, 0.6);
+  --partial-bg: #3f3416;
+  --partial-fg: #f1c062;
+  --ok-bg: #16372a;
+  --ok-fg: #6fd39a;
+  --warn-bg: #3a3017;
+  --warn-fg: #fcd34d;
+  --ins-fg: #4ade80;
+  --del-fg: #f87171;
+  --chg-fg: #fbbf24;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+[data-theme="black"] {
+  --bg: #000000;
+  --surface: #0b0b0e;
+  --surface-2: #121318;
+  --surface-3: #1c1d24;
+  --border: #2a2c35;
+  --canvas: #000000;
+}

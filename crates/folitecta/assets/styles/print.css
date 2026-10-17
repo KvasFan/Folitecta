@@ -1,0 +1,21 @@
+/* Printing ---------------------------------------------------------------- */
+.print-view { display: none; }
+@media print {
+  @page { margin: 0; }
+  html, body { height: auto !important; overflow: visible !important; background: white !important; }
+  .app, .backdrop, .palette-backdrop, .toasts, .loupe { display: none !important; }
+  .print-view { display: block !important; }
+  .print-page { break-after: page; page-break-after: always; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .print-page:last-child { break-after: auto; page-break-after: auto; }
+  .print-view.fit .print-page { width: 100vw; height: 100vh; }
+  .print-view.fit .print-page img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .print-view.actual .print-page { min-height: 100vh; align-items: flex-start; justify-content: flex-start; }
+  .print-view.actual .print-page img { width: auto; zoom: calc(72 / 96); }
+}
+
+/* On-screen emulation of the printed layout (used by the interface self-test). */
+html.emulate-print, html.emulate-print body { overflow: auto !important; background: #888 !important; }
+html.emulate-print .app { display: none !important; }
+html.emulate-print .print-view { display: block !important; }
+html.emulate-print .print-page { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; background: white; margin-bottom: 12px; overflow: hidden; }
+html.emulate-print .print-page img { max-width: 100%; max-height: 100%; object-fit: contain; }

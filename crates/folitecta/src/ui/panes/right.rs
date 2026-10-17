@@ -98,8 +98,8 @@ pub fn RightPane() -> Element {
                             button { class: "tbtn danger", onclick: move |_| dispatch(st, "comments.deleteSel"), "{t(lang, \"label.delete\")}" }
                         }
                     }
-                    crate::ui::style_editor::StyleEditor {}
-                    crate::ui::field_editor::FieldEditor {}
+                    crate::ui::features::style_editor::StyleEditor {}
+                    crate::ui::features::field_editor::FieldEditor {}
                 } else {
                     div { class: "pane-empty", "{t(lang, \"toast.no_document\")}" }
                 }

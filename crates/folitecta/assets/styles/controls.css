@@ -1,0 +1,14 @@
+/* Controls shared by every part: text buttons and icon buttons ------------ */
+.tbtn { border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-sm); padding: 3px 8px; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tbtn:hover { background: var(--surface-3); }
+.tbtn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.tbtn.primary:hover { filter: brightness(1.08); }
+.tbtn.danger { color: var(--danger); }
+.tbtn:disabled { opacity: .5; cursor: default; }
+.tbtn .ic { width: 14px; height: 14px; }
+.tbtn.toggle .tick { width: 12px; display: inline-block; color: var(--active-fg); }
+.tbtn.toggle.on { border-color: var(--active-border); background: var(--active-bg); color: var(--active-fg); }
+.ibtn { border: none; background: transparent; border-radius: var(--radius-sm); width: 26px; height: 26px; display: grid; place-items: center; color: var(--muted); flex: none; }
+.ibtn:hover { background: var(--surface-3); color: var(--text); }
+.ibtn.active, .ibtn.on { background: var(--active-bg); color: var(--active-fg); }
+.ibtn:disabled { opacity: .4; cursor: default; }

@@ -132,7 +132,7 @@ pub(crate) fn markup_color(st: AppState, k: Markup) -> [f32; 3] {
         Markup::StrikeOut => "StrikeOut",
         Markup::Squiggly => "Squiggly",
     };
-    crate::styles::default_style(st, kind)
+    crate::state::comment_styles::default_style(st, kind)
         .color
         .unwrap_or([1.0, 0.9, 0.2])
 }

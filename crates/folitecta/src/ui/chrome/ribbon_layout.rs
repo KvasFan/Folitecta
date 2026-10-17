@@ -26,8 +26,10 @@ macro_rules! group {
 
 pub const RIBBON: &[RTab] = &[
     RTab {
+        // The first tab (id "home", shown as Edit): tools, then the editing
+        // of the text, the clipboard, the objects and comments of the pages.
         id: "home",
-        label: "Home",
+        label: "Edit",
         groups: &[
             group!(
                 "tools",
@@ -42,36 +44,21 @@ pub const RIBBON: &[RTab] = &[
                 ]
             ),
             group!(
-                "view",
-                "View",
-                [
-                    "zoom.level.fitWidth",
-                    "zoom.level.fitPage",
-                    "zoom.level.actual",
-                    "zoomIn",
-                    "zoomOut",
-                    "view.rotate",
-                    "view.layout"
-                ]
-            ),
-            group!(
-                "edit",
-                "Edit",
+                "text",
+                "Text",
                 [
                     "tool.editText",
                     "pageText.insert",
                     "pageText.replace",
                     "pageText.delete",
-                    "undo",
-                    "redo",
-                    "copy",
-                    "paste",
-                    "delete",
                     "find",
-                    "findAndRepl",
-                    "selectAll",
-                    "cut"
+                    "findAndRepl"
                 ]
+            ),
+            group!(
+                "edit",
+                "Clipboard",
+                ["undo", "redo", "cut", "copy", "paste", "delete", "selectAll"]
             ),
             group!(
                 "objects",
@@ -98,6 +85,19 @@ pub const RIBBON: &[RTab] = &[
                     "tool.annot.arrow",
                     "tool.annot.pencil",
                     "tool.annot.stamp"
+                ]
+            ),
+            group!(
+                "view",
+                "View",
+                [
+                    "zoom.level.fitWidth",
+                    "zoom.level.fitPage",
+                    "zoom.level.actual",
+                    "zoomIn",
+                    "zoomOut",
+                    "view.rotate",
+                    "view.layout"
                 ]
             ),
             group!(
@@ -625,6 +625,22 @@ pub struct GroupSpec {
     pub more_w: f64,
     /// Width of the single button that replaces a collapsed group.
     pub collapsed_w: f64,
+    /// Tools shown as small buttons whatever the width of the window, when
+    /// the user chose how wide the group is (by dragging its edge).
+    pub fixed: Option<usize>,
+}
+
+/// Rows of small buttons in a column of the ribbon, when the user has not
+/// changed the height of the ribbon.
+pub const DEFAULT_ROWS: usize = 3;
+/// Height of one row of small buttons, in pixels.
+pub const ROW_H: f64 = 21.0;
+/// Width of a column of small buttons, used to turn a drag into tools.
+pub const COLUMN_W: f64 = 130.0;
+
+/// Height of the ribbon body for `rows` rows of small buttons.
+pub fn body_height(rows: usize) -> f64 {
+    29.0 + rows as f64 * ROW_H
 }
 
 /// How a group is drawn: the first `large` items as large buttons, the next
@@ -651,7 +667,7 @@ fn visible(f: GroupFit) -> usize {
     f.0 + f.1
 }
 
-fn group_width(spec: &GroupSpec, (large, small): GroupFit) -> f64 {
+pub fn group_width(spec: &GroupSpec, (large, small): GroupFit, rows: usize) -> f64 {
     if large == 0 && small == 0 {
         return PAD + spec.collapsed_w.max(spec.title);
     }
@@ -666,27 +682,34 @@ fn group_width(spec: &GroupSpec, (large, small): GroupFit) -> f64 {
             w += LARGE_W;
         }
     }
-    for col in stack.chunks(3) {
+    for col in stack.chunks(rows.max(1)) {
         w += col.iter().fold(0.0f64, |a, b| a.max(*b)) + COL_GAP;
     }
     PAD + w.max(spec.title)
 }
 
-fn total_width(specs: &[GroupSpec], fit: &[GroupFit]) -> f64 {
+fn total_width(specs: &[GroupSpec], fit: &[GroupFit], rows: usize) -> f64 {
     specs
         .iter()
         .zip(fit)
-        .map(|(s, f)| group_width(s, *f))
+        .map(|(s, f)| group_width(s, *f, rows))
         .sum::<f64>()
         + GAP * specs.len().saturating_sub(1) as f64
 }
 
 /// Drop items from the largest groups (later groups first on ties) while the
-/// ribbon is too wide and `allowed` permits it.
-fn shrink(specs: &[GroupSpec], fit: &mut [GroupFit], width: f64, allowed: impl Fn(usize, GroupFit) -> bool) {
-    while total_width(specs, fit) > width {
+/// ribbon is too wide and `allowed` permits it. Groups of a fixed width keep
+/// their tools.
+fn shrink(
+    specs: &[GroupSpec],
+    fit: &mut [GroupFit],
+    width: f64,
+    rows: usize,
+    allowed: impl Fn(usize, GroupFit) -> bool,
+) {
+    while total_width(specs, fit, rows) > width {
         let candidate = (0..fit.len())
-            .filter(|i| fit[*i] != (0, 0) && allowed(*i, fit[*i]))
+            .filter(|i| fit[*i] != (0, 0) && specs[*i].fixed.is_none() && allowed(*i, fit[*i]))
             .max_by_key(|i| visible(fit[*i]));
         match candidate {
             Some(i) if fit[i].1 > 0 => fit[i].1 -= 1,
@@ -705,35 +728,50 @@ fn shrink(specs: &[GroupSpec], fit: &mut [GroupFit], width: f64, allowed: impl F
 /// only then shrink to one command. Any space left is given back (collapsed
 /// groups first, left to right) and up to two leading commands per group
 /// become large buttons.
-pub fn fit_ribbon(specs: &[GroupSpec], width: f64) -> Vec<GroupFit> {
-    let all_large: Vec<GroupFit> = specs.iter().map(|s| (s.small_w.len(), 0)).collect();
-    if total_width(specs, &all_large) <= width {
+///
+/// Small buttons stack `rows` per column; large buttons need three rows.
+/// Groups of a fixed width show their chosen number of tools as small
+/// buttons and take no part in the fitting: when they make the ribbon wider
+/// than the window, the ribbon scrolls.
+pub fn fit_ribbon(specs: &[GroupSpec], width: f64, rows: usize) -> Vec<GroupFit> {
+    let rows = rows.max(1);
+    let large_ok = rows >= DEFAULT_ROWS;
+    let n = specs.len();
+    let fixed = |j: usize| specs[j].fixed.map(|k| (0, k.min(specs[j].small_w.len()).max(1)));
+    let free = |j: usize| specs[j].fixed.is_none();
+    let all_large: Vec<GroupFit> = (0..n)
+        .map(|j| fixed(j).unwrap_or((specs[j].small_w.len(), 0)))
+        .collect();
+    if large_ok && total_width(specs, &all_large, rows) <= width {
         return all_large;
     }
-    let n = specs.len();
-    let mut fit: Vec<GroupFit> = specs.iter().map(|s| (0, s.small_w.len())).collect();
-    shrink(specs, &mut fit, width, |i, f| {
+    let mut fit: Vec<GroupFit> = (0..n)
+        .map(|j| fixed(j).unwrap_or((0, specs[j].small_w.len())))
+        .collect();
+    shrink(specs, &mut fit, width, rows, |i, f| {
         visible(f) > specs[i].small_w.len().min(2)
     });
     let mut i = n;
-    while total_width(specs, &fit) > width && i > 1 {
+    while total_width(specs, &fit, rows) > width && i > 1 {
         i -= 1;
-        fit[i] = (0, 0);
+        if free(i) {
+            fit[i] = (0, 0);
+        }
     }
-    shrink(specs, &mut fit, width, |_, f| visible(f) > 1);
-    if total_width(specs, &fit) > width && n > 0 {
+    shrink(specs, &mut fit, width, rows, |_, f| visible(f) > 1);
+    if total_width(specs, &fit, rows) > width && n > 0 && free(0) {
         fit[0] = (0, 0);
     }
     // Give room back: re-open collapsed groups and re-add commands, left to right.
     loop {
         let mut changed = false;
-        for j in 0..n {
+        for j in (0..n).filter(|j| free(*j)) {
             let (l, s) = fit[j];
             if l + s >= specs[j].small_w.len() {
                 continue;
             }
             fit[j] = (l, s + 1);
-            if total_width(specs, &fit) > width {
+            if total_width(specs, &fit, rows) > width {
                 fit[j] = (l, s);
             } else {
                 changed = true;
@@ -744,22 +782,20 @@ pub fn fit_ribbon(specs: &[GroupSpec], width: f64) -> Vec<GroupFit> {
         }
     }
     // Promote leading commands to large buttons, round-robin, while it fits.
-    loop {
-        let mut changed = false;
-        for j in 0..n {
+    let mut changed = large_ok;
+    while changed {
+        changed = false;
+        for j in (0..n).filter(|j| free(*j)) {
             let (l, s) = fit[j];
             if s == 0 || l >= MAX_LARGE_MIXED {
                 continue;
             }
             fit[j] = (l + 1, s - 1);
-            if total_width(specs, &fit) > width {
+            if total_width(specs, &fit, rows) > width {
                 fit[j] = (l, s);
             } else {
                 changed = true;
             }
-        }
-        if !changed {
-            break;
         }
     }
     fit
@@ -793,6 +829,7 @@ mod tests {
             extra,
             title,
             more_w: small_width("More (12)"),
+            fixed: None,
         };
         vec![
             mk(6, true, 40.0),
@@ -807,8 +844,8 @@ mod tests {
     fn ribbon_fits_every_width() {
         let specs = specs();
         for width in [400.0, 700.0, 936.0, 1256.0, 1576.0, 1896.0] {
-            let fit = fit_ribbon(&specs, width);
-            let used = total_width(&specs, &fit);
+            let fit = fit_ribbon(&specs, width, DEFAULT_ROWS);
+            let used = total_width(&specs, &fit, DEFAULT_ROWS);
             assert!(
                 used <= width || fit.iter().all(|f| *f == (0, 0)),
                 "width {width}: {fit:?} uses {used}"
@@ -820,10 +857,10 @@ mod tests {
     fn wide_ribbon_uses_large_buttons_and_narrow_one_keeps_commands() {
         let specs = specs();
         assert_eq!(
-            fit_ribbon(&specs, 10_000.0),
+            fit_ribbon(&specs, 10_000.0, DEFAULT_ROWS),
             vec![(6, 0), (7, 0), (9, 0), (5, 0), (11, 0)]
         );
-        let narrow = fit_ribbon(&specs, 936.0);
+        let narrow = fit_ribbon(&specs, 936.0, DEFAULT_ROWS);
         let visible: usize = narrow.iter().map(|(l, s)| l + s).sum();
         // The old one-large-button-per-group layout showed at most 5 commands here.
         assert!(visible >= 10, "{narrow:?}");
@@ -831,5 +868,25 @@ mod tests {
             narrow.iter().all(|f| *f != (0, 0)),
             "no group should collapse at 936 px: {narrow:?}"
         );
+    }
+
+    #[test]
+    fn more_rows_show_more_tools_and_two_rows_have_no_large_buttons() {
+        let specs = specs();
+        let shown = |rows| -> usize { fit_ribbon(&specs, 936.0, rows).iter().map(|(l, s)| l + s).sum() };
+        assert!(shown(5) > shown(3), "{} vs {}", shown(5), shown(3));
+        assert!(fit_ribbon(&specs, 10_000.0, 2).iter().all(|(l, _)| *l == 0));
+    }
+
+    #[test]
+    fn groups_of_a_fixed_width_keep_their_tools() {
+        let mut specs = specs();
+        specs[4].fixed = Some(11);
+        let fit = fit_ribbon(&specs, 700.0, DEFAULT_ROWS);
+        assert_eq!(fit[4], (0, 11));
+        // The other groups still fit what is left, or collapse.
+        assert!(fit[..4].iter().all(|f| visible(*f) <= 9));
+        specs[4].fixed = Some(99);
+        assert_eq!(fit_ribbon(&specs, 700.0, DEFAULT_ROWS)[4], (0, 11));
     }
 }

@@ -7,7 +7,7 @@ use folitecta_core::{AnnotStyle, LINE_ENDINGS};
 use crate::files;
 use crate::i18n::{t, tf};
 use crate::state::AppState;
-use crate::styles::{builtin, default_style, kind_of, set_default_style, tool_subtype};
+use crate::state::comment_styles::{builtin, default_style, kind_of, set_default_style, tool_subtype};
 use crate::util::{color_hex, parse_color};
 
 #[derive(Clone, Copy, PartialEq)]
@@ -24,7 +24,7 @@ pub(crate) fn static_kind(kind: &str) -> &'static str {
     KINDS.iter().find(|k| **k == kind).copied().unwrap_or("Square")
 }
 
-use crate::styles::{KINDS, named_styles, save_named_styles};
+use crate::state::comment_styles::{KINDS, named_styles, save_named_styles};
 
 /// What the editor offers for a kind of comment.
 struct Caps {
@@ -155,7 +155,7 @@ pub fn StyleEditor() -> Element {
         Target::Named(i, _) => {
             let mut list = named_styles(st);
             if let Some(n) = list.get_mut(i) {
-                *n = crate::styles::NamedStyle::new(n.name.clone(), &n.kind, &new);
+                *n = crate::state::comment_styles::NamedStyle::new(n.name.clone(), &n.kind, &new);
                 save_named_styles(st, &list);
             }
         }

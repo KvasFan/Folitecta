@@ -1,4 +1,9 @@
-//! Minimal localization: embedded JSON string tables with English fallback.
+//! Localization: embedded JSON string tables with English fallback.
+//!
+//! Each language has one file per area of the interface in
+//! `assets/i18n/<lang>/<area>.json`; a key lives in the file of the area of
+//! its first word (see [`AREAS`]). English command labels come from the
+//! command registry, so `en/commands.json` stays empty.
 
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -38,11 +43,151 @@ impl Lang {
     }
 }
 
-static EN: LazyLock<HashMap<String, String>> = LazyLock::new(|| load(include_str!("../assets/i18n/en.json")));
-static IT: LazyLock<HashMap<String, String>> = LazyLock::new(|| load(include_str!("../assets/i18n/it.json")));
+/// The areas of the translation files and the first words of their keys
+/// (checked by the tests: every key is in the file of its area).
+#[cfg(test)]
+const AREAS: &[(&str, &[&str])] = &[
+    ("commands", &["cmd", "macrodesc"]),
+    (
+        "interface",
+        &[
+            "app", "tab", "group", "menu", "pane", "label", "status", "palette", "welcome", "popup", "sel",
+            "tool", "layout", "filter", "pos", "props", "history", "session", "rename", "text",
+        ],
+    ),
+    ("dialogs", &["dialog"]),
+    ("messages", &["toast"]),
+    (
+        "comments",
+        &[
+            "annot",
+            "style",
+            "styles",
+            "le",
+            "review",
+            "comments",
+            "stamps",
+            "stampel",
+            "stampfield",
+            "redact",
+            "calc",
+            "table",
+        ],
+    ),
+    (
+        "pages",
+        &[
+            "marks",
+            "macro",
+            "split",
+            "sources",
+            "picture",
+            "inserttext",
+            "recompress",
+            "meta",
+            "docinfo",
+            "relationship",
+            "explorer",
+            "portfolio",
+            "attach",
+            "layers",
+            "bookmark",
+            "links",
+            "compare",
+            "audit",
+            "media",
+            "multiplace",
+        ],
+    ),
+    (
+        "forms",
+        &[
+            "field",
+            "fields",
+            "fieldkind",
+            "fieldcopies",
+            "actions",
+            "js",
+            "launch",
+            "tab_order",
+        ],
+    ),
+    ("protect", &["sig", "signs"]),
+    ("accessibility", &["acc", "tags", "alt", "order", "content"]),
+    ("search", &["search"]),
+];
 
-fn load(src: &str) -> HashMap<String, String> {
-    serde_json::from_str(src).expect("valid i18n json")
+/// The area of a key: the file it belongs in.
+#[cfg(test)]
+fn area_of(key: &str) -> Option<&'static str> {
+    let first = key.split('.').next().unwrap_or_default();
+    AREAS
+        .iter()
+        .find(|(_, words)| words.contains(&first))
+        .map(|(area, _)| *area)
+}
+
+macro_rules! tables {
+    ($lang:literal) => {
+        [
+            (
+                "commands",
+                include_str!(concat!("../assets/i18n/", $lang, "/commands.json")),
+            ),
+            (
+                "interface",
+                include_str!(concat!("../assets/i18n/", $lang, "/interface.json")),
+            ),
+            (
+                "dialogs",
+                include_str!(concat!("../assets/i18n/", $lang, "/dialogs.json")),
+            ),
+            (
+                "messages",
+                include_str!(concat!("../assets/i18n/", $lang, "/messages.json")),
+            ),
+            (
+                "comments",
+                include_str!(concat!("../assets/i18n/", $lang, "/comments.json")),
+            ),
+            (
+                "pages",
+                include_str!(concat!("../assets/i18n/", $lang, "/pages.json")),
+            ),
+            (
+                "forms",
+                include_str!(concat!("../assets/i18n/", $lang, "/forms.json")),
+            ),
+            (
+                "protect",
+                include_str!(concat!("../assets/i18n/", $lang, "/protect.json")),
+            ),
+            (
+                "accessibility",
+                include_str!(concat!("../assets/i18n/", $lang, "/accessibility.json")),
+            ),
+            (
+                "search",
+                include_str!(concat!("../assets/i18n/", $lang, "/search.json")),
+            ),
+        ]
+    };
+}
+
+const EN_FILES: [(&str, &str); 10] = tables!("en");
+const IT_FILES: [(&str, &str); 10] = tables!("it");
+
+static EN: LazyLock<HashMap<String, String>> = LazyLock::new(|| load(&EN_FILES));
+static IT: LazyLock<HashMap<String, String>> = LazyLock::new(|| load(&IT_FILES));
+
+fn load(files: &[(&str, &str)]) -> HashMap<String, String> {
+    let mut all = HashMap::new();
+    for (area, src) in files {
+        let table: HashMap<String, String> =
+            serde_json::from_str(src).unwrap_or_else(|e| panic!("invalid i18n file {area}: {e}"));
+        all.extend(table);
+    }
+    all
 }
 
 fn table(lang: Lang) -> &'static HashMap<String, String> {
@@ -117,6 +262,18 @@ mod tests {
         assert_eq!(t(Lang::It, "no.such.key"), "no.such.key");
         assert_eq!(t(Lang::En, "cmd.saveAs"), "Save As…");
         assert_eq!(tf(Lang::En, "toast.opened", &[("name", "a.pdf")]), "Opened a.pdf");
+    }
+
+    #[test]
+    fn every_key_is_in_the_file_of_its_area() {
+        for files in [&EN_FILES, &IT_FILES] {
+            for (area, src) in files.iter() {
+                let table: HashMap<String, String> = serde_json::from_str(src).unwrap();
+                for key in table.keys() {
+                    assert_eq!(area_of(key), Some(*area), "{key} is in {area}.json");
+                }
+            }
+        }
     }
 
     #[test]

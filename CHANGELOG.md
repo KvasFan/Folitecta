@@ -6,6 +6,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-10-17
+
 ### Added
 
 - Accounting calculator: tapes of amounts placed on the page as comments, typed on a keypad or

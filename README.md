@@ -8,7 +8,7 @@ an MIT, Apache or GNU licence.
 
 ![Folitecta screenshot](docs/screenshot.png)
 
-## Status: version 0.0.5 (pre-release)
+## Status: version 0.0.6 (pre-release)
 
 Folitecta ships the **complete command surface of a professional PDF editor** — 1,977 commands
 across a ribbon with 11 tabs and 63 groups, 9 classic menus, 27 side panes and a command palette —
@@ -76,6 +76,10 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
   templates and fields filled in at placement; tables drawn on the page and edited cell by cell.
 - **History and sessions**: documents opened before with thumbnails and pins, sessions of open
   documents saved and opened again.
+- **Calculator, scripts and media**: accounting calculator tapes on the page; a JavaScript console
+  with snippets and named document scripts; sound and video comments with a media player.
+- **Files and metadata**: rename, move or recycle the document file; metadata templates and XMP;
+  guides saved to files.
 - **Document tools**: typed or RTF text as pages, space usage audit, picture recompression,
   document scripts, pages split at guides or cut to the crop box, leaving PDF/A.
 - **Interface**: ribbon or classic menus and toolbars that adapt to any window size, page

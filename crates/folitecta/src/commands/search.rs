@@ -212,7 +212,8 @@ pub fn open_other(st: AppState, hit: OtherHit) {
                 })
                 .flatten();
             match data.map(|d| Document::from_bytes(d, None, None)) {
-                Some(Ok(doc)) => {
+                Some(Ok(mut doc)) => {
+                    doc.set_name_hint(&name);
                     crate::files::open_document_tab(st, doc);
                     st.navigate(page, true);
                 }

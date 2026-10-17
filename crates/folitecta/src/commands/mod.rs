@@ -21,6 +21,7 @@ pub(crate) mod layers;
 pub(crate) mod macros;
 mod pages;
 mod panes;
+pub(crate) mod portfolio;
 mod protect;
 pub(crate) mod review;
 pub(crate) mod search;
@@ -69,6 +70,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     attachments::HANDLERS,
     fields_pane::HANDLERS,
     search::HANDLERS,
+    portfolio::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -96,6 +98,8 @@ pub const PARTIAL: &[&str] = &[
     "layersView.selectCorresponding.comments",
     "layersView.selectCorresponding.fields",
     "layersView.selectCorresponding.links",
+    // Opens the PDF files and prints every open document.
+    "view.portfolio.print",
 ];
 
 /// View options toggled by command id; their state lives in the preferences.
@@ -182,6 +186,7 @@ pub const VIEW_OPTIONS: &[&str] = &[
 pub const DEFAULT_ON: &[&str] = &[
     "view.spellCheck",
     "search.pageText",
+    "portfolio.tools",
     "searchView.results.showCommentTypes",
     "searchView.results.showIcon",
     "searchView.lookInSubFolders",
@@ -240,6 +245,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| layers::layers_state(st, id))
         .or_else(|| fields_pane::fields_state(st, id))
         .or_else(|| search::search_state(st, id))
+        .or_else(|| portfolio::portfolio_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

@@ -1458,7 +1458,80 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     crate::ui::panes::run_search(st, "");
     st.ui_mut().left_pane = "thumbnails".into();
 
-    // 30. Undo everything added above.
+    // 30. Portfolio: files view, a new folder, navigation, preview, properties.
+    let sample_bytes = st.read_active(|t| t.doc.bytes().to_vec()).unwrap_or_default();
+    match folitecta_core::Document::new_portfolio(
+        vec![
+            ("report.pdf".into(), sample_bytes),
+            ("notes.txt".into(), b"Portfolio notes".to_vec()),
+        ],
+        "Project portfolio",
+    ) {
+        Ok(doc) => {
+            crate::files::open_document_tab(st, doc);
+            pause(800).await;
+            let shown =
+                document::eval("return document.querySelectorAll('.portfolio .pf-row:not(.head)').length;")
+                    .await
+                    .ok()
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+            record("portfolio shows its files", shown == 2, format!("{shown} rows"));
+            crate::commands::dispatch(st, "view.portfolio.createFolder");
+            pause(400).await;
+            let _ = document::eval(
+                "const i = document.querySelector('.dialog input'); if (i) { i.value = 'Specs'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
+            )
+            .await;
+            pause(200).await;
+            let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+            pause(500).await;
+            let _ = document::eval(
+                "const r = [...document.querySelectorAll('.portfolio .pf-row')].find(e => e.textContent.includes('Specs')); if (r) r.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));",
+            )
+            .await;
+            pause(400).await;
+            let inside = st.read_active(|t| t.portfolio.folder.is_some()).unwrap_or(false);
+            crate::commands::dispatch(st, "view.portfolio.view.nav.up");
+            pause(300).await;
+            let back = st.read_active(|t| t.portfolio.folder.is_none()).unwrap_or(false);
+            record(
+                "portfolio folder created and opened",
+                inside && back,
+                String::new(),
+            );
+            let _ = document::eval(
+                "const r = [...document.querySelectorAll('.portfolio .pf-row')].find(e => e.textContent.includes('report.pdf')); if (r) r.click();",
+            )
+            .await;
+            let mut thumb = false;
+            for _ in 0..30 {
+                pause(150).await;
+                thumb = document::eval("return !!document.querySelector('.portfolio-preview img.pf-thumb');")
+                    .await
+                    .ok()
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                if thumb {
+                    break;
+                }
+            }
+            record("portfolio file previewed", thumb, String::new());
+            let _ = capture_window(&dir.join("interaction-portfolio.png"));
+            st.set_dialog(Dialog::PortfolioProps);
+            pause(500).await;
+            let _ = capture_window(&dir.join("interaction-portfolio-props.png"));
+            st.set_dialog(Dialog::None);
+            if let Some(i) = st.active_index() {
+                st.docs_mut().remove(i);
+                st.set_active(0);
+            }
+            pause(400).await;
+        }
+        Err(e) => record("portfolio shows its files", false, e.to_string()),
+    }
+
+    // 31. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..30 {
         crate::commands::dispatch(st, "undo");

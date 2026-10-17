@@ -47,6 +47,8 @@ pub struct DocInfo {
 pub struct Document {
     pub(crate) inner: lopdf::Document,
     path: Option<PathBuf>,
+    /// Name shown when there is no file (an attachment opened on its own).
+    name_hint: Option<String>,
     bytes: Arc<Vec<u8>>,
     revision: u64,
     dirty: bool,
@@ -124,6 +126,7 @@ impl Document {
         let mut doc = Document {
             inner,
             path,
+            name_hint: None,
             source,
             bytes: Arc::new(bytes),
             revision: 0,
@@ -181,6 +184,7 @@ impl Document {
         Ok(Document {
             inner,
             path: None,
+            name_hint: None,
             source: None,
             bytes: Arc::new(bytes),
             revision: 0,
@@ -238,13 +242,19 @@ impl Document {
         self.path = path;
     }
 
-    /// Display name: file name or "Untitled".
+    /// Display name: file name, the name hint, or "Untitled".
     pub fn display_name(&self) -> String {
         self.path
             .as_ref()
             .and_then(|p| p.file_name())
             .map(|n| n.to_string_lossy().to_string())
+            .or_else(|| self.name_hint.clone())
             .unwrap_or_else(|| "Untitled".to_string())
+    }
+
+    /// Name shown while the document has no file.
+    pub fn set_name_hint(&mut self, name: &str) {
+        self.name_hint = (!name.trim().is_empty()).then(|| name.trim().to_string());
     }
 
     /// Serialized bytes matching the current state (used by the renderer).

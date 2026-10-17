@@ -11,6 +11,7 @@ pub mod macros;
 pub mod menubar;
 pub mod palette;
 pub mod panes;
+pub mod portfolio;
 pub mod ribbon;
 pub mod ribbon_layout;
 pub mod rightpane;

@@ -30,6 +30,7 @@ pub mod markup_tools;
 pub mod outline;
 pub mod pages;
 pub mod pagetools;
+pub mod portfolio;
 pub mod redaction;
 pub mod render;
 pub mod scripts;

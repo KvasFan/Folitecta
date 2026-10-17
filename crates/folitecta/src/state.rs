@@ -526,6 +526,37 @@ pub struct DocTab {
     pub selected_fields: Vec<(u32, u16)>,
     /// Collapsed name groups of the fields pane.
     pub collapsed_fields: HashSet<String>,
+    /// Files view of a portfolio.
+    pub portfolio: PortfolioState,
+}
+
+/// Where the files view of a portfolio is and what is selected in it.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct PortfolioState {
+    /// The cover pages are shown instead of the files.
+    pub cover: bool,
+    /// Current folder (`None`: the root).
+    pub folder: Option<i64>,
+    pub back: Vec<Option<i64>>,
+    pub forward: Vec<Option<i64>>,
+    /// Selected files (name-tree keys) and folders.
+    pub selected: Vec<Vec<u8>>,
+    pub selected_folders: Vec<i64>,
+    /// Selected column in the portfolio properties.
+    pub column: Option<usize>,
+}
+
+impl PortfolioState {
+    /// Open a folder, remembering where we were.
+    pub fn open_folder(&mut self, folder: Option<i64>) {
+        if folder != self.folder {
+            self.back.push(self.folder);
+            self.forward.clear();
+            self.folder = folder;
+            self.selected.clear();
+            self.selected_folders.clear();
+        }
+    }
 }
 
 /// Hidden parent layers hide their children in the view (a view option).
@@ -584,7 +615,12 @@ impl DocTab {
             selected_attachment: None,
             selected_fields: Vec::new(),
             collapsed_fields: HashSet::new(),
+            portfolio: PortfolioState::default(),
         };
+        // A portfolio opens on its initial file, when it names one.
+        if let Some(key) = tab.doc.portfolio().and_then(|p| p.initial) {
+            tab.portfolio.selected = vec![key];
+        }
         if LAYER_INHERIT.load(std::sync::atomic::Ordering::Relaxed) && !tab.doc.layers().is_empty() {
             tab.update_render();
         }
@@ -943,6 +979,14 @@ pub enum Dialog {
     AttachmentOptions,
     /// Options of the fields pane.
     FieldsOptions,
+    /// New portfolio folder (`None`) or a folder's name and description.
+    PortfolioFolder {
+        id: Option<i64>,
+    },
+    /// Description and column values of a portfolio file.
+    PortfolioItem(Vec<u8>),
+    /// Layout, initial file, sort order and columns of a portfolio.
+    PortfolioProps,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

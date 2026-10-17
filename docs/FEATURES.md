@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.3. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 774 |
-| 🟡 partial | 34 |
-| ⬜ planned | 1169 |
+| ✅ available | 811 |
+| 🟡 partial | 36 |
+| ⬜ planned | 1130 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -270,28 +270,28 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Page Layout | `view.toolbar.pageLayout` | ✅ available |
 | Page Zoom | `view.toolbar.pageZoom` | ✅ available |
 | Panes | `view.panesGroup` | ⬜ planned |
-| Portfolio | `view.portfolio` | ⬜ planned |
-| ↳ Add Files | `view.portfolio.addFiles` | ⬜ planned |
-| ↳ Add Folder | `view.portfolio.addFolder` | ⬜ planned |
-| ↳ Cover | `view.portfolio.cover` | ⬜ planned |
-| ↳ Create Folder | `view.portfolio.createFolder` | ⬜ planned |
-| ↳ Delete | `view.portfolio.delete` | ⬜ planned |
-| ↳ Deselect All | `view.portfolio.deselectAll` | ⬜ planned |
-| ↳ Extract Files | `view.portfolio.extractFiles` | ⬜ planned |
-| ↳ Item Info | `view.portfolio.itemInfo` | ⬜ planned |
-| ↳ Make Default | `view.portfolio.makeDefault` | ⬜ planned |
-| ↳ Navigation Details | `view.portfolio.navDetails` | ⬜ planned |
-| ↳ Navigation Layout | `view.portfolio.navLayout` | ⬜ planned |
-| ↳ Preview | `view.portfolio.preview` | ⬜ planned |
-| ↳ Preview File | `view.portfolio.previewFile` | ⬜ planned |
-| ↳ Print | `view.portfolio.print` | ⬜ planned |
-| ↳ Properties | `view.portfolio.properties` | ⬜ planned |
-| ↳ Schema View | `view.portfolio.schemaView` | ⬜ planned |
-| ↳ Select All | `view.portfolio.selectAll` | ⬜ planned |
-| ↳ Sort by | `view.portfolio.sortBy` | ⬜ planned |
-| ↳ View | `view.portfolio.view` | ⬜ planned |
-| ↳ View Fields | `view.portfolio.viewFields` | ⬜ planned |
-| Portfolio Tools | `view.portfolioTools` | ⬜ planned |
+| Portfolio | `view.portfolio` | 🟡 partial |
+| ↳ Add Files | `view.portfolio.addFiles` | ✅ available |
+| ↳ Add Folder | `view.portfolio.addFolder` | ✅ available |
+| ↳ Cover | `view.portfolio.cover` | ✅ available |
+| ↳ Create Folder | `view.portfolio.createFolder` | ✅ available |
+| ↳ Delete | `view.portfolio.delete` | ✅ available |
+| ↳ Deselect All | `view.portfolio.deselectAll` | ✅ available |
+| ↳ Extract Files | `view.portfolio.extractFiles` | ✅ available |
+| ↳ Item Info | `view.portfolio.itemInfo` | ✅ available |
+| ↳ Make Default | `view.portfolio.makeDefault` | ✅ available |
+| ↳ Navigation Details | `view.portfolio.navDetails` | ✅ available |
+| ↳ Navigation Layout | `view.portfolio.navLayout` | ✅ available |
+| ↳ Preview | `view.portfolio.preview` | ✅ available |
+| ↳ Preview File | `view.portfolio.previewFile` | ✅ available |
+| ↳ Print | `view.portfolio.print` | 🟡 partial |
+| ↳ Properties | `view.portfolio.properties` | ✅ available |
+| ↳ Schema View | `view.portfolio.schemaView` | ✅ available |
+| ↳ Select All | `view.portfolio.selectAll` | ✅ available |
+| ↳ Sort by | `view.portfolio.sortBy` | ✅ available |
+| ↳ View | `view.portfolio.view` | ✅ available |
+| ↳ View Fields | `view.portfolio.viewFields` | ✅ available |
+| Portfolio Tools | `view.portfolioTools` | ✅ available |
 | Properties | `view.toolbar.properties` | ✅ available |
 | Properties Pane | `view.properties` | ✅ available |
 | Restore Cmd Bars Visibility | `view.restoreCmdBarsVisibility` | ✅ available |
@@ -893,7 +893,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | From Text… | `newDocText` | ✅ available |
 | From Web Page… | `newDocHtml` | ⬜ planned |
 | New Document | `newDoc` | ✅ available |
-| PDF Portfolio… | `newPortfolio` | ⬜ planned |
+| PDF Portfolio… | `newPortfolio` | ✅ available |
 | Source Files | `newDocumentList` | ⬜ planned |
 | ↳ Add File… | `newDocumentList.addFile` | ⬜ planned |
 | ↳ Add Folder… | `newDocumentList.addFolder` | ⬜ planned |
@@ -1198,7 +1198,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Recent Files | `recentFiles` | ✅ available |
 | Sessions | `sessions` | ⬜ planned |
 | New Document | `newDoc` | ✅ available |
-| PDF Portfolio… | `newPortfolio` | ⬜ planned |
+| PDF Portfolio… | `newPortfolio` | ✅ available |
 | Save | `save` | ✅ available |
 | Save As… | `saveAs` | ✅ available |
 | Save a Copy… | `saveAsCopy` | ✅ available |
@@ -1473,8 +1473,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Pan and Zoom | `panZoomView` | ⬜ planned |
 | Pan and Zoom | `view.panzoom` | ✅ available |
 | Panes | `view.panesGroup` | ⬜ planned |
-| Portfolio | `view.portfolio` | ⬜ planned |
-| Portfolio Tools | `view.portfolioTools` | ⬜ planned |
+| Portfolio | `view.portfolio` | 🟡 partial |
+| Portfolio Tools | `view.portfolioTools` | ✅ available |
 | Recovery Pane | `recoveryView` | ⬜ planned |
 | Restore Cmd Bars Visibility | `view.restoreCmdBarsVisibility` | ✅ available |
 | Ribbon / Classic UI | `view.ribbonClassicUI` | ✅ available |
@@ -1716,7 +1716,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Allow/Block List | `bwList` | ⬜ planned |
 | Metadata | `msp` | ⬜ planned |
 | Other Tools | `otherToolsGroup` | ⬜ planned |
-| Portfolio Schema | `portfolioSchemaList` | ⬜ planned |
+| Portfolio Schema | `portfolioSchemaList` | ✅ available |
 | Quick Launch | `quickLaunch` | ✅ available |
 | Selection Barcode Place | `selBarcodePlace` | ⬜ planned |
 | Selection Image Place | `selImagePlace` | ✅ available |
@@ -2401,9 +2401,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `tool.table.insert.rows.below` | Tools › Tool › Create/Edit Tables › Insert › Rows › Below | ⬜ planned |
 | `tool.table.line.color` | Tools › Tool › Create/Edit Tables › Line › Color | ⬜ planned |
 | `view` | View | 🟡 partial |
-| `view.portfolio.view.nav.next` | View › Portfolio › View › Navigation › Next | ⬜ planned |
-| `view.portfolio.view.nav.prev` | View › Portfolio › View › Navigation › Previous | ⬜ planned |
-| `view.portfolio.view.nav.up` | View › Portfolio › View › Navigation › Up | ⬜ planned |
+| `view.portfolio.view.nav.next` | View › Portfolio › View › Navigation › Next | ✅ available |
+| `view.portfolio.view.nav.prev` | View › Portfolio › View › Navigation › Previous | ✅ available |
+| `view.portfolio.view.nav.up` | View › Portfolio › View › Navigation › Up | ✅ available |
 | `volume.Slider` | Edit › Volume › Volume | ⬜ planned |
 | `wdav.columns.created` | File › WebDAV › Columns › Created | ⬜ planned |
 | `wdav.columns.extension` | File › WebDAV › Columns › Extension | ⬜ planned |

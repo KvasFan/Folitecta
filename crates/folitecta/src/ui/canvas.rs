@@ -33,13 +33,24 @@ pub fn CanvasArea() -> Element {
         return rsx! { div { class: "canvas-wrap", Welcome {} } };
     }
     let info_bar = option_on(st, "view.docInfoBar");
+    // Portfolios show their files unless the cover is asked for.
+    let files = st
+        .read_active(|t| !t.portfolio.cover && t.doc.portfolio().is_some_and(|p| p.view != "H"))
+        .unwrap_or(false);
     rsx! {
         div { class: "canvas-wrap",
             DocTabs {}
             if info_bar { DocInfoBar {} }
-            Canvas {}
-            Loupe {}
-            if option_on(st, "view.panzoom") { PanZoomWindow {} }
+            if files {
+                crate::ui::portfolio::PortfolioView {}
+            } else {
+                if st.read_active(|t| t.doc.is_portfolio()).unwrap_or(false) {
+                    crate::ui::portfolio::CoverBar {}
+                }
+                Canvas {}
+                Loupe {}
+                if option_on(st, "view.panzoom") { PanZoomWindow {} }
+            }
         }
     }
 }

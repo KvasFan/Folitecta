@@ -275,6 +275,9 @@ pub fn Dialogs() -> Element {
         Dialog::AttachmentEdit(index) => rsx! { crate::ui::attachments_pane::AttachmentEditDialog { index } },
         Dialog::AttachmentOptions => rsx! { crate::ui::attachments_pane::AttachmentOptionsDialog {} },
         Dialog::FieldsOptions => rsx! { crate::ui::fields_pane::FieldsOptionsDialog {} },
+        Dialog::PortfolioFolder { id } => rsx! { crate::ui::portfolio::PortfolioFolderDialog { id } },
+        Dialog::PortfolioItem(file) => rsx! { crate::ui::portfolio::PortfolioItemDialog { file } },
+        Dialog::PortfolioProps => rsx! { crate::ui::portfolio::PortfolioPropsDialog {} },
     }
 }
 

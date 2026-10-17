@@ -208,7 +208,7 @@ impl Document {
         std::fs::write(path.as_ref(), data).map_err(|e| Error::io(path.as_ref(), e))
     }
 
-    fn embedded_pairs(&self) -> Vec<(Vec<u8>, Object)> {
+    pub(crate) fn embedded_pairs(&self) -> Vec<(Vec<u8>, Object)> {
         let mut pairs = Vec::new();
         if let Some(tree) = self.embedded_files_tree() {
             walk_name_tree(&self.inner, tree, &mut pairs, 0);
@@ -216,7 +216,7 @@ impl Document {
         pairs
     }
 
-    fn write_embedded_pairs(&mut self, mut pairs: Vec<(Vec<u8>, Object)>) -> Result<()> {
+    pub(crate) fn write_embedded_pairs(&mut self, mut pairs: Vec<(Vec<u8>, Object)>) -> Result<()> {
         pairs.sort_by(|a, b| a.0.cmp(&b.0));
         let names: Vec<Object> = pairs
             .into_iter()
@@ -256,6 +256,20 @@ impl Document {
             return Err(Error::Invalid("attachment name is empty".into()));
         }
         self.begin_edit();
+        self.insert_attachment(name.as_bytes().to_vec(), name, data, description, mime)?;
+        self.commit()
+    }
+
+    /// Embed a file under the name-tree `key` (replacing a file with the same
+    /// key), without an undo step. Returns its file specification.
+    pub(crate) fn insert_attachment(
+        &mut self,
+        key: Vec<u8>,
+        name: &str,
+        data: Vec<u8>,
+        description: &str,
+        mime: Option<&str>,
+    ) -> Result<ObjectId> {
         let size = data.len() as i64;
         let mut stream_dict = dictionary! {
             "Type" => "EmbeddedFile",
@@ -280,10 +294,10 @@ impl Document {
         }
         let spec_id = self.inner.add_object(spec);
         let mut pairs = self.embedded_pairs();
-        pairs.retain(|(k, _)| k != name.as_bytes());
-        pairs.push((name.as_bytes().to_vec(), Object::Reference(spec_id)));
+        pairs.retain(|(k, _)| *k != key);
+        pairs.push((key, Object::Reference(spec_id)));
         self.write_embedded_pairs(pairs)?;
-        self.commit()
+        Ok(spec_id)
     }
 
     /// Attach a file from disk (name = file name).

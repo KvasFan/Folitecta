@@ -4,6 +4,46 @@ All notable changes to Folitecta are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.0.4] - 2026-10-17
+
+### Added
+
+- Comment exchange and review: export and import comments as XFDF, FDF or PDF; comment
+  summaries (comments only, separate pages or connector lines, sorted by page, author, date or
+  type); replies, review states with their history, check marks, filters, pop-up notes on the
+  page and comments pane options.
+- Bookmarks: editing of the bookmark tree with drag and drop, styles and colours, destinations
+  with their zoom, web addresses, import and export as text, bookmarks from the page text;
+  editing of named destinations.
+- Interface: classic toolbars, more page layouts, a pan and zoom window, touch mode, a menu bar
+  that can be hidden, zoom levels.
+- Digital signatures: sign and certify with digital IDs (PKCS#12, RSA and ECDSA), create
+  self-signed IDs, validate signatures against trusted certificates, clear signatures. Signed
+  documents are saved as incremental updates, so their signatures stay valid.
+- Handwritten signatures and initials (drawn, typed or pictures) kept in a library and placed on
+  pages, plus the signer's name, date, e-mail and company as page text.
+- Macros in watermarks, headers and footers, page numbers and Bates numbers: labels, dates and
+  times, document information, file and folder names, bookmark titles, computer and user names,
+  environment variables; a macro picker and guide; Bates numbering that continues across runs.
+- An external application launched with the details of the view.
+- Layers: tree with groups and sublayers, view-only visibility that can become the default,
+  new layers and groups, locks, sorting, merging, flattening, extraction of visible or selected
+  content, pages of another file imported as a layer.
+- Attachments pane with columns, open, save, edit (name, description, relationship, contents)
+  and automatic showing; fields pane with name groups, sorting, selection by type and a manual
+  tab order.
+- Search: accents ignored on request, words near each other (adjacent, paragraph, page,
+  document) in separate colours, comments, bookmarks, form fields, document information,
+  attachments (including PDF attachments) and links, grouped results, search through the PDF
+  files of a folder.
+- Portfolios: create portfolios from files, files view with folders, details or tiles, columns
+  and sort order, preview, file information and custom columns, initial file, cover page.
+
+### Changed
+
+- Text files used to create documents start a new page at each form feed.
+- Marking or redacting search results uses the results shown.
+
 ## [0.0.3] - 2026-10-16
 
 ### Added

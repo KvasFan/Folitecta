@@ -453,6 +453,30 @@ pub struct SearchState {
     pub current: usize,
     pub case_sensitive: bool,
     pub whole_words: bool,
+    /// Matches outside the page text (comments, bookmarks, fields...).
+    pub other: Vec<folitecta_core::search::OtherHit>,
+    /// Results of a search through the PDF files of a folder.
+    pub folder: Option<FolderSearch>,
+    /// Collapsed result groups.
+    pub collapsed: HashSet<String>,
+}
+
+/// A search through the PDF files of a folder.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FolderSearch {
+    pub root: PathBuf,
+    pub query: String,
+    pub files: usize,
+    pub searched: usize,
+    pub running: bool,
+    pub hits: Vec<FolderHit>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FolderHit {
+    pub path: PathBuf,
+    pub page: usize,
+    pub snippet: String,
 }
 
 /// One open document tab.

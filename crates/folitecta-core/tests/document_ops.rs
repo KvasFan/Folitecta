@@ -65,7 +65,8 @@ fn text_extraction_and_search() {
             "bravo",
             SearchOptions {
                 case_sensitive: true,
-                whole_words: false
+                whole_words: false,
+                ..Default::default()
             }
         )
         .is_empty()
@@ -75,7 +76,8 @@ fn text_extraction_and_search() {
             "Alpha",
             SearchOptions {
                 case_sensitive: false,
-                whole_words: true
+                whole_words: true,
+                ..Default::default()
             }
         )
         .len(),

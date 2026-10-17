@@ -6,7 +6,7 @@ use crate::files;
 use crate::i18n::{t, tf};
 use crate::state::{AppState, ConfirmAction, Dialog, Pane, ToastKind, Tool};
 use dioxus::prelude::ReadableExt;
-use folitecta_core::{Markup, SearchOptions};
+use folitecta_core::Markup;
 
 fn tool(st: AppState, tool: Tool) {
     super::select_tool(st, tool);
@@ -165,29 +165,26 @@ fn markup_results(st: AppState, kind: Option<Markup>) {
     if no_doc(st) {
         return;
     }
-    let (query, opts) = st
-        .read_active(|t| {
-            (
-                t.search.query.clone(),
-                SearchOptions {
-                    case_sensitive: t.search.case_sensitive,
-                    whole_words: t.search.whole_words,
-                },
-            )
-        })
-        .unwrap();
+    let query = st.read_active(|t| t.search.query.clone()).unwrap_or_default();
     if query.trim().is_empty() {
         show_pane(st, Pane::Search);
         st.toast(ToastKind::Info, t(st.lang(), "toast.search_first"), "");
         return;
     }
+    let (opts, proximity, _) = super::search::search_settings(st);
     let author = st.ui.read().author.clone();
-    let r = st.with_active(|t| match kind {
-        Some(k) => {
-            let color = markup_color(st, k);
-            t.doc.markup_search_results(&query, opts, k, color, &author)
+    let color = kind.map(|k| markup_color(st, k));
+    let r = st.with_active(|t| {
+        // The results shown, found again when the document changed since.
+        let hits = if t.search.hits.is_empty() {
+            t.doc.search_words(&query, opts, proximity)
+        } else {
+            t.search.hits.clone()
+        };
+        match (kind, color) {
+            (Some(k), Some(c)) => t.doc.markup_hits(&hits, k, c, &author),
+            _ => t.doc.redact_hits(&hits, &author),
         }
-        None => t.doc.redact_search_results(&query, opts, &author),
     });
     match r {
         Some(Ok(n)) => {

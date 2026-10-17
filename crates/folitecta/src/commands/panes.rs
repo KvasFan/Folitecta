@@ -64,10 +64,6 @@ handlers! {
     "thumbnailsView.zoomIn" => |st| thumbs_zoom(st, 1.25),
     "thumbnailsView.zoomOut" => |st| thumbs_zoom(st, 0.8),
     "selectPages" => |st| select_pages_where(st, |_, _| true),
-    "searchView.caseSensitive" => |st| { st.with_active(|t| t.search.case_sensitive = !t.search.case_sensitive); },
-    "searchView.wholeWords" => |st| { st.with_active(|t| t.search.whole_words = !t.search.whole_words); },
-    "document.find.caseSensitive" => |st| { st.with_active(|t| t.search.case_sensitive = !t.search.case_sensitive); },
-    "document.find.wholeWords" => |st| { st.with_active(|t| t.search.whole_words = !t.search.whole_words); },
     "searchView.results.clear" => |st| { st.with_active(|t| { t.search.hits.clear(); t.search.query.clear(); }); },
     "searchView.results.save" => |st| {
         if no_doc(st) { return; }

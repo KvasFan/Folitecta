@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.3. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 743 |
-| 🟡 partial | 37 |
-| ⬜ planned | 1197 |
+| ✅ available | 774 |
+| 🟡 partial | 34 |
+| ⬜ planned | 1169 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -1481,7 +1481,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Ribbon UI | `view.switchToRibbonUI` | ✅ available |
 | Rotate View | `view.rotateViewGroup` | ⬜ planned |
 | Rulers | `rulers` | 🟡 partial |
-| Search Pane | `searchView` | 🟡 partial |
+| Search Pane | `searchView` | ✅ available |
 | Show | `view.show` | ⬜ planned |
 | Show Page Size | `view.showPageMeasureInfo` | ✅ available |
 | Show Pane Info Bar | `showPaneInfoBar` | ⬜ planned |
@@ -1568,7 +1568,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Enable Editing (Discard PDF/A) | `document.discardPDFA` | ⬜ planned |
 | Export All Bookmarks… | `document.exportBookmarks` | ✅ available |
 | Export Selected Bookmarks… | `document.exportSelBookmarks` | ✅ available |
-| Find | `document.find` | 🟡 partial |
+| Find | `document.find` | ✅ available |
 | Find Duplicate Pages | `document.findDuplicates` | ✅ available |
 | Highlight from File | `document.highlightFile` | ⬜ planned |
 | Import Bookmarks | `document.importBookmarks` | ✅ available |
@@ -1986,15 +1986,15 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `digisig.view.validate` | Document › Digital Signature › View › Validate | ✅ available |
 | `document` | Document | 🟡 partial |
 | `document.find.caseSensitive` | Document › Find › Case Sensitive | ✅ available |
-| `document.find.coloredResults` | Document › Find › Colored Results | ⬜ planned |
+| `document.find.coloredResults` | Document › Find › Colored Results | ✅ available |
 | `document.find.gotoNext` | Document › Find › Go To Next | ✅ available |
 | `document.find.gotoPrev` | Document › Find › Go To Previous | ✅ available |
-| `document.find.ignoreDiacritics` | Document › Find › Ignore Diacritics | ⬜ planned |
-| `document.find.includeAnnotations` | Document › Find › Include Annotations | ⬜ planned |
-| `document.find.includeBookmarks` | Document › Find › Include Bookmarks | ⬜ planned |
-| `document.find.includeExtLinks` | Document › Find › Include Extension Links | ⬜ planned |
-| `document.find.includeFormFields` | Document › Find › Include Form Fields | ⬜ planned |
-| `document.find.includePageText` | Document › Find › Include Page Text | ⬜ planned |
+| `document.find.ignoreDiacritics` | Document › Find › Ignore Diacritics | ✅ available |
+| `document.find.includeAnnotations` | Document › Find › Include Annotations | ✅ available |
+| `document.find.includeBookmarks` | Document › Find › Include Bookmarks | ✅ available |
+| `document.find.includeExtLinks` | Document › Find › Include Extension Links | ✅ available |
+| `document.find.includeFormFields` | Document › Find › Include Form Fields | ✅ available |
+| `document.find.includePageText` | Document › Find › Include Page Text | ✅ available |
 | `document.find.wholeWords` | Document › Find › Whole Words | ✅ available |
 | `document.signatures.certify.invisible` | Document › Digital Signatures › Certify (Visible) › Certify (Invisible) | ✅ available |
 | `dsd.pageSize` | Edit › Document Size › Page Size | ⬜ planned |
@@ -2242,30 +2242,30 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `search.start` | Edit › Search › Start | ✅ available |
 | `search.stop` | Edit › Search › Stop | ⬜ planned |
 | `searchView.caseSensitive` | View › Search Pane › Case Sensitive | ✅ available |
-| `searchView.estimateFolder` | View › Search Pane › Estimate Folder | ⬜ planned |
-| `searchView.ignoreDiacritics` | View › Search Pane › Ignore Diacritics | ⬜ planned |
-| `searchView.includeAnnotations` | View › Search Pane › Include Annotations | ⬜ planned |
-| `searchView.includeAttachments` | View › Search Pane › Include Attachments | ⬜ planned |
-| `searchView.includeBookmarks` | View › Search Pane › Include Bookmarks | ⬜ planned |
-| `searchView.includeDocInfo` | View › Search Pane › Include Document Info | ⬜ planned |
-| `searchView.includeExtLinks` | View › Search Pane › Include Extension Links | ⬜ planned |
-| `searchView.includeFormFields` | View › Search Pane › Include Form Fields | ⬜ planned |
-| `searchView.includePageText` | View › Search Pane › Include Page Text | ⬜ planned |
-| `searchView.lookInSubFolders` | View › Search Pane › Look in Sub Folders | ⬜ planned |
-| `searchView.proximity` | View › Search Pane › Proximity | ⬜ planned |
-| `searchView.proximity.adjacent` | View › Search Pane › Proximity › Adjacent | ⬜ planned |
-| `searchView.proximity.sameDoc` | View › Search Pane › Proximity › Same Document | ⬜ planned |
-| `searchView.proximity.samePage` | View › Search Pane › Proximity › Same Page | ⬜ planned |
-| `searchView.proximity.samePara` | View › Search Pane › Proximity › Same Para | ⬜ planned |
-| `searchView.results` | View › Search Pane › Results | 🟡 partial |
+| `searchView.estimateFolder` | View › Search Pane › Estimate Folder | ✅ available |
+| `searchView.ignoreDiacritics` | View › Search Pane › Ignore Diacritics | ✅ available |
+| `searchView.includeAnnotations` | View › Search Pane › Include Annotations | ✅ available |
+| `searchView.includeAttachments` | View › Search Pane › Include Attachments | ✅ available |
+| `searchView.includeBookmarks` | View › Search Pane › Include Bookmarks | ✅ available |
+| `searchView.includeDocInfo` | View › Search Pane › Include Document Info | ✅ available |
+| `searchView.includeExtLinks` | View › Search Pane › Include Extension Links | ✅ available |
+| `searchView.includeFormFields` | View › Search Pane › Include Form Fields | ✅ available |
+| `searchView.includePageText` | View › Search Pane › Include Page Text | ✅ available |
+| `searchView.lookInSubFolders` | View › Search Pane › Look in Sub Folders | ✅ available |
+| `searchView.proximity` | View › Search Pane › Proximity | ✅ available |
+| `searchView.proximity.adjacent` | View › Search Pane › Proximity › Adjacent | ✅ available |
+| `searchView.proximity.sameDoc` | View › Search Pane › Proximity › Same Document | ✅ available |
+| `searchView.proximity.samePage` | View › Search Pane › Proximity › Same Page | ✅ available |
+| `searchView.proximity.samePara` | View › Search Pane › Proximity › Same Para | ✅ available |
+| `searchView.results` | View › Search Pane › Results | ✅ available |
 | `searchView.results.clear` | View › Search Pane › Results › Clear | ✅ available |
-| `searchView.results.collapseAll` | View › Search Pane › Results › Collapse All | ⬜ planned |
-| `searchView.results.expandAll` | View › Search Pane › Results › Expand All | ⬜ planned |
-| `searchView.results.open` | View › Search Pane › Results › Open | ⬜ planned |
+| `searchView.results.collapseAll` | View › Search Pane › Results › Collapse All | ✅ available |
+| `searchView.results.expandAll` | View › Search Pane › Results › Expand All | ✅ available |
+| `searchView.results.open` | View › Search Pane › Results › Open | ✅ available |
 | `searchView.results.save` | View › Search Pane › Results › Save | ✅ available |
-| `searchView.results.showCommentTypes` | View › Search Pane › Results › Show Comment Types | ⬜ planned |
-| `searchView.results.showContextBookmarks` | View › Search Pane › Results › Show Context Bookmarks | ⬜ planned |
-| `searchView.results.showIcon` | View › Search Pane › Results › Show Icon | ⬜ planned |
+| `searchView.results.showCommentTypes` | View › Search Pane › Results › Show Comment Types | ✅ available |
+| `searchView.results.showContextBookmarks` | View › Search Pane › Results › Show Context Bookmarks | ✅ available |
+| `searchView.results.showIcon` | View › Search Pane › Results › Show Icon | ✅ available |
 | `searchView.results.showPageNum` | View › Search Pane › Results › Show Page Num | ✅ available |
 | `searchView.results.wrapText` | View › Search Pane › Results › Wrap Text | ✅ available |
 | `searchView.wholeWords` | View › Search Pane › Whole Words | ✅ available |

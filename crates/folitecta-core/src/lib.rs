@@ -33,6 +33,7 @@ pub mod pagetools;
 pub mod redaction;
 pub mod render;
 pub mod scripts;
+pub mod search;
 pub mod security;
 pub mod signmarks;
 pub mod stamps;

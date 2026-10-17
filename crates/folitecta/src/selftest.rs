@@ -1410,7 +1410,55 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     st.set_value("fields.manual", "");
     st.ui_mut().left_pane = "thumbnails".into();
 
-    // 29. Undo everything added above.
+    // 29. Search: comments as well as the page text, words on the same page,
+    // grouped results that collapse.
+    {
+        let mut ui = st.ui_mut();
+        ui.left_pane = "search".into();
+        ui.show_left_pane = true;
+    }
+    pause(400).await;
+    crate::commands::dispatch(st, "searchView.includeAnnotations");
+    crate::ui::panes::run_search(st, "review");
+    pause(400).await;
+    let comments_found = st
+        .read_active(|t| {
+            t.search
+                .other
+                .iter()
+                .any(|o| matches!(o.found_in, folitecta_core::search::FoundIn::Comment { .. }))
+        })
+        .unwrap_or(false);
+    record("search finds comments", comments_found, String::new());
+    st.set_value("search.proximity", "page");
+    crate::ui::panes::run_search(st, "lazy fox");
+    pause(500).await;
+    let words: std::collections::BTreeSet<usize> = st
+        .read_active(|t| t.search.hits.iter().map(|h| h.word).collect())
+        .unwrap_or_default();
+    record(
+        "words found on the same page",
+        words.len() == 2,
+        format!("{words:?}"),
+    );
+    let _ = document::eval("[...document.querySelectorAll('.search-opts .linkish')].pop()?.click();").await;
+    pause(400).await;
+    let _ = capture_window(&dir.join("interaction-search-options.png"));
+    crate::commands::dispatch(st, "searchView.results.collapseAll");
+    pause(300).await;
+    let items = document::eval("return document.querySelectorAll('.search-results .list-item').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(99);
+    record("result groups collapse", items == 0, format!("{items} visible"));
+    crate::commands::dispatch(st, "searchView.results.expandAll");
+    crate::commands::dispatch(st, "searchView.includeAnnotations");
+    st.set_value("search.proximity", "");
+    crate::ui::panes::run_search(st, "");
+    st.ui_mut().left_pane = "thumbnails".into();
+
+    // 30. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..30 {
         crate::commands::dispatch(st, "undo");

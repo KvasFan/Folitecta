@@ -696,6 +696,18 @@ fn after_create(st: AppState) {
     }
 }
 
+/// Class of a search hit: the current one, and one color per word of the query.
+fn hit_class(current: bool, word: usize, colored: bool) -> String {
+    let mut c = String::from("hit");
+    if current {
+        c.push_str(" current");
+    }
+    if colored {
+        c.push_str(&format!(" w{}", word % 5));
+    }
+    c
+}
+
 #[component]
 fn PageView(
     tab_id: u64,
@@ -732,13 +744,14 @@ fn PageView(
     let contrast = option_on(st, "view.overrideDocumentColors");
     let track_pointer = option_on(st, "view.showPageMeasureInfo");
     let show_size = option_on(st, "view.showPageSizePopup");
+    let colored = option_on(st, "document.find.coloredResults");
 
     struct View {
         size: PageSize,
         annots: Vec<(usize, String, [f32; 4], String)>,
         links: Vec<[f32; 4]>,
         fields: Vec<[f32; 4]>,
-        hits: Vec<(bool, [f32; 4])>,
+        hits: Vec<(bool, [f32; 4], usize)>,
         sel: Vec<[f32; 4]>,
         guides: Vec<(bool, f32)>,
         selected: Option<usize>,
@@ -810,7 +823,7 @@ fn PageView(
                 .iter()
                 .enumerate()
                 .filter(|(_, h)| h.page == page)
-                .flat_map(|(i, h)| h.rects.iter().map(move |r| (i == t.search.current, *r)))
+                .flat_map(|(i, h)| h.rects.iter().map(move |r| (i == t.search.current, *r, h.word)))
                 .collect();
             let sel = match t.text_sel {
                 Some(s) if s.page == page && !s.is_empty() => {
@@ -1387,8 +1400,8 @@ fn PageView(
                 for (i, r) in view.fields.iter().enumerate() {
                     div { key: "f{i}", class: "field-box", style: "{css(*r)}" }
                 }
-                for (i, (cur, r)) in view.hits.iter().enumerate() {
-                    div { key: "h{i}", class: if *cur { "hit current" } else { "hit" }, style: "{css(*r)}" }
+                for (i, (cur, r, word)) in view.hits.iter().enumerate() {
+                    div { key: "h{i}", class: "{hit_class(*cur, *word, colored)}", style: "{css(*r)}" }
                 }
                 for (i, r) in view.sel.iter().enumerate() {
                     div { key: "s{i}", class: "sel", style: "{css(*r)}" }

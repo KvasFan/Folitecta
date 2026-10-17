@@ -672,3 +672,26 @@ html.emulate-print .print-page img { max-width: 100%; max-height: 100%; object-f
 .fields-manual { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-bottom: 1px solid var(--border); }
 .fields-manual .tbtn { align-self: flex-start; }
 .pane-toolbar .ibtn.on { color: var(--accent); background: var(--accent-soft); }
+
+/* Search: word colors, options, grouped results */
+.hit.w1 { background: rgba(74, 222, 128, .45); }
+.hit.w2 { background: rgba(56, 189, 248, .45); }
+.hit.w3 { background: rgba(244, 114, 182, .45); }
+.hit.w4 { background: rgba(167, 139, 250, .45); }
+.hit.current.w1, .hit.current.w2, .hit.current.w3, .hit.current.w4 { outline: 2px solid #f97316; }
+.search-opts .linkish { border: none; background: none; color: var(--accent); padding: 0; font-size: 12px; cursor: pointer; }
+.search-opts .linkish:hover { text-decoration: underline; }
+.search-more { display: flex; flex-direction: column; gap: 6px; padding: 6px 10px 10px; border-bottom: 1px solid var(--border); }
+.search-more-title { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-top: 4px; }
+.search-scopes { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 4px 10px; }
+.search-scopes .check span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-folder-status { padding: 4px 10px; font-size: 11.5px; overflow-wrap: anywhere; }
+.result-group { display: flex; align-items: center; gap: 6px; padding: 5px 8px; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: var(--radius-sm); min-width: 0; }
+.result-group:hover { background: var(--surface-3); }
+.result-group .twisty { width: 12px; color: var(--muted); flex: none; }
+.result-group .ic { width: 14px; height: 14px; flex: none; color: var(--muted); }
+.result-group .ellipsis { flex: 1; min-width: 0; }
+.result-group .chip { flex: none; font-weight: 400; }
+.list-item.result .title { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.list-item.result .title .ic { width: 13px; height: 13px; flex: none; color: var(--muted); }
+.search-results.wrap .snippet { white-space: normal; }

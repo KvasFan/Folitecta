@@ -78,14 +78,26 @@ impl Document {
         let margin = layout
             .margin
             .clamp(0.0, layout.page_width.min(layout.page_height) / 3.0);
-        let lines = wrap_text(text, fs, layout.page_width - 2.0 * margin);
         let leading = fs * 1.25;
         let per_page = (((layout.page_height - 2.0 * margin) / leading).floor() as usize).max(1);
-        let chunks: Vec<&[String]> = if lines.is_empty() {
-            vec![&[][..]]
-        } else {
-            lines.chunks(per_page).collect()
-        };
+        // A form feed starts a new page.
+        let mut sections: Vec<&str> = text.split('\u{c}').collect();
+        if sections.len() > 1 && sections.last().is_some_and(|s| s.trim().is_empty()) {
+            sections.pop();
+        }
+        let mut chunks: Vec<Vec<String>> = Vec::new();
+        for section in sections {
+            let lines = wrap_text(
+                section.trim_start_matches(['\r', '\n']),
+                fs,
+                layout.page_width - 2.0 * margin,
+            );
+            if lines.is_empty() {
+                chunks.push(Vec::new());
+            } else {
+                chunks.extend(lines.chunks(per_page).map(|c| c.to_vec()));
+            }
+        }
         let mut doc = Document::new_blank(chunks.len(), layout.page_width, layout.page_height)?;
         let font = doc.helvetica_font_id();
         let ids = doc.page_ids();
@@ -118,6 +130,13 @@ impl Document {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn form_feeds_start_pages() {
+        let doc = Document::from_text("one\u{c}two\n\u{c}three\u{c}", TextLayout::default()).unwrap();
+        assert_eq!(doc.page_count(), 3);
+        assert_eq!(doc.page_text(1), "two");
+    }
 
     #[test]
     fn wraps_long_lines_and_keeps_blank_lines() {

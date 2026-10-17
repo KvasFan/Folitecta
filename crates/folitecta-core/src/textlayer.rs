@@ -302,8 +302,64 @@ pub fn extract_all(bytes: Arc<Vec<u8>>) -> Result<Vec<PageText>> {
     Ok(pdf.pages().iter().map(extract_page).collect())
 }
 
-fn fold_char(c: char, case_sensitive: bool) -> char {
-    if case_sensitive {
+/// Base letter of an accented Latin letter (`é` gives `e`); other characters
+/// are returned unchanged.
+pub fn strip_diacritic(c: char) -> char {
+    match c {
+        'À'..='Å' | 'Ā' | 'Ă' | 'Ą' => 'A',
+        'à'..='å' | 'ā' | 'ă' | 'ą' => 'a',
+        'Ç' | 'Ć' | 'Ĉ' | 'Ċ' | 'Č' => 'C',
+        'ç' | 'ć' | 'ĉ' | 'ċ' | 'č' => 'c',
+        'Ď' | 'Đ' => 'D',
+        'ď' | 'đ' => 'd',
+        'È'..='Ë' | 'Ē' | 'Ĕ' | 'Ė' | 'Ę' | 'Ě' => 'E',
+        'è'..='ë' | 'ē' | 'ĕ' | 'ė' | 'ę' | 'ě' => 'e',
+        'Ĝ' | 'Ğ' | 'Ġ' | 'Ģ' => 'G',
+        'ĝ' | 'ğ' | 'ġ' | 'ģ' => 'g',
+        'Ĥ' | 'Ħ' => 'H',
+        'ĥ' | 'ħ' => 'h',
+        'Ì'..='Ï' | 'Ĩ' | 'Ī' | 'Ĭ' | 'Į' | 'İ' => 'I',
+        'ì'..='ï' | 'ĩ' | 'ī' | 'ĭ' | 'į' | 'ı' => 'i',
+        'Ĵ' => 'J',
+        'ĵ' => 'j',
+        'Ķ' => 'K',
+        'ķ' => 'k',
+        'Ĺ' | 'Ļ' | 'Ľ' | 'Ŀ' | 'Ł' => 'L',
+        'ĺ' | 'ļ' | 'ľ' | 'ŀ' | 'ł' => 'l',
+        'Ñ' | 'Ń' | 'Ņ' | 'Ň' => 'N',
+        'ñ' | 'ń' | 'ņ' | 'ň' => 'n',
+        'Ò'..='Ö' | 'Ø' | 'Ō' | 'Ŏ' | 'Ő' => 'O',
+        'ò'..='ö' | 'ø' | 'ō' | 'ŏ' | 'ő' => 'o',
+        'Ŕ' | 'Ŗ' | 'Ř' => 'R',
+        'ŕ' | 'ŗ' | 'ř' => 'r',
+        'Ś' | 'Ŝ' | 'Ş' | 'Š' | 'Ș' => 'S',
+        'ś' | 'ŝ' | 'ş' | 'š' | 'ș' => 's',
+        'Ţ' | 'Ť' | 'Ŧ' | 'Ț' => 'T',
+        'ţ' | 'ť' | 'ŧ' | 'ț' => 't',
+        'Ù'..='Ü' | 'Ũ' | 'Ū' | 'Ŭ' | 'Ů' | 'Ű' | 'Ų' => 'U',
+        'ù'..='ü' | 'ũ' | 'ū' | 'ŭ' | 'ů' | 'ű' | 'ų' => 'u',
+        'Ŵ' => 'W',
+        'ŵ' => 'w',
+        'Ý' | 'Ŷ' | 'Ÿ' => 'Y',
+        'ý' | 'ÿ' | 'ŷ' => 'y',
+        'Ź' | 'Ż' | 'Ž' => 'Z',
+        'ź' | 'ż' | 'ž' => 'z',
+        _ => c,
+    }
+}
+
+/// A combining accent (written after its letter).
+fn is_combining(c: char) -> bool {
+    matches!(c as u32, 0x300..=0x36F)
+}
+
+fn fold(c: char, opts: SearchOptions) -> char {
+    let c = if opts.ignore_diacritics {
+        strip_diacritic(c)
+    } else {
+        c
+    };
+    if opts.case_sensitive {
         c
     } else {
         c.to_lowercase().next().unwrap_or(c)
@@ -312,6 +368,67 @@ fn fold_char(c: char, case_sensitive: bool) -> char {
 
 fn is_word_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
+}
+
+/// Character ranges `[start, end)` of `text` matching `query`. Whitespace in
+/// the query matches any run of whitespace (including line breaks).
+pub fn find_in(text: &str, query: &str, opts: SearchOptions) -> Vec<(usize, usize)> {
+    let q: Vec<char> = query
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .filter(|c| !(opts.ignore_diacritics && is_combining(*c)))
+        .map(|c| fold(c, opts))
+        .collect();
+    if q.is_empty() {
+        return Vec::new();
+    }
+    let hay: Vec<char> = text.chars().map(|c| fold(c, opts)).collect();
+    let skip = |c: char| opts.ignore_diacritics && is_combining(c);
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < hay.len() {
+        if skip(hay[i]) {
+            i += 1;
+            continue;
+        }
+        let mut j = i;
+        let mut k = 0;
+        while k < q.len() && j < hay.len() {
+            if skip(hay[j]) {
+                j += 1;
+            } else if q[k] == ' ' {
+                if !hay[j].is_whitespace() {
+                    break;
+                }
+                while j < hay.len() && hay[j].is_whitespace() {
+                    j += 1;
+                }
+                k += 1;
+            } else if hay[j] == q[k] {
+                j += 1;
+                k += 1;
+            } else {
+                break;
+            }
+        }
+        // Accents of the last letter belong to the match.
+        while k == q.len() && j < hay.len() && skip(hay[j]) {
+            j += 1;
+        }
+        if k == q.len() {
+            let ok = !opts.whole_words
+                || ((i == 0 || !is_word_char(hay[i - 1])) && (j >= hay.len() || !is_word_char(hay[j])));
+            if ok {
+                out.push((i, j));
+                i = j.max(i + 1);
+                continue;
+            }
+        }
+        i += 1;
+    }
+    out
 }
 
 impl PageText {
@@ -332,56 +449,56 @@ impl PageText {
     /// Character ranges `[start, end)` matching `query`. Whitespace in the query
     /// matches any run of whitespace (including line breaks) in the page.
     pub fn find(&self, query: &str, opts: SearchOptions) -> Vec<(usize, usize)> {
-        let q: Vec<char> = query
-            .split_whitespace()
-            .collect::<Vec<_>>()
-            .join(" ")
-            .chars()
-            .map(|c| fold_char(c, opts.case_sensitive))
-            .collect();
-        if q.is_empty() {
-            return Vec::new();
-        }
-        let hay: Vec<char> = self
-            .text
-            .chars()
-            .map(|c| fold_char(c, opts.case_sensitive))
-            .collect();
+        find_in(&self.text, query, opts)
+    }
+
+    /// Character ranges of the words (runs of letters, digits and `_`).
+    pub fn words(&self) -> Vec<(usize, usize)> {
         let mut out = Vec::new();
-        let mut i = 0;
-        while i < hay.len() {
-            let mut j = i;
-            let mut k = 0;
-            while k < q.len() && j < hay.len() {
-                if q[k] == ' ' {
-                    if !hay[j].is_whitespace() {
-                        break;
-                    }
-                    while j < hay.len() && hay[j].is_whitespace() {
-                        j += 1;
-                    }
-                    k += 1;
-                } else if hay[j] == q[k] {
-                    j += 1;
-                    k += 1;
-                } else {
-                    break;
+        let mut start = None;
+        let mut n = 0;
+        for (i, c) in self.text.chars().enumerate() {
+            n = i + 1;
+            match (is_word_char(c) || is_combining(c), start) {
+                (true, None) => start = Some(i),
+                (false, Some(s)) => {
+                    out.push((s, i));
+                    start = None;
                 }
+                _ => {}
             }
-            if k == q.len() {
-                let ok = !opts.whole_words
-                    || ((i == 0 || !is_word_char(hay[i - 1])) && (j >= hay.len() || !is_word_char(hay[j])));
-                if ok {
-                    out.push((i, j));
-                    i = j.max(i + 1);
-                    continue;
-                }
-            }
-            i += 1;
+        }
+        if let Some(s) = start {
+            out.push((s, n));
         }
         out
     }
 
+    /// Character ranges of the paragraphs: lines separated by a vertical gap
+    /// larger than most of a line, or starting a new column.
+    pub fn paragraphs(&self) -> Vec<(usize, usize)> {
+        let mut out: Vec<(usize, usize)> = Vec::new();
+        let mut prev: Option<&TextLine> = None;
+        for l in &self.lines {
+            let new_para = match prev {
+                None => true,
+                Some(p) => {
+                    let h = (p.bbox[3] - p.bbox[1]).max(1.0);
+                    let gap = l.bbox[1] - p.bbox[3];
+                    gap > h * 0.7 || l.bbox[1] < p.bbox[1] - h
+                }
+            };
+            match out.last_mut() {
+                Some(last) if !new_para => last.1 = l.end,
+                _ => out.push((l.start, l.end)),
+            }
+            prev = Some(l);
+        }
+        if out.is_empty() && !self.text.is_empty() {
+            out.push((0, self.text.chars().count()));
+        }
+        out
+    }
     fn glyph_range(&self, start: usize, end: usize) -> Vec<usize> {
         let mut gl: Vec<usize> = self
             .char_glyph

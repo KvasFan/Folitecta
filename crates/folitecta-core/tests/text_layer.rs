@@ -63,7 +63,8 @@ fn search_returns_rectangles() {
             "REPORT",
             SearchOptions {
                 case_sensitive: true,
-                whole_words: false
+                whole_words: false,
+                ..Default::default()
             }
         )
         .is_empty()
@@ -73,7 +74,8 @@ fn search_returns_rectangles() {
             "port",
             SearchOptions {
                 case_sensitive: false,
-                whole_words: true
+                whole_words: true,
+                ..Default::default()
             }
         )
         .len(),

@@ -9,6 +9,8 @@ use crate::textlayer::PageText;
 pub struct SearchOptions {
     pub case_sensitive: bool,
     pub whole_words: bool,
+    /// Accented letters match their base letter (`é` matches `e`).
+    pub ignore_diacritics: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -22,6 +24,41 @@ pub struct SearchHit {
     /// Rectangles covering the hit, display space (points, y down).
     pub rects: Vec<[f32; 4]>,
     pub snippet: String,
+    /// Which word of the query it matches (0 for a phrase).
+    pub word: usize,
+}
+
+/// A hit of the character range `[start, end)` of a page, with some context.
+pub(crate) fn make_hit(
+    page: usize,
+    index: usize,
+    layer: &PageText,
+    chars: &[char],
+    start: usize,
+    end: usize,
+    word: usize,
+) -> SearchHit {
+    let from = start.saturating_sub(40);
+    let to = (end + 40).min(chars.len());
+    let mut snippet: String = chars[from.min(to)..to]
+        .iter()
+        .map(|c| if c.is_whitespace() { ' ' } else { *c })
+        .collect();
+    if from > 0 {
+        snippet.insert(0, '…');
+    }
+    if to < chars.len() {
+        snippet.push('…');
+    }
+    SearchHit {
+        page,
+        index,
+        start,
+        end,
+        rects: layer.range_rects(start, end),
+        snippet,
+        word,
+    }
 }
 
 fn normalize(text: &str) -> String {
@@ -83,26 +120,7 @@ impl Document {
         for (page, layer) in self.text_layers().iter().enumerate() {
             let chars: Vec<char> = layer.text.chars().collect();
             for (index, (start, end)) in layer.find(query, opts).into_iter().enumerate() {
-                let from = start.saturating_sub(40);
-                let to = (end + 40).min(chars.len());
-                let mut snippet: String = chars[from..to]
-                    .iter()
-                    .map(|c| if c.is_whitespace() { ' ' } else { *c })
-                    .collect();
-                if from > 0 {
-                    snippet.insert(0, '…');
-                }
-                if to < chars.len() {
-                    snippet.push('…');
-                }
-                hits.push(SearchHit {
-                    page,
-                    index,
-                    start,
-                    end,
-                    rects: layer.range_rects(start, end),
-                    snippet,
-                });
+                hits.push(make_hit(page, index, layer, &chars, start, end, 0));
             }
         }
         hits

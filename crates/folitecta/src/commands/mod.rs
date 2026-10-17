@@ -23,6 +23,7 @@ mod pages;
 mod panes;
 mod protect;
 pub(crate) mod review;
+pub(crate) mod search;
 pub(crate) mod signatures;
 pub(crate) mod signs;
 mod view;
@@ -67,6 +68,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     layers::HANDLERS,
     attachments::HANDLERS,
     fields_pane::HANDLERS,
+    search::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -168,11 +170,22 @@ pub const VIEW_OPTIONS: &[&str] = &[
     "attachmentsView.hdr.type",
     "attachmentsView.hdr.relationship",
     "fieldsView.showFullNames",
+    "searchView.results.showCommentTypes",
+    "searchView.results.showContextBookmarks",
+    "searchView.results.showIcon",
+    "searchView.lookInSubFolders",
+    "searchView.estimateFolder",
+    "document.find.coloredResults",
 ];
 
 /// Options that are on unless the user turned them off.
 pub const DEFAULT_ON: &[&str] = &[
     "view.spellCheck",
+    "search.pageText",
+    "searchView.results.showCommentTypes",
+    "searchView.results.showIcon",
+    "searchView.lookInSubFolders",
+    "document.find.coloredResults",
     "attachmentsView.hdr.name",
     "attachmentsView.hdr.description",
     "attachmentsView.hdr.modified",
@@ -226,6 +239,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| interface::interface_state(st, id))
         .or_else(|| layers::layers_state(st, id))
         .or_else(|| fields_pane::fields_state(st, id))
+        .or_else(|| search::search_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

@@ -5,7 +5,7 @@ use crate::annots::Markup;
 use crate::document::{Document, PageSize};
 use crate::error::{Error, Result};
 use crate::marks::display_to_pdf;
-use crate::text::SearchOptions;
+use crate::text::{SearchHit, SearchOptions};
 
 /// Convert a display-space rectangle (`[x0, y0, x1, y1]`, y down) to PDF user space.
 pub fn display_rect_to_pdf(size: &PageSize, r: [f32; 4]) -> [f32; 4] {
@@ -118,7 +118,18 @@ impl Document {
         author: &str,
     ) -> Result<usize> {
         let hits = self.search(query, opts);
-        for h in &hits {
+        self.markup_hits(&hits, kind, color, author)
+    }
+
+    /// Apply a text markup to the given search hits. Returns the count.
+    pub fn markup_hits(
+        &mut self,
+        hits: &[SearchHit],
+        kind: Markup,
+        color: [f32; 3],
+        author: &str,
+    ) -> Result<usize> {
+        for h in hits {
             self.markup_text_range(h.page, h.start, h.end, kind, color, author)?;
         }
         Ok(hits.len())
@@ -127,7 +138,12 @@ impl Document {
     /// Mark every occurrence of `query` for redaction. Returns the count.
     pub fn redact_search_results(&mut self, query: &str, opts: SearchOptions, author: &str) -> Result<usize> {
         let hits = self.search(query, opts);
-        for h in &hits {
+        self.redact_hits(&hits, author)
+    }
+
+    /// Mark the given search hits for redaction. Returns the count.
+    pub fn redact_hits(&mut self, hits: &[SearchHit], author: &str) -> Result<usize> {
+        for h in hits {
             self.redact_text_range(h.page, h.start, h.end, author)?;
         }
         Ok(hits.len())

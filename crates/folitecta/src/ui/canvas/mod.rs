@@ -1,0 +1,444 @@
+//! Document tabs and the page canvas: rendering, tools, selections and overlays.
+
+use dioxus::html::geometry::WheelDelta;
+use dioxus::html::input_data::MouseButton;
+use dioxus::html::{InteractionElementOffset, InteractionLocation, ModifiersInteraction, PointerInteraction};
+use dioxus::prelude::*;
+use folitecta_core::marks::{display_to_pdf, pdf_rect_to_display};
+use folitecta_core::{Markup, PageSize, Shape};
+
+use crate::commands::{self, current_zoom, option_on};
+use crate::files;
+use crate::i18n::t;
+use crate::icons::Icon;
+use crate::state::{AfterUnsaved, AppState, Dialog, Layout, TextSel, ToastKind, Tool, Zoom};
+use crate::ui::form_fill::{FieldInput, fill_field};
+use crate::ui::welcome::Welcome;
+
+mod create;
+mod geometry;
+mod page;
+mod popups;
+mod rulers;
+
+pub use create::*;
+use geometry::*;
+use page::*;
+pub use popups::*;
+use rulers::*;
+
+/// Points per ruler unit and the minor/major tick spacing (in units).
+pub fn unit_info(units: &str) -> (f32, f32, f32, &'static str) {
+    match units {
+        "pt" => (1.0, 10.0, 50.0, "pt"),
+        "in" => (72.0, 0.125, 1.0, "in"),
+        "cm" => (28.3465, 0.5, 1.0, "cm"),
+        "pc" => (12.0, 1.0, 6.0, "pc"),
+        _ => (2.83465, 5.0, 10.0, "mm"),
+    }
+}
+
+#[component]
+pub fn CanvasArea() -> Element {
+    let st = use_context::<AppState>();
+    if !st.has_doc() {
+        return rsx! { div { class: "canvas-wrap", Welcome {} } };
+    }
+    let info_bar = option_on(st, "view.docInfoBar");
+    // Portfolios show their files unless the cover is asked for.
+    let files = st
+        .read_active(|t| !t.portfolio.cover && t.doc.portfolio().is_some_and(|p| p.view != "H"))
+        .unwrap_or(false);
+    rsx! {
+        div { class: "canvas-wrap",
+            DocTabs {}
+            if info_bar { DocInfoBar {} }
+            if files {
+                crate::ui::portfolio::PortfolioView {}
+            } else {
+                if st.read_active(|t| t.doc.is_portfolio()).unwrap_or(false) {
+                    crate::ui::portfolio::CoverBar {}
+                }
+                Canvas {}
+                Loupe {}
+                if option_on(st, "view.panzoom") { PanZoomWindow {} }
+            }
+        }
+    }
+}
+
+/// Visible part of the current page as fractions of its size: x0, y0, x1, y1.
+const VIEWPORT_JS: &str = "const c = document.getElementById('canvas'); const el = document.getElementById('pg-PAGE'); if (!c || !el) return null; const r = el.getBoundingClientRect(), v = c.getBoundingClientRect(); const f = (a, b) => Math.min(1, Math.max(0, a / b)); return [f(v.left - r.left, r.width), f(v.top - r.top, r.height), f(v.right - r.left, r.width), f(v.bottom - r.top, r.height)];";
+
+/// Overview of the current page with the visible area; click or drag to move it.
+#[component]
+fn PanZoomWindow() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let mut view: Signal<Option<[f64; 4]>> = use_signal(|| None);
+    let mut dragging = use_signal(|| false);
+    let Some((tab, page, rev, size)) =
+        st.read_active(|t| (t.id, t.page, t.view_rev(), t.page_sizes.get(t.page).copied()))
+    else {
+        return rsx! {};
+    };
+    // Follow scrolling and zooming.
+    use_future(move || async move {
+        loop {
+            let p = st.current_page();
+            let js = VIEWPORT_JS.replace("PAGE", &p.to_string());
+            if let Ok(v) = document::eval(&js).await {
+                let arr: Option<[f64; 4]> = v.as_array().and_then(|a| {
+                    let n: Vec<f64> = a.iter().filter_map(|x| x.as_f64()).collect();
+                    (n.len() == 4).then(|| [n[0], n[1], n[2], n[3]])
+                });
+                if *view.peek() != arr {
+                    view.set(arr);
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        }
+    });
+    let (w, h) = size.map(|s| (s.width, s.height)).unwrap_or((595.0, 842.0));
+    let box_w = 180.0f32;
+    let box_h = (box_w * h / w).min(240.0);
+    let box_w = box_h * w / h;
+    let scale = ((box_w / w) * 2.0 * 1000.0).round().clamp(50.0, 2000.0) as u32;
+    let rect = view().map(|r| {
+        format!(
+            "left:{}px;top:{}px;width:{}px;height:{}px",
+            r[0] * box_w as f64,
+            r[1] * box_h as f64,
+            ((r[2] - r[0]) * box_w as f64).max(4.0),
+            ((r[3] - r[1]) * box_h as f64).max(4.0)
+        )
+    });
+    let move_to = move |fx: f64, fy: f64| {
+        let page = st.current_page();
+        let js = format!(
+            "const c = document.getElementById('canvas'); const el = document.getElementById('pg-{page}'); if (c && el) {{ const r = el.getBoundingClientRect(), v = c.getBoundingClientRect(); c.scrollLeft += (r.left + {fx} * r.width) - (v.left + c.clientWidth / 2); c.scrollTop += (r.top + {fy} * r.height) - (v.top + c.clientHeight / 2); }}"
+        );
+        spawn(async move {
+            let _ = document::eval(&js).await;
+        });
+    };
+    let zoom_pct = (current_zoom(st) * 100.0).round();
+    rsx! {
+        div { class: "panzoom", onmousedown: move |e| e.stop_propagation(), onclick: move |e| e.stop_propagation(),
+            div { class: "panzoom-head",
+                span { class: "ellipsis", "{t(lang, \"cmd.view.panzoom\")}" }
+                button { class: "ibtn", title: "{t(lang, \"dialog.close\")}", onclick: move |_| st.set_option("view.panzoom", false), "×" }
+            }
+            div { class: "panzoom-page", style: "width:{box_w}px;height:{box_h}px",
+                onmousedown: move |e| {
+                    dragging.set(true);
+                    let p = e.element_coordinates();
+                    move_to(p.x / box_w as f64, p.y / box_h as f64);
+                },
+                onmousemove: move |e| {
+                    if dragging() {
+                        let p = e.element_coordinates();
+                        move_to(p.x / box_w as f64, p.y / box_h as f64);
+                    }
+                },
+                onmouseup: move |_| dragging.set(false),
+                onmouseleave: move |_| dragging.set(false),
+                img { src: "/page/{tab}/{page}/{rev}/{scale}.png", alt: "", draggable: "false", width: "{box_w}", height: "{box_h}" }
+                if let Some(style) = rect {
+                    div { class: "panzoom-view", style: "{style}" }
+                }
+            }
+            div { class: "panzoom-foot",
+                button { class: "ibtn", title: "{t(lang, \"cmd.zoomOut\")}", onclick: move |_| commands::dispatch(st, "zoomOut"), Icon { name: "zoom-out" } }
+                span { class: "muted", "{zoom_pct}%" }
+                button { class: "ibtn", title: "{t(lang, \"cmd.zoomIn\")}", onclick: move |_| commands::dispatch(st, "zoomIn"), Icon { name: "zoom-in" } }
+                button { class: "ibtn", title: "{t(lang, \"cmd.zoom.level.fitPage\")}", onclick: move |_| commands::dispatch(st, "zoom.level.fitPage"), Icon { name: "fit" } }
+            }
+        }
+    }
+}
+
+#[component]
+fn DocInfoBar() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let Some(info) = st.read_active(|t| t.doc.info()) else {
+        return rsx! {};
+    };
+    let title = if info.title.is_empty() {
+        t(lang, "label.untitled")
+    } else {
+        info.title.clone()
+    };
+    rsx! {
+        div { class: "doc-info-bar",
+            Icon { name: "info" }
+            span { class: "strong", "{title}" }
+            if !info.author.is_empty() { span { "· {info.author}" } }
+            span { "· {info.page_count} {t(lang, \"dialog.props.pages\").to_lowercase()}" }
+            span { "· PDF {info.version}" }
+            span { "· {crate::util::human_size(info.file_size)}" }
+            if info.encrypted { span { class: "chip", "{t(lang, \"dialog.props.encrypted\")}" } }
+            if info.has_form { span { class: "chip", "{t(lang, \"dialog.props.form\")}" } }
+        }
+    }
+}
+
+/// Tab text: long names are shortened in the middle when `mid` is set (the
+/// end is shortened by the style sheet otherwise).
+fn tab_label(name: &str, mid: bool) -> String {
+    let chars: Vec<char> = name.chars().collect();
+    if !mid || chars.len() <= 28 {
+        return name.to_string();
+    }
+    let head: String = chars[..13].iter().collect();
+    let tail: String = chars[chars.len() - 13..].iter().collect();
+    format!("{head}…{tail}")
+}
+
+#[component]
+fn DocTabs() -> Element {
+    let st = use_context::<AppState>();
+    let active = st.active_index().unwrap_or(0);
+    let (mode, mid) = {
+        let ui = st.ui.read();
+        (
+            ui.value("tabs.title").unwrap_or("auto").to_string(),
+            ui.value("tabs.ellipsis") == Some("mid"),
+        )
+    };
+    let tabs: Vec<(u64, String, String, bool)> = st
+        .docs
+        .read()
+        .iter()
+        .map(|t| {
+            let file = t.title();
+            let doc_title = t.doc.title();
+            let shown = match mode.as_str() {
+                "filename" => file.clone(),
+                "title" if !doc_title.is_empty() => doc_title.clone(),
+                "title" => file.clone(),
+                _ if !doc_title.is_empty() && t.doc.path().is_none() => doc_title.clone(),
+                _ => file.clone(),
+            };
+            let tip = if doc_title.is_empty() || doc_title == file {
+                file.clone()
+            } else {
+                format!("{doc_title}\n{file}")
+            };
+            (t.id, tab_label(&shown, mid), tip, t.doc.is_dirty())
+        })
+        .collect();
+    rsx! {
+        div { class: "doc-tabs",
+            for (i, (id, title, tip, dirty)) in tabs.into_iter().enumerate() {
+                button { class: if i == active { "doc-tab active" } else { "doc-tab" }, key: "{id}", title: "{tip}",
+                    onclick: move |_| { st.set_active(i); files::set_window_title(st); },
+                    span { class: "name", "{title}" }
+                    if dirty { span { class: "dirty", "•" } }
+                    span { class: "close", title: "Close", onclick: move |e| { e.stop_propagation(); files::close_tab(st, id, false, AfterUnsaved::Close); }, "×" }
+                }
+            }
+            button { class: "doc-tab add", title: "Open…", onclick: move |_| files::open_dialog(st), Icon { name: "insert" } }
+        }
+    }
+}
+
+/// Floating magnifier for the loupe tool.
+#[component]
+fn Loupe() -> Element {
+    let st = use_context::<AppState>();
+    if (st.tool)() != Tool::Loupe {
+        return rsx! {};
+    }
+    let Some((page, x, y, cx, cy)) = (st.loupe)() else {
+        return rsx! {};
+    };
+    let Some((tab, rev)) = st.read_active(|t| (t.id, t.view_rev())) else {
+        return rsx! {};
+    };
+    let zoom = current_zoom(st);
+    let mag = (zoom * 3.0).min(8.0);
+    let scale = ((mag * (st.dpr)() as f32) * 1000.0).round().clamp(50.0, 8000.0) as u32;
+    let (w, h) = (240.0, 170.0);
+    let (vw, vh) = (st.viewport)();
+    let left = if cx + 24.0 + w > vw {
+        cx - w - 24.0
+    } else {
+        cx + 24.0
+    };
+    let top = (cy - h / 2.0).clamp(4.0, (vh - h - 4.0).max(4.0));
+    let page_w = st
+        .read_active(|t| t.page_sizes.get(page).map(|s| s.width))
+        .flatten()
+        .unwrap_or(595.0)
+        * mag;
+    let bx = -(x * mag - w as f32 / 2.0);
+    let by = -(y * mag - h as f32 / 2.0);
+    rsx! {
+        div { class: "loupe", style: "left:{left}px;top:{top}px;width:{w}px;height:{h}px;background-image:url(/page/{tab}/{page}/{rev}/{scale}.png);background-size:{page_w}px auto;background-position:{bx}px {by}px" }
+    }
+}
+
+const PAN_SCRIPT: &str = r#"
+(function(){
+  if (window.__foliPan) return; window.__foliPan = true;
+  let drag = null;
+  document.addEventListener('mousedown', e => {
+    const c = e.target.closest && e.target.closest('#canvas');
+    if (!c || !c.classList.contains('tool-hand') || e.button !== 0) return;
+    if (e.target.closest('.annot-hit, .handle, .sel-toolbar, .field-hit, .field-input, input, textarea, select, button, a')) return;
+    drag = { c, x: e.clientX, y: e.clientY, sl: c.scrollLeft, st: c.scrollTop };
+    c.classList.add('dragging');
+    e.preventDefault();
+  }, true);
+  document.addEventListener('mousemove', e => {
+    if (!drag) return;
+    drag.c.scrollLeft = drag.sl - (e.clientX - drag.x);
+    drag.c.scrollTop = drag.st - (e.clientY - drag.y);
+  }, true);
+  document.addEventListener('mouseup', () => {
+    if (drag) { drag.c.classList.remove('dragging'); drag = null; }
+  }, true);
+})();
+"#;
+
+#[component]
+fn Canvas() -> Element {
+    let st = use_context::<AppState>();
+    use_hook(|| {
+        spawn(async move {
+            let _ = document::eval(PAN_SCRIPT).await;
+        });
+    });
+    let zoom = current_zoom(st);
+    let dpr = (st.dpr)();
+    let tool = (st.tool)();
+    let Some((tab_id, page, rev, layout, count, rotation)) = st.read_active(|t| {
+        (
+            t.id,
+            t.page,
+            t.view_rev(),
+            t.layout,
+            t.doc.page_count(),
+            t.view_rotation,
+        )
+    }) else {
+        return rsx! {};
+    };
+    let render_scale = ((zoom * dpr as f32) * 1000.0).round().clamp(50.0, 6000.0) as u32;
+    let labels = st.read_active(|t| t.doc.page_labels()).unwrap_or_default();
+    let gaps = option_on(st, "view.layout.showGaps");
+    let r2l = option_on(st, "view.layout.r2l");
+    let cover = option_on(st, "view.layout.showCover");
+    let rulers = option_on(st, "view.showRulers");
+    let horizontal = option_on(st, "view.layout.ribbon") && layout != Layout::Single;
+    let mut rows: Vec<Vec<usize>> = match layout {
+        Layout::Single => vec![vec![page.min(count.saturating_sub(1))]],
+        Layout::Continuous => (0..count).map(|p| vec![p]).collect(),
+        Layout::TwoPages => {
+            let mut rows = Vec::new();
+            let mut i = 0;
+            if cover && count > 0 {
+                rows.push(vec![0]);
+                i = 1;
+            }
+            while i < count {
+                let mut r = vec![i];
+                if i + 1 < count {
+                    r.push(i + 1);
+                }
+                rows.push(r);
+                i += 2;
+            }
+            rows
+        }
+    };
+    if horizontal {
+        // Horizontal scrolling: every page side by side in one row.
+        rows = vec![rows.into_iter().flatten().collect()];
+    }
+    if r2l {
+        rows.iter_mut().for_each(|r| r.reverse());
+    }
+    let tool_class = match tool {
+        Tool::Hand => "tool-hand",
+        Tool::Select | Tool::TextHighlight | Tool::TextUnderline | Tool::TextStrike => "tool-text",
+        Tool::Zoom | Tool::ZoomDyn => "tool-zoom",
+        Tool::Loupe => "tool-loupe",
+        Tool::EditAnnots => "tool-edit",
+        _ => "tool-draw",
+    };
+    let mut scroll_pending = use_signal(|| false);
+    let mut pages_class = String::from("pages");
+    if !gaps {
+        pages_class.push_str(" nogap");
+    }
+    if rulers {
+        pages_class.push_str(" with-rulers");
+    }
+    if horizontal {
+        pages_class.push_str(" horizontal");
+    }
+
+    rsx! {
+        div {
+            id: "canvas",
+            class: "canvas {tool_class}",
+            onresize: move |evt| {
+                if let Ok(size) = evt.data().get_content_box_size() {
+                    st.set_canvas_size((size.width, size.height));
+                }
+            },
+            onwheel: move |evt| {
+                if evt.modifiers().ctrl() {
+                    evt.prevent_default();
+                    let dy = match evt.delta() {
+                        WheelDelta::Pixels(v) => v.y,
+                        WheelDelta::Lines(v) => v.y * 40.0,
+                        WheelDelta::Pages(v) => v.y * 400.0,
+                    };
+                    let z = current_zoom(st);
+                    let next = if dy < 0.0 { z * 1.1 } else { z / 1.1 };
+                    st.with_active(|t| t.zoom = Zoom::Fixed(next.clamp(0.1, 8.0)));
+                }
+            },
+            onmouseleave: move |_| {
+                if st.loupe.peek().is_some() && option_on(st, "tool.loupe.trackMouse") { st.set_loupe(None); }
+                if st.pointer.peek().is_some() { st.set_pointer(None); }
+            },
+            onscroll: move |_| {
+                if layout == Layout::Single || *scroll_pending.peek() {
+                    return;
+                }
+                scroll_pending.set(true);
+                spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_millis(90)).await;
+                    let js = if horizontal {
+                        "const c=document.getElementById('canvas'); if(!c) return -1; const r=c.getBoundingClientRect(); let best=-1,bd=1e9; c.querySelectorAll('.page').forEach(el=>{const d=Math.abs(el.getBoundingClientRect().left-r.left-24); if(d<bd){bd=d;best=parseInt(el.dataset.page);}}); return best;"
+                    } else {
+                        "const c=document.getElementById('canvas'); if(!c) return -1; const r=c.getBoundingClientRect(); let best=-1,bd=1e9; c.querySelectorAll('.page').forEach(el=>{const d=Math.abs(el.getBoundingClientRect().top-r.top-24); if(d<bd){bd=d;best=parseInt(el.dataset.page);}}); return best;"
+                    };
+                    if let Ok(v) = document::eval(js).await {
+                        if let Some(i) = v.as_i64().filter(|i| *i >= 0) {
+                            let i = i as usize;
+                            if st.read_active(|t| t.page).unwrap_or(0) != i {
+                                st.with_active(|t| t.page = i);
+                            }
+                        }
+                    }
+                    scroll_pending.set(false);
+                });
+            },
+            div { class: "{pages_class}",
+                for (ri, row) in rows.into_iter().enumerate() {
+                    div { class: "page-row", key: "row-{ri}",
+                        for p in row {
+                            PageView { key: "{tab_id}-{p}", tab_id, page: p, rev, scale: render_scale, zoom, current: p == page, tool, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default() }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

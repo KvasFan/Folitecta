@@ -1,9 +1,14 @@
 name: CI
 
+# The full check on every platform runs for releases (their tags), for pull
+# requests and on demand. Pushes to main are checked before they are made
+# (fmt, clippy, the tests and the interface self-test, on Windows), and only
+# the larger releases get a tag.
 on:
   push:
-    branches: [main]
+    tags: ["v*"]
   pull_request:
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always

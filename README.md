@@ -8,9 +8,9 @@ software under MIT, Apache or GNU licences.
 
 ![Folitecta screenshot](docs/screenshot.png)
 
-## Status: version 0.0.9 (pre-release)
+## Status: version 0.0.10 (pre-release)
 
-Folitecta ships the **complete command surface of a professional PDF editor** — 1,980 commands
+Folitecta ships the **complete command surface of a professional PDF editor** — 1,981 commands
 across a ribbon with 11 tabs and 64 groups, 9 classic menus, 27 side panes and a command palette —
 so the whole feature set is discoverable. Each release turns more of those commands into working
 operations; the rest are listed and open a roadmap notice. The exact state of every command is in

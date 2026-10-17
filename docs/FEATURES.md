@@ -1,13 +1,13 @@
 # Folitecta feature matrix
 
-Generated from the command registry for version 0.0.9. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
+Generated from the command registry for version 0.0.10. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1319 |
+| ✅ available | 1324 |
 | 🟡 partial | 56 |
-| ⬜ planned | 605 |
-| total | 1980 |
+| ⬜ planned | 601 |
+| total | 1981 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -72,7 +72,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Add Barcode | `tool.selBarcodePlace` | ⬜ planned |
+| Add Barcode | `tool.selBarcodePlace` | ✅ available |
 | Add Image… | `document.addImage` | ✅ available |
 | Add Image… | `tool.selImagePlace` | ✅ available |
 | Add Text | `tool.addText` | ✅ available |
@@ -129,7 +129,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Add Custom Link… | `addLink.custom` | ✅ available |
 | ↳ Add Web Link… | `addLink.uri` | ✅ available |
 | Add/Edit Links | `tool.annot.editLink` | ✅ available |
-| Create Web Links from Barcodes | `createWebLinksFromBarcodes` | ⬜ planned |
+| Create Web Links from Barcodes | `createWebLinksFromBarcodes` | ✅ available |
 | Create Web Links from URLs | `createWebLinksFromText` | ✅ available |
 | Remove All Web Links | `removeAllWebLinks` | ✅ available |
 
@@ -315,6 +315,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Thumbnails | `view.pageThumbnails` | ✅ available |
 | Toggle All Cmd Bars | `view.toggleAllCmdBars` | ✅ available |
 | Toggle All Cmd Panes | `view.toggleAllCmdPanes` | ✅ available |
+| Tool Names | `view.ribbonLabels` | ✅ available |
 | Toolbars | `view.toolbars` | ✅ available |
 | Touch-Optimized UI | `view.switchToTouchUI` | ✅ available |
 | Touch/Mouse Mode | `view.touchMouseMode` | ✅ available |
@@ -935,8 +936,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Command | Id | Status |
 |---|---|---|
 | Audit Space Usage | `document.audit` | ✅ available |
-| Detect Barcodes in Region… | `document.detectBarcodes` | ⬜ planned |
-| Detect Barcodes… | `document.detectImageBarcode` | ⬜ planned |
+| Detect Barcodes in Region… | `document.detectBarcodes` | ✅ available |
+| Detect Barcodes… | `document.detectImageBarcode` | ✅ available |
 | Enable Editing (Discard PDF/A) | `document.discardPDFA` | ✅ available |
 | Font | `font` | ⬜ planned |
 | ↳ Repair to Unicode C Map | `font.repairToUnicodeCMap` | ⬜ planned |
@@ -1509,6 +1510,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Thumbnails Pane | `thumbnailsView` | 🟡 partial |
 | Toggle All Cmd Bars | `view.toggleAllCmdBars` | ✅ available |
 | Toggle All Cmd Panes | `view.toggleAllCmdPanes` | ✅ available |
+| Tool Names | `view.ribbonLabels` | ✅ available |
 | Toolbar | `view.toolbar` | ✅ available |
 | Touch-Optimized UI | `view.switchToTouchUI` | ✅ available |
 | Touch/Mouse Mode | `view.touchMouseMode` | ✅ available |
@@ -1566,13 +1568,13 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Apply All Redactions | `document.applyRedactions` | ✅ available |
 | Audit Space Usage | `document.audit` | ✅ available |
 | Bookmarks | `bookmarks` | ✅ available |
-| Create Web Links from Barcodes | `createWebLinksFromBarcodes` | ⬜ planned |
+| Create Web Links from Barcodes | `createWebLinksFromBarcodes` | ✅ available |
 | Create Web Links from URLs | `createWebLinksFromText` | ✅ available |
 | Crop to White Margins | `document.cropToWhiteMargins` | ✅ available |
 | Crypt Alter Bar | `cryptAlterBar` | ⬜ planned |
 | Delete Empty Pages… | `document.deleteEmptyPages` | ✅ available |
-| Detect Barcodes in Region… | `document.detectBarcodes` | ⬜ planned |
-| Detect Barcodes… | `document.detectImageBarcode` | ⬜ planned |
+| Detect Barcodes in Region… | `document.detectBarcodes` | ✅ available |
+| Detect Barcodes… | `document.detectImageBarcode` | ✅ available |
 | Digital Signature | `digisig` | ✅ available |
 | Digital Signatures | `digiSigList` | ⬜ planned |
 | Document Actions | `docActions` | ⬜ planned |

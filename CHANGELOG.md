@@ -6,6 +6,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.0.10] - 2026-10-17
+
 ### Added
 
 - Barcodes: Add Barcode draws a QR Code, Data Matrix, PDF417, Aztec, Code 128, Code 39, Code 93,

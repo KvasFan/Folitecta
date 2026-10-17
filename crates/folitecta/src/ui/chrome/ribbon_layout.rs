@@ -575,6 +575,47 @@ pub const RIBBON: &[RTab] = &[
             ),
         ],
     },
+    // Shown while comments are selected: aligning, distributing, sizing and
+    // stacking them.
+    RTab {
+        id: "ctx.arrange",
+        label: "Arrange",
+        groups: &[
+            group!(
+                "align",
+                "Align",
+                [
+                    "align.left",
+                    "align.center",
+                    "align.right",
+                    "align.top",
+                    "align.middle",
+                    "align.bottom",
+                    "alignto"
+                ]
+            ),
+            group!(
+                "distribute",
+                "Distribute",
+                ["distribHorz", "distribVert", "distributeTo"]
+            ),
+            group!(
+                "size",
+                "Size",
+                ["makeSameWidth", "makeSameHeight", "makeSameSize"]
+            ),
+            group!(
+                "zOrder",
+                "Order",
+                [
+                    "order.foreground",
+                    "order.moveForward",
+                    "order.moveBackward",
+                    "order.background"
+                ]
+            ),
+        ],
+    },
     // Shown while a calculator tape is being edited.
     RTab {
         id: "ctx.calculator",
@@ -595,6 +636,8 @@ pub const RIBBON: &[RTab] = &[
 ];
 
 pub const CONTEXT_TAB: &str = "ctx.format";
+/// The contextual tab of the selected comments.
+pub const ARRANGE_TAB: &str = "ctx.arrange";
 
 /// Find a tab by id.
 pub fn tab(id: &str) -> Option<&'static RTab> {

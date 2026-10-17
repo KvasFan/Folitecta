@@ -23,7 +23,9 @@ pub(crate) use document::{
     barcodes, compare, convert, doctools, file, fileops, macros, pages, pictures, sources, split,
 };
 pub(crate) use fields::{fields_pane, forms, javascript};
-pub(crate) use markup::{calculator, comment_styles, comments, format, media, review, stamps, tables};
+pub(crate) use markup::{
+    arrange, calculator, comment_styles, comments, format, media, review, stamps, tables,
+};
 pub(crate) use navigation::{attachments, bookmarks, explorer, history, layers, panes, portfolio, sessions};
 pub(crate) use protection::{protect, redaction, signatures, signs};
 pub(crate) use text::{find_replace, search, textedit};
@@ -78,6 +80,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     compare::HANDLERS,
     tables::HANDLERS,
     barcodes::HANDLERS,
+    arrange::HANDLERS,
     accessibility::HANDLERS,
     calculator::HANDLERS,
     fileops::HANDLERS,
@@ -317,6 +320,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| tables::tables_state(st, id))
         .or_else(|| forms::forms_state(st, id))
         .or_else(|| split_view::split_state(st, id))
+        .or_else(|| arrange::arrange_state(st, id))
         .or_else(|| accessibility::acc_state(st, id))
         .or_else(|| calculator::calc_state(st, id))
         .or_else(|| fileops::fileops_state(st, id))

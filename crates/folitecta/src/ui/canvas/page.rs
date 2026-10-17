@@ -189,6 +189,9 @@ pub(super) fn PageView(
         caret: Option<[f32; 4]>,
         guides: Vec<(bool, f32)>,
         selected: Option<usize>,
+        /// Every comment chosen on this page (the selected one and those
+        /// added with Shift or Ctrl).
+        chosen: Vec<usize>,
         widgets: Vec<(folitecta_core::PageWidget, [f32; 4])>,
         popups: Vec<PopupView>,
         flash: Option<[f32; 4]>,
@@ -322,6 +325,11 @@ pub(super) fn PageView(
                 .map(|g| (g.horizontal, g.pos))
                 .collect();
             let selected = t.selected_annot.filter(|(p, _)| *p == page).map(|(_, i)| i);
+            let chosen = t
+                .chosen_annots()
+                .filter(|(p, _)| *p == page)
+                .map(|(_, l)| l)
+                .unwrap_or_default();
             let widgets = if fill_forms && t.doc.has_form() {
                 t.doc
                     .page_widgets(page)
@@ -390,6 +398,7 @@ pub(super) fn PageView(
                 caret,
                 guides,
                 selected,
+                chosen,
                 widgets,
                 popups,
                 flash: t.flash.filter(|(p, _)| *p == page).map(|(_, r)| r),
@@ -1162,17 +1171,36 @@ pub(super) fn PageView(
                 for (index, subtype, rect, contents) in view.annots.iter().cloned() {
                     {
                         let is_sel = view.selected == Some(index);
+                        let is_chosen = is_sel || view.chosen.contains(&index);
                         let shown = match cur_drag { Some(d) if d.index == index => dragged_rect(&d, z, view_rotation), _ => rect };
                         let title = format!("{}: {contents}", crate::i18n::annot_name(st.lang(), &subtype));
-                        let class = if is_sel { "annot-hit selected" } else { "annot-hit" };
+                        let class = match (is_sel, is_chosen) {
+                            (true, _) => "annot-hit selected",
+                            (false, true) => "annot-hit selected also",
+                            _ => "annot-hit",
+                        };
                         let can_edit = tool == Tool::EditAnnots || tool == Tool::EditFields;
                         let is_widget = subtype == "Widget";
                         rsx! {
                             div { class: "{class}", key: "a{index}", title: "{title}", style: "{css(shown)}",
                                 onmousedown: move |e| {
                                     e.stop_propagation();
-                                    st.with_active(|t| { t.selected_annot = Some((page, index)); t.text_sel = None; });
-                                    if can_edit && e.trigger_button() == Some(MouseButton::Primary) {
+                                    // Shift or Ctrl adds the comment to those chosen (or takes it out).
+                                    let more = e.modifiers().shift() || e.modifiers().ctrl();
+                                    st.with_active(|t| {
+                                        if more {
+                                            let mut list = t.chosen_annots().filter(|(p, _)| *p == page).map(|(_, l)| l).unwrap_or_default();
+                                            match list.iter().position(|i| *i == index) {
+                                                Some(at) => { list.remove(at); }
+                                                None => list.push(index),
+                                            }
+                                            t.set_chosen(page, &list);
+                                        } else {
+                                            t.set_chosen(page, &[index]);
+                                        }
+                                        t.text_sel = None;
+                                    });
+                                    if can_edit && !more && e.trigger_button() == Some(MouseButton::Primary) {
                                         let c = e.client_coordinates();
                                         annot_drag.set(Some(AnnotDrag { index, kind: AnnotDragKind::Move, start_client: (c.x, c.y), cur_client: (c.x, c.y), rect }));
                                     }

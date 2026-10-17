@@ -18,6 +18,7 @@
   "toast.cell_not_merged": "The cell is not merged",
   "toast.cert_trusted": "Certificate added to the trusted certificates",
   "toast.certs_added": "Added {count} certificates",
+  "toast.choose_comments": "Select the comments to arrange first (Shift or Ctrl and a click adds one).",
   "toast.choose_style": "Choose a style in the comment styles pane first",
   "toast.classic_interface": "Toolbars are shown in the classic interface",
   "toast.click_on_text": "Click on the text where the insertion goes",

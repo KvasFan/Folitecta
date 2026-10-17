@@ -80,6 +80,10 @@ textarea.field-input { resize: none; padding: 2px 3px; }
 .annot-hit { position: absolute; border: 1px solid transparent; border-radius: 2px; }
 .annot-hit:hover { border-color: var(--accent-2); background: rgba(124,58,237,.08); }
 .annot-hit.selected { border: 1.5px dashed var(--accent-2); background: rgba(124,58,237,.06); }
+/* Comments added to the selected one (Shift or Ctrl): the selected one is the
+   one the others are aligned on or sized like, drawn with a solid edge. */
+.annot-hit.selected:not(.also) { border-style: solid; }
+.annot-hit.selected.also { border-width: 1px; }
 .tool-edit .annot-hit { cursor: move; }
 .handle { position: absolute; width: 9px; height: 9px; background: white; border: 1.5px solid var(--accent-2); border-radius: 2px; }
 .handle.h0 { left: -5px; top: -5px; cursor: nwse-resize; }

@@ -12,6 +12,12 @@ All notable changes to Folitecta are documented here. The format follows
   paragraph, an insertion caret, a check mark, a circle, a cross or a star (Comments › Note Icon
   for the selected note, or for the new notes; also in the dialog of a new note). Notes read
   from other files keep their icon when they are drawn again.
+- Arranging comments: Shift or Ctrl and a click adds a comment to the selected one (or takes it
+  out), and the Arrange tab, shown while comments are selected, aligns them on an edge or a
+  middle (with the selection, the page, the page as a group or the first comment chosen),
+  spreads them evenly across or down (between the first and the last, or over the page), gives
+  them the width, height or size of the first, and brings them to the front, to the back, or one
+  step up or down. Turned pages are arranged as shown; every arrangement is one undo step.
 - Thumbnails › Highlight Visible outlines, on the thumbnail of the current page, the part of the
   page the window shows, and follows it while the pages scroll.
 - The loupe enlarges more or less (Zoom In and Zoom Out of its menu, from 1.5 to 8 times); the

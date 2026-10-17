@@ -377,6 +377,7 @@ fn annots_on(st: AppState, page: usize) -> Vec<folitecta_core::Annotation> {
 }
 
 /// Exercise the canvas tools with simulated input; returns the number of failures.
+mod steps_arrange;
 mod steps_barcodes;
 mod steps_calc;
 mod steps_features;
@@ -447,9 +448,10 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     steps_split_view::run(&mut cx).await;
     steps_links::run(&mut cx).await;
     steps_note_icon::run(&mut cx).await;
+    steps_arrange::run(&mut cx).await;
     let failures = cx.failures;
 
-    // 52. Undo everything added above.
+    // 53. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..90 {
         crate::commands::dispatch(st, "undo");

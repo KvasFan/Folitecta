@@ -1,5 +1,6 @@
-//! Comments and what is placed on the pages: comment tools, review, styles and format, stamps, tables, calculator tapes and media.
+//! Comments and what is placed on the pages: comment tools, arranging them, review, styles and format, stamps, tables, calculator tapes and media.
 
+pub(crate) mod arrange;
 pub(crate) mod calculator;
 pub(crate) mod comment_styles;
 pub(crate) mod comments;

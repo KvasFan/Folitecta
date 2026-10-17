@@ -10,7 +10,7 @@ use crate::icons::{self, Icon};
 use crate::state::{AppState, Layout, Pane, Theme, Tool, Zoom};
 use crate::ui::chrome::layout;
 use crate::ui::chrome::ribbon_layout::{
-    self, CONTEXT_TAB, GroupSpec, RGroup, fit_ribbon, large_width, small_width,
+    self, ARRANGE_TAB, CONTEXT_TAB, GroupSpec, RGroup, fit_ribbon, large_width, small_width,
 };
 use crate::ui::menu_entry;
 
@@ -266,12 +266,15 @@ pub fn Ribbon() -> Element {
     let active_tab = (st.ribbon_tab)();
     let (vw, _) = (st.viewport)();
     let tool = (st.tool)();
-    let show_ctx = tool.is_drawing() || st.read_active(|t| t.selected_annot.is_some()).unwrap_or(false);
+    let selected = st.read_active(|t| t.selected_annot.is_some()).unwrap_or(false);
+    let show_ctx = tool.is_drawing() || selected;
+    let show_arrange = selected;
     let show_calc = crate::commands::calculator::CALC_EDIT.read().is_some();
     let calc_tab = crate::commands::calculator::CALC_TAB;
     let tab = ribbon_layout::tab(&active_tab)
         .filter(|t| match t.id {
             CONTEXT_TAB => show_ctx,
+            ARRANGE_TAB => show_arrange,
             id if id == calc_tab => show_calc,
             _ => true,
         })
@@ -382,6 +385,18 @@ pub fn Ribbon() -> Element {
                         rsx! {
                             button { class: if tab_id == CONTEXT_TAB { "ribbon-tab ctx active" } else { "ribbon-tab ctx" }, title: "{title}",
                                 onclick: move |_| st.set_ribbon_tab(CONTEXT_TAB.to_string()),
+                                "{title}"
+                            }
+                        }
+                    }
+                }
+                if show_arrange {
+                    {
+                        let ctx = ribbon_layout::tab(ARRANGE_TAB).unwrap();
+                        let title = ui_label(lang, "tab", ctx.id, ctx.label);
+                        rsx! {
+                            button { class: if tab_id == ARRANGE_TAB { "ribbon-tab ctx active" } else { "ribbon-tab ctx" }, title: "{title}",
+                                onclick: move |_| st.set_ribbon_tab(ARRANGE_TAB.to_string()),
                                 "{title}"
                             }
                         }

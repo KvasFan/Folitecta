@@ -71,7 +71,7 @@ fn map_geometry(dict: &mut Dictionary, f: &dyn Fn(f32, f32) -> (f32, f32)) {
 }
 
 impl Document {
-    fn annotation_ref(&self, page: usize, index: usize) -> Result<(ObjectId, Option<ObjectId>)> {
+    pub(crate) fn annotation_ref(&self, page: usize, index: usize) -> Result<(ObjectId, Option<ObjectId>)> {
         let page_id = self.page_id(page)?;
         let annots = self.inner.get_dictionary(page_id)?.get(b"Annots").ok().cloned();
         let arr = match annots {
@@ -206,6 +206,14 @@ impl Document {
             return Err(Error::Invalid("annotation rectangle is empty".into()));
         }
         self.begin_edit();
+        self.reshape_annotation(aid, n)?;
+        self.commit()
+    }
+
+    /// Give the annotation object `aid` the rectangle `n` (normalized),
+    /// scaling its geometry and drawing it again, as part of the edit under
+    /// way (no undo step of its own).
+    pub(crate) fn reshape_annotation(&mut self, aid: ObjectId, n: [f32; 4]) -> Result<()> {
         let old = self
             .inner
             .get_dictionary(aid)?
@@ -233,6 +241,6 @@ impl Document {
                 self.refresh_widget(aid)?;
             }
         }
-        self.commit()
+        Ok(())
     }
 }

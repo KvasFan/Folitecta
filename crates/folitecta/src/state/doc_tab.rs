@@ -103,6 +103,10 @@ pub struct DocTab {
     pub split: Option<SplitView>,
     pub selected_pages: Vec<usize>,
     pub selected_annot: Option<(usize, usize)>,
+    /// Comments added to the selected one with Shift or Ctrl (indices on its
+    /// page), valid while `more_anchor` is the selected comment.
+    pub more_annots: Vec<usize>,
+    pub more_anchor: Option<(usize, usize)>,
     pub search: SearchState,
     pub expanded_bookmarks: HashSet<String>,
     pub page_sizes: Vec<PageSize>,
@@ -257,6 +261,8 @@ impl DocTab {
             view_rotation: 0,
             selected_pages: Vec::new(),
             selected_annot: None,
+            more_annots: Vec::new(),
+            more_anchor: None,
             search: SearchState::default(),
             expanded_bookmarks: expanded,
             page_sizes,
@@ -442,6 +448,25 @@ impl DocTab {
         } else {
             (s.width, s.height)
         }
+    }
+
+    /// The comments chosen on the page of the selected one: the selected one
+    /// first (the one the others are matched to), then those added with
+    /// Shift or Ctrl.
+    pub fn chosen_annots(&self) -> Option<(usize, Vec<usize>)> {
+        let (page, first) = self.selected_annot?;
+        let mut list = vec![first];
+        if self.more_anchor == self.selected_annot {
+            list.extend(self.more_annots.iter().copied().filter(|i| *i != first));
+        }
+        Some((page, list))
+    }
+
+    /// Choose these comments of a page (the first is the selected one).
+    pub fn set_chosen(&mut self, page: usize, list: &[usize]) {
+        self.selected_annot = list.first().map(|i| (page, *i));
+        self.more_annots = list.iter().skip(1).copied().collect();
+        self.more_anchor = self.selected_annot;
     }
 
     /// The focused view.

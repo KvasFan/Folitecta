@@ -97,143 +97,28 @@ fn words_of(doc: &Document) -> Vec<Word> {
     out
 }
 
-/// Edit script between two sequences (Myers' algorithm): pairs of equal
-/// positions, in order.
+/// Most time spent looking for the smallest edit script; past it the diff
+/// is completed with coarser steps.
+const DIFF_DEADLINE: std::time::Duration = std::time::Duration::from_secs(4);
+
+/// Pairs of equal positions of two sequences, in order (Myers' algorithm in
+/// linear space).
 fn common_pairs(a: &[u64], b: &[u64]) -> Vec<(usize, usize)> {
-    // Equal ends are matched directly, which keeps the search small.
-    let mut prefix = 0;
-    while prefix < a.len() && prefix < b.len() && a[prefix] == b[prefix] {
-        prefix += 1;
-    }
-    let mut suffix = 0;
-    while suffix < a.len() - prefix
-        && suffix < b.len() - prefix
-        && a[a.len() - 1 - suffix] == b[b.len() - 1 - suffix]
-    {
-        suffix += 1;
-    }
-    let (ma, mb) = (&a[prefix..a.len() - suffix], &b[prefix..b.len() - suffix]);
-    let mut pairs: Vec<(usize, usize)> = (0..prefix).map(|i| (i, i)).collect();
-    for (i, j) in middle_pairs(ma, mb) {
-        pairs.push((i + prefix, j + prefix));
-    }
-    for k in 0..suffix {
-        pairs.push((a.len() - suffix + k, b.len() - suffix + k));
-    }
-    pairs
-}
-
-/// Most differences searched for in one piece; beyond, the texts are cut
-/// into aligned chunks compared one by one.
-const MAX_EDITS: usize = 3000;
-const CHUNK: usize = 1500;
-
-fn middle_pairs(a: &[u64], b: &[u64]) -> Vec<(usize, usize)> {
-    if let Some(p) = myers(a, b, MAX_EDITS) {
-        return p;
-    }
-    let chunks = (a.len().max(b.len()) / CHUNK).max(1);
-    let mut out = Vec::new();
-    for c in 0..chunks {
-        let (a0, a1) = (a.len() * c / chunks, a.len() * (c + 1) / chunks);
-        let (b0, b1) = (b.len() * c / chunks, b.len() * (c + 1) / chunks);
-        if let Some(p) = myers(&a[a0..a1], &b[b0..b1], MAX_EDITS) {
-            out.extend(p.into_iter().map(|(i, j)| (i + a0, j + b0)));
-        }
-    }
-    out
-}
-
-/// Pairs of equal positions (Myers' algorithm), or `None` when more than
-/// `limit` edits are needed. Only the reachable diagonals of each step are
-/// kept, so the memory grows with the square of the edits, not the length.
-fn myers(a: &[u64], b: &[u64], limit: usize) -> Option<Vec<(usize, usize)>> {
-    let (n, m) = (a.len() as isize, b.len() as isize);
-    if n == 0 || m == 0 {
-        return Some(Vec::new());
-    }
-    let max = (n + m) as usize;
-    let limit = limit.min(max) as isize;
-    // v[k + d] for the diagonals -d..=d of the current step.
-    let mut trace: Vec<Vec<isize>> = Vec::new();
-    let mut prev: Vec<isize> = vec![0; 3];
-    for d in 0..=limit {
-        let mut cur = vec![0isize; (2 * d + 1) as usize];
-        // x on diagonal k after step d - 1 (offset by d - 1).
-        let get = |v: &Vec<isize>, k: isize| -> isize {
-            let i = k + (d - 1);
-            if i < 0 || i as usize >= v.len() {
-                -1
-            } else {
-                v[i as usize]
-            }
-        };
-        let mut k = -d;
-        while k <= d {
-            let mut x = if d == 0 {
-                0
-            } else if k == -d || (k != d && get(&prev, k - 1) < get(&prev, k + 1)) {
-                get(&prev, k + 1)
-            } else {
-                get(&prev, k - 1) + 1
-            };
-            let mut y = x - k;
-            while x < n && y < m && a[x as usize] == b[y as usize] {
-                x += 1;
-                y += 1;
-            }
-            cur[(k + d) as usize] = x;
-            if x >= n && y >= m {
-                trace.push(cur);
-                return Some(backtrack(&trace, n, m));
-            }
-            k += 2;
-        }
-        trace.push(cur.clone());
-        prev = cur;
-    }
-    None
-}
-
-fn backtrack(trace: &[Vec<isize>], n: isize, m: isize) -> Vec<(usize, usize)> {
+    let deadline = std::time::Instant::now() + DIFF_DEADLINE;
+    let ops = similar::capture_diff_slices_deadline(similar::Algorithm::Myers, a, b, Some(deadline));
     let mut pairs = Vec::new();
-    let (mut x, mut y) = (n, m);
-    for d in (1..trace.len() as isize).rev() {
-        let v = &trace[(d - 1) as usize];
-        let get = |k: isize| -> isize {
-            let i = k + (d - 1);
-            if i < 0 || i as usize >= v.len() {
-                -1
-            } else {
-                v[i as usize]
-            }
-        };
-        let k = x - y;
-        let prev_k = if k == -d || (k != d && get(k - 1) < get(k + 1)) {
-            k + 1
-        } else {
-            k - 1
-        };
-        let prev_x = get(prev_k);
-        let prev_y = prev_x - prev_k;
-        while x > prev_x && y > prev_y {
-            x -= 1;
-            y -= 1;
-            pairs.push((x as usize, y as usize));
+    for op in ops {
+        if let similar::DiffOp::Equal {
+            old_index,
+            new_index,
+            len,
+        } = op
+        {
+            pairs.extend((0..len).map(|k| (old_index + k, new_index + k)));
         }
-        x = prev_x;
-        y = prev_y;
     }
-    // The first snake (step 0) from the origin.
-    while x > 0 && y > 0 {
-        x -= 1;
-        y -= 1;
-        pairs.push((x as usize, y as usize));
-    }
-    pairs.reverse();
     pairs
 }
-
 fn hash(s: &str, fold: bool) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -334,13 +219,24 @@ mod tests {
         assert_eq!(p, vec![(0, 0), (1, 1), (3, 3), (5, 4)]);
         assert!(common_pairs(&[], &[1]).is_empty());
         assert_eq!(common_pairs(&[1, 2], &[1, 2]), vec![(0, 0), (1, 1)]);
-        // Middle parts only (no common ends).
-        assert_eq!(myers(&[1, 2, 3], &[4, 2, 5], 10), Some(vec![(1, 1)]));
-        assert_eq!(myers(&[1, 2, 3], &[7, 8, 9], 1), None);
+        assert_eq!(common_pairs(&[1, 2, 3], &[4, 2, 5]), vec![(1, 1)]);
+        assert!(common_pairs(&[1, 2, 3], &[7, 8, 9]).is_empty());
         // Every pair found is a real match and in order.
         let a: Vec<u64> = (0..400).map(|i| (i * 7 % 13) as u64).collect();
         let b: Vec<u64> = (0..380).map(|i| (i * 5 % 13) as u64).collect();
         let p = common_pairs(&a, &b);
+        assert!(p.windows(2).all(|w| w[0].0 < w[1].0 && w[0].1 < w[1].1));
+        assert!(p.iter().all(|(i, j)| a[*i] == b[*j]));
+    }
+
+    #[test]
+    fn long_and_very_different_texts_finish() {
+        let a: Vec<u64> = (0..40_000u64).map(|i| i % 997).collect();
+        let b: Vec<u64> = (0..40_000u64).map(|i| (i * 3 + i / 7) % 991).collect();
+        let start = std::time::Instant::now();
+        let p = common_pairs(&a, &b);
+        assert!(start.elapsed() < DIFF_DEADLINE + std::time::Duration::from_secs(4));
+        assert!(!p.is_empty());
         assert!(p.windows(2).all(|w| w[0].0 < w[1].0 && w[0].1 < w[1].1));
         assert!(p.iter().all(|(i, j)| a[*i] == b[*j]));
     }

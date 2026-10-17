@@ -8,7 +8,7 @@ an MIT, Apache or GNU licence.
 
 ![Folitecta screenshot](docs/screenshot.png)
 
-## Status: version 0.0.4 (pre-release)
+## Status: version 0.0.5 (pre-release)
 
 Folitecta ships the **complete command surface of a professional PDF editor** — 1,977 commands
 across a ribbon with 11 tabs and 63 groups, 9 classic menus, 27 side panes and a command palette —
@@ -67,6 +67,17 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
   selection by type, manual tab order); signature fields.
 - **Portfolios**: create portfolios from files, folders, details or tiles, columns and sorting,
   preview, file information, initial file, cover.
+- **Accessibility**: automatic tagging, a tags pane with full editing (role map, class map, tags
+  from a selection, artifacts), reading order with numbered boxes on the page, content pane,
+  alternate text of figures, a 32-rule accessibility check with automatic fixes and a report.
+- **Compare**: two documents compared word by word, differences highlighted on both, listed and
+  visited, with a report document.
+- **Stamps and tables**: stamps pane with collections and favourites, a stamp designer with
+  templates and fields filled in at placement; tables drawn on the page and edited cell by cell.
+- **History and sessions**: documents opened before with thumbnails and pins, sessions of open
+  documents saved and opened again.
+- **Document tools**: typed or RTF text as pages, space usage audit, picture recompression,
+  document scripts, pages split at guides or cut to the crop box, leaving PDF/A.
 - **Interface**: ribbon or classic menus and toolbars that adapt to any window size, page
   layouts, pan and zoom window, touch mode, side panes, properties pane, command palette
   (`Ctrl+Shift+P`), undo/redo of every edit, English and Italian.
@@ -74,8 +85,8 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
 ### Planned
 
 OCR, timestamped signatures, content editing (text and image objects), PDF/A conversion,
-optimisation, accessibility tagging, document comparison, cloud connectors and the remaining
-commands listed as *planned* in the feature matrix.
+optimisation, cloud connectors and the remaining commands listed as *planned* in the feature
+matrix.
 
 ## Download
 
@@ -110,7 +121,7 @@ writes a report with a screenshot of every state (screenshots on Windows).
 
 | Crate | Purpose |
 |---|---|
-| `crates/folitecta-core` | Document model (lopdf), page operations, comments and review, bookmarks, forms, attachments, layers, portfolios, links, text and search, page marks, digital signatures, hayro render service, command registry |
+| `crates/folitecta-core` | Document model (lopdf), page operations, comments and review, bookmarks, forms, attachments, layers, portfolios, links, text and search, page marks, stamps, tables, comparison, tags and accessibility check, digital signatures, hayro render service, command registry |
 | `crates/folitecta` | Dioxus desktop application: ribbon, menus, panes, canvas with drawing tools, dialogs, palette, localization |
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and

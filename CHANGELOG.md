@@ -6,6 +6,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-10-17
+
 ### Added
 
 - History pane: documents opened before, grouped by day, pinned ones first, sorted by opening,

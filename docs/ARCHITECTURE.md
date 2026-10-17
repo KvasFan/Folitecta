@@ -76,7 +76,12 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
   keeps the default and named styles of the comment tools; `prefs` the saved preferences,
   including the `Theme`.
 - `commands/` — one module per area, each with a `HANDLERS` table that maps registry ids to
-  functions. Together they are the **single source of truth** for what is implemented: the
+  functions, grouped by what they work on: `document` (files, pages, pictures, barcodes,
+  combining, comparing), `markup` (comments, review, stamps, tables, calculator, media), `text`
+  (search, Find and Replace, page text), `fields` (forms and scripts), `navigation` (bookmarks,
+  layers, attachments, panes, portfolios, explorer, history, sessions), `protection`
+  (redaction, passwords, signatures), `window` (Edit, View and Help menus, split window,
+  interface) and `accessibility`. Together they are the **single source of truth** for what is implemented: the
   feature matrix, the badges in menus and the roadmap notices all derive from them. `PARTIAL`
   marks reduced implementations.
 - `files.rs` — open/save/export flows with native dialogs (rfd), unsaved-changes handling.

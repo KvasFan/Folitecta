@@ -4,51 +4,30 @@
 //! Together they are the single source of truth for which registry commands are
 //! implemented: menus, ribbon badges, the feature matrix and the roadmap notice
 //! all derive from them.
+//!
+//! The area modules are grouped by what they work on (`document`, `markup`,
+//! `text`, `fields`, `navigation`, `protection`, `window`, and
+//! `accessibility` on its own); each is also reachable as
+//! `commands::<area>`.
 
 use dioxus::prelude::ReadableExt;
 pub(crate) mod accessibility;
-pub(crate) mod attachments;
-pub(crate) mod barcodes;
-pub(crate) mod bookmarks;
-pub(crate) mod calculator;
-pub(crate) mod comment_styles;
-pub(crate) mod comments;
-pub(crate) mod compare;
-mod convert;
-pub(crate) mod doctools;
-mod edit;
-pub(crate) mod explorer;
-pub(crate) mod fields_pane;
-mod file;
-pub(crate) mod fileops;
-pub(crate) mod find_replace;
-mod format;
-pub(crate) mod forms;
-mod help;
-pub(crate) mod history;
-pub(crate) mod interface;
-pub(crate) mod javascript;
-pub(crate) mod layers;
-pub(crate) mod macros;
-pub(crate) mod media;
-mod pages;
-mod panes;
-pub(crate) mod pictures;
-pub(crate) mod portfolio;
-mod protect;
-pub(crate) mod redaction;
-pub(crate) mod review;
-pub(crate) mod search;
-pub(crate) mod sessions;
-pub(crate) mod signatures;
-pub(crate) mod signs;
-pub(crate) mod sources;
-pub(crate) mod split;
-pub(crate) mod split_view;
-pub(crate) mod stamps;
-pub(crate) mod tables;
-pub(crate) mod textedit;
-mod view;
+pub(crate) mod document;
+pub(crate) mod fields;
+pub(crate) mod markup;
+pub(crate) mod navigation;
+pub(crate) mod protection;
+pub(crate) mod text;
+pub(crate) mod window;
+pub(crate) use document::{
+    barcodes, compare, convert, doctools, file, fileops, macros, pages, pictures, sources, split,
+};
+pub(crate) use fields::{fields_pane, forms, javascript};
+pub(crate) use markup::{calculator, comment_styles, comments, format, media, review, stamps, tables};
+pub(crate) use navigation::{attachments, bookmarks, explorer, history, layers, panes, portfolio, sessions};
+pub(crate) use protection::{protect, redaction, signatures, signs};
+pub(crate) use text::{find_replace, search, textedit};
+pub(crate) use window::{edit, help, interface, split_view, view};
 
 use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;

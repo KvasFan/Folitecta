@@ -2,7 +2,9 @@
 
 use folitecta_core::{Document, MACROS, MarkPosition, TextMarkOptions};
 
-fn doc() -> (Document, std::path::PathBuf) {
+/// The test document, saved in a folder of its own for each test (tests run
+/// at the same time).
+fn doc(test: &str) -> (Document, std::path::PathBuf) {
     let mut doc = Document::new_blank(3, 300.0, 400.0).unwrap();
     doc.set_info("Annual report", "Ada", "Finance", "money, plans")
         .unwrap();
@@ -10,7 +12,7 @@ fn doc() -> (Document, std::path::PathBuf) {
         .unwrap();
     doc.add_bookmark("Intro", 0, &[]).unwrap();
     doc.add_bookmark("Results", 2, &[]).unwrap();
-    let dir = std::env::temp_dir().join(format!("foli-macros-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("foli-macros-{}-{test}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("report.pdf");
     doc.save_as(&path).unwrap();
@@ -19,7 +21,7 @@ fn doc() -> (Document, std::path::PathBuf) {
 
 #[test]
 fn macros_expand_per_page() {
-    let (doc, dir) = doc();
+    let (doc, dir) = doc("expand");
     let x = |s: &str, p: usize| doc.expand_macros(s, p, 1);
     assert_eq!(x("{page}/{pages} {page:3}", 1), "2/3 002");
     assert_eq!(x("{label}", 0), "i");
@@ -60,7 +62,7 @@ fn macros_expand_per_page() {
 
 #[test]
 fn page_numbers_use_the_page_and_the_running_number() {
-    let (mut doc, dir) = doc();
+    let (mut doc, dir) = doc("numbers");
     doc.add_page_numbers(
         &[1, 2],
         "{label} #{bates:4}",

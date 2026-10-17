@@ -76,6 +76,13 @@ const VIEWPORT_SCRIPT: &str = r#"
     if (pending) cancelAnimationFrame(pending);
     pending = requestAnimationFrame(send);
   });
+  // The text field macros are inserted into (not the search or command boxes).
+  document.addEventListener('focusin', e => {
+    const t = e.target;
+    if (!t || !t.tagName) return;
+    const text = t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && (t.type === 'text' || t.type === ''));
+    if (text && !t.closest('.search-box, .palette, .menubar')) window.__foliField = t;
+  });
 })();
 "#;
 

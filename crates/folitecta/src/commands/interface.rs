@@ -150,28 +150,6 @@ fn reset_doc_panes(st: AppState) {
     st.save_prefs();
 }
 
-/// Open the document in the application the system uses for PDF files.
-fn launch_external(st: AppState) {
-    if no_doc(st) {
-        return;
-    }
-    let path = st
-        .read_active(|t| t.doc.path().map(|p| p.to_path_buf()))
-        .flatten();
-    match path {
-        Some(p) => {
-            let dirty = st.read_active(|t| t.doc.is_dirty()).unwrap_or(false);
-            if dirty {
-                st.toast(ToastKind::Warn, t(st.lang(), "toast.launch_unsaved"), "");
-            }
-            if let Err(e) = crate::util::open_external(&p.display().to_string()) {
-                st.error(e);
-            }
-        }
-        None => st.toast(ToastKind::Info, t(st.lang(), "toast.save_first"), ""),
-    }
-}
-
 fn focus_page_number() {
     spawn(async move {
         let _ = document::eval("const i = document.querySelector('.statusbar input.page-input, .statusbar input'); if (i) { i.focus(); i.select(); }").await;
@@ -244,5 +222,4 @@ handlers! {
     "window.resetDocPanesLayout" => reset_doc_panes,
     "zoom.combo" => |st| { if !no_doc(st) { st.set_dialog(Dialog::ZoomLevel) } },
     "tool.panZoom" => |st| { let on = option_on(st, "view.panzoom"); st.set_option("view.panzoom", !on); },
-    "launchExternalApp" => launch_external,
 }

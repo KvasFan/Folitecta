@@ -827,6 +827,10 @@ pub enum Dialog {
     TrustedCerts,
     /// Library of signatures and initials, and the signer's profile.
     SignatureLibrary,
+    /// List of the macros of page-mark texts.
+    MacroGuide,
+    /// External application launched with details of the view.
+    LaunchApp,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

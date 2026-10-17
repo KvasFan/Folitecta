@@ -4,9 +4,9 @@ Generated from the command registry for version 0.0.3. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 586 |
-| 🟡 partial | 34 |
-| ⬜ planned | 1357 |
+| ✅ available | 680 |
+| 🟡 partial | 36 |
+| ⬜ planned | 1261 |
 | total | 1977 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -130,9 +130,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Command | Id | Status |
 |---|---|---|
 | Mark for Redaction | `tool.annot.redaction` | ✅ available |
-| Place Signature or Initials | `tool.sign.and.initials` | ⬜ planned |
+| Place Signature or Initials | `tool.sign.and.initials` | ✅ available |
 | Security Properties… | `document.security` | ✅ available |
-| Sign Document… | `document.signatures.sign` | ⬜ planned |
+| Sign Document… | `document.signatures.sign` | ✅ available |
 
 ### View
 
@@ -532,49 +532,49 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Add Digital Signature… | `tool.digisig` | ⬜ planned |
-| Digital IDs… | `signs.digitalIDs` | ⬜ planned |
-| Digital Signature | `digisig` | ⬜ planned |
-| ↳ Certify | `digisig.certify` | ⬜ planned |
-| ↳ Clear… | `digisig.clear` | ⬜ planned |
-| ↳ Sign | `digisig.sign` | ⬜ planned |
-| ↳ Summary | `digisig.summary` | ⬜ planned |
-| ↳ Validate | `digisig.validate` | ⬜ planned |
-| ↳ View | `digisig.view` | ⬜ planned |
+| Add Digital Signature… | `tool.digisig` | ✅ available |
+| Digital IDs… | `signs.digitalIDs` | ✅ available |
+| Digital Signature | `digisig` | ✅ available |
+| ↳ Certify | `digisig.certify` | ✅ available |
+| ↳ Clear… | `digisig.clear` | ✅ available |
+| ↳ Sign | `digisig.sign` | ✅ available |
+| ↳ Summary | `digisig.summary` | ✅ available |
+| ↳ Validate | `digisig.validate` | ✅ available |
+| ↳ View | `digisig.view` | ✅ available |
 | Digital Signatures | `digiSigList` | ⬜ planned |
 | ↳ Clone… | `digiSigList.clone` | ⬜ planned |
 | ↳ Delete | `digiSigList.delete` | ⬜ planned |
 | ↳ Edit… | `digiSigList.edit` | ⬜ planned |
 | ↳ Reset | `digiSigList.reset` | ⬜ planned |
-| Digital Signatures | `document.signatures` | ⬜ planned |
-| ↳ Certify (Visible)… | `document.signatures.certify` | ⬜ planned |
-| ↳ Clear All Signatures | `document.signatures.clear` | ⬜ planned |
-| ↳ Sign Document… | `document.signatures.sign` | ⬜ planned |
-| ↳ Signatures and Initials | `document.signatures.placesign` | ⬜ planned |
+| Digital Signatures | `document.signatures` | 🟡 partial |
+| ↳ Certify (Visible)… | `document.signatures.certify` | ✅ available |
+| ↳ Clear All Signatures | `document.signatures.clear` | ✅ available |
+| ↳ Sign Document… | `document.signatures.sign` | ✅ available |
+| ↳ Signatures and Initials | `document.signatures.placesign` | ✅ available |
 | ↳ Timestamp… | `document.signatures.timestamp` | ⬜ planned |
-| ↳ Validate All Signatures | `document.signatures.validateAll` | ⬜ planned |
+| ↳ Validate All Signatures | `document.signatures.validateAll` | ✅ available |
 | Multi-Place Signature… | `document.signature.multiPlace` | ⬜ planned |
 
 **Signatures and Initials**
 
 | Command | Id | Status |
 |---|---|---|
-| Add Signature Placeholder | `tool.signMarkup` | ⬜ planned |
-| Free Sign | `tool.freeSign` | ⬜ planned |
-| Sign Markup | `signMarkup` | ⬜ planned |
-| ↳ Popup | `signMarkup.popup` | ⬜ planned |
-| Signs | `signs` | ⬜ planned |
-| ↳ Add | `signs.add` | ⬜ planned |
-| ↳ Apply All | `signs.applyAll` | ⬜ planned |
-| ↳ Apply Signature | `signs.applySignature` | ⬜ planned |
-| ↳ Cancel All | `signs.cancelAll` | ⬜ planned |
-| ↳ Digital IDs… | `signs.digitalIDs` | ⬜ planned |
-| ↳ Edit… | `signs.edit` | ⬜ planned |
-| ↳ Export… | `signs.export` | ⬜ planned |
-| ↳ Import… | `signs.import` | ⬜ planned |
-| ↳ Manage… | `signs.manage` | ⬜ planned |
-| ↳ Placeholders | `signs.markup` | ⬜ planned |
-| ↳ Remove | `signs.remove` | ⬜ planned |
+| Add Signature Placeholder | `tool.signMarkup` | ✅ available |
+| Free Sign | `tool.freeSign` | ✅ available |
+| Sign Markup | `signMarkup` | ✅ available |
+| ↳ Popup | `signMarkup.popup` | ✅ available |
+| Signs | `signs` | ✅ available |
+| ↳ Add | `signs.add` | ✅ available |
+| ↳ Apply All | `signs.applyAll` | ✅ available |
+| ↳ Apply Signature | `signs.applySignature` | ✅ available |
+| ↳ Cancel All | `signs.cancelAll` | ✅ available |
+| ↳ Digital IDs… | `signs.digitalIDs` | ✅ available |
+| ↳ Edit… | `signs.edit` | ✅ available |
+| ↳ Export… | `signs.export` | ✅ available |
+| ↳ Import… | `signs.import` | ✅ available |
+| ↳ Manage… | `signs.manage` | ✅ available |
+| ↳ Placeholders | `signs.markup` | ✅ available |
+| ↳ Remove | `signs.remove` | ✅ available |
 
 **Redact**
 
@@ -604,8 +604,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Crypt Alter Bar | `cryptAlterBar` | ⬜ planned |
 | ↳ Allow | `cryptAlterBar.allow` | ⬜ planned |
 | ↳ Options | `cryptAlterBar.opts` | ⬜ planned |
-| Public Key Security | `pubsec` | ⬜ planned |
-| ↳ Cert | `pubsec.cert` | ⬜ planned |
+| Public Key Security | `pubsec` | ✅ available |
+| ↳ Cert | `pubsec.cert` | ✅ available |
 | Save Unrestricted Copy… | `saveUnrestricted` | ✅ available |
 | Security Policies | `secPoliciesList` | ⬜ planned |
 | ↳ Add | `secPoliciesList.add` | ⬜ planned |
@@ -822,43 +822,43 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Manage… | `document.headerAndFooter.manage` | ⬜ planned |
 | ↳ Remove All… | `document.headerAndFooter.removeAll` | ✅ available |
 | Macro | `macro` | 🟡 partial |
-| ↳ Application Version | `macro.appVersion` | ⬜ planned |
-| ↳ Auto-Number | `macro.autonumber` | ⬜ planned |
-| ↳ Bates Number | `macro.bates` | ⬜ planned |
-| ↳ Bates Value | `macro.batesValue` | ⬜ planned |
-| ↳ Bookmark Title | `macro.bookmarkTitle` | ⬜ planned |
-| ↳ Computer | `macro.computer` | ⬜ planned |
-| ↳ Date | `macro.date` | ⬜ planned |
-| ↳ Day | `macro.day` | ⬜ planned |
-| ↳ Docnumber | `macro.docnumber` | ⬜ planned |
-| ↳ Document Info | `macro.docInfo` | ⬜ planned |
-| ↳ Document Title | `macro.docTitle` | ⬜ planned |
-| ↳ Env | `macro.env` | ⬜ planned |
-| ↳ File Extension | `macro.fileExt` | ⬜ planned |
-| ↳ File Name | `macro.fileName` | ⬜ planned |
-| ↳ Folder Name | `macro.folderName` | ⬜ planned |
-| ↳ Folder Path | `macro.folderPath` | ⬜ planned |
-| ↳ Folder Title | `macro.folderTitle` | ⬜ planned |
-| ↳ Hour | `macro.hour` | ⬜ planned |
-| ↳ Imagenumber | `macro.imagenumber` | ⬜ planned |
-| ↳ Launch Application | `macro.LaunchApp` | ⬜ planned |
-| ↳ Macro Guide | `macro.guide` | ⬜ planned |
-| ↳ Minute | `macro.minute` | ⬜ planned |
-| ↳ Month | `macro.month` | ⬜ planned |
-| ↳ Page Count | `macro.pages` | ⬜ planned |
-| ↳ Page Label | `macro.pageLabel` | ⬜ planned |
-| ↳ Page Number | `macro.page` | ⬜ planned |
+| ↳ Application Version | `macro.appVersion` | ✅ available |
+| ↳ Auto-Number | `macro.autonumber` | ✅ available |
+| ↳ Bates Number | `macro.bates` | ✅ available |
+| ↳ Bates Value | `macro.batesValue` | ✅ available |
+| ↳ Bookmark Title | `macro.bookmarkTitle` | ✅ available |
+| ↳ Computer | `macro.computer` | ✅ available |
+| ↳ Date | `macro.date` | ✅ available |
+| ↳ Day | `macro.day` | ✅ available |
+| ↳ Docnumber | `macro.docnumber` | ✅ available |
+| ↳ Document Info | `macro.docInfo` | ✅ available |
+| ↳ Document Title | `macro.docTitle` | ✅ available |
+| ↳ Env | `macro.env` | ✅ available |
+| ↳ File Extension | `macro.fileExt` | ✅ available |
+| ↳ File Name | `macro.fileName` | ✅ available |
+| ↳ Folder Name | `macro.folderName` | ✅ available |
+| ↳ Folder Path | `macro.folderPath` | ✅ available |
+| ↳ Folder Title | `macro.folderTitle` | ✅ available |
+| ↳ Hour | `macro.hour` | ✅ available |
+| ↳ Imagenumber | `macro.imagenumber` | ✅ available |
+| ↳ Launch Application | `macro.LaunchApp` | ✅ available |
+| ↳ Macro Guide | `macro.guide` | ✅ available |
+| ↳ Minute | `macro.minute` | ✅ available |
+| ↳ Month | `macro.month` | ✅ available |
+| ↳ Page Count | `macro.pages` | ✅ available |
+| ↳ Page Label | `macro.pageLabel` | ✅ available |
+| ↳ Page Number | `macro.page` | ✅ available |
 | ↳ Page Numbering Style | `macro.pageNumberingStyle` | ✅ available |
-| ↳ Region | `macro.region` | ⬜ planned |
+| ↳ Region | `macro.region` | 🟡 partial |
 | ↳ Row Data | `macro.rowData` | ⬜ planned |
 | ↳ Row Data Index | `macro.rowDataIndex` | ⬜ planned |
 | ↳ Row Data Name | `macro.rowDataName` | ⬜ planned |
 | ↳ Row Index | `macro.rowIndex` | ⬜ planned |
-| ↳ Seconds | `macro.seconds` | ⬜ planned |
-| ↳ Source Pages | `macro.srcPages` | ⬜ planned |
-| ↳ Time | `macro.time` | ⬜ planned |
-| ↳ User | `macro.user` | ⬜ planned |
-| ↳ Year | `macro.year` | ⬜ planned |
+| ↳ Seconds | `macro.seconds` | ✅ available |
+| ↳ Source Pages | `macro.srcPages` | ✅ available |
+| ↳ Time | `macro.time` | ✅ available |
+| ↳ User | `macro.user` | ✅ available |
+| ↳ Year | `macro.year` | ✅ available |
 | Page Marks | `pagemarks` | 🟡 partial |
 | ↳ Add | `pagemarks.add` | ✅ available |
 | ↳ Edit… | `pagemarks.edit` | ⬜ planned |
@@ -1538,7 +1538,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | OCR Pages… | `document.OCRPages` | ⬜ planned |
 | Recompress Images… | `document.recompressImages` | ⬜ planned |
 | Replace Fonts… | `document.replaceFonts` | ⬜ planned |
-| Digital Signatures | `document.signatures` | ⬜ planned |
+| Digital Signatures | `document.signatures` | 🟡 partial |
 | Security Policies | `securityPolicies` | ⬜ planned |
 | Redaction | `document.redaction` | ⬜ planned |
 | Document JavaScript | `document.javaScript` | ✅ available |
@@ -1562,7 +1562,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Delete Empty Pages… | `document.deleteEmptyPages` | ✅ available |
 | Detect Barcodes in Region… | `document.detectBarcodes` | ⬜ planned |
 | Detect Barcodes… | `document.detectImageBarcode` | ⬜ planned |
-| Digital Signature | `digisig` | ⬜ planned |
+| Digital Signature | `digisig` | ✅ available |
 | Digital Signatures | `digiSigList` | ⬜ planned |
 | Document Actions | `docActions` | ⬜ planned |
 | Enable Editing (Discard PDF/A) | `document.discardPDFA` | ⬜ planned |
@@ -1598,7 +1598,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Page Structure | `pageStructure` | ⬜ planned |
 | Page Transitions | `document.pageTransitions` | ✅ available |
 | Previous Bookmark | `document.prevBookm` | ⬜ planned |
-| Public Key Security | `pubsec` | ⬜ planned |
+| Public Key Security | `pubsec` | ✅ available |
 | Rasterize Pages… | `document.rasterizePages` | ✅ available |
 | Recompress Images | `recompressImages` | ⬜ planned |
 | Recompress Image… | `document.recompressImage` | ⬜ planned |
@@ -1607,9 +1607,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Remove Cropped Content | `document.removeCroppedContent` | ⬜ planned |
 | Security Policies | `secPoliciesList` | ⬜ planned |
 | Show Problem Details… | `document.showProblems` | ⬜ planned |
-| Sign Markup | `signMarkup` | ⬜ planned |
+| Sign Markup | `signMarkup` | ✅ available |
 | Signature | `document.signature` | ⬜ planned |
-| Signs | `signs` | ⬜ planned |
+| Signs | `signs` | ✅ available |
 | Spell Check and Replace | `document.spellCheckAndRepl` | ⬜ planned |
 | Split Document… | `document.split` | ✅ available |
 | Split Pages by Guides… | `document.splitPagesByGuides` | ⬜ planned |
@@ -1717,7 +1717,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Metadata | `msp` | ⬜ planned |
 | Other Tools | `otherToolsGroup` | ⬜ planned |
 | Portfolio Schema | `portfolioSchemaList` | ⬜ planned |
-| Quick Launch | `quickLaunch` | ⬜ planned |
+| Quick Launch | `quickLaunch` | ✅ available |
 | Selection Barcode Place | `selBarcodePlace` | ⬜ planned |
 | Selection Image Place | `selImagePlace` | ✅ available |
 | Tool | `tool` | 🟡 partial |
@@ -1979,11 +1979,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `dao.changeState.Toggle` | Document › Layer Actions › Change State › Toggle | ⬜ planned |
 | `dao.usedData.AllOC` | Document › Layer Actions › Used Data › All Optional Content | ⬜ planned |
 | `dao.usedData.Layers` | Document › Layer Actions › Used Data › Layers | ⬜ planned |
-| `digisig.view.certify` | Document › Digital Signature › View › Certify | ⬜ planned |
-| `digisig.view.clear` | Document › Digital Signature › View › Clear | ⬜ planned |
-| `digisig.view.sign` | Document › Digital Signature › View › Sign | ⬜ planned |
-| `digisig.view.summary` | Document › Digital Signature › View › Summary | ⬜ planned |
-| `digisig.view.validate` | Document › Digital Signature › View › Validate | ⬜ planned |
+| `digisig.view.certify` | Document › Digital Signature › View › Certify | ✅ available |
+| `digisig.view.clear` | Document › Digital Signature › View › Clear | ✅ available |
+| `digisig.view.sign` | Document › Digital Signature › View › Sign | ✅ available |
+| `digisig.view.summary` | Document › Digital Signature › View › Summary | ✅ available |
+| `digisig.view.validate` | Document › Digital Signature › View › Validate | ✅ available |
 | `document` | Document | 🟡 partial |
 | `document.find.caseSensitive` | Document › Find › Case Sensitive | ✅ available |
 | `document.find.coloredResults` | Document › Find › Colored Results | ⬜ planned |
@@ -1996,7 +1996,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `document.find.includeFormFields` | Document › Find › Include Form Fields | ⬜ planned |
 | `document.find.includePageText` | Document › Find › Include Page Text | ⬜ planned |
 | `document.find.wholeWords` | Document › Find › Whole Words | ✅ available |
-| `document.signatures.certify.invisible` | Document › Digital Signatures › Certify (Visible) › Certify (Invisible) | ⬜ planned |
+| `document.signatures.certify.invisible` | Document › Digital Signatures › Certify (Visible) › Certify (Invisible) | ✅ available |
 | `dsd.pageSize` | Edit › Document Size › Page Size | ⬜ planned |
 | `edit` | Edit | ✅ available |
 | `editFields.items.add` | Form › Field Editor › Items › Add | ⬜ planned |
@@ -2136,16 +2136,16 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `loupeView.zoom.combo` | View › Loupe › Zoom › Zoom | ⬜ planned |
 | `loupeView.zoomIn` | View › Loupe › Zoom in | ⬜ planned |
 | `loupeView.zoomOut` | View › Loupe › Zoom Out | ⬜ planned |
-| `macro.LaunchApp.CurrentPage` | Comments › Macro › Launch Application › Current Page | ⬜ planned |
-| `macro.LaunchApp.CurrentPage0` | Comments › Macro › Launch Application › Current Page 0 | ⬜ planned |
-| `macro.LaunchApp.FileName` | Comments › Macro › Launch Application › File Name | ⬜ planned |
-| `macro.LaunchApp.PositionX` | Comments › Macro › Launch Application › Position X | ⬜ planned |
-| `macro.LaunchApp.PositionXpx` | Comments › Macro › Launch Application › Position Xpx | ⬜ planned |
-| `macro.LaunchApp.PositionY` | Comments › Macro › Launch Application › Position Y | ⬜ planned |
-| `macro.LaunchApp.PositionYpx` | Comments › Macro › Launch Application › Position Ypx | ⬜ planned |
-| `macro.LaunchApp.ViewRotation` | Comments › Macro › Launch Application › View Rotation | ⬜ planned |
-| `macro.LaunchApp.Zoom` | Comments › Macro › Launch Application › Zoom | ⬜ planned |
-| `macro.bates.options` | Comments › Macro › Bates Number › Bates Numbering Settings | ⬜ planned |
+| `macro.LaunchApp.CurrentPage` | Comments › Macro › Launch Application › Current Page | ✅ available |
+| `macro.LaunchApp.CurrentPage0` | Comments › Macro › Launch Application › Current Page 0 | ✅ available |
+| `macro.LaunchApp.FileName` | Comments › Macro › Launch Application › File Name | ✅ available |
+| `macro.LaunchApp.PositionX` | Comments › Macro › Launch Application › Position X | ✅ available |
+| `macro.LaunchApp.PositionXpx` | Comments › Macro › Launch Application › Position Xpx | ✅ available |
+| `macro.LaunchApp.PositionY` | Comments › Macro › Launch Application › Position Y | ✅ available |
+| `macro.LaunchApp.PositionYpx` | Comments › Macro › Launch Application › Position Ypx | ✅ available |
+| `macro.LaunchApp.ViewRotation` | Comments › Macro › Launch Application › View Rotation | ✅ available |
+| `macro.LaunchApp.Zoom` | Comments › Macro › Launch Application › Zoom | ✅ available |
+| `macro.bates.options` | Comments › Macro › Bates Number › Bates Numbering Settings | ✅ available |
 | `macro.pageNumberingStyle.options` | Comments › Macro › Page Numbering Style › Options | ✅ available |
 | `macro.rowData.options` | Comments › Macro › Row Data › Options | ⬜ planned |
 | `media.position.Slider` | Comments › Media › Position › Position | ⬜ planned |
@@ -2219,10 +2219,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `presets.manage` | Edit › Presets › Manage | ⬜ planned |
 | `props.applyDefault` | Edit › Properties › Apply Default | ✅ available |
 | `props.makeDefault` | Edit › Properties › Make Default | ✅ available |
-| `pubsec.cert.add` | Document › Public Key Security › Cert › Add | ⬜ planned |
-| `pubsec.cert.browse` | Document › Public Key Security › Cert › Browse | ⬜ planned |
-| `pubsec.cert.details` | Document › Public Key Security › Cert › Details | ⬜ planned |
-| `pubsec.cert.remove` | Document › Public Key Security › Cert › Remove | ⬜ planned |
+| `pubsec.cert.add` | Document › Public Key Security › Cert › Add | ✅ available |
+| `pubsec.cert.browse` | Document › Public Key Security › Cert › Browse | ✅ available |
+| `pubsec.cert.details` | Document › Public Key Security › Cert › Details | ✅ available |
+| `pubsec.cert.remove` | Document › Public Key Security › Cert › Remove | ✅ available |
 | `recoveryView.options` | View › Recovery Pane › Options | ⬜ planned |
 | `recoveryView.recovery` | View › Recovery Pane › Recovery | ⬜ planned |
 | `redaction.overlay.blur` | Document › Redaction › Overlay › Blur | ⬜ planned |
@@ -2286,15 +2286,15 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `sessions.sort.createTime` | File › Sessions › Sort › Create Time | ⬜ planned |
 | `sessions.sort.openTime` | File › Sessions › Sort › Open Time | ⬜ planned |
 | `sessions.sortBy` | File › Sessions › Sort by | ⬜ planned |
-| `signMarkup.popup.createNew` | Document › Sign Markup › Popup › Create New | ⬜ planned |
-| `signMarkup.popup.fromList` | Document › Sign Markup › Popup › From List | ⬜ planned |
+| `signMarkup.popup.createNew` | Document › Sign Markup › Popup › Create New | ✅ available |
+| `signMarkup.popup.fromList` | Document › Sign Markup › Popup › From List | ✅ available |
 | `signaturesView.options` | View › Signatures Pane › Options | ⬜ planned |
-| `signs.markup.company` | Document › Signs › Placeholders › Company | ⬜ planned |
-| `signs.markup.date` | Document › Signs › Placeholders › Date | ⬜ planned |
-| `signs.markup.email` | Document › Signs › Placeholders › Email | ⬜ planned |
-| `signs.markup.initials` | Document › Signs › Placeholders › Initials | ⬜ planned |
-| `signs.markup.name` | Document › Signs › Placeholders › Name | ⬜ planned |
-| `signs.markup.signature` | Document › Signs › Placeholders › Signature | ⬜ planned |
+| `signs.markup.company` | Document › Signs › Placeholders › Company | ✅ available |
+| `signs.markup.date` | Document › Signs › Placeholders › Date | ✅ available |
+| `signs.markup.email` | Document › Signs › Placeholders › Email | ✅ available |
+| `signs.markup.initials` | Document › Signs › Placeholders › Initials | ✅ available |
+| `signs.markup.name` | Document › Signs › Placeholders › Name | ✅ available |
+| `signs.markup.signature` | Document › Signs › Placeholders › Signature | ✅ available |
 | `splitPages.removeLine.list` | Edit › Split Pages › Remove Line › List | ⬜ planned |
 | `splitPages.removeLine.preview` | Edit › Split Pages › Remove Line › Preview | ⬜ planned |
 | `stampCustom.add.curve` | Comments › Stamp Designer › Add › Curve | ⬜ planned |
@@ -2385,8 +2385,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `tool.editFields.mode.text` | Form › Tool › Edit Form › Field Type › Text | ✅ available |
 | `tool.link.openInBrowser.newTab` | Tools › Tool › Link › Open in Browser › New Tab | ⬜ planned |
 | `tool.link.openInBrowser.newWindow` | Tools › Tool › Link › Open in Browser › New Window | ⬜ planned |
-| `tool.sign` | Tools › Tool › Sign | ⬜ planned |
-| `tool.sign.and` | Tools › Tool › Sign › And | ⬜ planned |
+| `tool.sign` | Tools › Tool › Sign | ✅ available |
+| `tool.sign.and` | Tools › Tool › Sign › And | ✅ available |
 | `tool.table.cell.fill` | Tools › Tool › Create/Edit Tables › Cell › Fill | ⬜ planned |
 | `tool.table.cell.merge` | Tools › Tool › Create/Edit Tables › Cell › Merge | ⬜ planned |
 | `tool.table.cell.split` | Tools › Tool › Create/Edit Tables › Cell › Split | ⬜ planned |

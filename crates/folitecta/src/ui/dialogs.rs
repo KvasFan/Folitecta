@@ -261,6 +261,8 @@ pub fn Dialogs() -> Element {
         Dialog::DigitalIds => rsx! { crate::ui::signatures::DigitalIdsDialog {} },
         Dialog::TrustedCerts => rsx! { crate::ui::signatures::TrustedCertsDialog {} },
         Dialog::SignatureLibrary => rsx! { crate::ui::signs::SignatureLibraryDialog {} },
+        Dialog::MacroGuide => rsx! { crate::ui::macros::MacroGuideDialog {} },
+        Dialog::LaunchApp => rsx! { crate::ui::macros::LaunchAppDialog {} },
     }
 }
 
@@ -1406,6 +1408,7 @@ fn Watermark() -> Element {
                 Err(e) => st.error(e),
             },
             Text { label: t(lang, "dialog.watermark.text"), value: text, autofocus: true }
+            crate::ui::macros::MacroPicker {}
             div { class: "field-grid three",
                 Num { label: t(lang, "dialog.watermark.size"), value: size, min: "6", max: "400" }
                 Num { label: t(lang, "dialog.watermark.opacity"), value: opacity, min: "5", max: "100" }
@@ -1455,6 +1458,7 @@ fn HeaderFooter() -> Element {
             b { "{t(lang, \"dialog.hf.footer\")}" }
             div { class: "field-grid three", Text { label: t(lang, "dialog.hf.left"), value: fl } Text { label: t(lang, "dialog.hf.center"), value: fc } Text { label: t(lang, "dialog.hf.right"), value: fr } }
             div { class: "field-grid", Num { label: t(lang, "dialog.watermark.size"), value: size, min: "5", max: "72" } Num { label: t(lang, "dialog.margin.pt"), value: margin, min: "0", max: "200" } }
+            crate::ui::macros::MacroPicker {}
             PageScope { mode, range }
         }
     }
@@ -1468,12 +1472,19 @@ fn PageNumbers(bates: bool) -> Element {
     let range = use_signal(String::new);
     let format = use_signal(|| {
         if bates {
-            "DOC-{bates:6}".to_string()
+            crate::commands::macros::bates_format(st)
         } else {
             "{page}".to_string()
         }
     });
-    let start = use_signal(|| "1".to_string());
+    // Bates numbering continues from the previous run.
+    let start = use_signal(|| {
+        if bates {
+            crate::commands::macros::bates_next(st).to_string()
+        } else {
+            "1".to_string()
+        }
+    });
     let size = use_signal(|| "10".to_string());
     let mut position = use_signal(|| {
         if bates {
@@ -1495,12 +1506,18 @@ fn PageNumbers(bates: bool) -> Element {
                     let s: i64 = start().trim().parse().unwrap_or(1);
                     let fs: f32 = size().trim().parse().unwrap_or(10.0);
                     let pos = MarkPosition::from_label(&position()).unwrap_or(MarkPosition::BottomCenter);
-                    apply(st, |tab| tab.doc.add_page_numbers(&pages, &fmt, s, pos, fs, 28.0, [0.0, 0.0, 0.0]));
+                    let ok = st.with_active(|tab| tab.doc.add_page_numbers(&pages, &fmt, s, pos, fs, 28.0, [0.0, 0.0, 0.0]));
+                    if bates && matches!(ok, Some(Ok(()))) {
+                        st.set_value("bates.format", fmt.clone());
+                        st.set_value("bates.next", (s + pages.len() as i64).to_string());
+                    }
+                    apply(st, |_| ok.unwrap_or(Ok(())));
                 }
                 Err(e) => st.error(e),
             },
             Text { label: t(lang, "dialog.numbers.format"), value: format, autofocus: true }
             div { class: "hint", "{t(lang, \"dialog.hf.hint\")}" }
+            crate::ui::macros::MacroPicker {}
             div { class: "field-grid three",
                 Num { label: t(lang, "dialog.numbers.start"), value: start, min: "0" }
                 Num { label: t(lang, "dialog.watermark.size"), value: size, min: "5", max: "72" }

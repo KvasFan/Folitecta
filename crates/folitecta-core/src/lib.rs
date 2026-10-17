@@ -59,7 +59,7 @@ pub use form_design::{FieldProps, NewField};
 pub use forms::{FieldKind, FormField, SignatureInfo};
 pub use layers::Layer;
 pub use links::{Link, LinkTarget, NamedDestination};
-pub use marks::{MarkPosition, TextMarkOptions};
+pub use marks::{MACROS, MarkPosition, TextMarkOptions};
 pub use markup_tools::{MeasureKind, MeasureScale};
 pub use outline::{BookmarkTarget, DestView, OutlineItem};
 pub use pagetools::{Sides, TRANSITIONS};

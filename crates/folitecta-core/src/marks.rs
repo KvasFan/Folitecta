@@ -158,40 +158,220 @@ fn text_op(
     s
 }
 
+/// Region of the system locale (`IT` for `it_IT.UTF-8`), from the locale
+/// environment variables; empty when they are not set.
+fn locale_region() -> String {
+    ["LC_ALL", "LC_MESSAGES", "LANG"]
+        .iter()
+        .filter_map(|n| std::env::var(n).ok())
+        .find(|v| !v.is_empty() && v != "C" && v != "POSIX")
+        .and_then(|v| {
+            let v = v.split(['.', '@']).next().unwrap_or("").to_string();
+            v.split(['_', '-']).nth(1).map(|r| r.to_uppercase())
+        })
+        .unwrap_or_default()
+}
+
+/// Macros understood in page-mark text: token and description.
+pub const MACROS: &[(&str, &str)] = &[
+    ("{page}", "page number (also {page:4} with leading zeros)"),
+    ("{pages}", "number of pages"),
+    ("{label}", "page label"),
+    ("{bates:6}", "Bates number with 6 digits"),
+    ("{autonumber:4}", "running number with 4 digits"),
+    ("{docnumber}", "number of the document when numbering several"),
+    (
+        "{imagenumber}",
+        "number of the image (page) in a document made from images",
+    ),
+    ("{srcpages}", "number of pages of the source document"),
+    ("{date}", "date (YYYY-MM-DD)"),
+    ("{time}", "time (HH:MM)"),
+    ("{year}", "year"),
+    ("{month}", "month"),
+    ("{day}", "day"),
+    ("{hour}", "hour"),
+    ("{minute}", "minute"),
+    ("{second}", "second"),
+    ("{title}", "document title (or file name)"),
+    ("{author}", "author"),
+    ("{subject}", "subject"),
+    ("{keywords}", "keywords"),
+    ("{docinfo:Key}", "any entry of the document information"),
+    ("{file}", "file name"),
+    ("{filename}", "file name without extension"),
+    ("{ext}", "file extension"),
+    ("{folder}", "folder path"),
+    ("{foldername}", "folder name"),
+    ("{bookmark}", "title of the page's bookmark"),
+    ("{computer}", "computer name"),
+    ("{user}", "user name"),
+    ("{env:NAME}", "environment variable"),
+    ("{region}", "region of the system locale"),
+    ("{app}", "application name and version"),
+];
+
 impl Document {
-    /// Expand `{page}`, `{pages}`, `{date}`, `{title}`, `{file}`, `{author}` and
-    /// `{bates:N}` placeholders for a page.
+    /// Expand the macros of page-mark text for a page (`page_index`, numbered
+    /// from `start`). See [`MACROS`] for the list.
     pub fn expand_macros(&self, template: &str, page_index: usize, start: i64) -> String {
+        self.expand_macros_numbered(template, page_index, start + page_index as i64)
+    }
+
+    /// Like [`Document::expand_macros`], with the number printed by `{page}`,
+    /// `{bates}` and `{autonumber}` given explicitly.
+    pub fn expand_macros_numbered(&self, template: &str, page_index: usize, number: i64) -> String {
+        if !template.contains('{') {
+            return template.to_string();
+        }
         let info = self.info();
-        let total = self.page_count();
-        let number = start + page_index as i64;
-        let mut out = template.to_string();
-        out = out
-            .replace("{page}", &number.to_string())
-            .replace("{n}", &number.to_string());
-        out = out
-            .replace("{pages}", &total.to_string())
-            .replace("{total}", &total.to_string());
-        out = out.replace("{date}", &util::today_display());
+        // UTC, like the {date} macro.
+        let now = time::OffsetDateTime::now_utc();
         let file_name = self.display_name();
+        let path = self.path();
+        let stem = path
+            .and_then(|p| p.file_stem())
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| file_name.clone());
+        let ext = path
+            .and_then(|p| p.extension())
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let folder = path
+            .and_then(|p| p.parent())
+            .map(|p| p.display().to_string())
+            .unwrap_or_default();
+        let folder_name = path
+            .and_then(|p| p.parent())
+            .and_then(|p| p.file_name())
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default();
         let title = if info.title.is_empty() {
-            file_name.as_str()
+            file_name.clone()
         } else {
-            info.title.as_str()
+            info.title.clone()
         };
-        out = out.replace("{title}", title);
-        out = out.replace("{file}", &file_name);
-        out = out.replace("{author}", &info.author);
-        while let Some(start_idx) = out.find("{bates:") {
-            let Some(end_rel) = out[start_idx..].find('}') else {
+        let env = |names: &[&str]| {
+            names
+                .iter()
+                .find_map(|n| std::env::var(n).ok())
+                .unwrap_or_default()
+        };
+        let mut out = String::with_capacity(template.len() + 16);
+        let mut rest = template;
+        while let Some(open) = rest.find('{') {
+            out.push_str(&rest[..open]);
+            let after = &rest[open + 1..];
+            let Some(close) = after.find('}') else {
+                out.push_str(&rest[open..]);
+                rest = "";
                 break;
             };
-            let end_idx = start_idx + end_rel;
-            let digits: usize = out[start_idx + 7..end_idx].trim().parse().unwrap_or(6);
-            let value = format!("{:0width$}", number, width = digits);
-            out.replace_range(start_idx..=end_idx, &value);
+            let token = &after[..close];
+            let (name, arg) = match token.split_once(':') {
+                Some((n, a)) => (n, Some(a)),
+                None => (token, None),
+            };
+            let padded = |v: i64| match arg.and_then(|a| a.trim().parse::<usize>().ok()) {
+                Some(w) => format!("{v:0w$}"),
+                None => v.to_string(),
+            };
+            let two = |v: u8| format!("{v:02}");
+            let value: Option<String> = match name {
+                "page" | "n" => Some(padded(number)),
+                "pages" | "total" => Some(self.page_count().to_string()),
+                "label" => Some(
+                    self.page_labels()
+                        .get(page_index)
+                        .cloned()
+                        .unwrap_or_else(|| (page_index + 1).to_string()),
+                ),
+                "bates" => Some(format!(
+                    "{:0w$}",
+                    number,
+                    w = arg.and_then(|a| a.trim().parse().ok()).unwrap_or(6)
+                )),
+                "autonumber" | "imagenumber" => Some(padded(number)),
+                "srcpages" => Some(self.page_count().to_string()),
+                // Multi-document numbering replaces it before; one document is number 1.
+                "docnumber" => Some(padded(1)),
+                "region" => Some(locale_region()),
+                "date" => Some(util::today_display()),
+                "time" => Some(format!("{}:{}", two(now.hour()), two(now.minute()))),
+                "year" => Some(now.year().to_string()),
+                "month" => Some(two(now.month() as u8)),
+                "day" => Some(two(now.day())),
+                "hour" => Some(two(now.hour())),
+                "minute" => Some(two(now.minute())),
+                "second" => Some(two(now.second())),
+                "title" => Some(title.clone()),
+                "author" => Some(info.author.clone()),
+                "subject" => Some(info.subject.clone()),
+                "keywords" => Some(info.keywords.clone()),
+                "creator" => Some(info.creator.clone()),
+                "producer" => Some(info.producer.clone()),
+                "file" => Some(file_name.clone()),
+                "filename" => Some(stem.clone()),
+                "ext" => Some(ext.clone()),
+                "folder" => Some(folder.clone()),
+                "foldername" => Some(folder_name.clone()),
+                "computer" => Some(env(&["COMPUTERNAME", "HOSTNAME"])),
+                "user" => Some(env(&["USERNAME", "USER", "LOGNAME"])),
+                "env" => arg.map(|a| std::env::var(a.trim()).unwrap_or_default()),
+                "docinfo" => arg.map(|k| {
+                    let key = k.trim();
+                    match key.to_ascii_lowercase().as_str() {
+                        "title" => info.title.clone(),
+                        "author" => info.author.clone(),
+                        "subject" => info.subject.clone(),
+                        "keywords" => info.keywords.clone(),
+                        "creator" => info.creator.clone(),
+                        "producer" => info.producer.clone(),
+                        _ => self.info_entry(key),
+                    }
+                }),
+                "bookmark" => Some(self.bookmark_title_for_page(page_index)),
+                "app" => Some(format!("{} {}", crate::APP_NAME, crate::VERSION)),
+                _ => None,
+            };
+            match value {
+                Some(v) => out.push_str(&v),
+                // Unknown braces stay as they are.
+                None => {
+                    out.push('{');
+                    out.push_str(token);
+                    out.push('}');
+                }
+            }
+            rest = &after[close + 1..];
         }
+        out.push_str(rest);
         out
+    }
+
+    /// A custom entry of the document information dictionary.
+    fn info_entry(&self, key: &str) -> String {
+        let doc = &self.inner;
+        doc.trailer
+            .get(b"Info")
+            .ok()
+            .map(|i| util::deref(doc, i))
+            .and_then(|i| i.as_dict().ok())
+            .and_then(|d| util::dict_text(doc, d, key.as_bytes()))
+            .unwrap_or_default()
+    }
+
+    /// Title of the last bookmark (in document order) that points at or before a page.
+    pub fn bookmark_title_for_page(&self, page: usize) -> String {
+        let mut best: Option<(usize, String)> = None;
+        for (_, title, p) in self.outline_flat() {
+            if let Some(p) = p {
+                if p <= page && best.as_ref().map(|(bp, _)| p >= *bp).unwrap_or(true) {
+                    best = Some((p, title));
+                }
+            }
+        }
+        best.map(|(_, t)| t).unwrap_or_default()
     }
 
     fn prepare_mark_resources(&mut self, page_id: ObjectId, opacity: f32) -> Result<Option<String>> {
@@ -223,7 +403,8 @@ impl Document {
             let id = ids[p];
             let size = self.page_size_of(id);
             let gs = self.prepare_mark_resources(id, opts.opacity)?;
-            let w = approx_text_width(&opts.text, opts.font_size);
+            let text = self.expand_macros(&opts.text, p, 1);
+            let w = approx_text_width(&text, opts.font_size);
             let (u, v) = if opts.position == MarkPosition::Center && opts.rotation.abs() > 0.1 {
                 // rotate around the page centre
                 let (cx, cy) = (size.width / 2.0, size.height / 2.0);
@@ -235,7 +416,7 @@ impl Document {
             };
             let (x, y) = display_to_pdf(&size, u, v);
             let angle = opts.rotation + size.rotation as f32;
-            let content = text_op(x, y, angle, opts.font_size, opts.color, gs.as_deref(), &opts.text);
+            let content = text_op(x, y, angle, opts.font_size, opts.color, gs.as_deref(), &text);
             self.append_page_content(id, content.into_bytes(), Some("Watermark"))?;
         }
         self.commit()
@@ -325,7 +506,7 @@ impl Document {
             let size = self.page_size_of(id);
             self.prepare_mark_resources(id, 1.0)?;
             // Number relative to the selection so Bates numbering is contiguous.
-            let text = self.expand_macros(template, ordinal, start);
+            let text = self.expand_macros_numbered(template, p, start + ordinal as i64);
             let w = approx_text_width(&text, font_size);
             let (u, v) = anchor(&size, position, w, font_size, margin);
             let (x, y) = display_to_pdf(&size, u, v);

@@ -15,6 +15,7 @@ mod format;
 mod forms;
 mod help;
 pub(crate) mod interface;
+pub(crate) mod macros;
 mod pages;
 mod panes;
 mod protect;
@@ -59,6 +60,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     interface::HANDLERS,
     signatures::HANDLERS,
     signs::HANDLERS,
+    macros::HANDLERS,
     convert::HANDLERS,
     panes::HANDLERS,
     help::HANDLERS,
@@ -80,6 +82,8 @@ pub const PARTIAL: &[&str] = &[
     "tool.editFields.mode.date",
     "sendByEmail",
     "copySrcFile",
+    // From the locale environment variables only.
+    "macro.region",
 ];
 
 /// View options toggled by command id; their state lives in the preferences.

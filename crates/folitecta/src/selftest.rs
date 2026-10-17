@@ -1190,7 +1190,45 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     );
     st.set_tool(Tool::Hand);
 
-    // 25. Undo everything added above.
+    // 25. Macros: insert them into a header field with the picker and the menu
+    // command, then check the expansion on the page.
+    st.set_dialog(Dialog::HeaderFooter);
+    pause(600).await;
+    let _ = document::eval(
+        "const f = document.querySelector('.dialog input:not([type])'); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); }",
+    )
+    .await;
+    pause(200).await;
+    let _ = document::eval(
+        "const s = document.querySelector('.macro-picker select'); if (s) { s.value = '{label}'; s.dispatchEvent(new Event('change', { bubbles: true })); }",
+    )
+    .await;
+    pause(400).await;
+    crate::commands::dispatch(st, "macro.page");
+    pause(500).await;
+    let field = document::eval("return document.querySelector('.dialog input:not([type])')?.value ?? '';")
+        .await
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default();
+    record(
+        "macros inserted into the focused field",
+        field == "{title}{label}{page}",
+        field.clone(),
+    );
+    let _ = capture_window(&dir.join("interaction-macros.png"));
+    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(600).await;
+    let (expected, text) = st
+        .read_active(|t| (t.doc.expand_macros(&field, t.page, 1), t.doc.page_text(t.page)))
+        .unwrap_or_default();
+    record(
+        "macros expanded in the header",
+        !expected.contains('{') && text.contains(&expected),
+        expected,
+    );
+
+    // 26. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..30 {
         crate::commands::dispatch(st, "undo");
@@ -1362,6 +1400,9 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("digital-ids", Dialog::DigitalIds),
         ("trusted-certs", Dialog::TrustedCerts),
         ("signature-library", Dialog::SignatureLibrary),
+        ("bates", Dialog::Bates),
+        ("macro-guide", Dialog::MacroGuide),
+        ("launch-app", Dialog::LaunchApp),
     ];
     for lang in [crate::i18n::Lang::It, crate::i18n::Lang::En] {
         st.ui_mut().lang = lang;

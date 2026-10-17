@@ -1078,17 +1078,21 @@ pub fn bates_multiple(st: AppState) {
         else {
             return;
         };
-        let mut next = 1i64;
+        // The format and the next number of the Bates dialog.
+        let format = crate::commands::macros::bates_format(st);
+        let mut next = crate::commands::macros::bates_next(st);
+        let first = next;
         let mut written = 0;
-        for f in files {
+        for (docnumber, f) in files.into_iter().enumerate() {
             let path = f.path().to_path_buf();
             match Document::open(&path) {
                 Ok(mut doc) => {
                     let pages: Vec<usize> = (0..doc.page_count()).collect();
                     let n = pages.len() as i64;
+                    let template = format.replace("{docnumber}", &(docnumber + 1).to_string());
                     if let Err(e) = doc.add_page_numbers(
                         &pages,
-                        "{bates:6}",
+                        &template,
                         next,
                         folitecta_core::MarkPosition::BottomRight,
                         9.0,
@@ -1113,6 +1117,9 @@ pub fn bates_multiple(st: AppState) {
                 }
                 Err(e) => st.error(format!("{}: {e}", path.display())),
             }
+        }
+        if next != first {
+            st.set_value("bates.next", next.to_string());
         }
         st.toast(
             ToastKind::Ok,

@@ -26,6 +26,7 @@ pub mod flatten;
 pub mod form_data;
 pub mod form_design;
 pub mod forms;
+pub mod geom;
 pub mod images;
 pub mod layers;
 pub mod links;

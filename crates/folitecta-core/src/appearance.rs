@@ -639,12 +639,7 @@ impl Document {
             .ok()
             .and_then(|r| rect_of(doc, r))
             .unwrap_or([0.0; 4]);
-        rect = [
-            rect[0].min(rect[2]),
-            rect[1].min(rect[3]),
-            rect[0].max(rect[2]),
-            rect[1].max(rect[3]),
-        ];
+        rect = crate::geom::normalize(rect);
         let w = style.width.max(0.0);
         let f = fmt_num;
         let mut body = String::new();

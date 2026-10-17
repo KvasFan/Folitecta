@@ -201,12 +201,7 @@ impl Document {
     pub fn set_annotation_rect(&mut self, page: usize, index: usize, rect: [f32; 4]) -> Result<()> {
         let (_, aid) = self.annotation_ref(page, index)?;
         let aid = aid.ok_or_else(|| Error::Invalid("inline annotations cannot be changed".into()))?;
-        let n = [
-            rect[0].min(rect[2]),
-            rect[1].min(rect[3]),
-            rect[0].max(rect[2]),
-            rect[1].max(rect[3]),
-        ];
+        let n = crate::geom::normalize(rect);
         if n[2] - n[0] < 1.0 || n[3] - n[1] < 1.0 {
             return Err(Error::Invalid("annotation rectangle is empty".into()));
         }

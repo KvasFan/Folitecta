@@ -22,6 +22,7 @@ use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 use crate::content_lex::{Op, name_of, operations};
 use crate::document::Document;
 use crate::error::{Error, Result};
+use crate::geom;
 use crate::util::{deref, dict_text};
 
 /// Standard structure types.
@@ -868,20 +869,6 @@ fn set_page_content(doc: &mut lopdf::Document, page_id: ObjectId, data: Vec<u8>)
     Ok(())
 }
 
-fn intersects(a: [f32; 4], b: [f32; 4]) -> bool {
-    a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]
-}
-
-fn union(a: Option<[f32; 4]>, b: [f32; 4]) -> Option<[f32; 4]> {
-    if b[2] <= b[0] && b[3] <= b[1] {
-        return a;
-    }
-    Some(match a {
-        Some(a) => [a[0].min(b[0]), a[1].min(b[1]), a[2].max(b[2]), a[3].max(b[3])],
-        None => b,
-    })
-}
-
 /// A unit measured through a probe.
 #[derive(Debug, Clone)]
 struct Probed {
@@ -1343,7 +1330,7 @@ impl Document {
                 continue;
             }
             if let Some(item) = marked.iter().find(|i| i.mcid == Some(m)) {
-                rect = union(rect, item.rect);
+                rect = geom::union_opt(rect, item.rect);
             }
         }
         if let Ok(annots) = self.annotations(page) {
@@ -1351,7 +1338,7 @@ impl Document {
             for (p, i) in elem.annotations() {
                 if p == page {
                     if let (Some(a), Some(size)) = (annots.get(i), size.as_ref()) {
-                        rect = union(rect, crate::marks::pdf_rect_to_display(size, a.rect));
+                        rect = geom::union_opt(rect, crate::marks::pdf_rect_to_display(size, a.rect));
                     }
                 }
             }
@@ -1396,7 +1383,7 @@ impl Document {
         let marked = self.marked_content(page);
         let best = marked
             .iter()
-            .filter(|i| i.mcid.is_some() && intersects(i.rect, rect))
+            .filter(|i| i.mcid.is_some() && geom::intersects(i.rect, rect))
             .min_by(|a, b| {
                 let area = |r: [f32; 4]| (r[2] - r[0]) * (r[3] - r[1]);
                 area(a.rect).total_cmp(&area(b.rect))
@@ -1446,7 +1433,7 @@ impl Document {
                     if let StructKid::Content { page: p, mcid } = k {
                         if *p == page {
                             if let Some((r, t)) = rect_of(*mcid) {
-                                out[c].3 = union(out[c].3, r);
+                                out[c].3 = geom::union_opt(out[c].3, r);
                                 if !t.is_empty() {
                                     out[c].4.push(t);
                                 }
@@ -1471,7 +1458,8 @@ impl Document {
                     for (p, i) in e.annotations() {
                         if p == page {
                             if let Some(a) = annots.get(i) {
-                                item.3 = union(item.3, crate::marks::pdf_rect_to_display(&size, a.rect));
+                                item.3 =
+                                    geom::union_opt(item.3, crate::marks::pdf_rect_to_display(&size, a.rect));
                                 subtypes.entry(item.0).or_insert_with(|| a.subtype.clone());
                             }
                         }
@@ -2309,7 +2297,7 @@ impl Document {
         let probes = self.probe_pages(&[page])?;
         let (ps, probed) = probes.get(&page).cloned().unwrap_or_default();
         let inside = |r: [f32; 4]| {
-            if !intersects(r, rect) {
+            if !geom::intersects(r, rect) {
                 return false;
             }
             let ix = (r[2].min(rect[2]) - r[0].max(rect[0])).max(0.0);
@@ -2621,7 +2609,7 @@ impl Document {
                         let overlap = item.rect[0] < last[2] + size && item.rect[2] > last[0] - size;
                         if same_class && (line || (below && overlap)) {
                             units.push(pr.unit);
-                            *rect = union(Some(*rect), item.rect).unwrap_or(*rect);
+                            *rect = geom::union_opt(Some(*rect), item.rect).unwrap_or(*rect);
                             *chars += item.text.chars().count();
                             continue;
                         }
@@ -2749,7 +2737,7 @@ impl Document {
                     .then(|| {
                         created
                             .iter()
-                            .filter(|(_, cr, t)| t != "Figure" && intersects(*cr, r))
+                            .filter(|(_, cr, t)| t != "Figure" && geom::intersects(*cr, r))
                             .max_by(|x, y| {
                                 let ov = |c: [f32; 4]| {
                                     (c[2].min(r[2]) - c[0].max(r[0])).max(0.0)

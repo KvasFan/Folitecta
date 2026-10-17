@@ -397,12 +397,7 @@ impl Document {
         let mime =
             mime_for(name).ok_or_else(|| Error::Invalid("this kind of file cannot be played".into()))?;
         let page_id = self.page_id(page)?;
-        let r = [
-            rect[0].min(rect[2]),
-            rect[1].min(rect[3]),
-            rect[0].max(rect[2]),
-            rect[1].max(rect[3]),
-        ];
+        let r = crate::geom::normalize(rect);
         let r = if r[2] - r[0] < 24.0 || r[3] - r[1] < 24.0 {
             [r[0], r[3] - 90.0, r[0] + 160.0, r[3]]
         } else {

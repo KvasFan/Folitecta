@@ -339,12 +339,7 @@ impl Document {
         author: &str,
     ) -> Result<ObjectId> {
         let page_id = self.page_id(page)?;
-        let r = [
-            rect[0].min(rect[2]),
-            rect[1].min(rect[3]),
-            rect[0].max(rect[2]),
-            rect[1].max(rect[3]),
-        ];
+        let r = crate::geom::normalize(rect);
         if r[2] - r[0] < 10.0 || r[3] - r[1] < 6.0 {
             return Err(Error::Invalid("the table is too small".into()));
         }

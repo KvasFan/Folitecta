@@ -500,7 +500,7 @@ fn dragged_rect(d: &AnnotDrag, zoom: f32, view_rotation: i32) -> [f32; 4] {
             }
         }
     }
-    [r[0].min(r[2]), r[1].min(r[3]), r[0].max(r[2]), r[1].max(r[3])]
+    folitecta_core::geom::normalize(r)
 }
 
 /// Snap a display point to the grid and/or guides when snapping is on.

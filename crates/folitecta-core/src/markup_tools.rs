@@ -253,12 +253,7 @@ impl Document {
         author: &str,
     ) -> Result<ObjectId> {
         let page_id = self.page_id(page)?;
-        let bx = [
-            bx[0].min(bx[2]),
-            bx[1].min(bx[3]),
-            bx[0].max(bx[2]),
-            bx[1].max(bx[3]),
-        ];
+        let bx = crate::geom::normalize(bx);
         // Attach the leader to the middle of the box side facing the tip, with a short knee.
         let (cx, cy) = ((bx[0] + bx[2]) / 2.0, (bx[1] + bx[3]) / 2.0);
         let (attach, knee) = if tip.0 < bx[0] {

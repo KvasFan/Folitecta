@@ -349,12 +349,7 @@ impl Document {
             SignPlacement::New { page, rect } => {
                 let page_id = self.page_id(*page)?;
                 let name = self.unique_field_name("Signature");
-                let n = [
-                    rect[0].min(rect[2]),
-                    rect[1].min(rect[3]),
-                    rect[0].max(rect[2]),
-                    rect[1].max(rect[3]),
-                ];
+                let n = crate::geom::normalize(*rect);
                 let d = dictionary! {
                     "Type" => "Annot",
                     "Subtype" => "Widget",

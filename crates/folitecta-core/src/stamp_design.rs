@@ -562,12 +562,7 @@ impl Document {
             return Err(Error::Invalid("the stamp is empty".into()));
         }
         let page_id = self.page_id(page)?;
-        let r = [
-            rect[0].min(rect[2]),
-            rect[1].min(rect[3]),
-            rect[0].max(rect[2]),
-            rect[1].max(rect[3]),
-        ];
+        let r = crate::geom::normalize(rect);
         let (sx, sy) = (
             (r[2] - r[0]) / design.width.max(1.0),
             (r[3] - r[1]) / design.height.max(1.0),

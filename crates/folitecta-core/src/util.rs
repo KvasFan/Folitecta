@@ -138,7 +138,7 @@ pub fn rect_of(doc: &lopdf::Document, obj: &Object) -> Option<[f32; 4]> {
         .take(4)
         .map(|o| num(deref(doc, o)))
         .collect::<Option<Vec<_>>>()?;
-    Some([v[0].min(v[2]), v[1].min(v[3]), v[0].max(v[2]), v[1].max(v[3])])
+    Some(crate::geom::normalize([v[0], v[1], v[2], v[3]]))
 }
 
 /// Convert a colour array (gray, RGB or CMYK) into RGB components in `0..=1`.

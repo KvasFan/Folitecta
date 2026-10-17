@@ -395,12 +395,7 @@ impl Document {
             .ok()
             .and_then(|p| p.as_reference().ok())
             .ok_or_else(|| Error::Invalid("the comment has no pop-up note".into()))?;
-        let n = [
-            rect[0].min(rect[2]),
-            rect[1].min(rect[3]),
-            rect[0].max(rect[2]),
-            rect[1].max(rect[3]),
-        ];
+        let n = crate::geom::normalize(rect);
         self.begin_edit();
         self.inner
             .get_dictionary_mut(p)?

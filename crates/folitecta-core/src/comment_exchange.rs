@@ -544,7 +544,7 @@ fn xfdf_comment(el: &XmlElement, subtype: &str, page: usize, fallback_name: Stri
     }
     let r = parse_numbers(a("rect").unwrap_or_default());
     let rect = if r.len() >= 4 {
-        [r[0].min(r[2]), r[1].min(r[3]), r[0].max(r[2]), r[1].max(r[3])]
+        crate::geom::normalize([r[0], r[1], r[2], r[3]])
     } else if geometry.len() >= 2 {
         bbox(&geometry)
     } else {
@@ -713,7 +713,7 @@ fn xfdf_comment(el: &XmlElement, subtype: &str, page: usize, fallback_name: Stri
         let mut pd = dictionary! {
             "Type" => "Annot",
             "Subtype" => "Popup",
-            "Rect" => number_list(&[r[0].min(r[2]), r[1].min(r[3]), r[0].max(r[2]), r[1].max(r[3])]),
+            "Rect" => number_list(&crate::geom::normalize([r[0], r[1], r[2], r[3]])),
             "Open" => yes(p.attr("open")),
         };
         if let Some(f) = p.attr("flags") {

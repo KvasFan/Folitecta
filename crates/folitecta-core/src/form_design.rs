@@ -275,12 +275,7 @@ impl Document {
         props: &FieldProps,
     ) -> Result<ObjectId> {
         let page_id = self.page_id(page)?;
-        let rect = [
-            rect[0].min(rect[2]),
-            rect[1].min(rect[3]),
-            rect[0].max(rect[2]),
-            rect[1].max(rect[3]),
-        ];
+        let rect = crate::geom::normalize(rect);
         if rect[2] - rect[0] < 4.0 || rect[3] - rect[1] < 4.0 {
             return Err(Error::Invalid("the field is too small".into()));
         }
@@ -545,12 +540,7 @@ impl Document {
             .unwrap_or_else(|| "/Helv 0 Tf 0 g".into());
         let q = find(b"Q").and_then(|o| o.as_i64().ok()).unwrap_or(0);
         let rect = d.get(b"Rect").ok().and_then(|r| rect_of(doc, r))?;
-        let rect = [
-            rect[0].min(rect[2]),
-            rect[1].min(rect[3]),
-            rect[0].max(rect[2]),
-            rect[1].max(rect[3]),
-        ];
+        let rect = crate::geom::normalize(rect);
         let mk = d
             .get(b"MK")
             .ok()

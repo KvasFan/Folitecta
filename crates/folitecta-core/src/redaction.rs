@@ -11,7 +11,7 @@ use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 use crate::document::Document;
 use crate::error::{Error, Result};
 use crate::marks::pdf_rect_to_display;
-use crate::render::Renderer;
+use crate::render::{RenderOpts, Renderer};
 use crate::util::{deref, fmt_num, helvetica_width, rect_of, winansi_byte};
 
 /// How a redacted area is covered.
@@ -429,10 +429,11 @@ impl Document {
         for (p, marks) in by_page {
             let id = self.page_id(p)?;
             let size = self.page_size_of(id);
-            let rendered = renderer.render_page_opts(p, scale, false)?;
-            let mut img = image::load_from_memory(&rendered.png)
-                .map_err(|e| Error::Image(e.to_string()))?
-                .to_rgba8();
+            let opts = RenderOpts {
+                annotations: false,
+                transparent: false,
+            };
+            let mut img = renderer.render_rgba(p, scale, opts)?;
             let (iw, ih) = img.dimensions();
             let (sx, sy) = (iw as f32 / size.width, ih as f32 / size.height);
             let mut texts = String::new();

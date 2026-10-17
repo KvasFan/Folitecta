@@ -36,13 +36,17 @@
 .rbtn.compact .lbl { display: block; max-width: 132px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-line-clamp: unset; text-align: left; }
 .rbtn.compact .dot { top: 7px; right: 2px; width: 4px; height: 4px; }
 .rbtn.small { flex-direction: row; width: 30px; height: 28px; padding: 0; gap: 0; justify-content: center; }
-.rbtn.small .lbl { display: none; }
+/* A tool without its name (View › Tool Names off): an icon in a grid, the name in the tooltip. */
+.rbtn.cell { flex-direction: row; width: 26px; height: 20px; padding: 0; gap: 0; justify-content: center; border-radius: 4px; }
+.ribbon-group.icons .ribbon-group-items { align-self: center; margin-block: auto; }
 .rbtn .ic { width: 22px; height: 22px; }
 .rbtn.small .ic { width: 17px; height: 17px; }
+.rbtn.cell .ic { width: 17px; height: 17px; }
+.rbtn.cell .dot { top: 2px; right: 1px; width: 4px; height: 4px; }
 .rbtn .lbl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: normal; word-break: normal; }
 .rbtn .dot { position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); opacity: .6; }
 .rbtn.has-menu .lbl::after { content: " \25BE"; color: var(--muted); }
-.rbtn.small.has-menu::after { content: "\25BE"; position: absolute; right: 1px; bottom: 0; font-size: 8px; color: var(--muted); }
+.rbtn.small.has-menu::after, .rbtn.cell.has-menu::after { content: "\25BE"; position: absolute; right: 1px; bottom: 0; font-size: 8px; line-height: 1; color: var(--muted); }
 .rbtn-wrap { position: relative; flex: none; }
 .tb-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; flex: none; }
 .rbtn-menu {

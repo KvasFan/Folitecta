@@ -28,6 +28,8 @@ pub enum BtnStyle {
     Compact,
     /// Icon only (classic toolbar).
     Icon,
+    /// Icon only, one row of a ribbon column (the name in the tooltip).
+    Cell,
 }
 
 impl BtnStyle {
@@ -36,14 +38,18 @@ impl BtnStyle {
             BtnStyle::Large => "rbtn",
             BtnStyle::Compact => "rbtn compact",
             BtnStyle::Icon => "rbtn small",
+            BtnStyle::Cell => "rbtn cell",
         }
     }
     fn height(self) -> f64 {
         match self {
             BtnStyle::Large => LARGE_H,
-            BtnStyle::Compact => SMALL_H,
+            BtnStyle::Compact | BtnStyle::Cell => SMALL_H,
             BtnStyle::Icon => ICON_H,
         }
+    }
+    fn labelled(self) -> bool {
+        matches!(self, BtnStyle::Large | BtnStyle::Compact)
     }
 }
 
@@ -168,12 +174,14 @@ pub fn ribbon_button(st: AppState, lang: Lang, cmd: &'static Command, style: Btn
     } else {
         String::new()
     };
+    let labelled = style.labelled();
     rsx! {
         div { class: "rbtn-wrap", key: "{cmd.id}",
             button {
                 class: "{class}",
                 style: "{width_style}",
                 title: "{tip}",
+                "aria-label": "{label}",
                 "data-cmd": "{cmd.id}",
                 onclick: move |e| {
                     e.stop_propagation();
@@ -184,7 +192,7 @@ pub fn ribbon_button(st: AppState, lang: Lang, cmd: &'static Command, style: Btn
                     }
                 },
                 Icon { name: icon }
-                span { class: "lbl", "{label}" }
+                if labelled { span { class: "lbl", "{label}" } }
                 if planned { span { class: "dot" } }
             }
             if has_menu && open {
@@ -214,15 +222,16 @@ fn overflow_button(
     } else {
         String::new()
     };
+    let labelled = style.labelled();
     rsx! {
         div { class: "rbtn-wrap", key: "{key}",
-            button { class: "{class}", style: "{width_style}", title: "{label} ({count})",
+            button { class: "{class}", style: "{width_style}", title: "{label} ({count})", "aria-label": "{label}",
                 onclick: move |e| {
                     e.stop_propagation();
                     toggle_dropdown(st, &key_click, anchor_below(&e, height));
                 },
                 Icon { name: icon }
-                span { class: "lbl", "{label}" }
+                if labelled { span { class: "lbl", "{label}" } }
             }
             if open {
                 {dropdown(st, lang, cmds)}
@@ -295,27 +304,53 @@ pub fn Ribbon() -> Element {
             }
         })
         .collect();
-    let more_w = small_width(&format!("{} (99)", t(lang, "label.more")));
+    // Without their names the tools are icons in a grid, the names in the tooltips.
+    let labels = commands::option_on(st, "view.ribbonLabels");
+    let small_style = if labels { BtnStyle::Compact } else { BtnStyle::Cell };
+    let more_w = if labels {
+        small_width(&format!("{} (99)", t(lang, "label.more")))
+    } else {
+        ribbon_layout::CELL_W
+    };
     let specs: Vec<GroupSpec> = groups
         .iter()
-        .map(|gt| GroupSpec {
-            small_w: gt
-                .items
-                .iter()
-                .map(|c| small_width(&cmd_label(lang, c)))
-                .collect(),
-            large_w: gt
-                .items
-                .iter()
-                .map(|c| large_width(&cmd_label(lang, c)))
-                .collect(),
-            extra: !gt.extras.is_empty(),
-            title: title_width(&group_label(lang, tab_id, gt.group)),
-            more_w,
-            collapsed_w: large_width(&group_label(lang, tab_id, gt.group)),
-            fixed: gt.fixed,
+        .map(|gt| {
+            let title = group_label(lang, tab_id, gt.group);
+            let (small_w, large_w, collapsed_w) = if labels {
+                (
+                    gt.items
+                        .iter()
+                        .map(|c| small_width(&cmd_label(lang, c)))
+                        .collect(),
+                    gt.items
+                        .iter()
+                        .map(|c| large_width(&cmd_label(lang, c)))
+                        .collect(),
+                    large_width(&title),
+                )
+            } else {
+                (
+                    vec![ribbon_layout::CELL_W; gt.items.len()],
+                    Vec::new(),
+                    ribbon_layout::CELL_W,
+                )
+            };
+            GroupSpec {
+                small_w,
+                large_w,
+                extra: !gt.extras.is_empty(),
+                title: title_width(&title),
+                more_w,
+                collapsed_w,
+                fixed: gt.fixed,
+            }
         })
         .collect();
+    let column_w = if labels {
+        ribbon_layout::COLUMN_W
+    } else {
+        ribbon_layout::CELL_W + ribbon_layout::COL_GAP
+    };
     let fits = fit_ribbon(&specs, vw - 28.0, rows);
     let body_h = ribbon_layout::body_height(rows);
     let resize_title = t(lang, "layout.resize");
@@ -393,8 +428,17 @@ pub fn Ribbon() -> Element {
                         if more_in_stack {
                             stack.push(None);
                         }
-                        let columns: Vec<Vec<Option<&'static Command>>> = stack.chunks(rows).map(|c| c.to_vec()).collect();
-                        let group_class = if fixed.is_some() { "ribbon-group fixed" } else { "ribbon-group" };
+                        let per_column = if labels {
+                            rows
+                        } else {
+                            ribbon_layout::icons_per_column(stack.len(), rows, title_width(&label))
+                        };
+                        let columns: Vec<Vec<Option<&'static Command>>> = stack.chunks(per_column.max(1)).map(|c| c.to_vec()).collect();
+                        let mut group_class = String::from(if fixed.is_some() { "ribbon-group fixed" } else { "ribbon-group" });
+                        if !labels {
+                            group_class.push_str(" icons");
+                        }
+                        let big_style = if labels { BtnStyle::Large } else { BtnStyle::Cell };
                         let grip_key = layout::group_key(tab_id, g.id);
                         rsx! {
                             div { class: "{group_class}", key: "{tab_id}-{g.id}", "data-group": "{g.id}",
@@ -406,21 +450,21 @@ pub fn Ribbon() -> Element {
                                         div { class: "rb-col", key: "col{ci}",
                                             for entry in col {
                                                 match entry {
-                                                    Some(c) => ribbon_button(st, lang, c, BtnStyle::Compact),
-                                                    None => overflow_button(st, lang, more_key.clone(), more_label.clone(), more_icon, overflow.clone(), BtnStyle::Compact),
+                                                    Some(c) => ribbon_button(st, lang, c, small_style),
+                                                    None => overflow_button(st, lang, more_key.clone(), more_label.clone(), more_icon, overflow.clone(), small_style),
                                                 }
                                             }
                                         }
                                     }
                                     if !overflow.is_empty() && !more_in_stack {
-                                        {overflow_button(st, lang, more_key.clone(), more_label.clone(), more_icon, overflow.clone(), BtnStyle::Large)}
+                                        {overflow_button(st, lang, more_key.clone(), more_label.clone(), more_icon, overflow.clone(), big_style)}
                                     }
                                 }
-                                div { class: "ribbon-group-title", "{label}" }
+                                div { class: "ribbon-group-title", title: "{label}", "{label}" }
                                 // Dragged right, the group shows more of its tools (all of them
                                 // at the end); a double click lets the ribbon choose again.
                                 layout::Splitter { name: grip_key, axis: layout::Axis::X, class: "group-grip", title: group_title.clone(),
-                                    base: shown as f64, per_px: rows as f64 / ribbon_layout::COLUMN_W, min: 1.0, max: all_tools as f64 }
+                                    base: shown as f64, per_px: rows as f64 / column_w, min: 1.0, max: all_tools as f64 }
                             }
                         }
                     }

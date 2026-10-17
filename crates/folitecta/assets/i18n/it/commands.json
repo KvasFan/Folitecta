@@ -1779,6 +1779,7 @@
   "cmd.view.recovery": "Ripristino documenti",
   "cmd.view.restoreCmdBarsVisibility": "Ripristina visibilità barre dei comandi",
   "cmd.view.ribbonClassicUI": "Barra multifunzione / interfaccia classica",
+  "cmd.view.ribbonLabels": "Nomi degli strumenti",
   "cmd.view.rotate": "Ruota vista",
   "cmd.view.rotate.CCW": "Ruota in senso antiorario",
   "cmd.view.rotate.CW": "Ruota in senso orario",

@@ -24279,6 +24279,20 @@
    "status": "planned"
   },
   {
+   "id": "view.ribbonLabels",
+   "label": "Tool Names",
+   "parent": "view",
+   "menu": "view",
+   "ribbon": {
+    "tab": "view",
+    "group": "window"
+   },
+   "pane": null,
+   "kind": "toggle",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "view.rotate",
    "label": "Rotate View",
    "parent": "view",

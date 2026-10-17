@@ -19,6 +19,8 @@ serde_json.workspace = true
 lopdf.workspace = true
 hayro.workspace = true
 image.workspace = true
+# Rendered pages encoded with the fast DEFLATE of fdeflate (MIT/Apache-2.0)
+png = "0.18"
 time.workspace = true
 quick-xml.workspace = true
 base64.workspace = true

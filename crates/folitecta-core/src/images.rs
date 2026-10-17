@@ -6,7 +6,7 @@ use lopdf::{Object, ObjectId, Stream, dictionary};
 use crate::document::Document;
 use crate::error::{Error, Result};
 use crate::marks::display_to_pdf;
-use crate::render::Renderer;
+use crate::render::{RenderOpts, Renderer};
 use crate::util::fmt_num;
 
 /// PDF-space direction vectors of the display u (rightwards) and v (upwards) axes.
@@ -322,8 +322,11 @@ impl Document {
         for &p in pages {
             let id = ids[p];
             let size = self.page_size_of(id);
-            let rendered = renderer.render_page_opts(p, scale, with_annotations)?;
-            let jpeg = crate::export::png_to_jpeg(&rendered.png, 88)?;
+            let opts = RenderOpts {
+                annotations: with_annotations,
+                transparent: false,
+            };
+            let jpeg = crate::export::to_jpeg(renderer.render_rgba(p, scale, opts)?, 88)?;
             let stream = image_from(jpeg)?;
             let xid = self.inner.add_object(stream);
             let f = fmt_num;

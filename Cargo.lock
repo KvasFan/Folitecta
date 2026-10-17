@@ -1762,6 +1762,7 @@ dependencies = [
  "pkcs12",
  "pkcs5",
  "pkcs8",
+ "png 0.18.1",
  "quick-xml",
  "rand_core 0.6.4",
  "rc2",

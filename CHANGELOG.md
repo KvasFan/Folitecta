@@ -6,6 +6,12 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The ribbon shows the tools as icons, with their names in the tooltip, so more than twice as
+  many tools fit in the same space. View › Tool Names, or the preferences, puts the names next
+  to the icons again.
+
 ## [0.0.9] - 2026-10-17
 
 ### Added

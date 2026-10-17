@@ -6,9 +6,11 @@ use std::path::{Path, PathBuf};
 
 use lopdf::Object;
 
+use image::RgbaImage;
+
 use crate::document::Document;
 use crate::error::{Error, Result};
-use crate::render::{RenderedPage, Renderer};
+use crate::render::{RenderOpts, RenderedPage, Renderer};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ImageFormat {
@@ -25,27 +27,24 @@ impl ImageFormat {
     }
 }
 
-fn encode(rendered: &RenderedPage, format: ImageFormat) -> Result<Vec<u8>> {
+/// The file of a rendered page (opaque, so without its alpha channel).
+fn encode(page: RgbaImage, format: ImageFormat) -> Result<Vec<u8>> {
     match format {
-        ImageFormat::Png => Ok(rendered.png.clone()),
-        ImageFormat::Jpeg { quality } => {
-            let img = image::load_from_memory(&rendered.png)
-                .map_err(|e| Error::Image(e.to_string()))?
-                .to_rgb8();
+        ImageFormat::Png => {
             let mut out = Cursor::new(Vec::new());
-            let mut enc =
-                image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, quality.clamp(10, 100));
-            enc.encode_image(&img).map_err(|e| Error::Image(e.to_string()))?;
+            image::DynamicImage::ImageRgba8(page)
+                .to_rgb8()
+                .write_to(&mut out, image::ImageFormat::Png)
+                .map_err(|e| Error::Image(e.to_string()))?;
             Ok(out.into_inner())
         }
+        ImageFormat::Jpeg { quality } => to_jpeg(page, quality),
     }
 }
 
-/// Re-encode PNG bytes as a baseline JPEG (RGB) of the given quality.
-pub(crate) fn png_to_jpeg(png: &[u8], quality: u8) -> Result<Vec<u8>> {
-    let img = image::load_from_memory(png)
-        .map_err(|e| Error::Image(e.to_string()))?
-        .to_rgb8();
+/// A rendered page as a baseline JPEG (RGB) of the given quality.
+pub(crate) fn to_jpeg(page: RgbaImage, quality: u8) -> Result<Vec<u8>> {
+    let img = image::DynamicImage::ImageRgba8(page).to_rgb8();
     let mut out = Cursor::new(Vec::new());
     let mut enc = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, quality.clamp(10, 100));
     enc.encode_image(&img).map_err(|e| Error::Image(e.to_string()))?;
@@ -61,8 +60,11 @@ impl Document {
     /// Render a rectangular area of a page (display points, origin top-left,
     /// y down) at `scale` and return it as PNG.
     pub fn render_region_png(&self, page: usize, rect: [f32; 4], scale: f32) -> Result<Vec<u8>> {
-        let rendered = self.render_page_png(page, scale)?;
-        let img = image::load_from_memory(&rendered.png).map_err(|e| Error::Image(e.to_string()))?;
+        let img = image::DynamicImage::ImageRgba8(Renderer::new(self.bytes())?.render_rgba(
+            page,
+            scale,
+            RenderOpts::default(),
+        )?);
         let (w, h) = (img.width(), img.height());
         if w == 0 || h == 0 {
             return Err(Error::Image("empty page image".into()));
@@ -86,8 +88,9 @@ impl Document {
         format: ImageFormat,
         path: impl AsRef<Path>,
     ) -> Result<()> {
-        let rendered = self.render_page_png(page, dpi.max(18.0) / 72.0)?;
-        let data = encode(&rendered, format)?;
+        let rendered =
+            Renderer::new(self.bytes())?.render_rgba(page, dpi.max(18.0) / 72.0, RenderOpts::default())?;
+        let data = encode(rendered, format)?;
         std::fs::write(path.as_ref(), data).map_err(|e| Error::io(path.as_ref(), e))
     }
 
@@ -105,8 +108,8 @@ impl Document {
         let renderer = Renderer::new(self.bytes())?;
         let mut out = Vec::new();
         for &p in pages {
-            let rendered = renderer.render_page(p, dpi.max(18.0) / 72.0)?;
-            let data = encode(&rendered, format)?;
+            let rendered = renderer.render_rgba(p, dpi.max(18.0) / 72.0, RenderOpts::default())?;
+            let data = encode(rendered, format)?;
             let path = dir.join(format!("{prefix}-{:03}.{}", p + 1, format.extension()));
             std::fs::write(&path, data).map_err(|e| Error::io(&path, e))?;
             out.push(path);

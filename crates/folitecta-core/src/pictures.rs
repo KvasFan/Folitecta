@@ -530,7 +530,7 @@ fn decode_by_rendering(doc: &lopdf::Document, id: ObjectId, w: u32, h: u32) -> R
     let catalog = tmp.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
     tmp.trailer.set("Root", catalog);
     let bytes = crate::document::serialize(&mut tmp)?;
-    let rendered = Renderer::new(Arc::new(bytes))?.render_page_with(
+    let mut img = Renderer::new(Arc::new(bytes))?.render_rgba(
         0,
         1.0,
         RenderOpts {
@@ -538,9 +538,6 @@ fn decode_by_rendering(doc: &lopdf::Document, id: ObjectId, w: u32, h: u32) -> R
             transparent: true,
         },
     )?;
-    let mut img = image::load_from_memory(&rendered.png)
-        .map_err(|e| Error::Image(e.to_string()))?
-        .to_rgba8();
     if img.dimensions() != (w, h) {
         img = image::imageops::resize(&img, w, h, FilterType::Triangle);
     }

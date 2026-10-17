@@ -1,6 +1,6 @@
 //! Interaction step 45: sizes changed by dragging — the width of the left
-//! pane, the rows of the ribbon and the width of a ribbon group — and the
-//! first tab named Edit.
+//! pane, the rows of the ribbon and the width of a ribbon group — the first
+//! tab named Edit, and the names of the tools shown or kept in the tooltips.
 
 use super::*;
 use crate::ui::chrome::layout::{LEFT_W, RIBBON_ROWS, group_key};
@@ -138,5 +138,32 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         "a ribbon group is widened to show all its tools, restored by a double click",
         dragged && t1 > t0 && more_left == 0.0 && !chosen.is_empty() && t2 == t0 && st.value(&key).is_empty(),
         format!("tools {t0} -> {t1} (more buttons {more_left}, chosen {chosen:?}) -> {t2}"),
+    );
+
+    // The tools are icons with their names in the tooltip; View › Tool Names
+    // puts the names next to the icons, and fewer tools fit.
+    let names = || number("return document.querySelectorAll('.ribbon-body .rbtn .lbl').length;");
+    let untitled = number(
+        "return [...document.querySelectorAll('.ribbon-body .rbtn')].filter(b => !b.title || !b.getAttribute('aria-label')).length;",
+    )
+    .await;
+    let (icons, names0) = (shown().await, names().await);
+    crate::commands::dispatch(st, "view.ribbonLabels");
+    pause(500).await;
+    let (labelled, names1) = (shown().await, names().await);
+    let _ = capture_window(&dir.join("interaction-tool-names.png"));
+    crate::commands::dispatch(st, "view.ribbonLabels");
+    pause(500).await;
+    let (back, names2) = (shown().await, names().await);
+    cx.record(
+        "the tools show their names in the tooltip, and next to their icons when chosen",
+        untitled == 0.0
+            && names0 == 0.0
+            && names1 > 0.0
+            && icons >= labelled
+            && back == icons
+            && names2 == 0.0
+            && !crate::commands::option_on(st, "view.ribbonLabels"),
+        format!("without tooltip {untitled}; tools {icons} (names {names0}) -> {labelled} (names {names1}) -> {back} (names {names2})"),
     );
 }

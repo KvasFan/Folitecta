@@ -200,6 +200,7 @@ pub const RIBBON: &[RTab] = &[
                     "window.split",
                     "window.removeSplit",
                     "view.theme",
+                    "view.ribbonLabels",
                     "view.ribbonClassicUI"
                 ]
             ),
@@ -538,6 +539,7 @@ pub const RIBBON: &[RTab] = &[
                 [
                     "prefs",
                     "view.theme",
+                    "view.ribbonLabels",
                     "settings.export",
                     "settings.import",
                     "settings.reset"
@@ -605,7 +607,10 @@ pub fn main_tabs() -> impl Iterator<Item = &'static RTab> {
 pub const LARGE_W: f64 = 64.0;
 const PAD: f64 = 14.0;
 const GAP: f64 = 6.0;
-const COL_GAP: f64 = 2.0;
+/// Space between two columns of small buttons.
+pub const COL_GAP: f64 = 2.0;
+/// Width of a tool drawn as an icon alone (the tool names hidden).
+pub const CELL_W: f64 = 26.0;
 /// Large buttons kept per group when the ribbon mixes large and small buttons.
 const MAX_LARGE_MIXED: usize = 2;
 
@@ -641,6 +646,20 @@ pub const COLUMN_W: f64 = 130.0;
 /// Height of the ribbon body for `rows` rows of small buttons.
 pub fn body_height(rows: usize) -> f64 {
     29.0 + rows as f64 * ROW_H
+}
+
+/// Icons in each column of a group of `n` icons: at most `rows`, fewer when
+/// the title of the group is wider than the columns, so the icons spread
+/// under the title instead of leaving it alone. The group stays as wide as
+/// [`group_width`] says, since it is at least as wide as its title.
+pub fn icons_per_column(n: usize, rows: usize, title: f64) -> usize {
+    let rows = rows.max(1);
+    if n == 0 {
+        return rows;
+    }
+    let under_title = (title / (CELL_W + COL_GAP)).floor() as usize;
+    let columns = n.div_ceil(rows).max(under_title.min(n)).max(1);
+    n.div_ceil(columns)
 }
 
 /// How a group is drawn: the first `large` items as large buttons, the next
@@ -729,13 +748,14 @@ fn shrink(
 /// groups first, left to right) and up to two leading commands per group
 /// become large buttons.
 ///
-/// Small buttons stack `rows` per column; large buttons need three rows.
+/// Small buttons stack `rows` per column; large buttons need three rows, and
+/// a width for each tool in `large_w` (none when the tools are icons alone).
 /// Groups of a fixed width show their chosen number of tools as small
 /// buttons and take no part in the fitting: when they make the ribbon wider
 /// than the window, the ribbon scrolls.
 pub fn fit_ribbon(specs: &[GroupSpec], width: f64, rows: usize) -> Vec<GroupFit> {
     let rows = rows.max(1);
-    let large_ok = rows >= DEFAULT_ROWS;
+    let large_ok = rows >= DEFAULT_ROWS && specs.iter().all(|s| s.large_w.len() == s.small_w.len());
     let n = specs.len();
     let fixed = |j: usize| specs[j].fixed.map(|k| (0, k.min(specs[j].small_w.len()).max(1)));
     let free = |j: usize| specs[j].fixed.is_none();
@@ -876,6 +896,48 @@ mod tests {
         let shown = |rows| -> usize { fit_ribbon(&specs, 936.0, rows).iter().map(|(l, s)| l + s).sum() };
         assert!(shown(5) > shown(3), "{} vs {}", shown(5), shown(3));
         assert!(fit_ribbon(&specs, 10_000.0, 2).iter().all(|(l, _)| *l == 0));
+    }
+
+    #[test]
+    fn icons_alone_show_more_tools_and_no_large_buttons() {
+        let labelled = specs();
+        let icons: Vec<GroupSpec> = labelled
+            .iter()
+            .map(|s| GroupSpec {
+                small_w: vec![CELL_W; s.small_w.len()],
+                large_w: Vec::new(),
+                more_w: CELL_W,
+                collapsed_w: CELL_W,
+                ..s.clone()
+            })
+            .collect();
+        let shown = |specs: &[GroupSpec], width| -> usize {
+            fit_ribbon(specs, width, DEFAULT_ROWS)
+                .iter()
+                .map(|(l, s)| l + s)
+                .sum()
+        };
+        for width in [400.0, 700.0, 936.0] {
+            assert!(shown(&icons, width) > shown(&labelled, width), "width {width}");
+            let fit = fit_ribbon(&icons, width, DEFAULT_ROWS);
+            assert!(fit.iter().all(|(l, _)| *l == 0), "{fit:?}");
+            assert!(total_width(&icons, &fit, DEFAULT_ROWS) <= width, "{fit:?}");
+        }
+        // Every tool of these groups fits in a window of 936 px.
+        assert_eq!(shown(&icons, 936.0), 38);
+    }
+
+    #[test]
+    fn icons_spread_under_a_wide_title() {
+        // Three rows, a narrow title: full columns.
+        assert_eq!(icons_per_column(7, 3, 30.0), 3);
+        // A title as wide as six icons: three icons in one row.
+        assert_eq!(icons_per_column(3, 3, 6.0 * (CELL_W + COL_GAP)), 1);
+        // Nine icons under a title of four: three columns of three, then four of three.
+        assert_eq!(icons_per_column(9, 3, 4.0 * (CELL_W + COL_GAP)), 3);
+        assert_eq!(icons_per_column(12, 3, 4.0 * (CELL_W + COL_GAP)), 3);
+        assert_eq!(icons_per_column(8, 3, 4.0 * (CELL_W + COL_GAP)), 2);
+        assert_eq!(icons_per_column(0, 3, 100.0), 3);
     }
 
     #[test]

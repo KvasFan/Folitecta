@@ -5,7 +5,7 @@ use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
 use crate::document::Document;
 use crate::error::{Error, Result};
-use crate::render::Renderer;
+use crate::render::{RenderOpts, Renderer};
 use crate::textops::display_rect_to_pdf;
 use crate::util::{deref, fmt_num, num, rect_of};
 
@@ -45,10 +45,11 @@ impl Document {
     pub fn content_bounds(&self, page: usize) -> Result<Option<[f32; 4]>> {
         let renderer = Renderer::new(self.bytes())?;
         let scale = 1.0;
-        let img = renderer.render_page_opts(page, scale, false)?;
-        let px = image::load_from_memory(&img.png)
-            .map_err(|e| Error::Image(e.to_string()))?
-            .to_rgb8();
+        let opts = RenderOpts {
+            annotations: false,
+            transparent: false,
+        };
+        let px = renderer.render_rgba(page, scale, opts)?;
         let (w, h) = px.dimensions();
         let (mut x0, mut y0, mut x1, mut y1) = (u32::MAX, u32::MAX, 0u32, 0u32);
         for (x, y, p) in px.enumerate_pixels() {
@@ -115,10 +116,9 @@ impl Document {
         let texts = self.all_text();
         let mut sigs: Vec<(u64, (u32, u32))> = Vec::new();
         for p in 0..self.page_count() {
-            let img = renderer.render_page_opts(p, 0.25, true)?;
-            let gray = image::load_from_memory(&img.png)
-                .map_err(|e| Error::Image(e.to_string()))?
-                .to_luma8();
+            let gray =
+                image::DynamicImage::ImageRgba8(renderer.render_rgba(p, 0.25, RenderOpts::default())?)
+                    .to_luma8();
             let dims = gray.dimensions();
             let small = image::imageops::resize(&gray, 9, 8, image::imageops::FilterType::Triangle);
             let mut hash = 0u64;

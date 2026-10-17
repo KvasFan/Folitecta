@@ -792,6 +792,13 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
     st.set_value("ui.touch", "1");
     total += check(st, &dir, "960x620-touch", log).await;
     st.set_value("ui.touch", "");
+    // The names of the tools next to their icons, in both languages.
+    st.set_option("view.ribbonLabels", true);
+    for lang in [crate::i18n::Lang::It, crate::i18n::Lang::En] {
+        st.ui_mut().lang = lang;
+        total += check(st, &dir, &format!("960x620-{}-tool-names", lang.code()), log).await;
+    }
+    st.set_option("view.ribbonLabels", false);
     // Horizontal scrolling with the pan and zoom window.
     st.set_option("view.layout.ribbon", true);
     st.set_option("view.panzoom", true);
@@ -804,5 +811,8 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         pause(900).await;
         total += check(st, &dir, &format!("resize-{}x{}", w as u32, h as u32), log).await;
     }
+    st.set_option("view.ribbonLabels", true);
+    total += check(st, &dir, "1366x768-tool-names", log).await;
+    st.set_option("view.ribbonLabels", false);
     total
 }

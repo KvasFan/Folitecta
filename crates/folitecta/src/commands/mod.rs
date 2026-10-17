@@ -160,6 +160,8 @@ pub const PARTIAL: &[&str] = &[
 /// View options toggled by command id; their state lives in the preferences.
 pub const VIEW_OPTIONS: &[&str] = &[
     "view.layout.ribbon",
+    // The names of the ribbon tools next to their icons (otherwise in the tooltip).
+    "view.ribbonLabels",
     "view.panzoom",
     "view.showPageSizePopup",
     "view.spellCheck",

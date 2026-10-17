@@ -29,6 +29,7 @@ const BY_ID: &[(&str, &str)] = &[
     ("view.showGrid", "grid"),
     ("view.showGuides", "guides"),
     ("view.darkPageMode", "moon"),
+    ("view.ribbonLabels", "tool-names"),
     // Editing.
     ("undo", "undo"),
     ("redo", "redo"),

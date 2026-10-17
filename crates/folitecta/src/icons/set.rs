@@ -28,6 +28,7 @@ pub fn data(name: &str) -> &'static IconData {
         "pages" => tb::TbFilesOutline,
         "content" => tb::TbFileTextOutline,
         "properties" => tb::TbFileInfoOutline,
+        "tool-names" => tb::TbTextCaptionOutline,
         "compare" => tb::TbGitCompareOutline,
         // Editing.
         "undo" => tb::TbArrowBackUpOutline,
@@ -210,6 +211,7 @@ pub const NAMES: &[&str] = &[
     "pages",
     "content",
     "properties",
+    "tool-names",
     "compare",
     "undo",
     "redo",

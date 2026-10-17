@@ -284,6 +284,11 @@ pub(super) fn Prefs() -> Element {
                 }
                 Text { label: t(lang, "dialog.prefs.author"), value: author }
             }
+            label { class: "check",
+                input { r#type: "checkbox", checked: crate::commands::option_on(st, "view.ribbonLabels"),
+                    onchange: move |_| crate::commands::dispatch(st, "view.ribbonLabels") }
+                span { "{t(lang, \"dialog.prefs.labels\")}" }
+            }
         }
     }
 }

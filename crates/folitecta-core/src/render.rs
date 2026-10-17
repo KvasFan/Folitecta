@@ -1,4 +1,8 @@
 //! Page rasterization with hayro, plus a background render service.
+//!
+//! Pages shown on the screen travel as PNG files; the operations that need
+//! the pixels of a page (rasterizing, redacting, finding margins, exporting)
+//! take them from [`Renderer::render_rgba`] without a PNG in between.
 
 use std::collections::HashMap;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -9,7 +13,10 @@ use std::thread::JoinHandle;
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
 use hayro::vello_cpu::color::palette::css::{TRANSPARENT, WHITE};
+use hayro::vello_cpu::peniko::ImageAlphaType;
+use hayro::vello_cpu::{Pixels, Pixmap};
 use hayro::{PixmapSettings, RenderCache, RenderSettings, render};
+use image::RgbaImage;
 
 use crate::error::{Error, Result};
 
@@ -77,6 +84,41 @@ fn render_with_opts<'a>(
     scale: f32,
     opts: RenderOpts,
 ) -> Result<RenderedPage> {
+    let pixmap = render_pixmap(pdf, cache, page, scale, opts)?;
+    let (width, height) = (u32::from(pixmap.width()), u32::from(pixmap.height()));
+    let png = encode_png(pixmap, png::Compression::Fast)?;
+    Ok(RenderedPage { png, width, height })
+}
+
+/// PNG bytes of a rendered page, opaque pages as RGB. `Fast` is the DEFLATE
+/// of fdeflate, made for PNG: several times faster than the default level
+/// for files a little larger, which suits pictures that only go to the
+/// window or the clipboard.
+fn encode_png(pixmap: Pixmap, compression: png::Compression) -> Result<Vec<u8>> {
+    let (width, height) = (u32::from(pixmap.width()), u32::from(pixmap.height()));
+    let (color, pixels) = match pixmap.try_take_rgb8(ImageAlphaType::Alpha) {
+        Pixels::Rgb8(p) => (png::ColorType::Rgb, p),
+        Pixels::Rgba8(p) => (png::ColorType::Rgba, p),
+    };
+    let failed = |e: png::EncodingError| Error::Render(format!("PNG encoding failed: {e}"));
+    let mut data = Vec::with_capacity(pixels.len() / 8);
+    let mut encoder = png::Encoder::new(&mut data, width, height);
+    encoder.set_color(color);
+    encoder.set_depth(png::BitDepth::Eight);
+    encoder.set_compression(compression);
+    let mut writer = encoder.write_header().map_err(failed)?;
+    writer.write_image_data(&pixels).map_err(failed)?;
+    writer.finish().map_err(failed)?;
+    Ok(data)
+}
+
+fn render_pixmap<'a>(
+    pdf: &'a Pdf,
+    cache: &RenderCache<'a>,
+    page: usize,
+    scale: f32,
+    opts: RenderOpts,
+) -> Result<Pixmap> {
     let annotations = opts.annotations;
     let interpreter = InterpreterSettings {
         render_annotations: annotations,
@@ -94,12 +136,7 @@ fn render_with_opts<'a>(
     let result = catch_unwind(AssertUnwindSafe(|| {
         render(p, cache, &interpreter, &RenderSettings::default(), &settings)
     }));
-    let pixmap = result.map_err(|_| Error::Render(format!("the renderer failed on page {}", page + 1)))?;
-    let (width, height) = (pixmap.width() as u32, pixmap.height() as u32);
-    let png = pixmap
-        .into_png()
-        .map_err(|e| Error::Render(format!("PNG encoding failed: {e}")))?;
-    Ok(RenderedPage { png, width, height })
+    result.map_err(|_| Error::Render(format!("the renderer failed on page {}", page + 1)))
 }
 
 impl Renderer {
@@ -134,6 +171,16 @@ impl Renderer {
         let cache = RenderCache::new();
         render_with_opts(&self.pdf, &cache, page, scale, opts)
     }
+
+    /// The pixels of a rendered page (RGBA, not premultiplied), for the
+    /// operations that work on them: no PNG is made and read back.
+    pub fn render_rgba(&self, page: usize, scale: f32, opts: RenderOpts) -> Result<RgbaImage> {
+        let cache = RenderCache::new();
+        let pixmap = render_pixmap(&self.pdf, &cache, page, scale, opts)?;
+        let (w, h) = (u32::from(pixmap.width()), u32::from(pixmap.height()));
+        RgbaImage::from_raw(w, h, pixmap.take_rgba8(ImageAlphaType::Alpha))
+            .ok_or_else(|| Error::Render(format!("the picture of page {} has no pixels", page + 1)))
+    }
 }
 
 type Reply<T> = Box<dyn FnOnce(T) + Send + 'static>;
@@ -150,10 +197,21 @@ enum Msg {
     Stop,
 }
 
-/// A dedicated render thread that owns the parsed document and a render cache.
+/// Render threads of one document. Each owns its own parse of the document,
+/// render cache and memo of recent renders; a page always goes to the same
+/// thread (page number modulo the threads), so the pages on the screen are
+/// drawn side by side and each page still finds its cache.
 pub struct RenderService {
-    tx: Sender<Msg>,
-    handle: Option<JoinHandle<()>>,
+    workers: Vec<(Sender<Msg>, Option<JoinHandle<()>>)>,
+}
+
+/// Render threads per document: half the processors, from one to three.
+fn worker_count() -> usize {
+    std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(2)
+        .div_ceil(2)
+        .clamp(1, 3)
 }
 
 fn scale_key(scale: f32) -> u32 {
@@ -208,22 +266,36 @@ fn worker(rx: Receiver<Msg>, initial: Arc<Vec<u8>>) {
 }
 
 impl RenderService {
-    /// Start a render thread for the given document bytes.
+    /// Start the render threads for the given document bytes.
     pub fn new(bytes: Arc<Vec<u8>>) -> Self {
-        let (tx, rx) = channel();
-        let handle = std::thread::Builder::new()
-            .name("folitecta-render".into())
-            .spawn(move || worker(rx, bytes))
-            .expect("spawn render thread");
-        RenderService {
-            tx,
-            handle: Some(handle),
-        }
+        Self::with_workers(bytes, worker_count())
+    }
+
+    /// Start `n` render threads (at least one).
+    pub fn with_workers(bytes: Arc<Vec<u8>>, n: usize) -> Self {
+        let workers = (0..n.max(1))
+            .map(|i| {
+                let (tx, rx) = channel();
+                let bytes = bytes.clone();
+                let handle = std::thread::Builder::new()
+                    .name(format!("folitecta-render-{i}"))
+                    .spawn(move || worker(rx, bytes))
+                    .expect("spawn render thread");
+                (tx, Some(handle))
+            })
+            .collect();
+        RenderService { workers }
+    }
+
+    fn send(&self, page: usize, msg: Msg) {
+        let _ = self.workers[page % self.workers.len()].0.send(msg);
     }
 
     /// Replace the document bytes (after an edit). Cached renders are dropped.
     pub fn replace(&self, bytes: Arc<Vec<u8>>) {
-        let _ = self.tx.send(Msg::Replace(bytes));
+        for (tx, _) in &self.workers {
+            let _ = tx.send(Msg::Replace(bytes.clone()));
+        }
     }
 
     /// Render asynchronously; `reply` runs on the render thread.
@@ -239,12 +311,15 @@ impl RenderService {
         opts: RenderOpts,
         reply: impl FnOnce(Result<RenderedPage>) + Send + 'static,
     ) {
-        let _ = self.tx.send(Msg::Render {
+        self.send(
             page,
-            scale,
-            opts,
-            reply: Box::new(reply),
-        });
+            Msg::Render {
+                page,
+                scale,
+                opts,
+                reply: Box::new(reply),
+            },
+        );
     }
 
     /// Render and wait for the result.
@@ -260,9 +335,12 @@ impl RenderService {
     /// Page display sizes as seen by the renderer.
     pub fn page_sizes_blocking(&self) -> Result<Vec<(f32, f32)>> {
         let (tx, rx) = channel();
-        let _ = self.tx.send(Msg::Sizes(Box::new(move |r| {
-            let _ = tx.send(r);
-        })));
+        self.send(
+            0,
+            Msg::Sizes(Box::new(move |r| {
+                let _ = tx.send(r);
+            })),
+        );
         rx.recv()
             .map_err(|_| Error::Render("render thread stopped".into()))?
     }
@@ -270,9 +348,97 @@ impl RenderService {
 
 impl Drop for RenderService {
     fn drop(&mut self) {
-        let _ = self.tx.send(Msg::Stop);
-        if let Some(h) = self.handle.take() {
-            let _ = h.join();
+        for (tx, _) in &self.workers {
+            let _ = tx.send(Msg::Stop);
+        }
+        for (_, handle) in &mut self.workers {
+            if let Some(h) = handle.take() {
+                let _ = h.join();
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::document::Document;
+    use crate::textdoc::TextLayout;
+
+    /// A document of pages full of text.
+    fn text_pages(pages: usize) -> Arc<Vec<u8>> {
+        let para = "Folitecta renders, annotates and organizes PDF documents. \
+                    The quick brown fox jumps over the lazy dog. "
+            .repeat(12);
+        let text = vec![para; pages * 6].join("\n\n");
+        Document::from_text(&text, TextLayout::default()).unwrap().bytes()
+    }
+
+    #[test]
+    fn every_render_thread_draws_the_same_pages() {
+        let bytes = text_pages(4);
+        let pages = Renderer::new(bytes.clone()).unwrap().page_count();
+        assert!(pages >= 4, "{pages}");
+        let one = RenderService::with_workers(bytes.clone(), 1);
+        let three = RenderService::with_workers(bytes.clone(), 3);
+        for page in 0..pages {
+            assert_eq!(
+                one.render_blocking(page, 0.5).unwrap(),
+                three.render_blocking(page, 0.5).unwrap(),
+                "page {page}"
+            );
+        }
+        assert_eq!(three.page_sizes_blocking().unwrap().len(), pages);
+        // After an edit every thread draws the new document.
+        let shorter = text_pages(1);
+        let fewer = Renderer::new(shorter.clone()).unwrap().page_count();
+        three.replace(shorter);
+        assert_eq!(three.page_sizes_blocking().unwrap().len(), fewer);
+        assert!(three.render_blocking(pages - 1, 0.5).is_err() || fewer >= pages);
+        assert!(three.render_blocking(0, 0.5).is_ok());
+    }
+
+    #[test]
+    fn the_pixels_are_those_of_the_png() {
+        let r = Renderer::new(text_pages(1)).unwrap();
+        for transparent in [false, true] {
+            let opts = RenderOpts {
+                annotations: true,
+                transparent,
+            };
+            let png = r.render_page_with(0, 1.0, opts).unwrap();
+            let decoded = image::load_from_memory(&png.png).unwrap().to_rgba8();
+            let direct = r.render_rgba(0, 1.0, opts).unwrap();
+            assert_eq!((png.width, png.height), direct.dimensions());
+            assert!(decoded == direct, "transparent {transparent}");
+        }
+    }
+
+    /// How long the PNG of a full page takes at each level:
+    /// `cargo test --release -p folitecta-core png_levels -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn png_levels() {
+        let bytes = text_pages(1);
+        let pdf = load_pdf(bytes).unwrap();
+        let cache = RenderCache::new();
+        for (name, level) in [
+            ("balanced", png::Compression::Balanced),
+            ("fast", png::Compression::Fast),
+        ] {
+            let mut total = std::time::Duration::ZERO;
+            let mut size = 0;
+            for _ in 0..5 {
+                let pixmap = render_pixmap(&pdf, &cache, 0, 2.0, RenderOpts::default()).unwrap();
+                let start = std::time::Instant::now();
+                size = encode_png(pixmap, level).unwrap().len();
+                total += start.elapsed();
+            }
+            eprintln!(
+                "{name}: {:.1} ms, {} KiB",
+                total.as_secs_f64() * 200.0,
+                size / 1024
+            );
         }
     }
 }

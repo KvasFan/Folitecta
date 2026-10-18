@@ -84,6 +84,10 @@ pub fn FieldEditor() -> Element {
                     label { "{t(lang, \"field.options\")}" }
                     textarea { class: "wide", rows: "4", value: "{options_text}", onchange: { let p = p.clone(); move |e: Event<FormData>| { let mut n = p.clone(); n.options = e.value().lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect(); apply(n); } } }
                 }
+                div { class: "row",
+                    button { class: "tbtn field-items-btn", onclick: move |_| crate::commands::dispatch(st, "editFields.items"),
+                        "{t(lang, \"field.edit_items\")}" }
+                }
                 div { class: "check-row",
                     if kind == FieldKind::ComboBox {
                         label { class: "check mini", input { r#type: "checkbox", checked: props.editable, onchange: { let p = p.clone(); move |_| { let mut n = p.clone(); n.editable = !n.editable; apply(n); } } } span { "{t(lang, \"field.editable\")}" } }
@@ -109,6 +113,7 @@ pub fn FieldEditor() -> Element {
                     label { "{t(lang, \"field.caption\")}" }
                     input { class: "wide", value: "{props.caption}", onchange: { let p = p.clone(); move |e: Event<FormData>| { let mut n = p.clone(); n.caption = e.value(); apply(n); } } }
                 }
+                ButtonPictures { field: id }
             }
             if matches!(kind, FieldKind::Text | FieldKind::ComboBox) {
                 crate::ui::features::form_calc::FieldCalculation { field: id, page, index }
@@ -159,6 +164,106 @@ pub fn FieldEditor() -> Element {
                         }
                     },
                     "{t(lang, \"field.delete\")}"
+                }
+            }
+        }
+    }
+}
+
+/// The pictures of a push button for each state, and how it reacts to a click.
+#[component]
+fn ButtonPictures(field: (u32, u16)) -> Element {
+    use crate::commands::buttons;
+    use folitecta_core::{ButtonBehaviour, ButtonState};
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let (icons, behaviour) = st
+        .read_active(|t| (t.doc.button_icons(field), t.doc.button_behaviour(field)))
+        .unwrap_or(([false; 3], ButtonBehaviour::Invert));
+    let states = [
+        (ButtonState::Up, "field.picture_up", icons[0]),
+        (ButtonState::Down, "field.picture_down", icons[1]),
+        (ButtonState::Rollover, "field.picture_over", icons[2]),
+    ];
+    rsx! {
+        div { class: "prop-head", "{t(lang, \"field.pictures\")}" }
+        for (state, key, has) in states {
+            div { class: "style-row button-picture", key: "{key}",
+                label { "{t(lang, key)}" }
+                button { class: "tbtn", onclick: move |_| buttons::choose_icon(st, state), "{t(lang, \"field.choose_picture\")}" }
+                if has {
+                    button { class: "tbtn danger", onclick: move |_| buttons::remove_icon(st, state), "{t(lang, \"field.remove_picture\")}" }
+                }
+            }
+        }
+        div { class: "style-row",
+            label { "{t(lang, \"field.behaviour\")}" }
+            select { class: "button-behaviour",
+                onchange: move |e| {
+                    if let Some(b) = ButtonBehaviour::ALL.into_iter().find(|b| b.id() == e.value()) {
+                        buttons::set_behaviour(st, b);
+                    }
+                },
+                for b in ButtonBehaviour::ALL {
+                    option { key: "{b.id()}", value: "{b.id()}", selected: b == behaviour,
+                        {t(lang, &["field.behaviour_", b.id()].concat())}
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// The items of a combo box or list box: a list to add to, delete from,
+/// reorder and keep sorted, written to the field with OK.
+#[component]
+pub fn FieldItemsDialog() -> Element {
+    use crate::commands::field_items::{self as items, ITEMS};
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let Some(edit) = ITEMS.read().clone() else {
+        return rsx! {};
+    };
+    let label = |id: &str| {
+        folitecta_core::registry()
+            .get(id)
+            .map(|c| crate::i18n::cmd_label(lang, c))
+            .unwrap_or_default()
+    };
+    let has_sel = edit.selected.is_some();
+    let can_move = has_sel && !edit.sorted;
+    rsx! {
+        crate::ui::dialogs::Frame { title: t(lang, "field.items_title"), on_ok: move |_| items::apply(st),
+            div { class: "row field-items-new",
+                input { class: "grow field-items-draft", value: "{edit.draft}", placeholder: "{t(lang, \"field.new_item\")}",
+                    oninput: move |e| { if let Some(x) = ITEMS.write().as_mut() { x.draft = e.value(); } },
+                    onkeydown: move |e| {
+                        if e.key() == Key::Enter {
+                            e.stop_propagation();
+                            items::add(st);
+                        }
+                    },
+                }
+                button { class: "tbtn field-items-add", onclick: move |_| items::add(st), "{label(\"editFields.items.add\")}" }
+            }
+            div { class: "field-items-list",
+                if edit.items.is_empty() {
+                    p { class: "muted", "{t(lang, \"field.no_items\")}" }
+                }
+                for (i, item) in edit.items.iter().enumerate() {
+                    button { key: "{i}-{item}", class: if edit.selected == Some(i) { "field-item on" } else { "field-item" },
+                        onclick: move |_| { if let Some(x) = ITEMS.write().as_mut() { x.selected = Some(i); } },
+                        "{item}"
+                    }
+                }
+            }
+            div { class: "row",
+                button { class: "tbtn field-items-up", disabled: !can_move, onclick: move |_| items::move_by(st, -1), "{label(\"editFields.items.moveUp\")}" }
+                button { class: "tbtn field-items-down", disabled: !can_move, onclick: move |_| items::move_by(st, 1), "{label(\"editFields.items.moveDown\")}" }
+                button { class: "tbtn danger field-items-delete", disabled: !has_sel, onclick: move |_| items::delete(st), "{label(\"editFields.items.delete\")}" }
+                label { class: "check",
+                    input { r#type: "checkbox", class: "field-items-sorted", checked: edit.sorted, onchange: move |_| items::toggle_sorted(st) }
+                    span { "{label(\"editFields.items.sorted\")}" }
                 }
             }
         }

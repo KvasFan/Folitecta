@@ -362,6 +362,8 @@ pub enum Dialog {
     OcrText {
         text: String,
     },
+    /// The items of the chosen combo box or list box.
+    FieldItems,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

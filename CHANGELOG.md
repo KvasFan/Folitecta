@@ -27,6 +27,13 @@ All notable changes to Folitecta are documented here. The format follows
   everywhere, or adds it to the user's own words. The words are marked on the page, as they are
   while the page text is edited with View › Spell Check on. Words in capitals, words with digits,
   addresses and file names are passed over; a word divided at the end of a line is checked whole.
+- Items of combo boxes and list boxes edited in a list (Form › Items, or Edit Items in the field
+  properties): added (Enter adds the item typed), deleted, moved up and down, or kept sorted
+  (the field's Sort flag, items written in alphabetical order); written in one undo step.
+- Pictures on push buttons: one for the normal, pressed and pointed-at states (the caption goes
+  under the picture), chosen from picture files and removed in the field properties or with
+  Form › Button › Up, Down and Roll Over Icon; and what the button does when clicked (nothing,
+  invert the colours, invert the border, show it pressed).
 - Groups of comments (Arrange › Group and Ungroup): the comments of a group are chosen with one
   click, moved, nudged and deleted together; groups are written the standard way (`/IRT` with
   `/RT /Group`), so groups made by other programs work too. Several comments chosen with Shift

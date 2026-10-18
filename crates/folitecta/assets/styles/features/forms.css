@@ -9,3 +9,11 @@
 .calc-order-row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); min-width: 0; }
 .calc-order-num { min-width: 22px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .calc-order-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Items of choice fields */
+.field-items-new { flex-wrap: nowrap; }
+.field-items-draft { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 9px; background: var(--surface-2); color: var(--text); min-width: 0; }
+.field-items-list { display: flex; flex-direction: column; gap: 2px; min-height: 80px; max-height: 40vh; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px; background: var(--surface-2); }
+.field-item { text-align: left; border: none; background: none; color: var(--text); padding: 5px 8px; border-radius: var(--radius-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; }
+.field-item:hover { background: var(--surface-3); }
+.field-item.on { background: var(--active-bg); color: var(--active-fg); }

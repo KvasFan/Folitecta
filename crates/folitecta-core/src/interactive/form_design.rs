@@ -45,6 +45,8 @@ pub struct FieldProps {
     pub editable: bool,
     /// List boxes: allow several selected options.
     pub multi_select: bool,
+    /// Choice fields: the options are kept in alphabetical order.
+    pub sorted: bool,
     /// Check boxes and radio buttons: name of the "on" state.
     pub export_value: String,
     /// Push buttons: the caption.
@@ -74,6 +76,7 @@ impl Default for FieldProps {
             options: Vec::new(),
             editable: false,
             multi_select: false,
+            sorted: false,
             export_value: "Yes".into(),
             caption: String::new(),
             font_size: 0.0,
@@ -96,6 +99,7 @@ const FF_RADIO: i64 = 1 << 15;
 const FF_PUSH: i64 = 1 << 16;
 const FF_COMBO: i64 = 1 << 17;
 const FF_EDIT: i64 = 1 << 18;
+const FF_SORT: i64 = 1 << 19;
 const FF_MULTI_SELECT: i64 = 1 << 21;
 const FF_COMB: i64 = 1 << 24;
 
@@ -156,6 +160,9 @@ struct WidgetInfo {
     fill: Option<[f32; 3]>,
     width: f32,
     caption: String,
+    /// Push buttons: the pictures (form XObjects) of the normal, pressed
+    /// and pointed-at states (`/MK` `/I`, `/IX`, `/RI`).
+    icons: [Option<ObjectId>; 3],
     options: Vec<String>,
     max_len: u32,
     on_state: String,
@@ -552,6 +559,8 @@ impl Document {
             .and_then(|m| m.get(b"CA").ok())
             .and_then(|o| text_of(doc, o))
             .unwrap_or_default();
+        let icon = |k: &[u8]| mk.and_then(|m| m.get(k).ok()).and_then(|o| o.as_reference().ok());
+        let icons = [icon(b"I"), icon(b"IX"), icon(b"RI")];
         let width = d
             .get(b"BS")
             .ok()
@@ -601,6 +610,7 @@ impl Document {
             fill,
             width,
             caption,
+            icons,
             options,
             max_len,
             on_state,
@@ -781,30 +791,80 @@ impl Document {
                 dictionary! { "N" => self.inner.add_object(make_stream(content, font)) }
             }
             "Btn" if w.ff & FF_PUSH != 0 => {
+                let has_icon = w.icons.iter().any(Option::is_some);
                 let size = if explicit_size {
                     da_size
+                } else if has_icon {
+                    (bh * 0.2).clamp(4.0, 10.0)
                 } else {
                     (bh * 0.45).clamp(4.0, 14.0)
                 };
                 let cw = helvetica_width(&w.caption, size);
-                let content = |pressed: bool| {
+                // The picture fills the button (above the caption when there is one), kept in shape.
+                let caption_h = if has_icon && !w.caption.is_empty() {
+                    size * 1.5
+                } else {
+                    0.0
+                };
+                // Each picture with its size (from its bounding box).
+                let sized = |icon: Option<ObjectId>| -> Option<(ObjectId, (f32, f32))> {
+                    let id = icon?;
+                    let s = self.inner.get_object(id).ok()?.as_stream().ok()?;
+                    let b = s.dict.get(b"BBox").ok().and_then(|r| rect_of(&self.inner, r))?;
+                    Some((id, ((b[2] - b[0]).abs().max(1.0), (b[3] - b[1]).abs().max(1.0))))
+                };
+                // The pressed and pointed-at states fall back on the normal picture.
+                let up = sized(w.icons[0]);
+                let down = sized(w.icons[1]).or(up);
+                let over = sized(w.icons[2]);
+                let content = |pressed: bool, icon: Option<(ObjectId, (f32, f32))>| {
                     let mut c = frame(pressed);
-                    c.push_str(&format!("BT /Helv {} Tf ", f(size)));
-                    c.push_str(&rgb(text_color, "rg"));
-                    c.push_str(&format!(
-                        "{} {} Td ",
-                        f((bw - cw) / 2.0),
-                        f((bh - size * 0.72) / 2.0)
-                    ));
-                    c.push_str(&String::from_utf8_lossy(&pdf_literal(&w.caption)));
-                    c.push_str(" Tj ET ");
+                    if let Some((_, (iw, ih))) = icon {
+                        let (aw, ah) = ((bw - 2.0 * pad).max(1.0), (bh - 2.0 * pad - caption_h).max(1.0));
+                        let k = (aw / iw).min(ah / ih);
+                        let (dw, dh) = (iw * k, ih * k);
+                        let shift = if pressed { 1.0 } else { 0.0 };
+                        c.push_str(&format!(
+                            "q {} 0 0 {} {} {} cm /FoliIcon Do Q ",
+                            f(k),
+                            f(k),
+                            f((bw - dw) / 2.0 + shift),
+                            f(pad + caption_h + (ah - dh) / 2.0 - shift)
+                        ));
+                    }
+                    if !w.caption.is_empty() || !has_icon {
+                        let y = if has_icon {
+                            pad + (caption_h - size * 0.72) / 2.0
+                        } else {
+                            (bh - size * 0.72) / 2.0
+                        };
+                        c.push_str(&format!("BT /Helv {} Tf ", f(size)));
+                        c.push_str(&rgb(text_color, "rg"));
+                        c.push_str(&format!("{} {} Td ", f((bw - cw) / 2.0), f(y)));
+                        c.push_str(&String::from_utf8_lossy(&pdf_literal(&w.caption)));
+                        c.push_str(" Tj ET ");
+                    }
                     c
                 };
-                let n = content(false);
-                let dn = content(true);
-                let n_id = self.inner.add_object(make_stream(n, font));
-                let d_id = self.inner.add_object(make_stream(dn, font));
-                dictionary! { "N" => n_id, "D" => d_id }
+                let stream = |pressed: bool, icon: Option<(ObjectId, (f32, f32))>| -> Stream {
+                    let mut s = make_stream(content(pressed, icon), font);
+                    if let Some((i, _)) = icon {
+                        if let Ok(Object::Dictionary(res)) = s.dict.get_mut(b"Resources") {
+                            res.set("XObject", dictionary! { "FoliIcon" => i });
+                        }
+                    }
+                    s
+                };
+                let (n, d) = (stream(false, up), stream(true, down));
+                let r = over.map(|o| stream(false, Some(o)));
+                let n_id = self.inner.add_object(n);
+                let d_id = self.inner.add_object(d);
+                let mut ap = dictionary! { "N" => n_id, "D" => d_id };
+                if let Some(r) = r {
+                    let r_id = self.inner.add_object(r);
+                    ap.set("R", r_id);
+                }
+                ap
             }
             "Btn" => {
                 let radio = w.ff & FF_RADIO != 0;
@@ -928,6 +988,7 @@ impl Document {
             options: w.options.clone(),
             editable: w.ff & FF_EDIT != 0,
             multi_select: w.ff & FF_MULTI_SELECT != 0,
+            sorted: w.ff & FF_SORT != 0,
             export_value: w.on_state.clone(),
             caption: w.caption.clone(),
             font_size: if explicit { size } else { 0.0 },
@@ -989,9 +1050,16 @@ impl Document {
             if ft == b"Ch" {
                 setf(FF_EDIT, props.editable);
                 setf(FF_MULTI_SELECT, props.multi_select);
+                setf(FF_SORT, props.sorted);
+                // Sorted fields keep their options in alphabetical order (the
+                // flag is for the programs that write them).
+                let mut options = props.options.clone();
+                if props.sorted {
+                    options.sort_by_key(|o| o.to_lowercase());
+                }
                 fd.set(
                     "Opt",
-                    Object::Array(props.options.iter().map(|o| lopdf::text_string(o)).collect()),
+                    Object::Array(options.iter().map(|o| lopdf::text_string(o)).collect()),
                 );
             }
             fd.set("Ff", ff);

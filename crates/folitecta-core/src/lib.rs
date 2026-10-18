@@ -30,7 +30,7 @@ pub mod protection;
 pub mod tags;
 
 pub use graphics::{barcodes, images, imaging, pictures};
-pub use interactive::{form_calc, form_data, form_design, forms, scripts};
+pub use interactive::{buttons, form_calc, form_data, form_design, forms, scripts};
 pub use markup::{
     annot_copy, annots, appearance, arrange, calculator, comment_exchange, comment_review, comment_summary,
     flatten, grouping, markup_tools, media, signmarks, smooth, stamp_design, stamps, tables,
@@ -49,6 +49,7 @@ pub use annots::{Annotation, Markup, Shape};
 pub use appearance::{AnnotStyle, LINE_ENDINGS, NOTE_ICONS};
 pub use attachments::Attachment;
 pub use barcodes::{BarcodeKind, FoundBarcode};
+pub use buttons::{ButtonBehaviour, ButtonState};
 pub use commands::{Command, CommandKind, Registry, Status, registry};
 pub use comment_exchange::CommentFormat;
 pub use comment_review::{CommentInfo, REVIEW_STATES, StateChange};

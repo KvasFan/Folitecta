@@ -22,7 +22,7 @@ pub(crate) mod window;
 pub(crate) use document::{
     barcodes, compare, convert, doctools, file, fileops, macros, ocr, pages, pictures, sources, split,
 };
-pub(crate) use fields::{fields_pane, forms, javascript};
+pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
     arrange, calculator, comment_styles, comments, format, media, review, stamps, tables,
 };
@@ -60,6 +60,8 @@ const TABLES: &[&[(&str, Handler)]] = &[
     pages::HANDLERS,
     comments::HANDLERS,
     forms::HANDLERS,
+    field_items::HANDLERS,
+    buttons::HANDLERS,
     format::HANDLERS,
     protect::HANDLERS,
     review::HANDLERS,

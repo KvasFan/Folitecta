@@ -185,6 +185,13 @@ fn choice_fields_props_and_deletion() {
     );
     assert_eq!(back.options.len(), 4);
     assert!(doc.form_fields()[0].required);
+    // Kept sorted: the items are written in alphabetical order, with the flag.
+    let mut sorted = back.clone();
+    sorted.sorted = true;
+    doc.set_field_props(combo, &sorted).unwrap();
+    let back = doc.field_props(combo).unwrap();
+    assert!(back.sorted);
+    assert_eq!(back.options, ["Four", "One", "Three", "Two"]);
 
     let list = doc
         .add_form_field(

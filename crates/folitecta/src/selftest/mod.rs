@@ -381,6 +381,7 @@ mod steps_arrange;
 mod steps_barcodes;
 mod steps_calc;
 mod steps_features;
+mod steps_field_items;
 mod steps_files;
 mod steps_layout;
 mod steps_links;
@@ -453,9 +454,10 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     steps_arrange::run(&mut cx).await;
     steps_spelling::run(&mut cx).await;
     steps_ocr::run(&mut cx).await;
+    steps_field_items::run(&mut cx).await;
     let failures = cx.failures;
 
-    // 55. Undo everything added above.
+    // 56. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..90 {
         crate::commands::dispatch(st, "undo");
@@ -515,6 +517,7 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
         };
         match step {
             "arrange" => steps_arrange::run(&mut cx).await,
+            "field_items" => steps_field_items::run(&mut cx).await,
             "ocr" => steps_ocr::run(&mut cx).await,
             "spelling" => steps_spelling::run(&mut cx).await,
             _ => cx.record("unknown step", false, step.to_string()),

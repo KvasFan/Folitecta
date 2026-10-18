@@ -6,6 +6,7 @@ mod clipboard;
 mod commands;
 mod features;
 mod files;
+mod http;
 mod i18n;
 mod icons;
 mod mail;

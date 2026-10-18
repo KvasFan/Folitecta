@@ -55,8 +55,11 @@ without breaking what already works.
 
 ## Where the product stands (summary)
 
-Folitecta 0.1.0 (October 2026) covers most daily work: viewing, page organization, comments and
+Folitecta 0.2.0 (October 2026) covers most daily work: viewing, page organization, comments and
 review, forms designer and data, OCR, spell checking, barcodes, tables, stamps, digital signatures
-with PKCS#12, accessibility tags and checks, comparison, portfolios. The feature matrix
-[docs/FEATURES.md](../docs/FEATURES.md) counts 1436 available, 62 partial and 483 planned commands of
-the command registry. The open P0 integrity work is listed first in [ROADMAP.md](ROADMAP.md).
+with PKCS#12 and RFC 3161 time stamps, accessibility tags and checks, comparison, portfolios,
+e-mail with attachments; saves are atomic, protected files stay protected and redaction removes
+the content under the marks. The feature matrix [docs/FEATURES.md](../docs/FEATURES.md) counts
+1438 available, 61 partial and 482 planned commands of the command registry. The next work
+(0.2.1: Unicode generated text, attachment dialog, AES-256, revocation) is listed first in
+[ROADMAP.md](ROADMAP.md).

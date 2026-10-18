@@ -198,6 +198,8 @@ pub enum Dialog {
     },
     /// Details of a signature.
     SignatureDetails(String),
+    /// Add a document time stamp from a time stamp server.
+    TimeStamp,
     /// Digital IDs: import, create, export, delete.
     DigitalIds,
     /// Trusted certificates.

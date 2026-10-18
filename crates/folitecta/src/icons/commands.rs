@@ -107,6 +107,7 @@ const BY_ID: &[(&str, &str)] = &[
     ("document.applyRedactions", "redact-apply"),
     ("document.security", "lock"),
     ("document.signatures.sign", "sign"),
+    ("document.signatures.timestamp", "timestamp"),
     ("tool.sign.and.initials", "signature"),
     // Form fields.
     ("tool.editFields.mode.text", "textbox"),

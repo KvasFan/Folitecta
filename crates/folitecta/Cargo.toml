@@ -27,6 +27,8 @@ base64.workspace = true
 open = "5"
 tokio = { version = "1", features = ["time", "rt"] }
 image.workspace = true
+# TLS of the system for the requests to time stamp servers (MIT/Apache-2.0).
+native-tls = "0.2"
 # The drawings of the interface icons: Tabler Icons (MIT).
 icondata_tb = "0.1"
 icondata_core = "0.1"

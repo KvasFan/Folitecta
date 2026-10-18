@@ -1,11 +1,13 @@
-//! Signing PDF documents, validating their signatures, incremental updates.
+//! Signing PDF documents, time-stamping them, validating their signatures,
+//! incremental updates.
 
 use der::Encode;
 use lopdf::{Dictionary, Object, ObjectId, Stream, StringFormat, dictionary};
 use x509_cert::Certificate;
 
-use super::cms_sig::{issued_by, sign_detached, verify_detached};
+use super::cms_sig::{issued_by, sign_detached_stamped, verify_detached};
 use super::id::{CertInfo, DigitalId, cert_info};
+use super::timestamp::{self, TimeStampCheck, Transport};
 use crate::document::Document;
 use crate::error::{Error, Result};
 use crate::util::{self, deref, dict_text, fmt_num, helvetica_width, pdf_literal, rect_of};
@@ -110,9 +112,69 @@ pub struct SignatureStatus {
     pub problems: Vec<String>,
     /// Length of the signed revision in bytes.
     pub revision_len: usize,
+    /// Every later revision of the file ends with a valid document time
+    /// stamp (what else those revisions change is not analysed).
+    pub later_revisions_time_stamped: bool,
+    /// A document time stamp (`ETSI.RFC3161`): the time of a revision, proven
+    /// by an authority, without a signer.
+    pub document_time_stamp: bool,
+    /// The time stamp of the signature, or the document time stamp itself.
+    pub time_stamp: Option<TimeStampStatus>,
+    /// The separate checks of the signature.
+    pub checks: SignatureChecks,
+}
+
+/// Result of one of the separate checks of a signature.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Check {
+    Passed,
+    /// Passed with a reservation: an untrusted certificate, a time from the
+    /// signer's computer, later revisions.
+    Warning,
+    Failed,
+    /// Not checked by Folitecta.
+    #[default]
+    NotChecked,
+}
+
+/// The separate checks of a signature.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SignatureChecks {
+    /// The signed bytes are unchanged (a warning when later revisions follow).
+    pub integrity: Check,
+    /// The signature verifies with the signer's certificate, which was valid
+    /// at the signing time and is trusted (a warning when it is not trusted).
+    pub identity: Check,
+    /// The signing time is proven by a valid time stamp of a trusted
+    /// authority (a warning when it comes from the signer's computer or from
+    /// an authority that is not trusted).
+    pub time: Check,
+    /// Revocation of the certificates (revocation lists and OCSP answers are
+    /// not read yet).
+    pub revocation: Check,
+}
+
+/// The time stamp of a signature, or a document time stamp.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TimeStampStatus {
+    /// Time of the stamp as text (UTC).
+    pub time: String,
+    /// Time of the stamp (Unix seconds).
+    pub time_unix: i64,
+    /// Name of the time stamp authority.
+    pub authority: String,
+    pub authority_cert: Option<CertInfo>,
+    /// The stamp is for this signature (or revision), verifies with the key
+    /// of its authority and the authority's certificate is meant for stamps.
+    pub valid: bool,
+    /// The authority, or one of its issuers, is trusted.
+    pub trusted: bool,
+    pub problems: Vec<String>,
 }
 
 const PLACEHOLDER_RANGE: &[u8] = b"[0 1000000000 1000000000 1000000000]";
+/// Space reserved for a time stamp token (bytes; written as hexadecimal).
+const TOKEN_RESERVE: usize = 16 * 1024;
 
 fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
     hay.windows(needle.len()).position(|w| w == needle)
@@ -159,6 +221,107 @@ fn display_date(secs: u64) -> String {
             .ok()
         })
         .unwrap_or_default()
+}
+
+/// Issuers of `cert` found among `certificates`, nearest first, and whether
+/// `cert` or one of them is trusted or issued by a trusted certificate.
+fn chain_of(
+    cert: &Certificate,
+    certificates: &[Certificate],
+    trusted: &[Certificate],
+) -> (Vec<Certificate>, bool) {
+    let mut chain: Vec<Certificate> = Vec::new();
+    let mut cur = cert.clone();
+    for _ in 0..8 {
+        if cur.tbs_certificate.subject == cur.tbs_certificate.issuer {
+            break;
+        }
+        match certificates.iter().find(|c| issued_by(&cur, c)) {
+            Some(issuer) => {
+                chain.push(issuer.clone());
+                cur = issuer.clone();
+            }
+            None => break,
+        }
+    }
+    let candidates: Vec<&Certificate> = std::iter::once(cert).chain(chain.iter()).collect();
+    let ok = candidates.iter().any(|c| trusted.iter().any(|t| t == *c))
+        || trusted
+            .iter()
+            .any(|t| issued_by(candidates.last().copied().unwrap_or(cert), t));
+    (chain, ok)
+}
+
+fn time_stamp_status(check: &TimeStampCheck, trusted: &[Certificate]) -> TimeStampStatus {
+    let (authority, authority_cert, is_trusted) = match &check.authority {
+        Some(cert) => {
+            let info = cert_info(cert);
+            let (_, ok) = chain_of(cert, &check.certificates, trusted);
+            (info.common_name.clone(), Some(info), ok)
+        }
+        None => (String::new(), None, false),
+    };
+    TimeStampStatus {
+        time: display_date(check.time.max(0) as u64),
+        time_unix: check.time,
+        authority,
+        authority_cert,
+        valid: check.valid() && check.usage_ok,
+        trusted: is_trusted,
+        problems: check.problems.clone(),
+    }
+}
+
+/// Where each revision of `data` ends: just after each `%%EOF` marker.
+fn revision_ends(data: &[u8]) -> Vec<usize> {
+    let mut out = Vec::new();
+    let mut from = 0;
+    while let Some(i) = find(&data[from..], b"%%EOF") {
+        from += i + 5;
+        out.push(from);
+    }
+    out
+}
+
+/// The end of the first `len` bytes of `data` without the line ends and
+/// spaces that close them.
+fn content_end(data: &[u8], len: usize) -> usize {
+    let mut end = len.min(data.len());
+    while end > 0 && matches!(data[end - 1], b'\r' | b'\n' | b' ' | b'\t' | 0) {
+        end -= 1;
+    }
+    end
+}
+
+/// The separate checks of a validated signature: `value_ok` when its value
+/// verifies with the certificate, `cert_in_time` when the certificate was
+/// valid at the (proven or claimed) signing time.
+fn checks_of(s: &SignatureStatus, value_ok: bool, cert_in_time: bool) -> SignatureChecks {
+    let integrity = if !s.valid {
+        Check::Failed
+    } else if !s.covers_document {
+        Check::Warning
+    } else {
+        Check::Passed
+    };
+    let identity = if s.cert.is_none() || !value_ok || !cert_in_time {
+        Check::Failed
+    } else if s.trusted {
+        Check::Passed
+    } else {
+        Check::Warning
+    };
+    let time = match &s.time_stamp {
+        Some(ts) if !ts.valid => Check::Failed,
+        Some(ts) if ts.trusted => Check::Passed,
+        _ => Check::Warning,
+    };
+    SignatureChecks {
+        integrity,
+        identity,
+        time,
+        revocation: Check::NotChecked,
+    }
 }
 
 impl Document {
@@ -224,20 +387,39 @@ impl Document {
         Ok(Some(out))
     }
 
+    /// A copy of the current state, with the same base of incremental
+    /// updates, to sign or time-stamp away from the document (for example on
+    /// another thread while a time stamp server answers).
+    pub fn work_copy(&self) -> Result<Document> {
+        let mut work =
+            Document::from_bytes(self.bytes().to_vec(), self.path().map(|p| p.to_path_buf()), None)?;
+        work.source = self.source.clone();
+        Ok(work)
+    }
+
     /// Sign the document with `id`. Returns the bytes of the signed file (the
     /// document itself is not changed; open the result to continue).
     pub fn sign(&self, id: &DigitalId, opts: &SignOptions) -> Result<Vec<u8>> {
+        self.sign_with(id, opts, None)
+    }
+
+    /// Sign the document with `id`; with `tsa`, the signature gets a time
+    /// stamp (RFC 3161) of the authority it reaches. Returns the bytes of the
+    /// signed file (the document itself is not changed).
+    pub fn sign_with(
+        &self,
+        id: &DigitalId,
+        opts: &SignOptions,
+        tsa: Option<&mut Transport<'_>>,
+    ) -> Result<Vec<u8>> {
         let time = if opts.time == 0 { now_unix() } else { opts.time };
         let info = id.info();
         let cert_sizes: usize = std::iter::once(&id.certificate)
             .chain(id.chain.iter())
             .map(|c| c.to_der().map(|d| d.len()).unwrap_or(2000))
             .sum();
-        let reserve = (cert_sizes + 4096).max(8192);
-        // Work on a copy of the current state.
-        let mut work =
-            Document::from_bytes(self.bytes().to_vec(), self.path().map(|p| p.to_path_buf()), None)?;
-        work.source = self.source.clone();
+        let reserve = (cert_sizes + 4096).max(8192) + if tsa.is_some() { TOKEN_RESERVE } else { 0 };
+        let mut work = self.work_copy()?;
         let mut sig = dictionary! {
             "Type" => "Sig",
             "Filter" => "Adobe.PPKLite",
@@ -278,9 +460,39 @@ impl Document {
         }
         work.attach_signature(sig_id, &info, opts, time)?;
         work.commit()?;
-        let mut data = match work.incremental_bytes()? {
+        work.signed_file(reserve, |parts| sign_detached_stamped(id, parts, time, tsa))
+    }
+
+    /// Add a document time stamp (RFC 3161, `ETSI.RFC3161`) from the
+    /// authority reached by `tsa`: the time of the document as it is now,
+    /// proven by the authority. Returns the bytes of the stamped file (an
+    /// incremental update of a signed file, so its signatures stay valid).
+    pub fn time_stamp(&self, tsa: &mut Transport<'_>) -> Result<Vec<u8>> {
+        let mut work = self.work_copy()?;
+        let sig = dictionary! {
+            "Type" => "DocTimeStamp",
+            "Filter" => "Adobe.PPKLite",
+            "SubFilter" => "ETSI.RFC3161",
+            "ByteRange" => vec![0.into(), 1_000_000_000i64.into(), 1_000_000_000i64.into(), 1_000_000_000i64.into()],
+            "Contents" => Object::String(vec![0u8; TOKEN_RESERVE], StringFormat::Hexadecimal),
+        };
+        let sig_id = work.inner.add_object(sig);
+        let acro = work.ensure_acroform()?;
+        if let Ok(a) = work.inner.get_dictionary_mut(acro) {
+            a.set("SigFlags", 3);
+        }
+        work.invisible_field(acro, sig_id, "Timestamp")?;
+        work.commit()?;
+        work.signed_file(TOKEN_RESERVE, |parts| timestamp::stamp(parts, tsa))
+    }
+
+    /// The file of this signed state: the byte range written and the
+    /// signature made by `make` over the bytes around the `/Contents` value
+    /// (`reserve` bytes of zeros) put in its place.
+    fn signed_file(&self, reserve: usize, make: impl FnOnce(&[&[u8]]) -> Result<Vec<u8>>) -> Result<Vec<u8>> {
+        let mut data = match self.incremental_bytes()? {
             Some(b) => b,
-            None => work.bytes().to_vec(),
+            None => self.bytes().to_vec(),
         };
         // Byte range: everything except the /Contents value.
         let zeros = vec![b'0'; reserve * 2];
@@ -302,7 +514,7 @@ impl Document {
         text.resize(PLACEHOLDER_RANGE.len() - 1, b' ');
         text.push(close);
         data[range_pos..range_pos + text.len()].copy_from_slice(&text);
-        let cms = sign_detached(id, &[&data[..start], &data[end..]], time)?;
+        let cms = make(&[&data[..start], &data[end..]])?;
         let hex = hex_upper(&cms);
         if hex.len() > zeros.len() {
             return Err(Error::Invalid(
@@ -364,23 +576,7 @@ impl Document {
                 self.add_acroform_field(acro, id)?;
                 (id, n)
             }
-            SignPlacement::Invisible => {
-                let page_id = self.page_id(0)?;
-                let name = self.unique_field_name("Signature");
-                let d = dictionary! {
-                    "Type" => "Annot",
-                    "Subtype" => "Widget",
-                    "FT" => "Sig",
-                    "T" => lopdf::text_string(&name),
-                    "Rect" => vec![0.into(), 0.into(), 0.into(), 0.into()],
-                    "F" => 132,
-                    "P" => page_id,
-                    "V" => sig_id,
-                };
-                let id = self.push_annotation(page_id, d)?;
-                self.add_acroform_field(acro, id)?;
-                (id, [0.0; 4])
-            }
+            SignPlacement::Invisible => (self.invisible_field(acro, sig_id, "Signature")?, [0.0; 4]),
         };
         let (w, h) = (rect[2] - rect[0], rect[3] - rect[1]);
         if w >= 2.0 && h >= 2.0 {
@@ -390,6 +586,26 @@ impl Document {
             wd.set("F", 132);
         }
         Ok(())
+    }
+
+    /// A new invisible signature field on the first page holding the
+    /// signature dictionary `sig_id`, named after `base`.
+    fn invisible_field(&mut self, acro: ObjectId, sig_id: ObjectId, base: &str) -> Result<ObjectId> {
+        let page_id = self.page_id(0)?;
+        let name = self.unique_field_name(base);
+        let d = dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Widget",
+            "FT" => "Sig",
+            "T" => lopdf::text_string(&name),
+            "Rect" => vec![0.into(), 0.into(), 0.into(), 0.into()],
+            "F" => 132,
+            "P" => page_id,
+            "V" => sig_id,
+        };
+        let id = self.push_annotation(page_id, d)?;
+        self.add_acroform_field(acro, id)?;
+        Ok(id)
     }
 
     fn add_acroform_field(&mut self, acro: ObjectId, field: ObjectId) -> Result<()> {
@@ -564,6 +780,10 @@ impl Document {
                 chain: Vec::new(),
                 problems: Vec::new(),
                 revision_len: 0,
+                later_revisions_time_stamped: false,
+                document_time_stamp: false,
+                time_stamp: None,
+                checks: SignatureChecks::default(),
             };
             let ranges: Vec<usize> = sig
                 .get(b"ByteRange")
@@ -585,6 +805,7 @@ impl Document {
                 status
                     .problems
                     .push("the signature has no byte range or contents".into());
+                status.checks = checks_of(&status, false, false);
                 out.push(status);
                 continue;
             }
@@ -593,58 +814,84 @@ impl Document {
                 status
                     .problems
                     .push("the byte range does not fit the file".into());
+                status.checks = checks_of(&status, false, false);
                 out.push(status);
                 continue;
             }
             status.revision_len = c + d;
             status.covers_document = c + d == data.len();
-            match verify_detached(&contents, &[&data[a..a + b], &data[c..c + d]]) {
-                Ok(check) => {
-                    status.valid = check.digest_ok && check.signature_ok;
-                    status.digest_algorithm = check.digest_algorithm.clone();
-                    status.problems.extend(check.problems.iter().cloned());
-                    if let Some(t) = check.signing_time {
-                        status.time = display_date(t.max(0) as u64);
+            let parts = [&data[a..a + b], &data[c..c + d]];
+            let mut value_ok = false;
+            let mut cert_in_time = true;
+            if status.sub_filter == "ETSI.RFC3161" {
+                // A document time stamp: the token itself is the signature.
+                status.document_time_stamp = true;
+                match timestamp::check_token(&contents, &parts) {
+                    Ok(check) => {
+                        let ts = time_stamp_status(&check, trusted);
+                        status.valid = check.valid();
+                        value_ok = check.signature_ok;
+                        status.digest_algorithm = check.digest_algorithm.clone();
+                        status.problems.extend(check.problems.iter().cloned());
+                        status.signer = ts.authority.clone();
+                        status.time = ts.time.clone();
+                        status.trusted = ts.trusted;
+                        status.cert = ts.authority_cert.clone();
+                        if let Some(cert) = &check.authority {
+                            let (chain, _) = chain_of(cert, &check.certificates, trusted);
+                            status.chain = chain.iter().map(cert_info).collect();
+                        }
+                        status.time_stamp = Some(ts);
                     }
-                    if let Some(cert) = &check.signer {
-                        let ci = cert_info(cert);
-                        if status.signer.is_empty() {
-                            status.signer = ci.common_name.clone();
-                        }
-                        // Certificate validity at signing time.
-                        if let Some(t) = check.signing_time {
-                            if t < ci.not_before_unix || t > ci.not_after_unix {
-                                status
-                                    .problems
-                                    .push("the certificate was not valid at the signing time".into());
-                            }
-                        }
-                        // Issuer chain from the certificates in the signature.
-                        let mut chain: Vec<Certificate> = Vec::new();
-                        let mut cur = cert.clone();
-                        for _ in 0..8 {
-                            if cur.tbs_certificate.subject == cur.tbs_certificate.issuer {
-                                break;
-                            }
-                            match check.certificates.iter().find(|c| issued_by(&cur, c)) {
-                                Some(issuer) => {
-                                    chain.push(issuer.clone());
-                                    cur = issuer.clone();
-                                }
-                                None => break,
-                            }
-                        }
-                        let candidates: Vec<&Certificate> =
-                            std::iter::once(cert).chain(chain.iter()).collect();
-                        status.trusted = candidates.iter().any(|c| trusted.iter().any(|t| t == *c))
-                            || trusted
-                                .iter()
-                                .any(|t| issued_by(candidates.last().copied().unwrap_or(cert), t));
-                        status.chain = chain.iter().map(cert_info).collect();
-                        status.cert = Some(ci);
-                    }
+                    Err(e) => status.problems.push(e.to_string()),
                 }
-                Err(e) => status.problems.push(e.to_string()),
+            } else {
+                match verify_detached(&contents, &parts) {
+                    Ok(check) => {
+                        status.valid = check.digest_ok && check.signature_ok;
+                        value_ok = check.signature_ok;
+                        status.digest_algorithm = check.digest_algorithm.clone();
+                        status.problems.extend(check.problems.iter().cloned());
+                        if let Some(t) = check.signing_time {
+                            status.time = display_date(t.max(0) as u64);
+                        }
+                        if let Some(tc) = &check.time_stamp {
+                            let ts = time_stamp_status(tc, trusted);
+                            for p in &ts.problems {
+                                status.problems.push(format!("time stamp: {p}"));
+                            }
+                            status.time_stamp = Some(ts);
+                        }
+                        if let Some(cert) = &check.signer {
+                            let ci = cert_info(cert);
+                            if status.signer.is_empty() {
+                                status.signer = ci.common_name.clone();
+                            }
+                            // Certificate validity at the signing time: the time of a
+                            // valid time stamp, otherwise the time the signer wrote.
+                            let at = status
+                                .time_stamp
+                                .as_ref()
+                                .filter(|ts| ts.valid)
+                                .map(|ts| ts.time_unix)
+                                .or(check.signing_time);
+                            if let Some(t) = at {
+                                if t < ci.not_before_unix || t > ci.not_after_unix {
+                                    cert_in_time = false;
+                                    status
+                                        .problems
+                                        .push("the certificate was not valid at the signing time".into());
+                                }
+                            }
+                            // Issuer chain from the certificates in the signature.
+                            let (chain, ok) = chain_of(cert, &check.certificates, trusted);
+                            status.trusted = ok;
+                            status.chain = chain.iter().map(cert_info).collect();
+                            status.cert = Some(ci);
+                        }
+                    }
+                    Err(e) => status.problems.push(e.to_string()),
+                }
             }
             if !status.covers_document {
                 status.problems.push(match status.certify {
@@ -652,10 +899,42 @@ impl Document {
                         "the document was changed after certification, which the certification does not allow"
                             .into()
                     }
+                    _ if status.document_time_stamp => {
+                        "the document was changed after the time stamp (in a later revision)".into()
+                    }
                     _ => "the document was changed after it was signed (in a later revision)".into(),
                 });
             }
+            status.checks = checks_of(&status, value_ok, cert_in_time);
             out.push(status);
+        }
+        // Signatures followed only by revisions that end with document time stamps.
+        let stamped: Vec<usize> = out
+            .iter()
+            .filter(|s| s.document_time_stamp && s.valid)
+            .map(|s| content_end(&data, s.revision_len))
+            .collect();
+        let ends = revision_ends(&data);
+        for s in out
+            .iter_mut()
+            .filter(|s| !s.covers_document && s.revision_len > 0)
+        {
+            let own = content_end(&data, s.revision_len);
+            let later: Vec<usize> = ends.iter().copied().filter(|e| *e > own).collect();
+            if later.is_empty() || !later.iter().all(|e| stamped.contains(e)) {
+                continue;
+            }
+            s.later_revisions_time_stamped = true;
+            if s.certify != Some(1) {
+                for p in s
+                    .problems
+                    .iter_mut()
+                    .filter(|p| p.ends_with("(in a later revision)"))
+                {
+                    *p = "later revisions add document time stamps (their other changes are not analysed)"
+                        .into();
+                }
+            }
         }
         out
     }

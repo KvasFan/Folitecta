@@ -398,6 +398,7 @@ mod steps_spelling;
 mod steps_split;
 mod steps_split_view;
 mod steps_text;
+mod steps_timestamp;
 mod steps_tools;
 
 /// What the interaction steps share: the app, where the screenshots go,
@@ -461,6 +462,7 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     steps_policies::run(&mut cx).await;
     steps_qat::run(&mut cx).await;
     steps_email::run(&mut cx).await;
+    steps_timestamp::run(&mut cx).await;
     let failures = cx.failures;
 
     // 58. Undo everything added above.
@@ -530,6 +532,7 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
             "qat" => steps_qat::run(&mut cx).await,
             "email" => steps_email::run(&mut cx).await,
             "spelling" => steps_spelling::run(&mut cx).await,
+            "timestamp" => steps_timestamp::run(&mut cx).await,
             _ => cx.record("unknown step", false, step.to_string()),
         }
         total += cx.failures;
@@ -710,6 +713,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
                 field: None,
             },
         ),
+        ("timestamp", Dialog::TimeStamp),
         ("digital-ids", Dialog::DigitalIds),
         ("trusted-certs", Dialog::TrustedCerts),
         ("signature-library", Dialog::SignatureLibrary),

@@ -7,7 +7,7 @@ use std::sync::Mutex;
 use dioxus::prelude::*;
 use folitecta_core::digsig::{
     CertInfo, Certificate, DigitalId, IdentityInfo, KeyKind, SignOptions, SignPlacement, SignatureStatus,
-    cert_info, cert_to_der, parse_certificates,
+    Transport, cert_info, cert_to_der, parse_certificates,
 };
 
 use crate::commands::{handlers, no_doc, show_pane};
@@ -166,23 +166,38 @@ pub fn invalidate_status(st: AppState) {
     }
 }
 
+/// Media types of time stamp requests and answers (RFC 3161).
+const TIME_STAMP_QUERY: &str = "application/timestamp-query";
+const TIME_STAMP_REPLY: &str = "application/timestamp-reply";
+
+/// The way time stamp requests reach the server at `url`: an HTTP POST.
+pub fn tsa_transport(url: String) -> impl FnMut(&[u8]) -> folitecta_core::Result<Vec<u8>> {
+    move |request| {
+        crate::http::post(&url, TIME_STAMP_QUERY, TIME_STAMP_REPLY, request)
+            .map_err(|e| folitecta_core::Error::Invalid(format!("{url}: {e}")))
+    }
+}
+
 struct SignRequest {
     id: DigitalId,
     opts: SignOptions,
+    /// Address of the time stamp server, when the signature gets a time stamp.
+    tsa: Option<String>,
 }
 
 /// Signature waiting for the user to draw its rectangle.
 static PENDING: Mutex<Option<SignRequest>> = Mutex::new(None);
 
-/// Sign now, or let the user draw the signature rectangle first.
-pub fn start_sign(st: AppState, id: DigitalId, opts: SignOptions) {
+/// Sign now, or let the user draw the signature rectangle first; with
+/// `tsa`, the signature gets a time stamp from that server.
+pub fn start_sign(st: AppState, id: DigitalId, opts: SignOptions, tsa: Option<String>) {
     match &opts.placement {
         SignPlacement::New { rect, .. } if rect[2] - rect[0] < 1.0 => {
-            *PENDING.lock().expect("pending signature") = Some(SignRequest { id, opts });
+            *PENDING.lock().expect("pending signature") = Some(SignRequest { id, opts, tsa });
             st.set_tool(Tool::SignArea);
             st.toast(ToastKind::Info, t(st.lang(), "toast.draw_signature"), "");
         }
-        _ => finish_sign(st, id, opts),
+        _ => finish_sign(st, id, opts, tsa),
     }
 }
 
@@ -192,7 +207,7 @@ pub fn finish_sign_area(st: AppState, page: usize, rect: [f32; 4]) {
     st.set_tool(Tool::Hand);
     if let Some(mut req) = req {
         req.opts.placement = SignPlacement::New { page, rect };
-        finish_sign(st, req.id, req.opts);
+        finish_sign(st, req.id, req.opts, req.tsa);
     }
 }
 
@@ -201,37 +216,92 @@ pub fn cancel_pending() {
     PENDING.lock().expect("pending signature").take();
 }
 
-/// Sign the active document and save the signed file.
-fn finish_sign(st: AppState, id: DigitalId, opts: SignOptions) {
-    let result = st.read_active(|t| t.doc.sign(&id, &opts));
-    let bytes = match result {
-        Some(Ok(b)) => b,
-        Some(Err(e)) => {
-            st.error(e);
-            return;
-        }
-        None => return,
+/// The bytes of the active document signed by `id` (with a time stamp from
+/// the server at `tsa`), made on a worker thread while the server answers.
+pub async fn signed_bytes(
+    st: AppState,
+    id: DigitalId,
+    opts: SignOptions,
+    tsa: Option<String>,
+) -> Result<Vec<u8>, String> {
+    let copy = st
+        .read_active(|t| t.doc.work_copy())
+        .ok_or("no document")?
+        .map_err(|e| e.to_string())?;
+    tokio::task::spawn_blocking(move || {
+        let mut send = tsa.map(tsa_transport);
+        let send: Option<&mut Transport<'_>> = send.as_mut().map(|s| s as &mut Transport<'_>);
+        copy.sign_with(&id, &opts, send)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())
+}
+
+/// The bytes of the active document with a document time stamp from the
+/// server at `url`.
+pub async fn time_stamped_bytes(st: AppState, url: String) -> Result<Vec<u8>, String> {
+    let copy = st
+        .read_active(|t| t.doc.work_copy())
+        .ok_or("no document")?
+        .map_err(|e| e.to_string())?;
+    tokio::task::spawn_blocking(move || copy.time_stamp(&mut tsa_transport(url)))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
+/// Ask where to save a signed (or time-stamped) file, write it and show it
+/// in place of the active document.
+async fn save_signed(st: AppState, bytes: Vec<u8>, suffix: &str, done: &str) {
+    let name = files::suggested_name(st, suffix);
+    let Some(file) = rfd::AsyncFileDialog::new()
+        .set_title(t(st.lang(), "sig.save_signed"))
+        .add_filter("PDF", &["pdf"])
+        .set_file_name(&name)
+        .save_file()
+        .await
+    else {
+        st.toast(ToastKind::Warn, t(st.lang(), "toast.sign_cancelled"), "");
+        return;
     };
-    let name = files::suggested_name(st, "-signed");
+    let path = file.path().to_path_buf();
+    if let Err(e) = folitecta_core::document::write_pdf_file(&path, &bytes) {
+        st.error(e);
+        return;
+    }
+    files::replace_active_with(st, path);
+    show_pane(st, Pane::Signatures);
+    st.toast(ToastKind::Ok, t(st.lang(), done), "");
+}
+
+/// Sign the active document and save the signed file.
+fn finish_sign(st: AppState, id: DigitalId, opts: SignOptions, tsa: Option<String>) {
+    if no_doc(st) {
+        return;
+    }
+    if tsa.is_some() {
+        st.toast(ToastKind::Info, t(st.lang(), "toast.time_stamp_asking"), "");
+    }
     spawn(async move {
-        let Some(file) = rfd::AsyncFileDialog::new()
-            .set_title("Save the signed document")
-            .add_filter("PDF", &["pdf"])
-            .set_file_name(&name)
-            .save_file()
-            .await
-        else {
-            st.toast(ToastKind::Warn, t(st.lang(), "toast.sign_cancelled"), "");
-            return;
-        };
-        let path = file.path().to_path_buf();
-        if let Err(e) = folitecta_core::document::write_pdf_file(&path, &bytes) {
-            st.error(e);
-            return;
+        match signed_bytes(st, id, opts, tsa).await {
+            Ok(bytes) => save_signed(st, bytes, "-signed", "toast.signed").await,
+            Err(e) => st.error(e),
         }
-        files::replace_active_with(st, path);
-        show_pane(st, Pane::Signatures);
-        st.toast(ToastKind::Ok, t(st.lang(), "toast.signed"), "");
+    });
+}
+
+/// Add a document time stamp from the server at `url` and save the stamped file.
+pub fn time_stamp_document(st: AppState, url: String) {
+    if no_doc(st) {
+        return;
+    }
+    st.toast(ToastKind::Info, t(st.lang(), "toast.time_stamp_asking"), "");
+    spawn(async move {
+        match time_stamped_bytes(st, url).await {
+            Ok(bytes) => save_signed(st, bytes, "-timestamped", "toast.time_stamped").await,
+            Err(e) => st.error(e),
+        }
     });
 }
 
@@ -325,6 +395,7 @@ handlers! {
     "document.signatures.validateAll" => validate_all,
     "digisig.validate" => validate_all,
     "digisig.view.validate" => validate_all,
+    "document.signatures.timestamp" => |st| if !no_doc(st) { st.set_dialog(Dialog::TimeStamp) },
     "document.signatures.clear" => clear_all,
     "digisig.clear" => clear_all,
     "digisig.view.clear" => clear_all,

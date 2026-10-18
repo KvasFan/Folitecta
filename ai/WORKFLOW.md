@@ -56,7 +56,7 @@ checks that nothing overflows or is clipped, and performs scripted interactions:
 $env:FOLITECTA_CONFIG_DIR = "<empty folder>"        # never the user's settings
 target\release\folitecta.exe --ui-selftest <output folder>
 # one interaction step only:
-$env:FOLITECTA_SELFTEST_ONLY = "step:layout"         # arrange, field_items, layout, ocr, policies, qat, spelling
+$env:FOLITECTA_SELFTEST_ONLY = "step:layout"         # arrange, email, field_items, layout, ocr, policies, qat, spelling, timestamp
 ```
 
 The report is `<output folder>/report.json`: `total_problems`, then `states` with layout audits
@@ -77,3 +77,15 @@ Licences of dependencies: `cargo deny check licenses` (the list is in `deny.toml
 - After a release, download the Windows package, check its SHA-256, extract it and run the `ocr`
   and `spelling` self-test steps with that executable (they prove the data folders next to the
   executable are found).
+
+## Starting on a new machine
+
+1. Install Rust (stable, 1.92 or newer, through rustup) and the platform toolchain listed in the
+   README (on Windows the C++ build tools and the WebView2 runtime; on Linux the WebKitGTK 4.1
+   development packages).
+2. Clone the repository; work on a second worktree so the user's build of `main` keeps running:
+   `git worktree add ../Folitecta-next -b next` (fast-forward `main` from it when a step is done).
+3. Set the commit identity of the repository (the one used by the existing commits).
+4. Run the checks above once (`cargo test --workspace` first: it builds everything) and a full
+   self-test, then read [ROADMAP.md](ROADMAP.md) ("Next releases") and the newest entries of
+   [PROGRESS.md](PROGRESS.md) to pick the next sub-task.

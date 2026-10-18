@@ -46,6 +46,7 @@ pub(crate) const SHA256_OID: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.
 pub(crate) const SHA384_OID: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.16.840.1.101.3.4.2.2");
 pub(crate) const SHA512_OID: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.16.840.1.101.3.4.2.3");
 const KEY_USAGE: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.29.15");
+const EXTENDED_KEY_USAGE: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.29.37");
 const OID_CN: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.4.3");
 const OID_O: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.4.10");
 const OID_OU: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.4.11");
@@ -640,6 +641,23 @@ impl DigitalId {
 
     /// Create a self-signed digital ID valid for `years` years.
     pub fn create_self_signed(info: &IdentityInfo, kind: KeyKind, years: u32) -> Result<DigitalId> {
+        Self::self_signed(info, kind, years, None)
+    }
+
+    /// Create a self-signed digital ID of a time stamp authority (its
+    /// certificate is meant for time stamps only), valid for `years` years.
+    pub fn create_time_stamp_authority(info: &IdentityInfo, kind: KeyKind, years: u32) -> Result<DigitalId> {
+        Self::self_signed(info, kind, years, Some(super::timestamp::KP_TIME_STAMPING))
+    }
+
+    /// A self-signed ID; `usage` is the only extended key usage of its
+    /// certificate when given.
+    fn self_signed(
+        info: &IdentityInfo,
+        kind: KeyKind,
+        years: u32,
+        usage: Option<ObjectIdentifier>,
+    ) -> Result<DigitalId> {
         if info.name.trim().is_empty() {
             return Err(Error::Invalid("the name of the digital ID is empty".into()));
         }
@@ -692,7 +710,15 @@ impl DigitalId {
             )
             .map_err(bad)?,
         };
-        let extensions: Extensions = vec![key_usage];
+        let mut extensions: Extensions = vec![key_usage];
+        if let Some(usage) = usage {
+            // Critical, as RFC 3161 asks for the certificates of authorities.
+            extensions.push(Extension {
+                extn_id: EXTENDED_KEY_USAGE,
+                critical: true,
+                extn_value: OctetString::new(vec![usage].to_der().map_err(bad)?).map_err(bad)?,
+            });
+        }
         let tbs = TbsCertificate {
             version: Version::V3,
             serial_number: SerialNumber::new(&serial).map_err(bad)?,

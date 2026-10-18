@@ -49,7 +49,9 @@ corrections through the page text editor, the comment text or the field value, s
 undo step; the dictionaries are files read at run time, not built in), `marks` (watermarks,
 headers and footers, page numbering),
 `structure` and `accessibility` (tags, reading order, the accessibility check), `digsig`
-(signatures), `redaction` (the glyphs under the marks leave their text operations, each
+(signatures; `timestamp` builds RFC 3161 requests, checks the answers and tokens and holds a
+small authority for the tests, while the interface's `http` module carries the requests; the
+validation reports integrity, signer, time and revocation as separate checks), `redaction` (the glyphs under the marks leave their text operations, each
 replaced by a move of its width found by the text probe, the pixels of pictures under the marks
 are covered, comments and fields over them go; pages that cannot be edited that way are drawn as
 pictures), `compare`, `combine` (documents made from several files), `pictures` (the pictures
@@ -119,8 +121,8 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
 - `ui/` — the interface, in four parts:
   - `chrome/` — the frame of the window: `menubar` (classic menus generated from the registry),
     `ribbon` and `ribbon_layout` (tabs, groups, the fitting of the buttons to the width, overflow
-    menus, contextual tabs; the tools are icons with their names in the tooltips unless the
-    View › Tool Names option is on), `toolbars`, `statusbar`, `palette`, `toasts`, `welcome`, and
+    menus, contextual tabs; the tools are icons with a short name under each, hidden by the
+    View › Tool Names option, and the whole name in the tooltips), `toolbars`, `statusbar`, `palette`, `toasts`, `welcome`, and
     `layout`, the sizes the user drags (pane widths, rows of the ribbon, group widths), saved as
     preferences;
   - `panes/` — the left panes (thumbnails, bookmarks, comments, attachments, layers, fields,
@@ -184,5 +186,8 @@ Mouse coordinates on a page image are converted to PDF user space with
 - Text recognition reads the Latin script, written left to right (lines turned up to about 45
   degrees); the invisible text uses WinAnsi, so letters it lacks (such as Polish `ł`) are written
   without their accent.
-- There is no timestamp on signatures and no conversion to PDF/A.
+- Revocation of certificates (revocation lists, OCSP) is not checked and no long-term validation
+  material is added; later revisions after a signature are reported, but what they change is
+  not analysed (only whether they end with document time stamps). There is no conversion to
+  PDF/A.
 - Commands marked *planned* in [FEATURES.md](FEATURES.md) open a roadmap notice.

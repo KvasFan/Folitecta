@@ -8,7 +8,7 @@ software under MIT, Apache, GNU or Mozilla Public License 2.0 licences.
 
 ![Folitecta screenshot](docs/screenshot.png)
 
-## Status: version 0.1.0 (pre-release)
+## Status: version 0.2.0 (pre-release)
 
 Folitecta ships the **complete command surface of a professional PDF editor** — 1,981 commands
 across a ribbon with 11 tabs and 64 groups, 9 classic menus, 27 side panes and a command palette —
@@ -24,8 +24,8 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
   high-contrast page modes, rulers (mm, cm, in, pt, pc), grid, guides with snapping, loupe with
   adjustable enlargement, the visible area outlined on the thumbnails, link
   and form-field highlighting, transparency grid, document info bar, page labels, view history.
-- **Interface**: ribbon or classic menus and toolbars; the ribbon shows its tools as icons with
-  their names in the tooltips (or with the names next to them: View › Tool Names); a Quick Access
+- **Interface**: ribbon or classic menus and toolbars; the ribbon shows its tools as icons with a
+  short name under each (View › Tool Names hides them) and the whole name in the tooltips; a Quick Access
   Toolbar of the user's own commands (a right click on a tool adds it), next to the tabs or below
   the ribbon; the side panes,
   the rows of the ribbon and the width of each ribbon group are changed by dragging their edges;
@@ -63,8 +63,10 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
 - **Review**: replies, review states with history, check marks, filters, pop-up notes, comment
   summaries, export and import of comments as XFDF, FDF or PDF.
 - **Sign**: digital signatures and certification with PKCS#12 digital IDs (RSA, ECDSA),
-  self-signed IDs, validation against trusted certificates, incremental saving that keeps
-  signatures valid; handwritten signatures and initials from a library.
+  self-signed IDs, validation against trusted certificates with separate checks of integrity,
+  signer and time, time stamps (RFC 3161) of signatures and document time stamps from a time
+  stamp server, incremental saving that keeps signatures valid; handwritten signatures and
+  initials from a library.
 - **Measure**: distance, perimeter and area with a calibrated scale, precision and separators,
   labels on the page, CSV export.
 - **Forms**: draw text, check box, radio button, combo box, list box, button and signature

@@ -8,6 +8,17 @@
 .sig-state.warn { color: var(--warn); }
 .sig-state.bad { color: var(--danger); }
 .sig-state.big { font-size: 14px; padding: 6px 0; }
+/* The separate checks: integrity, identity, time, revocation */
+.sig-checks { display: flex; flex-direction: column; gap: 4px; padding: 2px 0 4px; }
+.sig-check { display: grid; grid-template-columns: 10px minmax(90px, 140px) minmax(0, 1fr); gap: 8px; align-items: center; }
+.sig-check .k { color: var(--muted); }
+.sig-check .v { overflow-wrap: anywhere; min-width: 0; }
+.sig-check.bad .v { color: var(--danger); }
+.chip.sig-stamp { display: inline-flex; align-items: center; padding: 0 4px; }
+.chip.sig-stamp.ok { color: var(--ok); }
+.chip.sig-stamp.warn { color: var(--warn); }
+.chip.sig-stamp.bad { color: var(--danger); }
+.tsa-url { width: 100%; }
 .kv-grid { display: grid; grid-template-columns: minmax(90px, 150px) minmax(0, 1fr); gap: 4px 10px; padding: 4px 0; }
 .kv-grid .k { color: var(--muted); }
 .kv-grid .v { user-select: text; overflow-wrap: anywhere; min-width: 0; }

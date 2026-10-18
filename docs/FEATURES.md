@@ -1,12 +1,12 @@
 # Folitecta feature matrix
 
-Generated from the command registry for version 0.1.0. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
+Generated from the command registry for version 0.2.0. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1436 |
-| 🟡 partial | 62 |
-| ⬜ planned | 483 |
+| ✅ available | 1438 |
+| 🟡 partial | 61 |
+| ⬜ planned | 482 |
 | total | 1981 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -555,12 +555,12 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Delete | `digiSigList.delete` | ⬜ planned |
 | ↳ Edit… | `digiSigList.edit` | ⬜ planned |
 | ↳ Reset | `digiSigList.reset` | ⬜ planned |
-| Digital Signatures | `document.signatures` | 🟡 partial |
+| Digital Signatures | `document.signatures` | ✅ available |
 | ↳ Certify (Visible)… | `document.signatures.certify` | ✅ available |
 | ↳ Clear All Signatures | `document.signatures.clear` | ✅ available |
 | ↳ Sign Document… | `document.signatures.sign` | ✅ available |
 | ↳ Signatures and Initials | `document.signatures.placesign` | ✅ available |
-| ↳ Timestamp… | `document.signatures.timestamp` | ⬜ planned |
+| ↳ Timestamp… | `document.signatures.timestamp` | ✅ available |
 | ↳ Validate All Signatures | `document.signatures.validateAll` | ✅ available |
 | Multi-Place Signature… | `document.signature.multiPlace` | ✅ available |
 
@@ -1551,7 +1551,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | OCR Pages… | `document.OCRPages` | ✅ available |
 | Recompress Images… | `document.recompressImages` | ✅ available |
 | Replace Fonts… | `document.replaceFonts` | ⬜ planned |
-| Digital Signatures | `document.signatures` | 🟡 partial |
+| Digital Signatures | `document.signatures` | ✅ available |
 | Security Policies | `securityPolicies` | ✅ available |
 | Redaction | `document.redaction` | ✅ available |
 | Document JavaScript | `document.javaScript` | ✅ available |

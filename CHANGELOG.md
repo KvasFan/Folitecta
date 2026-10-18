@@ -6,7 +6,17 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-18
+
 ### Added
+- Time stamps (RFC 3161) from a time stamp server: a signature can get a time stamp of its value
+  (Add a time stamp in the signing window), and Document › Signatures › Timestamp adds a document
+  time stamp, as an incremental update that keeps the earlier signatures valid. Only a SHA-256
+  digest is sent to the server set by the user; the answer is checked (status, data, nonce,
+  signature and certificate of the authority) before it is written.
+- The details of a signature show separate checks: integrity, signer (or authority), time (a
+  valid time stamp of a trusted authority, or the signer's computer) and revocation (not checked
+  yet); document time stamps are validated and shown in the signatures pane.
 - E-mail with the files really attached: the document, every open document, both as a ZIP
   archive, and the form data (Simple MAPI on Windows, Mail on macOS, `xdg-email` on Linux; a
   `mailto:` message and the folder of the files when no mail program takes attachments).

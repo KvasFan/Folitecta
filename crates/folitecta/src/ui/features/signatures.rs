@@ -3,13 +3,13 @@
 
 use dioxus::prelude::*;
 use folitecta_core::digsig::{
-    CertInfo, IdentityInfo, KeyKind, SigAppearance, SignOptions, SignPlacement, SignatureStatus,
+    CertInfo, Check, IdentityInfo, KeyKind, SigAppearance, SignOptions, SignPlacement, SignatureStatus,
     parse_certificates,
 };
 
 use crate::commands::signatures::{
     add_trusted, create_id, delete_id, import_id, invalidate_status, load_id, open_signed_revision,
-    remove_trusted, signature_status, start_sign, stored_ids, trusted_certs,
+    remove_trusted, signature_status, start_sign, stored_ids, time_stamp_document, trusted_certs,
 };
 use crate::i18n::{Lang, t, tf};
 use crate::icons::Icon;
@@ -21,15 +21,77 @@ fn certify_name(lang: Lang, p: u8) -> String {
 
 /// Status class and text of a signature.
 fn status_of(lang: Lang, s: &SignatureStatus) -> (&'static str, String) {
+    let key = |name: &str| {
+        if s.document_time_stamp {
+            t(lang, &format!("sig.ts_{name}"))
+        } else {
+            t(lang, &format!("sig.{name}"))
+        }
+    };
     if !s.valid {
-        ("bad", t(lang, "sig.invalid"))
+        ("bad", key("invalid"))
+    } else if !s.covers_document && s.later_revisions_time_stamped {
+        ("warn", key("valid_stamped"))
     } else if !s.covers_document {
-        ("warn", t(lang, "sig.valid_changed"))
+        ("warn", key("valid_changed"))
     } else if s.trusted {
-        ("ok", t(lang, "sig.valid_trusted"))
+        ("ok", key("valid_trusted"))
     } else {
-        ("warn", t(lang, "sig.valid_unknown"))
+        ("warn", key("valid_unknown"))
     }
+}
+
+/// Class of the state of a check.
+fn check_class(c: Check) -> &'static str {
+    match c {
+        Check::Passed => "ok",
+        Check::Warning => "warn",
+        Check::Failed => "bad",
+        Check::NotChecked => "none",
+    }
+}
+
+/// The separate checks of a signature: (label, class, text).
+fn check_rows(lang: Lang, s: &SignatureStatus) -> Vec<(String, &'static str, String)> {
+    let state = |c: Check| match c {
+        Check::Passed => "passed",
+        Check::Warning => "warning",
+        Check::Failed => "failed",
+        Check::NotChecked => "not_checked",
+    };
+    let c = &s.checks;
+    let time_text = match (c.time, &s.time_stamp) {
+        (Check::Warning, None) => t(lang, "sig.check_time_warning_none"),
+        (state_of_time, _) => t(lang, &format!("sig.check_time_{}", state(state_of_time))),
+    };
+    let who = if s.document_time_stamp {
+        "authority"
+    } else {
+        "identity"
+    };
+    let integrity_text = if c.integrity == Check::Warning && s.later_revisions_time_stamped {
+        t(lang, "sig.check_integrity_warning_stamps")
+    } else {
+        t(lang, &format!("sig.check_integrity_{}", state(c.integrity)))
+    };
+    vec![
+        (
+            t(lang, "sig.check_integrity"),
+            check_class(c.integrity),
+            integrity_text,
+        ),
+        (
+            t(lang, &format!("sig.check_{who}")),
+            check_class(c.identity),
+            t(lang, &format!("sig.check_{who}_{}", state(c.identity))),
+        ),
+        (t(lang, "sig.check_time"), check_class(c.time), time_text),
+        (
+            t(lang, "sig.check_revocation"),
+            check_class(c.revocation),
+            t(lang, &format!("sig.check_revocation_{}", state(c.revocation))),
+        ),
+    ]
 }
 
 #[component]
@@ -46,6 +108,7 @@ pub fn SignaturesPane() -> Element {
     rsx! {
         div { class: "pane-toolbar icon-toolbar",
             button { class: "tbtn primary", onclick: move |_| crate::commands::dispatch(st, "document.signatures.sign"), Icon { name: "signature" } "{t(lang, \"sig.sign\")}" }
+            button { class: "ibtn", title: "{t(lang, \"cmd.document.signatures.timestamp\")}", onclick: move |_| crate::commands::dispatch(st, "document.signatures.timestamp"), Icon { name: "timestamp" } }
             button { class: "ibtn", title: "{t(lang, \"cmd.document.signatures.validateAll\")}", onclick: move |_| crate::commands::dispatch(st, "document.signatures.validateAll"), Icon { name: "check" } }
             button { class: "ibtn", title: "{t(lang, \"cmd.signs.digitalIDs\")}", onclick: move |_| st.set_dialog(Dialog::DigitalIds), Icon { name: "lock" } }
             button { class: "ibtn", title: "{t(lang, \"sig.trusted\")}", onclick: move |_| st.set_dialog(Dialog::TrustedCerts), Icon { name: "shield" } }
@@ -67,6 +130,11 @@ pub fn SignaturesPane() -> Element {
                             span { class: "sig-dot {class}" }
                             span { class: "ellipsis", "{s.signer}" }
                             if s.certify.is_some() { span { class: "chip", "{t(lang, \"sig.certified\")}" } }
+                            if s.document_time_stamp {
+                                span { class: "chip", "{t(lang, \"sig.time_stamp\")}" }
+                            } else if let Some(ts) = &s.time_stamp {
+                                span { class: "chip sig-stamp {check_class(s.checks.time)}", title: "{t(lang, \"sig.time_stamp\")}: {ts.time}", Icon { name: "timestamp" } }
+                            }
                         }
                         div { class: "sig-state {class}", "{text}" }
                         div { class: "meta",
@@ -127,17 +195,39 @@ pub fn SignatureDetailsDialog(field: String) -> Element {
     let chain: Vec<String> = s.chain.iter().map(|c| c.common_name.clone()).collect();
     let certify_text = s.certify.map(|p| t(lang, &format!("sig.certify_{p}")));
     let trusted = s.trusted;
+    let checks = check_rows(lang, &s);
+    // The time stamp of a signature (a document time stamp shows it as its own time).
+    let stamp = s.time_stamp.clone().filter(|_| !s.document_time_stamp);
+    let signer_label = if s.document_time_stamp {
+        "sig.authority"
+    } else {
+        "sig.signer"
+    };
     rsx! {
         crate::ui::dialogs::Frame { title: t(lang, "sig.details_title"), wide: true,
             div { class: "sig-state big {class}", "{text}" }
+            div { class: "prop-head", "{t(lang, \"sig.checks\")}" }
+            div { class: "sig-checks",
+                for (i, (label, cls, value)) in checks.into_iter().enumerate() {
+                    div { class: "sig-check {cls}", key: "{i}",
+                        span { class: "sig-dot {cls}" }
+                        span { class: "k", "{label}" }
+                        span { class: "v", "{value}" }
+                    }
+                }
+            }
             if !s.problems.is_empty() {
                 ul { class: "problems",
                     for (i, p) in s.problems.iter().enumerate() { li { key: "{i}", "{p}" } }
                 }
             }
             div { class: "kv-grid",
-                span { class: "k", "{t(lang, \"sig.signer\")}" } span { class: "v", "{s.signer}" }
+                span { class: "k", "{t(lang, signer_label)}" } span { class: "v", "{s.signer}" }
                 span { class: "k", "{t(lang, \"sig.time\")}" } span { class: "v", "{s.time}" }
+                if let Some(ts) = &stamp {
+                    span { class: "k", "{t(lang, \"sig.time_stamp\")}" }
+                    span { class: "v", "{ts.time} · {ts.authority}" }
+                }
                 if !s.reason.is_empty() { span { class: "k", "{t(lang, \"sig.reason\")}" } span { class: "v", "{s.reason}" } }
                 if !s.location.is_empty() { span { class: "k", "{t(lang, \"sig.location\")}" } span { class: "v", "{s.location}" } }
                 if !s.contact.is_empty() { span { class: "k", "{t(lang, \"sig.contact\")}" } span { class: "v", "{s.contact}" } }
@@ -222,6 +312,8 @@ pub fn SignDialog(certify: u8, invisible: bool, field: Option<String>) -> Elemen
     let mut show_location = use_signal(|| true);
     let mut show_labels = use_signal(|| true);
     let mut image: Signal<Option<(String, Vec<u8>)>> = use_signal(|| None);
+    let mut stamp = use_signal(|| get("sign.stamp") == "1");
+    let mut tsa = use_signal(|| get("sign.tsa"));
     let mut error = use_signal(String::new);
     let title = if certify > 0 {
         t(lang, "cmd.document.signatures.certify")
@@ -236,6 +328,11 @@ pub fn SignDialog(certify: u8, invisible: bool, field: Option<String>) -> Elemen
                     error.set(t(lang, "sig.choose_id"));
                     return;
                 };
+                let server = tsa().trim().to_string();
+                if stamp() && server.is_empty() {
+                    error.set(t(lang, "sig.tsa_needed"));
+                    return;
+                }
                 let id = match load_id(&stored, &password()) {
                     Ok(id) => id,
                     Err(e) => { error.set(e); return; }
@@ -244,6 +341,10 @@ pub fn SignDialog(certify: u8, invisible: bool, field: Option<String>) -> Elemen
                 st.set_value("sign.reason", reason());
                 st.set_value("sign.location", location());
                 st.set_value("sign.contact", contact());
+                st.set_value("sign.stamp", if stamp() { "1" } else { "" }.to_string());
+                if !server.is_empty() {
+                    st.set_value("sign.tsa", server.clone());
+                }
                 let placement = match place().as_str() {
                     "invisible" => SignPlacement::Invisible,
                     p if p.starts_with("field:") => SignPlacement::Field(p[6..].to_string()),
@@ -266,7 +367,7 @@ pub fn SignDialog(certify: u8, invisible: bool, field: Option<String>) -> Elemen
                     ..SignOptions::default()
                 };
                 st.set_dialog(Dialog::None);
-                start_sign(st, id, opts);
+                start_sign(st, id, opts, stamp().then_some(server));
             },
             if !has_ids {
                 div { class: "callout", "{t(lang, \"sig.no_ids\")}"
@@ -335,6 +436,49 @@ pub fn SignDialog(certify: u8, invisible: bool, field: Option<String>) -> Elemen
                     }
                 }
             }
+            label { class: "check",
+                input { r#type: "checkbox", checked: stamp(), onchange: move |_| stamp.set(!stamp()) }
+                span { "{t(lang, \"sig.add_time_stamp\")}" }
+            }
+            if stamp() {
+                div { class: "field",
+                    label { "{t(lang, \"sig.tsa\")}" }
+                    input { class: "tsa-url", value: "{tsa}", placeholder: "https://", oninput: move |e| tsa.set(e.value()) }
+                    div { class: "hint", "{t(lang, \"sig.tsa_hint\")}" }
+                }
+            }
+            if !error().is_empty() {
+                div { class: "callout error", "{error}" }
+            }
+        }
+    }
+}
+
+#[component]
+pub fn TimeStampDialog() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let mut url = use_signal(|| st.ui.read().value("sign.tsa").unwrap_or("").to_string());
+    let mut error = use_signal(String::new);
+    let title = t(lang, "cmd.document.signatures.timestamp");
+    rsx! {
+        crate::ui::dialogs::Frame { title: title.trim_end_matches('…').to_string(), ok_label: Some(t(lang, "sig.stamp")),
+            on_ok: move |_| {
+                let server = url().trim().to_string();
+                if server.is_empty() {
+                    error.set(t(lang, "sig.tsa_needed"));
+                    return;
+                }
+                st.set_value("sign.tsa", server.clone());
+                st.set_dialog(Dialog::None);
+                time_stamp_document(st, server);
+            },
+            div { class: "hint", "{t(lang, \"sig.time_stamp_intro\")}" }
+            div { class: "field",
+                label { "{t(lang, \"sig.tsa\")}" }
+                input { class: "tsa-url", value: "{url}", placeholder: "https://", autofocus: true, oninput: move |e| url.set(e.value()) }
+            }
+            div { class: "hint", "{t(lang, \"sig.tsa_hint\")}" }
             if !error().is_empty() {
                 div { class: "callout error", "{error}" }
             }

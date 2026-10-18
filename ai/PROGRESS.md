@@ -4,6 +4,46 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-18 — release 0.2.0
+
+- **Tag:** `v0.2.0` on `main` (full CI on Windows, macOS and Linux; release packages).
+- **Contents:** FOL-L051/S01, FOL-L036/S01, FOL-L037/S01, FOL-L006/S01, FOL-C006/S01 with
+  FOL-L040/S01, the e-mail work of FOL-L053 and the ribbon changes below. Steps 4 (attachment
+  dialog) and 7 (Unicode generated text) of the 0.2.0 plan moved to 0.2.1.
+- **Checked:** 324 tests in 50 suites; full interface self-test before tagging (see the entry
+  below); the packages of the release downloaded and their SHA-256 compared.
+
+## 2026-10-18 — FOL-C006/S01, FOL-L040/S01: time stamps and separate checks
+
+- **Commit:** "Time stamps (RFC 3161) and separate checks of signatures; Folitecta 0.2.0".
+- **Current state before:** no time stamps at all; validation gave one state per signature
+  (valid, changed, trusted) and the signing time came from the signer's computer only.
+- **Changed:** `digsig::timestamp` builds RFC 3161 requests (SHA-256 imprint, random nonce,
+  certificate requested), checks the answer (status, imprint, nonce, signature of the authority,
+  time stamping usage of its certificate, validity at the stamp time; genTime with fractions
+  accepted) and holds `respond`, a local authority for tests. `cms_sig::sign_content` signs
+  detached data or embedded content and puts the token of the signature value in the unsigned
+  attribute `id-aa-timeStampToken`; `Document::sign_with` signs with a time stamp,
+  `Document::time_stamp` adds a document time stamp (`ETSI.RFC3161`, incremental on signed
+  files); `DigitalId::create_time_stamp_authority`. Validation reports `checks` (integrity,
+  identity, time, revocation: not checked), `time_stamp`, `document_time_stamp` and
+  `later_revisions_time_stamped` (later revisions that all end with valid document time stamps;
+  what else they change is not analysed, so integrity stays a warning). Interface: an HTTP/1.1
+  client (`http.rs`, TLS of the system through native-tls, redirections, chunked answers), the
+  time stamp option and server address in the signing window, Document › Signatures › Timestamp,
+  the checks and the time stamp in the signature details, a clock chip in the pane.
+- **Checked:** core tests `timestamp` (tokens answer their request, other data and changed
+  tokens fail, other nonce and refusals are errors; authorities without the usage are reported;
+  document time stamps valid and trusted once the authority is; a signature with a time stamp
+  passes every check, without one the time is a warning; a document time stamp after a signature
+  keeps it valid; a later edit is not counted as a time stamp; failing transports leave no file);
+  HTTP client tests against a local server (redirection, chunked answer, server error); self-test
+  step `timestamp` (local authority over HTTP: a signature with a time stamp and a document time
+  stamp, pane, four checks in the details).
+- **Open:** not tried against a public time stamp server; revocation (OCSP/CRL) and long-term
+  validation material; analysis of the changes of later revisions; time-stamping an encrypted
+  document writes a plain file (FOL-L036/S02).
+
 ## 2026-10-18 — FOL-L037/S01: redaction by content
 
 - **Commit:** "Saves are atomic and keep the encryption of protected files; redaction by content" on `main`.

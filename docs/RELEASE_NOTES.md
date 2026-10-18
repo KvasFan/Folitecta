@@ -1,36 +1,37 @@
-## Folitecta 0.1.0 — text recognition, spell checking, quick access toolbar
+## Folitecta 0.2.0 — safe saving, redaction by content, time stamps
 
-A free PDF editor written entirely in Rust with a Dioxus desktop interface. This is the first
-larger release after the 0.0.x series.
+A free PDF editor written entirely in Rust with a Dioxus desktop interface. This release is about
+the integrity of the files and about sending them.
 
 **Highlights**
 
-- **Text recognition (OCR)** in pure Rust: scanned pages (all, the current one, a range, or only
-  the pictures in them) are read and their text is written invisibly over every word, so they
-  can be searched, selected and copied; an area of a page can be read and its text copied; picture
-  files become a searchable document. English, Italian and 30 more languages of the Latin script,
-  slightly turned lines and turned pages included; pages are read in the background with a
-  progress bar.
-- **Spell checking** with Hunspell dictionaries (English and Italian included, any other can be
-  added): Spell Check and Replace goes through the page text, the comments and the form fields,
-  with suggestions in the language of the text, change or ignore once or everywhere, and your own
-  words; misspelled words are marked while the page text is edited.
-- **Quick Access Toolbar**: right-click any tool of the ribbon to keep it next to the tabs (or in
-  a row below the ribbon); Customize Toolbars adds, orders and separates commands.
-- **Groups of comments**: comments grouped together are chosen with one click and moved,
-  nudged and deleted together; several comments chosen with Shift move together too.
-- **Forms**: the items of combo boxes and list boxes edited as a list (sorted or in any order);
-  pictures on push buttons for the normal, pressed and pointed-at states, and what a click does.
-- **Security policies**: named sets of the permissions of password protection, imported and
-  exported, applied in one step (passwords are never kept).
+- **Saving can no longer damage a file**: every save is written to a temporary file next to the
+  original and replaces it only once it is complete.
+- **Protected files stay protected**: a file opened with a password or with restrictions is
+  saved again with the same encryption, passwords and permissions. Save Unrestricted Copy removes
+  the protection on purpose.
+- **Redaction by content**: the text and the pictures under the redaction marks are taken out of
+  the page content, while the rest of the page stays text; comments and form fields over the
+  marks are removed with their values, and no earlier revision of the file keeps what was
+  removed. Pages that cannot be edited that way are drawn as pictures, as before (or every page,
+  when chosen in the redaction settings).
+- **Time stamps (RFC 3161)**: signatures can get a time stamp from a time stamp server, and a
+  document time stamp can be added to any document; only a SHA-256 digest is sent to the server.
+  Signature details now show separate checks: integrity, signer, time and revocation (not checked
+  yet).
+- **E-mail with real attachments**: the document, every open document, as a ZIP archive, or the
+  form data, through the mail program; when none takes attachments, an e-mail draft with the
+  files is opened. E-mail messages (`.eml`) open as PDF documents with their attachments.
+- **Ribbon**: short names under the tool icons (on by default, View › Tool Names hides them),
+  group edges that follow the pointer, submenus that wait for the pointer.
 
 **Binaries**
 
 | Platform | File |
 |---|---|
-| Windows x64 | `folitecta-0.1.0-windows-x64.zip` |
-| Linux x64 | `folitecta-0.1.0-linux-x64.tar.gz` |
-| macOS (Apple silicon and Intel) | `folitecta-0.1.0-macos-universal.zip` (app bundle) or `.tar.gz` (binary) |
+| Windows x64 | `folitecta-0.2.0-windows-x64.zip` |
+| Linux x64 | `folitecta-0.2.0-linux-x64.tar.gz` |
+| macOS (Apple silicon and Intel) | `folitecta-0.2.0-macos-universal.zip` (app bundle) or `.tar.gz` (binary) |
 
 Each package carries the `dictionaries` and `ocr` folders next to the program (in the app
 bundle's resources on macOS): keep them with it. Linux needs the WebKitGTK 4.1 runtime

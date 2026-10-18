@@ -18,6 +18,7 @@ use super::id::{
     CURVE_P256, CURVE_P384, DigitalId, EC_PUBLIC_KEY, ID_DATA, ID_SIGNED_DATA, RSA_ENCRYPTION, SHA1_OID,
     SHA256_OID, SHA384_OID, SHA512_OID, alg_null,
 };
+use super::timestamp::{self, ATTR_TIME_STAMP_TOKEN, TimeStampCheck, Transport};
 use crate::error::{Error, Result};
 
 const ATTR_CONTENT_TYPE: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.113549.1.9.3");
@@ -96,23 +97,86 @@ fn push_len(out: &mut Vec<u8>, len: usize) {
 
 /// Detached CMS signature of `content_parts` (concatenated) by `id`.
 pub fn sign_detached(id: &DigitalId, content_parts: &[&[u8]], signing_time_unix: u64) -> Result<Vec<u8>> {
+    sign_detached_stamped(id, content_parts, signing_time_unix, None)
+}
+
+/// Detached CMS signature of `content_parts` (concatenated) by `id`; with
+/// `tsa`, the signature value gets a time stamp of the authority it reaches.
+pub fn sign_detached_stamped(
+    id: &DigitalId,
+    content_parts: &[&[u8]],
+    signing_time_unix: u64,
+    tsa: Option<&mut Transport<'_>>,
+) -> Result<Vec<u8>> {
+    sign_content(
+        id,
+        SignedContent {
+            content_type: ID_DATA,
+            parts: content_parts,
+            embed: false,
+            signing_time: Some(signing_time_unix),
+            certificates: true,
+        },
+        tsa,
+    )
+}
+
+/// What a CMS signature signs.
+pub(crate) struct SignedContent<'a> {
+    /// `id-data` for documents, `id-ct-TSTInfo` for time stamps.
+    pub content_type: ObjectIdentifier,
+    /// The content (concatenated).
+    pub parts: &'a [&'a [u8]],
+    /// The content is carried in the signature (otherwise it is detached).
+    pub embed: bool,
+    /// Signing time written in the signed attributes (Unix seconds).
+    pub signing_time: Option<u64>,
+    /// The signer's certificates are carried in the signature.
+    pub certificates: bool,
+}
+
+/// CMS signature of `content` by `id`, with a time stamp of its value from
+/// `tsa` when given.
+pub(crate) fn sign_content(
+    id: &DigitalId,
+    content: SignedContent<'_>,
+    tsa: Option<&mut Transport<'_>>,
+) -> Result<Vec<u8>> {
     let digest_oid = id.key.digest_oid();
-    let digest = digest_with(digest_oid, content_parts).ok_or_else(|| bad("digest"))?;
+    let digest = digest_with(digest_oid, content.parts).ok_or_else(|| bad("digest"))?;
     let cert_der = id.certificate.to_der().map_err(bad)?;
-    let time = UtcTime::from_unix_duration(std::time::Duration::from_secs(signing_time_unix)).map_err(bad)?;
-    let attrs = vec![
-        attribute(ATTR_CONTENT_TYPE, Any::encode_from(&ID_DATA).map_err(bad)?)?,
-        attribute(ATTR_SIGNING_TIME, Any::encode_from(&time).map_err(bad)?)?,
-        attribute(
-            ATTR_MESSAGE_DIGEST,
-            Any::encode_from(&OctetString::new(digest).map_err(bad)?).map_err(bad)?,
-        )?,
-        attribute(ATTR_SIGNING_CERT_V2, signing_certificate_v2(&cert_der)?)?,
-    ];
+    let mut attrs = vec![attribute(
+        ATTR_CONTENT_TYPE,
+        Any::encode_from(&content.content_type).map_err(bad)?,
+    )?];
+    if let Some(secs) = content.signing_time {
+        let time = UtcTime::from_unix_duration(std::time::Duration::from_secs(secs)).map_err(bad)?;
+        attrs.push(attribute(
+            ATTR_SIGNING_TIME,
+            Any::encode_from(&time).map_err(bad)?,
+        )?);
+    }
+    attrs.push(attribute(
+        ATTR_MESSAGE_DIGEST,
+        Any::encode_from(&OctetString::new(digest).map_err(bad)?).map_err(bad)?,
+    )?);
+    attrs.push(attribute(
+        ATTR_SIGNING_CERT_V2,
+        signing_certificate_v2(&cert_der)?,
+    )?);
     let signed_attrs = SetOfVec::try_from(attrs).map_err(bad)?;
     // The signature covers the DER of the attributes as a SET OF.
     let to_sign = signed_attrs.to_der().map_err(bad)?;
     let signature = id.key.sign(&to_sign)?;
+    // The time stamp of a signature is given for its value.
+    let unsigned_attrs = match tsa {
+        Some(send) => {
+            let token = timestamp::stamp(&[&signature], send)?;
+            let value = Any::from_der(&token).map_err(bad)?;
+            Some(SetOfVec::try_from(vec![attribute(ATTR_TIME_STAMP_TOKEN, value)?]).map_err(bad)?)
+        }
+        None => None,
+    };
     let tbs = &id.certificate.tbs_certificate;
     let signer = SignerInfo {
         version: CmsVersion::V1,
@@ -124,18 +188,34 @@ pub fn sign_detached(id: &DigitalId, content_parts: &[&[u8]], signing_time_unix:
         signed_attrs: Some(signed_attrs),
         signature_algorithm: id.key.cms_signature_alg(),
         signature: OctetString::new(signature).map_err(bad)?,
-        unsigned_attrs: None,
+        unsigned_attrs,
     };
-    let mut certs = vec![CertificateChoices::Certificate(id.certificate.clone())];
-    certs.extend(id.chain.iter().cloned().map(CertificateChoices::Certificate));
+    let certificates = if content.certificates {
+        let mut certs = vec![CertificateChoices::Certificate(id.certificate.clone())];
+        certs.extend(id.chain.iter().cloned().map(CertificateChoices::Certificate));
+        Some(CertificateSet(SetOfVec::try_from(certs).map_err(bad)?))
+    } else {
+        None
+    };
+    let econtent = if content.embed {
+        let data = OctetString::new(content.parts.concat()).map_err(bad)?;
+        Some(Any::encode_from(&data).map_err(bad)?)
+    } else {
+        None
+    };
     let sd = SignedData {
-        version: CmsVersion::V1,
+        // Version 3 when the content is not plain data (RFC 5652, 5.1).
+        version: if content.content_type == ID_DATA {
+            CmsVersion::V1
+        } else {
+            CmsVersion::V3
+        },
         digest_algorithms: SetOfVec::try_from(vec![alg_null(digest_oid)]).map_err(bad)?,
         encap_content_info: EncapsulatedContentInfo {
-            econtent_type: ID_DATA,
-            econtent: None,
+            econtent_type: content.content_type,
+            econtent,
         },
-        certificates: Some(CertificateSet(SetOfVec::try_from(certs).map_err(bad)?)),
+        certificates,
         crls: None,
         signer_infos: SignerInfos(SetOfVec::try_from(vec![signer]).map_err(bad)?),
     };
@@ -163,9 +243,23 @@ pub struct CmsCheck {
     pub problems: Vec<String>,
     /// Digest algorithm of the signer.
     pub digest_algorithm: String,
+    /// The time stamp of the signature value, when the signature carries one.
+    pub time_stamp: Option<TimeStampCheck>,
 }
 
-fn find_signer(sd: &SignedData, info: &SignerInfo) -> Option<Certificate> {
+/// Every certificate carried by a signed-data structure.
+pub(crate) fn certificates_of(sd: &SignedData) -> Vec<Certificate> {
+    sd.certificates
+        .iter()
+        .flat_map(|s| s.0.iter())
+        .filter_map(|c| match c {
+            CertificateChoices::Certificate(c) => Some(c.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+pub(crate) fn find_signer(sd: &SignedData, info: &SignerInfo) -> Option<Certificate> {
     let certs = sd.certificates.as_ref()?;
     certs.0.iter().find_map(|c| match c {
         CertificateChoices::Certificate(cert) => {
@@ -301,7 +395,7 @@ pub fn issued_by(cert: &Certificate, issuer: &Certificate) -> bool {
     )
 }
 
-fn name_of(oid: ObjectIdentifier) -> String {
+pub(crate) fn name_of(oid: ObjectIdentifier) -> String {
     match oid.to_string().as_str() {
         "1.3.14.3.2.26" => "SHA-1".into(),
         "2.16.840.1.101.3.4.2.1" => "SHA-256".into(),
@@ -328,15 +422,7 @@ pub fn verify_detached(signature: &[u8], content_parts: &[&[u8]]) -> Result<CmsC
         .next()
         .ok_or_else(|| bad("no signer"))?
         .clone();
-    let certificates: Vec<Certificate> = sd
-        .certificates
-        .iter()
-        .flat_map(|s| s.0.iter())
-        .filter_map(|c| match c {
-            CertificateChoices::Certificate(c) => Some(c.clone()),
-            _ => None,
-        })
-        .collect();
+    let certificates = certificates_of(&sd);
     let signer = find_signer(&sd, &info);
     let digest_oid = info.digest_alg.oid;
     let mut problems = Vec::new();
@@ -421,6 +507,17 @@ pub fn verify_detached(signature: &[u8], content_parts: &[&[u8]]) -> Result<CmsC
     if signer.is_some() && !signature_ok {
         problems.push("the signature value does not verify".into());
     }
+    // A time stamp of the signature value (RFC 3161, appendix A).
+    let time_stamp = info
+        .unsigned_attrs
+        .as_ref()
+        .and_then(|attrs| attrs.iter().find(|a| a.oid == ATTR_TIME_STAMP_TOKEN))
+        .and_then(|a| a.values.iter().next())
+        .map(|v| match v.to_der() {
+            Ok(token) => timestamp::check_token(&token, &[info.signature.as_bytes()])
+                .unwrap_or_else(|e| TimeStampCheck::unreadable(e.to_string())),
+            Err(e) => TimeStampCheck::unreadable(bad(e).to_string()),
+        });
     Ok(CmsCheck {
         signer,
         certificates,
@@ -429,11 +526,12 @@ pub fn verify_detached(signature: &[u8], content_parts: &[&[u8]]) -> Result<CmsC
         signing_time,
         problems,
         digest_algorithm: name_of(digest_oid),
+        time_stamp,
     })
 }
 
 /// The DER structure at the start of `data` (without trailing padding).
-fn trim_der(data: &[u8]) -> &[u8] {
+pub(crate) fn trim_der(data: &[u8]) -> &[u8] {
     if data.len() < 2 || data[0] != 0x30 {
         return data;
     }

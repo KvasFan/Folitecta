@@ -249,5 +249,7 @@
   "toast.template_saved": "Modello salvato",
   "toast.text_empty": "Non c'è testo da inserire",
   "toast.text_substituted": "Il carattere della pagina non ha i glifi per \"{chars}\": li disegna un carattere standard della stessa famiglia",
+  "toast.time_stamp_asking": "Richiesta al server di marche temporali…",
+  "toast.time_stamped": "Marca temporale aggiunta e documento salvato",
   "toast.trashed": "Il file è nel cestino"
 }

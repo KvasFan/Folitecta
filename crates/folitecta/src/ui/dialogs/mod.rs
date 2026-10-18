@@ -323,6 +323,7 @@ pub fn Dialogs() -> Element {
         Dialog::SignatureDetails(field) => {
             rsx! { crate::ui::features::signatures::SignatureDetailsDialog { field } }
         }
+        Dialog::TimeStamp => rsx! { crate::ui::features::signatures::TimeStampDialog {} },
         Dialog::DigitalIds => rsx! { crate::ui::features::signatures::DigitalIdsDialog {} },
         Dialog::TrustedCerts => rsx! { crate::ui::features::signatures::TrustedCertsDialog {} },
         Dialog::SignatureLibrary => rsx! { crate::ui::features::signs::SignatureLibraryDialog {} },

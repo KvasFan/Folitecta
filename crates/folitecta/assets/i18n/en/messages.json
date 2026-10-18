@@ -249,5 +249,7 @@
   "toast.template_saved": "Template saved",
   "toast.text_empty": "There is no text to insert",
   "toast.text_substituted": "The page font has no glyphs for \"{chars}\": a standard font of the same family draws them",
+  "toast.time_stamp_asking": "Asking the time stamp server…",
+  "toast.time_stamped": "Time stamp added and document saved",
   "toast.trashed": "The file is in the recycle bin"
 }

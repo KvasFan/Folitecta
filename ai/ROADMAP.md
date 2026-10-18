@@ -1,7 +1,7 @@
 # Folitecta roadmap and progress
 
-State of every requirement of [REQUIREMENTS.md](REQUIREMENTS.md) on the `main` branch after
-Folitecta 0.1.0, reviewed on **18 October 2026** against the code (not only the command
+State of every requirement of [REQUIREMENTS.md](REQUIREMENTS.md) on the `main` branch at
+Folitecta 0.2.0, reviewed on **18 October 2026** against the code (not only the command
 registry). Update the row of a requirement whenever a sub-task changes it, and log the work in
 [PROGRESS.md](PROGRESS.md).
 
@@ -12,7 +12,7 @@ registry). Update the row of a requirement whenever a sub-task changes it, and l
 | 🔵 | In progress on `main` (some parts committed, not finished). |
 | ⬜ | Not started. |
 
-Command-level detail (1981 registry commands: 1436 available, 62 partial, 483 planned) is in
+Command-level detail (1981 registry commands: 1438 available, 61 partial, 482 planned) is in
 [docs/FEATURES.md](../docs/FEATURES.md), generated with
 `cargo run -p folitecta -- --features-md docs/FEATURES.md`.
 
@@ -23,14 +23,16 @@ Command-level detail (1981 registry commands: 1436 available, 62 partial, 483 pl
 | E-mail with real attachments: the document, every open document, as ZIP, the form data (Simple MAPI on Windows, Mail on macOS, `xdg-email` on Linux); when no program takes attachments an unsent EML draft with the files is saved and opened; `mailto:` plus the folder only as last resort | FOL-L053 | 🔵 committed with tests; still missing: a dialog to choose and inspect what is attached (saved file or current state, ranges, comments). Not yet tried with real mail programs. |
 | ZIP archives written and read (`folitecta_core::zip`) | FOL-L053 | ✅ with tests |
 | PDF from an e-mail message (EML): subject, sender, recipients, date, text (HTML made into text), attachments embedded (`organize/email.rs`, `mail-parser`); File › Open and Create › From E-mail accept `.eml` | FOL-L006 | ✅ for EML files, with core tests and the `email` self-test step; open: pictures of the message shown on pages, mail archives. |
-| Time stamps (RFC 3161): document time stamps and time stamps of new signatures, a time stamp server setting, validation of time stamps | FOL-C006, FOL-L040 | ⬜ designed: request/response/token checks in `protection/digsig/timestamp.rs`, the HTTP(S) client in the interface crate (`native-tls`, already a dependency), a test authority built from a self-signed ID with the time stamping usage. |
+| Time stamps (RFC 3161): document time stamps and time stamps of new signatures, a time stamp server setting, validation of time stamps, separate checks (integrity, signer, time, revocation) | FOL-C006, FOL-L040 | ✅ released in 0.2.0 with core tests and the `timestamp` self-test step (local authority over HTTP). Not yet tried against a public time stamp server. Open: revocation (CRL/OCSP), long-term validation material (DSS), analysis of what later revisions change. |
 | Ribbon: short tool names under the icons (on by default, View › Tool Names hides them), whole names in the tooltips; group edges that follow the pointer; submenus that wait for the pointer | FOL-L050, FOL-L042 | ✅ committed with self-test steps |
 
 ## Next releases
 
 Big releases get a version tag and the full CI; work in between goes to `main` untagged.
 
-### 0.2.0 — integrity and delivery (R0 first)
+### 0.2.0 — integrity and delivery (released 18 October 2026)
+
+Released with steps 1, 2, 3, 5 and 6; steps 4 and 7 move to **0.2.1** (next), before 0.3.0.
 
 1. ~~**FOL-L051/S01 — atomic saving.**~~ Done: every PDF save writes a temporary file in the
    same folder, checks it is a whole PDF, flushes it and renames it over the target.
@@ -44,13 +46,21 @@ Big releases get a version tag and the full CI; work in between goes to `main` u
    rewritten whole. Next: **FOL-L037/S02** — vector paths under the marks (today covered, not
    removed), text and pictures of reused drawings (today the page becomes a picture), and
    sanitizing metadata, attachments, hidden layers and bookmarks that quote the removed text.
-4. **FOL-L053** — finish the e-mail work (attachment dialog; the EML draft is done).
-5. **FOL-L006/S01** — PDF from EML (done).
-6. **FOL-C006/S01, FOL-L040/S01** — time stamps (above); report integrity, identity, time and
-   revocation as separate checks in the signature details.
+4. **FOL-L053** — finish the e-mail work (attachment dialog; the EML draft is done). → 0.2.1
+5. ~~**FOL-L006/S01** — PDF from EML.~~ Done.
+6. ~~**FOL-C006/S01, FOL-L040/S01** — time stamps; integrity, identity, time and revocation as
+   separate checks in the signature details.~~ Done (revocation reported as not checked).
 7. **FOL-L018/S01 — Unicode in generated text.** Start with one producer (text boxes and
    typewriter comments): embed a subset of a freely licensed TrueType font with a ToUnicode map
    when the text has characters outside WinAnsi, never write `?`. Then stamps, fields, headers.
+   → 0.2.1
+
+### 0.2.1 — next
+
+FOL-L018/S01 (Unicode in generated text, step 7 above), FOL-L053 attachment dialog (step 4),
+FOL-L036/S02 (AES-256 for new protection; sign and time-stamp encrypted documents without
+writing them plain), FOL-L040/S02 (revocation: OCSP and CRL, long-term validation material),
+FOL-L037/S02 (vector paths and reused drawings under redaction marks, sanitizing).
 
 ### 0.3.0 — daily work
 
@@ -159,7 +169,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L037 | P0 | 🟡 | mark areas and search results for redaction; apply by content (glyphs and picture pixels under the marks removed, the rest stays text, comments and fields over the marks removed with their values, overlay codes upright on rotated pages, whole-file rewrite so earlier revisions go) or as pictures (chosen, or for pages that cannot be edited) | Vector paths under the marks are covered, not removed; text/pictures inside reused drawings force the picture method; sanitizing metadata, attachments, hidden layers and bookmarks. |
 | FOL-L038 | P1 | ✅ | handwritten signatures and initials, placed on several pages, kept apart from digital signatures | — |
 | FOL-L039 | P1/P2 | 🟡 | PKCS#12 digital IDs (import, create, export), sign and certify (visible or invisible), appearance with picture, incremental updates keep earlier signatures | System certificate store, PKCS#11 tokens, batches. |
-| FOL-L040 | P1 | 🟡 | validation of every signature (digest, value, chain, trusted certificates), trusted list, signed revision opened in a tab | Separate checks (integrity, identity, time, revocation, later changes); time stamp validation (with FOL-C006). |
+| FOL-L040 | P1 | 🟡 | validation of every signature (digest, value, chain, trusted certificates), trusted list, signed revision opened in a tab; separate checks of integrity, signer, time and revocation; time stamps of signatures and document time stamps validated (imprint, nonce, authority signature and usage, trust) | Revocation (OCSP/CRL) is reported as not checked; what later revisions change is not analysed (only whether they end with document time stamps). |
 
 ### Accessibility, standards, optimization and printing
 
@@ -198,7 +208,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-C003 | P3 | ⬜ | Shared review service. |
 | FOL-C004 | P3 | ⬜ | Sharing by link, project spaces. |
 | FOL-C005 | P3 | ⬜ | E-signature providers. |
-| FOL-C006 | P1 | ⬜ | Time stamps first (see "Now"); OCSP/CRL and long-term validation material next. |
+| FOL-C006 | P1 | 🟡 | Time stamps from an RFC 3161 server set by the user (signatures and document time stamps, only a digest sent); OCSP/CRL and long-term validation material next. |
 | FOL-C007 | P3 | ⬜ | Enterprise rights management. |
 | FOL-C008 | P3 | ⬜ | Third-party DRM. |
 | FOL-C009 | P3 | ⬜ | Direct mail delivery (preparation is FOL-L053). |

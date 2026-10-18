@@ -49,7 +49,10 @@ corrections through the page text editor, the comment text or the field value, s
 undo step; the dictionaries are files read at run time, not built in), `marks` (watermarks,
 headers and footers, page numbering),
 `structure` and `accessibility` (tags, reading order, the accessibility check), `digsig`
-(signatures), `compare`, `combine` (documents made from several files), `pictures` (the pictures
+(signatures), `redaction` (the glyphs under the marks leave their text operations, each
+replaced by a move of its width found by the text probe, the pixels of pictures under the marks
+are covered, comments and fields over them go; pages that cannot be edited that way are drawn as
+pictures), `compare`, `combine` (documents made from several files), `pictures` (the pictures
 a page draws: where they are, their pixels, an edited picture put back), `imaging` (turning,
 cropping, straightening, filters and pixel formats) and `barcodes` (barcodes written by rxing and
 drawn as vector shapes; read from rendered pages one at a time, each painted out before the next
@@ -64,9 +67,13 @@ node, so nested page trees from any producer are handled uniformly.
 Content streams are rewritten operation by operation with a small lexer (`content_lex`) that keeps
 the bytes of every operation it does not change.
 
-Encrypted files that open with an empty user password are decrypted on load and written back as
-plain PDFs; password-protected files prompt for the password. Signed documents are saved as an
-incremental update, which keeps their signatures valid.
+Encrypted files are decrypted in memory (password-protected files prompt for the password); the
+encryption of the file — its key, passwords and permissions — is kept aside and applied again
+whenever the document is saved, so a protected file stays protected and opens with the same
+passwords. Save Unrestricted Copy writes a plain copy on purpose. Signed documents are saved as an
+incremental update, which keeps their signatures valid. Every file is written to a temporary file
+in the same folder and renamed over the target only when it is complete
+(`document::write_pdf_file`, `util::write_atomic`), so a failed save never damages the original.
 
 ### Rendering
 

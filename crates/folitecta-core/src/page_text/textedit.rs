@@ -526,6 +526,14 @@ struct ProbeGlyph {
     op: Option<usize>,
     text: String,
     quad: [f32; 8],
+    /// How far the text moves after this glyph, in thousandths of the font
+    /// size (the units of the numbers of a `TJ` array): its width with the
+    /// character and word spacing.
+    advance: f64,
+    /// Bounds of the body of the glyph (from below the baseline to the
+    /// height of capitals), narrower than the quad so the lines above and
+    /// below are not touched.
+    body: [f32; 4],
 }
 
 #[derive(Default)]
@@ -533,6 +541,8 @@ struct ProbeDevice {
     stack: Vec<Option<usize>>,
     glyphs: Vec<ProbeGlyph>,
     last_fill: Vec<(i64, i64)>,
+    /// Bounds of every picture drawn, wherever it comes from (display space).
+    images: Vec<[f32; 4]>,
 }
 
 impl<'a> Device<'a> for ProbeDevice {
@@ -562,6 +572,16 @@ impl<'a> Device<'a> for ProbeDevice {
             self.last_fill = key;
         }
         let op = self.stack.iter().rev().find_map(|x| *x);
+        // Where the next glyph of the run starts, seen from each glyph.
+        let to_next: Vec<Option<f64>> = (0..glyphs.len())
+            .map(|i| {
+                glyphs
+                    .get(i + 1)
+                    .map(|n| (glyphs[i].transform().inverse() * n.transform() * Point::ZERO).x)
+                    .filter(|d| d.is_finite() && d.abs() < 100_000.0)
+            })
+            .collect();
+        let mut spacing = 0.0;
         for (i, g) in glyphs.iter().enumerate() {
             // The same geometry as the text layer, so the glyphs can be matched.
             let t: Affine = props.transform * g.transform();
@@ -588,6 +608,27 @@ impl<'a> Device<'a> for ProbeDevice {
                 t * Point::new(adv, -200.0),
             ];
             let size = ((t * Point::new(0.0, 1000.0)) - (t * Point::ZERO)).hypot();
+            // The width with the spacing: up to the next glyph; for the last one
+            // of the run, its width with the spacing seen between the others.
+            let advance = match to_next[i] {
+                Some(d) => {
+                    spacing = d - adv;
+                    d
+                }
+                None => adv + spacing,
+            };
+            let body_pts = [
+                t * Point::new(0.0, -120.0),
+                t * Point::new(adv, -120.0),
+                t * Point::new(0.0, 700.0),
+                t * Point::new(adv, 700.0),
+            ];
+            let body = [
+                body_pts.iter().map(|p| p.x).fold(f64::MAX, f64::min) as f32,
+                body_pts.iter().map(|p| p.y).fold(f64::MAX, f64::min) as f32,
+                body_pts.iter().map(|p| p.x).fold(f64::MIN, f64::max) as f32,
+                body_pts.iter().map(|p| p.y).fold(f64::MIN, f64::max) as f32,
+            ];
             // The text layer leaves out glyphs without size; so does the probe,
             // but they still count among the glyphs of their operation.
             let quad = [
@@ -608,10 +649,23 @@ impl<'a> Device<'a> for ProbeDevice {
                     String::from('\u{0}')
                 },
                 quad,
+                advance,
+                body,
             });
         }
     }
-    fn draw_image(&mut self, _image: Image<'a, '_>, _props: ImageDrawProps<'a>) {}
+    fn draw_image(&mut self, image: Image<'a, '_>, props: ImageDrawProps<'a>) {
+        // The transform places the pixels of the picture.
+        let (w, h) = (image.width() as f64, image.height() as f64);
+        let corners =
+            [(0.0, 0.0), (w, 0.0), (0.0, h), (w, h)].map(|(x, y)| props.transform * Point::new(x, y));
+        self.images.push([
+            corners.iter().map(|p| p.x).fold(f64::MAX, f64::min) as f32,
+            corners.iter().map(|p| p.y).fold(f64::MAX, f64::min) as f32,
+            corners.iter().map(|p| p.x).fold(f64::MIN, f64::max) as f32,
+            corners.iter().map(|p| p.y).fold(f64::MIN, f64::max) as f32,
+        ]);
+    }
     fn pop_clip(&mut self) {}
     fn pop_transparency_group(&mut self) {}
     fn begin_marked_content(&mut self, tag: &[u8], mcid: Option<i32>) {
@@ -645,6 +699,16 @@ fn probe_glyphs(
     page_id: ObjectId,
     content: Vec<u8>,
 ) -> Result<Vec<ProbeGlyph>> {
+    Ok(probe_page(doc, page, page_id, content)?.glyphs)
+}
+
+/// Draw a page with `content` as its content; returns what was drawn.
+fn probe_page(
+    doc: &lopdf::Document,
+    page: usize,
+    page_id: ObjectId,
+    content: Vec<u8>,
+) -> Result<ProbeDevice> {
     let mut copy = doc.clone();
     let sid = copy.add_object(Stream::new(dictionary! {}, content));
     copy.get_dictionary_mut(page_id)?
@@ -671,7 +735,18 @@ fn probe_glyphs(
         interpret_page(p, &mut ctx, &mut dev);
     }))
     .map_err(|_| Error::Render(format!("the renderer failed on page {}", page + 1)))?;
-    Ok(dev.glyphs)
+    Ok(dev)
+}
+
+impl Document {
+    /// Bounds of every picture a page draws (display space, like the text
+    /// layer), wherever it comes from: the page content, a drawing it
+    /// reuses, a picture written inside the content.
+    pub(crate) fn drawn_picture_bounds(&self, page: usize) -> Result<Vec<[f32; 4]>> {
+        let page_id = self.page_id(page)?;
+        let j = joined(&self.inner, page_id);
+        Ok(probe_page(&self.inner, page, page_id, j.data.to_vec())?.images)
+    }
 }
 
 fn same_quad(a: &[f32; 8], b: &[f32; 8]) -> bool {
@@ -1017,6 +1092,135 @@ impl Document {
         // Only this page changed: its text is extracted again, not every page's.
         self.refresh_text_layer(page, before);
         Ok(report)
+    }
+
+    /// Take out of the content of `page` every glyph whose body meets one of
+    /// `areas` (display space, like the text layer), each one replaced by a
+    /// move of its own width so every other glyph stays where it was; the
+    /// codes of the glyphs are gone from the file. No undo step (the caller
+    /// makes one). Fails, changing nothing, when a glyph under the areas is
+    /// drawn by a drawing the page reuses or with a font this cannot edit.
+    pub(crate) fn remove_text_in(&mut self, page: usize, areas: &[[f32; 4]]) -> Result<usize> {
+        let meets = |b: &[f32; 4]| {
+            areas
+                .iter()
+                .any(|a| b[0] < a[2] && b[2] > a[0] && b[1] < a[3] && b[3] > a[1])
+        };
+        let page_id = self.page_id(page)?;
+        let j = joined(&self.inner, page_id);
+        let ops = text_ops(&j.data);
+        let probe = probe_glyphs(&self.inner, page, page_id, probed(&j.data, &ops))?;
+        let mut counts: HashMap<usize, usize> = HashMap::new();
+        // Glyphs to take out, by operation: their number in it and their advance.
+        let mut removal: HashMap<usize, HashMap<usize, f64>> = HashMap::new();
+        for g in &probe {
+            let n = g.op.map(|o| {
+                let c = counts.entry(o).or_insert(0);
+                *c += 1;
+                *c - 1
+            });
+            if !meets(&g.body) {
+                continue;
+            }
+            match (g.op, n) {
+                (Some(op), Some(n)) => {
+                    removal.entry(op).or_default().insert(n, g.advance);
+                }
+                _ => {
+                    return Err(Error::Invalid(
+                        "text under the areas is drawn by a drawing the page reuses".into(),
+                    ));
+                }
+            }
+        }
+        if removal.is_empty() {
+            return Ok(0);
+        }
+        let fonts = page_fonts(&self.inner, page_id);
+        let unsupported = || Error::Invalid("text under the areas uses a font Folitecta cannot edit".into());
+        let mut keys: Vec<usize> = removal.keys().copied().collect();
+        keys.sort_unstable();
+        let mut splices = Vec::new();
+        let mut removed = 0;
+        for k in keys {
+            let op = &ops[k];
+            // Type 3 glyphs have their own units; the moves would be wrong.
+            let type3 = fonts
+                .get(&op.font)
+                .ok()
+                .map(|f| deref(&self.inner, f))
+                .and_then(|f| f.as_dict().ok())
+                .and_then(|f| f.get(b"Subtype").ok())
+                .and_then(|s| s.as_name().ok())
+                == Some(b"Type3".as_slice());
+            if type3 {
+                return Err(unsupported());
+            }
+            let info = font_info(&self.inner, &fonts, &op.font).ok_or_else(unsupported)?;
+            let p = pieces(&j.data, op, if info.two_byte { 2 } else { 1 }).ok_or_else(unsupported)?;
+            let glyphs = p.iter().filter(|x| matches!(x, Piece::Glyph(_))).count();
+            if glyphs != counts.get(&k).copied().unwrap_or(0) {
+                return Err(Error::Invalid(
+                    "the glyphs under the areas could not be matched to their codes".into(),
+                ));
+            }
+            let gone = &removal[&k];
+            let mut kept: Vec<Piece> = Vec::with_capacity(p.len());
+            let mut n = 0;
+            for x in p {
+                let x = match x {
+                    Piece::Glyph(code) => {
+                        let advance = gone.get(&n).copied();
+                        n += 1;
+                        match advance {
+                            // A move to the right is a negative number in a TJ array.
+                            Some(a) => Piece::Kern(-a),
+                            None => Piece::Glyph(code),
+                        }
+                    }
+                    kern => kern,
+                };
+                // Moves next to each other become one.
+                match (kept.last_mut(), &x) {
+                    (Some(Piece::Kern(prev)), Piece::Kern(v)) => *prev += v,
+                    _ => kept.push(x),
+                }
+            }
+            removed += gone.len();
+            let mut out = String::new();
+            match op.operator.as_slice() {
+                b"'" => out.push_str("T* "),
+                b"\"" if op.operands.len() == 3 => {
+                    let raw = |r: (usize, usize)| String::from_utf8_lossy(&j.data[r.0..r.1]).into_owned();
+                    out.push_str(&format!(
+                        "{} Tw {} Tc T* ",
+                        raw(op.operands[0]),
+                        raw(op.operands[1])
+                    ));
+                }
+                _ => {}
+            }
+            out.push('[');
+            for x in &kept {
+                match x {
+                    Piece::Glyph(c) => out.push_str(&hex_string(c)),
+                    Piece::Kern(v) => {
+                        out.push(' ');
+                        out.push_str(&fmt_kern(*v));
+                        out.push(' ');
+                    }
+                }
+            }
+            out.push_str("] TJ");
+            splices.push(Splice {
+                start: op.start,
+                end: op.end,
+                with: out.into_bytes(),
+            });
+        }
+        check_splices(&j, &splices)?;
+        rewrite(&mut self.inner, page_id, &j, &splices)?;
+        Ok(removed)
     }
 
     /// Replace every occurrence of `query` in the text of `pages` (all when

@@ -58,6 +58,8 @@ pub struct Document {
     pub(crate) helv_font: Option<ObjectId>,
     /// The file was encrypted when it was opened (it is kept decrypted in memory).
     source_encrypted: bool,
+    /// The encryption of the opened file, applied again to the files written.
+    protection: Option<lopdf::EncryptionState>,
     /// The file as it was opened or last saved (plain, unencrypted files only):
     /// the base of incremental updates, which keep existing signatures valid.
     pub(crate) source: Option<Arc<Vec<u8>>>,
@@ -88,7 +90,28 @@ pub(crate) fn serialize(doc: &mut lopdf::Document) -> Result<Vec<u8>> {
     Ok(out)
 }
 
-fn load_inner(bytes: &[u8], password: Option<&str>) -> Result<(lopdf::Document, bool)> {
+/// Write the bytes of a whole PDF file to `path`, replacing it only once the
+/// new file is complete on the disk (the original survives any failure).
+pub fn write_pdf_file(path: &Path, data: &[u8]) -> Result<()> {
+    if !util::looks_like_whole_pdf(data) {
+        return Err(Error::Invalid(format!(
+            "{}: the file to write is not a complete PDF; nothing was written",
+            path.display()
+        )));
+    }
+    util::write_atomic(path, data).map_err(|e| Error::io(path, e))
+}
+
+/// A file read for editing: its objects decrypted, and how it was protected.
+struct Loaded {
+    doc: lopdf::Document,
+    encrypted: bool,
+    /// The encryption of the file (key, passwords, permissions), to protect
+    /// it the same way when it is saved; `None` for plain files.
+    protection: Option<lopdf::EncryptionState>,
+}
+
+fn load_inner(bytes: &[u8], password: Option<&str>) -> Result<Loaded> {
     let mut doc = match password {
         Some(pw) => lopdf::Document::load_mem_with_options(bytes, lopdf::LoadOptions::with_password(pw))?,
         None => lopdf::Document::load_mem(bytes)?,
@@ -98,12 +121,21 @@ fn load_inner(bytes: &[u8], password: Option<&str>) -> Result<(lopdf::Document, 
             .map_err(|_| Error::PasswordRequired)?;
     }
     let encrypted = doc.was_encrypted() || doc.is_encrypted();
+    let mut protection = None;
     if encrypted {
-        // We keep the decrypted objects and write plain files from now on.
+        // The objects stay decrypted in memory; the encryption is kept aside and
+        // applied again to the files written from the document.
+        if let Ok(id) = doc.trailer.get(b"Encrypt").and_then(Object::as_reference) {
+            doc.objects.remove(&id);
+        }
         doc.trailer.remove(b"Encrypt");
-        doc.encryption_state = None;
+        protection = doc.encryption_state.take();
     }
-    Ok((doc, encrypted))
+    Ok(Loaded {
+        doc,
+        encrypted,
+        protection,
+    })
 }
 
 impl Document {
@@ -127,7 +159,11 @@ impl Document {
 
     /// Build a document from in-memory bytes.
     pub fn from_bytes(bytes: Vec<u8>, path: Option<PathBuf>, password: Option<&str>) -> Result<Self> {
-        let (inner, source_encrypted) = load_inner(&bytes, password)?;
+        let Loaded {
+            doc: inner,
+            encrypted: source_encrypted,
+            protection,
+        } = load_inner(&bytes, password)?;
         let source = (!source_encrypted).then(|| Arc::new(bytes.clone()));
         let mut doc = Document {
             inner,
@@ -141,6 +177,7 @@ impl Document {
             redo: Vec::new(),
             helv_font: None,
             source_encrypted,
+            protection,
             text_cache: Default::default(),
             marked_cache: Default::default(),
             struct_cache: Default::default(),
@@ -202,6 +239,7 @@ impl Document {
             redo: Vec::new(),
             helv_font: None,
             source_encrypted: false,
+            protection: None,
             text_cache: Default::default(),
             marked_cache: Default::default(),
             struct_cache: Default::default(),
@@ -215,31 +253,57 @@ impl Document {
         self.save_as(&path)
     }
 
-    /// Save to `path` and make it the document path.
+    /// Save to `path` and make it the document path. A document opened from an
+    /// encrypted file is written encrypted the same way (same passwords and
+    /// permissions).
     pub fn save_as(&mut self, path: impl AsRef<Path>) -> Result<()> {
         let path = path.as_ref();
         self.touch_mod_date();
         self.bytes = Arc::new(serialize(&mut self.inner)?);
-        // Signed documents are saved as an incremental update so the signatures stay valid.
-        let out = match self.incremental_bytes()? {
-            Some(b) => Arc::new(b),
-            None => self.bytes.clone(),
-        };
-        std::fs::write(path, out.as_slice()).map_err(|e| Error::io(path, e))?;
-        self.source = Some(out);
+        let out = Arc::new(self.file_bytes()?);
+        write_pdf_file(path, out.as_slice())?;
+        // An encrypted file is not the base of incremental updates.
+        self.source = self.protection.is_none().then_some(out);
         self.path = Some(path.to_path_buf());
         self.dirty = false;
         Ok(())
     }
 
-    /// Write a copy to `path` without changing the document path or dirty state.
+    /// Write a copy to `path` without changing the document path or dirty
+    /// state; protected like the file the document was opened from.
     pub fn save_copy(&mut self, path: impl AsRef<Path>) -> Result<()> {
         let path = path.as_ref();
-        let bytes = match self.incremental_bytes()? {
-            Some(b) => b,
-            None => serialize(&mut self.inner)?,
-        };
-        std::fs::write(path, &bytes).map_err(|e| Error::io(path, e))
+        let bytes = self.file_bytes()?;
+        write_pdf_file(path, &bytes)
+    }
+
+    /// Write a copy to `path` without the encryption of the file the document
+    /// was opened from (an explicit choice of the user).
+    pub fn save_unprotected_copy(&mut self, path: impl AsRef<Path>) -> Result<()> {
+        let path = path.as_ref();
+        let bytes = serialize(&mut self.inner)?;
+        write_pdf_file(path, &bytes)
+    }
+
+    /// The document is protected by the encryption of the file it was opened
+    /// from, which its saved files keep.
+    pub fn is_protected(&self) -> bool {
+        self.protection.is_some()
+    }
+
+    /// The bytes of the file to write: encrypted like the opened file when it
+    /// was, an incremental update of a signed file, or the whole document.
+    fn file_bytes(&mut self) -> Result<Vec<u8>> {
+        if let Some(state) = &self.protection {
+            let mut copy = self.inner.clone();
+            copy.encrypt(state)?;
+            return serialize(&mut copy);
+        }
+        // Signed documents are saved as an incremental update so the signatures stay valid.
+        match self.incremental_bytes()? {
+            Some(b) => Ok(b),
+            None => serialize(&mut self.inner),
+        }
     }
 
     // ------------------------------------------------------------------
@@ -359,6 +423,18 @@ impl Document {
         self.redo.clear();
     }
 
+    /// Undo what an operation changed since its `begin_edit` when it failed
+    /// half-way, and forget that undo step.
+    pub(crate) fn abandon_edit(&mut self) {
+        if let Some(snapshot) = self.undo.pop() {
+            if let Ok(loaded) = load_inner(&snapshot, None) {
+                self.inner = loaded.doc;
+            }
+            self.bytes = snapshot;
+            self.helv_font = None;
+        }
+    }
+
     /// The current state, to join the edits made after it with `squash_undo`.
     pub(crate) fn undo_mark(&self) -> Arc<Vec<u8>> {
         self.bytes.clone()
@@ -381,7 +457,8 @@ impl Document {
     }
 
     fn restore(&mut self, bytes: Arc<Vec<u8>>) -> Result<()> {
-        self.inner = load_inner(&bytes, None)?.0;
+        // Snapshots are plain; the protection of the document stays as it is.
+        self.inner = load_inner(&bytes, None)?.doc;
         self.bytes = bytes;
         self.revision += 1;
         self.dirty = true;

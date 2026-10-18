@@ -169,6 +169,8 @@
   "toast.recompress_none": "Nessuna immagine è diventata più piccola",
   "toast.recompressed": "{count} immagini: {before} → {after}",
   "toast.recovered": "{name} recuperato: salvalo per conservarlo",
+  "toast.redaction_as_pictures": "Pagine trasformate in immagini: {pages}.",
+  "toast.redaction_detail": "Rimossi: {glyphs} caratteri, {pictures} immagini, {comments} commenti, {fields} campi modulo.",
   "toast.redactions_applied": "{count} aree redatte",
   "toast.renamed": "Rinominato in {name}",
   "toast.replaced": "{count} sostituiti",

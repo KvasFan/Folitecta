@@ -141,9 +141,14 @@ fn redaction_marks_and_apply() {
 
     let applied = doc.apply_redactions(Some(&[0])).unwrap();
     assert_eq!(applied, 2);
+    let text = doc.page_text(0);
     assert!(
-        doc.page_text(0).is_empty(),
-        "the header text under the box cannot be extracted any more"
+        !text.contains("Secret"),
+        "the header text under the box cannot be extracted any more: {text}"
+    );
+    assert!(
+        text.contains("Page 1"),
+        "the text outside the boxes stays text: {text}"
     );
     assert_eq!(doc.pending_redactions().len(), 1, "page 2 mark is still pending");
     let img = doc.render_page_png(0, 0.5).unwrap();
@@ -159,6 +164,14 @@ fn redaction_marks_and_apply() {
         doc.page_text(0).contains("Secret"),
         "undo restores the original page"
     );
+
+    // Drawn as a picture: nothing of the page stays text.
+    let report = doc
+        .apply_redactions_with(Some(&[0]), folitecta_core::redaction::RedactionMethod::Picture)
+        .unwrap();
+    assert_eq!(report.areas, 2);
+    assert_eq!(report.pages_as_pictures, vec![0]);
+    assert!(doc.page_text(0).is_empty());
 }
 
 #[test]

@@ -225,7 +225,7 @@ fn finish_sign(st: AppState, id: DigitalId, opts: SignOptions) {
             return;
         };
         let path = file.path().to_path_buf();
-        if let Err(e) = std::fs::write(&path, &bytes) {
+        if let Err(e) = folitecta_core::document::write_pdf_file(&path, &bytes) {
             st.error(e);
             return;
         }

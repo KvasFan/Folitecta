@@ -4,6 +4,50 @@ use lopdf::{Dictionary, Object, ObjectId};
 use time::OffsetDateTime;
 use time::macros::format_description;
 
+/// Write `data` to `path` without ever leaving a half-written file there: the
+/// bytes go to a temporary file in the same folder, are flushed to the disk,
+/// and the temporary file then replaces the target in one rename. When
+/// anything fails the original file is untouched and the temporary file is
+/// removed. A symbolic link is followed, so the file it points to is
+/// replaced, not the link.
+pub fn write_atomic(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNT: AtomicU64 = AtomicU64::new(0);
+    let target = match std::fs::symlink_metadata(path) {
+        Ok(m) if m.file_type().is_symlink() => std::fs::canonicalize(path)?,
+        _ => path.to_path_buf(),
+    };
+    let dir = match target.parent() {
+        Some(d) if !d.as_os_str().is_empty() => d.to_path_buf(),
+        _ => std::path::PathBuf::from("."),
+    };
+    let name = target
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "file".into());
+    let n = COUNT.fetch_add(1, Ordering::SeqCst);
+    let tmp = dir.join(format!(".{name}.{}-{n}.tmp", std::process::id()));
+    let written = (|| {
+        let mut file = std::fs::File::create(&tmp)?;
+        file.write_all(data)?;
+        file.sync_all()?;
+        drop(file);
+        std::fs::rename(&tmp, &target)
+    })();
+    if written.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    written
+}
+
+/// Whether `data` looks like a whole PDF file: the header at the start and
+/// the end-of-file marker near the end (checked before replacing a file).
+pub fn looks_like_whole_pdf(data: &[u8]) -> bool {
+    let tail = &data[data.len().saturating_sub(1024)..];
+    data.starts_with(b"%PDF-") && tail.windows(5).any(|w| w == b"%%EOF")
+}
+
 /// Current UTC time as a PDF date string (`D:YYYYMMDDHHmmSSZ`).
 pub fn pdf_date_now() -> String {
     let now = OffsetDateTime::now_utc();

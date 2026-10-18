@@ -922,6 +922,23 @@ impl Document {
         placement: [f64; 6],
         colors: Colors,
     ) -> Result<()> {
+        self.begin_edit();
+        if let Err(e) = self.put_page_image(page, index, pixels, placement, colors) {
+            self.abandon_edit();
+            return Err(e);
+        }
+        self.commit()
+    }
+
+    /// [`Document::replace_page_image`] without an undo step of its own.
+    pub(crate) fn put_page_image(
+        &mut self,
+        page: usize,
+        index: usize,
+        pixels: &RgbaImage,
+        placement: [f64; 6],
+        colors: Colors,
+    ) -> Result<()> {
         let pid = self.page_id(page)?;
         let j = joined(&self.inner, pid);
         let all = draws(&self.inner, pid, &j.data);
@@ -934,7 +951,6 @@ impl Document {
         if !alone || !is_identity(place) {
             stream_span(&j, d.start, d.end)?;
         }
-        self.begin_edit();
         let name = if alone {
             self.put_picture(d.id, stream, smask, old_mask);
             d.name.clone()
@@ -966,7 +982,7 @@ impl Document {
                 }],
             )?;
         }
-        self.commit()
+        Ok(())
     }
 
     /// Like [`Document::replace_page_image`], for every drawing of the

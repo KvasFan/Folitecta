@@ -342,8 +342,7 @@ pub(super) fn Confirm(title: String, body: String, action: ConfirmAction) -> Ele
                     ConfirmAction::ResetForm => apply(st, |tab| tab.doc.reset_form().map(|_| ())),
                     ConfirmAction::Revert => { st.set_dialog(Dialog::None); files::revert(st); }
                     ConfirmAction::ApplyRedactions(page) => {
-                        let pages = page.map(|p| vec![p]);
-                        apply_count(st, "toast.redactions_applied", |tab| tab.doc.apply_redactions(pages.as_deref()));
+                        crate::commands::protect::apply_redactions_now(st, page.map(|p| vec![p]));
                     }
                     ConfirmAction::RemoveScripts => apply_count(st, "toast.scripts_removed", |tab| tab.doc.remove_scripts()),
                     ConfirmAction::ClearSignatures => {

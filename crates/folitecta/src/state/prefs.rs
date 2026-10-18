@@ -176,7 +176,8 @@ impl UiPrefs {
                 let _ = std::fs::create_dir_all(dir);
             }
             if let Ok(json) = serde_json::to_string_pretty(self) {
-                let _ = std::fs::write(path, json);
+                // Never a half-written settings file, even if Folitecta stops while saving.
+                let _ = folitecta_core::util::write_atomic(&path, json.as_bytes());
             }
         }
     }

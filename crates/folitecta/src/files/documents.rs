@@ -165,14 +165,28 @@ pub fn save_as(st: AppState) {
 }
 
 pub fn save_copy(st: AppState) {
+    save_copy_with(st, false);
+}
+
+/// Save a copy without the encryption of the file the document came from
+/// (Save Unrestricted Copy: the user removes the protection on purpose).
+pub fn save_unprotected_copy(st: AppState) {
+    save_copy_with(st, true);
+}
+
+fn save_copy_with(st: AppState, unprotected: bool) {
     if !st.has_doc() {
         st.toast(ToastKind::Warn, t(st.lang(), "toast.no_document"), "");
         return;
     }
-    let name = suggested_name(st, "-copy");
+    let name = suggested_name(st, if unprotected { "-unrestricted" } else { "-copy" });
     spawn(async move {
         let Some(file) = pdf_dialog()
-            .set_title("Save a Copy")
+            .set_title(if unprotected {
+                "Save an Unrestricted Copy"
+            } else {
+                "Save a Copy"
+            })
             .set_file_name(&name)
             .save_file()
             .await
@@ -180,7 +194,14 @@ pub fn save_copy(st: AppState) {
             return;
         };
         let path = file.path().to_path_buf();
-        match st.with_active(|t| t.doc.save_copy(&path)) {
+        let saved = st.with_active(|t| {
+            if unprotected {
+                t.doc.save_unprotected_copy(&path)
+            } else {
+                t.doc.save_copy(&path)
+            }
+        });
+        match saved {
             Some(Ok(())) => st.toast(
                 ToastKind::Ok,
                 tf(st.lang(), "toast.saved", &[("name", &path.display().to_string())]),

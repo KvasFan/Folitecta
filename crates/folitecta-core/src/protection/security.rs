@@ -122,7 +122,8 @@ impl Document {
             permissions: permissions.to_lopdf(),
         })?;
         copy.encrypt(&state)?;
-        copy.save(path)?;
-        Ok(())
+        let mut out = Vec::new();
+        copy.save_to(&mut out)?;
+        crate::document::write_pdf_file(path, &out)
     }
 }

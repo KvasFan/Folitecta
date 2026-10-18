@@ -19,12 +19,24 @@ All notable changes to Folitecta are documented here. The format follows
   releases, the workflow and the progress log.
 
 ### Changed
+- Redaction takes the text and the pictures under the marks out of the page content and keeps
+  the rest of the page as text and drawings (before, every marked page became a picture); the
+  comments and form fields over the marks are removed with their values, and the next save
+  rewrites the whole file so no earlier revision keeps the removed content. Pages whose content
+  cannot be edited that way, or every marked page when chosen in the redaction settings, are
+  drawn as pictures.
 - The ribbon tools show a short name under their icons (Pencil, Loupe, Zoom +, Zoom −), on by
   default; View › Tool Names shows icons alone; the tooltips keep the whole name and the shortcut.
 - Dragging the edge of a ribbon group follows the pointer (the number of tools comes from the
   real widths of the tools), and moves without a pressed button no longer disturb drags.
 
 ### Fixed
+- A document opened from an encrypted file is saved encrypted again, with the same passwords and
+  permissions; before, saving wrote it without protection. Save Unrestricted Copy removes the
+  protection on purpose.
+- Saving can no longer damage the original file: the document is written to a temporary file
+  that replaces the original only once it is complete (the same for protected copies, signed
+  files and the settings).
 - Submenus no longer run away from the pointer: an open submenu waits while the pointer crosses
   other rows towards it, and clicking a row opens its submenu instead of closing it.
 

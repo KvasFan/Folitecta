@@ -42,6 +42,7 @@ pub fn RedactionLookDialog() -> Element {
     } else {
         String::new()
     };
+    let as_pictures = st.value("redact.method") == "picture";
     rsx! {
         Frame { title: label_of(lang, "document.redaction"),
             on_ok: move |_| {
@@ -110,6 +111,13 @@ pub fn RedactionLookDialog() -> Element {
                 input { r#type: "checkbox", checked: l.repeat, onchange: move |_| { let r = !look.peek().repeat; look.write().repeat = r; } }
                 span { "{label_of(lang, \"overlay.repeatText\")}" }
             }
+            // How the marks are applied (for every mark of the documents).
+            label { class: "check",
+                input { r#type: "checkbox", checked: as_pictures,
+                    onchange: move |_| st.set_value("redact.method", if as_pictures { "" } else { "picture" }) }
+                span { "{t(lang, \"redact.as_pictures\")}" }
+            }
+            p { class: "hint", "{t(lang, \"redact.method_hint\")}" }
         }
     }
 }

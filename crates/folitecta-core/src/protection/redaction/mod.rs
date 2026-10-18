@@ -1,9 +1,18 @@
-//! Redaction: mark areas, then apply them: every page with marks is drawn as
-//! a picture, the marked areas are covered (filled with a colour, blurred or
-//! pixelated) and an overlay text (a redaction code, for example) is written
-//! over them, so the content underneath cannot be recovered.
+//! Redaction: mark areas, then apply them. By default the text and the
+//! pictures under the marks are taken out of the page content (see
+//! [`content`]), the rest of the page staying text and drawings; a page that
+//! cannot be edited that way — or every page, when chosen — is drawn as a
+//! picture with the marked areas covered (filled with a colour, blurred or
+//! pixelated). Comments and form fields over the marks go, an overlay text
+//! (a redaction code, for example) is written over the areas, and the next
+//! save rewrites the whole file, so nothing of the removed content stays in
+//! it.
 
 use std::collections::BTreeMap;
+
+mod content;
+
+pub use content::{RedactionMethod, RedactionReport};
 
 use image::RgbaImage;
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
@@ -369,10 +378,23 @@ impl Document {
     }
 
     /// Apply the pending redaction marks of the given pages (all pages when
-    /// `None`): every page with marks is drawn as a picture at 200 dpi, the
-    /// marked areas are covered as their marks say and their overlay texts
-    /// are written over them; the marks go. Returns the number of areas.
+    /// `None`), taking the content under them out of the pages
+    /// ([`RedactionMethod::Content`]). Returns the number of areas.
     pub fn apply_redactions(&mut self, pages: Option<&[usize]>) -> Result<usize> {
+        Ok(self.apply_redactions_with(pages, RedactionMethod::Content)?.areas)
+    }
+
+    /// Apply the pending redaction marks of the given pages (all pages when
+    /// `None`) with `method`, as one undo step: the content under the marks
+    /// is removed, the comments and form fields over them go, the areas are
+    /// covered as their marks say and the marks go. The next save writes the
+    /// whole file again, so no earlier revision keeps the removed content;
+    /// signatures of the document stop being valid.
+    pub fn apply_redactions_with(
+        &mut self,
+        pages: Option<&[usize]>,
+        method: RedactionMethod,
+    ) -> Result<RedactionReport> {
         let mut by_page: BTreeMap<usize, Vec<([f32; 4], RedactionLook)>> = BTreeMap::new();
         for p in 0..self.page_count() {
             if pages.is_some_and(|sel| !sel.contains(&p)) {
@@ -387,43 +409,45 @@ impl Document {
             }
         }
         if by_page.is_empty() {
-            return Ok(0);
+            return Ok(RedactionReport::default());
         }
-        let count = by_page.values().map(Vec::len).sum();
+        let mut report = RedactionReport {
+            areas: by_page.values().map(Vec::len).sum(),
+            ..RedactionReport::default()
+        };
         self.begin_edit();
-        // The marks go first, so the page is drawn without them.
-        for p in by_page.keys() {
-            let page_id = self.page_id(*p)?;
-            let existing = self.inner.get_dictionary(page_id)?.get(b"Annots").ok().cloned();
-            let arr = match existing {
-                Some(Object::Array(arr)) => arr,
-                Some(Object::Reference(r)) => deref(&self.inner, &Object::Reference(r))
-                    .as_array()
-                    .cloned()
-                    .unwrap_or_default(),
-                _ => Vec::new(),
-            };
-            let mut keep = Vec::new();
-            for a in arr {
-                let is_redact = deref(&self.inner, &a)
-                    .as_dict()
-                    .ok()
-                    .and_then(|d| d.get(b"Subtype").ok())
-                    .and_then(|s| s.as_name().ok())
-                    == Some(b"Redact");
-                if is_redact {
-                    if let Ok(r) = a.as_reference() {
-                        self.inner.delete_object(r);
-                    }
-                } else {
-                    keep.push(a);
-                }
+        let mut as_pictures: BTreeMap<usize, Vec<([f32; 4], RedactionLook)>> = BTreeMap::new();
+        for (p, marks) in by_page {
+            let rects: Vec<[f32; 4]> = marks.iter().map(|(r, _)| crate::geom::normalize(*r)).collect();
+            let edited = method == RedactionMethod::Content
+                && self.redact_page_content(p, &marks, &mut report).is_ok();
+            // Comments and fields over the marks go either way, with the marks.
+            self.remove_annotations_over(p, &rects, &mut report)?;
+            if edited {
+                self.draw_redaction_covers(p, &marks)?;
+            } else {
+                as_pictures.insert(p, marks);
             }
-            self.inner
-                .get_dictionary_mut(page_id)?
-                .set("Annots", Object::Array(keep));
         }
+        if !as_pictures.is_empty() {
+            report.pages_as_pictures = as_pictures.keys().copied().collect();
+            self.commit()?;
+            self.draw_pages_as_pictures(as_pictures)?;
+        }
+        self.inner.prune_objects();
         self.commit()?;
+        // The file opened is no base for an incremental update any more: it
+        // still holds what was removed.
+        self.source = None;
+        Ok(report)
+    }
+
+    /// Draw every page of `by_page` as a picture at 200 dpi, with the marked
+    /// areas covered as their marks say and their overlay texts over them.
+    fn draw_pages_as_pictures(
+        &mut self,
+        by_page: BTreeMap<usize, Vec<([f32; 4], RedactionLook)>>,
+    ) -> Result<()> {
         let renderer = Renderer::new(self.bytes())?;
         let scale = 200.0 / 72.0;
         for (p, marks) in by_page {
@@ -504,9 +528,7 @@ impl Document {
             }
             self.inner.change_page_content(id, content.into_bytes())?;
         }
-        self.inner.prune_objects();
-        self.commit()?;
-        Ok(count)
+        Ok(())
     }
 
     /// Rectangles of redaction marks on a page (for display).

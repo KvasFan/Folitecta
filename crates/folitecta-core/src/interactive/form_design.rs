@@ -623,8 +623,14 @@ impl Document {
 
     /// Delete a form field with its widgets.
     pub fn delete_form_field(&mut self, field: ObjectId) -> Result<()> {
-        let widgets = self.field_widgets(field);
         self.begin_edit();
+        self.remove_form_field(field)?;
+        self.commit()
+    }
+
+    /// Remove a form field, its value and its widgets, without an undo step.
+    pub(crate) fn remove_form_field(&mut self, field: ObjectId) -> Result<()> {
+        let widgets = self.field_widgets(field);
         // Remove widgets from their pages.
         for pid in self.page_ids() {
             if let Ok(page) = self.inner.get_dictionary_mut(pid) {
@@ -644,20 +650,36 @@ impl Document {
             .get(b"Parent")
             .ok()
             .and_then(|p| p.as_reference().ok());
-        let container = match parent {
-            Some(p) => Some(p),
-            None => self
-                .inner
-                .catalog()?
-                .get(b"AcroForm")
-                .ok()
-                .and_then(|f| f.as_reference().ok()),
-        };
-        if let Some(c) = container {
-            let key: &[u8] = if parent.is_some() { b"Kids" } else { b"Fields" };
-            if let Ok(d) = self.inner.get_dictionary_mut(c) {
-                if let Ok(Object::Array(arr)) = d.get_mut(key) {
-                    arr.retain(|o| o.as_reference().map(|r| r != field).unwrap_or(true));
+        let not_field = |o: &Object| o.as_reference().map(|r| r != field).unwrap_or(true);
+        match parent {
+            Some(p) => {
+                if let Ok(Object::Array(arr)) =
+                    self.inner.get_dictionary_mut(p).and_then(|d| d.get_mut(b"Kids"))
+                {
+                    arr.retain(not_field);
+                }
+            }
+            None => {
+                let acro = self.inner.catalog()?.get(b"AcroForm").ok().cloned();
+                match acro {
+                    Some(Object::Reference(a)) => {
+                        if let Ok(Object::Array(arr)) = self
+                            .inner
+                            .get_dictionary_mut(a)
+                            .and_then(|d| d.get_mut(b"Fields"))
+                        {
+                            arr.retain(not_field);
+                        }
+                    }
+                    // A form written in the catalog itself.
+                    Some(Object::Dictionary(_)) => {
+                        if let Ok(Object::Dictionary(form)) = self.inner.catalog_mut()?.get_mut(b"AcroForm") {
+                            if let Ok(Object::Array(arr)) = form.get_mut(b"Fields") {
+                                arr.retain(not_field);
+                            }
+                        }
+                    }
+                    _ => {}
                 }
             }
         }
@@ -665,7 +687,7 @@ impl Document {
             self.inner.delete_object(w);
         }
         self.inner.delete_object(field);
-        self.commit()
+        Ok(())
     }
 
     /// Set the tab order of the fields of every page: `"R"` rows, `"C"` columns,

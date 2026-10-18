@@ -32,18 +32,18 @@ Big releases get a version tag and the full CI; work in between goes to `main` u
 
 ### 0.2.0 — integrity and delivery (R0 first)
 
-1. **FOL-L051/S01 — atomic saving.** Save, Save As and Save Copy write a temporary file next to
-   the target, check that it reopens, then rename it over the target; on failure the original
-   stays untouched and the error is shown. Test with a read-only target and a failing writer.
-2. **FOL-L036/S01 — keep the protection.** A file opened with a password is saved encrypted again
-   with the same algorithm and permissions (AES where lopdf supports it); when that is not
-   possible (unknown owner password, unsupported handler) the save stops with an explanation
-   instead of writing a plain file. Offer AES-256 for new protection.
-3. **FOL-L037/S01 — selective redaction.** Remove the text, images and vector content under the
-   marks from the content streams (keeping the rest of the page as text and vectors), scrub the
-   pixels of images under the marks, then write a new rewritten copy (no incremental update) and
-   offer to remove metadata, attachments, hidden layers and earlier revisions. Keep the raster
-   method as an explicit option.
+1. ~~**FOL-L051/S01 — atomic saving.**~~ Done: every PDF save writes a temporary file in the
+   same folder, checks it is a whole PDF, flushes it and renames it over the target.
+2. ~~**FOL-L036/S01 — keep the protection.**~~ Done: the encryption of the opened file (key,
+   passwords, permissions) is applied again by Save, Save As and Save Copy; Save Unrestricted
+   Copy is the explicit way to remove it. Next: **FOL-L036/S02** — AES-256 for new protection,
+   protection of signed and time-stamped output, certificate encryption.
+3. ~~**FOL-L037/S01 — selective redaction.**~~ Done for text and pictures: glyphs under the marks
+   leave the content streams (each replaced by a move of its width), pixels of pictures under the
+   marks are covered, comments and fields over the marks go with their values, the file is
+   rewritten whole. Next: **FOL-L037/S02** — vector paths under the marks (today covered, not
+   removed), text and pictures of reused drawings (today the page becomes a picture), and
+   sanitizing metadata, attachments, hidden layers and bookmarks that quote the removed text.
 4. **FOL-L053** — finish the e-mail work (attachment dialog; the EML draft is done).
 5. **FOL-L006/S01** — PDF from EML (done).
 6. **FOL-C006/S01, FOL-L040/S01** — time stamps (above); report integrity, identity, time and
@@ -155,8 +155,8 @@ FOL-C001–C005 and C007–C014 (R4).
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
 | FOL-L035 | P1 | 🟡 | text comparison of two documents with a report | Synchronized side-by-side view, geometry/picture differences. |
-| FOL-L036 | P0 | 🟡 | passwords and permissions (AES-128 encrypted copy), security policies | **Save of a file opened encrypted writes it in plain** (0.2.0, step 2); AES-256; certificate encryption. |
-| FOL-L037 | P0 | 🟡 | mark areas and search results for redaction, apply: marked pages are drawn as pictures with the areas covered and an overlay text | Selective removal keeping text and vectors; sanitizing metadata, attachments, hidden content and earlier revisions (0.2.0, step 3). |
+| FOL-L036 | P0 | 🟡 | passwords and permissions (AES-128 encrypted copy), security policies; files opened encrypted are saved with the same encryption, passwords and permissions; Save Unrestricted Copy removes it on purpose | AES-256 for new protection; signed output of an encrypted document is written plain (sign from a work copy); certificate encryption. |
+| FOL-L037 | P0 | 🟡 | mark areas and search results for redaction; apply by content (glyphs and picture pixels under the marks removed, the rest stays text, comments and fields over the marks removed with their values, overlay codes upright on rotated pages, whole-file rewrite so earlier revisions go) or as pictures (chosen, or for pages that cannot be edited) | Vector paths under the marks are covered, not removed; text/pictures inside reused drawings force the picture method; sanitizing metadata, attachments, hidden layers and bookmarks. |
 | FOL-L038 | P1 | ✅ | handwritten signatures and initials, placed on several pages, kept apart from digital signatures | — |
 | FOL-L039 | P1/P2 | 🟡 | PKCS#12 digital IDs (import, create, export), sign and certify (visible or invisible), appearance with picture, incremental updates keep earlier signatures | System certificate store, PKCS#11 tokens, batches. |
 | FOL-L040 | P1 | 🟡 | validation of every signature (digest, value, chain, trusted certificates), trusted list, signed revision opened in a tab | Separate checks (integrity, identity, time, revocation, later changes); time stamp validation (with FOL-C006). |
@@ -185,7 +185,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L051 | P0 | 🟡 | undo/redo of every edit, recovery copies written to a temporary file and renamed, no recovery copy of encrypted documents, signed documents saved as incremental updates | **Save writes the target directly** (0.2.0, step 1); versioned session format. |
+| FOL-L051 | P0 | 🟡 | undo/redo of every edit; every PDF save (Save, Save As, copies, protected copies, signed files) and the settings written to a temporary file and renamed over the target only when complete; recovery copies the same way, never for encrypted documents; signed documents saved as incremental updates | Versioned session format; exports of pictures/text/attachments still written directly (they never replace the document). |
 | FOL-L052 | P0 | 🟡 | page tree normalized before every page edit, links and destinations kept by page operations, scripts never run (there is no engine), external actions not executed on opening | A relations test corpus (links, fields, tags, destinations) for reorder/copy/merge; a report of the relations that cannot be kept. |
 | FOL-L053 | P1 | 🔵 | see "Now": real attachments, ZIP, form data, EML drafts | Attachment dialog (versions, ranges, comments). |
 

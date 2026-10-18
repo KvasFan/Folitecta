@@ -169,6 +169,8 @@
   "toast.recompress_none": "No picture became smaller",
   "toast.recompressed": "{count} picture(s): {before} → {after}",
   "toast.recovered": "{name} recovered: save it to keep it",
+  "toast.redaction_as_pictures": "Pages drawn as pictures: {pages}.",
+  "toast.redaction_detail": "Removed: {glyphs} characters, {pictures} pictures, {comments} comments, {fields} form fields.",
   "toast.redactions_applied": "{count} area(s) redacted",
   "toast.renamed": "Renamed to {name}",
   "toast.replaced": "{count} replaced",

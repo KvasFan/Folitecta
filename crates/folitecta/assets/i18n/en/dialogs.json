@@ -180,7 +180,7 @@
   "dialog.props.version": "PDF version",
   "dialog.rasterize.annots": "Include comments",
   "dialog.rasterize.hint": "The pages are replaced by images: text can no longer be selected or searched.",
-  "dialog.redact.body": "The marked areas are removed permanently: text and images under them are destroyed. This cannot be undone after saving.",
+  "dialog.redact.body": "The text, pictures, comments and form fields under the marked areas are removed from the document for good, and the areas are covered. The next save rewrites the whole file, so no earlier version keeps them; digital signatures of the document stop being valid.",
   "dialog.redact.title": "Apply redactions",
   "dialog.remove": "Remove",
   "dialog.removemarks.all": "All page marks (watermarks, backgrounds, headers, footers, numbers)",

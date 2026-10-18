@@ -146,6 +146,7 @@ pub fn ribbon_button(st: AppState, lang: Lang, cmd: &'static Command, style: Btn
     let reg = registry();
     let id = cmd.id.clone();
     let id_click = id.clone();
+    let id_menu = id.clone();
     let label = cmd_label(lang, cmd);
     let has_menu = reg.has_children(&cmd.id) && !is_implemented(&cmd.id);
     let icon = icons::for_command(&cmd.id);
@@ -190,6 +191,12 @@ pub fn ribbon_button(st: AppState, lang: Lang, cmd: &'static Command, style: Btn
                     } else {
                         commands::dispatch(st, &id_click);
                     }
+                },
+                // A right click puts the tool on the Quick Access Toolbar (or takes it away).
+                oncontextmenu: move |e| {
+                    e.prevent_default();
+                    e.stop_propagation();
+                    commands::qat::toggle(st, &id_menu);
                 },
                 Icon { name: icon }
                 if labelled { span { class: "lbl", "{label}" } }
@@ -358,10 +365,7 @@ pub fn Ribbon() -> Element {
     let body_h = ribbon_layout::body_height(rows);
     let resize_title = t(lang, "layout.resize");
     let group_title = t(lang, "layout.group_width");
-    let open_label = cmd_label(lang, reg.get("open").unwrap());
-    let save_label = cmd_label(lang, reg.get("save").unwrap());
-    let undo_label = cmd_label(lang, reg.get("undo").unwrap());
-    let redo_label = cmd_label(lang, reg.get("redo").unwrap());
+    let qat_below = commands::qat::below(st);
 
     rsx! {
         div { class: "ribbon", onclick: move |e| e.stop_propagation(),
@@ -415,11 +419,11 @@ pub fn Ribbon() -> Element {
                     }
                 }
                 div { class: "spacer" }
-                div { class: "ribbon-right",
-                    button { class: "tbtn", title: "{open_label} (Ctrl+O)", onclick: move |_| commands::dispatch(st, "open"), Icon { name: "open" } span { class: "txt", "{open_label}" } }
-                    button { class: "tbtn", title: "{save_label} (Ctrl+S)", onclick: move |_| commands::dispatch(st, "save"), Icon { name: "save" } span { class: "txt", "{save_label}" } }
-                    button { class: "ibtn", title: "{undo_label} (Ctrl+Z)", onclick: move |_| commands::dispatch(st, "undo"), Icon { name: "undo" } }
-                    button { class: "ibtn", title: "{redo_label} (Ctrl+Y)", onclick: move |_| commands::dispatch(st, "redo"), Icon { name: "redo" } }
+                // The Quick Access Toolbar, here unless it is a row below the ribbon.
+                if !qat_below {
+                    div { class: "ribbon-right",
+                        crate::ui::chrome::qat::QuickAccess { row: false }
+                    }
                 }
             }
             div { class: "ribbon-body", style: "height:{body_h}px",
@@ -488,6 +492,9 @@ pub fn Ribbon() -> Element {
             // The bottom edge: dragged down, more rows of tools in every column.
             layout::Splitter { name: layout::RIBBON_ROWS, axis: layout::Axis::Y, class: "ribbon-edge", title: resize_title,
                 base: rows as f64, per_px: 1.0 / ribbon_layout::ROW_H, min: 1.0, max: 6.0 }
+            if qat_below {
+                crate::ui::chrome::qat::QuickAccess { row: true }
+            }
         }
     }
 }

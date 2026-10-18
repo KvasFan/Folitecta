@@ -414,6 +414,7 @@ pub fn Dialogs() -> Element {
         Dialog::OcrText { text } => rsx! { crate::ui::features::ocr::OcrTextDialog { text } },
         Dialog::FieldItems => rsx! { crate::ui::features::field_editor::FieldItemsDialog {} },
         Dialog::SecurityPolicies => rsx! { crate::ui::features::policies::SecurityPoliciesDialog {} },
+        Dialog::CustomizeQat => rsx! { crate::ui::chrome::qat::CustomizeQatDialog {} },
     }
 }
 

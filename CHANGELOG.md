@@ -27,6 +27,11 @@ All notable changes to Folitecta are documented here. The format follows
   everywhere, or adds it to the user's own words. The words are marked on the page, as they are
   while the page text is edited with View › Spell Check on. Words in capitals, words with digits,
   addresses and file names are passed over; a word divided at the end of a line is checked whole.
+- Quick Access Toolbar: the buttons next to the ribbon tabs (Open, Save, Undo, Redo) are now a
+  toolbar of the user's own. A right click on a tool of the ribbon puts it there (or takes it
+  away), and Customize Toolbars searches the commands to add, orders them, adds separators,
+  shows each with its icon, its name or both, resets the toolbar, and puts it next to the tabs or
+  in a row below the ribbon.
 - Security policies (Protect › Security Policies): named sets of the permissions of password
   protection, two examples to start with, made, edited, cloned, renamed, deleted, imported and
   exported (JSON); applying one opens Password Protection with its permissions, and that dialog

@@ -8,7 +8,23 @@
 .ribbon-tab.active { color: var(--accent); background: var(--surface-2); border: 1px solid var(--border); border-bottom-color: var(--surface-2); margin-bottom: -1px; }
 .ribbon-tab.ctx { color: var(--accent-2); }
 .ribbon-tabs .spacer { flex: 1; min-width: 4px; }
-.ribbon-tabs .ribbon-right { display: flex; gap: 4px; align-items: center; padding-bottom: 4px; flex: none; }
+.ribbon-tabs .ribbon-right { display: flex; gap: 4px; align-items: center; padding-bottom: 4px; flex: none; min-width: 0; }
+/* Quick Access Toolbar: next to the tabs, or a row below the ribbon. */
+.qat { display: flex; gap: 4px; align-items: center; min-width: 0; overflow: hidden; }
+.qat-row { padding: 3px 10px; border-top: 1px solid var(--border); background: var(--surface); flex-wrap: wrap; }
+.qat-sep { width: 1px; height: 20px; background: var(--border); margin: 0 3px; flex: none; }
+.qat-btn.tbtn.active { border-color: var(--active-border); background: var(--active-bg); color: var(--active-fg); }
+.qat-customize { width: 20px; }
+.qat-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; min-width: 0; }
+.qat-column { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.qat-search { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 9px; background: var(--surface-2); color: var(--text); min-width: 0; }
+.qat-list { display: flex; flex-direction: column; gap: 2px; height: 40vh; min-height: 160px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px; background: var(--surface-2); }
+.qat-entry { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-radius: var(--radius-sm); border: none; background: none; color: var(--text); text-align: left; min-width: 0; flex: none; }
+.qat-entry .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qat-entry .ic { width: 16px; height: 16px; flex: none; }
+button.qat-entry:hover { background: var(--surface-3); }
+.qat-entry.on { background: var(--active-bg); color: var(--active-fg); }
+@media (max-width: 720px) { .qat-columns { grid-template-columns: 1fr; } }
 /* The height comes from the rows chosen by dragging the bottom edge (inline style). Groups
    widened by hand can make the ribbon wider than the window: it then scrolls. */
 .ribbon-body { display: flex; gap: 6px; padding: 6px 8px; background: var(--surface-2); border-top: 1px solid var(--border); height: 92px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; min-width: 0; }

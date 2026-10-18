@@ -25,7 +25,9 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
   adjustable enlargement, the visible area outlined on the thumbnails, link
   and form-field highlighting, transparency grid, document info bar, page labels, view history.
 - **Interface**: ribbon or classic menus and toolbars; the ribbon shows its tools as icons with
-  their names in the tooltips (or with the names next to them: View › Tool Names); the side panes,
+  their names in the tooltips (or with the names next to them: View › Tool Names); a Quick Access
+  Toolbar of the user's own commands (a right click on a tool adds it), next to the tabs or below
+  the ribbon; the side panes,
   the rows of the ribbon and the width of each ribbon group are changed by dragging their edges;
   pages drawn on several threads; document recovery after a window ended with unsaved changes.
 - **Text and search**: text layer with mouse selection, copy, select all; search with match

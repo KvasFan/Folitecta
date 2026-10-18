@@ -366,6 +366,8 @@ pub enum Dialog {
     FieldItems,
     /// The list of security policies.
     SecurityPolicies,
+    /// The commands of the Quick Access Toolbar.
+    CustomizeQat,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

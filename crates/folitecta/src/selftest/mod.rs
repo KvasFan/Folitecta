@@ -53,7 +53,7 @@ for (const sel of roots) {
   }
 }
 // 2. Siblings in rows must not overlap.
-const rows = ['.menubar', '.ribbon-tabs', '.ribbon-right', '.ribbon-body', '.ribbon-group-items', '.statusbar', '.statusbar .seg', '.pane-toolbar', '.search-nav', '.search-opts', '.dialog-foot', '.field-grid', '.radio-row', '.label-row', '.doc-tabs', '.pane-header', '.welcome .actions', '.check-grid', '.stamp-grid', '.row', '.sel-toolbar', '.list-item .title', '.list-item .meta'];
+const rows = ['.menubar', '.ribbon-tabs', '.ribbon-right', '.qat', '.ribbon-body', '.ribbon-group-items', '.statusbar', '.statusbar .seg', '.pane-toolbar', '.search-nav', '.search-opts', '.dialog-foot', '.field-grid', '.radio-row', '.label-row', '.doc-tabs', '.pane-header', '.welcome .actions', '.check-grid', '.stamp-grid', '.row', '.sel-toolbar', '.list-item .title', '.list-item .meta'];
 for (const sel of rows) {
   for (const row of document.querySelectorAll(sel)) {
     if (!visible(row)) continue;
@@ -390,6 +390,7 @@ mod steps_ocr;
 mod steps_panes;
 mod steps_pictures;
 mod steps_policies;
+mod steps_qat;
 mod steps_recovery;
 mod steps_review;
 mod steps_spelling;
@@ -457,9 +458,10 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     steps_ocr::run(&mut cx).await;
     steps_field_items::run(&mut cx).await;
     steps_policies::run(&mut cx).await;
+    steps_qat::run(&mut cx).await;
     let failures = cx.failures;
 
-    // 57. Undo everything added above.
+    // 58. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..90 {
         crate::commands::dispatch(st, "undo");
@@ -522,6 +524,7 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
             "field_items" => steps_field_items::run(&mut cx).await,
             "ocr" => steps_ocr::run(&mut cx).await,
             "policies" => steps_policies::run(&mut cx).await,
+            "qat" => steps_qat::run(&mut cx).await,
             "spelling" => steps_spelling::run(&mut cx).await,
             _ => cx.record("unknown step", false, step.to_string()),
         }
@@ -775,6 +778,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("note-icon", Dialog::NoteIcon(None)),
         ("spell-check", Dialog::SpellCheck),
         ("security-policies", Dialog::SecurityPolicies),
+        ("customize-qat", Dialog::CustomizeQat),
         ("ocr", Dialog::Ocr { pictures_only: false }),
         ("ocr-pictures", Dialog::Ocr { pictures_only: true }),
         (

@@ -53,6 +53,7 @@ const AREAS: &[(&str, &[&str])] = &[
         &[
             "app", "tab", "group", "menu", "pane", "label", "status", "palette", "welcome", "popup", "sel",
             "tool", "layout", "filter", "pos", "props", "history", "session", "rename", "text", "recovery",
+            "qat",
         ],
     ),
     ("dialogs", &["dialog"]),

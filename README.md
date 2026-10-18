@@ -50,8 +50,9 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
   a generated appearance stream. Style editor (colour, fill, opacity, thickness, dashes, line
   endings, text size and alignment) with per-tool defaults, named comment styles with a palette,
   and style copy/paste. Select, move and resize with handles, nudge with the arrow keys, choose
-  several with Shift to align, distribute, size alike and stack them, copy / cut / paste across
-  documents, flatten one or all, hide/show, delete.
+  several with Shift to move, align, distribute, size alike and stack them, group them so they
+  are chosen and moved together, copy / cut / paste across documents, flatten one or all,
+  hide/show, delete.
 - **Review**: replies, review states with history, check marks, filters, pop-up notes, comment
   summaries, export and import of comments as XFDF, FDF or PDF.
 - **Sign**: digital signatures and certification with PKCS#12 digital IDs (RSA, ECDSA),

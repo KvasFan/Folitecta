@@ -17,6 +17,10 @@ All notable changes to Folitecta are documented here. The format follows
   everywhere, or adds it to the user's own words. The words are marked on the page, as they are
   while the page text is edited with View › Spell Check on. Words in capitals, words with digits,
   addresses and file names are passed over; a word divided at the end of a line is checked whole.
+- Groups of comments (Arrange › Group and Ungroup): the comments of a group are chosen with one
+  click, moved, nudged and deleted together; groups are written the standard way (`/IRT` with
+  `/RT /Group`), so groups made by other programs work too. Several comments chosen with Shift
+  are also dragged, nudged and deleted together, in one undo step.
 
 ### Changed
 

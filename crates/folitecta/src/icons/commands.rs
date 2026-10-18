@@ -48,6 +48,9 @@ const BY_ID: &[(&str, &str)] = &[
     ("order.background", "stack-back"),
     ("order.moveForward", "stack-forward"),
     ("order.moveBackward", "stack-backward"),
+    ("group", "group"),
+    ("ungroup", "ungroup"),
+    ("arrange", "arrange"),
     // Editing.
     ("undo", "undo"),
     ("redo", "redo"),

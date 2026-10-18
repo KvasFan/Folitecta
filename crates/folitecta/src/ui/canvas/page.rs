@@ -766,6 +766,22 @@ pub(super) fn PageView(
         {
             return;
         }
+        // Several comments chosen (a group, or with Shift): they move together.
+        let chosen = st
+            .read_active(|t| t.chosen_annots().filter(|(p, _)| *p == page).map(|(_, l)| l))
+            .flatten()
+            .unwrap_or_default();
+        if matches!(d.kind, AnnotDragKind::Move) && chosen.len() > 1 && chosen.contains(&d.index) {
+            let (dx, dy) = (moved[0] - d.rect[0], moved[1] - d.rect[1]);
+            match st.with_active(|t| t.doc.shift_annotations(page, &chosen, dx, dy)) {
+                Some(Err(e)) => st.error(e),
+                _ => {
+                    st.with_active(|t| t.set_chosen(page, &chosen));
+                    files::set_window_title(st);
+                }
+            }
+            return;
+        }
         let pdf_rect = rect_to_pdf(&size, moved);
         let r = st.with_active(|t| {
             let res = t.doc.set_annotation_rect(page, d.index, pdf_rect);
@@ -1193,7 +1209,16 @@ pub(super) fn PageView(
                     {
                         let is_sel = view.selected == Some(index);
                         let is_chosen = is_sel || view.chosen.contains(&index);
-                        let shown = match cur_drag { Some(d) if d.index == index => dragged_rect(&d, z, view_rotation), _ => rect };
+                        let shown = match cur_drag {
+                            Some(d) if d.index == index => dragged_rect(&d, z, view_rotation),
+                            // The other chosen comments move with the one dragged.
+                            Some(d) if matches!(d.kind, AnnotDragKind::Move) && is_chosen && view.chosen.contains(&d.index) => {
+                                let moved = dragged_rect(&d, z, view_rotation);
+                                let (dx, dy) = (moved[0] - d.rect[0], moved[1] - d.rect[1]);
+                                [rect[0] + dx, rect[1] + dy, rect[2] + dx, rect[3] + dy]
+                            }
+                            _ => rect,
+                        };
                         let title = format!("{}: {contents}", crate::i18n::annot_name(st.lang(), &subtype));
                         let class = match (is_sel, is_chosen) {
                             (true, _) => "annot-hit selected",
@@ -1206,18 +1231,22 @@ pub(super) fn PageView(
                             div { class: "{class}", key: "a{index}", title: "{title}", style: "{css(shown)}",
                                 onmousedown: move |e| {
                                     e.stop_propagation();
-                                    // Shift or Ctrl adds the comment to those chosen (or takes it out).
+                                    // Shift or Ctrl adds the comment to those chosen (or takes it out);
+                                    // a comment of a group comes with the whole group. A press on
+                                    // a comment already chosen keeps the others, to drag them all.
                                     let more = e.modifiers().shift() || e.modifiers().ctrl();
                                     st.with_active(|t| {
+                                        let group = t.doc.annotation_group(page, index);
+                                        let mut list = t.chosen_annots().filter(|(p, _)| *p == page).map(|(_, l)| l).unwrap_or_default();
                                         if more {
-                                            let mut list = t.chosen_annots().filter(|(p, _)| *p == page).map(|(_, l)| l).unwrap_or_default();
-                                            match list.iter().position(|i| *i == index) {
-                                                Some(at) => { list.remove(at); }
-                                                None => list.push(index),
+                                            if list.contains(&index) {
+                                                list.retain(|i| !group.contains(i));
+                                            } else {
+                                                list.extend(group.iter().filter(|g| !list.contains(g)).copied().collect::<Vec<_>>());
                                             }
                                             t.set_chosen(page, &list);
-                                        } else {
-                                            t.set_chosen(page, &[index]);
+                                        } else if !list.contains(&index) {
+                                            t.set_chosen(page, &group);
                                         }
                                         t.text_sel = None;
                                     });

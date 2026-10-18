@@ -611,7 +611,9 @@ pub const RIBBON: &[RTab] = &[
                     "order.foreground",
                     "order.moveForward",
                     "order.moveBackward",
-                    "order.background"
+                    "order.background",
+                    "group",
+                    "ungroup"
                 ]
             ),
         ],

@@ -6,8 +6,6 @@ use dioxus::desktop::wry::http::Response;
 use dioxus::html::ModifiersInteraction;
 use dioxus::prelude::*;
 use folitecta_core::RenderOpts;
-use folitecta_core::marks::pdf_rect_to_display;
-use folitecta_core::textops::display_rect_to_pdf;
 
 use crate::commands;
 use crate::files;
@@ -36,31 +34,16 @@ fn parse_page_path(path: &str) -> Option<(u64, usize, f32)> {
     Some((id, page, (scale_m as f32 / 1000.0).clamp(0.05, 8.0)))
 }
 
-/// Move the selected comment by a display-space offset (points).
+/// Move the chosen comments (the selected one, its group and those added
+/// with Shift) by a display-space offset (points).
 fn nudge_selected(st: AppState, dx: f32, dy: f32) -> bool {
-    let Some((page, index)) = st.read_active(|t| t.selected_annot).flatten() else {
+    let Some((page, chosen)) = st.read_active(|t| t.chosen_annots()).flatten() else {
         return false;
     };
-    let r = st.with_active(|t| {
-        let size = t.page_sizes.get(page).copied()?;
-        let annot = t
-            .doc
-            .annotations(page)
-            .ok()?
-            .into_iter()
-            .find(|a| a.index == index)?;
-        let d = pdf_rect_to_display(&size, annot.rect);
-        let moved = [d[0] + dx, d[1] + dy, d[2] + dx, d[3] + dy];
-        let res = t
-            .doc
-            .set_annotation_rect(page, index, display_rect_to_pdf(&size, moved));
-        t.selected_annot = Some((page, index));
-        Some(res)
-    });
-    match r.flatten() {
+    match st.with_active(|t| t.doc.shift_annotations(page, &chosen, dx, dy)) {
         Some(Err(e)) => st.error(e),
         Some(Ok(())) => {
-            st.with_active(|t| t.selected_annot = Some((page, index)));
+            st.with_active(|t| t.set_chosen(page, &chosen));
             files::set_window_title(st);
         }
         None => return false,

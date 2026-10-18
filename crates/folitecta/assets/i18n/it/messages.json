@@ -20,6 +20,7 @@
   "toast.certs_added": "Aggiunti {count} certificati",
   "toast.choose_comments": "Seleziona prima i commenti da disporre (Maiusc o Ctrl e un clic ne aggiunge uno).",
   "toast.choose_style": "Scegli prima uno stile nel pannello degli stili dei commenti",
+  "toast.choose_two_comments": "Scegli prima due commenti o più (Maiusc e un clic ne aggiunge uno).",
   "toast.classic_interface": "Le barre degli strumenti sono mostrate nell'interfaccia classica",
   "toast.click_on_text": "Fai clic sul testo nel punto di inserimento",
   "toast.clip_gone": "Il commento copiato non è più disponibile",

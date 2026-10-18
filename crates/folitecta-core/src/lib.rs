@@ -33,7 +33,7 @@ pub use graphics::{barcodes, images, imaging, pictures};
 pub use interactive::{form_calc, form_data, form_design, forms, scripts};
 pub use markup::{
     annot_copy, annots, appearance, arrange, calculator, comment_exchange, comment_review, comment_summary,
-    flatten, markup_tools, media, signmarks, smooth, stamp_design, stamps, tables,
+    flatten, grouping, markup_tools, media, signmarks, smooth, stamp_design, stamps, tables,
 };
 pub use navigation::{layers, links, outline};
 pub use organize::{

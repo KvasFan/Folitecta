@@ -228,8 +228,10 @@ handlers! {
     "edit.deselect" => |st| { st.with_active(|t| { t.selected_pages.clear(); t.selected_annot = None; }); },
     "delete" => |st| {
         if no_doc(st) { return; }
-        match st.read_active(|t| t.selected_annot).flatten() {
-            Some((page, index)) => core_result(st, st.with_active(|t| t.doc.delete_annotation(page, index))),
+        // Every chosen comment (a group, or those added with Shift) in one step.
+        match st.read_active(|t| t.chosen_annots()).flatten() {
+            Some((page, list)) if list.len() > 1 => core_result(st, st.with_active(|t| t.doc.delete_annotations(page, &list).map(|_| ()))),
+            Some((page, list)) => core_result(st, st.with_active(|t| t.doc.delete_annotation(page, list[0]))),
             None => st.set_dialog(Dialog::DeletePages),
         }
     },

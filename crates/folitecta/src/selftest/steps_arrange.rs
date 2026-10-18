@@ -111,6 +111,36 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let after = st.read_active(|t| t.chosen_annots()).flatten();
     let still = after.as_ref().map(|(_, l)| l.len()) == Some(3)
         && after.as_ref().map(|(_, l)| l.contains(&0)) == Some(true);
+
+    // Grouped: a click on one of them chooses the three, a drag moves the
+    // three, and Ungroup lets them go.
+    crate::commands::dispatch(st, "group");
+    st.with_active(|t| t.set_chosen(page, &[]));
+    pause(300).await;
+    press("arrange-2", false).await;
+    let group_chosen = st
+        .read_active(|t| t.chosen_annots().map(|(_, l)| l.len()))
+        .flatten()
+        .unwrap_or(0);
+    let before = boxes();
+    drag("arrange-2", 30.0, 20.0).await;
+    let dragged = boxes();
+    let (dx, dy) = (30.0 / cx.z, 20.0 / cx.z);
+    let together = before.len() == 3
+        && dragged.len() == 3
+        && before
+            .iter()
+            .zip(&dragged)
+            .all(|(a, b)| (b[0] - a[0] - dx).abs() < 1.0 && (b[1] - a[1] - dy).abs() < 1.0);
+    let _ = capture_window(&cx.dir.join("interaction-group.png"));
+    crate::commands::dispatch(st, "ungroup");
+    st.with_active(|t| t.set_chosen(page, &[]));
+    pause(300).await;
+    press("arrange-2", false).await;
+    let alone = st
+        .read_active(|t| t.chosen_annots().map(|(_, l)| l.len()))
+        .flatten()
+        .unwrap_or(0);
     st.with_active(|t| t.set_chosen(page, &[]));
     st.set_tool(Tool::Hand);
     st.set_ribbon_tab("home".into());
@@ -119,4 +149,19 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         chosen.as_ref().map(|(_, l)| l.len()) == Some(3) && tab.contains(&crate::i18n::t(st.lang(), "tab.ctx.arrange")) && aligned && even && same && still,
         format!("chosen {chosen:?}, tabs {tab:?}, aligned {aligned}, even {even}, same {same}, after {after:?}"),
     );
+    cx.record(
+        "grouping comments: grouped, chosen together with one click, dragged together, ungrouped",
+        group_chosen == 3 && together && alone == 1,
+        format!("group chosen {group_chosen}, before {before:?}, dragged {dragged:?}, after ungroup {alone}"),
+    );
+}
+
+/// Drag the comment whose title ends with `name` by `(dx, dy)` pixels.
+async fn drag(name: &str, dx: f64, dy: f64) {
+    let js = format!(
+        "const h = [...document.querySelectorAll('#canvas .annot-hit')].find(e => (e.title || '').endsWith({name})); if (h) {{ const r = h.getBoundingClientRect(); const x = r.left + 4, y = r.top + 4; const ev = (t, cx, cy) => h.dispatchEvent(new MouseEvent(t, {{ bubbles: true, button: 0, buttons: 1, clientX: cx, clientY: cy }})); ev('mousedown', x, y); ev('mousemove', x + {dx} / 2, y + {dy} / 2); ev('mousemove', x + {dx}, y + {dy}); ev('mouseup', x + {dx}, y + {dy}); }}",
+        name = serde_json::to_string(name).unwrap_or_default()
+    );
+    let _ = document::eval(&js).await;
+    pause(600).await;
 }

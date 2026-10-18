@@ -499,8 +499,11 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
         total += full_suite(st, &dir, &mut log).await;
     } else if only.as_deref() == Some("interactions") {
         total += interactions(st, &dir, &mut log).await;
-    } else if only.as_deref() == Some("spelling") {
+    } else if let Some(step) = only.as_deref().and_then(|o| o.strip_prefix("step:")) {
+        // FOLITECTA_SELFTEST_ONLY=step:<name> runs one interaction step (for debugging).
         set_size(1280.0, 800.0);
+        st.with_active(|t| t.zoom = crate::state::Zoom::Fixed(1.0));
+        pause(800).await;
         let mut cx = Ctx {
             st,
             dir: &dir,
@@ -508,7 +511,11 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
             failures: 0,
             z: 1.0,
         };
-        steps_spelling::run(&mut cx).await;
+        match step {
+            "arrange" => steps_arrange::run(&mut cx).await,
+            "spelling" => steps_spelling::run(&mut cx).await,
+            _ => cx.record("unknown step", false, step.to_string()),
+        }
         total += cx.failures;
     }
     // Printed layout of the first pages (emulated on screen; the system dialog is modal).

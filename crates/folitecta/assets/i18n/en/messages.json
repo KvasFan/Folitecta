@@ -20,6 +20,7 @@
   "toast.certs_added": "Added {count} certificates",
   "toast.choose_comments": "Select the comments to arrange first (Shift or Ctrl and a click adds one).",
   "toast.choose_style": "Choose a style in the comment styles pane first",
+  "toast.choose_two_comments": "Choose two comments or more first (Shift and a click adds one).",
   "toast.classic_interface": "Toolbars are shown in the classic interface",
   "toast.click_on_text": "Click on the text where the insertion goes",
   "toast.clip_gone": "The copied comment is no longer available",

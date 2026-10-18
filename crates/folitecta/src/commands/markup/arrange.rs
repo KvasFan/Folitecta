@@ -1,7 +1,7 @@
 //! Arranging the chosen comments of a page (the selected one and those
-//! added with Shift or Ctrl): aligning, distributing, same size and the
-//! order they are stacked in. The first comment chosen is the one the
-//! others are aligned on or sized like.
+//! added with Shift or Ctrl): aligning, distributing, same size, the
+//! order they are stacked in, and groups. The first comment chosen is the
+//! one the others are aligned on or sized like.
 
 use dioxus::prelude::ReadableExt;
 use folitecta_core::Document;
@@ -76,6 +76,35 @@ fn stack(st: AppState, how: Stack) {
     });
 }
 
+/// Make one group of the chosen comments (and of the groups they are in):
+/// they are then chosen, moved and deleted together.
+fn group(st: AppState) {
+    let few = st
+        .read_active(|t| t.chosen_annots().is_none_or(|(_, l)| l.len() < 2))
+        .unwrap_or(true);
+    if few {
+        st.toast(ToastKind::Info, t(st.lang(), "toast.choose_two_comments"), "");
+        return;
+    }
+    arrange(st, |doc, page, chosen| doc.group_annotations(page, chosen));
+}
+
+/// Break up the groups of the chosen comments; they stay chosen.
+fn ungroup(st: AppState) {
+    arrange(st, |doc, page, chosen| {
+        doc.ungroup_annotations(page, chosen).map(|_| chosen.to_vec())
+    });
+}
+
+/// Show the Arrange tab of the chosen comments.
+fn show_tab(st: AppState) {
+    if st.read_active(|t| t.chosen_annots().is_some()).unwrap_or(false) {
+        st.set_ribbon_tab(crate::ui::chrome::ribbon_layout::ARRANGE_TAB.to_string());
+    } else {
+        st.toast(ToastKind::Info, t(st.lang(), "toast.choose_comments"), "");
+    }
+}
+
 /// Check states of Align To and Distribute To.
 pub fn arrange_state(st: AppState, id: &str) -> Option<bool> {
     let align = st
@@ -124,4 +153,7 @@ handlers! {
     "order.background" => |st| stack(st, Stack::Back),
     "order.moveForward" => |st| stack(st, Stack::Forward),
     "order.moveBackward" => |st| stack(st, Stack::Backward),
+    "group" => group,
+    "ungroup" => ungroup,
+    "arrange" => show_tab,
 }

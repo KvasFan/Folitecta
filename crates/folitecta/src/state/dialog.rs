@@ -354,6 +354,14 @@ pub enum Dialog {
     NoteIcon(Option<(usize, usize)>),
     /// Spell Check and Replace: the words the dictionaries do not know, one by one.
     SpellCheck,
+    /// Text recognition of pages (or only of their pictures).
+    Ocr {
+        pictures_only: bool,
+    },
+    /// The text read in an area of a page.
+    OcrText {
+        text: String,
+    },
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

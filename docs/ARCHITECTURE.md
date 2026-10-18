@@ -33,7 +33,13 @@ Operations are grouped by module, for example `pages` and `pagetools` (page tree
 resize, split), `annots` and `appearance` (comments with generated appearance streams), `outline`
 (bookmarks), `forms`, `form_design` and `form_calc` (simple field calculations, written as
 `AFSimple_Calculate` actions and computed in Rust in the `/CO` order), `attachments`, `layers`, `links`, `text` and `textlayer`
-(extraction, selection and search), `spelling` (the words of the page text, comments and text
+(extraction, selection and search), `ocr` (text recognition: a PaddleOCR detection model finds
+the lines as connected areas of its probability map, each fitted with a turned rectangle from the
+moments of its pixels; a recognition model reads each line cut out straight at 48 pixels high,
+and the steps of its CTC output where each character is read place the words; both models run
+with tract, the plans cached per input size and the lines read in parallel; the text is written
+as invisible Helvetica text, one stretched run per word, in a content stream tagged `OCR`),
+`spelling` (the words of the page text, comments and text
 fields that Hunspell dictionaries do not know, checked with spellbook against every dictionary
 loaded; suggestions ranked by typing distance and by the language of the text around the word;
 corrections through the page text editor, the comment text or the field value, several in one
@@ -129,10 +135,11 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
   offered. Copies are written through a temporary file, one checkpoint at a time, off the
   interface thread; documents opened from encrypted files are not copied, signed ones are copied
   as an incremental update.
-- `dictionaries/` (at the root of the repository) — the Hunspell dictionaries shipped with the
-  program, as data files next to it in the release packages (the `Resources` of the macOS
-  bundle). The checker looks in the user's `Folitecta/dictionaries` folder first, then next to
-  the program, then in the source tree, and on Linux in `/usr/share/hunspell`.
+- `dictionaries/` and `ocr/` (at the root of the repository) — the Hunspell dictionaries and the
+  text recognition models shipped with the program, as data files next to it in the release
+  packages (the `Resources` of the macOS bundle). They are looked for in the user's
+  `Folitecta/dictionaries` (or `Folitecta/ocr`) folder first, then next to the program, then in
+  the source tree, and the dictionaries on Linux in `/usr/share/hunspell` too.
 - `features.rs` — generates `docs/FEATURES.md` (`folitecta --features-md <path>`).
 - `selftest/` — the interface self-test (`folitecta --ui-selftest <dir>`): layout audits at
   several window sizes and simulated input on the canvas, with a report and screenshots.
@@ -160,5 +167,8 @@ Mouse coordinates on a page image are converted to PDF user space with
   samples are not kept, and stencil masks become black and white pictures).
 - Generated text (comments, stamps, page marks) uses Helvetica with WinAnsi encoding: characters
   the WinAnsi encoding lacks appear as `?`.
-- There is no OCR, no timestamp on signatures and no conversion to PDF/A.
+- Text recognition reads the Latin script, written left to right (lines turned up to about 45
+  degrees); the invisible text uses WinAnsi, so letters it lacks (such as Polish `ł`) are written
+  without their accent.
+- There is no timestamp on signatures and no conversion to PDF/A.
 - Commands marked *planned* in [FEATURES.md](FEATURES.md) open a roadmap notice.

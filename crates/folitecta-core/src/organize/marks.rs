@@ -546,9 +546,18 @@ impl Document {
             }
         }
         self.begin_edit();
+        let removed = self.strip_marks(pages, tags)?;
+        self.commit()?;
+        Ok(removed)
+    }
+
+    /// [`Document::remove_marks_of`] as part of the edit under way (no undo
+    /// step of its own).
+    pub(crate) fn strip_marks(&mut self, pages: &[usize], tags: &[&str]) -> Result<usize> {
+        let ids = self.page_ids();
         let mut removed = 0;
         for &p in pages {
-            let id = ids[p];
+            let id = *ids.get(p).ok_or(Error::InvalidPage(p))?;
             let contents = self.page_content_ids(id);
             let mut keep = Vec::new();
             for cid in contents {
@@ -577,7 +586,6 @@ impl Document {
                 _ => page.set("Contents", Object::Array(keep)),
             }
         }
-        self.commit()?;
         Ok(removed)
     }
 

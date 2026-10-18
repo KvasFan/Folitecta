@@ -78,6 +78,8 @@ pub enum Tool {
     EditText,
     /// Select text to suggest corrections with comments.
     TextCorrection,
+    /// Draw the area of a page whose text is read (OCR).
+    OcrRegion,
 }
 
 impl Tool {
@@ -168,6 +170,7 @@ impl Tool {
             Tool::EditImages => "tool.editContent.images",
             Tool::EditText => "tool.editContent.text",
             Tool::TextCorrection => "tool.textCorrectionMarkup",
+            Tool::OcrRegion => "document.OCRSelRgn",
         }
     }
 
@@ -228,6 +231,7 @@ impl Tool {
             Tool::EditImages => "tool.edit_images",
             Tool::EditText => "tool.edit_text",
             Tool::TextCorrection => "tool.text_correction",
+            Tool::OcrRegion => "tool.ocr_region",
         }
     }
 

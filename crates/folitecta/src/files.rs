@@ -622,13 +622,13 @@ pub fn save_attachment(st: AppState, att: folitecta_core::Attachment) {
 /// Extensions of the picture files that can be read.
 pub const PICTURE_EXTS: [&str; 8] = ["png", "jpg", "jpeg", "gif", "bmp", "tif", "tiff", "webp"];
 
-fn image_dialog() -> rfd::AsyncFileDialog {
+pub(crate) fn image_dialog() -> rfd::AsyncFileDialog {
     rfd::AsyncFileDialog::new()
         .add_filter("Images", &PICTURE_EXTS)
         .add_filter("All files", &["*"])
 }
 
-async fn read_files(files: Vec<rfd::FileHandle>) -> Vec<Vec<u8>> {
+pub(crate) async fn read_files(files: Vec<rfd::FileHandle>) -> Vec<Vec<u8>> {
     let mut out = Vec::with_capacity(files.len());
     for f in files {
         out.push(f.read().await);

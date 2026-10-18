@@ -37,6 +37,11 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
 - **Page text**: the Edit Text tool and the Insert, Replace and Delete Text commands of
   Edit › Text change the text drawn on the page (the rest of the line moves to make room);
   Find and Replace changes one occurrence or all of them in one undo step.
+- **Text recognition (OCR)**: scanned pages, only the pictures in the pages, or an area read with
+  PaddleOCR models run in pure Rust; English, Italian and 30 more languages of the Latin script.
+  The text is written invisibly over the pages, so they can be searched and their text selected
+  and copied; pictures can be made into a searchable document. Pages are read in the background
+  with a progress bar and can be stopped.
 - **Spelling**: Spell Check and Replace goes through the words of the page text, comments and
   form fields that the dictionaries do not know (English and Italian included, more Hunspell
   dictionaries can be added, several languages at once), with suggestions, change once or
@@ -117,9 +122,9 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
 
 ### Planned
 
-OCR, timestamped signatures, editing of the text and shapes of the page content, PDF/A
-conversion, optimisation, cloud connectors and the remaining commands listed as *planned* in the
-feature matrix.
+Timestamped signatures, editing of the shapes of the page content, PDF/A conversion,
+optimisation, cloud connectors, text recognition of scripts other than the Latin one and the
+remaining commands listed as *planned* in the feature matrix.
 
 ## Download
 
@@ -155,9 +160,10 @@ writes a report with a screenshot of every state (screenshots on Windows).
 
 | Crate | Purpose |
 |---|---|
-| `crates/folitecta-core` | Document model (lopdf), page operations, comments and review, bookmarks, forms, attachments, layers, portfolios, links, text and search, page marks, stamps, tables, barcodes, comparison, tags and accessibility check, digital signatures, hayro render service, command registry |
+| `crates/folitecta-core` | Document model (lopdf), page operations, comments and review, bookmarks, forms, attachments, layers, portfolios, links, text and search, spell checking, text recognition, page marks, stamps, tables, barcodes, comparison, tags and accessibility check, digital signatures, hayro render service, command registry |
 | `crates/folitecta` | Dioxus desktop application: ribbon, menus, panes, canvas with drawing tools, dialogs, palette, localization; `assets/styles` holds the theme tokens and one style sheet per part, `assets/i18n` the translations |
 | `dictionaries` | Hunspell spelling dictionaries (English, Italian), data files read at run time, each with its licence |
+| `ocr` | Text recognition models (PaddleOCR, ONNX), data files read at run time, with their licence |
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and
 [docs/FEATURES.md](docs/FEATURES.md) for the command-by-command status.
@@ -177,4 +183,8 @@ written and read with [rxing](https://github.com/rxing-core/rxing), the Rust por
 (MPL-2.0). The spelling dictionaries in [`dictionaries/`](dictionaries/README.md) are separate
 data files with their own licences: the English one from SCOWL (MIT-like and BSD licences), the
 Italian one from the Italian Writing Aids extension by Andrea Pescetti and others (GNU GPL 3);
-the release packages carry them in a `dictionaries` folder next to the program.
+the release packages carry them in a `dictionaries` folder next to the program. Text is
+recognized with [tract](https://github.com/sonos/tract) (MIT/Apache-2.0) running two models of
+[PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) (Apache-2.0), kept in
+[`ocr/`](ocr/README.md) with their licence and origin, and next to the program in the release
+packages.

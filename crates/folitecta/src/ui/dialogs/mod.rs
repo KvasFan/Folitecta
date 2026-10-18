@@ -410,6 +410,8 @@ pub fn Dialogs() -> Element {
         Dialog::CalcOrder => rsx! { crate::ui::features::form_calc::CalcOrderDialog {} },
         Dialog::NoteIcon(target) => rsx! { NoteIconDialog { target } },
         Dialog::SpellCheck => rsx! { crate::ui::features::spelling::SpellCheckDialog {} },
+        Dialog::Ocr { pictures_only } => rsx! { crate::ui::features::ocr::OcrDialog { pictures_only } },
+        Dialog::OcrText { text } => rsx! { crate::ui::features::ocr::OcrTextDialog { text } },
     }
 }
 

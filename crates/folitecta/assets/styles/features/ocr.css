@@ -1,0 +1,7 @@
+/* Text recognition */
+.ocr-progress { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ocr-bar { flex: 1 1 160px; height: 8px; border-radius: 999px; background: var(--surface-3); overflow: hidden; border: 1px solid var(--border); }
+.ocr-fill { height: 100%; background: var(--accent); transition: width .3s ease; }
+.ocr-range { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 9px; background: var(--surface-2); color: var(--text); }
+.ocr-quality { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 9px; background: var(--surface-2); color: var(--text); }
+.ocr-text { min-height: 220px; font-family: var(--font); line-height: 1.5; }

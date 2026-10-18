@@ -39,6 +39,7 @@ jobs:
           Copy-Item README.md, LICENSE, CHANGELOG.md "dist/$name/"
           Copy-Item -Recurse docs "dist/$name/docs"
           Copy-Item -Recurse dictionaries "dist/$name/dictionaries"
+          Copy-Item -Recurse ocr "dist/$name/ocr"
           Compress-Archive -Path "dist/$name" -DestinationPath "dist/$name.zip"
           $hash = (Get-FileHash "dist/$name.zip" -Algorithm SHA256).Hash.ToLower()
           "$hash  $name.zip" | Out-File -Encoding ascii "dist/$name.zip.sha256"
@@ -75,6 +76,7 @@ jobs:
           cp README.md LICENSE CHANGELOG.md "dist/${NAME}/"
           cp -r docs "dist/${NAME}/docs"
           cp -r dictionaries "dist/${NAME}/dictionaries"
+          cp -r ocr "dist/${NAME}/ocr"
           cp crates/folitecta/assets/icon-256.png "dist/${NAME}/folitecta.png"
           cat > "dist/${NAME}/folitecta.desktop" <<'EOF'
           [Desktop Entry]
@@ -125,6 +127,7 @@ jobs:
           mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
           cp dist/folitecta "$APP/Contents/MacOS/folitecta"
           cp -r dictionaries "$APP/Contents/Resources/dictionaries"
+          cp -r ocr "$APP/Contents/Resources/ocr"
           ICONSET=dist/folitecta.iconset
           mkdir -p "$ICONSET"
           for size in 16 32 64 128 256; do
@@ -162,6 +165,7 @@ jobs:
           cp dist/folitecta README.md LICENSE CHANGELOG.md "dist/${NAME}/"
           cp -r docs "dist/${NAME}/docs"
           cp -r dictionaries "dist/${NAME}/dictionaries"
+          cp -r ocr "dist/${NAME}/ocr"
           tar -C dist -czf "dist/${NAME}.tar.gz" "${NAME}"
           (cd dist && shasum -a 256 "${NAME}.zip" > "${NAME}.zip.sha256" && shasum -a 256 "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256")
       - uses: actions/upload-artifact@v4

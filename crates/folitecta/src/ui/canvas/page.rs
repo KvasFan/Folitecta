@@ -652,6 +652,10 @@ pub(super) fn PageView(
                 crate::commands::barcodes::read_area(st, page, [x0, y0, x1, y1]);
                 None
             }
+            Tool::OcrRegion if !tiny => {
+                crate::commands::ocr::read_area(st, page, [x0, y0, x1, y1]);
+                None
+            }
             Tool::Calculator => {
                 let top_left = (rect[0], rect[3]);
                 crate::commands::calculator::place(st, page, top_left);

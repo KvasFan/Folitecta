@@ -27,8 +27,11 @@ rxing = { version = "0.9", default-features = false, features = ["encoders", "de
 # Pages searched side by side (MIT/Apache-2.0)
 rayon = "1"
 # Spell checking with Hunspell dictionaries (MPL-2.0); the dictionaries are
-# separate files read at run time, see assets/dictionaries
+# separate files read at run time, see dictionaries/
 spellbook = "0.4"
+# Text recognition: the PaddleOCR models (ocr/) run by tract, a neural
+# network inference library in pure Rust (MIT/Apache-2.0)
+tract-onnx = "0.21"
 time.workspace = true
 quick-xml.workspace = true
 base64.workspace = true

@@ -14,6 +14,7 @@ pub mod form_fill;
 pub mod javascript;
 pub mod macros;
 pub mod media;
+pub mod ocr;
 pub mod pictures;
 pub mod portfolio;
 pub mod recovery;

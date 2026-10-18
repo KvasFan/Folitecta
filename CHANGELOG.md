@@ -8,6 +8,16 @@ All notable changes to Folitecta are documented here. The format follows
 
 ### Added
 
+- Text recognition (OCR), in pure Rust: OCR Pages reads all the pages, the current one or a range
+  (leaving out the pages that already have text, if wanted), OCR Images only the pictures of the
+  pages, the area OCR tool an area drawn on a page (its text shown to copy or to write on the
+  page), and OCR Image makes a searchable document of picture files. Lines are found and read by
+  PaddleOCR models (PP-OCRv4 detection, PP-OCRv5 Latin recognition: English, Italian and 30 more
+  languages, slightly turned lines included) run by the tract inference library; the text is
+  written invisibly over each word where the page shows it, also on turned pages, so the pages
+  can be searched and their text selected and copied. Reading again replaces the text read
+  before. Pages are read in the background, several lines at once, with a progress bar and Stop;
+  the models are data files in `ocr/` with their licence, packaged next to the program.
 - Spell checking with Hunspell dictionaries (English and Italian included as separate files in
   `dictionaries/`, each with its licence; any other Hunspell dictionary can be added). Spell
   Check and Replace (Review › Proofing) goes through the words of the page text, the comments

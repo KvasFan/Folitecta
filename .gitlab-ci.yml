@@ -44,6 +44,7 @@ build-linux:
     - cp target/release/folitecta README.md LICENSE CHANGELOG.md "dist/${NAME}/"
     - cp -r docs "dist/${NAME}/docs"
     - cp -r dictionaries "dist/${NAME}/dictionaries"
+    - cp -r ocr "dist/${NAME}/ocr"
     - cp crates/folitecta/assets/icon-256.png "dist/${NAME}/folitecta.png"
     - printf '[Desktop Entry]\nType=Application\nName=Folitecta\nComment=Free PDF editor\nExec=folitecta %%F\nIcon=folitecta\nMimeType=application/pdf;\nCategories=Office;Viewer;\n' > "dist/${NAME}/folitecta.desktop"
     - tar -C dist -czf "${NAME}.tar.gz" "${NAME}"

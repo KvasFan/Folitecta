@@ -40,7 +40,7 @@ pub use organize::{
     attachments, combine, compare, doctools, export, marks, metadata, pages, pagetools, portfolio, textdoc,
 };
 pub(crate) use page_text::{content_edit, content_lex};
-pub use page_text::{search, spelling, text, textedit, textlayer, textops};
+pub use page_text::{ocr, search, spelling, text, textedit, textlayer, textops};
 pub use protection::{digsig, redaction, security};
 pub use tags::{accessibility, structure};
 
@@ -65,6 +65,7 @@ pub use layers::{Layer, LayerNode};
 pub use links::{Link, LinkTarget, NamedDestination};
 pub use marks::{MACROS, MarkPosition, TextMarkOptions};
 pub use markup_tools::{MeasureKind, MeasureScale};
+pub use ocr::{OcrEngine, OcrLine, OcrModels, OcrOptions, OcrWord, PageOcr};
 pub use outline::{BookmarkTarget, DestView, OutlineItem};
 pub use pagetools::{Sides, TRANSITIONS};
 pub use render::{RenderOpts, RenderService, RenderedPage, Renderer};

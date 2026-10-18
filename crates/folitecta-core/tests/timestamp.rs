@@ -1,12 +1,24 @@
 //! Time stamps (RFC 3161): requests and tokens, document time stamps,
 //! signatures with time stamps and the separate checks of a signature.
 
+use std::sync::LazyLock;
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use folitecta_core::Document;
 use folitecta_core::digsig::timestamp::{self, TimeStampRequest};
 use folitecta_core::digsig::{Check, DigitalId, IdentityInfo, KeyKind, SignOptions, SignPlacement};
 
-/// 18 October 2026, 12:00:00 UTC.
-const NOON: u64 = 1_792_324_800;
+/// The time the local authority writes in its tokens: one hour after the
+/// tests start. The certificates made by the tests are valid from the moment
+/// they are created, so a fixed date would leave them not yet valid at the
+/// stamped time whenever the tests run after that date.
+static STAMP_TIME: LazyLock<u64> = LazyLock::new(|| {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock after 1970")
+        .as_secs()
+        + 3600
+});
 
 fn identity(name: &str) -> IdentityInfo {
     IdentityInfo {
@@ -24,7 +36,7 @@ fn authority() -> DigitalId {
 fn local(tsa: &DigitalId, count: &mut u32) -> impl FnMut(&[u8]) -> folitecta_core::Result<Vec<u8>> {
     move |req| {
         *count += 1;
-        timestamp::respond(tsa, req, NOON, u64::from(*count))
+        timestamp::respond(tsa, req, *STAMP_TIME, u64::from(*count))
     }
 }
 
@@ -44,24 +56,30 @@ fn tokens_answer_their_request() {
     let tsa = authority();
     assert!(timestamp::allows_time_stamping(&tsa.certificate));
     let request = TimeStampRequest::new(&[b"some ", b"data"]).unwrap();
-    let response = timestamp::respond(&tsa, &request.der, NOON, 7).unwrap();
+    let response = timestamp::respond(&tsa, &request.der, *STAMP_TIME, 7).unwrap();
     let token = request.token(&response).unwrap();
     let check = timestamp::check_token(&token, &[b"some data"]).unwrap();
     assert!(check.valid(), "{:?}", check.problems);
     assert!(check.usage_ok);
-    assert_eq!(check.time, NOON as i64);
+    assert_eq!(check.time, *STAMP_TIME as i64);
     assert_eq!(check.serial, "07");
     assert_eq!(check.authority.as_ref(), Some(&tsa.certificate));
     // The token is not one of other data.
     let other = timestamp::check_token(&token, &[b"other data"]).unwrap();
     assert!(!other.imprint_ok && !other.valid());
     // A changed token no longer verifies.
+    // The stamped time is in the token as a GeneralizedTime with four digits
+    // of the year (the certificates use two).
+    let year = time::OffsetDateTime::from_unix_timestamp(*STAMP_TIME as i64)
+        .unwrap()
+        .year()
+        .to_string();
     let mut changed = token.clone();
     let at = changed
         .windows(4)
-        .position(|w| w == b"2026")
+        .position(|w| w == year.as_bytes())
         .expect("time in the token");
-    changed[at + 3] = b'5';
+    changed[at + 3] = if changed[at + 3] == b'5' { b'4' } else { b'5' };
     let bad = timestamp::check_token(&changed, &[b"some data"]).unwrap();
     assert!(
         !bad.signature_ok,
@@ -69,11 +87,11 @@ fn tokens_answer_their_request() {
     );
     // An answer to another request (other nonce) is refused.
     let second = TimeStampRequest::new(&[b"some data"]).unwrap();
-    let answer = timestamp::respond(&tsa, &second.der, NOON, 8).unwrap();
+    let answer = timestamp::respond(&tsa, &second.der, *STAMP_TIME, 8).unwrap();
     let err = request.token(&answer).unwrap_err().to_string();
     assert!(err.contains("does not belong"), "{err}");
     // A refusal of the authority becomes an error with its text.
-    let refused = timestamp::respond(&tsa, b"not a request", NOON, 9).unwrap();
+    let refused = timestamp::respond(&tsa, b"not a request", *STAMP_TIME, 9).unwrap();
     let err = request.token(&refused).unwrap_err().to_string();
     assert!(err.contains("refused"), "{err}");
 }
@@ -84,7 +102,7 @@ fn authorities_need_the_time_stamping_usage() {
     assert!(!timestamp::allows_time_stamping(&plain.certificate));
     let request = TimeStampRequest::new(&[b"x"]).unwrap();
     let token = request
-        .token(&timestamp::respond(&plain, &request.der, NOON, 1).unwrap())
+        .token(&timestamp::respond(&plain, &request.der, *STAMP_TIME, 1).unwrap())
         .unwrap();
     let check = timestamp::check_token(&token, &[b"x"]).unwrap();
     assert!(check.valid());
@@ -116,7 +134,7 @@ fn document_time_stamps() {
     assert_eq!(s.signer, "Example Time Authority");
     let ts = s.time_stamp.as_ref().expect("time stamp");
     assert!(ts.valid && !ts.trusted);
-    assert_eq!(ts.time_unix, NOON as i64);
+    assert_eq!(ts.time_unix, *STAMP_TIME as i64);
     assert_eq!(s.checks.integrity, Check::Passed);
     assert_eq!(s.checks.time, Check::Warning, "the authority is not trusted yet");
     assert_eq!(s.checks.revocation, Check::NotChecked);
@@ -133,7 +151,7 @@ fn signatures_with_time_stamps() {
     let signer = DigitalId::create_self_signed(&identity("Signer With Time"), KeyKind::Rsa2048, 2).unwrap();
     let opts = SignOptions {
         placement: SignPlacement::Invisible,
-        time: NOON - 60,
+        time: *STAMP_TIME - 60,
         ..SignOptions::default()
     };
     let mut count = 0;

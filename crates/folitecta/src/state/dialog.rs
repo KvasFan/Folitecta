@@ -352,6 +352,8 @@ pub enum Dialog {
     CalcOrder,
     /// The icon of a note (page and index), or of the new notes.
     NoteIcon(Option<(usize, usize)>),
+    /// Spell Check and Replace: the words the dictionaries do not know, one by one.
+    SpellCheck,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

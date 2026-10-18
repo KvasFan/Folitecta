@@ -39,6 +39,10 @@ pub fn Frame(
     #[props(default = false)] wide: bool,
     #[props(default = None)] ok_label: Option<String>,
     #[props(default = false)] danger: bool,
+    /// At the side of the window over a lighter backdrop, so the page under
+    /// it stays in view (the dialog works on what the page shows).
+    #[props(default = false)]
+    side: bool,
 ) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
@@ -53,8 +57,14 @@ pub fn Frame(
     // over the backdrop) does not close the dialog.
     let mut pressed_inside = use_signal(|| false);
     let mut pressed_outside = use_signal(|| false);
+    let dialog_class = match (wide, side) {
+        (true, true) => "dialog wide side",
+        (true, false) => "dialog wide",
+        (false, true) => "dialog side",
+        (false, false) => "dialog",
+    };
     rsx! {
-        div { class: "backdrop",
+        div { class: if side { "backdrop side" } else { "backdrop" },
             onmousedown: move |_| {
                 pressed_outside.set(!*pressed_inside.peek());
                 pressed_inside.set(false);
@@ -64,7 +74,7 @@ pub fn Frame(
                     st.set_dialog(Dialog::None);
                 }
             },
-            div { class: if wide { "dialog wide" } else { "dialog" }, onclick: move |e| e.stop_propagation(),
+            div { class: "{dialog_class}", onclick: move |e| e.stop_propagation(),
                 onmousedown: move |_| pressed_inside.set(true),
                 onkeydown: move |e| {
                     e.stop_propagation();
@@ -399,6 +409,7 @@ pub fn Dialogs() -> Element {
         Dialog::Barcodes(found) => rsx! { crate::ui::features::barcodes::BarcodesDialog { found } },
         Dialog::CalcOrder => rsx! { crate::ui::features::form_calc::CalcOrderDialog {} },
         Dialog::NoteIcon(target) => rsx! { NoteIconDialog { target } },
+        Dialog::SpellCheck => rsx! { crate::ui::features::spelling::SpellCheckDialog {} },
     }
 }
 

@@ -40,7 +40,7 @@ pub use organize::{
     attachments, combine, compare, doctools, export, marks, metadata, pages, pagetools, portfolio, textdoc,
 };
 pub(crate) use page_text::{content_edit, content_lex};
-pub use page_text::{search, text, textedit, textlayer, textops};
+pub use page_text::{search, spelling, text, textedit, textlayer, textops};
 pub use protection::{digsig, redaction, security};
 pub use tags::{accessibility, structure};
 
@@ -71,6 +71,7 @@ pub use render::{RenderOpts, RenderService, RenderedPage, Renderer};
 pub use scripts::ScriptInfo;
 pub use security::SecurityPermissions;
 pub use signmarks::SignatureMark;
+pub use spelling::{DictionaryFile, Misspelling, SpellOptions, SpellPlace, SpellScope, Speller};
 pub use stamps::STAMP_PRESETS;
 pub use text::{SearchHit, SearchOptions};
 pub use textdoc::TextLayout;

@@ -203,6 +203,17 @@ pub(super) fn PageView(
         images: Vec<(usize, [f32; 4])>,
         /// The picture selected on this page.
         image_sel: Option<usize>,
+        /// Words the dictionaries do not know, and the one Spell Check and
+        /// Replace shows (rectangles, display space).
+        spell_words: Vec<[f32; 4]>,
+        spell_shown: Vec<[f32; 4]>,
+    }
+    // The spell check marks words while its dialog is open, and while the
+    // page text is edited with Spell Check on.
+    let spell_checking = matches!(*st.dialog.read(), Dialog::SpellCheck);
+    let spell_editing = tool == Tool::EditText && option_on(st, "view.spellCheck");
+    if spell_editing {
+        crate::commands::spelling::ensure_loaded(st);
     }
     let order_mode = {
         let ui = st.ui.read();
@@ -388,12 +399,16 @@ pub(super) fn PageView(
             } else {
                 Vec::new()
             };
+            let (spell_words, spell_shown) =
+                crate::commands::spelling::page_marks(t, page, spell_checking, spell_editing);
             Some(View {
                 size,
                 annots,
                 links,
                 fields,
                 hits,
+                spell_words,
+                spell_shown,
                 sel,
                 caret,
                 guides,
@@ -1102,6 +1117,12 @@ pub(super) fn PageView(
                 }
                 for (i, (cur, r, word)) in view.hits.iter().enumerate() {
                     div { key: "h{i}", class: "{hit_class(*cur, *word, colored)}", style: "{css(*r)}" }
+                }
+                for (i, r) in view.spell_words.iter().enumerate() {
+                    div { key: "sp{i}", class: "spell-word", style: "{css(*r)}" }
+                }
+                for (i, r) in view.spell_shown.iter().enumerate() {
+                    div { key: "spc{i}", class: "spell-current", style: "{css(*r)}" }
                 }
                 for (i, (class, r)) in cmp_marks.iter().enumerate() {
                     div { key: "c{i}", class: "{class}", style: "{css(*r)}" }

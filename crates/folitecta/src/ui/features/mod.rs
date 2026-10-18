@@ -21,6 +21,7 @@ pub mod redaction;
 pub mod signatures;
 pub mod signs;
 pub mod sources;
+pub mod spelling;
 pub mod split;
 pub mod stamps;
 pub mod style_editor;

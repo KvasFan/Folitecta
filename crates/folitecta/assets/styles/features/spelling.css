@@ -1,0 +1,25 @@
+/* Spell Check and Replace */
+.spell-head { display: flex; align-items: baseline; gap: 8px; }
+.spell-head .grow { flex: 1; }
+.spell-context { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); padding: 8px 10px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; }
+.spell-context mark { background: none; color: var(--danger); font-weight: 600; text-decoration: underline wavy var(--danger); text-underline-offset: 3px; }
+.spell-place { font-size: 12px; margin-top: -6px; }
+.spell-suggestions { display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow: auto; min-height: 26px; align-items: center; }
+.spell-sugg { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 999px; padding: 2px 10px; font-size: 12px; }
+.spell-sugg:hover { background: var(--surface-3); }
+.spell-sugg.on { background: var(--active-bg); color: var(--active-fg); border-color: var(--active-border); }
+.spell-actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.spell-actions .tbtn, .spell-nav .tbtn { justify-content: center; }
+.spell-nav { display: flex; gap: 6px; justify-content: space-between; }
+.spell-status { margin: 0; color: var(--muted); }
+.spell-status.ok { color: var(--ok-fg); }
+.spell-options-btn { align-self: flex-start; }
+.spell-options { border-top: 1px solid var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.spell-words { display: flex; flex-wrap: wrap; gap: 4px; }
+.spell-word-chip { color: var(--text); padding-right: 2px; }
+.spell-word-chip .ibtn { width: 18px; height: 18px; font-size: 13px; line-height: 1; }
+.hint .mono { font-family: var(--mono); overflow-wrap: anywhere; }
+
+/* The words marked on the pages */
+.spell-word { position: absolute; pointer-events: none; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='3'%3E%3Cpath d='M0 2.5 1.5 .5 3 2.5 4.5 .5 6 2.5' fill='none' stroke='%23e11d48' stroke-width='.9'/%3E%3C/svg%3E") repeat-x left bottom / 6px 3px; }
+.spell-current { position: absolute; pointer-events: none; outline: 2px solid #e11d48; outline-offset: 1px; background: rgba(225, 29, 72, .14); border-radius: 2px; }

@@ -116,7 +116,7 @@ const AREAS: &[(&str, &[&str])] = &[
     ),
     ("protect", &["sig", "signs"]),
     ("accessibility", &["acc", "tags", "alt", "order", "content"]),
-    ("search", &["search", "findrepl"]),
+    ("search", &["search", "findrepl", "spell"]),
 ];
 
 /// The area of a key: the file it belongs in.

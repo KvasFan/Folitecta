@@ -389,6 +389,7 @@ mod steps_panes;
 mod steps_pictures;
 mod steps_recovery;
 mod steps_review;
+mod steps_spelling;
 mod steps_split;
 mod steps_split_view;
 mod steps_text;
@@ -449,9 +450,10 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     steps_links::run(&mut cx).await;
     steps_note_icon::run(&mut cx).await;
     steps_arrange::run(&mut cx).await;
+    steps_spelling::run(&mut cx).await;
     let failures = cx.failures;
 
-    // 53. Undo everything added above.
+    // 54. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..90 {
         crate::commands::dispatch(st, "undo");
@@ -497,6 +499,17 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
         total += full_suite(st, &dir, &mut log).await;
     } else if only.as_deref() == Some("interactions") {
         total += interactions(st, &dir, &mut log).await;
+    } else if only.as_deref() == Some("spelling") {
+        set_size(1280.0, 800.0);
+        let mut cx = Ctx {
+            st,
+            dir: &dir,
+            log: &mut log,
+            failures: 0,
+            z: 1.0,
+        };
+        steps_spelling::run(&mut cx).await;
+        total += cx.failures;
     }
     // Printed layout of the first pages (emulated on screen; the system dialog is modal).
     set_size(1280.0, 800.0);
@@ -744,6 +757,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("recovery", Dialog::Recovery),
         ("calc-order", Dialog::CalcOrder),
         ("note-icon", Dialog::NoteIcon(None)),
+        ("spell-check", Dialog::SpellCheck),
         (
             "barcode",
             Dialog::Barcode {

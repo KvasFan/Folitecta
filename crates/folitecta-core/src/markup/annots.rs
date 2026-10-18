@@ -44,7 +44,7 @@ pub enum Markup {
     Squiggly,
 }
 
-const NON_COMMENT_SUBTYPES: &[&str] = &[
+pub(crate) const NON_COMMENT_SUBTYPES: &[&str] = &[
     "Link",
     "Widget",
     "Popup",

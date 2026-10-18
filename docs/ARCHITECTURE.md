@@ -33,7 +33,12 @@ Operations are grouped by module, for example `pages` and `pagetools` (page tree
 resize, split), `annots` and `appearance` (comments with generated appearance streams), `outline`
 (bookmarks), `forms`, `form_design` and `form_calc` (simple field calculations, written as
 `AFSimple_Calculate` actions and computed in Rust in the `/CO` order), `attachments`, `layers`, `links`, `text` and `textlayer`
-(extraction, selection and search), `marks` (watermarks, headers and footers, page numbering),
+(extraction, selection and search), `spelling` (the words of the page text, comments and text
+fields that Hunspell dictionaries do not know, checked with spellbook against every dictionary
+loaded; suggestions ranked by typing distance and by the language of the text around the word;
+corrections through the page text editor, the comment text or the field value, several in one
+undo step; the dictionaries are files read at run time, not built in), `marks` (watermarks,
+headers and footers, page numbering),
 `structure` and `accessibility` (tags, reading order, the accessibility check), `digsig`
 (signatures), `compare`, `combine` (documents made from several files), `pictures` (the pictures
 a page draws: where they are, their pixels, an edited picture put back), `imaging` (turning,
@@ -84,7 +89,7 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
 - `commands/` — one module per area, each with a `HANDLERS` table that maps registry ids to
   functions, grouped by what they work on: `document` (files, pages, pictures, barcodes,
   combining, comparing), `markup` (comments, review, stamps, tables, calculator, media), `text`
-  (search, Find and Replace, page text), `fields` (forms and scripts), `navigation` (bookmarks,
+  (search, Find and Replace, spell checking, page text), `fields` (forms and scripts), `navigation` (bookmarks,
   layers, attachments, panes, portfolios, explorer, history, sessions), `protection`
   (redaction, passwords, signatures), `window` (Edit, View and Help menus, split window,
   interface) and `accessibility`. Together they are the **single source of truth** for what is implemented: the
@@ -124,6 +129,10 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
   offered. Copies are written through a temporary file, one checkpoint at a time, off the
   interface thread; documents opened from encrypted files are not copied, signed ones are copied
   as an incremental update.
+- `dictionaries/` (at the root of the repository) — the Hunspell dictionaries shipped with the
+  program, as data files next to it in the release packages (the `Resources` of the macOS
+  bundle). The checker looks in the user's `Folitecta/dictionaries` folder first, then next to
+  the program, then in the source tree, and on Linux in `/usr/share/hunspell`.
 - `features.rs` — generates `docs/FEATURES.md` (`folitecta --features-md <path>`).
 - `selftest/` — the interface self-test (`folitecta --ui-selftest <dir>`): layout audits at
   several window sizes and simulated input on the canvas, with a report and screenshots.
@@ -142,6 +151,9 @@ Mouse coordinates on a page image are converted to PDF user space with
   Find and Replace uses the same edits, so the same occurrences are left (and counted).
 - Populate Forms reads one table row per line: values with line breaks inside quotes are not
   supported.
+- Spell checking reads UTF-8 and Latin-1 (ISO8859-1, ISO8859-15, Windows-1252) dictionaries;
+  dictionaries in other legacy encodings must be converted to UTF-8 first. A misspelled word in
+  the page text is corrected with the page text editor, so the same limits apply.
 - The shapes of the page content cannot be edited. Pictures can, when the page content
   draws them itself (pictures inside forms and inline pictures are not found); edited pictures are
   written as 8-bit RGB, gray, palette or black and white pictures (CMYK, ICC profiles and 16-bit

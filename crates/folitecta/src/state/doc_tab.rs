@@ -66,6 +66,24 @@ pub struct FolderHit {
     pub snippet: String,
 }
 
+/// A spell check under way (Spell Check and Replace): the words found and
+/// the one shown.
+#[derive(Debug, Clone, Default)]
+pub struct SpellRun {
+    /// The words the dictionaries do not know, in reading order.
+    pub list: Vec<folitecta_core::Misspelling>,
+    /// The word shown (index in `list`).
+    pub current: Option<usize>,
+    /// Where the check is (`Misspelling::key`), to find the word shown again
+    /// when the list is made again.
+    pub anchor: Option<(usize, usize)>,
+    /// What the list was made for: the revision of the document, the
+    /// checker (its address and changes) and what is checked.
+    pub made_for: Option<(u64, usize, u64, folitecta_core::SpellScope)>,
+    /// Words passed over with Ignore: place, position and spelling.
+    pub passed: Vec<(folitecta_core::SpellPlace, usize, String)>,
+}
+
 /// What a view of a document shows: its page, zoom, layout and turn.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ViewState {
@@ -156,6 +174,8 @@ pub struct DocTab {
     /// Picture selected with the pictures tool: page and index among the
     /// pictures of the page.
     pub image_sel: Option<(usize, usize)>,
+    /// The spell check under way.
+    pub spell: Option<SpellRun>,
 }
 
 /// What the accessibility panes show and select.
@@ -291,6 +311,7 @@ impl DocTab {
             portfolio: PortfolioState::default(),
             acc: AccState::default(),
             image_sel: None,
+            spell: None,
         };
         // A portfolio opens on its initial file, when it names one.
         if let Some(key) = tab.doc.portfolio().and_then(|p| p.initial) {

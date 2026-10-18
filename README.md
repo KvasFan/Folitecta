@@ -37,6 +37,11 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
 - **Page text**: the Edit Text tool and the Insert, Replace and Delete Text commands of
   Edit › Text change the text drawn on the page (the rest of the line moves to make room);
   Find and Replace changes one occurrence or all of them in one undo step.
+- **Spelling**: Spell Check and Replace goes through the words of the page text, comments and
+  form fields that the dictionaries do not know (English and Italian included, more Hunspell
+  dictionaries can be added, several languages at once), with suggestions, change once or
+  everywhere, ignore once or everywhere, and the user's own words; misspelled words are marked
+  on the page while its text is edited.
 - **Comments**: sticky notes (eleven icons), text boxes, callouts, typewriter text, rectangles, ellipses,
   polygons, polylines, clouds, lines, arrows (shown as they will look while drawn), smooth pencil
   strokes with eraser, area and free highlights, text highlight / underline / strikeout,
@@ -151,6 +156,7 @@ writes a report with a screenshot of every state (screenshots on Windows).
 |---|---|
 | `crates/folitecta-core` | Document model (lopdf), page operations, comments and review, bookmarks, forms, attachments, layers, portfolios, links, text and search, page marks, stamps, tables, barcodes, comparison, tags and accessibility check, digital signatures, hayro render service, command registry |
 | `crates/folitecta` | Dioxus desktop application: ribbon, menus, panes, canvas with drawing tools, dialogs, palette, localization; `assets/styles` holds the theme tokens and one style sheet per part, `assets/i18n` the translations |
+| `dictionaries` | Hunspell spelling dictionaries (English, Italian), data files read at run time, each with its licence |
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and
 [docs/FEATURES.md](docs/FEATURES.md) for the command-by-command status.
@@ -166,4 +172,8 @@ Unicode) or the MPL-2.0. The allowed set is enforced by `deny.toml` (`cargo deny
 The icons of the interface are [Tabler Icons](https://tabler.io/icons) (MIT License,
 Copyright (c) 2020-2026 Paweł Kuna), used through the `icondata_tb` crate (MIT). Barcodes are
 written and read with [rxing](https://github.com/rxing-core/rxing), the Rust port of ZXing
-(Apache-2.0).
+(Apache-2.0). Spelling is checked with [spellbook](https://github.com/helix-editor/spellbook)
+(MPL-2.0). The spelling dictionaries in [`dictionaries/`](dictionaries/README.md) are separate
+data files with their own licences: the English one from SCOWL (MIT-like and BSD licences), the
+Italian one from the Italian Writing Aids extension by Andrea Pescetti and others (GNU GPL 3);
+the release packages carry them in a `dictionaries` folder next to the program.

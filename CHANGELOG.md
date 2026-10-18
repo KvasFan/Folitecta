@@ -6,6 +6,18 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Spell checking with Hunspell dictionaries (English and Italian included as separate files in
+  `dictionaries/`, each with its licence; any other Hunspell dictionary can be added). Spell
+  Check and Replace (Review › Proofing) goes through the words of the page text, the comments
+  and the text fields that the dictionaries of the languages chosen do not know, shows each one
+  with the text around it and suggestions (the closest typing mistakes and the language of the
+  text first), and changes it once or everywhere (one undo step), passes over it once or
+  everywhere, or adds it to the user's own words. The words are marked on the page, as they are
+  while the page text is edited with View › Spell Check on. Words in capitals, words with digits,
+  addresses and file names are passed over; a word divided at the end of a line is checked whole.
+
 ### Changed
 
 - Libraries under the Mozilla Public License 2.0 are accepted next to the MIT, Apache-2.0 and

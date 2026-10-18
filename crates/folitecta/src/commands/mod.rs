@@ -28,7 +28,7 @@ pub(crate) use markup::{
 };
 pub(crate) use navigation::{attachments, bookmarks, explorer, history, layers, panes, portfolio, sessions};
 pub(crate) use protection::{protect, redaction, signatures, signs};
-pub(crate) use text::{find_replace, search, textedit};
+pub(crate) use text::{find_replace, search, spelling, textedit};
 pub(crate) use window::{edit, help, interface, split_view, view};
 
 use std::collections::{HashMap, HashSet};
@@ -91,6 +91,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     pictures::HANDLERS,
     textedit::HANDLERS,
     find_replace::HANDLERS,
+    spelling::HANDLERS,
     comment_styles::HANDLERS,
     redaction::HANDLERS,
     split::HANDLERS,

@@ -50,10 +50,16 @@ button.qat-entry:hover { background: var(--surface-3); }
 .rbtn.planned { color: var(--muted); }
 .rb-col { display: flex; flex-direction: column; gap: 1px; align-items: stretch; flex: none; }
 .rb-col .rbtn-wrap { display: flex; }
-.rbtn.compact { flex-direction: row; width: 100%; height: 20px; padding: 0 6px 0 4px; gap: 6px; justify-content: flex-start; font-size: 12px; line-height: 1; border-radius: 4px; }
-.rbtn.compact .ic { width: 16px; height: 16px; }
-.rbtn.compact .lbl { display: block; max-width: 132px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-line-clamp: unset; text-align: left; }
-.rbtn.compact .dot { top: 7px; right: 2px; width: 4px; height: 4px; }
+.ribbon-group.tiles .rb-col { gap: 2px; }
+/* A tool with its short name under the icon (View › Tool Names, the default);
+   the whole name is in the tooltip. */
+.rbtn.tile { width: 100%; min-width: 36px; max-width: 78px; height: 34px; padding: 1px 3px 0; gap: 0; justify-content: center; font-size: 10.5px; line-height: 14px; border-radius: 4px; }
+.rbtn.tile .ic { width: 18px; height: 18px; }
+/* One line, tall enough for the descenders (g, p, y). */
+.rbtn.tile .lbl { display: block; max-width: 100%; height: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-line-clamp: unset; }
+.rbtn.tile .dot { top: 2px; right: 2px; width: 4px; height: 4px; }
+.rbtn.tile.has-menu .lbl::after { content: none; }
+.rbtn.tile.has-menu::after { content: "\25BE"; position: absolute; right: 2px; top: 1px; font-size: 8px; line-height: 1; color: var(--muted); }
 .rbtn.small { flex-direction: row; width: 30px; height: 28px; padding: 0; gap: 0; justify-content: center; }
 /* A tool without its name (View › Tool Names off): an icon in a grid, the name in the tooltip. */
 .rbtn.cell { flex-direction: row; width: 26px; height: 20px; padding: 0; gap: 0; justify-content: center; border-radius: 4px; }

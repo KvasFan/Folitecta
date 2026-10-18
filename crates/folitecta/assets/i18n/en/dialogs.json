@@ -145,7 +145,7 @@
   "dialog.populate.folder": "Folder for the filled copies",
   "dialog.populate.table": "Table of field values (the first row names the fields)",
   "dialog.prefs.author": "Default comment author",
-  "dialog.prefs.labels": "Names of the tools next to their icons (otherwise in the tooltip)",
+  "dialog.prefs.labels": "Short names under the tool icons (the whole name is in the tooltip)",
   "dialog.prefs.language": "Language",
   "dialog.prefs.theme": "Theme",
   "dialog.prefs.theme.black": "Black",

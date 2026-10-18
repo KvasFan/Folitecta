@@ -119,6 +119,7 @@ const AREAS: &[(&str, &[&str])] = &[
     ("protect", &["sig", "signs", "policy"]),
     ("accessibility", &["acc", "tags", "alt", "order", "content"]),
     ("search", &["search", "findrepl", "spell"]),
+    ("short", &["short"]),
 ];
 
 /// The area of a key: the file it belongs in.
@@ -174,12 +175,16 @@ macro_rules! tables {
                 "search",
                 include_str!(concat!("../assets/i18n/", $lang, "/search.json")),
             ),
+            (
+                "short",
+                include_str!(concat!("../assets/i18n/", $lang, "/short.json")),
+            ),
         ]
     };
 }
 
-const EN_FILES: [(&str, &str); 10] = tables!("en");
-const IT_FILES: [(&str, &str); 10] = tables!("it");
+const EN_FILES: [(&str, &str); 11] = tables!("en");
+const IT_FILES: [(&str, &str); 11] = tables!("it");
 
 static EN: LazyLock<HashMap<String, String>> = LazyLock::new(|| load(&EN_FILES));
 static IT: LazyLock<HashMap<String, String>> = LazyLock::new(|| load(&IT_FILES));
@@ -243,6 +248,84 @@ pub fn cmd_label(lang: Lang, cmd: &Command) -> String {
     cmd.label.clone()
 }
 
+/// The short name shown under the icon of a ribbon tool (`Zoom +`, `Pencil`);
+/// made from the label when the tool has none of its own (see [`shorten`]).
+pub fn short_label(lang: Lang, cmd: &Command) -> String {
+    let key = format!("short.{}", cmd.id);
+    match table(lang).get(&key).or_else(|| EN.get(&key)) {
+        Some(s) => s.clone(),
+        None => shorten(lang, &cmd_label(lang, cmd)),
+    }
+}
+
+/// A label of at most about a dozen letters: without its ellipsis, a leading
+/// verb such as "Add" and the small words; at most its first two words.
+fn shorten(lang: Lang, label: &str) -> String {
+    const LIMIT: usize = 12;
+    let label = label.trim().trim_end_matches(['…', '.']).trim();
+    if label.chars().count() <= LIMIT {
+        return label.to_string();
+    }
+    let (verbs, small): (&[&str], &[&str]) = match lang {
+        Lang::En => (
+            &["Add", "Insert", "Show", "Create", "Set", "Make", "Open"],
+            &[
+                "Tool", "the", "a", "an", "to", "from", "of", "for", "in", "on", "with", "as", "and",
+            ],
+        ),
+        Lang::It => (
+            &["Aggiungi", "Inserisci", "Mostra", "Crea", "Imposta", "Apri"],
+            &[
+                "Strumento",
+                "il",
+                "lo",
+                "la",
+                "i",
+                "gli",
+                "le",
+                "un",
+                "una",
+                "di",
+                "da",
+                "a",
+                "in",
+                "su",
+                "per",
+                "con",
+                "del",
+                "della",
+                "dei",
+                "delle",
+                "al",
+                "alla",
+                "nel",
+                "nella",
+                "e",
+            ],
+        ),
+    };
+    let mut words: Vec<&str> = label.split_whitespace().collect();
+    if words.len() > 1 && verbs.contains(&words[0]) {
+        words.remove(0);
+    }
+    let kept: Vec<&str> = words.iter().copied().filter(|w| !small.contains(w)).collect();
+    if !kept.is_empty() {
+        words = kept;
+    }
+    let two = words.iter().take(2).copied().collect::<Vec<_>>().join(" ");
+    let short = if two.chars().count() <= LIMIT + 2 || words.len() < 2 {
+        two
+    } else {
+        words[0].to_string()
+    };
+    // A capital letter first, as the name it comes from.
+    let mut chars = short.chars();
+    match chars.next() {
+        Some(c) => c.to_uppercase().chain(chars).collect(),
+        None => short,
+    }
+}
+
 /// Localized label of a classic menu, ribbon tab or pane by id.
 pub fn ui_label(lang: Lang, prefix: &str, id: &str, fallback: &str) -> String {
     let key = format!("{prefix}.{id}");
@@ -296,5 +379,34 @@ mod tests {
                 "it.json labels unknown command {key}"
             );
         }
+    }
+
+    #[test]
+    fn short_labels_are_short_and_name_known_commands() {
+        let registry = folitecta_core::registry();
+        for table in [&*EN, &*IT] {
+            for (key, v) in table.iter().filter(|(k, _)| k.starts_with("short.")) {
+                let id = &key["short.".len()..];
+                assert!(
+                    id == "more" || registry.get(id).is_some(),
+                    "{key} names no command"
+                );
+                assert!(v.chars().count() <= 13, "{key} = {v:?} is too long");
+            }
+        }
+        let zoom_in = registry.get("zoomIn").unwrap();
+        assert_eq!(short_label(Lang::En, zoom_in), "Zoom +");
+        assert_eq!(
+            short_label(Lang::It, registry.get("tool.loupe").unwrap()),
+            "Lente"
+        );
+        // Without a short name: the label without its ellipsis, made shorter.
+        assert_eq!(short_label(Lang::En, registry.get("open").unwrap()), "Open");
+        assert_eq!(shorten(Lang::En, "Add Sticky Note"), "Sticky Note");
+        assert_eq!(shorten(Lang::En, "Create Web Links from URLs…"), "Web Links");
+        assert_eq!(shorten(Lang::En, "Export Measures to CSV"), "Export");
+        assert_eq!(shorten(Lang::En, "Rotate Counterclockwise"), "Rotate");
+        assert_eq!(shorten(Lang::It, "Aggiungi collegamento"), "Collegamento");
+        assert_eq!(shorten(Lang::It, "Ruota in senso antiorario"), "Ruota senso");
     }
 }

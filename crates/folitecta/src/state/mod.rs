@@ -213,10 +213,20 @@ impl AppState {
     pub fn set_fullscreen(&self, v: bool) {
         *self.fullscreen.write_unchecked() = v;
     }
+    /// Open a menu of the menu bar (or none); the submenus of another menu close.
     pub fn set_open_menu(&self, v: Option<String>) {
+        if *self.open_menu.peek() != v {
+            crate::ui::keep_submenus();
+            if !self.submenus.peek().is_empty() {
+                self.submenus_mut().clear();
+            }
+        }
         *self.open_menu.write_unchecked() = v;
     }
     pub fn set_open_dropdown(&self, v: Option<String>) {
+        if *self.open_dropdown.peek() != v {
+            crate::ui::keep_submenus();
+        }
         *self.open_dropdown.write_unchecked() = v;
     }
     pub fn set_ribbon_tab(&self, v: String) {
@@ -340,6 +350,8 @@ impl AppState {
     }
 
     pub fn close_menus(&self) {
+        // A submenu waiting to open must not open in a closed menu.
+        crate::ui::keep_submenus();
         if self.open_menu.peek().is_some() {
             self.set_open_menu(None);
         }

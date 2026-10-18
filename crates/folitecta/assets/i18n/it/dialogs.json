@@ -145,7 +145,7 @@
   "dialog.populate.folder": "Cartella per le copie compilate",
   "dialog.populate.table": "Tabella dei valori dei campi (la prima riga dà i nomi dei campi)",
   "dialog.prefs.author": "Autore predefinito dei commenti",
-  "dialog.prefs.labels": "Nomi degli strumenti accanto alle icone (altrimenti nel suggerimento)",
+  "dialog.prefs.labels": "Nomi brevi sotto le icone degli strumenti (il nome completo è nel suggerimento)",
   "dialog.prefs.language": "Lingua",
   "dialog.prefs.theme": "Tema",
   "dialog.prefs.theme.black": "Nero",

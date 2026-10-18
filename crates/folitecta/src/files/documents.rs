@@ -4,6 +4,11 @@ use super::*;
 
 /// Open a document from disk and show it in a new tab.
 pub fn open_path(st: AppState, path: PathBuf, password: Option<&str>) {
+    // An e-mail message opens as a new document made from it.
+    if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("eml")) {
+        open_email(st, &path);
+        return;
+    }
     // Already open? Just activate it.
     let existing = st
         .docs
@@ -45,7 +50,7 @@ pub fn open_path(st: AppState, path: PathBuf, password: Option<&str>) {
 /// Show the open dialog and open every selected file.
 pub fn open_dialog(st: AppState) {
     spawn(async move {
-        if let Some(files) = pdf_dialog().set_title("Open PDF").pick_files().await {
+        if let Some(files) = open_file_dialog().set_title("Open PDF").pick_files().await {
             for f in files {
                 open_path(st, f.path().to_path_buf(), None);
             }

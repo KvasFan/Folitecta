@@ -1,4 +1,4 @@
-//! The document and its pages: files, page organisation, pictures, barcodes, text recognition, sources of combined documents, comparison and page-mark macros.
+//! The document and its pages: files, e-mail, page organisation, pictures, barcodes, text recognition, sources of combined documents, comparison and page-mark macros.
 
 pub(crate) mod barcodes;
 pub(crate) mod compare;
@@ -7,6 +7,7 @@ pub(crate) mod doctools;
 pub(crate) mod file;
 pub(crate) mod fileops;
 pub(crate) mod macros;
+pub(crate) mod mail;
 pub(crate) mod ocr;
 pub(crate) mod pages;
 pub(crate) mod pictures;

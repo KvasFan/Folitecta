@@ -9,8 +9,8 @@
 //! [`markup`] (comments), [`graphics`] (pictures and barcodes), [`page_text`],
 //! [`interactive`] (forms and scripts), [`navigation`], [`protection`] and
 //! [`tags`]; the document model, rendering, the registry and the shared
-//! helpers stay at the root. Every module is also reachable from the root
-//! (`folitecta_core::pages`, ...).
+//! helpers ([`util`], [`geom`], [`xml`], [`zip`]) stay at the root. Every
+//! module is also reachable from the root (`folitecta_core::pages`, ...).
 
 pub mod commands;
 pub mod document;
@@ -19,6 +19,7 @@ pub mod geom;
 pub mod render;
 pub mod util;
 pub mod xml;
+pub mod zip;
 
 pub mod graphics;
 pub mod interactive;
@@ -37,7 +38,8 @@ pub use markup::{
 };
 pub use navigation::{layers, links, outline};
 pub use organize::{
-    attachments, combine, compare, doctools, export, marks, metadata, pages, pagetools, portfolio, textdoc,
+    attachments, combine, compare, doctools, email, export, marks, metadata, pages, pagetools, portfolio,
+    textdoc,
 };
 pub(crate) use page_text::{content_edit, content_lex};
 pub use page_text::{ocr, search, spelling, text, textedit, textlayer, textops};

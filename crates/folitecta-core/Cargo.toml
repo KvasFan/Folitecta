@@ -21,6 +21,13 @@ hayro.workspace = true
 image.workspace = true
 # Rendered pages encoded with the fast DEFLATE of fdeflate (MIT/Apache-2.0)
 png = "0.18"
+# ZIP archives: DEFLATE of flate2 and the checksums of crc32fast (MIT/Apache-2.0),
+# both already used by the PDF libraries
+flate2 = "1"
+crc32fast = "1"
+# E-mail messages (MIME) read into documents (MIT/Apache-2.0); every charset
+# through encoding_rs
+mail-parser = { version = "0.11", features = ["full_encoding"] }
 # Barcodes written and read: the Rust port of ZXing (Apache-2.0), without its
 # picture loading (pages are rendered here)
 rxing = { version = "0.9", default-features = false, features = ["encoders", "decoders", "full_barcode_format_support", "encoding_rs"] }

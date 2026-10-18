@@ -4,9 +4,9 @@ Generated from the command registry for version 0.1.0. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1430 |
-| 🟡 partial | 63 |
-| ⬜ planned | 488 |
+| ✅ available | 1436 |
+| 🟡 partial | 62 |
+| ⬜ planned | 483 |
 | total | 1981 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -690,7 +690,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Command | Id | Status |
 |---|---|---|
 | Forms | `forms` | 🟡 partial |
-| ↳ Email Form Data… | `forms.emailData` | ⬜ planned |
+| ↳ Email Form Data… | `forms.emailData` | ✅ available |
 | ↳ Export Data… | `forms.exportData` | ✅ available |
 | ↳ Highlight Form Fields | `forms.highlight` | ✅ available |
 | ↳ Import Data… | `forms.importData` | ✅ available |
@@ -893,7 +893,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Configure Scan Presets… | `configureScanPresets` | ⬜ planned |
 | Custom Scan… | `newDocCustomScan` | ⬜ planned |
 | From Clipboard… | `newDocClipboard` | ✅ available |
-| From Email… | `newDocEmail` | ⬜ planned |
+| From Email… | `newDocEmail` | ✅ available |
 | From Files… | `newDocFromFiles` | ✅ available |
 | From Images… | `newDocImage` | ✅ available |
 | From Rich Text… | `newDocRTF` | ⬜ planned |
@@ -1006,12 +1006,12 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Add Place | `addPlace` | ✅ available |
 | Browse Places… | `openFromPlaces` | ✅ available |
 | Browse Places… | `saveToPlaces` | ✅ available |
-| Email All Open Documents as ZIP… | `sendByEmailOpenAllZip` | ⬜ planned |
-| Email All Open Documents… | `sendByEmailOpenAll` | ⬜ planned |
-| Email Document… | `sendByEmail` | 🟡 partial |
+| Email All Open Documents as ZIP… | `sendByEmailOpenAllZip` | ✅ available |
+| Email All Open Documents… | `sendByEmailOpenAll` | ✅ available |
+| Email Document… | `sendByEmail` | ✅ available |
 | Email Methods | `emailMethods` | ⬜ planned |
 | ↳ Manage… | `emailMethods.manage` | ⬜ planned |
-| Email as ZIP… | `sendByEmailZip` | ⬜ planned |
+| Email as ZIP… | `sendByEmailZip` | ✅ available |
 | Explorer | `explorer` | ✅ available |
 | ↳ Delete | `explorer.delete` | ✅ available |
 | ↳ Folder | `explorer.folder` | ✅ available |
@@ -1217,7 +1217,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Close All | `closeAll` | ✅ available |
 | Export | `export` | ✅ available |
 | Export | `document.export` | ✅ available |
-| Email Document… | `sendByEmail` | 🟡 partial |
+| Email Document… | `sendByEmail` | ✅ available |
 | Share | `shareGroup` | ⬜ planned |
 | Print… | `print` | ✅ available |
 | Print All… | `printAll` | ✅ available |
@@ -1237,14 +1237,14 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Custom Scan… | `newDocCustomScan` | ⬜ planned |
 | E-Signature Service | `document.esign` | ⬜ planned |
 | E-Signature Service | `esign` | ⬜ planned |
-| Email All Open Documents as ZIP… | `sendByEmailOpenAllZip` | ⬜ planned |
-| Email All Open Documents… | `sendByEmailOpenAll` | ⬜ planned |
+| Email All Open Documents as ZIP… | `sendByEmailOpenAllZip` | ✅ available |
+| Email All Open Documents… | `sendByEmailOpenAll` | ✅ available |
 | Email Methods | `emailMethods` | ⬜ planned |
-| Email as ZIP… | `sendByEmailZip` | ⬜ planned |
+| Email as ZIP… | `sendByEmailZip` | ✅ available |
 | Explorer | `explorer` | ✅ available |
 | Folder Filters | `folderExts` | ✅ available |
 | From Clipboard… | `newDocClipboard` | ✅ available |
-| From Email… | `newDocEmail` | ⬜ planned |
+| From Email… | `newDocEmail` | ✅ available |
 | From Files… | `newDocFromFiles` | ✅ available |
 | From Images… | `newDocImage` | ✅ available |
 | From Rich Text… | `newDocRTF` | ⬜ planned |

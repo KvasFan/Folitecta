@@ -13,8 +13,10 @@ use crate::state::AppState;
 pub const LEFT_W: &str = "layout.leftWidth";
 /// Width of the right pane, in pixels.
 pub const RIGHT_W: &str = "layout.rightWidth";
-/// Rows of small buttons in each column of the ribbon.
+/// Rows of icons in each column of the ribbon (the tool names hidden).
 pub const RIBBON_ROWS: &str = "layout.ribbonRows";
+/// Rows of tiles in each column of the ribbon (an icon above its name).
+pub const RIBBON_TILE_ROWS: &str = "layout.ribbonTileRows";
 
 /// Saved value of how many tools a ribbon group shows.
 pub fn group_key(tab: &str, group: &str) -> String {
@@ -41,11 +43,28 @@ pub struct Drag {
     pub per_px: f64,
     pub min: f64,
     pub max: f64,
+    /// Where the handle is for each size from `min` up, when the sizes are
+    /// not evenly spaced (the tools of a ribbon group); empty otherwise.
+    pub stops: Vec<f64>,
+    /// Where the handle was when the drag started, measured like `stops`.
+    pub start: f64,
 }
 
 impl Drag {
-    /// The size for a pointer at `pos`, whole and within its limits.
+    /// The size for a pointer at `pos`, whole and within its limits: the one
+    /// whose handle is nearest to the pointer when there are stops.
     pub fn value_at(&self, pos: f64) -> f64 {
+        if !self.stops.is_empty() {
+            let target = self.start + (pos - self.origin);
+            let nearest = self
+                .stops
+                .iter()
+                .enumerate()
+                .min_by(|a, b| (a.1 - target).abs().total_cmp(&(b.1 - target).abs()))
+                .map(|(i, _)| i)
+                .unwrap_or(0);
+            return (self.min + nearest as f64).clamp(self.min, self.max.max(self.min));
+        }
         (self.base + (pos - self.origin) * self.per_px)
             .round()
             .clamp(self.min, self.max.max(self.min))
@@ -66,11 +85,23 @@ pub fn size(st: AppState, key: &str) -> Option<f64> {
     st.ui.read().value(key).and_then(|v| v.parse().ok())
 }
 
-/// Rows of small buttons in a column of the ribbon.
-pub fn ribbon_rows(st: AppState) -> usize {
-    size(st, RIBBON_ROWS)
-        .map(|r| r.clamp(1.0, 6.0) as usize)
-        .unwrap_or(crate::ui::chrome::ribbon_layout::DEFAULT_ROWS)
+/// The saved value of the rows of the ribbon, its default and its largest
+/// value, for tiles or icons alone.
+pub fn ribbon_rows_key(tiles: bool) -> (&'static str, usize, usize) {
+    use crate::ui::chrome::ribbon_layout::{DEFAULT_ROWS, DEFAULT_TILE_ROWS, MAX_TILE_ROWS};
+    if tiles {
+        (RIBBON_TILE_ROWS, DEFAULT_TILE_ROWS, MAX_TILE_ROWS)
+    } else {
+        (RIBBON_ROWS, DEFAULT_ROWS, 6)
+    }
+}
+
+/// Rows of tools in a column of the ribbon: tiles, or icons alone.
+pub fn ribbon_rows(st: AppState, tiles: bool) -> usize {
+    let (key, default, max) = ribbon_rows_key(tiles);
+    size(st, key)
+        .map(|r| r.clamp(1.0, max as f64) as usize)
+        .unwrap_or(default)
 }
 
 /// Default width of the left and right panes for a window `vw` pixels wide
@@ -109,6 +140,12 @@ pub fn Splitter(
     min: f64,
     max: f64,
     #[props(into, default)] title: String,
+    /// Where the handle is for each size from `min` up (see [`Drag::stops`]).
+    #[props(default)]
+    stops: Vec<f64>,
+    /// Where the handle is now, measured like `stops`.
+    #[props(default)]
+    start: f64,
 ) -> Element {
     let st = use_context::<AppState>();
     let dragging = DRAG.read().as_ref().is_some_and(|d| d.key == name);
@@ -132,6 +169,8 @@ pub fn Splitter(
                     per_px,
                     min,
                     max,
+                    stops: stops.clone(),
+                    start,
                 });
             },
             ondoubleclick: move |e| {
@@ -159,6 +198,11 @@ pub fn DragShield() -> Element {
     rsx! {
         div { class,
             onmousemove: move |e| {
+                // Moves without a button pressed are not part of the drag (the
+                // webview makes some up when the page changes under the pointer).
+                if e.held_buttons().is_empty() {
+                    return;
+                }
                 let c = e.client_coordinates();
                 let v = drag.value_at(if drag.axis == Axis::X { c.x } else { c.y });
                 let changed = LIVE.peek().as_ref().map(|(_, x)| *x) != Some(v);
@@ -185,6 +229,8 @@ mod tests {
             per_px: 1.0,
             min: 180.0,
             max: 600.0,
+            stops: Vec::new(),
+            start: 0.0,
         };
         assert_eq!(d.value_at(150.4), 310.0);
         assert_eq!(d.value_at(-500.0), 180.0);
@@ -207,5 +253,28 @@ mod tests {
         assert_eq!(rows.value_at(100.0 + 44.0), 5.0);
         assert_eq!(rows.value_at(100.0 + 400.0), 6.0);
         assert_eq!(default_widths(1440.0), (316.8, 288.0));
+    }
+
+    #[test]
+    fn group_edges_follow_the_pointer() {
+        // A group 120 px wide whose edge is at 70, 120, 120, 170 and 205 px
+        // for one to five tools: the tools whose edge is nearest the pointer.
+        let d = Drag {
+            key: "layout.group.home.comment".into(),
+            axis: Axis::X,
+            origin: 500.0,
+            base: 3.0,
+            per_px: 0.0,
+            min: 1.0,
+            max: 5.0,
+            stops: vec![70.0, 120.0, 120.0, 170.0, 205.0],
+            start: 120.0,
+        };
+        assert_eq!(d.value_at(500.0), 2.0);
+        assert_eq!(d.value_at(552.0), 4.0);
+        assert_eq!(d.value_at(590.0), 5.0);
+        assert_eq!(d.value_at(5000.0), 5.0);
+        assert_eq!(d.value_at(440.0), 1.0);
+        assert_eq!(d.value_at(-900.0), 1.0);
     }
 }

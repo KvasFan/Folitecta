@@ -6,6 +6,28 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- E-mail with the files really attached: the document, every open document, both as a ZIP
+  archive, and the form data (Simple MAPI on Windows, Mail on macOS, `xdg-email` on Linux; a
+  `mailto:` message and the folder of the files when no mail program takes attachments).
+- When no mail program takes attachments, an unsent e-mail draft (`.eml`) with the files attached
+  is saved and opened with the program that reads e-mail files.
+- PDF from e-mail messages: File › Open and Create › From E-mail open `.eml` files as documents
+  with the subject, sender, recipients, date and text, and the attachments embedded.
+- ZIP archives written and read by the core (`folitecta_core::zip`).
+- Guides for AI agents in `ai/`: the target requirements, the state of each one, the planned
+  releases, the workflow and the progress log.
+
+### Changed
+- The ribbon tools show a short name under their icons (Pencil, Loupe, Zoom +, Zoom −), on by
+  default; View › Tool Names shows icons alone; the tooltips keep the whole name and the shortcut.
+- Dragging the edge of a ribbon group follows the pointer (the number of tools comes from the
+  real widths of the tools), and moves without a pressed button no longer disturb drags.
+
+### Fixed
+- Submenus no longer run away from the pointer: an open submenu waits while the pointer crosses
+  other rows towards it, and clicking a row opens its submenu instead of closing it.
+
 ## [0.1.0] - 2026-10-18
 
 ### Added

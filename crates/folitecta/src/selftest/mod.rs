@@ -380,6 +380,7 @@ fn annots_on(st: AppState, page: usize) -> Vec<folitecta_core::Annotation> {
 mod steps_arrange;
 mod steps_barcodes;
 mod steps_calc;
+mod steps_email;
 mod steps_features;
 mod steps_field_items;
 mod steps_files;
@@ -459,6 +460,7 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     steps_field_items::run(&mut cx).await;
     steps_policies::run(&mut cx).await;
     steps_qat::run(&mut cx).await;
+    steps_email::run(&mut cx).await;
     let failures = cx.failures;
 
     // 58. Undo everything added above.
@@ -522,9 +524,11 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
         match step {
             "arrange" => steps_arrange::run(&mut cx).await,
             "field_items" => steps_field_items::run(&mut cx).await,
+            "layout" => steps_layout::run(&mut cx).await,
             "ocr" => steps_ocr::run(&mut cx).await,
             "policies" => steps_policies::run(&mut cx).await,
             "qat" => steps_qat::run(&mut cx).await,
+            "email" => steps_email::run(&mut cx).await,
             "spelling" => steps_spelling::run(&mut cx).await,
             _ => cx.record("unknown step", false, step.to_string()),
         }
@@ -897,13 +901,13 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         st.with_active(|t| t.set_chosen(p, &[]));
         st.set_ribbon_tab("home".into());
     }
-    // The names of the tools next to their icons, in both languages.
-    st.set_option("view.ribbonLabels", true);
+    // The tools as icons alone (the names hidden), in both languages.
+    st.set_option("view.ribbonLabels", false);
     for lang in [crate::i18n::Lang::It, crate::i18n::Lang::En] {
         st.ui_mut().lang = lang;
-        total += check(st, &dir, &format!("960x620-{}-tool-names", lang.code()), log).await;
+        total += check(st, &dir, &format!("960x620-{}-tool-icons", lang.code()), log).await;
     }
-    st.set_option("view.ribbonLabels", false);
+    st.set_option("view.ribbonLabels", true);
     // Horizontal scrolling with the pan and zoom window.
     st.set_option("view.layout.ribbon", true);
     st.set_option("view.panzoom", true);
@@ -916,8 +920,8 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         pause(900).await;
         total += check(st, &dir, &format!("resize-{}x{}", w as u32, h as u32), log).await;
     }
-    st.set_option("view.ribbonLabels", true);
-    total += check(st, &dir, "1366x768-tool-names", log).await;
     st.set_option("view.ribbonLabels", false);
+    total += check(st, &dir, "1366x768-tool-icons", log).await;
+    st.set_option("view.ribbonLabels", true);
     total
 }

@@ -1,9 +1,11 @@
 //! Interaction step 45: sizes changed by dragging — the width of the left
-//! pane, the rows of the ribbon and the width of a ribbon group — the first
-//! tab named Edit, and the names of the tools shown or kept in the tooltips.
+//! pane, the rows of the ribbon and the width of a ribbon group, whose edge
+//! follows the pointer — the first tab named Edit, the short names of the
+//! tools under their icons or hidden, and submenus that wait for the pointer.
 
 use super::*;
-use crate::ui::chrome::layout::{LEFT_W, RIBBON_ROWS, group_key};
+use crate::ui::chrome::layout::{LEFT_W, group_key, ribbon_rows_key};
+use crate::ui::chrome::ribbon_layout::row_height;
 
 /// Drag the handle matched by `selector` by (dx, dy) pixels, then release.
 /// Returns false when the handle is missing.
@@ -91,25 +93,26 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         ),
     );
 
-    // Two rows more: a taller ribbon with more tools in every column.
+    // Two rows more: a taller ribbon with more tools in every column (rows
+    // of tiles, the tool names being shown by default).
     let height =
         || number("return document.querySelector('.ribbon-body')?.getBoundingClientRect().height || 0;");
     let shown = || number("return document.querySelectorAll('.ribbon-body .rbtn:not(.has-menu)').length;");
+    let (rows_key, default_rows, _) = ribbon_rows_key(true);
     let (h0, n0) = (height().await, shown().await);
-    let dragged = drag(
-        ".splitter.ribbon-edge",
-        0.0,
-        2.0 * crate::ui::chrome::ribbon_layout::ROW_H,
-    )
-    .await;
+    let dragged = drag(".splitter.ribbon-edge", 0.0, 2.0 * row_height(true)).await;
     let (h1, n1) = (height().await, shown().await);
-    let rows = st.value(RIBBON_ROWS);
+    let rows = st.value(rows_key);
     let _ = capture_window(&dir.join("interaction-ribbon-rows.png"));
     double_click(".splitter.ribbon-edge").await;
     let h2 = height().await;
     cx.record(
         "the ribbon is made taller by dragging its bottom edge, restored by a double click",
-        dragged && rows == "5" && h1 > h0 + 30.0 && n1 >= n0 && (h2 - h0).abs() < 2.0,
+        dragged
+            && rows == (default_rows + 2).to_string()
+            && h1 > h0 + 30.0
+            && n1 >= n0
+            && (h2 - h0).abs() < 2.0,
         format!("rows {rows:?}, height {h0} -> {h1} -> {h2}, tools {n0} -> {n1}"),
     );
 
@@ -122,6 +125,22 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         ))
     };
     let t0 = tools(group).await;
+    // A short drag: the edge of the group stays near the pointer.
+    let group_w = || {
+        number(format!(
+            "return document.querySelector('{}')?.getBoundingClientRect().width || 0;",
+            group.replace('\'', "\\'")
+        ))
+    };
+    let w0 = group_w().await;
+    let nudged = drag(&format!("{group} > .splitter.group-grip"), 90.0, 0.0).await;
+    let w1 = group_w().await;
+    cx.record(
+        "the edge of a ribbon group follows the pointer when it is dragged",
+        nudged && (w1 - w0 - 90.0).abs() <= 45.0,
+        format!("width {w0} -> {w1} for a drag of 90 px"),
+    );
+    double_click(&format!("{group} > .splitter.group-grip")).await;
     let dragged = drag(&format!("{group} > .splitter.group-grip"), 2000.0, 0.0).await;
     let t1 = tools(group).await;
     let more_left = number(format!(
@@ -140,30 +159,106 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         format!("tools {t0} -> {t1} (more buttons {more_left}, chosen {chosen:?}) -> {t2}"),
     );
 
-    // The tools are icons with their names in the tooltip; View › Tool Names
-    // puts the names next to the icons, and fewer tools fit.
+    // The tools show a short name under their icons, the whole name in the
+    // tooltip; View › Tool Names hides the names, and more tools fit.
     let names = || number("return document.querySelectorAll('.ribbon-body .rbtn .lbl').length;");
     let untitled = number(
         "return [...document.querySelectorAll('.ribbon-body .rbtn')].filter(b => !b.title || !b.getAttribute('aria-label')).length;",
     )
     .await;
-    let (icons, names0) = (shown().await, names().await);
+    // Under the icon the short name, in the tooltip the whole one (Zoom + / Zoom In).
+    let zoom_in = document::eval(
+        "const b = document.querySelector('.ribbon-body .rbtn[data-cmd=\"zoomIn\"]'); return b ? [b.querySelector('.lbl')?.textContent || '', b.title].join('|') : '';",
+    )
+    .await
+    .ok()
+    .and_then(|v| v.as_str().map(str::to_string))
+    .unwrap_or_default();
+    let reg = folitecta_core::registry();
+    let expected = reg
+        .get("zoomIn")
+        .map(|c| {
+            (
+                crate::i18n::short_label(st.lang(), c),
+                crate::i18n::cmd_label(st.lang(), c),
+            )
+        })
+        .unwrap_or_default();
+    let short_ok = zoom_in.is_empty()
+        || zoom_in
+            .split_once('|')
+            .is_some_and(|(lbl, tip)| lbl == expected.0 && tip.starts_with(&expected.1));
+    let (tiles, names0) = (shown().await, names().await);
     crate::commands::dispatch(st, "view.ribbonLabels");
     pause(500).await;
-    let (labelled, names1) = (shown().await, names().await);
+    let (icons, names1) = (shown().await, names().await);
     let _ = capture_window(&dir.join("interaction-tool-names.png"));
     crate::commands::dispatch(st, "view.ribbonLabels");
     pause(500).await;
     let (back, names2) = (shown().await, names().await);
     cx.record(
-        "the tools show their names in the tooltip, and next to their icons when chosen",
+        "the tools show short names under their icons (the whole name in the tooltip), hidden when chosen",
         untitled == 0.0
-            && names0 == 0.0
-            && names1 > 0.0
-            && icons >= labelled
-            && back == icons
-            && names2 == 0.0
-            && !crate::commands::option_on(st, "view.ribbonLabels"),
-        format!("without tooltip {untitled}; tools {icons} (names {names0}) -> {labelled} (names {names1}) -> {back} (names {names2})"),
+            && short_ok
+            && names0 > 0.0
+            && names1 == 0.0
+            && icons >= tiles
+            && back == tiles
+            && names2 == names0
+            && crate::commands::option_on(st, "view.ribbonLabels"),
+        format!(
+            "without tooltip {untitled}; zoom in {zoom_in:?} (expected {expected:?}); tools {tiles} (names {names0}) -> {icons} (names {names1}) -> {back} (names {names2})"
+        ),
+    );
+
+    // Submenus wait for the pointer: crossing another row on the way into an
+    // open submenu leaves it open, resting on that row closes it.
+    st.close_menus();
+    st.set_open_menu(Some("view".into()));
+    pause(400).await;
+    // The pointer enters an element: the first row with a submenu, the first
+    // row without one, or the open submenu.
+    let enter = |which: &'static str| async move {
+        let js = format!(
+            r#"
+const rows = [...document.querySelectorAll('.menu-dropdown > .menu-item')];
+const el = {which};
+if (!el) return '';
+const r = el.getBoundingClientRect();
+el.dispatchEvent(new MouseEvent('mouseenter', {{ bubbles: false, clientX: r.left + 20, clientY: r.top + 8 }}));
+return (el.querySelector('.label')?.textContent || 'submenu');
+"#
+        );
+        document::eval(&js)
+            .await
+            .ok()
+            .and_then(|v| v.as_str().map(str::to_string))
+            .unwrap_or_default()
+    };
+    const SUB: &str = "rows.find(e => e.querySelector('.chev'))";
+    const LEAF: &str = "rows.find(e => !e.querySelector('.chev'))";
+    const OPEN: &str = "document.querySelector('.submenu')";
+    let open_now = || st.submenus.peek().len();
+    let sub_row = enter(SUB).await;
+    pause(250).await;
+    let opened = open_now();
+    let drawn = number("return document.querySelectorAll('.submenu').length;").await;
+    let leaf_row = enter(LEAF).await;
+    pause(120).await;
+    let crossing = open_now();
+    enter(OPEN).await;
+    pause(500).await;
+    let kept = open_now();
+    enter(LEAF).await;
+    pause(650).await;
+    let closed = open_now();
+    st.close_menus();
+    pause(200).await;
+    cx.record(
+        "a submenu stays open while the pointer crosses other rows towards it, and closes when it rests on one",
+        !sub_row.is_empty() && opened == 1 && drawn == 1.0 && crossing == 1 && kept == 1 && closed == 0,
+        format!(
+            "rows {sub_row:?} / {leaf_row:?}: open {opened} (drawn {drawn}), crossing {crossing}, inside {kept}, resting {closed}"
+        ),
     );
 }

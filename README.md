@@ -168,9 +168,11 @@ writes a report with a screenshot of every state (screenshots on Windows).
 | `crates/folitecta` | Dioxus desktop application: ribbon, menus, panes, canvas with drawing tools, dialogs, palette, localization; `assets/styles` holds the theme tokens and one style sheet per part, `assets/i18n` the translations |
 | `dictionaries` | Hunspell spelling dictionaries (English, Italian), data files read at run time, each with its licence |
 | `ocr` | Text recognition models (PaddleOCR, ONNX), data files read at run time, with their licence |
+| `ai` | Guides for AI agents and contributors: target requirements, the state of each one, planned releases, workflow, progress log |
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and
-[docs/FEATURES.md](docs/FEATURES.md) for the command-by-command status.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design,
+[docs/FEATURES.md](docs/FEATURES.md) for the command-by-command status and
+[ai/ROADMAP.md](ai/ROADMAP.md) for the roadmap.
 
 ## Licence
 

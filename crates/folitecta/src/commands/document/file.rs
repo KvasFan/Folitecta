@@ -64,6 +64,7 @@ handlers! {
     "newDocBlank" => |st| doc_dialog_or_blank(st),
     "newDoc" => |st| files::new_blank(st, 1, 595.0, 842.0),
     "newDocText" => |st| files::new_from_text_file(st),
+    "newDocEmail" => |st| files::new_from_email(st),
     "window.newBlank" => |st| files::new_blank(st, 1, 595.0, 842.0),
     "save" => |st| files::save(st),
     "saveAs" => |st| files::save_as(st),
@@ -96,14 +97,6 @@ handlers! {
     },
     "copySrcFileName" => copy_path,
     "copySrcFile" => copy_path,
-    "sendByEmail" => |st| {
-        if no_doc(st) { return; }
-        let name = st.read_active(|t| t.title()).unwrap_or_default();
-        open_url(st, &format!("mailto:?subject={}", name.replace(' ', "%20")));
-        if let Some(Some(dir)) = st.read_active(|t| t.doc.path().and_then(|p| p.parent()).map(|d| d.display().to_string())) {
-            let _ = util::open_external(&dir);
-        }
-    },
     "recentFiles" => |st| st.set_palette(Some(String::new())),
     "recentsList" => |st| st.set_palette(Some(String::new())),
     "manageHistory" => |st| crate::commands::show_pane(st, crate::state::Pane::History),

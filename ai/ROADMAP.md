@@ -1,0 +1,219 @@
+# Folitecta roadmap and progress
+
+State of every requirement of [REQUIREMENTS.md](REQUIREMENTS.md) on the `main` branch after
+Folitecta 0.1.0, reviewed on **18 October 2026** against the code (not only the command
+registry). Update the row of a requirement whenever a sub-task changes it, and log the work in
+[PROGRESS.md](PROGRESS.md).
+
+| Mark | Meaning |
+|---|---|
+| ✅ | Available for the profile described in the row, with tests; keep it working. |
+| 🟡 | Partial: a concrete part works, the gaps are listed. |
+| 🔵 | In progress on `main` (some parts committed, not finished). |
+| ⬜ | Not started. |
+
+Command-level detail (1981 registry commands: 1436 available, 62 partial, 483 planned) is in
+[docs/FEATURES.md](../docs/FEATURES.md), generated with
+`cargo run -p folitecta -- --features-md docs/FEATURES.md`.
+
+## Now: work in progress
+
+| Item | Requirement | State |
+|---|---|---|
+| E-mail with real attachments: the document, every open document, as ZIP, the form data (Simple MAPI on Windows, Mail on macOS, `xdg-email` on Linux); when no program takes attachments an unsent EML draft with the files is saved and opened; `mailto:` plus the folder only as last resort | FOL-L053 | 🔵 committed with tests; still missing: a dialog to choose and inspect what is attached (saved file or current state, ranges, comments). Not yet tried with real mail programs. |
+| ZIP archives written and read (`folitecta_core::zip`) | FOL-L053 | ✅ with tests |
+| PDF from an e-mail message (EML): subject, sender, recipients, date, text (HTML made into text), attachments embedded (`organize/email.rs`, `mail-parser`); File › Open and Create › From E-mail accept `.eml` | FOL-L006 | ✅ for EML files, with core tests and the `email` self-test step; open: pictures of the message shown on pages, mail archives. |
+| Time stamps (RFC 3161): document time stamps and time stamps of new signatures, a time stamp server setting, validation of time stamps | FOL-C006, FOL-L040 | ⬜ designed: request/response/token checks in `protection/digsig/timestamp.rs`, the HTTP(S) client in the interface crate (`native-tls`, already a dependency), a test authority built from a self-signed ID with the time stamping usage. |
+| Ribbon: short tool names under the icons (on by default, View › Tool Names hides them), whole names in the tooltips; group edges that follow the pointer; submenus that wait for the pointer | FOL-L050, FOL-L042 | ✅ committed with self-test steps |
+
+## Next releases
+
+Big releases get a version tag and the full CI; work in between goes to `main` untagged.
+
+### 0.2.0 — integrity and delivery (R0 first)
+
+1. **FOL-L051/S01 — atomic saving.** Save, Save As and Save Copy write a temporary file next to
+   the target, check that it reopens, then rename it over the target; on failure the original
+   stays untouched and the error is shown. Test with a read-only target and a failing writer.
+2. **FOL-L036/S01 — keep the protection.** A file opened with a password is saved encrypted again
+   with the same algorithm and permissions (AES where lopdf supports it); when that is not
+   possible (unknown owner password, unsupported handler) the save stops with an explanation
+   instead of writing a plain file. Offer AES-256 for new protection.
+3. **FOL-L037/S01 — selective redaction.** Remove the text, images and vector content under the
+   marks from the content streams (keeping the rest of the page as text and vectors), scrub the
+   pixels of images under the marks, then write a new rewritten copy (no incremental update) and
+   offer to remove metadata, attachments, hidden layers and earlier revisions. Keep the raster
+   method as an explicit option.
+4. **FOL-L053** — finish the e-mail work (attachment dialog; the EML draft is done).
+5. **FOL-L006/S01** — PDF from EML (done).
+6. **FOL-C006/S01, FOL-L040/S01** — time stamps (above); report integrity, identity, time and
+   revocation as separate checks in the signature details.
+7. **FOL-L018/S01 — Unicode in generated text.** Start with one producer (text boxes and
+   typewriter comments): embed a subset of a freely licensed TrueType font with a ToUnicode map
+   when the text has characters outside WinAnsi, never write `?`. Then stamps, fields, headers.
+
+### 0.3.0 — daily work
+
+FOL-L014 (OCR review), FOL-L012 (scan clean-up workflow), FOL-L005 (CSV, Markdown, RTF), FOL-L035
+(synchronized side-by-side comparison), FOL-L046 (N-up, booklet, poster), FOL-L042 (local text to
+speech with the system voices, reading reflow), FOL-L022 (table of contents from bookmarks or
+headings, article threads), FOL-L028 (angle, radius, volume), FOL-L029 (tick marks), FOL-L002
+(tab groups and windows), FOL-L010 (template gallery), FOL-L011 (scanner through the system
+imaging API).
+
+### 0.4.0 — professional tools
+
+FOL-L045 (recompress one picture, presets), FOL-L043 (PDF/A validation and conversion), FOL-L044
+(colour conversion, output preview), FOL-L021 (vector path editing), FOL-L047 (action sequences,
+batch, command line), FOL-L034 (sandboxed JavaScript engine, console), FOL-L039 (system
+certificate store, PKCS#11), FOL-L009 (office exports).
+
+### Later
+
+FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
+FOL-L007 (virtual printer, shell integration), FOL-L008 (XPS, metafiles, CAD), remote services
+FOL-C001–C005 and C007–C014 (R4).
+
+## State of every requirement
+
+### Reading, workspace and search
+
+| Id | P | State | What exists | Gaps and next sub-task |
+|---|---|---|---|---|
+| FOL-L001 | P1 | 🟡 | hayro rendering on worker threads, thumbnails, single/continuous/two-page layouts, right-to-left option, loupe, pan and zoom, split window, view rotation, full screen, password-protected files (decrypted in memory) | Certificate-encrypted files; presentation mode with transitions; a test corpus (transparency, scans, rotated pages). |
+| FOL-L002 | P1 | 🟡 | document tabs, split window, sessions (save/open), recovery of unsaved documents at the next start | Tab groups and several windows; report missing files of a session one by one. |
+| FOL-L003 | P1 | 🟡 | search pane, Find and Replace, search in folders, annotate results | Patterns, filters on comments/bookmarks/attachments, embedded or local indexes, export of results. |
+| FOL-L004 | P1 | 🟡 | panes for thumbnails, bookmarks, comments, attachments, layers, fields, links, destinations, signatures, tags, reading order, content; properties pane; document properties and XMP | Fonts pane, object inspector, history pane of changes. |
+
+### Creation, import, export and templates
+
+| Id | P | State | What exists | Gaps and next sub-task |
+|---|---|---|---|---|
+| FOL-L005 | P1 | 🟡 | blank pages, from images, from text files, from the clipboard, combine files | CSV (local separators), Markdown with CSS and formulas, RTF with styles. |
+| FOL-L006 | P2 | 🟡 | e-mail messages (EML) made into documents: header lines, text, attachments embedded | Mail archives; office formats and HTML need a local engine decision. |
+| FOL-L007 | P2 | ⬜ | — | File associations (`help.fileAssoc`), virtual printer, office add-ins. |
+| FOL-L008 | P2 | ⬜ | — | XPS/OXPS, metafiles, CAD: engine decision first. |
+| FOL-L009 | P1/P2 | 🟡 | export to pictures (PNG, JPEG, TIFF, …), text, embedded pictures, attachments, split and extracted documents | Accessible text export; office formats (P2). |
+| FOL-L010 | P1 | ⬜ | stamps have categories and favourites | Template gallery for documents. |
+
+### Scanning and OCR
+
+| Id | P | State | What exists | Gaps and next sub-task |
+|---|---|---|---|---|
+| FOL-L011 | P1 | ⬜ | — | Scanner acquisition through the system imaging API (Windows first), presets, interleave fronts/backs. |
+| FOL-L012 | P1 | 🟡 | picture tools: turn, crop, straighten, filters, black and white; delete blank pages | One clean-up workflow for scanned pages with preview of the candidates and thresholds. |
+| FOL-L013 | P1 | 🟡 | local OCR (PaddleOCR models run by tract): pages, a selected area, pictures; invisible text tagged `OCR`, removed or replaced on demand; Latin-script languages | Editable text output; exclusions (existing text, fields, comments, logos); batches of files; more scripts (models). |
+| FOL-L014 | P1 | ⬜ | — | Review of suspect words (crop + text + accept/correct); field recognition proposals. |
+
+### Pages and composition
+
+| Id | P | State | What exists | Gaps and next sub-task |
+|---|---|---|---|---|
+| FOL-L015 | P1 | 🟡 | insert, delete, extract, duplicate, move, swap, reverse, replace, insert pictures, split documents, split/merge pages, combine files, find duplicate pages, delete empty pages | Check links, fields, tags and destinations after every operation (FOL-L052); rename same-named fields when merging; list unresolved references before committing. |
+| FOL-L016 | P1/P2 | 🟡 | rotate, crop, crop to white margins, resize, margins, normalize, overlay, rasterize pages | Box management (bleed/trim/art) in the interface; selective flattening; deleting content outside the crop box (today it is only clipped). |
+| FOL-L017 | P1 | ✅ | watermarks, header and footer, Bates numbering (several files), background, page numbering, macros, Folitecta's marks tagged so they can be updated or removed | Logical page labels in every page selector. |
+
+### Native editing
+
+| Id | P | State | What exists | Gaps and next sub-task |
+|---|---|---|---|---|
+| FOL-L018 | P0 | ⬜ | generated text uses the standard Helvetica with WinAnsi encoding | Embedded Unicode font for generated text (0.2.0, step 7); font inspection and replacement. |
+| FOL-L019 | P1 | 🟡 | Edit Text tool (content stream editing), insert/replace/delete page text, find and replace in page text, spell checking with corrections | Paragraph reflow inside an area, joining/splitting blocks, scope for shared form objects. |
+| FOL-L020 | P1/P2 | 🟡 | pictures pane and editor: replace, crop, turn, filters, export | Inline and nested pictures, colour profile preservation report, raster editor mode. |
+| FOL-L021 | P2 | ⬜ | — | Vector path editing (nodes, clipping, gradients). |
+
+### Navigation, containers and embedded content
+
+| Id | P | State | What exists | Gaps and next sub-task |
+|---|---|---|---|---|
+| FOL-L022 | P1 | 🟡 | bookmarks (hierarchy, editing, export), links, named destinations, web links from text and barcodes | Table of contents generation, bookmarks from headings, article threads, duplicate cleanup. |
+| FOL-L023 | P1/P2 | ✅ | attachments, layers (visibility, properties), audio/video with playback | Codec list and unsupported media report. |
+| FOL-L024 | P2 | 🟡 | PDF portfolios: create, view, extract, print | Binder project with sources and regeneration. |
+
+### Comments and technical tools
+
+| Id | P | State | What exists | Gaps and next sub-task |
+|---|---|---|---|---|
+| FOL-L025 | P1 | ✅ | every markup and drawing comment, styles and named styles, lock, grouping, align/distribute/order, eraser, clouds | Pressure-sensitive pen; check appearances in a second reader. |
+| FOL-L026 | P1 | ✅ | comments pane with filters, replies, review states, XFDF/FDF/PDF exchange, comment summaries | CSV summary; history of a comment. |
+| FOL-L027 | P1/P2 | 🟡 | text stamps, stamp designer with dynamic values, favourites and recent stamps | Sequential stamps; symbol libraries with fields asked when placed. |
+| FOL-L028 | P2 | 🟡 | distance, perimeter, area, calibration, CSV export of measures | Angle, radius/diameter, volume; snapping profile; measure info pane. |
+| FOL-L029 | P2 | 🟡 | calculator with an editable tape placed as a comment | Tick marks with sequences and styles. |
+| FOL-L030 | P1/P2 | ✅ | barcodes written (vector) and read (rxing), tables as generated objects | Table extraction from PDF pages (P2). |
+
+### Forms and scripts
+
+| Id | P | State | What exists | Gaps and next sub-task |
+|---|---|---|---|---|
+| FOL-L031 | P1 | 🟡 | form designer for every field type, items of choice fields, pictures of push buttons, tab order, align/duplicate, fill & sign | A real date field (format, picker, validation); same-name policy when duplicating/merging. |
+| FOL-L032 | P1 | 🟡 | XFDF/FDF/CSV/TXT import and export, filling copies from table rows, calculation order, simple calculations computed in Rust | Named XML profiles, number/date formats and validation, page templates. |
+| FOL-L033 | P2 | ⬜ | — | XFA engine decision. |
+| FOL-L034 | P2 | 🟡 | document scripts and actions listed and edited | A sandboxed JavaScript engine with a documented API, console, time-outs. |
+
+### Comparison, encryption, redaction and signatures
+
+| Id | P | State | What exists | Gaps and next sub-task |
+|---|---|---|---|---|
+| FOL-L035 | P1 | 🟡 | text comparison of two documents with a report | Synchronized side-by-side view, geometry/picture differences. |
+| FOL-L036 | P0 | 🟡 | passwords and permissions (AES-128 encrypted copy), security policies | **Save of a file opened encrypted writes it in plain** (0.2.0, step 2); AES-256; certificate encryption. |
+| FOL-L037 | P0 | 🟡 | mark areas and search results for redaction, apply: marked pages are drawn as pictures with the areas covered and an overlay text | Selective removal keeping text and vectors; sanitizing metadata, attachments, hidden content and earlier revisions (0.2.0, step 3). |
+| FOL-L038 | P1 | ✅ | handwritten signatures and initials, placed on several pages, kept apart from digital signatures | — |
+| FOL-L039 | P1/P2 | 🟡 | PKCS#12 digital IDs (import, create, export), sign and certify (visible or invisible), appearance with picture, incremental updates keep earlier signatures | System certificate store, PKCS#11 tokens, batches. |
+| FOL-L040 | P1 | 🟡 | validation of every signature (digest, value, chain, trusted certificates), trusted list, signed revision opened in a tab | Separate checks (integrity, identity, time, revocation, later changes); time stamp validation (with FOL-C006). |
+
+### Accessibility, standards, optimization and printing
+
+| Id | P | State | What exists | Gaps and next sub-task |
+|---|---|---|---|---|
+| FOL-L041 | P1 | 🟡 | accessibility check and report, auto-tagging of the document and of form fields, tags pane, reading order, alternate text | Table repair (headers, spans); manual checks listed in the report. |
+| FOL-L042 | P1 | 🟡 | English and Italian interface, keyboard shortcuts, themes (light, white, dark, black), short tool names with full tooltips | Reading reflow, local text to speech, a keyboard-only and screen reader pass. |
+| FOL-L043 | P2 | ⬜ | enable editing of PDF/A files | Preflight profiles, PDF/A validation and conversion. |
+| FOL-L044 | P2 | ⬜ | — | Colour conversion, output preview. |
+| FOL-L045 | P2 | 🟡 | space usage audit, recompression of the pictures of pages | One selected picture, presets, size comparison report. |
+| FOL-L046 | P1/P2 | 🟡 | printing of ranges with comments and fields, a print layout preview, portfolio printing | N-up, booklet, poster, duplex options, a sheet plan before spooling. |
+
+### Automation, AI and specialist functions
+
+| Id | P | State | What exists | Gaps and next sub-task |
+|---|---|---|---|---|
+| FOL-L047 | P2 | ⬜ | page-mark macros only; a minimal command line (`--features-md`, `--version`) | Action sequences, batches over files, command line with structured results. |
+| FOL-L048 | P2 | ⬜ | — | On-device AI engine decision. |
+| FOL-L049 | P2 | ⬜ | — | 3D viewer and authoring. |
+| FOL-L050 | P1/P2 | 🟡 | preferences, shortcuts, ribbon and classic interface, Quick Access Toolbar, command palette, settings export/import/reset, resizable panes and ribbon | Toolbox profiles, plug-ins, portable/administrative settings. |
+
+### Integrity contracts and sharing
+
+| Id | P | State | What exists | Gaps and next sub-task |
+|---|---|---|---|---|
+| FOL-L051 | P0 | 🟡 | undo/redo of every edit, recovery copies written to a temporary file and renamed, no recovery copy of encrypted documents, signed documents saved as incremental updates | **Save writes the target directly** (0.2.0, step 1); versioned session format. |
+| FOL-L052 | P0 | 🟡 | page tree normalized before every page edit, links and destinations kept by page operations, scripts never run (there is no engine), external actions not executed on opening | A relations test corpus (links, fields, tags, destinations) for reorder/copy/merge; a report of the relations that cannot be kept. |
+| FOL-L053 | P1 | 🔵 | see "Now": real attachments, ZIP, form data, EML drafts | Attachment dialog (versions, ranges, comments). |
+
+### Remote services
+
+| Id | P | State | Notes |
+|---|---|---|---|
+| FOL-C001 | P3 | ⬜ | Remote storage connectors. |
+| FOL-C002 | P3 | ⬜ | Document management systems. |
+| FOL-C003 | P3 | ⬜ | Shared review service. |
+| FOL-C004 | P3 | ⬜ | Sharing by link, project spaces. |
+| FOL-C005 | P3 | ⬜ | E-signature providers. |
+| FOL-C006 | P1 | ⬜ | Time stamps first (see "Now"); OCSP/CRL and long-term validation material next. |
+| FOL-C007 | P3 | ⬜ | Enterprise rights management. |
+| FOL-C008 | P3 | ⬜ | Third-party DRM. |
+| FOL-C009 | P3 | ⬜ | Direct mail delivery (preparation is FOL-L053). |
+| FOL-C010 | P3 | ⬜ | Form submission endpoints. |
+| FOL-C011 | P3 | ⬜ | Remote AI endpoints. |
+| FOL-C012 | P3 | ⬜ | Remote OCR/conversion. |
+| FOL-C013 | P3 | ⬜ | URL content, template catalogues, remote tools. |
+| FOL-C014 | P3 | ⬜ | Central administration. |
+
+## Interface requests to keep
+
+- Tools show a **short name under the icon** (`Pencil`, `Loupe`, `Zoom +`, `Zoom −`), on by
+  default; View › Tool Names hides them; the tooltip has the whole name and the shortcut. Short
+  names live in `assets/i18n/<lang>/short.json`; a tool without one gets a shortened label.
+- The edges between ribbon groups and of the panes must follow the pointer when dragged.
+- Submenus must not run away: an open submenu waits while the pointer crosses other rows towards
+  it.
+- Tools are icons from Tabler Icons; every command keeps a tooltip and an accessible name.

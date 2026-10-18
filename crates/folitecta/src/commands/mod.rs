@@ -20,7 +20,7 @@ pub(crate) mod protection;
 pub(crate) mod text;
 pub(crate) mod window;
 pub(crate) use document::{
-    barcodes, compare, convert, doctools, file, fileops, macros, ocr, pages, pictures, sources, split,
+    barcodes, compare, convert, doctools, file, fileops, macros, mail, ocr, pages, pictures, sources, split,
 };
 pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
@@ -104,6 +104,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     panes::HANDLERS,
     help::HANDLERS,
     qat::HANDLERS,
+    mail::HANDLERS,
 ];
 
 static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {
@@ -120,7 +121,6 @@ static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {
 pub const PARTIAL: &[&str] = &[
     "fontName",
     "tool.editFields.mode.date",
-    "sendByEmail",
     "copySrcFile",
     // From the locale environment variables only.
     "macro.region",
@@ -152,7 +152,8 @@ pub const PARTIAL: &[&str] = &[
 /// View options toggled by command id; their state lives in the preferences.
 pub const VIEW_OPTIONS: &[&str] = &[
     "view.layout.ribbon",
-    // The names of the ribbon tools next to their icons (otherwise in the tooltip).
+    // The short names of the ribbon tools under their icons (otherwise icons
+    // alone, the names in the tooltips).
     "view.ribbonLabels",
     "linksView.wrapTitles",
     "thumbnailsView.highlightVisible",
@@ -243,6 +244,7 @@ pub const VIEW_OPTIONS: &[&str] = &[
 
 /// Options that are on unless the user turned them off.
 pub const DEFAULT_ON: &[&str] = &[
+    "view.ribbonLabels",
     "view.spellCheck",
     "search.pageText",
     "portfolio.tools",

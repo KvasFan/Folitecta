@@ -683,17 +683,54 @@ pub struct GroupSpec {
     pub fixed: Option<usize>,
 }
 
-/// Rows of small buttons in a column of the ribbon, when the user has not
-/// changed the height of the ribbon.
+/// Rows of icons in a column of the ribbon, when the user has not changed
+/// the height of the ribbon.
 pub const DEFAULT_ROWS: usize = 3;
-/// Height of one row of small buttons, in pixels.
+/// Height of one row of icons, in pixels.
 pub const ROW_H: f64 = 21.0;
-/// Width of a column of small buttons, used to turn a drag into tools.
-pub const COLUMN_W: f64 = 130.0;
+/// Rows of tiles (an icon above its short name, View › Tool Names) when the
+/// user has not changed the height of the ribbon, and the most there can be.
+pub const DEFAULT_TILE_ROWS: usize = 2;
+pub const MAX_TILE_ROWS: usize = 4;
+/// Height of one row of tiles, in pixels.
+pub const TILE_ROW_H: f64 = 36.0;
+/// The narrowest and the widest tile.
+pub const TILE_MIN_W: f64 = 36.0;
+pub const TILE_MAX_W: f64 = 78.0;
 
-/// Height of the ribbon body for `rows` rows of small buttons.
-pub fn body_height(rows: usize) -> f64 {
-    29.0 + rows as f64 * ROW_H
+/// Height of one row of tools: tiles or icons alone.
+pub fn row_height(tiles: bool) -> f64 {
+    if tiles { TILE_ROW_H } else { ROW_H }
+}
+
+/// Height of the ribbon body for `rows` rows of tools.
+pub fn body_height(rows: usize, tiles: bool) -> f64 {
+    29.0 + rows as f64 * row_height(tiles)
+}
+
+/// Estimated width of a tile with this short name, measured with the widths
+/// of Helvetica at the size of the names (wider names end in an ellipsis).
+pub fn tile_width(label: &str) -> f64 {
+    (folitecta_core::util::helvetica_width(label, 10.5) as f64 + 9.0).clamp(TILE_MIN_W, TILE_MAX_W) + COL_GAP
+}
+
+/// Width of a group of a chosen width showing `n` of its tools (all of its
+/// tools in `widths`), for every `n` from 1 to all of them: where the edge
+/// of the group is for each number of tools, so a drag of the edge follows
+/// the pointer.
+pub fn fixed_widths(widths: &[f64], title: f64, more_w: f64, rows: usize) -> Vec<f64> {
+    let spec = GroupSpec {
+        small_w: widths.to_vec(),
+        large_w: Vec::new(),
+        extra: false,
+        title,
+        more_w,
+        collapsed_w: more_w,
+        fixed: None,
+    };
+    (1..=widths.len())
+        .map(|n| group_width(&spec, (0, n), rows))
+        .collect()
 }
 
 /// Icons in each column of a group of `n` icons: at most `rows`, fewer when
@@ -714,21 +751,6 @@ pub fn icons_per_column(n: usize, rows: usize, title: f64) -> usize {
 /// `small` items as small buttons stacked three per column, the rest in an
 /// overflow menu. `(0, 0)` collapses the whole group into one button.
 pub type GroupFit = (usize, usize);
-
-/// Estimated width of a small ribbon button with this label.
-pub fn small_width(label: &str) -> f64 {
-    30.0 + (label.chars().count() as f64 * 6.7).min(132.0)
-}
-
-/// Estimated width of a large ribbon button with this label.
-pub fn large_width(label: &str) -> f64 {
-    let longest = label
-        .split_whitespace()
-        .map(|w| w.chars().count())
-        .max()
-        .unwrap_or(0) as f64;
-    (longest * 6.4 + 14.0).clamp(LARGE_W, 104.0)
-}
 
 fn visible(f: GroupFit) -> usize {
     f.0 + f.1
@@ -896,7 +918,7 @@ mod tests {
             collapsed_w: LARGE_W,
             extra,
             title,
-            more_w: small_width("More (12)"),
+            more_w: 90.0,
             fixed: None,
         };
         vec![
@@ -986,6 +1008,26 @@ mod tests {
         assert_eq!(icons_per_column(12, 3, 4.0 * (CELL_W + COL_GAP)), 3);
         assert_eq!(icons_per_column(8, 3, 4.0 * (CELL_W + COL_GAP)), 2);
         assert_eq!(icons_per_column(0, 3, 100.0), 3);
+    }
+
+    #[test]
+    fn tiles_have_bounded_widths_and_edges_grow_with_the_tools() {
+        assert_eq!(tile_width(""), TILE_MIN_W + COL_GAP);
+        assert_eq!(tile_width(&"x".repeat(40)), TILE_MAX_W + COL_GAP);
+        assert!(tile_width("Pencil") < tile_width("Rectangle"));
+        // A group of seven tiles in two rows: wider with more tools (the More
+        // button goes away with the last one), never narrower than its title.
+        let widths = vec![tile_width("Note"); 7];
+        let edges = fixed_widths(&widths, 50.0, tile_width("More 9"), 2);
+        assert_eq!(edges.len(), 7);
+        assert!(
+            edges[1] > edges[0] && edges[5] > edges[3] && edges[6] > edges[0],
+            "{edges:?}"
+        );
+        assert!(edges.iter().all(|w| *w >= 50.0));
+        // Icons alone: three more tools, one more column of icons.
+        let icons = fixed_widths(&[CELL_W; 9], 30.0, CELL_W, 3);
+        assert_eq!(icons[5] - icons[2], CELL_W + COL_GAP);
     }
 
     #[test]

@@ -4,6 +4,8 @@ pub mod dialogs;
 pub mod features;
 pub mod panes;
 
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use dioxus::html::{InteractionElementOffset, InteractionLocation};
 use dioxus::prelude::*;
 use folitecta_core::Command;
@@ -16,6 +18,41 @@ use crate::state::AppState;
 pub const MENU_W: f64 = 300.0;
 /// Approximate height of one menu row.
 const ROW_H: f64 = 30.0;
+/// How long an open submenu waits before another row of its menu replaces or
+/// closes it: the pointer crosses those rows on its way into the submenu.
+const SUBMENU_DELAY_MS: u64 = 300;
+
+/// The latest change of the open submenus asked for by the pointer; a change
+/// waiting for [`SUBMENU_DELAY_MS`] happens only if it is still the latest.
+static SUBMENU_TICKET: AtomicU64 = AtomicU64::new(0);
+
+/// Forget the changes of the submenus waiting to happen (the pointer reached
+/// the open submenu, or the menus closed).
+pub fn keep_submenus() {
+    SUBMENU_TICKET.fetch_add(1, Ordering::SeqCst);
+}
+
+/// Close the submenus from `depth` on, then open `open` there: at once when
+/// no submenu is open at that depth, after a short delay when one is, unless
+/// the pointer reaches it first.
+fn switch_submenu(st: AppState, depth: usize, open: Option<(String, f64, f64)>) {
+    let ticket = SUBMENU_TICKET.fetch_add(1, Ordering::SeqCst) + 1;
+    let apply = move |open: Option<(String, f64, f64)>| {
+        let mut stack = st.submenus_mut();
+        stack.truncate(depth);
+        stack.extend(open);
+    };
+    if st.submenus.peek().len() <= depth {
+        apply(open);
+        return;
+    }
+    dioxus::core::spawn_forever(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(SUBMENU_DELAY_MS)).await;
+        if SUBMENU_TICKET.load(Ordering::SeqCst) == ticket {
+            apply(open);
+        }
+    });
+}
 
 /// Status badge for a command (empty when fully implemented).
 pub fn status_badge(id: &str) -> Element {
@@ -169,7 +206,8 @@ fn submenu_position(st: AppState, evt: &Event<MouseData>, rows: usize) -> (f64, 
 }
 
 /// A menu entry (leaf or nested submenu). Submenus open on hover next to the
-/// row with fixed positioning, so scrolling containers never clip them.
+/// row with fixed positioning, so scrolling containers never clip them; an
+/// open submenu stays a moment when the pointer crosses other rows towards it.
 pub fn menu_entry(st: AppState, lang: Lang, cmd: &'static Command, depth: usize) -> Element {
     let reg = folitecta_core::registry();
     let label = cmd_label(lang, cmd);
@@ -202,27 +240,33 @@ pub fn menu_entry(st: AppState, lang: Lang, cmd: &'static Command, depth: usize)
         return rsx! {
             div { class: if open_pos.is_some() { "menu-item open" } else { "menu-item" },
                 onmouseenter: move |evt| {
+                    if st.submenus.peek().get(depth).is_some_and(|(s, _, _)| *s == id_hover) {
+                        // Back on the row of the open submenu: it stays.
+                        keep_submenus();
+                        return;
+                    }
                     let pos = submenu_position(st, &evt, rows);
-                    let mut stack = st.submenus_mut();
-                    stack.truncate(depth);
-                    stack.push((id_hover.clone(), pos.0, pos.1));
+                    switch_submenu(st, depth, Some((id_hover.clone(), pos.0, pos.1)));
                 },
                 onclick: move |evt| {
                     evt.stop_propagation();
-                    // Keyboard/touch users: clicking toggles the submenu.
+                    // Keyboard and touch users: a click opens the submenu (the row's
+                    // children ignore the pointer, so the position is the row's).
+                    keep_submenus();
+                    if st.submenus.peek().get(depth).is_some_and(|(s, _, _)| *s == id_click) {
+                        return;
+                    }
                     let pos = submenu_position(st, &evt, rows);
                     let mut stack = st.submenus_mut();
-                    let open = stack.get(depth).map(|(s, _, _)| *s == id_click).unwrap_or(false);
                     stack.truncate(depth);
-                    if !open {
-                        stack.push((id_click.clone(), pos.0, pos.1));
-                    }
+                    stack.push((id_click.clone(), pos.0, pos.1));
                 },
                 span { class: "check-mark" }
                 span { class: "label", "{label}" }
                 span { class: "chev", "›" }
                 if let Some((left, top)) = open_pos {
                     div { class: "submenu", style: "left:{left}px;top:{top}px",
+                        onmouseenter: move |_| keep_submenus(),
                         onclick: move |e| e.stop_propagation(),
                         if is_recent {
                             {recent_entries(st)}
@@ -245,7 +289,7 @@ pub fn menu_entry(st: AppState, lang: Lang, cmd: &'static Command, depth: usize)
         div { class: "menu-item",
             onmouseenter: move |_| {
                 if st.submenus.peek().len() > depth {
-                    st.submenus_mut().truncate(depth);
+                    switch_submenu(st, depth, None);
                 }
             },
             onclick: move |e| { e.stop_propagation(); commands::dispatch(st, &id); },

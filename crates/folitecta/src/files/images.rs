@@ -1,4 +1,4 @@
-//! Picture files: placed on pages, attached, made into stamps, inserted as pages, or made into new documents (text files too).
+//! Picture files: placed on pages, attached, made into stamps, inserted as pages, or made into new documents (text files and e-mail messages too).
 
 use super::*;
 
@@ -130,6 +130,72 @@ pub fn new_from_images(st: AppState) {
                 set_window_title(st);
             }
             Err(e) => st.error(e),
+        }
+    });
+}
+
+/// The words in front of the header lines of a message made into a document.
+pub fn email_labels(lang: crate::i18n::Lang) -> folitecta_core::email::EmailLabels {
+    folitecta_core::email::EmailLabels {
+        from: t(lang, "label.mail_from"),
+        to: t(lang, "label.mail_to"),
+        cc: t(lang, "label.mail_cc"),
+        date: t(lang, "label.mail_date"),
+        attachments: t(lang, "label.mail_attachments"),
+    }
+}
+
+/// A new document showing the e-mail message in `data` (an `.eml` file
+/// named `name`): its header lines, its text and its attachments embedded.
+pub fn open_email_bytes(st: AppState, data: &[u8], name: &str) {
+    let made = folitecta_core::email::read_email(data).and_then(|msg| {
+        Document::from_email(
+            &msg,
+            &email_labels(st.lang()),
+            folitecta_core::TextLayout::default(),
+        )
+    });
+    match made {
+        Ok(mut doc) => {
+            let stem = name.rsplit_once('.').map(|(s, _)| s).unwrap_or(name);
+            doc.set_name_hint(&format!("{stem}.pdf"));
+            open_document_tab(st, doc);
+            st.toast(
+                ToastKind::Ok,
+                tf(st.lang(), "toast.opened", &[("name", name)]),
+                "",
+            );
+        }
+        Err(e) => st.error(format!("{name}: {e}")),
+    }
+}
+
+/// Open an `.eml` file as a new document.
+pub fn open_email(st: AppState, path: &Path) {
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    match std::fs::read(path) {
+        Ok(data) => open_email_bytes(st, &data, &name),
+        Err(e) => st.error(format!("{}: {e}", path.display())),
+    }
+}
+
+/// New documents from e-mail messages (`.eml` files).
+pub fn new_from_email(st: AppState) {
+    spawn(async move {
+        let Some(files) = rfd::AsyncFileDialog::new()
+            .set_title("Create a PDF from e-mail messages")
+            .add_filter("E-mail", &["eml"])
+            .add_filter("All files", &["*"])
+            .pick_files()
+            .await
+        else {
+            return;
+        };
+        for f in files {
+            open_email(st, f.path());
         }
     });
 }

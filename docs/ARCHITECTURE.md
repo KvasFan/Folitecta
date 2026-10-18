@@ -27,7 +27,10 @@ The modules are grouped in folders by area — `organize` (pages and documents),
 (comments), `graphics` (pictures and barcodes), `page_text`, `interactive` (forms and scripts),
 `navigation`, `protection` and `tags` — while the document model, rendering, the registry and the
 shared helpers (`util`, `geom`, `xml`) stay at the root; the root re-exports every module, so
-paths such as `folitecta_core::pages` stay short.
+paths such as `folitecta_core::pages` stay short. The larger modules are folders of their own:
+`appearance` (the style of comments, the shapes and line endings, the note icons, measurement
+labels and the drawing of each kind of comment) and `comment_exchange` (XFDF, FDF); the drawing
+of form fields is `form_appearance`, next to `form_design`.
 
 Operations are grouped by module, for example `pages` and `pagetools` (page tree edits, crop,
 resize, split), `annots` and `appearance` (comments with generated appearance streams), `outline`
@@ -101,7 +104,11 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
   interface) and `accessibility`. Together they are the **single source of truth** for what is implemented: the
   feature matrix, the badges in menus and the roadmap notices all derive from them. `PARTIAL`
   marks reduced implementations.
-- `files.rs` — open/save/export flows with native dialogs (rfd), unsaved-changes handling.
+- `files/` — the flows that go through native file dialogs (rfd), one module per area:
+  `documents` (open, new, save, close, revert, protected copies), `export` (pictures of pages,
+  extracted and split documents, text), `images` (picture files placed, attached or made into
+  pages), `forms` (form data), `comments` (XFDF and FDF exchange), `print`, `pages` (pages from
+  another PDF, Bates numbering) and `settings`.
 - `ui/` — the interface, in four parts:
   - `chrome/` — the frame of the window: `menubar` (classic menus generated from the registry),
     `ribbon` and `ribbon_layout` (tabs, groups, the fitting of the buttons to the width, overflow

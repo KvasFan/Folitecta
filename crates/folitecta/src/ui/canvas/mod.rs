@@ -19,12 +19,14 @@ mod create;
 mod geometry;
 mod page;
 mod popups;
+mod preview;
 mod rulers;
 
 pub use create::*;
 use geometry::*;
 use page::*;
 pub use popups::*;
+use preview::*;
 use rulers::*;
 
 /// Points per ruler unit and the minor/major tick spacing (in units).

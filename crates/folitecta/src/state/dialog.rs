@@ -364,6 +364,8 @@ pub enum Dialog {
     },
     /// The items of the chosen combo box or list box.
     FieldItems,
+    /// The list of security policies.
+    SecurityPolicies,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

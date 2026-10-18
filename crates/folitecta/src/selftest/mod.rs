@@ -389,6 +389,7 @@ mod steps_note_icon;
 mod steps_ocr;
 mod steps_panes;
 mod steps_pictures;
+mod steps_policies;
 mod steps_recovery;
 mod steps_review;
 mod steps_spelling;
@@ -455,9 +456,10 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     steps_spelling::run(&mut cx).await;
     steps_ocr::run(&mut cx).await;
     steps_field_items::run(&mut cx).await;
+    steps_policies::run(&mut cx).await;
     let failures = cx.failures;
 
-    // 56. Undo everything added above.
+    // 57. Undo everything added above.
     st.set_tool(Tool::Hand);
     for _ in 0..90 {
         crate::commands::dispatch(st, "undo");
@@ -519,6 +521,7 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
             "arrange" => steps_arrange::run(&mut cx).await,
             "field_items" => steps_field_items::run(&mut cx).await,
             "ocr" => steps_ocr::run(&mut cx).await,
+            "policies" => steps_policies::run(&mut cx).await,
             "spelling" => steps_spelling::run(&mut cx).await,
             _ => cx.record("unknown step", false, step.to_string()),
         }
@@ -771,6 +774,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("calc-order", Dialog::CalcOrder),
         ("note-icon", Dialog::NoteIcon(None)),
         ("spell-check", Dialog::SpellCheck),
+        ("security-policies", Dialog::SecurityPolicies),
         ("ocr", Dialog::Ocr { pictures_only: false }),
         ("ocr-pictures", Dialog::Ocr { pictures_only: true }),
         (

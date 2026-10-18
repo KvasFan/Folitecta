@@ -27,7 +27,7 @@ pub(crate) use markup::{
     arrange, calculator, comment_styles, comments, format, media, review, stamps, tables,
 };
 pub(crate) use navigation::{attachments, bookmarks, explorer, history, layers, panes, portfolio, sessions};
-pub(crate) use protection::{protect, redaction, signatures, signs};
+pub(crate) use protection::{policies, protect, redaction, signatures, signs};
 pub(crate) use text::{find_replace, search, spelling, textedit};
 pub(crate) use window::{edit, help, interface, split_view, view};
 
@@ -64,6 +64,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     buttons::HANDLERS,
     format::HANDLERS,
     protect::HANDLERS,
+    policies::HANDLERS,
     review::HANDLERS,
     bookmarks::HANDLERS,
     interface::HANDLERS,

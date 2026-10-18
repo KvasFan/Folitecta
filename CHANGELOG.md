@@ -27,6 +27,10 @@ All notable changes to Folitecta are documented here. The format follows
   everywhere, or adds it to the user's own words. The words are marked on the page, as they are
   while the page text is edited with View › Spell Check on. Words in capitals, words with digits,
   addresses and file names are passed over; a word divided at the end of a line is checked whole.
+- Security policies (Protect › Security Policies): named sets of the permissions of password
+  protection, two examples to start with, made, edited, cloned, renamed, deleted, imported and
+  exported (JSON); applying one opens Password Protection with its permissions, and that dialog
+  can choose a policy or save its permissions as a new one. Passwords are never kept.
 - Items of combo boxes and list boxes edited in a list (Form › Items, or Edit Items in the field
   properties): added (Enter adds the item typed), deleted, moved up and down, or kept sorted
   (the field's Sort flag, items written in alphabetical order); written in one undo step.

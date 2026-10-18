@@ -16,6 +16,7 @@ pub mod macros;
 pub mod media;
 pub mod ocr;
 pub mod pictures;
+pub mod policies;
 pub mod portfolio;
 pub mod recovery;
 pub mod redaction;

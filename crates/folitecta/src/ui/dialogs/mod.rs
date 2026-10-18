@@ -413,6 +413,7 @@ pub fn Dialogs() -> Element {
         Dialog::Ocr { pictures_only } => rsx! { crate::ui::features::ocr::OcrDialog { pictures_only } },
         Dialog::OcrText { text } => rsx! { crate::ui::features::ocr::OcrTextDialog { text } },
         Dialog::FieldItems => rsx! { crate::ui::features::field_editor::FieldItemsDialog {} },
+        Dialog::SecurityPolicies => rsx! { crate::ui::features::policies::SecurityPoliciesDialog {} },
     }
 }
 

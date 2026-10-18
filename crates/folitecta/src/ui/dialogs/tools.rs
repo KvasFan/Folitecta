@@ -269,11 +269,24 @@ pub(super) type PermRow = (&'static str, bool, fn(&mut SecurityPermissions));
 
 #[component]
 pub(super) fn Security() -> Element {
+    use crate::commands::policies::{self as pol, PRESET};
     let st = use_context::<AppState>();
     let lang = st.lang();
     let mut user = use_signal(String::new);
     let mut owner = use_signal(String::new);
-    let mut perms = use_signal(SecurityPermissions::default);
+    // A policy applied from the list of policies sets the permissions.
+    let preset = use_hook(|| PRESET.write().take());
+    let mut policy = use_signal({
+        let preset = preset.clone();
+        move || preset.map(|p| p.name).unwrap_or_default()
+    });
+    let mut perms = use_signal({
+        let preset = preset.clone();
+        move || preset.map(|p| p.permissions).unwrap_or_default()
+    });
+    let mut wants_open = use_signal(move || preset.is_some_and(|p| p.open_password));
+    let mut new_name = use_signal(String::new);
+    let policies = pol::policies(st);
     let p = perms();
     let rows: [PermRow; 6] = [
         ("dialog.security.print", p.print, |p| p.print = !p.print),
@@ -301,17 +314,50 @@ pub(super) fn Security() -> Element {
                 files::save_encrypted(st, u, o, perms());
             },
             div { class: "callout", "{t(lang, \"dialog.security.hint\")}" }
+            div { class: "field",
+                label { "{t(lang, \"policy.policy\")}" }
+                select { class: "security-policy",
+                    onchange: {
+                        let policies = policies.clone();
+                        move |e: Event<FormData>| {
+                            policy.set(e.value());
+                            if let Some(p) = policies.iter().find(|p| p.name == e.value()) {
+                                perms.set(p.permissions);
+                                wants_open.set(p.open_password);
+                            }
+                        }
+                    },
+                    option { value: "", selected: policy().is_empty(), "{t(lang, \"policy.none\")}" }
+                    for p in policies.iter() {
+                        option { key: "{p.name}", value: "{p.name}", selected: policy() == p.name, "{p.name}" }
+                    }
+                }
+            }
             div { class: "field-grid",
                 div { class: "field", label { "{t(lang, \"dialog.security.user\")}" } input { r#type: "password", autofocus: true, value: "{user}", oninput: move |e| user.set(e.value()) } }
                 div { class: "field", label { "{t(lang, \"dialog.security.owner\")}" } input { r#type: "password", value: "{owner}", oninput: move |e| owner.set(e.value()) } }
+            }
+            if wants_open() && user().is_empty() {
+                p { class: "hint warn", "{t(lang, \"policy.needs_open_password\")}" }
             }
             b { "{t(lang, \"dialog.security.permissions\")}" }
             div { class: "check-grid",
                 for (key, on, toggle) in rows {
                     label { class: "check", key: "{key}",
-                        input { r#type: "checkbox", checked: on, onchange: move |_| toggle(&mut perms.write()) }
+                        input { r#type: "checkbox", checked: on, onchange: move |_| { toggle(&mut perms.write()); policy.set(String::new()); } }
                         span { "{t(lang, key)}" }
                     }
+                }
+            }
+            div { class: "row",
+                input { class: "grow security-policy-name", value: "{new_name}", placeholder: "{t(lang, \"policy.name\")}",
+                    oninput: move |e| new_name.set(e.value()) }
+                button { class: "tbtn security-save-policy",
+                    onclick: move |_| {
+                        pol::save_permissions(st, &new_name(), perms(), !user().is_empty());
+                        new_name.set(String::new());
+                    },
+                    "{t(lang, \"policy.save_as\")}"
                 }
             }
         }

@@ -87,7 +87,8 @@ operations; the rest are listed and open a roadmap notice. The exact state of ev
   underlays from another PDF, removal of any mark Folitecta added.
 - **Protect**: redaction (mark areas or text, apply to destroy the content underneath) with
   colour, blur or pixelated overlays, overlay text and sets of redaction codes; password
-  protection with AES-128 and permissions, document script listing and removal.
+  protection with AES-128 and permissions, security policies (named sets of permissions,
+  imported and exported), document script listing and removal.
 - **Create and convert**: blank documents of any paper size, from pictures, from text files, from
   the clipboard; export pages to PNG/JPEG, extract embedded images; snapshot of an area to the
   clipboard; paste pictures onto pages and text as text boxes.

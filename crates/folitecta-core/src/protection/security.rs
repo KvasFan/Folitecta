@@ -10,7 +10,8 @@ use crate::document::Document;
 use crate::error::{Error, Result};
 
 /// What a reader opening the file with the user password may do.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct SecurityPermissions {
     pub print: bool,
     pub modify: bool,

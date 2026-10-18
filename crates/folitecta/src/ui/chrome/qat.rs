@@ -25,27 +25,31 @@ pub fn QuickAccess(row: bool) -> Element {
         .unwrap_or_default();
     rsx! {
         div { class: if row { "qat qat-row" } else { "qat" },
-            for (i, item) in list.into_iter().enumerate() {
-                if item.is_separator() {
-                    div { key: "s{i}", class: "qat-sep" }
-                } else if let Some(c) = reg.get(&item.id) {
-                    {
-                        let label = cmd_label(lang, c);
-                        let tip = match c.shortcut.as_deref() {
-                            Some(s) => format!("{label} ({s})"),
-                            None => label.clone(),
-                        };
-                        let mut class = String::from(if item.text { "tbtn qat-btn" } else { "ibtn qat-btn" });
-                        if is_active(st, &item.id) {
-                            class.push_str(" active");
-                        }
-                        let (run, drop) = (item.id.clone(), item.id.clone());
-                        rsx! {
-                            button { key: "{i}-{item.id}", class: "{class}", title: "{tip}", "aria-label": "{label}", "data-cmd": "{item.id}",
-                                onclick: move |e| { e.stop_propagation(); commands::dispatch(st, &run); },
-                                oncontextmenu: move |e| { e.prevent_default(); e.stop_propagation(); qat::toggle(st, &drop); },
-                                if item.icon { Icon { name: icons::for_command(&item.id) } }
-                                if item.text { span { class: "txt", "{label}" } }
+            // The entries scroll when the window is too narrow for them; the
+            // button that customizes them stays in view.
+            div { class: "qat-items",
+                for (i, item) in list.into_iter().enumerate() {
+                    if item.is_separator() {
+                        div { key: "s{i}", class: "qat-sep" }
+                    } else if let Some(c) = reg.get(&item.id) {
+                        {
+                            let label = cmd_label(lang, c);
+                            let tip = match c.shortcut.as_deref() {
+                                Some(s) => format!("{label} ({s})"),
+                                None => label.clone(),
+                            };
+                            let mut class = String::from(if item.text { "tbtn qat-btn" } else { "ibtn qat-btn" });
+                            if is_active(st, &item.id) {
+                                class.push_str(" active");
+                            }
+                            let (run, drop) = (item.id.clone(), item.id.clone());
+                            rsx! {
+                                button { key: "{i}-{item.id}", class: "{class}", title: "{tip}", "aria-label": "{label}", "data-cmd": "{item.id}",
+                                    onclick: move |e| { e.stop_propagation(); commands::dispatch(st, &run); },
+                                    oncontextmenu: move |e| { e.prevent_default(); e.stop_propagation(); qat::toggle(st, &drop); },
+                                    if item.icon { Icon { name: icons::for_command(&item.id) } }
+                                    if item.text { span { class: "txt", "{label}" } }
+                                }
                             }
                         }
                     }

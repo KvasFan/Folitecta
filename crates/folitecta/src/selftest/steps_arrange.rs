@@ -125,7 +125,9 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let before = boxes();
     drag("arrange-2", 30.0, 20.0).await;
     let dragged = boxes();
-    let (dx, dy) = (30.0 / cx.z, 20.0 / cx.z);
+    // Pixels of the screen are points at the zoom of the page.
+    let z = crate::commands::current_zoom(st);
+    let (dx, dy) = (30.0 / z, 20.0 / z);
     let together = before.len() == 3
         && dragged.len() == 3
         && before

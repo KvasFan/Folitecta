@@ -263,6 +263,14 @@ fn checker() -> Option<Arc<Speller>> {
     SPELL.peek().speller.clone()
 }
 
+/// The checker is ready for the languages chosen (not being read, not made
+/// for other languages).
+fn current_languages(st: AppState) -> bool {
+    let want = chosen(st);
+    let s = SPELL.peek();
+    !s.loading && s.speller.is_some() && s.languages == want
+}
+
 /// Take a word out of the user's own words.
 pub fn remove_word(st: AppState, word: &str) {
     if let Some(sp) = checker() {
@@ -280,6 +288,10 @@ pub fn remove_word(st: AppState, word: &str) {
 /// document, the checker, its words or options, what is checked), then find
 /// the word shown again from where it was. False without a checker.
 fn refresh(st: AppState) -> bool {
+    // Not with the checker of other languages while the chosen ones are read.
+    if !current_languages(st) {
+        return false;
+    }
     let Some(sp) = checker().filter(|s| s.has_dictionaries()) else {
         return false;
     };
@@ -780,9 +792,11 @@ pub fn context(t: &DocTab, m: &Misspelling) -> Option<(String, String, String)> 
 }
 
 /// What the dialog says when there is no word to show.
-pub fn status_line(lang: Lang) -> Option<String> {
+pub fn status_line(st: AppState) -> Option<String> {
+    let lang = st.lang();
+    let want = chosen(st);
     let s = SPELL.read();
-    if s.loading {
+    if s.loading || s.languages != want {
         return Some(t(lang, "spell.loading"));
     }
     match &s.speller {

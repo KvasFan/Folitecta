@@ -6,6 +6,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-18
+
 ### Added
 
 - Text recognition (OCR), in pure Rust: OCR Pages reads all the pages, the current one or a range
@@ -54,6 +56,9 @@ All notable changes to Folitecta are documented here. The format follows
   GNU ones (`deny.toml`); option-ext, which Dioxus uses on Linux and macOS, is one.
 - The full continuous integration runs for release tags, pull requests and on demand; the
   changes in between are checked locally before they are pushed.
+- The release packages carry the `dictionaries` and `ocr` folders next to the program (in the
+  resources of the macOS app bundle).
+- The parts of the text recognition library that read the models are built for size.
 
 ## [0.0.12] - 2026-10-18
 

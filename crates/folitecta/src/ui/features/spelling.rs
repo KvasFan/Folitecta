@@ -27,7 +27,7 @@ pub fn SpellCheckDialog() -> Element {
     // The dictionaries in the folders, listed once for the dialog.
     let available = use_hook(sp::available);
 
-    let status = sp::status_line(lang);
+    let status = sp::status_line(st);
     let shown = st
         .read_active(|t| {
             let run = t.spell.as_ref()?;

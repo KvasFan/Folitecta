@@ -53,7 +53,7 @@ for (const sel of roots) {
   }
 }
 // 2. Siblings in rows must not overlap.
-const rows = ['.menubar', '.ribbon-tabs', '.ribbon-right', '.qat', '.ribbon-body', '.ribbon-group-items', '.statusbar', '.statusbar .seg', '.pane-toolbar', '.search-nav', '.search-opts', '.dialog-foot', '.field-grid', '.radio-row', '.label-row', '.doc-tabs', '.pane-header', '.welcome .actions', '.check-grid', '.stamp-grid', '.row', '.sel-toolbar', '.list-item .title', '.list-item .meta'];
+const rows = ['.menubar', '.ribbon-tabs', '.ribbon-right', '.qat', '.qat-items', '.ribbon-body', '.ribbon-group-items', '.statusbar', '.statusbar .seg', '.pane-toolbar', '.search-nav', '.search-opts', '.dialog-foot', '.field-grid', '.radio-row', '.label-row', '.doc-tabs', '.pane-header', '.welcome .actions', '.check-grid', '.stamp-grid', '.row', '.sel-toolbar', '.list-item .title', '.list-item .meta'];
 for (const sel of rows) {
   for (const row of document.querySelectorAll(sel)) {
     if (!visible(row)) continue;

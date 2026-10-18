@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/folitecta-core", "crates/folitecta"]
 
 [workspace.package]
-version = "0.0.12"
+version = "0.1.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/KvasFan/Folitecta"
@@ -33,6 +33,19 @@ lto = "thin"
 codegen-units = 1
 strip = true
 panic = "unwind"
+
+# The parts of the text recognition library that read the models (run once)
+# are made small; its computing kernels (tract-linalg, tract-core) stay fast.
+[profile.release.package.tract-onnx]
+opt-level = "s"
+[profile.release.package.tract-onnx-opl]
+opt-level = "s"
+[profile.release.package.tract-hir]
+opt-level = "s"
+[profile.release.package.tract-nnef]
+opt-level = "s"
+[profile.release.package.prost]
+opt-level = "s"
 
 [profile.dev]
 opt-level = 1

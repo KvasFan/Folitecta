@@ -1,12 +1,12 @@
 # Folitecta feature matrix
 
-Generated from the command registry for version 0.0.12. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
+Generated from the command registry for version 0.1.0. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1377 |
-| 🟡 partial | 62 |
-| ⬜ planned | 542 |
+| ✅ available | 1430 |
+| 🟡 partial | 63 |
+| ⬜ planned | 488 |
 | total | 1981 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -616,15 +616,15 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Public Key Security | `pubsec` | ✅ available |
 | ↳ Cert | `pubsec.cert` | ✅ available |
 | Save Unrestricted Copy… | `saveUnrestricted` | ✅ available |
-| Security Policies | `secPoliciesList` | ⬜ planned |
-| ↳ Add | `secPoliciesList.add` | ⬜ planned |
-| ↳ Clone… | `secPoliciesList.clone` | ⬜ planned |
-| ↳ Delete | `secPoliciesList.delete` | ⬜ planned |
-| ↳ Edit… | `secPoliciesList.edit` | ⬜ planned |
-| ↳ Export… | `secPoliciesList.export` | ⬜ planned |
-| ↳ Import… | `secPoliciesList.import` | ⬜ planned |
-| ↳ Rename… | `secPoliciesList.rename` | ⬜ planned |
-| Security Policies | `securityPolicies` | ⬜ planned |
+| Security Policies | `secPoliciesList` | ✅ available |
+| ↳ Add | `secPoliciesList.add` | ✅ available |
+| ↳ Clone… | `secPoliciesList.clone` | ✅ available |
+| ↳ Delete | `secPoliciesList.delete` | ✅ available |
+| ↳ Edit… | `secPoliciesList.edit` | ✅ available |
+| ↳ Export… | `secPoliciesList.export` | ✅ available |
+| ↳ Import… | `secPoliciesList.import` | ✅ available |
+| ↳ Rename… | `secPoliciesList.rename` | ✅ available |
+| Security Policies | `securityPolicies` | ✅ available |
 | Standard Security Policy… | `standardSecPolicy` | ✅ available |
 
 **E-Signature**
@@ -646,13 +646,13 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Button | `btn` | ⬜ planned |
-| ↳ Behaviour | `btn.behaviour` | ⬜ planned |
-| ↳ Down Icon | `btn.downIcon` | ⬜ planned |
-| ↳ Roll Over Icon | `btn.rollOverIcon` | ⬜ planned |
-| ↳ Up Icon | `btn.upIcon` | ⬜ planned |
-| Combobox | `combobox` | ⬜ planned |
-| ↳ Items | `combobox.items` | ⬜ planned |
+| Button | `btn` | ✅ available |
+| ↳ Behaviour | `btn.behaviour` | ✅ available |
+| ↳ Down Icon | `btn.downIcon` | ✅ available |
+| ↳ Roll Over Icon | `btn.rollOverIcon` | ✅ available |
+| ↳ Up Icon | `btn.upIcon` | ✅ available |
+| Combobox | `combobox` | ✅ available |
+| ↳ Items | `combobox.items` | ✅ available |
 | Edit Document Forms | `tool.edit.form` | ⬜ planned |
 | Edit Form | `tool.editFields` | ✅ available |
 | ↳ Add New Field | `tool.editFields.addNewField` | ✅ available |
@@ -663,10 +663,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Set as Required | `tool.editFields.setAsRequired` | ✅ available |
 | ↳ Show Calculation Ord Index | `tool.editFields.showCalcOrdIdx` | ✅ available |
 | ↳ Show Tab Numbers | `tool.editFields.showTabNumbers` | ✅ available |
-| Field Editor | `editFields` | ⬜ planned |
-| ↳ Items | `editFields.items` | ⬜ planned |
-| Listbox | `listbox` | ⬜ planned |
-| ↳ Items | `listbox.items` | ⬜ planned |
+| Field Editor | `editFields` | ✅ available |
+| ↳ Items | `editFields.items` | ✅ available |
+| Listbox | `listbox` | ✅ available |
+| ↳ Items | `listbox.items` | ✅ available |
 | Select | `fieldsView.select` | ✅ available |
 | ↳ Barcode | `fieldsView.select.barcode` | ✅ available |
 | ↳ Button | `fieldsView.select.button` | ✅ available |
@@ -682,8 +682,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Row | `fieldsView.tabOrder.row` | ✅ available |
 | ↳ Structure | `fieldsView.tabOrder.structure` | ✅ available |
 | ↳ Unspecified | `fieldsView.tabOrder.unspecified` | ✅ available |
-| Widget | `widget` | ⬜ planned |
-| ↳ Font Size | `widget.fontSize` | ⬜ planned |
+| Widget | `widget` | ✅ available |
+| ↳ Font Size | `widget.fontSize` | ✅ available |
 
 **Form Data**
 
@@ -961,10 +961,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| OCR Images… | `document.ocrImages` | ⬜ planned |
-| OCR Image… | `OCRImage` | ⬜ planned |
-| OCR Pages… | `document.OCRPages` | ⬜ planned |
-| OCR Selected Region… | `document.OCRSelRgn` | ⬜ planned |
+| OCR Images… | `document.ocrImages` | ✅ available |
+| OCR Image… | `OCRImage` | ✅ available |
+| OCR Pages… | `document.OCRPages` | ✅ available |
+| OCR Selected Region… | `document.OCRSelRgn` | ✅ available |
 
 **Enhance Pages**
 
@@ -1043,11 +1043,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Spell Check and Replace | `document.spellCheckAndRepl` | ⬜ planned |
-| ↳ Check Spelling | `document.spellCheckAndRepl.forward` | ⬜ planned |
-| ↳ Ignore All Spelling Errors | `document.spellCheckAndRepl.ignoreAll` | ⬜ planned |
-| ↳ Ignore Spelling Error | `document.spellCheckAndRepl.ignore` | ⬜ planned |
-| ↳ Previous Spelling Error | `document.spellCheckAndRepl.back` | ⬜ planned |
+| Spell Check and Replace | `document.spellCheckAndRepl` | ✅ available |
+| ↳ Check Spelling | `document.spellCheckAndRepl.forward` | ✅ available |
+| ↳ Ignore All Spelling Errors | `document.spellCheckAndRepl.ignoreAll` | ✅ available |
+| ↳ Ignore Spelling Error | `document.spellCheckAndRepl.ignore` | ✅ available |
+| ↳ Previous Spelling Error | `document.spellCheckAndRepl.back` | ✅ available |
 
 **Comments**
 
@@ -1141,38 +1141,38 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Customize Toolbars | `customizeToolbars` | ⬜ planned |
-| ↳ Delete | `customizeToolbars.delete` | ⬜ planned |
-| ↳ Down | `customizeToolbars.down` | ⬜ planned |
+| Customize Toolbars | `customizeToolbars` | ✅ available |
+| ↳ Delete | `customizeToolbars.delete` | ✅ available |
+| ↳ Down | `customizeToolbars.down` | ✅ available |
 | ↳ Make Default | `customizeToolbars.makeDefault` | ⬜ planned |
 | ↳ New Tab | `customizeToolbars.newTab` | ⬜ planned |
 | ↳ New Toolbar | `customizeToolbars.newToolbar` | ⬜ planned |
 | ↳ New… | `customizeToolbars.new` | ⬜ planned |
 | ↳ Rename… | `customizeToolbars.rename` | ⬜ planned |
-| ↳ Reset | `customizeToolbars.reset` | ⬜ planned |
-| ↳ Up | `customizeToolbars.up` | ⬜ planned |
-| Item | `item` | ⬜ planned |
-| ↳ Delete | `item.delete` | ⬜ planned |
+| ↳ Reset | `customizeToolbars.reset` | ✅ available |
+| ↳ Up | `customizeToolbars.up` | ✅ available |
+| Item | `item` | 🟡 partial |
+| ↳ Delete | `item.delete` | ✅ available |
 | ↳ Hard Break Separator | `item.hardBreakSep` | ⬜ planned |
-| ↳ Insert Separator After | `item.insertSepAfter` | ⬜ planned |
-| ↳ Insert Separator Before | `item.insertSepBefore` | ⬜ planned |
+| ↳ Insert Separator After | `item.insertSepAfter` | ✅ available |
+| ↳ Insert Separator Before | `item.insertSepBefore` | ✅ available |
 | ↳ Invisible Separator | `item.invisibleSep` | ⬜ planned |
 | ↳ Non Break Separator | `item.nonBreakSep` | ⬜ planned |
-| ↳ Properties… | `item.props` | ⬜ planned |
-| ↳ Show Icon | `item.showIcon` | ⬜ planned |
-| ↳ Show Text | `item.showText` | ⬜ planned |
+| ↳ Properties… | `item.props` | ✅ available |
+| ↳ Show Icon | `item.showIcon` | ✅ available |
+| ↳ Show Text | `item.showText` | ✅ available |
 | Preferences… | `prefs` | ✅ available |
 | ↳ Measurement Options… | `prefs.measurement` | ⬜ planned |
 | Rename Toolbar | `renameToolbar` | ⬜ planned |
 | Reset Menu | `resetMenu` | ⬜ planned |
-| Reset Toolbar | `resetToolbar` | ⬜ planned |
+| Reset Toolbar | `resetToolbar` | ✅ available |
 | Settings | `settings` | ✅ available |
 | ↳ Export Settings… | `settings.export` | ✅ available |
 | ↳ Import Settings… | `settings.import` | ✅ available |
 | ↳ Manage Settings… | `settings.manage` | ✅ available |
 | ↳ Reset Settings… | `settings.reset` | ✅ available |
-| Show Quick Access Toolbar Above Ribbon | `QABarAbove` | ⬜ planned |
-| Show Quick Access Toolbar Below Ribbon | `QABarBelow` | ⬜ planned |
+| Show Quick Access Toolbar Above Ribbon | `QABarAbove` | ✅ available |
+| Show Quick Access Toolbar Below Ribbon | `QABarBelow` | ✅ available |
 
 **Help**
 
@@ -1303,7 +1303,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Insert Text | `pageText.insert` | ✅ available |
 | Replace Text | `pageText.replace` | ✅ available |
 | Delete Text | `pageText.delete` | ✅ available |
-| Arrange | `arrange` | ⬜ planned |
+| Arrange | `arrange` | ✅ available |
 | Object | `object` | ⬜ planned |
 | Preferences… | `prefs` | ✅ available |
 | Add Object Group | `addObjectGroup` | ⬜ planned |
@@ -1313,7 +1313,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Clipboard | `clipboardGroup` | ⬜ planned |
 | Crop | `crop` | ⬜ planned |
 | Crop Page | `cropPage` | ⬜ planned |
-| Customize Toolbars | `customizeToolbars` | ⬜ planned |
+| Customize Toolbars | `customizeToolbars` | ✅ available |
 | Default Layer | `defaultLayer` | ⬜ planned |
 | Distribute Horizontally | `distribHorz` | 🟡 partial |
 | Distribute Vertically | `distribVert` | 🟡 partial |
@@ -1332,12 +1332,12 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Font | `font` | ⬜ planned |
 | Font | `fontName` | 🟡 partial |
 | Font Size | `fontSize` | ✅ available |
-| Group | `group` | ⬜ planned |
+| Group | `group` | ✅ available |
 | Guides Select All | `guidesSelectAll` | ⬜ planned |
 | Guides Select on Page | `guidesSelectOnPage` | ⬜ planned |
 | Image Editor | `imageEditor` | ✅ available |
 | Ink Smooth Level | `inkSmoothLevel` | ⬜ planned |
-| Item | `item` | ⬜ planned |
+| Item | `item` | 🟡 partial |
 | Line Width Profile | `lineWidthProfile` | ⬜ planned |
 | List | `list` | ⬜ planned |
 | Make Same Height | `makeSameHeight` | ✅ available |
@@ -1371,7 +1371,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Replace Image | `replaceImage` | ✅ available |
 | Replace Image Clipboard | `replaceImageClipboard` | ✅ available |
 | Reset Menu | `resetMenu` | ⬜ planned |
-| Reset Toolbar | `resetToolbar` | ⬜ planned |
+| Reset Toolbar | `resetToolbar` | ✅ available |
 | Search Providers | `searchProviders` | ⬜ planned |
 | Select All Content Items | `selectAllContentItems` | ⬜ planned |
 | Select Content Items | `selectContentItems` | ⬜ planned |
@@ -1381,8 +1381,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Select Text Items | `selectTextItems` | ⬜ planned |
 | Select X Form Items | `selectXFormItems` | ⬜ planned |
 | Selection | `selectionGroup` | ⬜ planned |
-| Show Quick Access Toolbar Above Ribbon | `QABarAbove` | ⬜ planned |
-| Show Quick Access Toolbar Below Ribbon | `QABarBelow` | ⬜ planned |
+| Show Quick Access Toolbar Above Ribbon | `QABarAbove` | ✅ available |
+| Show Quick Access Toolbar Below Ribbon | `QABarBelow` | ✅ available |
 | Snapshot | `snapshot` | 🟡 partial |
 | Split Pages | `splitPages` | ✅ available |
 | Substitute Fonts | `saf` | ⬜ planned |
@@ -1395,9 +1395,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Text Para | `textPara` | ⬜ planned |
 | Text Style | `textStyle` | 🟡 partial |
 | Thickness Scale | `thicknessScale` | ⬜ planned |
-| Ungroup | `ungroup` | ⬜ planned |
+| Ungroup | `ungroup` | ✅ available |
 | Volume | `volume` | ✅ available |
-| Widget | `widget` | ⬜ planned |
+| Widget | `widget` | ✅ available |
 
 ### View
 
@@ -1548,11 +1548,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Header and Footer | `document.headerAndFooter` | ✅ available |
 | Bates Numbering | `document.batesNumbering` | ✅ available |
 | Page Numbering… | `document.pageNumbering` | ✅ available |
-| OCR Pages… | `document.OCRPages` | ⬜ planned |
+| OCR Pages… | `document.OCRPages` | ✅ available |
 | Recompress Images… | `document.recompressImages` | ✅ available |
 | Replace Fonts… | `document.replaceFonts` | ⬜ planned |
 | Digital Signatures | `document.signatures` | 🟡 partial |
-| Security Policies | `securityPolicies` | ⬜ planned |
+| Security Policies | `securityPolicies` | ✅ available |
 | Redaction | `document.redaction` | ✅ available |
 | Document JavaScript | `document.javaScript` | ✅ available |
 | Document Actions | `document.actions` | ✅ available |
@@ -1601,9 +1601,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | New Stamp from Selection… | `document.createStampFromSel` | ✅ available |
 | Next Bookmark | `document.nextBookm` | ✅ available |
 | Normalize Pages… | `document.normalizePages` | ✅ available |
-| OCR Images… | `document.ocrImages` | ⬜ planned |
-| OCR Image… | `OCRImage` | ⬜ planned |
-| OCR Selected Region… | `document.OCRSelRgn` | ⬜ planned |
+| OCR Images… | `document.ocrImages` | ✅ available |
+| OCR Image… | `OCRImage` | ✅ available |
+| OCR Selected Region… | `document.OCRSelRgn` | ✅ available |
 | Options… | `document.options` | ⬜ planned |
 | Overlay | `overlay` | ✅ available |
 | Overlay Pages… | `document.overlayPages` | ✅ available |
@@ -1618,12 +1618,12 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Redaction | `redaction` | ✅ available |
 | Remove All Web Links | `removeAllWebLinks` | ✅ available |
 | Remove Cropped Content | `document.removeCroppedContent` | 🟡 partial |
-| Security Policies | `secPoliciesList` | ⬜ planned |
+| Security Policies | `secPoliciesList` | ✅ available |
 | Show Problem Details… | `document.showProblems` | ⬜ planned |
 | Sign Markup | `signMarkup` | ✅ available |
 | Signature | `document.signature` | ✅ available |
 | Signs | `signs` | ✅ available |
-| Spell Check and Replace | `document.spellCheckAndRepl` | ⬜ planned |
+| Spell Check and Replace | `document.spellCheckAndRepl` | ✅ available |
 | Split Document… | `document.split` | ✅ available |
 | Split Pages by Guides… | `document.splitPagesByGuides` | ✅ available |
 | Split Pages… | `document.splitPages` | ✅ available |
@@ -1706,12 +1706,12 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Command | Id | Status |
 |---|---|---|
 | Edit Form | `tool.editFields` | ✅ available |
-| Button | `btn` | ⬜ planned |
-| Combobox | `combobox` | ⬜ planned |
+| Button | `btn` | ✅ available |
+| Combobox | `combobox` | ✅ available |
 | Edit | `tool.edit` | ⬜ planned |
-| Field Editor | `editFields` | ⬜ planned |
+| Field Editor | `editFields` | ✅ available |
 | Forms | `forms` | 🟡 partial |
-| Listbox | `listbox` | ⬜ planned |
+| Listbox | `listbox` | ✅ available |
 
 ### Tools
 
@@ -2012,11 +2012,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `document.signatures.certify.invisible` | Document › Digital Signatures › Certify (Visible) › Certify (Invisible) | ✅ available |
 | `dsd.pageSize` | Edit › Document Size › Page Size | ✅ available |
 | `edit` | Edit | ✅ available |
-| `editFields.items.add` | Form › Field Editor › Items › Add | ⬜ planned |
-| `editFields.items.delete` | Form › Field Editor › Items › Delete | ⬜ planned |
-| `editFields.items.moveDown` | Form › Field Editor › Items › Move Down | ⬜ planned |
-| `editFields.items.moveUp` | Form › Field Editor › Items › Move Up | ⬜ planned |
-| `editFields.items.sorted` | Form › Field Editor › Items › Sorted | ⬜ planned |
+| `editFields.items.add` | Form › Field Editor › Items › Add | ✅ available |
+| `editFields.items.delete` | Form › Field Editor › Items › Delete | ✅ available |
+| `editFields.items.moveDown` | Form › Field Editor › Items › Move Down | ✅ available |
+| `editFields.items.moveUp` | Form › Field Editor › Items › Move Up | ✅ available |
+| `editFields.items.sorted` | Form › Field Editor › Items › Sorted | ✅ available |
 | `explorer.folder.back` | File › Explorer › Folder › Back | ✅ available |
 | `explorer.folder.create` | File › Explorer › Folder › Create | ✅ available |
 | `explorer.folder.forward` | File › Explorer › Folder › Forward | ✅ available |

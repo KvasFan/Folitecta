@@ -14,7 +14,8 @@ use std::time::{Duration, SystemTime};
 pub enum Sent {
     /// The mail program has the message with the files attached.
     Attached,
-    /// The message was closed without being sent (Windows tells).
+    /// The message was closed without being sent (only Windows tells).
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
     Cancelled,
     /// A draft with the files attached was saved there and opened.
     Draft(PathBuf),

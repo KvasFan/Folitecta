@@ -8,7 +8,7 @@ use crate::commands::policies::policies;
 use super::*;
 
 async fn count(selector: &str) -> u64 {
-    document::eval(&format!(
+    eval(&format!(
         "return document.querySelectorAll({}).length;",
         serde_json::to_string(selector).unwrap_or_default()
     ))
@@ -19,7 +19,7 @@ async fn count(selector: &str) -> u64 {
 }
 
 async fn click(selector: &str) {
-    let _ = document::eval(&format!(
+    let _ = eval(&format!(
         "document.querySelector({})?.click();",
         serde_json::to_string(selector).unwrap_or_default()
     ))
@@ -28,7 +28,7 @@ async fn click(selector: &str) {
 }
 
 async fn type_in(selector: &str, text: &str) {
-    let _ = document::eval(&format!(
+    let _ = eval(&format!(
         "const i = document.querySelector({}); if (i) {{ i.value = {}; i.dispatchEvent(new Event('input', {{ bubbles: true }})); }}",
         serde_json::to_string(selector).unwrap_or_default(),
         serde_json::to_string(text).unwrap_or_default()
@@ -58,7 +58,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let after_delete = count(".dialog .policy-row").await;
     let _ = capture_window(&cx.dir.join("interaction-policies.png"));
     // Applied: Password Security with the policy chosen and printing off.
-    let _ = document::eval(
+    let _ = eval(
         "[...document.querySelectorAll('.dialog .policy-row')].find(r => r.textContent.includes('Strict'))?.click();",
     )
     .await;
@@ -66,12 +66,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     click(".dialog-foot .tbtn.primary").await;
     pause(300).await;
     let security = matches!((st.dialog)(), Dialog::Security);
-    let chosen = document::eval("return document.querySelector('.dialog .security-policy')?.value || '';")
+    let chosen = eval("return document.querySelector('.dialog .security-policy')?.value || '';")
         .await
         .ok()
         .and_then(|v| v.as_str().map(str::to_string))
         .unwrap_or_default();
-    let print_off = document::eval(
+    let print_off = eval(
         "const c = document.querySelector('.dialog .check-grid input[type=checkbox]'); return c ? !c.checked : false;",
     )
     .await

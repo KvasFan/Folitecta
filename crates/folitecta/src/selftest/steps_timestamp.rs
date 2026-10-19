@@ -69,7 +69,7 @@ fn identity(name: &str) -> IdentityInfo {
 }
 
 async fn count(selector: &str) -> u64 {
-    document::eval(&format!("return document.querySelectorAll('{selector}').length;"))
+    eval(&format!("return document.querySelectorAll('{selector}').length;"))
         .await
         .ok()
         .and_then(|v| v.as_u64())

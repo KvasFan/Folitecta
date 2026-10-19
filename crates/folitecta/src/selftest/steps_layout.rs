@@ -29,11 +29,7 @@ return true;
 "#,
         sel = serde_json::to_string(selector).unwrap_or_default()
     );
-    let ok = document::eval(&js)
-        .await
-        .ok()
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let ok = eval(&js).await.ok().and_then(|v| v.as_bool()).unwrap_or(false);
     pause(400).await;
     ok
 }
@@ -43,12 +39,12 @@ async fn double_click(selector: &str) {
         "document.querySelector({})?.dispatchEvent(new MouseEvent('dblclick', {{ bubbles: true }}));",
         serde_json::to_string(selector).unwrap_or_default()
     );
-    let _ = document::eval(&js).await;
+    let _ = eval(&js).await;
     pause(400).await;
 }
 
 async fn number(js: impl AsRef<str>) -> f64 {
-    document::eval(js.as_ref())
+    eval(js.as_ref())
         .await
         .ok()
         .and_then(|v| v.as_f64())
@@ -66,7 +62,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         ui.left_pane = "thumbnails".into();
     }
     pause(400).await;
-    let tab = document::eval("return document.querySelector('.ribbon-tab.active')?.textContent || '';")
+    let tab = eval("return document.querySelector('.ribbon-tab.active')?.textContent || '';")
         .await
         .ok()
         .and_then(|v| v.as_str().map(str::to_string))
@@ -167,7 +163,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     )
     .await;
     // Under the icon the short name, in the tooltip the whole one (Zoom + / Zoom In).
-    let zoom_in = document::eval(
+    let zoom_in = eval(
         "const b = document.querySelector('.ribbon-body .rbtn[data-cmd=\"zoomIn\"]'); return b ? [b.querySelector('.lbl')?.textContent || '', b.title].join('|') : '';",
     )
     .await
@@ -229,7 +225,7 @@ el.dispatchEvent(new MouseEvent('mouseenter', {{ bubbles: false, clientX: r.left
 return (el.querySelector('.label')?.textContent || 'submenu');
 "#
         );
-        document::eval(&js)
+        eval(&js)
             .await
             .ok()
             .and_then(|v| v.as_str().map(str::to_string))

@@ -7,7 +7,7 @@ use crate::commands::field_items::ITEMS;
 use super::*;
 
 async fn count_of(selector: &str) -> u64 {
-    document::eval(&format!(
+    eval(&format!(
         "return document.querySelectorAll({}).length;",
         serde_json::to_string(selector).unwrap_or_default()
     ))
@@ -58,32 +58,32 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     st.set_tool(Tool::EditFields);
     crate::commands::dispatch(st, "combobox.items");
     pause(400).await;
-    let listed = document::eval("return document.querySelectorAll('.dialog .field-item').length;")
+    let listed = eval("return document.querySelectorAll('.dialog .field-item').length;")
         .await
         .ok()
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
-    let _ = document::eval(
+    let _ = eval(
         "const i = document.querySelector('.dialog .field-items-draft'); if (i) { i.value = 'Cherry'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
     )
     .await;
     pause(200).await;
-    let _ = document::eval(
+    let _ = eval(
         "document.querySelector('.dialog .field-items-draft')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));",
     )
     .await;
     pause(300).await;
     let added = ITEMS.peek().as_ref().map(|e| e.items.clone()).unwrap_or_default();
     // The first one moved down, then the list sorted.
-    let _ = document::eval("document.querySelector('.dialog .field-item')?.click();").await;
+    let _ = eval("document.querySelector('.dialog .field-item')?.click();").await;
     pause(200).await;
-    let _ = document::eval("document.querySelector('.dialog .field-items-down')?.click();").await;
+    let _ = eval("document.querySelector('.dialog .field-items-down')?.click();").await;
     pause(200).await;
     let moved = ITEMS.peek().as_ref().map(|e| e.items.clone()).unwrap_or_default();
-    let _ = document::eval("document.querySelector('.dialog .field-items-sorted')?.click();").await;
+    let _ = eval("document.querySelector('.dialog .field-items-sorted')?.click();").await;
     pause(300).await;
     let _ = capture_window(&cx.dir.join("interaction-field-items.png"));
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(500).await;
     let props = st.read_active(|t| t.doc.field_props(field).ok()).flatten();
     let closed = matches!((st.dialog)(), Dialog::None);
@@ -130,7 +130,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     pause(500).await;
     let pictures = count_of(".button-picture").await;
     let removable = count_of(".button-picture .tbtn.danger").await;
-    let _ = document::eval(
+    let _ = eval(
         "const s = document.querySelector('.button-behaviour'); if (s) { s.value = 'push'; s.dispatchEvent(new Event('change', { bubbles: true })); }",
     )
     .await;

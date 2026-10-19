@@ -5,7 +5,7 @@ use super::*;
 use crate::commands::pictures::{EDITOR, EXTERNAL, edit_outside, external_changed};
 
 async fn count(selector: &str) -> u64 {
-    document::eval(&format!("return document.querySelectorAll('{selector}').length;"))
+    eval(&format!("return document.querySelectorAll('{selector}').length;"))
         .await
         .ok()
         .and_then(|v| v.as_u64())
@@ -72,7 +72,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         format!("{boxes} boxes"),
     );
     // Select it (the last box is the picture just added) and turn it.
-    let _ = document::eval(
+    let _ = eval(
         "const b = [...document.querySelectorAll('#pg-0 .image-box')].pop(); if (b) b.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));",
     )
     .await;
@@ -82,7 +82,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         st.lang(),
         folitecta_core::registry().get("imageEditor.rotate90CW").unwrap(),
     );
-    let _ = document::eval(&format!(
+    let _ = eval(&format!(
         "const b = [...document.querySelectorAll('.picture-toolbar button')].find(e => e.title === {}); if (b) b.click();",
         serde_json::to_string(&rotate_title).unwrap_or_default()
     ))
@@ -111,14 +111,14 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     );
 
     // The editor, opened with a double click.
-    let _ = document::eval(
+    let _ = eval(
         "const b = [...document.querySelectorAll('#pg-0 .image-box')].pop(); if (b) b.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));",
     )
     .await;
     let mut shown = false;
     for _ in 0..40 {
         pause(150).await;
-        shown = document::eval("const i = document.querySelector('.imged-img'); return !!(i && i.complete && i.naturalWidth > 0);")
+        shown = eval("const i = document.querySelector('.imged-img'); return !!(i && i.complete && i.naturalWidth > 0);")
             .await
             .ok()
             .and_then(|v| v.as_bool())
@@ -151,7 +151,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     // Crop by dragging over the middle of the picture.
     crate::commands::dispatch(st, "imageEditor.crop");
     pause(300).await;
-    let _ = document::eval(
+    let _ = eval(
         r#"
 const c = document.querySelector('.imged-canvas');
 const img = c && c.querySelector('img');
@@ -195,7 +195,7 @@ if (img) {
     cx.failures += check(st, dir, "960x620-picture-editor", cx.log).await;
     set_size(1280.0, 800.0);
     pause(500).await;
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(600).await;
     let applied = ours(st, object);
     cx.record(
@@ -220,7 +220,7 @@ if (img) {
     pause(300).await;
     let changed = external_changed();
     let _ = capture_window(&dir.join("interaction-picture-outside.png"));
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(600).await;
     let updated = ours(st, object);
     st.set_dialog(Dialog::None);

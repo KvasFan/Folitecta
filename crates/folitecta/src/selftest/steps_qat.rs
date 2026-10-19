@@ -9,7 +9,7 @@ use crate::commands::qat::items;
 use super::*;
 
 async fn count(selector: &str) -> u64 {
-    document::eval(&format!(
+    eval(&format!(
         "return document.querySelectorAll({}).length;",
         serde_json::to_string(selector).unwrap_or_default()
     ))
@@ -20,7 +20,7 @@ async fn count(selector: &str) -> u64 {
 }
 
 async fn click(selector: &str) {
-    let _ = document::eval(&format!(
+    let _ = eval(&format!(
         "document.querySelector({})?.click();",
         serde_json::to_string(selector).unwrap_or_default()
     ))
@@ -29,7 +29,7 @@ async fn click(selector: &str) {
 }
 
 async fn right_click(selector: &str) {
-    let _ = document::eval(&format!(
+    let _ = eval(&format!(
         "document.querySelector({})?.dispatchEvent(new MouseEvent('contextmenu', {{ bubbles: true, cancelable: true, button: 2 }}));",
         serde_json::to_string(selector).unwrap_or_default()
     ))
@@ -55,7 +55,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     // Customize: a command found and added, a separator after the first entry.
     crate::commands::dispatch(st, "customizeToolbars");
     pause(400).await;
-    let _ = document::eval(
+    let _ = eval(
         "const i = document.querySelector('.dialog .qat-search'); if (i) { i.value = 'rotate'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
     )
     .await;

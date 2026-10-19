@@ -31,7 +31,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     crate::commands::dispatch(st, "document.OCRPages");
     pause(400).await;
     let _ = capture_window(&cx.dir.join("interaction-ocr-dialog.png"));
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     // Read away from the interface thread (at most 40 s, the models load first).
     let mut started = false;
     for _ in 0..200 {
@@ -72,9 +72,9 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     }
     pause(400).await;
     let _ = capture_window(&cx.dir.join("interaction-ocr-area.png"));
-    let _ = document::eval("document.querySelector('.dialog .ocr-copy')?.click();").await;
+    let _ = eval("document.querySelector('.dialog .ocr-copy')?.click();").await;
     pause(300).await;
-    let _ = document::eval("document.querySelector('.dialog .ocr-write')?.click();").await;
+    let _ = eval("document.querySelector('.dialog .ocr-write')?.click();").await;
     pause(500).await;
     let streams = st
         .read_active(|t| t.doc.marks_on_page(0).iter().filter(|m| *m == "OCR").count())

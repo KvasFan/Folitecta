@@ -104,7 +104,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             .into_iter()
             .find(|x| x.index == a.index)
             .map(|x| x.rect);
-        let _ = document::eval("document.querySelector('.app').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true }));").await;
+        let _ = eval("document.querySelector('.app').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true }));").await;
         pause(500).await;
         let after_rect = annots_on(st, 0)
             .into_iter()
@@ -121,7 +121,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         );
         let before = annots_on(st, 0).len();
         st.with_active(|t| t.selected_annot = Some((0, a.index)));
-        let _ = document::eval("document.querySelector('.app').dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));").await;
+        let _ = eval("document.querySelector('.app').dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true }));").await;
         pause(500).await;
         cx.record(
             "delete the selected comment with the Delete key",
@@ -213,7 +213,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         let _ = pointer_path(0, z, &[p, p], false).await;
         pause(150).await;
     }
-    let _ = document::eval("const el = document.querySelector('#pg-0 .page-inner'); const r = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: r.left + 160, clientY: r.top + 720 }));").await;
+    let _ = eval("const el = document.querySelector('#pg-0 .page-inner'); const r = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: r.left + 160, clientY: r.top + 720 }));").await;
     pause(600).await;
     let after = annots_on(st, 0);
     cx.record(
@@ -244,7 +244,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         let _ = pointer_path(0, z, &[p, p], false).await;
         pause(120).await;
     }
-    let _ = document::eval("document.querySelector('.app').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));").await;
+    let _ = eval("document.querySelector('.app').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));").await;
     pause(600).await;
     let after = annots_on(st, 0);
     cx.record(
@@ -267,7 +267,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         let _ = pointer_path(0, z, &[p, p], false).await;
         pause(120).await;
     }
-    let _ = document::eval("document.querySelector('.app').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));").await;
+    let _ = eval("document.querySelector('.app').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));").await;
     pause(400).await;
     cx.record(
         "Escape cancels a shape being drawn",
@@ -358,7 +358,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         st.with_active(|t| t.selected_annot = Some((0, i)));
         st.ui_mut().show_right_pane = true;
         pause(700).await;
-        let _ = document::eval("const c = document.querySelector('.style-editor input[type=color]'); if (c) { c.value = '#00aa00'; c.dispatchEvent(new Event('change', { bubbles: true })); }").await;
+        let _ = eval("const c = document.querySelector('.style-editor input[type=color]'); if (c) { c.value = '#00aa00'; c.dispatchEvent(new Event('change', { bubbles: true })); }").await;
         pause(700).await;
         let color = st
             .read_active(|t| t.doc.annotation_style(0, i).ok().and_then(|s| s.color))
@@ -404,7 +404,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     // Properties pane: rename the selected check box.
     st.ui_mut().show_right_pane = true;
     pause(700).await;
-    let _ = document::eval("const n = document.querySelector('.field-editor input.wide'); if (n) { n.value = 'Accept'; n.dispatchEvent(new Event('change', { bubbles: true })); }").await;
+    let _ = eval("const n = document.querySelector('.field-editor input.wide'); if (n) { n.value = 'Accept'; n.dispatchEvent(new Event('change', { bubbles: true })); }").await;
     pause(600).await;
     let renamed = st
         .read_active(|t| t.doc.form_fields().iter().any(|f| f.name == "Accept"))
@@ -427,18 +427,14 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     // Fill the text field on the page and tick the box.
     crate::commands::dispatch(st, "tool.hand");
     pause(500).await;
-    let _ = document::eval(
-        "const h = [...document.querySelectorAll('#pg-0 .field-hit')]; if (h[0]) h[0].click();",
-    )
-    .await;
+    let _ =
+        eval("const h = [...document.querySelectorAll('#pg-0 .field-hit')]; if (h[0]) h[0].click();").await;
     pause(500).await;
     let editing = st.editing_field.peek().is_some();
-    let _ = document::eval("const i = document.querySelector('#pg-0 .field-input'); if (i) { i.value = 'Ada Lovelace'; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }").await;
+    let _ = eval("const i = document.querySelector('#pg-0 .field-input'); if (i) { i.value = 'Ada Lovelace'; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }").await;
     pause(600).await;
-    let _ = document::eval(
-        "const h = [...document.querySelectorAll('#pg-0 .field-hit')]; if (h[1]) h[1].click();",
-    )
-    .await;
+    let _ =
+        eval("const h = [...document.querySelectorAll('#pg-0 .field-hit')]; if (h[1]) h[1].click();").await;
     pause(600).await;
     let values: Vec<String> = st
         .read_active(|t| t.doc.form_fields().into_iter().map(|f| f.value).collect())

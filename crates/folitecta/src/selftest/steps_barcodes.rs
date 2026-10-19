@@ -38,17 +38,17 @@ const inp = d?.querySelector('input[type=text]');
 if (inp) {{ inp.value = {address}; inp.dispatchEvent(new Event('input', {{ bubbles: true }})); }}"#,
         address = serde_json::to_string(ADDRESS).unwrap_or_default()
     );
-    let _ = document::eval(&script).await;
+    let _ = eval(&script).await;
     pause(300).await;
     let _ = capture_window(&cx.dir.join("interaction-barcode.png"));
-    let _ = document::eval("document.querySelector('.dialog .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog .tbtn.primary')?.click();").await;
     pause(700).await;
     let placed = matches!((st.dialog)(), Dialog::None) && (st.tool)() == Tool::Hand;
 
     // Every page read: the dialog lists the code; Show goes to it.
     crate::commands::dispatch(st, "document.detectImageBarcode");
     settle(st).await;
-    let listed = document::eval(&format!(
+    let listed = eval(&format!(
         "return [...document.querySelectorAll('.dialog .barcode-row')].filter(r => r.textContent.includes({})).length;",
         serde_json::to_string(ADDRESS).unwrap_or_default()
     ))
@@ -57,7 +57,7 @@ if (inp) {{ inp.value = {address}; inp.dispatchEvent(new Event('input', {{ bubbl
     .and_then(|v| v.as_u64())
     .unwrap_or(0);
     let _ = capture_window(&cx.dir.join("interaction-barcodes-found.png"));
-    let _ = document::eval("document.querySelector('.dialog .barcode-show')?.click();").await;
+    let _ = eval("document.querySelector('.dialog .barcode-show')?.click();").await;
     pause(400).await;
     let shown = st
         .read_active(|t| {

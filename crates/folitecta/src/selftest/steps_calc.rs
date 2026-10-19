@@ -48,13 +48,13 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     st.ui_mut().show_right_pane = true;
     st.go_to_page(page);
     pause(600).await;
-    let _ = document::eval(
+    let _ = eval(
         "const s = [...document.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === 'SUM')); if (s) { s.value = 'SUM'; s.dispatchEvent(new Event('change', { bubbles: true })); }",
     )
     .await;
     pause(500).await;
     for name in ["qa", "qb"] {
-        let _ = document::eval(&format!(
+        let _ = eval(&format!(
             "[...document.querySelectorAll('.calc-fields label')].find(l => l.textContent.trim() === '{name}')?.querySelector('input')?.click();"
         ))
         .await;
@@ -86,7 +86,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     // The calculation order lists it.
     crate::commands::dispatch(st, "forms.calcOrder");
     pause(500).await;
-    let listed = document::eval(
+    let listed = eval(
         "return [...document.querySelectorAll('.dialog .calc-order-row')].filter(r => r.textContent.includes('qtotal')).length;",
     )
     .await

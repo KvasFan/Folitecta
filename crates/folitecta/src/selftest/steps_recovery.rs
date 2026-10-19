@@ -39,7 +39,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let tabs = st.docs.read().len();
     crate::commands::dispatch(st, "view.recovery");
     pause(500).await;
-    let listed = document::eval(
+    let listed = eval(
         "return [...document.querySelectorAll('.dialog .recovery-row')].filter(r => r.textContent.includes('Left behind.pdf')).length;",
     )
     .await
@@ -47,7 +47,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     .and_then(|v| v.as_u64())
     .unwrap_or(0);
     let _ = capture_window(&cx.dir.join("interaction-recovery.png"));
-    let _ = document::eval(
+    let _ = eval(
         "[...document.querySelectorAll('.dialog .recovery-row')].find(r => r.textContent.includes('Left behind.pdf'))?.querySelector('.recovery-open')?.click();",
     )
     .await;

@@ -23,9 +23,9 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         }
         st.with_active(|t| t.selected_annot = Some((c.page, c.index)));
         pause(700).await;
-        let _ = document::eval("const b = document.querySelector('.comment-item.selected .comment-actions .tbtn'); if (b) b.click();").await;
+        let _ = eval("const b = document.querySelector('.comment-item.selected .comment-actions .tbtn'); if (b) b.click();").await;
         pause(500).await;
-        let _ = document::eval("const a = document.querySelector('.comment-item.selected .reply-box textarea'); if (a) { a.value = 'Agreed'; a.dispatchEvent(new Event('input', { bubbles: true })); } const s = document.querySelector('.comment-item.selected .reply-box .tbtn.primary'); if (s) s.click();").await;
+        let _ = eval("const a = document.querySelector('.comment-item.selected .reply-box textarea'); if (a) { a.value = 'Agreed'; a.dispatchEvent(new Event('input', { bubbles: true })); } const s = document.querySelector('.comment-item.selected .reply-box .tbtn.primary'); if (s) s.click();").await;
         pause(700).await;
         let replies = st
             .read_active(|t| {
@@ -44,7 +44,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         st.with_active(|t| t.selected_annot = Some((c.page, c.index)));
         crate::commands::dispatch(st, "annot.popup.open");
         pause(900).await;
-        let notes = document::eval("return document.querySelectorAll('.popup-note').length;")
+        let notes = eval("return document.querySelectorAll('.popup-note').length;")
             .await
             .ok()
             .and_then(|v| v.as_u64())
@@ -66,7 +66,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             })
             .flatten()
             .unwrap_or_default();
-        let chip = document::eval("return document.querySelectorAll('.comment-item .chip.state').length;")
+        let chip = eval("return document.querySelectorAll('.comment-item .chip.state').length;")
             .await
             .ok()
             .and_then(|v| v.as_u64())
@@ -85,7 +85,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         });
         pause(700).await;
         let gen_after = st.read_active(|t| t.view_gen).unwrap_or(0);
-        let listed = document::eval("return document.querySelectorAll('.comment-item').length;")
+        let listed = eval("return document.querySelectorAll('.comment-item').length;")
             .await
             .ok()
             .and_then(|v| v.as_u64())
@@ -109,10 +109,9 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         let tabs_before = st.docs.read().len();
         crate::commands::dispatch(st, "comments.summarize");
         pause(500).await;
-        let _ = document::eval(
-            "const b = document.querySelector('.dialog .dialog-foot .tbtn.primary'); if (b) b.click();",
-        )
-        .await;
+        let _ =
+            eval("const b = document.querySelector('.dialog .dialog-foot .tbtn.primary'); if (b) b.click();")
+                .await;
         pause(1200).await;
         let tabs_after = st.docs.read().len();
         let summary_pages = if tabs_after > tabs_before {
@@ -169,12 +168,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     cx.record("promote it back", titles(st) == before, String::new());
     // Drag the third bookmark onto the lower part of the first: it goes after it.
     pause(300).await;
-    let _ = document::eval(
+    let _ = eval(
         "const items = [...document.querySelectorAll('.bookmark-tree .tree-item')]; const src = items[2], dst = items[0]; if (src && dst) { const s = src.getBoundingClientRect(), d = dst.getBoundingClientRect(); src.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: s.left + 30, clientY: s.top + 10 })); dst.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: d.left + 30, clientY: d.top + 20 })); }",
     )
     .await;
     pause(300).await;
-    let _ = document::eval(
+    let _ = eval(
         "const dst = document.querySelectorAll('.bookmark-tree .tree-item')[0]; if (dst) { const d = dst.getBoundingClientRect(); dst.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: d.left + 30, clientY: d.top + 20 })); }",
     )
     .await;
@@ -190,7 +189,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let count_before = st.read_active(|t| t.doc.bookmark_count()).unwrap_or(0);
     crate::commands::dispatch(st, "bookmarksView.new");
     pause(900).await;
-    let _ = document::eval("const i = document.querySelector('.dialog input'); if (i) { i.value = 'Self-test bookmark'; i.dispatchEvent(new Event('input', { bubbles: true })); } const b = document.querySelector('.dialog .dialog-foot .tbtn.primary'); if (b) b.click();").await;
+    let _ = eval("const i = document.querySelector('.dialog input'); if (i) { i.value = 'Self-test bookmark'; i.dispatchEvent(new Event('input', { bubbles: true })); } const b = document.querySelector('.dialog .dialog-foot .tbtn.primary'); if (b) b.click();").await;
     pause(600).await;
     let created = st
         .read_active(|t| {
@@ -208,10 +207,8 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     );
     crate::commands::dispatch(st, "pdfNamedDestsView.new");
     pause(900).await;
-    let _ = document::eval(
-        "const b = document.querySelector('.dialog .dialog-foot .tbtn.primary'); if (b) b.click();",
-    )
-    .await;
+    let _ = eval("const b = document.querySelector('.dialog .dialog-foot .tbtn.primary'); if (b) b.click();")
+        .await;
     pause(500).await;
     let dests = st.read_active(|t| t.doc.named_destinations().len()).unwrap_or(0);
     cx.record(
@@ -226,7 +223,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     st.go_to_page(1);
     pause(700).await;
     let scroll_top = || async {
-        document::eval("const c = document.getElementById('canvas'); return c ? c.scrollTop : 0;")
+        eval("const c = document.getElementById('canvas'); return c ? c.scrollTop : 0;")
             .await
             .ok()
             .and_then(|v| v.as_f64())
@@ -246,7 +243,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     st.set_option("view.panzoom", true);
     pause(900).await;
     let before = scroll_top().await;
-    let _ = document::eval("const p = document.querySelector('.panzoom-page'); if (p) { const r = p.getBoundingClientRect(); p.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: r.left + r.width / 2, clientY: r.top + r.height * 0.9 })); p.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: r.left + r.width / 2, clientY: r.top + r.height * 0.9 })); }").await;
+    let _ = eval("const p = document.querySelector('.panzoom-page'); if (p) { const r = p.getBoundingClientRect(); p.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: r.left + r.width / 2, clientY: r.top + r.height * 0.9 })); p.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: r.left + r.width / 2, clientY: r.top + r.height * 0.9 })); }").await;
     pause(600).await;
     let after = scroll_top().await;
     cx.record(
@@ -295,7 +292,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             ui.left_pane = "signatures".into();
         }
         pause(800).await;
-        let warn = document::eval("return document.querySelectorAll('.sig-item.warn').length;")
+        let warn = eval("return document.querySelectorAll('.sig-item.warn').length;")
             .await
             .ok()
             .and_then(|v| v.as_u64())
@@ -314,7 +311,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         let mut clicked = false;
         for _ in 0..20 {
             pause(150).await;
-            clicked = document::eval(
+            clicked = eval(
                 "const b = [...document.querySelectorAll('.dialog .row .tbtn.primary')][0]; if (b) { b.click(); return true; } return false;",
             )
             .await
@@ -330,7 +327,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         let mut ok = 0;
         for _ in 0..20 {
             pause(150).await;
-            ok = document::eval("return document.querySelectorAll('.sig-item.ok').length;")
+            ok = eval("return document.querySelectorAll('.sig-item.ok').length;")
                 .await
                 .ok()
                 .and_then(|v| v.as_u64())
@@ -360,12 +357,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     // 24. Handwritten signature: draw it in the library, place it with a click, apply it.
     st.set_dialog(Dialog::SignatureLibrary);
     pause(600).await;
-    let _ = document::eval(
+    let _ = eval(
         "const p = document.querySelector('.sign-pad'); if (p) { const r = p.getBoundingClientRect(); const ev = (t, x, y) => p.dispatchEvent(new MouseEvent(t, { bubbles: true, button: 0, clientX: r.left + x, clientY: r.top + y })); ev('mousedown', 30, 90); for (let i = 1; i <= 12; i++) ev('mousemove', 30 + i * 25, 90 - Math.sin(i) * 40); ev('mouseup', 330, 70); }",
     )
     .await;
     pause(400).await;
-    let _ = document::eval("const b = [...document.querySelectorAll('.dialog .tbtn.primary')].find(b => !b.closest('.sig-card') && !b.closest('.dialog-foot')); if (b) b.click();").await;
+    let _ = eval("const b = [...document.querySelectorAll('.dialog .tbtn.primary')].find(b => !b.closest('.sig-card') && !b.closest('.dialog-foot')); if (b) b.click();").await;
     pause(500).await;
     let saved = crate::commands::signs::library();
     cx.record(
@@ -374,8 +371,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         format!("{} saved", saved.len()),
     );
     let _ = capture_window(&dir.join("interaction-signature-library.png"));
-    let _ = document::eval("const b = document.querySelector('.sig-card .tbtn.primary'); if (b) b.click();")
-        .await;
+    let _ = eval("const b = document.querySelector('.sig-card .tbtn.primary'); if (b) b.click();").await;
     pause(400).await;
     let before = st.read_active(|t| t.doc.signature_marks().len()).unwrap_or(0);
     let _ = pointer_path(0, z, &[(300.0, 520.0), (300.0, 520.0)], false).await;

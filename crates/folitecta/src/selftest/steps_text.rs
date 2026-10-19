@@ -27,9 +27,9 @@ async fn answer(value: &str) {
         "const a = document.querySelector('.dialog textarea'); if (a) {{ a.value = {}; a.dispatchEvent(new Event('input', {{ bubbles: true }})); }}",
         serde_json::to_string(value).unwrap_or_default()
     );
-    let _ = document::eval(&js).await;
+    let _ = eval(&js).await;
     pause(250).await;
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(900).await;
 }
 
@@ -69,7 +69,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             });
             crate::commands::textedit::key(st, &Key::Character("N".into()));
             pause(500).await;
-            let shown = document::eval("return document.querySelector('.dialog textarea')?.value || '';")
+            let shown = eval("return document.querySelector('.dialog textarea')?.value || '';")
                 .await
                 .ok()
                 .and_then(|v| v.as_str().map(str::to_string))
@@ -101,9 +101,9 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
                 })
             });
             pause(400).await;
-            let _ = document::eval("document.querySelector('.sel-toolbar .sel-edit')?.click();").await;
+            let _ = eval("document.querySelector('.sel-toolbar .sel-edit')?.click();").await;
             pause(500).await;
-            let prefilled = document::eval("return document.querySelector('.dialog textarea')?.value || '';")
+            let prefilled = eval("return document.querySelector('.dialog textarea')?.value || '';")
                 .await
                 .ok()
                 .and_then(|v| v.as_str().map(str::to_string))
@@ -121,7 +121,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     st.set_tool(Tool::Hand);
     st.set_ribbon_tab("home".into());
     pause(400).await;
-    let in_home = document::eval("return !!document.querySelector('.ribbon [data-cmd=\"tool.editText\"]');")
+    let in_home = eval("return !!document.querySelector('.ribbon [data-cmd=\"tool.editText\"]');")
         .await
         .ok()
         .and_then(|v| v.as_bool())
@@ -158,13 +158,13 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             "const i = document.querySelector('.dialog .{sel}'); if (i) {{ i.value = {}; i.dispatchEvent(new Event('input', {{ bubbles: true }})); }}",
             serde_json::to_string(value).unwrap_or_default()
         );
-        let _ = document::eval(&js).await;
+        let _ = eval(&js).await;
         pause(200).await;
     };
     set("findrepl-find", "Pack my").await;
     set("findrepl-with", "Fill my").await;
     let packs = count(st, 0, "Pack my");
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(500).await;
     let selected = st
         .read_active(|t| {
@@ -179,16 +179,16 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         })
         .flatten()
         .unwrap_or_default();
-    let _ = document::eval("document.querySelector('.dialog .findrepl-replace')?.click();").await;
+    let _ = eval("document.querySelector('.dialog .findrepl-replace')?.click();").await;
     pause(900).await;
     let one = count(st, 0, "Fill my") == 1 && count(st, 0, "Pack my") + 1 == packs;
     let _ = capture_window(&dir.join("interaction-find-replace.png"));
-    let _ = document::eval(
+    let _ = eval(
         "const r = document.querySelectorAll('.dialog input[name=findrepl-scope]'); if (r[1]) r[1].click();",
     )
     .await;
     pause(200).await;
-    let _ = document::eval("document.querySelector('.dialog .findrepl-all')?.click();").await;
+    let _ = eval("document.querySelector('.dialog .findrepl-all')?.click();").await;
     pause(2500).await;
     let all = count(st, 0, "Pack my") == 0 && count(st, 0, "Fill my") == packs;
     st.set_dialog(Dialog::None);
@@ -251,16 +251,16 @@ return true;
             x1 = 200.0 * z,
             y1 = 500.0 * z
         );
-        let _ = document::eval(&js).await;
+        let _ = eval(&js).await;
         pause(300).await;
-        let seen = document::eval(&format!(
+        let seen = eval(&format!(
             "return !!document.querySelector('#pg-0 svg.ink-preview {shape}');"
         ))
         .await
         .ok()
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-        let _ = document::eval(
+        let _ = eval(
             "const el = document.querySelector('#pg-0 .page-inner'); const r = el.getBoundingClientRect(); el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: r.left + 1, clientY: r.top + 1 }));",
         )
         .await;
@@ -283,7 +283,7 @@ return true;
     // for the next stroke.
     st.set_tool(Tool::Ink);
     pause(300).await;
-    let cursor = document::eval(
+    let cursor = eval(
         "const c = document.querySelector('.canvas.tool-pencil'); return c ? getComputedStyle(c).cursor : '';",
     )
     .await
@@ -327,11 +327,7 @@ return shown;
 "#,
         pts.join(",")
     );
-    let curved = document::eval(&js)
-        .await
-        .ok()
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let curved = eval(&js).await.ok().and_then(|v| v.as_bool()).unwrap_or(false);
     pause(600).await;
     let pieces = st
         .read_active(|t| {
@@ -378,12 +374,12 @@ return shown;
     }
     crate::commands::dispatch(st, "commentStyles.clone");
     pause(400).await;
-    let _ = document::eval(
+    let _ = eval(
         "const i = document.querySelector('.dialog input'); if (i) { i.value = 'Red frame'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
     )
     .await;
     pause(200).await;
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(400).await;
     let mut list = crate::state::comment_styles::named_styles(st);
     let named = list.len() == 1 && list[0].name == "Red frame";
@@ -400,7 +396,7 @@ return shown;
     let red = crate::state::comment_styles::default_style(st, "Square").color == Some([1.0, 0.0, 0.0]);
     st.set_option("view.commentStyles", true);
     pause(400).await;
-    let palette = document::eval("return document.querySelectorAll('.styles-palette .palette-item').length;")
+    let palette = eval("return document.querySelectorAll('.styles-palette .palette-item').length;")
         .await
         .ok()
         .and_then(|v| v.as_u64())

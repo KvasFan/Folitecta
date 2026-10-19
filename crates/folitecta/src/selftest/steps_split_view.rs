@@ -5,11 +5,7 @@
 use super::*;
 
 async fn number(js: &str) -> i64 {
-    document::eval(js)
-        .await
-        .ok()
-        .and_then(|v| v.as_i64())
-        .unwrap_or(-1)
+    eval(js).await.ok().and_then(|v| v.as_i64()).unwrap_or(-1)
 }
 
 pub(super) async fn run(cx: &mut Ctx<'_>) {
@@ -21,15 +17,14 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     crate::commands::dispatch(st, "window.split.vert");
     pause(900).await;
     let canvases = number("return document.querySelectorAll('.canvas-split.side > .canvas').length;").await;
-    let ids = document::eval(
-        "return [...document.querySelectorAll('.canvas-split > .canvas')].map(c => c.id).join(',');",
-    )
-    .await
-    .ok()
-    .and_then(|v| v.as_str().map(str::to_string))
-    .unwrap_or_default();
+    let ids =
+        eval("return [...document.querySelectorAll('.canvas-split > .canvas')].map(c => c.id).join(',');")
+            .await
+            .ok()
+            .and_then(|v| v.as_str().map(str::to_string))
+            .unwrap_or_default();
     // The other view scrolled to the fourth page on its own.
-    let _ = document::eval(
+    let _ = eval(
         "const c = document.getElementById('canvas-other'), p = document.getElementById('spg-3'); if (c && p) c.scrollTop = p.offsetTop - 20;",
     )
     .await;
@@ -40,7 +35,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let first_page = st.current_page();
     let _ = capture_window(&cx.dir.join("interaction-split-view.png"));
     // A press in it focuses it: the ids follow the focus.
-    let _ = document::eval(
+    let _ = eval(
         "const c = document.getElementById('canvas-other'); if (c) { const r = c.getBoundingClientRect(); c.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: r.left + 30, clientY: r.top + 30 })); }",
     )
     .await;
@@ -48,13 +43,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let focused = st
         .read_active(|t| t.split.as_ref().map(|s| (s.focus, t.page, s.other.page)))
         .flatten();
-    let ids_after = document::eval(
-        "return [...document.querySelectorAll('.canvas-split > .canvas')].map(c => c.id).join(',');",
-    )
-    .await
-    .ok()
-    .and_then(|v| v.as_str().map(str::to_string))
-    .unwrap_or_default();
+    let ids_after =
+        eval("return [...document.querySelectorAll('.canvas-split > .canvas')].map(c => c.id).join(',');")
+            .await
+            .ok()
+            .and_then(|v| v.as_str().map(str::to_string))
+            .unwrap_or_default();
     // One above the other, then one view again.
     crate::commands::dispatch(st, "window.split.horz");
     pause(500).await;

@@ -8,19 +8,19 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     // command, then check the expansion on the page.
     st.set_dialog(Dialog::HeaderFooter);
     pause(600).await;
-    let _ = document::eval(
+    let _ = eval(
         "const f = document.querySelector('.dialog input:not([type])'); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); }",
     )
     .await;
     pause(200).await;
-    let _ = document::eval(
+    let _ = eval(
         "const s = document.querySelector('.macro-picker select'); if (s) { s.value = '{label}'; s.dispatchEvent(new Event('change', { bubbles: true })); }",
     )
     .await;
     pause(400).await;
     crate::commands::dispatch(st, "macro.page");
     pause(500).await;
-    let field = document::eval("return document.querySelector('.dialog input:not([type])')?.value ?? '';")
+    let field = eval("return document.querySelector('.dialog input:not([type])')?.value ?? '';")
         .await
         .ok()
         .and_then(|v| v.as_str().map(str::to_string))
@@ -31,7 +31,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         field.clone(),
     );
     let _ = capture_window(&dir.join("interaction-macros.png"));
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(600).await;
     let (expected, text) = st
         .read_active(|t| (t.doc.expand_macros(&field, t.page, 1), t.doc.page_text(t.page)))
@@ -51,12 +51,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     }
     crate::commands::dispatch(st, "layersView.addNewLayer");
     pause(500).await;
-    let _ = document::eval(
+    let _ = eval(
         "const i = document.querySelector('.dialog input'); if (i) { i.value = 'Review marks'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
     )
     .await;
     pause(250).await;
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(500).await;
     let names = st
         .read_active(|t| t.doc.layers().iter().map(|l| l.name.clone()).collect::<Vec<_>>())
@@ -72,7 +72,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         .unwrap_or(false);
     st.set_dialog(Dialog::ImportLayer(source.clone()));
     pause(500).await;
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(900).await;
     let count = st.read_active(|t| t.doc.layers().len()).unwrap_or(0);
     cx.record(
@@ -80,10 +80,8 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         written && count == 2,
         format!("{count} layers"),
     );
-    let _ = document::eval(
-        "const b = [...document.querySelectorAll('.layer-row .ibtn.eye')].pop(); if (b) b.click();",
-    )
-    .await;
+    let _ = eval("const b = [...document.querySelectorAll('.layer-row .ibtn.eye')].pop(); if (b) b.click();")
+        .await;
     pause(600).await;
     let (overrides, defaults_hidden) = st
         .read_active(|t| {
@@ -93,7 +91,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             )
         })
         .unwrap_or((0, 9));
-    let foot = document::eval("return !!document.querySelector('.layer-foot');")
+    let foot = eval("return !!document.querySelector('.layer-foot');")
         .await
         .ok()
         .and_then(|v| v.as_bool())
@@ -144,17 +142,17 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         ui.show_left_pane = true;
     }
     pause(500).await;
-    let _ = document::eval("document.querySelector('.list-item.attachment')?.click();").await;
+    let _ = eval("document.querySelector('.list-item.attachment')?.click();").await;
     pause(300).await;
     crate::commands::dispatch(st, "attachmentsView.edit");
     pause(500).await;
-    let _ = document::eval(
+    let _ = eval(
         "const a = document.querySelector('.dialog textarea'); if (a) { a.value = 'Reviewer notes'; a.dispatchEvent(new Event('input', { bubbles: true })); }",
     )
     .await;
     pause(250).await;
     let _ = capture_window(&dir.join("interaction-attachment-edit.png"));
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(500).await;
     let desc = st
         .read_active(|t| t.doc.attachments().first().map(|a| a.description.clone()))
@@ -193,7 +191,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         .unwrap_or(0);
     st.ui_mut().left_pane = "fields".into();
     pause(500).await;
-    let groups = document::eval("return document.querySelectorAll('.field-tree .field-group').length;")
+    let groups = eval("return document.querySelectorAll('.field-tree .field-group').length;")
         .await
         .ok()
         .and_then(|v| v.as_u64())
@@ -209,10 +207,8 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     crate::commands::dispatch(st, "fieldsView.tabOrder.manually");
     pause(500).await;
     let before = st.read_active(|t| t.doc.widget_order(0)).unwrap_or_default();
-    let _ = document::eval(
-        "const b = document.querySelectorAll('.field-tree .field-row .ibtn')[1]; if (b) b.click();",
-    )
-    .await;
+    let _ = eval("const b = document.querySelectorAll('.field-tree .field-row .ibtn')[1]; if (b) b.click();")
+        .await;
     pause(500).await;
     let after = st.read_active(|t| t.doc.widget_order(0)).unwrap_or_default();
     let _ = capture_window(&dir.join("interaction-fields-tab-order.png"));
@@ -255,12 +251,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         words.len() == 2,
         format!("{words:?}"),
     );
-    let _ = document::eval("[...document.querySelectorAll('.search-opts .linkish')].pop()?.click();").await;
+    let _ = eval("[...document.querySelectorAll('.search-opts .linkish')].pop()?.click();").await;
     pause(400).await;
     let _ = capture_window(&dir.join("interaction-search-options.png"));
     crate::commands::dispatch(st, "searchView.results.collapseAll");
     pause(300).await;
-    let items = document::eval("return document.querySelectorAll('.search-results .list-item').length;")
+    let items = eval("return document.querySelectorAll('.search-results .list-item').length;")
         .await
         .ok()
         .and_then(|v| v.as_u64())
@@ -284,23 +280,22 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         Ok(doc) => {
             crate::files::open_document_tab(st, doc);
             pause(800).await;
-            let shown =
-                document::eval("return document.querySelectorAll('.portfolio .pf-row:not(.head)').length;")
-                    .await
-                    .ok()
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
+            let shown = eval("return document.querySelectorAll('.portfolio .pf-row:not(.head)').length;")
+                .await
+                .ok()
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
             cx.record("portfolio shows its files", shown == 2, format!("{shown} rows"));
             crate::commands::dispatch(st, "view.portfolio.createFolder");
             pause(400).await;
-            let _ = document::eval(
+            let _ = eval(
                 "const i = document.querySelector('.dialog input'); if (i) { i.value = 'Specs'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
             )
             .await;
             pause(200).await;
-            let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+            let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
             pause(500).await;
-            let _ = document::eval(
+            let _ = eval(
                 "const r = [...document.querySelectorAll('.portfolio .pf-row')].find(e => e.textContent.includes('Specs')); if (r) r.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));",
             )
             .await;
@@ -314,14 +309,14 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
                 inside && back,
                 String::new(),
             );
-            let _ = document::eval(
+            let _ = eval(
                 "const r = [...document.querySelectorAll('.portfolio .pf-row')].find(e => e.textContent.includes('report.pdf')); if (r) r.click();",
             )
             .await;
             let mut thumb = false;
             for _ in 0..30 {
                 pause(150).await;
-                thumb = document::eval("return !!document.querySelector('.portfolio-preview img.pf-thumb');")
+                thumb = eval("return !!document.querySelector('.portfolio-preview img.pf-thumb');")
                     .await
                     .ok()
                     .and_then(|v| v.as_bool())
@@ -373,7 +368,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         ui.show_left_pane = true;
     }
     pause(400).await;
-    let _ = document::eval("[...document.querySelectorAll('.history-item')].find(e => e.textContent.includes('history-sample'))?.click();").await;
+    let _ = eval("[...document.querySelectorAll('.history-item')].find(e => e.textContent.includes('history-sample'))?.click();").await;
     pause(200).await;
     crate::commands::dispatch(st, "historyList.pin");
     pause(300).await;
@@ -384,7 +379,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     pause(500).await;
     crate::commands::dispatch(st, "saveCurrentSession");
     pause(400).await;
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(400).await;
     let saved = st
         .ui
@@ -434,12 +429,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     }
     crate::commands::dispatch(st, "stampsView.addCustom");
     pause(400).await;
-    let _ = document::eval(
+    let _ = eval(
         "const i = [...document.querySelectorAll('.dialog input')].find(e => e.placeholder === 'PAID'); if (i) { i.value = 'PAID'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
     )
     .await;
     pause(250).await;
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(400).await;
     let has_text = crate::commands::stamps::library()
         .collections
@@ -450,7 +445,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     pause(300).await;
     crate::commands::dispatch(st, "stampCustom.openFromTemplate");
     pause(300).await;
-    let _ = document::eval("document.querySelector('.stamp-template')?.click();").await;
+    let _ = eval("document.querySelector('.stamp-template')?.click();").await;
     pause(300).await;
     crate::commands::dispatch(st, "stampCustom.add.field.counter");
     pause(400).await;
@@ -482,12 +477,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let pages_before = st.page_count();
     crate::commands::dispatch(st, "document.insertText");
     pause(400).await;
-    let _ = document::eval(
+    let _ = eval(
         "const a = document.querySelector('.dialog textarea'); if (a) { a.value = 'Inserted page\\nwith two lines'; a.dispatchEvent(new Event('input', { bubbles: true })); }",
     )
     .await;
     pause(200).await;
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(500).await;
     let pages_after = st.page_count();
     cx.record(
@@ -497,7 +492,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     );
     crate::commands::dispatch(st, "document.audit");
     pause(500).await;
-    let rows = document::eval("return document.querySelectorAll('.audit-row:not(.head)').length;")
+    let rows = eval("return document.querySelectorAll('.audit-row:not(.head)').length;")
         .await
         .ok()
         .and_then(|v| v.as_u64())
@@ -507,12 +502,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     st.set_dialog(Dialog::None);
     crate::commands::dispatch(st, "document.actions");
     pause(400).await;
-    let _ = document::eval(
+    let _ = eval(
         "const a = document.querySelector('.dialog textarea'); if (a) { a.value = 'console.println(\"opened\");'; a.dispatchEvent(new Event('input', { bubbles: true })); }",
     )
     .await;
     pause(200).await;
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(400).await;
     let actions = st.read_active(|t| t.doc.document_actions()).unwrap_or_default();
     cx.record(
@@ -549,7 +544,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             }
         }
         pause(500).await;
-        let marks = document::eval("return document.querySelectorAll('#canvas .cmp').length;")
+        let marks = eval("return document.querySelectorAll('#canvas .cmp').length;")
             .await
             .ok()
             .and_then(|v| v.as_u64())

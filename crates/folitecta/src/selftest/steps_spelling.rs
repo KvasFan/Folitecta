@@ -27,7 +27,7 @@ async fn words(st: AppState) -> Vec<String> {
 }
 
 async fn click(selector: &str) {
-    let _ = document::eval(&format!(
+    let _ = eval(&format!(
         "document.querySelector({})?.click();",
         serde_json::to_string(selector).unwrap_or_default()
     ))
@@ -36,7 +36,7 @@ async fn click(selector: &str) {
 }
 
 async fn count(selector: &str) -> u64 {
-    document::eval(&format!(
+    eval(&format!(
         "return document.querySelectorAll({}).length;",
         serde_json::to_string(selector).unwrap_or_default()
     ))
@@ -48,14 +48,14 @@ async fn count(selector: &str) -> u64 {
 
 /// Type `text` in "Change to".
 async fn type_change_to(text: &str, enter: bool) {
-    let _ = document::eval(&format!(
+    let _ = eval(&format!(
         "const i = document.querySelector('.dialog .spell-to'); if (i) {{ i.value = {}; i.dispatchEvent(new Event('input', {{ bubbles: true }})); }}",
         serde_json::to_string(text).unwrap_or_default()
     ))
     .await;
     pause(200).await;
     if enter {
-        let _ = document::eval(
+        let _ = eval(
             "document.querySelector('.dialog .spell-to')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));",
         )
         .await;

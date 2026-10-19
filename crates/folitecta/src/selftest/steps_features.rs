@@ -17,15 +17,15 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let _ = pointer_path(0, z, &line((330.0, 430.0), (560.0, 530.0), 6), false).await;
     pause(500).await;
     let asked = matches!((st.dialog)(), Dialog::TableNew { .. });
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(600).await;
     let editor = (st.dialog)() == Dialog::TableEditor;
-    let _ = document::eval(
+    let _ = eval(
         "const a = document.querySelector('.table-grid textarea'); if (a) { a.value = 'Item'; a.dispatchEvent(new Event('input', { bubbles: true })); }",
     )
     .await;
     pause(200).await;
-    let _ = document::eval(
+    let _ = eval(
         "const c = document.querySelectorAll('.table-grid .table-cell'); c[3]?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); c[4]?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, shiftKey: true }));",
     )
     .await;
@@ -35,7 +35,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     crate::commands::dispatch(st, "tool.table.insert.rows.below");
     pause(400).await;
     let _ = capture_window(&dir.join("interaction-table-editor.png"));
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(700).await;
     let after = count(st);
     let table = st
@@ -80,12 +80,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     crate::commands::dispatch(st, "tool.editFields.createMulti");
     pause(400).await;
     let copies_asked = matches!((st.dialog)(), Dialog::FieldCopies(f) if Some(f) == widget);
-    let _ = document::eval(
+    let _ = eval(
         "const i = document.querySelectorAll('.dialog input'); const set = (e, v) => { if (e) { e.value = v; e.dispatchEvent(new Event('input', { bubbles: true })); } }; set(i[0], '1'); set(i[1], '2');",
     )
     .await;
     pause(250).await;
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(500).await;
     let fields_after = st.read_active(|t| t.doc.form_fields().len()).unwrap_or(0);
     cx.record(
@@ -95,7 +95,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     );
     crate::commands::dispatch(st, "tool.editFields.showTabNumbers");
     pause(500).await;
-    let numbers = document::eval("return document.querySelectorAll('#pg-0 .field-mark .num').length;")
+    let numbers = eval("return document.querySelectorAll('#pg-0 .field-mark .num').length;")
         .await
         .ok()
         .and_then(|v| v.as_u64())
@@ -112,13 +112,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     // 36. Accessibility: automatic tags, the tags, order and content panes,
     // the check with a fix, and the report.
     let count_js = |sel: &str| format!("return document.querySelectorAll('{sel}').length;");
-    let js_count = |sel: String| async move {
-        document::eval(&sel)
-            .await
-            .ok()
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0)
-    };
+    let js_count = |sel: String| async move { eval(&sel).await.ok().and_then(|v| v.as_u64()).unwrap_or(0) };
     st.navigate(0, true);
     crate::commands::dispatch(st, "acc.autotag.document");
     pause(900).await;
@@ -132,7 +126,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         tagged && tag_rows > 3,
         format!("{tag_rows} tag rows"),
     );
-    let _ = document::eval("document.querySelectorAll('.tag-tree .tag-row')[2]?.click();").await;
+    let _ = eval("document.querySelectorAll('.tag-tree .tag-row')[2]?.click();").await;
     pause(300).await;
     let picked = crate::commands::accessibility::selected_tag(st);
     let elems = |st: AppState| {
@@ -148,7 +142,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let before = elems(st);
     crate::commands::dispatch(st, "tagsview.new");
     pause(300).await;
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(500).await;
     cx.record(
         "tag selected and a new tag added",
@@ -159,7 +153,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     pause(600).await;
     let order_rows = js_count(count_js(".order-list .order-row")).await;
     let boxes = js_count(count_js("#pg-0 .order-box")).await;
-    let _ = document::eval("document.querySelector('.order-list .order-row')?.click();").await;
+    let _ = eval("document.querySelector('.order-list .order-row')?.click();").await;
     pause(300).await;
     let _ = capture_window(&dir.join("interaction-order.png"));
     cx.record(
@@ -196,7 +190,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     });
     crate::commands::dispatch(st, "chekerView.fix");
     pause(400).await;
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(700).await;
     let lang_passed = st
         .read_active(|t| {
@@ -235,12 +229,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         let js = format!(
             "const i = document.getElementById('calc-entry'); if (i) {{ i.value = '{amount}'; i.dispatchEvent(new Event('input', {{ bubbles: true }})); }}"
         );
-        let _ = document::eval(&js).await;
+        let _ = eval(&js).await;
         pause(150).await;
         let js = format!(
             "[...document.querySelectorAll('.calc-key.op')].find(b => b.textContent.trim() === '{op}')?.click();"
         );
-        let _ = document::eval(&js).await;
+        let _ = eval(&js).await;
         pause(350).await;
     }
     let tape = |st: AppState| {
@@ -253,7 +247,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     crate::commands::dispatch(st, "ac.decimal.zero");
     pause(300).await;
     let zero = tape(st).map(|t| t.decimals);
-    let ctx_tab = document::eval("return [...document.querySelectorAll('.ribbon-tab.ctx')].length;")
+    let ctx_tab = eval("return [...document.querySelectorAll('.ribbon-tab.ctx')].length;")
         .await
         .ok()
         .and_then(|v| v.as_u64())
@@ -281,12 +275,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     // zoom tool and renaming the document file.
     crate::commands::dispatch(st, "xmp.export.template");
     pause(300).await;
-    let _ = document::eval(
+    let _ = eval(
         "const i = document.querySelector('.dialog input'); if (i) { i.value = 'Team'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
     )
     .await;
     pause(200).await;
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(400).await;
     let saved = crate::commands::fileops::templates(st)
         .iter()
@@ -343,12 +337,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     pause(600).await;
     crate::commands::dispatch(st, "renameDoc");
     pause(300).await;
-    let _ = document::eval(
+    let _ = eval(
         "const i = document.querySelector('.dialog input'); if (i) { i.value = 'renamed-doc'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
     )
     .await;
     pause(200).await;
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(400).await;
     let now = st
         .read_active(|t| t.doc.path().map(|p| p.to_path_buf()))
@@ -434,13 +428,13 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     );
     crate::commands::dispatch(st, "javaScriptList.add");
     pause(400).await;
-    let _ = document::eval(
+    let _ = eval(
         "const i = document.querySelector('.js-script-edit input'); if (i) { i.value = 'Totals'; i.dispatchEvent(new Event('input', { bubbles: true })); } const a = document.querySelector('.js-script-edit textarea'); if (a) { a.value = 'var total = 0;'; a.dispatchEvent(new Event('input', { bubbles: true })); }",
     )
     .await;
     pause(300).await;
     let _ = capture_window(&dir.join("interaction-js-scripts.png"));
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(400).await;
     let scripts = st.read_active(|t| t.doc.document_scripts()).unwrap_or_default();
     cx.record(
@@ -499,7 +493,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         crate::commands::media::play_item(st, p, i);
         for _ in 0..40 {
             pause(150).await;
-            loaded = document::eval(
+            loaded = eval(
                 "const m = document.getElementById('folitecta-media'); return m ? (m.duration || 0) : 0;",
             )
             .await
@@ -521,7 +515,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     crate::commands::media::close_player();
     crate::commands::dispatch(st, "media.list");
     pause(400).await;
-    let rows = document::eval("return document.querySelectorAll('.media-list .media-row').length;")
+    let rows = eval("return document.querySelectorAll('.media-list .media-row').length;")
         .await
         .ok()
         .and_then(|v| v.as_u64())
@@ -530,12 +524,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     if let Some((p, i)) = last {
         st.set_dialog(Dialog::MediaProps { page: p, index: i });
         pause(300).await;
-        let _ = document::eval(
+        let _ = eval(
             "const i = document.querySelector('.dialog input'); if (i) { i.value = 'Tone'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
         )
         .await;
         pause(200).await;
-        let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+        let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
         pause(400).await;
     }
     let titled = st

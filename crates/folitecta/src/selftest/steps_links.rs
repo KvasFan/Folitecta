@@ -13,7 +13,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         ui.left_pane = "links".into();
     }
     pause(500).await;
-    let clicked = document::eval(
+    let clicked = eval(
         "const it = [...document.querySelectorAll('.pane-panel .list-item')].find(i => i.textContent.includes('http')); if (!it) return false; it.click(); return true;",
     )
     .await
@@ -43,12 +43,11 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let copied = crate::clipboard::get_text();
     crate::commands::dispatch(st, "linksView.wrapTitles");
     pause(300).await;
-    let wrapped =
-        document::eval("return document.querySelectorAll('.pane-panel .list-item .body.wrap').length;")
-            .await
-            .ok()
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0);
+    let wrapped = eval("return document.querySelectorAll('.pane-panel .list-item .body.wrap').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
     let _ = capture_window(&cx.dir.join("interaction-links-pane.png"));
     crate::commands::dispatch(st, "linksView.wrapTitles");
 
@@ -81,12 +80,11 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     st.go_to_page(0);
     crate::commands::dispatch(st, "thumbnailsView.highlightVisible");
     pause(900).await;
-    let outlined =
-        document::eval("return document.querySelectorAll('.thumb.current .thumb-visible').length;")
-            .await
-            .ok()
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0);
+    let outlined = eval("return document.querySelectorAll('.thumb.current .thumb-visible').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
     let _ = capture_window(&cx.dir.join("interaction-thumbs-visible.png"));
     crate::commands::dispatch(st, "thumbnailsView.highlightVisible");
     crate::commands::dispatch(st, "loupeView.zoomIn");

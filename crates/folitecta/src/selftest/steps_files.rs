@@ -10,7 +10,7 @@ use crate::commands::sources::{SOURCES, Sources, add_paths};
 use crate::state::ConfirmAction;
 
 async fn count(selector: &str) -> u64 {
-    document::eval(&format!("return document.querySelectorAll('{selector}').length;"))
+    eval(&format!("return document.querySelectorAll('{selector}').length;"))
         .await
         .ok()
         .and_then(|v| v.as_u64())
@@ -23,12 +23,12 @@ async fn fill_dialog(values: &[&str]) {
     let js = format!(
         "const v = {list}; const ins = document.querySelectorAll('.dialog input'); v.forEach((x, i) => {{ const el = ins[i]; if (el) {{ el.value = x; el.dispatchEvent(new Event('input', {{ bubbles: true }})); }} }});"
     );
-    let _ = document::eval(&js).await;
+    let _ = eval(&js).await;
     pause(200).await;
 }
 
 async fn press_ok() {
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(500).await;
 }
 
@@ -74,7 +74,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let mut thumb = false;
     for _ in 0..40 {
         pause(150).await;
-        thumb = document::eval("const i = document.querySelector('img.explorer-thumb'); return !!(i && i.complete && i.naturalWidth > 0);")
+        thumb = eval("const i = document.querySelector('img.explorer-thumb'); return !!(i && i.complete && i.naturalWidth > 0);")
             .await
             .ok()
             .and_then(|v| v.as_bool())
@@ -91,7 +91,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     fill_dialog(&["Drafts"]).await;
     press_ok().await;
     let drafts = folder.join("Drafts");
-    let _ = document::eval(
+    let _ = eval(
         "const r = [...document.querySelectorAll('.explorer-list .explorer-row')].find(e => e.textContent.includes('Drafts')); if (r) r.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));",
     )
     .await;
@@ -111,7 +111,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
 
     crate::commands::dispatch(st, "addPlace");
     pause(400).await;
-    let listed = document::eval(
+    let listed = eval(
         "return [...document.querySelectorAll('.explorer-places .tree-item')].some(e => e.textContent.includes('explorer-files'));",
     )
     .await
@@ -164,12 +164,11 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     st.set_dialog(Dialog::Combine);
     pause(500).await;
     let listed = count(".source-list .source-row:not(.head)").await;
-    let _ =
-        document::eval("document.querySelectorAll('.source-list .source-row:not(.head)')[1]?.click();").await;
+    let _ = eval("document.querySelectorAll('.source-list .source-row:not(.head)')[1]?.click();").await;
     pause(200).await;
     crate::commands::dispatch(st, "newDocumentList.top");
     pause(300).await;
-    let _ = document::eval(
+    let _ = eval(
         "const i = document.getElementById('source-range-1'); if (i) { i.value = '2'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
     )
     .await;

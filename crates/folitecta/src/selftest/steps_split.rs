@@ -4,7 +4,7 @@ use super::*;
 use crate::commands::split::SPLIT;
 
 async fn count(selector: &str) -> u64 {
-    document::eval(&format!("return document.querySelectorAll('{selector}').length;"))
+    eval(&format!("return document.querySelectorAll('{selector}').length;"))
         .await
         .ok()
         .and_then(|v| v.as_u64())
@@ -30,7 +30,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         && !lines[1].horizontal
         && (lines[1].pos - pw / 2.0).abs() < 1.0;
     // Drag the horizontal line to a quarter of the page.
-    let _ = document::eval(
+    let _ = eval(
         r#"
 const c = document.querySelector('.split-canvas');
 const l = c && c.querySelector('.split-line.h');
@@ -42,7 +42,7 @@ if (l) {
     )
     .await;
     pause(250).await;
-    let _ = document::eval(
+    let _ = eval(
         r#"
 const c = document.querySelector('.split-canvas');
 const img = c && c.querySelector('img');
@@ -61,7 +61,7 @@ if (img) {
     // Type the vertical line in millimetres.
     st.set_value("split.units", "mm");
     pause(200).await;
-    let _ = document::eval(
+    let _ = eval(
         "const i = document.getElementById('split-line-1'); if (i) { i.value = '50'; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); }",
     )
     .await;
@@ -90,7 +90,7 @@ if (img) {
         format!("cm {cm}, {rulers} rulers, asked {asked}, cleared {cleared}"),
     );
     // A 2 × 2 grid on this page only.
-    let _ = document::eval(
+    let _ = eval(
         r#"
 const ins = document.querySelectorAll('.split-grid input');
 for (const i of ins) { i.value = '2'; i.dispatchEvent(new Event('input', { bubbles: true })); }
@@ -98,13 +98,13 @@ for (const i of ins) { i.value = '2'; i.dispatchEvent(new Event('input', { bubbl
     )
     .await;
     pause(200).await;
-    let _ = document::eval("document.querySelector('.split-grid .tbtn')?.click();").await;
+    let _ = eval("document.querySelector('.split-grid .tbtn')?.click();").await;
     pause(300).await;
     st.set_value("split.every", "current");
     pause(200).await;
     let grid = SPLIT.peek().lines.len();
     let before = st.page_count();
-    let _ = document::eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     pause(700).await;
     let after = st.page_count();
     cx.record(

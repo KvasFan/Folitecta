@@ -14,7 +14,7 @@ async fn press(name: &str, shift: bool) {
         "const h = [...document.querySelectorAll('#canvas .annot-hit')].find(e => (e.title || '').endsWith({name})); if (h) {{ const r = h.getBoundingClientRect(); h.dispatchEvent(new MouseEvent('mousedown', {{ bubbles: true, shiftKey: {shift}, button: 0, clientX: r.left + 3, clientY: r.top + 3 }})); h.dispatchEvent(new MouseEvent('mouseup', {{ bubbles: true, shiftKey: {shift}, button: 0, clientX: r.left + 3, clientY: r.top + 3 }})); }}",
         name = serde_json::to_string(name).unwrap_or_default()
     );
-    let _ = document::eval(&js).await;
+    let _ = eval(&js).await;
     pause(300).await;
 }
 
@@ -66,13 +66,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     press("arrange-2", true).await;
     press("arrange-3", true).await;
     let chosen = st.read_active(|t| t.chosen_annots()).flatten();
-    let tab = document::eval(
-        "return [...document.querySelectorAll('.ribbon-tab.ctx')].map(b => b.textContent).join(',');",
-    )
-    .await
-    .ok()
-    .and_then(|v| v.as_str().map(str::to_string))
-    .unwrap_or_default();
+    let tab =
+        eval("return [...document.querySelectorAll('.ribbon-tab.ctx')].map(b => b.textContent).join(',');")
+            .await
+            .ok()
+            .and_then(|v| v.as_str().map(str::to_string))
+            .unwrap_or_default();
     st.set_ribbon_tab("ctx.arrange".into());
     pause(400).await;
     let _ = capture_window(&cx.dir.join("interaction-arrange.png"));
@@ -164,6 +163,6 @@ async fn drag(name: &str, dx: f64, dy: f64) {
         "const h = [...document.querySelectorAll('#canvas .annot-hit')].find(e => (e.title || '').endsWith({name})); if (h) {{ const r = h.getBoundingClientRect(); const x = r.left + 4, y = r.top + 4; const ev = (t, cx, cy) => h.dispatchEvent(new MouseEvent(t, {{ bubbles: true, button: 0, buttons: 1, clientX: cx, clientY: cy }})); ev('mousedown', x, y); ev('mousemove', x + {dx} / 2, y + {dy} / 2); ev('mousemove', x + {dx}, y + {dy}); ev('mouseup', x + {dx}, y + {dy}); }}",
         name = serde_json::to_string(name).unwrap_or_default()
     );
-    let _ = document::eval(&js).await;
+    let _ = eval(&js).await;
     pause(600).await;
 }

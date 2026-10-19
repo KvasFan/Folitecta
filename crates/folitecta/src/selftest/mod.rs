@@ -9,6 +9,7 @@ use dioxus::desktop::LogicalSize;
 use dioxus::prelude::*;
 
 use crate::state::{AppState, Dialog, DocTab, Pane, TextSel, Theme, Tool};
+use progress::{begin, eval, finish, step_limit, take_timeouts, wait_limit};
 
 /// Self-test configuration provided through the launch context.
 #[derive(Clone, Debug)]
@@ -187,23 +188,38 @@ Pack my box with five dozen liquor jugs. Visit https://github.com/KvasFan/Folite
 }
 
 /// Audit the layout and capture the window; returns the number of problems.
+/// A state whose audit could not run (no answer, a script error) counts as one
+/// problem, and so do the scripts left without an answer before it.
 async fn check(st: AppState, dir: &std::path::Path, name: &str, log: &mut Vec<serde_json::Value>) -> usize {
+    let started = begin("state", name);
     pause(700).await;
-    let audit = match document::eval(AUDIT_JS).await {
+    let audit = match eval(AUDIT_JS).await {
         Ok(v) => v
             .as_str()
             .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
             .unwrap_or(v),
-        Err(e) => serde_json::json!({ "error": e.to_string() }),
+        Err(e) => serde_json::json!({ "error": e }),
     };
-    let count = audit
+    let mut count = audit
         .get("problems")
         .and_then(|p| p.as_array())
         .map(|a| a.len())
-        .unwrap_or(0);
-    let shot = dir.join(format!("{name}.png"));
-    let capture = capture_window(&shot);
-    log.push(serde_json::json!({ "state": name, "audit": audit, "screenshot": shot.display().to_string(), "capture": capture.err() }));
+        .unwrap_or(1);
+    let timeouts = take_timeouts();
+    count += timeouts.len();
+    let mut entry = serde_json::json!({ "state": name, "audit": audit });
+    if cfg!(target_os = "windows") {
+        let shot = dir.join(format!("{name}.png"));
+        let capture = capture_window(&shot);
+        entry["screenshot"] = shot.display().to_string().into();
+        entry["capture"] = capture.err().into();
+    }
+    if !timeouts.is_empty() {
+        entry["timeouts"] = timeouts.into();
+    }
+    progress::report(&entry, count);
+    log.push(entry);
+    finish("state", name, &format!("{count} problem(s)"), started);
     let _ = st;
     count
 }
@@ -355,7 +371,7 @@ return first.className || first.tagName;
         pts = pts.join(","),
         hit = if target_first_at_point { "true" } else { "false" }
     );
-    match document::eval(&js).await {
+    match eval(&js).await {
         Ok(v) => v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string()),
         Err(e) => format!("eval error: {e}"),
     }
@@ -376,6 +392,7 @@ fn annots_on(st: AppState, page: usize) -> Vec<folitecta_core::Annotation> {
         .unwrap_or_default()
 }
 
+mod progress;
 /// Exercise the canvas tools with simulated input; returns the number of failures.
 mod steps_arrange;
 mod steps_barcodes;
@@ -416,10 +433,98 @@ impl Ctx<'_> {
         if !pass {
             self.failures += 1;
         }
-        self.log
-            .push(serde_json::json!({ "interaction": name, "pass": pass, "detail": detail }));
+        let took = progress::took();
+        progress::line(&format!(
+            "  {} {name} ({:.1} s)",
+            if pass { "pass" } else { "FAIL" },
+            took.as_secs_f64()
+        ));
+        let entry = serde_json::json!({ "interaction": name, "pass": pass, "detail": detail });
+        progress::report(&entry, usize::from(!pass));
+        self.log.push(entry);
     }
 }
+
+/// Run the interaction step named `name` with a time limit: its scripts left
+/// without an answer and a step that does not end in time are failures, never
+/// a hang.
+async fn run_step(cx: &mut Ctx<'_>, name: &str) {
+    let started = begin("step", name);
+    let before = cx.failures;
+    let ended = {
+        let fut: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + '_>> = match name {
+            "tools" => Box::pin(steps_tools::run(cx)),
+            "review" => Box::pin(steps_review::run(cx)),
+            "panes" => Box::pin(steps_panes::run(cx)),
+            "features" => Box::pin(steps_features::run(cx)),
+            "files" => Box::pin(steps_files::run(cx)),
+            "pictures" => Box::pin(steps_pictures::run(cx)),
+            "split" => Box::pin(steps_split::run(cx)),
+            "text" => Box::pin(steps_text::run(cx)),
+            "layout" => Box::pin(steps_layout::run(cx)),
+            "recovery" => Box::pin(steps_recovery::run(cx)),
+            "barcodes" => Box::pin(steps_barcodes::run(cx)),
+            "calc" => Box::pin(steps_calc::run(cx)),
+            "split_view" => Box::pin(steps_split_view::run(cx)),
+            "links" => Box::pin(steps_links::run(cx)),
+            "note_icon" => Box::pin(steps_note_icon::run(cx)),
+            "arrange" => Box::pin(steps_arrange::run(cx)),
+            "spelling" => Box::pin(steps_spelling::run(cx)),
+            "ocr" => Box::pin(steps_ocr::run(cx)),
+            "field_items" => Box::pin(steps_field_items::run(cx)),
+            "policies" => Box::pin(steps_policies::run(cx)),
+            "qat" => Box::pin(steps_qat::run(cx)),
+            "email" => Box::pin(steps_email::run(cx)),
+            "timestamp" => Box::pin(steps_timestamp::run(cx)),
+            _ => Box::pin(async { cx.record("unknown step", false, name.to_string()) }),
+        };
+        tokio::time::timeout(step_limit(), fut).await.is_ok()
+    };
+    let timeouts = take_timeouts();
+    if !timeouts.is_empty() {
+        cx.record(
+            &format!("step {name}: the page answers every script"),
+            false,
+            timeouts.join(" | "),
+        );
+    }
+    if !ended {
+        cx.record(
+            &format!("step {name}: ends within the time limit"),
+            false,
+            format!("stopped after {:.0} s", step_limit().as_secs_f64()),
+        );
+    }
+    let failed = cx.failures - before;
+    finish("step", name, &format!("{failed} failure(s)"), started);
+}
+
+/// The interaction steps in the order of a full run.
+const STEPS: [&str; 23] = [
+    "tools",
+    "review",
+    "panes",
+    "features",
+    "files",
+    "pictures",
+    "split",
+    "text",
+    "layout",
+    "recovery",
+    "barcodes",
+    "calc",
+    "split_view",
+    "links",
+    "note_icon",
+    "arrange",
+    "spelling",
+    "ocr",
+    "field_items",
+    "policies",
+    "qat",
+    "email",
+    "timestamp",
+];
 
 async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_json::Value>) -> usize {
     set_size(1280.0, 800.0);
@@ -440,29 +545,9 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
         failures: 0,
         z,
     };
-    steps_tools::run(&mut cx).await;
-    steps_review::run(&mut cx).await;
-    steps_panes::run(&mut cx).await;
-    steps_features::run(&mut cx).await;
-    steps_files::run(&mut cx).await;
-    steps_pictures::run(&mut cx).await;
-    steps_split::run(&mut cx).await;
-    steps_text::run(&mut cx).await;
-    steps_layout::run(&mut cx).await;
-    steps_recovery::run(&mut cx).await;
-    steps_barcodes::run(&mut cx).await;
-    steps_calc::run(&mut cx).await;
-    steps_split_view::run(&mut cx).await;
-    steps_links::run(&mut cx).await;
-    steps_note_icon::run(&mut cx).await;
-    steps_arrange::run(&mut cx).await;
-    steps_spelling::run(&mut cx).await;
-    steps_ocr::run(&mut cx).await;
-    steps_field_items::run(&mut cx).await;
-    steps_policies::run(&mut cx).await;
-    steps_qat::run(&mut cx).await;
-    steps_email::run(&mut cx).await;
-    steps_timestamp::run(&mut cx).await;
+    for name in STEPS {
+        run_step(&mut cx, name).await;
+    }
     let failures = cx.failures;
 
     // 58. Undo everything added above.
@@ -479,10 +564,19 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
 pub async fn run(st: AppState, cfg: SelfTestConfig) {
     let dir = cfg.dir.clone();
     let _ = std::fs::create_dir_all(&dir);
+    progress::open(&dir);
     let mut log: Vec<serde_json::Value> = Vec::new();
     let mut total = 0;
-    // FOLITECTA_SELFTEST_ONLY=print runs only the print step (for debugging).
+    // FOLITECTA_SELFTEST_ONLY=print runs only the print step,
+    // =interactions every interaction step, =step:<name> one of them.
     let only = std::env::var("FOLITECTA_SELFTEST_ONLY").ok();
+    progress::line(&format!(
+        "self-test of Folitecta {} on {}, only {only:?}, script limit {:.0} s, step limit {:.0} s",
+        folitecta_core::VERSION,
+        std::env::consts::OS,
+        wait_limit().as_secs_f64(),
+        step_limit().as_secs_f64()
+    ));
     // A neutral author name: screenshots never show the account name.
     st.ui_mut().author = "Reviewer".into();
     let full = only.is_none();
@@ -523,21 +617,30 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
             failures: 0,
             z: 1.0,
         };
-        match step {
-            "arrange" => steps_arrange::run(&mut cx).await,
-            "field_items" => steps_field_items::run(&mut cx).await,
-            "layout" => steps_layout::run(&mut cx).await,
-            "ocr" => steps_ocr::run(&mut cx).await,
-            "policies" => steps_policies::run(&mut cx).await,
-            "qat" => steps_qat::run(&mut cx).await,
-            "email" => steps_email::run(&mut cx).await,
-            "spelling" => steps_spelling::run(&mut cx).await,
-            "timestamp" => steps_timestamp::run(&mut cx).await,
-            _ => cx.record("unknown step", false, step.to_string()),
-        }
+        run_step(&mut cx, step).await;
         total += cx.failures;
     }
-    // Printed layout of the first pages (emulated on screen; the system dialog is modal).
+    total += print_layout(st, &dir, &mut log).await;
+    let report = serde_json::json!({ "total_problems": total, "complete": true, "states": log });
+    let _ = std::fs::write(
+        dir.join("report.json"),
+        serde_json::to_string_pretty(&report).unwrap_or_default(),
+    );
+    progress::done(total);
+    println!(
+        "ui self-test finished: {total} problem(s); report in {}",
+        dir.display()
+    );
+    // Leaving on purpose: no recovery copies for the next run.
+    crate::recovery::forget_session();
+    std::process::exit(if total == 0 { 0 } else { 3 });
+}
+
+/// The printed layout of the first pages, emulated on screen (the system
+/// dialog is modal): every page image decoded and laid out. Returns the
+/// number of problems.
+async fn print_layout(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_json::Value>) -> usize {
+    let started = begin("step", "print");
     set_size(1280.0, 800.0);
     pause(800).await;
     let pages: Vec<crate::state::PrintPage> = st
@@ -547,30 +650,51 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
                 .collect()
         })
         .unwrap_or_default();
-    let ready = crate::files::prepare_print(st, pages, 100.0, true, true).await;
-    let _ = document::eval("document.documentElement.classList.add('emulate-print'); window.scrollTo(0, 0);")
-        .await;
+    let ready = tokio::time::timeout(
+        wait_limit() * 2,
+        crate::files::prepare_print(st, pages, 100.0, true, true),
+    )
+    .await
+    .ok();
+    let _ = eval("document.documentElement.classList.add('emulate-print'); window.scrollTo(0, 0);").await;
     pause(800).await;
-    let shot = dir.join("print-layout.png");
-    let capture = capture_window(&shot);
-    let _ = document::eval("document.documentElement.classList.remove('emulate-print');").await;
-    let pass = ready == 3 && capture.is_ok();
-    if !pass {
-        total += 1;
+    let shown = eval(
+        "return [...document.querySelectorAll('.print-view .print-page img')].filter(i => i.complete && i.naturalWidth > 0 && i.getBoundingClientRect().width > 100).length;",
+    )
+    .await
+    .ok()
+    .and_then(|v| v.as_u64())
+    .unwrap_or(0);
+    let mut entry = serde_json::json!({ "interaction": "print layout with 3 rendered pages" });
+    let mut pass = ready == Some(3) && shown == 3;
+    if cfg!(target_os = "windows") {
+        let shot = dir.join("print-layout.png");
+        let capture = capture_window(&shot);
+        pass &= capture.is_ok();
+        entry["screenshot"] = shot.display().to_string().into();
+        entry["capture"] = capture.err().into();
     }
-    log.push(serde_json::json!({ "interaction": "print layout with 3 rendered pages", "pass": pass, "detail": format!("{ready} pages ready"), "screenshot": shot.display().to_string(), "capture": capture.err() }));
-    let report = serde_json::json!({ "total_problems": total, "states": log });
-    let _ = std::fs::write(
-        dir.join("report.json"),
-        serde_json::to_string_pretty(&report).unwrap_or_default(),
-    );
-    println!(
-        "ui self-test finished: {total} problem(s); report in {}",
-        dir.display()
-    );
-    // Leaving on purpose: no recovery copies for the next run.
-    crate::recovery::forget_session();
-    std::process::exit(if total == 0 { 0 } else { 3 });
+    let _ = eval("document.documentElement.classList.remove('emulate-print');").await;
+    let timeouts = take_timeouts();
+    pass &= timeouts.is_empty();
+    let detail = match ready {
+        Some(n) => format!("{n} pages ready, {shown} shown"),
+        None => format!(
+            "the pages were not ready within {:.0} s",
+            (wait_limit() * 2).as_secs_f64()
+        ),
+    };
+    entry["pass"] = pass.into();
+    entry["detail"] = if timeouts.is_empty() {
+        detail
+    } else {
+        format!("{detail}; no answer to: {}", timeouts.join(" | "))
+    }
+    .into();
+    progress::report(&entry, usize::from(!pass));
+    log.push(entry);
+    finish("step", "print", if pass { "pass" } else { "FAIL" }, started);
+    usize::from(!pass)
 }
 
 /// Every layout state and interaction check; returns the number of problems.
@@ -672,13 +796,13 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         // and a ribbon overflow dropdown near the right edge.
         st.set_open_menu(Some("help".into()));
         pause(400).await;
-        let _ = document::eval(
+        let _ = eval(
             "const it = [...document.querySelectorAll('.menu-dropdown .menu-item')].find(e => e.querySelector('.chev')); if (it) { const r = it.getBoundingClientRect(); it.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, clientX: r.left + 20, clientY: r.top + 8 })); it.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false, clientX: r.left + 20, clientY: r.top + 8 })); it.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.left + 20, clientY: r.top + 8 })); }",
         )
         .await;
         total += check(st, &dir, &format!("{tag}-menu-help-submenu"), log).await;
         st.close_menus();
-        let _ = document::eval(
+        let _ = eval(
             "const b = [...document.querySelectorAll('.ribbon-body .rbtn.has-menu')].pop(); if (b) { const r = b.getBoundingClientRect(); b.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.left + 5, clientY: r.top + 5 })); }",
         )
         .await;

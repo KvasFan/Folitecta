@@ -28,15 +28,14 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     };
     crate::commands::dispatch(st, "noteIcon");
     pause(500).await;
-    let shown = document::eval("return document.querySelectorAll('.dialog .note-icons .choice').length;")
+    let shown = eval("return document.querySelectorAll('.dialog .note-icons .choice').length;")
         .await
         .ok()
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
     let _ = capture_window(&cx.dir.join("interaction-note-icon.png"));
     // The star is the last icon.
-    let _ =
-        document::eval("[...document.querySelectorAll('.dialog .note-icons .choice')].pop()?.click();").await;
+    let _ = eval("[...document.querySelectorAll('.dialog .note-icons .choice')].pop()?.click();").await;
     pause(500).await;
     let icon = st.read_active(|t| t.doc.note_icon_of(page, index)).flatten();
     let closed = matches!((st.dialog)(), Dialog::None);
@@ -44,8 +43,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     st.with_active(|t| t.selected_annot = None);
     crate::commands::dispatch(st, "noteIcon");
     pause(400).await;
-    let _ =
-        document::eval("[...document.querySelectorAll('.dialog .note-icons .choice')][2]?.click();").await;
+    let _ = eval("[...document.querySelectorAll('.dialog .note-icons .choice')][2]?.click();").await;
     pause(400).await;
     let default_icon = st.value("note.icon");
     st.ui_mut().values.remove("note.icon");

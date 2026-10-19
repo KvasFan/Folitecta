@@ -183,6 +183,7 @@
   "toast.protected_note": "The copy is encrypted with {method} and opens with the password you chose.",
   "toast.protected_source": "The content comes from a protected file and this document is not protected, so it is not copied. Save an unrestricted copy of that file first if you want to use it.",
   "toast.protection_not_kept": "The protection of the document cannot be kept, so nothing was written ({why}).",
+  "toast.signatures_not_kept": "The signatures of this version can only be kept valid by an update of the signed file it came from, and a later save replaced that file, so nothing was written. Remove the signatures, or redo, to save it.",
   "toast.qat_added": "On the Quick Access Toolbar: {command}",
   "toast.qat_choose": "Choose an entry of the Quick Access Toolbar first.",
   "toast.qat_removed": "Taken off the Quick Access Toolbar: {command}",

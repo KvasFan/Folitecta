@@ -183,6 +183,7 @@
   "toast.protected_note": "La copia è cifrata con {method} e si apre con la password scelta.",
   "toast.protected_source": "Il contenuto viene da un file protetto e questo documento non è protetto, quindi non viene copiato. Per usarlo salva prima una copia senza restrizioni di quel file.",
   "toast.protection_not_kept": "La protezione del documento non può essere mantenuta, quindi non è stato scritto nulla ({why}).",
+  "toast.signatures_not_kept": "Le firme di questa versione restano valide solo con un aggiornamento del file firmato da cui viene, e un salvataggio successivo ha sostituito quel file, quindi non è stato scritto nulla. Rimuovi le firme, o ripeti l'operazione annullata, per salvarla.",
   "toast.qat_added": "Sulla barra di accesso rapido: {command}",
   "toast.qat_choose": "Scegli prima una voce della barra di accesso rapido.",
   "toast.qat_removed": "Tolto dalla barra di accesso rapido: {command}",

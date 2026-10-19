@@ -64,6 +64,11 @@ pub struct Document {
     edit_backup: Option<EditBackup>,
     /// Files written so far (see [`Snapshot::saves`]).
     saves: u64,
+    /// Set when the state carries signatures that only an update of the
+    /// signed file it came from keeps valid and a later save replaced that
+    /// file on the disk: the state cannot be saved with them. It holds that
+    /// signed file when it is known.
+    signed_base_lost: Option<Option<Source>>,
     /// Object id of the shared Helvetica font resource created by Folitecta, if any.
     pub(crate) helv_font: Option<ObjectId>,
     /// The file was encrypted when it was opened (it is kept decrypted in memory).
@@ -159,6 +164,9 @@ struct Snapshot {
     /// it only while no file was written since (a save makes the file just
     /// written the base, whatever is undone).
     saves: u64,
+    /// Whether the state lost the signed file it needs as its base, and that
+    /// file (see `Document::signed_base_lost`).
+    lost_base: Option<Option<Source>>,
 }
 
 /// The key of the encryption of a protected document, to read the files it
@@ -548,6 +556,7 @@ impl Document {
             redo: Vec::new(),
             edit_backup: None,
             saves: 0,
+            signed_base_lost: None,
             helv_font: None,
             source_encrypted,
             protection,
@@ -631,6 +640,7 @@ impl Document {
             redo: Vec::new(),
             edit_backup: None,
             saves: 0,
+            signed_base_lost: None,
             helv_font: None,
             source_encrypted: false,
             protection: None,
@@ -873,6 +883,9 @@ impl Document {
     /// file or the whole document. A protected file is checked to carry its
     /// encryption, else nothing is written.
     pub(crate) fn file_bytes_from(&mut self) -> Result<FileBytes> {
+        if self.signed_base_lost.is_some() && self.has_signatures() {
+            return Err(Error::SignaturesNotKept);
+        }
         let Some(p) = self.protection.clone() else {
             if self.source.as_ref().is_some_and(|s| s.decrypted.is_some()) {
                 return Err(Error::ProtectionNotKept(
@@ -1061,6 +1074,7 @@ impl Document {
             bytes: self.bytes.clone(),
             source: self.source.clone(),
             saves: self.saves,
+            lost_base: self.signed_base_lost.clone(),
         }
     }
 
@@ -1125,6 +1139,7 @@ impl Document {
         self.bytes = backup.snapshot.bytes;
         if backup.snapshot.saves == self.saves {
             self.source = backup.snapshot.source;
+            self.signed_base_lost = backup.snapshot.lost_base;
         }
         self.helv_font = None;
     }
@@ -1177,6 +1192,25 @@ impl Document {
         // written stays the base.
         if snapshot.saves == self.saves {
             self.source = snapshot.source;
+            self.signed_base_lost = snapshot.lost_base;
+        } else {
+            self.signed_base_lost = None;
+            if self.has_signatures() && !self.source.as_ref().is_some_and(|s| s.signed) {
+                // The state needs the signed file it came from as its base,
+                // and the file written since is not: the base comes back only
+                // while the file on the disk is still that one.
+                let on_disk = |b: &[u8]| {
+                    self.path
+                        .as_ref()
+                        .and_then(|p| std::fs::read(p).ok())
+                        .is_some_and(|d| d == b)
+                };
+                let base = snapshot.lost_base.unwrap_or(snapshot.source).filter(|s| s.signed);
+                match base {
+                    Some(src) if on_disk(&src.bytes) => self.source = Some(src),
+                    lost => self.signed_base_lost = Some(lost),
+                }
+            }
         }
         self.revision += 1;
         self.dirty = true;

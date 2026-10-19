@@ -330,6 +330,7 @@ pub fn core_error(lang: Lang, err: &folitecta_core::Error) -> String {
         }
         E::UnsupportedProtection(what) => tf(lang, "toast.unsupported_protection", &[("what", what)]),
         E::ProtectionNotKept(why) => tf(lang, "toast.protection_not_kept", &[("why", why)]),
+        E::SignaturesNotKept => t(lang, "toast.signatures_not_kept"),
         folitecta_core::Error::Glyphs(p) => {
             format!("{} {}", glyph_problem(lang, p), t(lang, "toast.nothing_changed"))
         }

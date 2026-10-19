@@ -1260,3 +1260,82 @@ fn an_aes128_file_opened_with_a_non_ascii_owner_password_is_redacted_and_checked
     }
     let _ = std::fs::remove_file(&path);
 }
+
+#[test]
+fn undoing_a_saved_redaction_of_a_signed_protected_document_never_writes_a_broken_signature() {
+    let path = temp("undo-signed-base");
+    sample()
+        .save_encrypted(
+            &path,
+            "user-pw",
+            "owner-pw",
+            SecurityPermissions::default(),
+            EncryptionProfile::Aes256,
+        )
+        .unwrap();
+    let opened = Document::open_with_password(&path, "user-pw").unwrap();
+    let id = DigitalId::create_self_signed(
+        &IdentityInfo {
+            name: "Reviewer".into(),
+            ..IdentityInfo::default()
+        },
+        KeyKind::EcP256,
+        1,
+    )
+    .unwrap();
+    let signed = opened.sign_to_file(&id, &SignOptions::default(), None).unwrap();
+    let signed_bytes = signed.bytes.clone();
+    std::fs::write(&path, &signed_bytes).unwrap();
+    let mut doc = signed.into_document(Some(path.clone())).unwrap();
+    mark_word(&mut doc, 0, "Secret");
+    let mut work = doc.snapshot().open().unwrap();
+    let report = work.apply_redactions_opts(None, &all_options()).unwrap();
+    doc.adopt_state(work).unwrap();
+    // The checked save writes the redacted copy, which becomes the file.
+    let copy = temp("undo-signed-copy");
+    let prepared = doc.prepare_save().unwrap();
+    assert!(
+        check_redacted_bytes(&prepared.bytes, prepared.key.as_ref(), &report)
+            .unwrap()
+            .passed()
+    );
+    folitecta_core::document::write_pdf_file(&copy, &prepared.bytes).unwrap();
+    doc.finish_save(&copy, &prepared);
+    let redacted = std::fs::read(&copy).unwrap();
+    // Undone, the signed version is back, but not its signed file: saving
+    // it would break its signature, so nothing is written.
+    doc.undo().unwrap();
+    assert!(doc.has_signatures());
+    assert!(matches!(
+        doc.save(),
+        Err(folitecta_core::Error::SignaturesNotKept)
+    ));
+    let other = temp("undo-signed-other");
+    assert!(matches!(
+        doc.save_as(&other),
+        Err(folitecta_core::Error::SignaturesNotKept)
+    ));
+    assert_eq!(std::fs::read(&copy).unwrap(), redacted);
+    assert!(!other.exists());
+    // Redone, it saves again (whole, without signatures).
+    doc.redo().unwrap();
+    doc.save().unwrap();
+    assert!(
+        !Document::open_with_password(&copy, "user-pw")
+            .unwrap()
+            .has_signatures()
+    );
+    // When the file on the disk is the signed file again, undoing brings it
+    // back as the base: the save is an update that keeps the signature valid.
+    std::fs::write(&copy, &signed_bytes).unwrap();
+    doc.undo().unwrap();
+    doc.save().unwrap();
+    let saved = std::fs::read(&copy).unwrap();
+    assert!(saved.starts_with(&signed_bytes));
+    let back = Document::from_bytes(saved, None, Some("user-pw")).unwrap();
+    let v = back.validate_signatures(&[]);
+    assert!(!v.is_empty() && v.iter().all(|s| s.valid), "{v:?}");
+    for p in [&path, &copy] {
+        let _ = std::fs::remove_file(p);
+    }
+}

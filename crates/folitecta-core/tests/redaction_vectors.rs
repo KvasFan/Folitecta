@@ -733,6 +733,75 @@ fn a_stroke_next_to_a_mark_leaves_no_ink_inside_it() {
     assert!(near(px(&img, 100, 203), [0, 0, 255]));
 }
 
+/// Pixels that are not white inside marks of a 400 × 400 page (page space,
+/// shrunk by one and a half pixels).
+fn ink_inside(img: &image::RgbaImage, marks: &[[f32; 4]]) -> usize {
+    let mut n = 0;
+    for m in marks {
+        let (top, bottom) = (400.0 - m[3], 400.0 - m[1]);
+        for y in (top + 1.5).ceil() as u32..(bottom - 1.5).floor() as u32 {
+            for x in (m[0] + 1.5).ceil() as u32..(m[2] - 1.5).floor() as u32 {
+                let p = img.get_pixel(x, y);
+                if (0..3).any(|k| p[k] < 215) {
+                    n += 1;
+                }
+            }
+        }
+    }
+    n
+}
+
+#[test]
+fn strokes_under_skewed_and_stretched_matrices_and_miter_joins_leave_no_ink_in_the_mark() {
+    let square = [150.0, 150.0, 250.0, 250.0];
+    let cases: [(&str, &str, Vec<[f32; 4]>); 5] = [
+        // Skew x' = x + y: butt ends are slanted on the page.
+        (
+            "skew-butt",
+            "0 0 1 RG 20 w 1 0 1 1 0 0 cm -100 200 m 150 200 l S",
+            vec![square],
+        ),
+        (
+            "skew-square",
+            "0 0 1 RG 20 w 2 J 1 0 1 1 0 0 cm -100 200 m 150 200 l S",
+            vec![square],
+        ),
+        // x' = 5x: the pen is an ellipse on the page.
+        (
+            "stretch",
+            "0 0 1 RG 4 w 5 0 0 1 0 0 cm 10 50 m 70 350 l S",
+            vec![square],
+        ),
+        // A miter join just outside the mark, its tip pointing into it.
+        (
+            "miter",
+            "0 0 1 RG 10 w 0 j 10 M 100 190 m 145 200 l 100 210 l S",
+            vec![square],
+        ),
+        (
+            "miter-cut",
+            "0 0 1 RG 10 w 0 j 10 M 50 350 m 145 200 l 50 300 l 300 300 l S",
+            vec![square, [150.0, 280.0, 250.0, 320.0]],
+        ),
+    ];
+    for (name, content, marks) in cases {
+        let mut doc = doc_with(400.0, 400.0, &[content], |_| Dictionary::new());
+        for m in &marks {
+            mark(&mut doc, 0, *m);
+        }
+        let report = apply(&mut doc);
+        assert!(report.pages_as_pictures.is_empty(), "{name}: {report:?}");
+        let prepared = doc.prepare_save().unwrap();
+        let check = check_redacted_bytes(&prepared.bytes, None, &report).unwrap();
+        assert!(check.passed(), "{name}: {check:?}");
+        let img = render(&without_covers(&saved(&mut doc, name)), 0);
+        assert_eq!(ink_inside(&img, &marks), 0, "{name}");
+        // The line is still there outside the marks.
+        let blue = img.pixels().filter(|p| p[2] > 200 && p[0] < 80).count();
+        assert!(blue > 100, "{name}: {blue}");
+    }
+}
+
 #[test]
 fn clip_mode_text_that_loses_every_glyph_still_hides_what_it_hid() {
     // Text in clip mode over a picture: only the letters show the picture.

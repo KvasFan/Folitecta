@@ -192,7 +192,9 @@ pub(crate) fn subpath_bounds(sp: &Subpath, m: Affine) -> Option<Rect> {
     }))
 }
 
-/// Bounds of a path object in page space (strokes widened by their width).
+/// Bounds of a path object in page space (strokes widened by what their ink
+/// reaches beyond the centre line: half the width, the corners of square
+/// caps, miter joins up to their limit).
 pub(crate) fn path_bounds(p: &PathObj) -> Option<Rect> {
     let mut r: Option<Rect> = None;
     for sp in &p.subpaths {
@@ -202,23 +204,48 @@ pub(crate) fn path_bounds(p: &PathObj) -> Option<Rect> {
     }
     let r = r?;
     let widened = matches!(p.paint, Paint::Stroke | Paint::FillStroke(_));
-    Some(if widened {
-        r.inflate(half_width(&p.gs), half_width(&p.gs))
-    } else {
-        r
-    })
+    if !widened {
+        return Some(r);
+    }
+    let mut reach: f64 = 1.0;
+    if p.gs.cap == 2 {
+        reach = reach.max(std::f64::consts::SQRT_2);
+    }
+    let corners = p.subpaths.iter().any(|sp| {
+        let ends = sp
+            .els
+            .iter()
+            .filter(|e| !matches!(e, PathEl::MoveTo(_) | PathEl::ClosePath))
+            .count();
+        ends >= 2 || matches!(sp.els.last(), Some(PathEl::ClosePath))
+    });
+    if p.gs.join == 0 && corners {
+        reach = reach.max(p.gs.miter);
+    }
+    let hw = half_width(&p.gs) * reach;
+    Some(r.inflate(hw, hw))
 }
 
-/// Half the line width in page space (the largest stretch of the matrix).
-pub(crate) fn half_width(gs: &Gs) -> f64 {
-    let c = gs.ctm.as_coeffs();
-    // The spectral norm of the linear part.
+/// The largest and smallest stretch of the linear part of a matrix.
+fn stretches(m: Affine) -> (f64, f64) {
+    let c = m.as_coeffs();
     let (a, b, cc, d) = (c[0], c[1], c[2], c[3]);
     let s1 = a * a + b * b + cc * cc + d * d;
     let s2 = ((a * a + b * b - cc * cc - d * d).powi(2) + 4.0 * (a * cc + b * d).powi(2)).sqrt();
-    let norm = ((s1 + s2) / 2.0).sqrt();
-    // Zero-width lines are drawn one device pixel wide.
-    (gs.lw.max(0.0) * norm / 2.0).max(0.5)
+    (((s1 + s2) / 2.0).sqrt(), ((s1 - s2) / 2.0).max(0.0).sqrt())
+}
+
+/// Half the line width in user space. Lines thinner than a device pixel
+/// are drawn one pixel wide: at least half a point in page space every way.
+pub(crate) fn half_width_user(gs: &Gs) -> f64 {
+    let (_, min) = stretches(gs.ctm);
+    (gs.lw.max(0.0) / 2.0).max(0.5 / min.max(1e-9))
+}
+
+/// Half the line width in page space, the most the matrix stretches it.
+pub(crate) fn half_width(gs: &Gs) -> f64 {
+    let (max, _) = stretches(gs.ctm);
+    half_width_user(gs) * max
 }
 
 /// Follow a content stream drawn with `res` from the state `gs0`.

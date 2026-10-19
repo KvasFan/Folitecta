@@ -1,6 +1,7 @@
 //! Paths under redaction marks lose their geometry there. Marks are
-//! rectangles of the default space of the page (axis-aligned there); paths are
-//! examined in that space and written back in their own.
+//! rectangles of the default space of the page (axis-aligned there); fills
+//! and clips are examined in that space and written back in their own,
+//! strokes are cut in their own.
 //!
 //! - **Fills.** A subpath whose region meets a mark (a vertex inside it, an
 //!   edge through it, or the mark inside the region) is flattened and becomes
@@ -13,15 +14,18 @@
 //!   a mark (a clip around the mark tells nothing about it); otherwise it is
 //!   cut the same way. A clip that becomes empty is written as a small square
 //!   far outside the page, so what it hid stays hidden for every reader.
-//! - **Strokes.** The centre line loses the parts whose ink would enter a
-//!   mark: across the line by half its width, along it by what the caps of
-//!   the new ends paint (Cyrus–Beck against the mark grown that way), so no
-//!   ink stays inside and none is lost outside.
+//! - **Strokes.** In the user space of the stroke, where the pen is round
+//!   and the marks are parallelograms, the centre line loses the parts whose
+//!   ink would enter a mark: across the line by half its width, along it by
+//!   what the caps of the new ends paint (Cyrus–Beck against the mark grown
+//!   that way). A corner kept whose join (miter within its limit, bevel or
+//!   round) would reach into a mark is split there. No ink stays inside; the
+//!   ink lost outside is what slanted ends and split corners cannot keep.
 
 use hayro::kurbo::{self, Affine, BezPath, PathEl, Point, Rect};
 use lopdf::{Dictionary, Object};
 
-use super::scan::{FillRule, Paint, PathObj, Subpath, half_width, path_bounds};
+use super::scan::{FillRule, Paint, PathObj, Subpath, half_width_user, path_bounds};
 use crate::util::deref;
 
 /// Flattening tolerance in page space (points).
@@ -314,39 +318,141 @@ fn hull(mut pts: Vec<Point>) -> Vec<Point> {
 }
 
 /// Where the centre line of a stroke going in direction `dir` (unit) puts
-/// ink into `mark`: the mark grown by the cross-section of the line (half
-/// width `hw` on each side), and by the cap new ends would get (`cap`: 0
-/// butt, 1 round, 2 projecting square). A convex polygon.
-fn ink_region(mark: Rect, dir: hayro::kurbo::Vec2, hw: f64, cap: i64) -> Vec<Point> {
+/// ink into `mark` (a convex polygon): the mark grown by the cross-section of
+/// the line (half width `hw` on each side), and by the cap new ends would get
+/// (`cap`: 0 butt, 1 round, 2 projecting square). All in the user space of
+/// the stroke, where the pen is round. A convex polygon.
+fn ink_region(mark: &[Point], dir: hayro::kurbo::Vec2, hw: f64, cap: i64) -> Vec<Point> {
     use hayro::kurbo::Vec2;
     let n = Vec2::new(-dir.y, dir.x) * hw;
     let d = dir * hw;
     let element: Vec<Vec2> = match cap {
         0 => vec![n, -n],
         2 => vec![n + d, n - d, -n + d, -n - d],
-        _ => {
-            // A disc, by the octagon around it.
-            let r = hw / (std::f64::consts::PI / 8.0).cos();
-            (0..8)
-                .map(|k| {
-                    let a = std::f64::consts::PI / 8.0 + k as f64 * std::f64::consts::PI / 4.0;
-                    Vec2::new(a.cos() * r, a.sin() * r)
-                })
-                .collect()
-        }
+        _ => octagon(hw),
     };
-    let corners = [
-        Point::new(mark.x0, mark.y0),
-        Point::new(mark.x1, mark.y0),
-        Point::new(mark.x1, mark.y1),
-        Point::new(mark.x0, mark.y1),
-    ];
     hull(
-        corners
-            .iter()
+        mark.iter()
             .flat_map(|c| element.iter().map(move |e| *c + *e))
             .collect(),
     )
+}
+
+/// An octagon around a disc of radius `r` centred at the origin.
+fn octagon(r: f64) -> Vec<hayro::kurbo::Vec2> {
+    let r = r / (std::f64::consts::PI / 8.0).cos();
+    (0..8)
+        .map(|k| {
+            let a = std::f64::consts::PI / 8.0 + k as f64 * std::f64::consts::PI / 4.0;
+            hayro::kurbo::Vec2::new(a.cos() * r, a.sin() * r)
+        })
+        .collect()
+}
+
+/// Two convex polygons overlap (more than touching).
+fn convex_overlap(a: &[Point], b: &[Point]) -> bool {
+    if a.len() < 2 || b.len() < 2 {
+        return false;
+    }
+    for poly in [a, b] {
+        let n = poly.len();
+        for i in 0..n {
+            let e = poly[(i + 1) % n] - poly[i];
+            if e.hypot() < 1e-12 {
+                continue;
+            }
+            let axis = hayro::kurbo::Vec2::new(-e.y, e.x) / e.hypot();
+            let span = |pts: &[Point]| {
+                pts.iter().fold((f64::MAX, f64::MIN), |(lo, hi), p| {
+                    let v = axis.dot(p.to_vec2());
+                    (lo.min(v), hi.max(v))
+                })
+            };
+            let (a0, a1) = span(a);
+            let (b0, b1) = span(b);
+            if a1 <= b0 + EPS || b1 <= a0 + EPS {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+/// The ink a join adds at vertex `v` between a segment going in direction
+/// `d1` and the next going in `d2` (unit), outside the two segments' own
+/// ink: the miter (within the miter limit), the bevel or the round corner on
+/// the outer side. None when the line goes straight on.
+fn join_region(
+    v: Point,
+    d1: hayro::kurbo::Vec2,
+    d2: hayro::kurbo::Vec2,
+    hw: f64,
+    join: i64,
+    limit: f64,
+) -> Option<Vec<Point>> {
+    use hayro::kurbo::Vec2;
+    use std::f64::consts::PI;
+    let cross = d1.cross(d2);
+    let dot = d1.dot(d2);
+    if cross.abs() < 1e-12 && dot > 0.0 {
+        return None;
+    }
+    // The outer side, and the turn from the first outer normal to the second.
+    let turn = cross.atan2(dot);
+    let (side, sweep) = if cross.abs() < 1e-12 {
+        (1.0, -PI)
+    } else if turn > 0.0 {
+        (-1.0, turn)
+    } else {
+        (1.0, turn)
+    };
+    let left = |d: Vec2| Vec2::new(-d.y, d.x);
+    let (o1, o2) = (left(d1) * side * hw, left(d2) * side * hw);
+    let bevel = vec![v, v + o1, v + o2];
+    match join {
+        0 => {
+            let ratio = 1.0 / (sweep.abs() / 2.0).cos();
+            if sweep.abs() < PI - 1e-9 && ratio.is_finite() && ratio <= limit.max(1.0) {
+                let bis = o1 + o2;
+                let tip = v + bis / bis.hypot() * hw * ratio;
+                Some(vec![v, v + o1, tip, v + o2])
+            } else {
+                Some(bevel)
+            }
+        }
+        1 => {
+            let k = (sweep.abs() / (PI / 4.0)).ceil().max(1.0);
+            let step = sweep / k;
+            let a1 = o1.y.atan2(o1.x);
+            let r = hw / (step.abs() / 2.0).cos();
+            let mut poly = vec![v, v + o1];
+            for i in 0..k as usize {
+                let a = a1 + (i as f64 + 0.5) * step;
+                poly.push(v + Vec2::new(a.cos(), a.sin()) * r);
+            }
+            poly.push(v + o2);
+            Some(poly)
+        }
+        _ => Some(bevel),
+    }
+}
+
+/// A point is strictly inside a convex polygon.
+fn inside_convex(p: Point, poly: &[Point]) -> bool {
+    let n = poly.len();
+    if n < 3 {
+        return false;
+    }
+    let sides: Vec<f64> = (0..n)
+        .map(|i| (poly[(i + 1) % n] - poly[i]).cross(p - poly[i]))
+        .collect();
+    sides.iter().all(|c| *c > EPS) || sides.iter().all(|c| *c < -EPS)
+}
+
+/// A disc of radius `r` around `p` meets a convex polygon.
+fn disc_meets(p: Point, r: f64, poly: &[Point]) -> bool {
+    let disc: Vec<Point> = octagon(r).into_iter().map(|e| p + e).collect();
+    convex_overlap(&disc, poly)
 }
 
 /// The parameter interval of segment `a`–`b` inside a convex polygon
@@ -382,76 +488,98 @@ fn segment_in_convex(a: Point, b: Point, poly: &[Point]) -> Option<(f64, f64)> {
 }
 
 /// A polyline minus the parts of its centre line that put ink into the marks
-/// (`None` when no part does): ink of half width `hw` across the line, and the
-/// caps (`cap`) of the ends the cut makes. A closed polyline cut somewhere
-/// becomes open pieces; the piece through its first point keeps its join
-/// there.
+/// (`None` when no part does), in the user space of the stroke where the
+/// marks are convex polygons and the pen is round: ink of half width `hw`
+/// across the line, the caps (`cap`) of the ends the cut makes, and the joins
+/// (`join`, miter `limit`) at the corners kept — a corner whose join would
+/// reach a mark is split there, its two ends already clear with their caps.
+/// A closed polyline cut somewhere becomes open pieces; the piece through its
+/// first point keeps its join there when it can.
 pub(crate) fn cut_polyline(
     pts: &[Point],
     closed: bool,
-    marks: &[Rect],
+    marks: &[Vec<Point>],
     hw: f64,
     cap: i64,
+    join: i64,
+    limit: f64,
 ) -> Option<Vec<Vec<Point>>> {
     if pts.is_empty() {
         return None;
     }
-    if pts.len() == 1 || pts.windows(2).all(|w| (w[0] - w[1]).hypot() < 1e-12) {
-        // A dot: what its caps paint (nothing for butt caps) or its place.
-        let grow = if cap == 0 {
-            0.0
-        } else {
-            hw * std::f64::consts::SQRT_2
+    // Repeated points make no segment.
+    let mut pts: Vec<Point> = pts.to_vec();
+    pts.dedup_by(|a, b| (*a - *b).hypot() < 1e-12);
+    if closed && pts.len() > 1 && (pts[0] - pts[pts.len() - 1]).hypot() < 1e-12 {
+        pts.pop();
+    }
+    if pts.len() == 1 {
+        // A dot: what its caps paint (nothing for butt caps), or its place.
+        let p = pts[0];
+        let hit = |m: &Vec<Point>| match cap {
+            0 => inside_convex(p, m),
+            2 => disc_meets(p, hw * std::f64::consts::SQRT_2, m),
+            _ => disc_meets(p, hw, m),
         };
-        return marks
-            .iter()
-            .any(|m| strictly_inside(pts[0], m.inflate(grow, grow)))
-            .then(Vec::new);
+        return marks.iter().any(hit).then(Vec::new);
     }
     let n = pts.len();
     let segs: Vec<(Point, Point)> = (0..if closed { n } else { n - 1 })
         .map(|i| (pts[i], pts[(i + 1) % n]))
         .collect();
-    // Removed intervals of each segment.
-    let removed: Vec<Vec<(f64, f64)>> = segs
+    let dirs: Vec<hayro::kurbo::Vec2> = segs.iter().map(|(a, b)| (*b - *a) / (*b - *a).hypot()).collect();
+    // Kept intervals of each segment.
+    let kept: Vec<Vec<(f64, f64)>> = segs
         .iter()
-        .map(|(a, b)| {
+        .zip(&dirs)
+        .map(|((a, b), dir)| {
             let len = (*b - *a).hypot();
-            if len < 1e-12 {
-                return Vec::new();
-            }
-            let dir = (*b - *a) / len;
-            marks
+            let mut gone: Vec<(f64, f64)> = marks
                 .iter()
-                .filter_map(|m| segment_in_convex(*a, *b, &ink_region(*m, dir, hw, cap)))
+                .filter_map(|m| segment_in_convex(*a, *b, &ink_region(m, *dir, hw, cap)))
                 .filter(|(t0, t1)| (t1 - t0) * len > 1e-9)
-                .collect()
+                .collect();
+            gone.sort_by(|x, y| x.0.total_cmp(&y.0));
+            let mut keep: Vec<(f64, f64)> = Vec::new();
+            let mut at = 0.0;
+            for (t0, t1) in gone {
+                if t0 > at {
+                    keep.push((at, t0));
+                }
+                at = at.max(t1);
+            }
+            if at < 1.0 {
+                keep.push((at, 1.0));
+            }
+            keep
         })
         .collect();
-    if removed.iter().all(Vec::is_empty) {
+    let cut = kept.iter().any(|k| k.len() != 1 || k[0] != (0.0, 1.0));
+    // Corners kept whose join reaches a mark (at the start of a segment).
+    let split: Vec<bool> = (0..segs.len())
+        .map(|si| {
+            let prev = match si {
+                0 if closed => segs.len() - 1,
+                0 => return false,
+                _ => si - 1,
+            };
+            let ends = kept[prev].last().is_some_and(|k| k.1 >= 1.0);
+            let starts = kept[si].first().is_some_and(|k| k.0 <= 0.0);
+            ends && starts
+                && join_region(segs[si].0, dirs[prev], dirs[si], hw, join, limit)
+                    .is_some_and(|j| marks.iter().any(|m| convex_overlap(&j, m)))
+        })
+        .collect();
+    if !cut && !split.contains(&true) {
         return None;
     }
     let mut pieces: Vec<Vec<Point>> = Vec::new();
     let mut current: Vec<Point> = Vec::new();
     let mut first_starts_at_origin = false;
     for (si, (a, b)) in segs.iter().enumerate() {
-        // Removed intervals of this segment, merged.
-        let mut gone = removed[si].clone();
-        gone.sort_by(|x, y| x.0.total_cmp(&y.0));
-        let mut kept: Vec<(f64, f64)> = Vec::new();
-        let mut at = 0.0;
-        for (t0, t1) in gone {
-            if t0 > at {
-                kept.push((at, t0));
-            }
-            at = at.max(t1);
-        }
-        if at < 1.0 {
-            kept.push((at, 1.0));
-        }
         let point = |t: f64| Point::new(a.x + t * (b.x - a.x), a.y + t * (b.y - a.y));
-        for (k0, k1) in kept {
-            if k0 > 0.0 || current.is_empty() {
+        for &(k0, k1) in &kept[si] {
+            if k0 > 0.0 || current.is_empty() || split[si] {
                 if current.len() >= 2 {
                     pieces.push(std::mem::take(&mut current));
                 }
@@ -468,9 +596,10 @@ pub(crate) fn cut_polyline(
         }
     }
     if current.len() >= 2 {
-        // A closed line whose last piece reaches the first point joins the first piece.
+        // A closed line whose last piece reaches the first point joins the
+        // first piece there, unless that corner is split.
         let reaches_origin = closed && current.last().is_some_and(|p| (*p - pts[0]).hypot() < 1e-9);
-        if reaches_origin && first_starts_at_origin && !pieces.is_empty() {
+        if reaches_origin && first_starts_at_origin && !split[0] && !pieces.is_empty() {
             let first = pieces.remove(0);
             current.extend(first.into_iter().skip(1));
         }
@@ -635,10 +764,25 @@ fn cut_region(
     (out, changed)
 }
 
-/// The stroke of a path with its centre lines cut.
+/// The stroke of a path with its centre lines cut, in its user space (the
+/// marks mapped there).
 fn cut_stroke(p: &PathObj, flat: &[(Vec<Point>, bool)], marks: &[Rect]) -> (String, bool) {
     let inv = p.gs.ctm.inverse();
-    let hw = half_width(&p.gs);
+    let hw = half_width_user(&p.gs);
+    let polys: Vec<Vec<Point>> = marks
+        .iter()
+        .map(|r| {
+            [
+                Point::new(r.x0, r.y0),
+                Point::new(r.x1, r.y0),
+                Point::new(r.x1, r.y1),
+                Point::new(r.x0, r.y1),
+            ]
+            .iter()
+            .map(|c| inv * *c)
+            .collect()
+        })
+        .collect();
     let mut out = String::new();
     let mut changed = false;
     for (sp, (pts, closed)) in p.subpaths.iter().zip(flat) {
@@ -646,12 +790,13 @@ fn cut_stroke(p: &PathObj, flat: &[(Vec<Point>, bool)], marks: &[Rect]) -> (Stri
             changed = true;
             continue;
         }
-        match cut_polyline(pts, *closed, marks, hw, p.gs.cap) {
+        let user: Vec<Point> = pts.iter().map(|q| inv * *q).collect();
+        match cut_polyline(&user, *closed, &polys, hw, p.gs.cap, p.gs.join, p.gs.miter) {
             None => write_subpath(&mut out, sp),
             Some(pieces) => {
                 changed = true;
                 for piece in pieces {
-                    write_points(&mut out, &piece, inv, false);
+                    write_points(&mut out, &piece, Affine::IDENTITY, false);
                 }
             }
         }
@@ -952,19 +1097,30 @@ mod tests {
     #[test]
     fn lines_are_cut_where_they_cross() {
         let line = vec![Point::new(50.0, 200.0), Point::new(350.0, 200.0)];
-        let pieces = cut_polyline(&line, false, &[Rect::new(150.0, 90.0, 250.0, 210.0)], 0.0, 0).unwrap();
+        let pieces = cut_polyline(
+            &line,
+            false,
+            &[square(150.0, 90.0, 250.0, 210.0)],
+            0.0,
+            0,
+            0,
+            10.0,
+        )
+        .unwrap();
         assert_eq!(pieces.len(), 2);
         assert!((pieces[0][1].x - 150.0).abs() < 1e-9 && (pieces[1][0].x - 250.0).abs() < 1e-9);
         // Untouched lines stay.
-        assert!(cut_polyline(&line, false, &[Rect::new(0.0, 0.0, 10.0, 10.0)], 0.0, 0).is_none());
+        assert!(cut_polyline(&line, false, &[square(0.0, 0.0, 10.0, 10.0)], 0.0, 0, 0, 10.0).is_none());
         // A dot inside a mark goes.
         assert_eq!(
             cut_polyline(
                 &[Point::new(5.0, 5.0)],
                 false,
-                &[Rect::new(0.0, 0.0, 10.0, 10.0)],
+                &[square(0.0, 0.0, 10.0, 10.0)],
                 0.0,
-                0
+                0,
+                0,
+                10.0
             ),
             Some(vec![])
         );
@@ -973,7 +1129,7 @@ mod tests {
     #[test]
     fn a_cut_closed_rectangle_is_one_open_line_with_its_corner() {
         let sq = square(0.0, 0.0, 100.0, 100.0);
-        let pieces = cut_polyline(&sq, true, &[Rect::new(40.0, 90.0, 60.0, 110.0)], 0.0, 0).unwrap();
+        let pieces = cut_polyline(&sq, true, &[square(40.0, 90.0, 60.0, 110.0)], 0.0, 0, 0, 10.0).unwrap();
         assert_eq!(pieces.len(), 1, "{pieces:?}");
         let p = &pieces[0];
         assert!(

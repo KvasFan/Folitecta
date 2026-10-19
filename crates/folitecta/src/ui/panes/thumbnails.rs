@@ -28,10 +28,10 @@ pub(super) fn ThumbnailsPane() -> Element {
     let mut drag_src = use_signal(|| None::<usize>);
     let mut drag_over = use_signal(|| None::<usize>);
     let dragged = use_signal(|| false);
-    let Some((tab_id, rev, page, count, sizes, selected, rotation)) = st.read_active(|t| {
+    let Some((tab_id, revs, page, count, sizes, selected, rotation)) = st.read_active(|t| {
         (
             t.id,
-            t.view_rev(),
+            t.page_shown.clone(),
             t.page,
             t.doc.page_count(),
             t.page_sizes.clone(),
@@ -126,6 +126,7 @@ pub(super) fn ThumbnailsPane() -> Element {
                         if is_sel { " selected" } else { "" },
                         if is_target { if drag_src().map(|s| s < p).unwrap_or(false) { " drop-after" } else { " drop-before" } } else { "" }
                     );
+                    let rev = revs.get(p).copied().unwrap_or_default();
                     let src = format!("/page/{tab_id}/{p}/{rev}/{render_scale}.png?lane=thumb");
                     let label = if logical { labels.get(p).cloned().unwrap_or_else(|| (p + 1).to_string()) } else { (p + 1).to_string() };
                     let img_style = if rotation != 0 { format!("width:{wpx}px;height:{hpx}px;transform:rotate({rotation}deg)") } else { format!("width:{wpx}px;height:{hpx}px") };

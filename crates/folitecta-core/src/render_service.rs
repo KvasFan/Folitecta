@@ -6,9 +6,10 @@
 //!   drawn is drawn once. A request of a revision that is no longer the
 //!   document's, or of a page the window no longer holds, is answered
 //!   [`RenderAnswer::Stale`] without drawing.
-//! - The threads take first the pages in the window (newest first), then the
-//!   pages ahead in the scroll direction (nearest first), the others, and
-//!   the small pictures of the thumbnails and previews last.
+//! - The threads take first the pages in the window (from the top down),
+//!   then the pages ahead in the scroll direction (nearest first), the
+//!   others, and the small pictures of the thumbnails and previews last;
+//!   without a window telling what it shows, first asked first drawn.
 //! - The pictures made are kept, up to a number of bytes, the least recently
 //!   used dropped first; a picture asked again is answered at once. When a
 //!   page is drawn for the window, its small picture (at the scale the
@@ -139,8 +140,12 @@ struct State {
     bytes: Arc<Vec<u8>>,
     /// Bumped by every new document; the threads parse it again.
     generation: u64,
-    /// The revision the current document is.
+    /// The revision of the document (of the pages not in `page_revs`).
     rev: u64,
+    /// The revision of each page: a picture of another revision of the page
+    /// is no longer wanted, one of the same revision is still good after an
+    /// edit of other pages.
+    page_revs: Vec<u64>,
     queue: Vec<Job>,
     seq: u64,
     /// The replies waiting for each picture asked (queued or being drawn).
@@ -158,6 +163,11 @@ struct State {
 }
 
 impl State {
+    /// The revision of a page.
+    fn rev_of(&self, page: usize) -> u64 {
+        self.page_revs.get(page).copied().unwrap_or(self.rev)
+    }
+
     fn keep(&mut self, key: Key, picture: Arc<RenderedPage>) {
         self.used += 1;
         let size = picture.png.len();
@@ -192,7 +202,7 @@ impl State {
 
     /// Whether a job is no longer wanted.
     fn stale(&self, job: &Job) -> bool {
-        if job.key.rev != self.rev {
+        if job.key.rev != self.rev_of(job.key.page) {
             return true;
         }
         match (job.lane, self.focus.held) {
@@ -201,17 +211,20 @@ impl State {
         }
     }
 
-    /// The order of a job: lower first.
-    fn rank(&self, job: &Job) -> (u8, usize, std::cmp::Reverse<u64>) {
+    /// The order of a job: lower first. Without a view telling what it
+    /// shows, first asked first drawn; with one, the pages shown from the top
+    /// down, then those ahead in the scroll direction (nearest first), the
+    /// others, the small pictures of the pages shown, the other small
+    /// pictures, the thumbnails.
+    fn rank(&self, job: &Job) -> (u8, usize, u64) {
         let p = job.key.page;
-        let newest = std::cmp::Reverse(job.seq);
         let Some((first, last)) = self.focus.shown else {
             let class = match job.lane {
                 Lane::View | Lane::Other => 0,
                 Lane::Preview => 3,
                 Lane::Thumb => 4,
             };
-            return (class, 0, newest);
+            return (class, 0, job.seq);
         };
         let shown = p >= first && p <= last;
         let ahead = if self.focus.forward { p > last } else { p < first };
@@ -221,12 +234,12 @@ impl State {
             p.saturating_sub(last)
         };
         match job.lane {
-            Lane::View | Lane::Other if shown => (0, 0, newest),
-            Lane::View if ahead => (1, distance, newest),
-            Lane::View | Lane::Other => (2, distance, newest),
-            Lane::Preview if shown => (3, 0, newest),
-            Lane::Preview => (4, distance, newest),
-            Lane::Thumb => (5, 0, newest),
+            Lane::View | Lane::Other if shown => (0, p - first, job.seq),
+            Lane::View if ahead => (1, distance, job.seq),
+            Lane::View | Lane::Other => (2, distance, job.seq),
+            Lane::Preview if shown => (3, p - first, job.seq),
+            Lane::Preview => (4, distance, job.seq),
+            Lane::Thumb => (5, 0, job.seq),
         }
     }
 }
@@ -273,6 +286,7 @@ impl RenderService {
                 bytes,
                 generation: 0,
                 rev: 0,
+                page_revs: Vec::new(),
                 queue: Vec::new(),
                 seq: 0,
                 waiting: HashMap::new(),
@@ -317,17 +331,44 @@ impl RenderService {
         self.replace_rev(bytes, rev);
     }
 
-    /// Replace the document bytes with those of revision `rev`. The pictures
-    /// kept of other revisions are dropped, and the requests still waiting
-    /// for them are answered [`RenderAnswer::Stale`].
+    /// Replace the document bytes with those of revision `rev` (of every
+    /// page). The pictures kept of other revisions are dropped, and the
+    /// requests still waiting for them are answered [`RenderAnswer::Stale`].
     pub fn replace_rev(&self, bytes: Arc<Vec<u8>>, rev: u64) {
+        self.update(Some(bytes), rev, Vec::new());
+    }
+
+    /// Replace the document bytes; `page_revs` holds the revision of each
+    /// page: the pictures of the pages whose revision did not change stay
+    /// good.
+    pub fn replace_pages(&self, bytes: Arc<Vec<u8>>, page_revs: Vec<u64>) {
+        let rev = page_revs.iter().copied().max().unwrap_or(0);
+        self.update(Some(bytes), rev, page_revs);
+    }
+
+    /// The revision of each page changes, the document does not.
+    pub fn set_page_revs(&self, page_revs: Vec<u64>) {
+        let rev = page_revs.iter().copied().max().unwrap_or(0);
+        self.update(None, rev, page_revs);
+    }
+
+    fn update(&self, bytes: Option<Arc<Vec<u8>>>, rev: u64, page_revs: Vec<u64>) {
         let stale = {
             let mut s = self.shared.lock();
-            s.bytes = bytes;
-            s.generation += 1;
+            if let Some(bytes) = bytes {
+                s.bytes = bytes;
+                s.generation += 1;
+            }
             s.rev = rev;
-            s.kept.retain(|k, _| k.rev == rev);
-            s.kept_bytes = s.kept.values().map(|k| k.picture.png.len()).sum();
+            s.page_revs = page_revs;
+            let current: Vec<Key> = s.kept.keys().copied().collect();
+            for k in current {
+                if k.rev != s.rev_of(k.page) {
+                    if let Some(gone) = s.kept.remove(&k) {
+                        s.kept_bytes -= gone.picture.png.len();
+                    }
+                }
+            }
             take_stale(&mut s)
         };
         answer_stale(&self.shared, stale);
@@ -362,7 +403,7 @@ impl RenderService {
             page: req.page,
             scale: scale_key(req.scale),
             opts: req.opts,
-            rev: req.rev.unwrap_or(s.rev),
+            rev: req.rev.unwrap_or_else(|| s.rev_of(req.page)),
         };
         if matches!(req.lane, Lane::Thumb | Lane::Preview) {
             s.thumb_scale = Some(key.scale);
@@ -666,7 +707,7 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
         let mut s = shared.lock();
         s.running = s.running.saturating_sub(1);
         if let RenderAnswer::Picture(p) = &answer {
-            if key.rev == s.rev {
+            if key.rev == s.rev_of(key.page) {
                 s.keep(key, p.clone());
             }
         }
@@ -705,7 +746,7 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
     });
     let replies = {
         let mut s = shared.lock();
-        if key.rev != s.rev {
+        if key.rev != s.rev_of(key.page) {
             return;
         }
         s.keep(small_key, picture.clone());
@@ -794,6 +835,39 @@ mod tests {
             ask(&svc, req(5, 0.3, Lane::View, Some(8))),
             RenderAnswer::Failed(_)
         ));
+    }
+
+    #[test]
+    fn the_pictures_of_pages_not_changed_stay_good() {
+        let svc = RenderService::with_workers(doc(3), 1);
+        svc.replace_pages(doc(3), vec![1, 1, 1]);
+        for p in 0..3 {
+            assert!(matches!(
+                ask(&svc, req(p, 0.3, Lane::View, Some(1))),
+                RenderAnswer::Picture(_)
+            ));
+        }
+        let drawn = svc.stats().rendered;
+        // An edit of page 1 only.
+        svc.replace_pages(doc(3), vec![1, 2, 1]);
+        assert!(matches!(
+            ask(&svc, req(0, 0.3, Lane::View, Some(1))),
+            RenderAnswer::Picture(_)
+        ));
+        assert!(matches!(
+            ask(&svc, req(2, 0.3, Lane::View, Some(1))),
+            RenderAnswer::Picture(_)
+        ));
+        assert_eq!(svc.stats().rendered, drawn, "pages 0 and 2 are kept");
+        assert!(matches!(
+            ask(&svc, req(1, 0.3, Lane::View, Some(1))),
+            RenderAnswer::Stale
+        ));
+        assert!(matches!(
+            ask(&svc, req(1, 0.3, Lane::View, Some(2))),
+            RenderAnswer::Picture(_)
+        ));
+        assert_eq!(svc.stats().rendered, drawn + 1);
     }
 
     #[test]

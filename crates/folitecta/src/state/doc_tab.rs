@@ -150,8 +150,10 @@ pub struct DocTab {
     /// pictures. It only grows, so an address is never used for two
     /// different pictures.
     pub view_serial: u64,
-    /// The `view_serial` of the document the render threads have.
-    pub render_rev: u64,
+    /// For every page, the `view_serial` at which its picture last changed:
+    /// the revision in the address of its picture. An edit of one page
+    /// leaves the addresses (and the pictures kept) of the others.
+    pub page_shown: Vec<u64>,
     /// Selected bookmark in the bookmarks pane.
     pub selected_bookmark: Option<Vec<usize>>,
     /// Selected named destination.
@@ -305,7 +307,7 @@ impl DocTab {
             comment_filter: CommentFilter::default(),
             view_gen: 0,
             view_serial: 0,
-            render_rev: 0,
+            page_shown: Vec::new(),
             selected_bookmark: None,
             selected_link: None,
             selected_dest: None,
@@ -322,6 +324,7 @@ impl DocTab {
             image_sel: None,
             spell: None,
         };
+        tab.page_shown = vec![0; tab.page_sizes.len()];
         // A portfolio opens on its initial file, when it names one.
         if let Some(key) = tab.doc.portfolio().and_then(|p| p.initial) {
             tab.portfolio.selected = vec![key];
@@ -367,6 +370,13 @@ impl DocTab {
     pub fn bump_view(&mut self) {
         self.view_gen += 1;
         self.view_serial += 1;
+        self.page_shown = vec![self.view_serial; self.page_sizes.len()];
+        self.render.set_page_revs(self.page_shown.clone());
+    }
+
+    /// The revision in the address of the picture of `page`.
+    pub fn page_rev(&self, page: usize) -> u64 {
+        self.page_shown.get(page).copied().unwrap_or(self.view_serial)
     }
 
     /// Record a navigation to `page` in the view history.
@@ -385,9 +395,22 @@ impl DocTab {
     /// Call after any mutation of `doc`: refreshes caches and the renderer.
     pub fn refresh(&mut self) {
         if self.doc.revision() != self.revision {
+            let seen = self.revision;
             self.page_sizes = self.doc.page_sizes();
             self.revision = self.doc.revision();
             self.view_serial += 1;
+            // The pages whose picture changed since the revision seen get
+            // new addresses; all of them when pages came or went.
+            let n = self.page_sizes.len();
+            if self.page_shown.len() != n || seen == u64::MAX {
+                self.page_shown = vec![self.view_serial; n];
+            } else {
+                for p in 0..n {
+                    if self.doc.page_revision(p) > seen {
+                        self.page_shown[p] = self.view_serial;
+                    }
+                }
+            }
             self.update_render();
             let n = self.doc.page_count();
             if self.page >= n {
@@ -434,8 +457,10 @@ impl DocTab {
                 .view_bytes(&hidden, &layers)
                 .unwrap_or_else(|_| self.doc.bytes())
         };
-        self.render_rev = self.view_serial;
-        self.render.replace_rev(bytes, self.render_rev);
+        if self.page_shown.len() != self.page_sizes.len() {
+            self.page_shown = vec![self.view_serial; self.page_sizes.len()];
+        }
+        self.render.replace_pages(bytes, self.page_shown.clone());
     }
 
     /// Change the comment filter and redraw the pages.
@@ -445,11 +470,6 @@ impl DocTab {
             self.bump_view();
             self.update_render();
         }
-    }
-
-    /// Revision of the displayed pages, for page image addresses.
-    pub fn view_rev(&self) -> u64 {
-        self.view_serial
     }
 
     pub fn title(&self) -> String {

@@ -665,8 +665,8 @@ pub fn page_marks(t: &DocTab, page: usize, checking: bool, editing: bool) -> (Ve
     if !checking && !editing {
         return (words, shown);
     }
-    let layers = t.doc.text_layers();
-    let rects = |s: usize, e: usize| layers.get(page).map(|l| l.range_rects(s, e)).unwrap_or_default();
+    let layer = t.doc.page_text_layer(page);
+    let rects = |s: usize, e: usize| layer.as_ref().map(|l| l.range_rects(s, e)).unwrap_or_default();
     if checking {
         let run = t
             .spell

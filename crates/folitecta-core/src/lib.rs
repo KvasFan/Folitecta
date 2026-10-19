@@ -12,6 +12,7 @@
 //! helpers ([`util`], [`geom`], [`xml`], [`zip`]) stay at the root. Every
 //! module is also reachable from the root (`folitecta_core::pages`, ...).
 
+pub(crate) mod changes;
 pub mod commands;
 pub mod document;
 pub mod error;

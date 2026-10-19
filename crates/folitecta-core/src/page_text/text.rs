@@ -82,40 +82,75 @@ fn is_word_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
 
+/// The text of the pages, kept per page for the revision of its text.
+#[derive(Default)]
+pub(crate) struct TextCache {
+    pages: Vec<Option<(u64, Arc<PageText>)>>,
+    /// Every page together, for a revision of the document.
+    all: Option<(u64, Arc<Vec<PageText>>)>,
+}
+
 impl Document {
-    /// Positioned text of every page (cached per revision).
+    /// Whether the text kept for `page` is that of its current text.
+    fn text_kept(&self, cache: &TextCache, page: usize) -> Option<Arc<PageText>> {
+        match cache.pages.get(page) {
+            Some(Some((rev, text))) if *rev == self.text_revision(page) => Some(text.clone()),
+            _ => None,
+        }
+    }
+
+    /// Positioned text of every page. The text of a page is extracted once
+    /// for each change of its text: a change of comments only, or of other
+    /// pages, keeps it.
     pub fn text_layers(&self) -> Arc<Vec<PageText>> {
         let mut cache = self.text_cache.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some((rev, layers)) = cache.as_ref() {
+        if let Some((rev, layers)) = cache.all.as_ref() {
             if *rev == self.revision() {
                 return layers.clone();
             }
         }
-        let layers = Arc::new(crate::textlayer::extract_all(self.bytes()).unwrap_or_default());
-        *cache = Some((self.revision(), layers.clone()));
-        layers
+        let n = self.page_count();
+        cache.pages.resize(n, None);
+        let missing: Vec<usize> = (0..n).filter(|p| self.text_kept(&cache, *p).is_none()).collect();
+        if !missing.is_empty() {
+            for (p, text) in crate::textlayer::extract_pages(self.bytes(), &missing).unwrap_or_default() {
+                cache.pages[p] = Some((self.text_revision(p), Arc::new(text)));
+            }
+        }
+        let all: Vec<PageText> = cache
+            .pages
+            .iter()
+            .map(|e| e.as_ref().map(|(_, t)| (**t).clone()).unwrap_or_default())
+            .collect();
+        let all = Arc::new(all);
+        cache.all = Some((self.revision(), all.clone()));
+        all
     }
 
-    /// After an edit that changed one page only, made at revision `before`:
-    /// the text of that page is extracted again and the cached text of the
-    /// other pages kept, instead of extracting every page at the next
-    /// [`Document::text_layers`] call. Nothing happens when the cache was not
-    /// of revision `before`.
-    pub(crate) fn refresh_text_layer(&self, page: usize, before: u64) {
+    /// Positioned text of one page, extracted alone when it is not kept (the
+    /// first text selection does not extract every page).
+    pub fn page_text_layer(&self, page: usize) -> Option<Arc<PageText>> {
         let mut cache = self.text_cache.lock().unwrap_or_else(|e| e.into_inner());
-        let Some((rev, layers)) = cache.as_ref() else {
-            return;
-        };
-        if *rev != before || page >= layers.len() {
-            return;
+        if let Some(text) = self.text_kept(&cache, page) {
+            return Some(text);
         }
-        let Ok(fresh) = crate::textlayer::extract_one(self.bytes(), page) else {
-            *cache = None;
-            return;
-        };
-        let mut all = (**layers).clone();
-        all[page] = fresh;
-        *cache = Some((self.revision(), Arc::new(all)));
+        let n = self.page_count();
+        if page >= n {
+            return None;
+        }
+        cache.pages.resize(n, None);
+        let (_, text) = crate::textlayer::extract_pages(self.bytes(), &[page])
+            .ok()?
+            .pop()?;
+        let text = Arc::new(text);
+        cache.pages[page] = Some((self.text_revision(page), text.clone()));
+        Some(text)
+    }
+
+    /// After an edit of the text of one page: its text is extracted again at
+    /// once (the others are kept by themselves).
+    pub(crate) fn refresh_text_layer(&self, page: usize, _before: u64) {
+        let _ = self.page_text_layer(page);
     }
 
     /// Positioned text of one page.

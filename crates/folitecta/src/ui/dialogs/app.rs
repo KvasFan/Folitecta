@@ -89,10 +89,10 @@ pub(super) fn PrintDialog(all_docs: bool) -> Element {
         Frame { title: if all_docs { t(lang, "dialog.print.title_all") } else { t(lang, "dialog.print.title") }, ok_label: Some(t(lang, "dialog.print.go")),
             on_ok: move |_| {
                 let pages: Vec<crate::state::PrintPage> = if all_docs {
-                    st.docs.read().iter().flat_map(|t| (0..t.doc.page_count()).map(move |p| (t.id, p, t.view_rev()))).collect()
+                    st.docs.read().iter().flat_map(|t| (0..t.doc.page_count()).map(move |p| (t.id, p, t.page_rev(p)))).collect()
                 } else {
                     match scope_pages(st, mode(), &range()) {
-                        Ok(pages) => st.read_active(|t| pages.iter().map(|p| (t.id, *p, t.view_rev())).collect()).unwrap_or_default(),
+                        Ok(pages) => st.read_active(|t| pages.iter().map(|p| (t.id, *p, t.page_rev(*p))).collect()).unwrap_or_default(),
                         Err(e) => { st.error(e); return; }
                     }
                 };

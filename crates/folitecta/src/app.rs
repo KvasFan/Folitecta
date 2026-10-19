@@ -268,8 +268,8 @@ pub fn App() -> Element {
             .peek()
             .iter()
             .find(|t| t.id == path.tab)
-            .map(|t| (t.render.clone(), t.view_rev(), t.render_rev));
-        let Some((service, shown, render_rev)) = found else {
+            .map(|t| (t.render.clone(), t.page_rev(path.page)));
+        let Some((service, shown)) = found else {
             crate::perf::PAGE_OTHER.bump();
             responder.respond(no_picture(404, "the document is closed"));
             return;
@@ -284,7 +284,7 @@ pub fn App() -> Element {
             scale: path.scale,
             opts,
             lane,
-            rev: Some(render_rev),
+            rev: Some(path.rev),
         };
         service.request(req, move |answer| {
             crate::perf::PAGE_WAIT_US.add(asked.elapsed().as_micros() as u64);
@@ -470,7 +470,7 @@ pub fn App() -> Element {
                 evt.prevent_default();
                 st.with_active(|t| {
                     let p = t.page;
-                    let n = t.doc.text_layers().get(p).map(|l| l.chars().len()).unwrap_or(0);
+                    let n = t.doc.page_text_layer(p).map(|l| l.chars().len()).unwrap_or(0);
                     if n > 0 {
                         t.text_sel = Some(crate::state::TextSel {
                             page: p,

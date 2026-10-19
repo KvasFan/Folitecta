@@ -90,9 +90,14 @@ fn PanZoomWindow() -> Element {
     let lang = st.lang();
     let mut view: Signal<Option<[f64; 4]>> = use_signal(|| None);
     let mut dragging = use_signal(|| false);
-    let Some((tab, page, rev, size)) =
-        st.read_active(|t| (t.id, t.page, t.view_rev(), t.page_sizes.get(t.page).copied()))
-    else {
+    let Some((tab, page, rev, size)) = st.read_active(|t| {
+        (
+            t.id,
+            t.page,
+            t.page_rev(t.page),
+            t.page_sizes.get(t.page).copied(),
+        )
+    }) else {
         return rsx! {};
     };
     // Follow scrolling and zooming.
@@ -283,7 +288,7 @@ fn Loupe() -> Element {
     let Some((page, x, y, cx, cy)) = (st.loupe)() else {
         return rsx! {};
     };
-    let Some((tab, rev)) = st.read_active(|t| (t.id, t.view_rev())) else {
+    let Some((tab, rev)) = st.read_active(|t| (t.id, t.page_rev(page))) else {
         return rsx! {};
     };
     let zoom = current_zoom(st);
@@ -641,9 +646,15 @@ fn Canvas(pane: u8) -> Element {
     let dpr = (st.dpr)();
     let tool = (st.tool)();
     let rulers = option_on(st, "view.showRulers");
-    let Some((tab_id, rev, count, split, stamps)) = st.read_active(|t| {
+    let Some((tab_id, revs, count, split, stamps)) = st.read_active(|t| {
         let count = t.doc.page_count();
-        (t.id, t.view_rev(), count, t.split.clone(), page_stamps(t, count))
+        (
+            t.id,
+            t.page_shown.clone(),
+            count,
+            t.split.clone(),
+            page_stamps(t, count),
+        )
     }) else {
         return rsx! {};
     };
@@ -792,9 +803,9 @@ fn Canvas(pane: u8) -> Element {
                             if p < wa || p > wb {
                                 PagePlaceholder { key: "e{tab_id}-{p}", id: if focused { format!("pg-{p}") } else { format!("spg-{p}") }, page: p, width: sizes.get(p).map(|s| s.0).unwrap_or(0.0), height: sizes.get(p).map(|s| s.1).unwrap_or(0.0), label: labels.get(p).cloned().unwrap_or_default() }
                             } else if focused {
-                                PageView { key: "{tab_id}-{p}", tab_id, page: p, rev, scale: render_scale, preview, zoom, current: p == page, tool, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default(), stamp: stamps.get(p).copied().unwrap_or_default() }
+                                PageView { key: "{tab_id}-{p}", tab_id, page: p, rev: revs.get(p).copied().unwrap_or_default(), scale: render_scale, preview, zoom, current: p == page, tool, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default(), stamp: stamps.get(p).copied().unwrap_or_default() }
                             } else {
-                                StillPage { key: "s{tab_id}-{p}", tab_id, page: p, rev, scale: render_scale, zoom, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default() }
+                                StillPage { key: "s{tab_id}-{p}", tab_id, page: p, rev: revs.get(p).copied().unwrap_or_default(), scale: render_scale, zoom, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default() }
                             }
                         }
                     }

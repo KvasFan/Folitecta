@@ -169,8 +169,7 @@ pub(super) fn PageView(
                 Some(s) if s.page == page && !s.is_empty() => {
                     let (a, b) = s.range();
                     t.doc
-                        .text_layers()
-                        .get(page)
+                        .page_text_layer(page)
                         .map(|l| l.range_rects(a, b))
                         .unwrap_or_default()
                 }
@@ -179,7 +178,7 @@ pub(super) fn PageView(
             // Where typed text goes with the edit text tool.
             let caret = match t.text_sel {
                 Some(s) if s.page == page && s.is_empty() && tool == Tool::EditText => {
-                    t.doc.text_layers().get(page).and_then(|l| {
+                    t.doc.page_text_layer(page).and_then(|l| {
                         let glyph = |i: usize| {
                             l.char_glyph
                                 .get(i)
@@ -569,7 +568,7 @@ pub(super) fn PageView(
         }
         if *sel_drag.peek() {
             if let Some(i) = st
-                .read_active(|t| t.doc.text_layers().get(page).and_then(|l| l.char_at(x, y)))
+                .read_active(|t| t.doc.page_text_layer(page).and_then(|l| l.char_at(x, y)))
                 .flatten()
             {
                 let changed = st
@@ -638,7 +637,7 @@ pub(super) fn PageView(
         }
         if tool.is_text() {
             let idx = st
-                .read_active(|t| t.doc.text_layers().get(page).and_then(|l| l.char_at(x, y)))
+                .read_active(|t| t.doc.page_text_layer(page).and_then(|l| l.char_at(x, y)))
                 .flatten();
             match idx {
                 Some(i) => {
@@ -680,8 +679,7 @@ pub(super) fn PageView(
         if tool == Tool::InsertText {
             let hit = st
                 .read_active(|t| {
-                    let layers = t.doc.text_layers();
-                    let l = layers.get(page)?;
+                    let l = t.doc.page_text_layer(page)?;
                     let i = l.char_at(x, y)?;
                     let after = l
                         .char_glyph
@@ -776,8 +774,7 @@ pub(super) fn PageView(
         let word = st
             .read_active(|t| {
                 t.doc
-                    .text_layers()
-                    .get(page)
+                    .page_text_layer(page)
                     .and_then(|l| l.char_at(x, y).map(|i| l.word_at(i.saturating_sub(0))))
             })
             .flatten();

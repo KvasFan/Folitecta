@@ -63,8 +63,8 @@ pub struct Document {
     /// The file as it was opened or last saved (plain, unencrypted files only):
     /// the base of incremental updates, which keep existing signatures valid.
     pub(crate) source: Option<Arc<Vec<u8>>>,
-    /// Positioned text of every page, keyed by revision.
-    pub(crate) text_cache: std::sync::Mutex<Option<(u64, Arc<Vec<crate::textlayer::PageText>>)>>,
+    /// Positioned text of the pages, kept per page for the revision of its text.
+    pub(crate) text_cache: std::sync::Mutex<crate::text::TextCache>,
     /// Marked content of the pages already measured, keyed by revision.
     pub(crate) marked_cache: std::sync::Mutex<crate::structure::MarkedCache>,
     /// Structure tree read for a revision (for views, never while editing).
@@ -80,6 +80,13 @@ pub struct Document {
     /// page tree until `commit`, an undo or a redo): the pages are looked up
     /// in the page tree itself, never in `page_cache`.
     editing: bool,
+    /// The objects and pages of the last revision, to find the pages the next
+    /// change touches (made before the first change).
+    baseline: Option<crate::changes::Baseline>,
+    /// For every page, the revision at which its picture last changed, and
+    /// its text (empty until the first change: every page at revision 0).
+    page_revs: Vec<u64>,
+    text_revs: Vec<u64>,
 }
 
 /// Values read from one revision, by name.
@@ -210,6 +217,9 @@ impl Document {
             page_cache: Default::default(),
             derived: Default::default(),
             editing: false,
+            baseline: None,
+            page_revs: Vec::new(),
+            text_revs: Vec::new(),
         };
         if doc.page_count() == 0 {
             return Err(Error::Invalid("the file contains no pages".into()));
@@ -275,6 +285,9 @@ impl Document {
             page_cache: Default::default(),
             derived: Default::default(),
             editing: false,
+            baseline: None,
+            page_revs: Vec::new(),
+            text_revs: Vec::new(),
         })
     }
 
@@ -445,8 +458,51 @@ impl Document {
     /// The object model is about to change: the pages are looked up in the
     /// page tree until the next commit, undo or redo.
     fn start_changes(&mut self) {
+        if self.baseline.is_none() && !self.editing {
+            // What the document is before its first change.
+            let pages: Vec<ObjectId> = self.inner.get_pages().into_values().collect();
+            self.page_revs = vec![self.revision; pages.len()];
+            self.text_revs = vec![self.revision; pages.len()];
+            self.baseline = Some(crate::changes::Baseline::of(&self.inner, pages));
+        }
         self.editing = true;
         self.forget_kept();
+    }
+
+    /// After a commit, an undo or a redo: the pages whose picture and text
+    /// changed get the new revision.
+    fn note_changes(&mut self) {
+        let pages: Vec<ObjectId> = self.inner.get_pages().into_values().collect();
+        let n = pages.len();
+        let now = crate::changes::Baseline::of(&self.inner, pages);
+        let touched = match &self.baseline {
+            Some(old) => crate::changes::touched(&self.inner, old, &now),
+            None => crate::changes::Touched::everything(),
+        };
+        let rev = self.revision;
+        if touched.all || self.page_revs.len() != n {
+            self.page_revs = vec![rev; n];
+            self.text_revs = vec![rev; n];
+        } else {
+            for p in touched.pictures {
+                self.page_revs[p] = rev;
+            }
+            for p in touched.text {
+                self.text_revs[p] = rev;
+            }
+        }
+        self.baseline = Some(now);
+    }
+
+    /// The revision at which the picture of `page` last changed (pages that
+    /// do not exist: the current revision).
+    pub fn page_revision(&self, page: usize) -> u64 {
+        self.page_revs.get(page).copied().unwrap_or(self.revision)
+    }
+
+    /// The revision at which the text of `page` last changed.
+    pub fn text_revision(&self, page: usize) -> u64 {
+        self.text_revs.get(page).copied().unwrap_or(self.revision)
     }
 
     /// Drop the lists kept for the current revision.
@@ -543,6 +599,7 @@ impl Document {
         self.dirty = true;
         self.helv_font = None;
         self.end_changes();
+        self.note_changes();
         Ok(())
     }
 
@@ -555,6 +612,7 @@ impl Document {
         self.dirty = true;
         self.helv_font = None;
         self.end_changes();
+        self.note_changes();
         Ok(())
     }
 

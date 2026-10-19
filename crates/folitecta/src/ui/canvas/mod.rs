@@ -663,7 +663,7 @@ fn Canvas(pane: u8) -> Element {
     let (page, layout, rotation) = (view.page, view.layout, view.rotation);
     // The scale the pictures are drawn at. After a change of zoom the pages
     // take their new size at once and keep their pictures, scaled, until the
-    // zoom has stayed the same for a moment: then the pictures of the new
+    // zoom has stayed the same for 90 ms: then the pictures of the new
     // scale are asked for, once (not at every step of a wheel or a drag).
     // Pictures with up to a quarter more pixels than needed are kept.
     let wanted = render_scale_for(zoom, dpr);
@@ -688,7 +688,7 @@ fn Canvas(pane: u8) -> Element {
         settle_gen.set(g);
         let (shown_scale, settle_gen) = (shown_scale.clone(), settle_gen.clone());
         spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_millis(160)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(90)).await;
             if settle_gen.get() == g {
                 shown_scale.set(wanted);
                 settled += 1;

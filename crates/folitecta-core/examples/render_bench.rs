@@ -49,7 +49,7 @@ use hayro::kurbo::Affine;
 use hayro::vello_cpu::color::palette::css::WHITE;
 use hayro::vello_cpu::peniko::ImageAlphaType;
 use hayro::vello_cpu::{Pixels, Pixmap, RasterizerSettings, RenderContext, Resources, TargetInit};
-use hayro::{PixmapSettings, RenderCache, RenderSettings, render, render_into};
+use hayro::{RenderCache, RenderSettings, render_into};
 use image::ExtendedColorType;
 
 /// The largest edge of a page picture (as in `render.rs`).
@@ -272,20 +272,47 @@ fn effective_scale(pdf: &Pdf, page: usize, scale: f32) -> f32 {
 }
 
 fn rasterize<'a>(pdf: &'a Pdf, cache: &RenderCache<'a>, page: usize, scale: f32) -> Pixmap {
+    rasterize_threads(pdf, cache, page, scale, 0)
+}
+
+/// A page drawn as `render.rs` draws it, with `threads` threads of the
+/// rasterizer besides the calling one.
+fn rasterize_threads<'a>(
+    pdf: &'a Pdf,
+    cache: &RenderCache<'a>,
+    page: usize,
+    scale: f32,
+    threads: u16,
+) -> Pixmap {
     let scale = effective_scale(pdf, page, scale);
     let pages = pdf.pages();
-    let settings = PixmapSettings {
-        x_scale: scale,
-        y_scale: scale,
-        bg_color: WHITE,
+    let p = &pages[page];
+    let (w, h) = p.render_dimensions();
+    let settings = hayro::vello_cpu::RenderSettings {
+        num_threads: threads,
+        ..Default::default()
     };
-    render(
-        &pages[page],
+    let mut ctx = RenderContext::new_with((w * scale) as u16, (h * scale) as u16, settings);
+    let transform = Affine::scale(scale as f64) * p.initial_transform(true).to_kurbo();
+    render_into(
+        p,
         cache,
         &InterpreterSettings::default(),
         &RenderSettings::default(),
-        &settings,
-    )
+        &mut ctx,
+        transform,
+    );
+    ctx.flush();
+    let mut pixmap = Pixmap::new(ctx.width(), ctx.height());
+    ctx.render_with(
+        &mut pixmap,
+        &mut Resources::default(),
+        RasterizerSettings {
+            target_init: TargetInit::Clear(WHITE),
+            ..Default::default()
+        },
+    );
+    pixmap
 }
 
 /// A part of the page (`x`, `y`, `w`, `h` in pixels of the page at `scale`),
@@ -300,7 +327,11 @@ fn rasterize_tile<'a>(
     let pages = pdf.pages();
     let p = &pages[page];
     let (x, y, w, h) = rect;
-    let mut ctx = RenderContext::new(w, h);
+    let settings = hayro::vello_cpu::RenderSettings {
+        num_threads: 0,
+        ..Default::default()
+    };
+    let mut ctx = RenderContext::new_with(w, h, settings);
     let transform = Affine::translate((-(x as f64), -(y as f64)))
         * Affine::scale(scale as f64)
         * p.initial_transform(true).to_kurbo();
@@ -411,9 +442,9 @@ fn scale_section(pdf: &Pdf, bytes: Arc<Vec<u8>>, opts: &Opts) {
         (4.0, 2.0),
     ];
     println!(
-        "| view | scale | pixels | raster cold | raster warm | PNG encode | total (Renderer) | PNG bytes | raw RGBA | MP/s |"
+        "| view | scale | pixels | raster cold | raster warm | raster, 3 more threads | PNG encode (fast) | PNG stored | total (Renderer) | PNG bytes | raw RGBA | MP/s |"
     );
-    println!("|---|---|---|---|---|---|---|---|---|---|");
+    println!("|---|---|---|---|---|---|---|---|---|---|---|---|");
     for (zoom, dpr) in combos {
         let scale = (zoom * dpr).min(UI_MAX_SCALE);
         let view = if zoom < 0.5 {
@@ -422,6 +453,7 @@ fn scale_section(pdf: &Pdf, bytes: Arc<Vec<u8>>, opts: &Opts) {
             format!("{:.0} % × {dpr:.0}", zoom * 100.0)
         };
         let (mut cold, mut warm, mut enc, mut total) = (vec![], vec![], vec![], vec![]);
+        let (mut threaded, mut stored) = (vec![], vec![]);
         let (mut png_len, mut px) = (0usize, (0u32, 0u32));
         for page in 0..pages {
             let cache = RenderCache::new();
@@ -444,6 +476,20 @@ fn scale_section(pdf: &Pdf, bytes: Arc<Vec<u8>>, opts: &Opts) {
                 let data = png_now(&pixels, w, h, color);
                 enc.push(ms_since(t));
                 png_len = png_len.max(data.len());
+                let t = Instant::now();
+                let raw = png_bytes(
+                    &pixels,
+                    w,
+                    h,
+                    color,
+                    png::DeflateCompression::NoCompression,
+                    png::Filter::NoFilter,
+                );
+                stored.push(ms_since(t));
+                drop(raw);
+                let t = Instant::now();
+                drop(rasterize_threads(pdf, &cache, page, scale, 3));
+                threaded.push(ms_since(t));
             }
             for _ in 0..opts.reps {
                 let t = Instant::now();
@@ -455,11 +501,13 @@ fn scale_section(pdf: &Pdf, bytes: Arc<Vec<u8>>, opts: &Opts) {
         let raster = Stat::of(&warm);
         let mp = (px.0 as f64 * px.1 as f64) / 1e6;
         println!(
-            "| {view} | {scale:.2} | {}×{} | {:.1} | {raster:.1} | {:.1} | {:.1} | {} | {} | {:.0} |",
+            "| {view} | {scale:.2} | {}×{} | {:.1} | {raster:.1} | {:.1} | {:.1} | {:.1} | {:.1} | {} | {} | {:.0} |",
             px.0,
             px.1,
             Stat::of(&cold),
+            Stat::of(&threaded),
             Stat::of(&enc),
+            Stat::of(&stored),
             Stat::of(&total),
             kib(png_len),
             kib(px.0 as usize * px.1 as usize * 4),

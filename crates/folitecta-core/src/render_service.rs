@@ -26,7 +26,7 @@ use hayro::RenderCache;
 use hayro::hayro_syntax::Pdf;
 
 use crate::error::{Error, Result};
-use crate::render::{RenderOpts, RenderedPage, encode_pixels, load_pdf, pixels_of, render_pixmap};
+use crate::render::{RenderOpts, RenderedPage, encode_pixels, load_pdf, pixels_of, render_pixmap_with};
 
 /// Which part of the window asks for a picture.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -93,8 +93,9 @@ fn bump(counter: &AtomicU64, n: u64) {
     counter.fetch_add(n, Ordering::Relaxed);
 }
 
-/// The bytes of pictures a document keeps.
-const KEPT_BYTES: usize = 192 * 1024 * 1024;
+/// The bytes of pictures a document keeps (uncompressed pictures: about 40
+/// pages of text at 125 % on a pixel ratio of 2).
+const KEPT_BYTES: usize = 256 * 1024 * 1024;
 
 type Reply = Box<dyn FnOnce(RenderAnswer) + Send + 'static>;
 
@@ -151,6 +152,8 @@ struct State {
     /// The scale of the thumbnails (milli), the size of the small pictures
     /// made with each page drawn for the window.
     thumb_scale: Option<u32>,
+    /// Jobs being drawn.
+    running: usize,
     stop: bool,
 }
 
@@ -278,6 +281,7 @@ impl RenderService {
                 used: 0,
                 focus: Focus::default(),
                 thumb_scale: None,
+                running: 0,
                 stop: false,
             }),
             wake: Condvar::new(),
@@ -486,9 +490,32 @@ fn answer_stale(shared: &Shared, replies: Vec<Reply>) {
     }
 }
 
+/// Threads of the rasterizer a page drawn alone may use besides its own:
+/// half the processors (about the physical cores) less one, at most four,
+/// and none rather than one (one more thread costs more than it gives).
+fn extra_threads() -> u16 {
+    static EXTRA: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
+    *EXTRA.get_or_init(|| {
+        let n = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
+        let extra = (n / 2).saturating_sub(1).min(4) as u16;
+        if extra >= 2 { extra } else { 0 }
+    })
+}
+
+/// A job taken from the queue, with what it is drawn with.
+struct Taken {
+    job: Job,
+    generation: u64,
+    thumb_scale: Option<u32>,
+    /// Threads of the rasterizer besides the drawing one.
+    threads: u16,
+}
+
 /// The next job to draw (the first in rank), waiting for one; `None` when
-/// the service stops. The stale jobs met are answered on the way.
-fn next_job(shared: &Shared) -> Option<(Job, u64, Option<u32>)> {
+/// the service stops. The stale jobs met are answered on the way. A job
+/// drawn while nothing else is drawn or waiting gets the rasterizer's
+/// threads.
+fn next_job(shared: &Shared) -> Option<Taken> {
     let mut s = shared.lock();
     loop {
         if s.stop {
@@ -504,7 +531,14 @@ fn next_job(shared: &Shared) -> Option<(Job, u64, Option<u32>)> {
         let best = (0..s.queue.len()).min_by_key(|&i| s.rank(&s.queue[i]));
         if let Some(i) = best {
             let job = s.queue.swap_remove(i);
-            return Some((job, s.generation, s.thumb_scale));
+            let alone = s.running == 0 && s.queue.is_empty();
+            s.running += 1;
+            return Some(Taken {
+                job,
+                generation: s.generation,
+                thumb_scale: s.thumb_scale,
+                threads: if alone { extra_threads() } else { 0 },
+            });
         }
         s = shared.wake.wait(s).unwrap_or_else(|e| e.into_inner());
     }
@@ -550,7 +584,7 @@ fn shrink(pixels: &[u8], w: u32, h: u32, channels: usize, tw: u32, th: u32) -> V
 }
 
 fn worker(shared: Arc<Shared>) {
-    let mut held: Option<(Job, u64, Option<u32>)> = None;
+    let mut held: Option<Taken> = None;
     loop {
         let (generation, bytes) = {
             let s = shared.lock();
@@ -566,36 +600,47 @@ fn worker(shared: Arc<Shared>) {
                     None => return,
                 },
             };
-            if next.1 != generation {
+            if next.generation != generation {
                 // A new document: parse it first.
                 held = Some(next);
                 break;
             }
-            let (job, _, thumb_scale) = next;
-            draw(&shared, &pdf, &cache, job, thumb_scale);
+            draw(&shared, &pdf, &cache, next);
         }
+    }
+}
+
+/// The PNG compression of a picture for the window: none up to 8 million
+/// pixels (encoding and decoding the compressed picture cost as much as
+/// drawing a page of text; the bytes go from one process to the other of
+/// the same machine), the fast compression of fdeflate above.
+fn compression(w: u32, h: u32) -> png::Compression {
+    if (w as u64) * (h as u64) <= 8_000_000 {
+        png::Compression::NoCompression
+    } else {
+        png::Compression::Fast
     }
 }
 
 /// Draw a job, answer its replies and keep the picture (and the small
 /// picture of the page, made from the same pixels).
-fn draw<'a>(
-    shared: &Shared,
-    pdf: &'a Result<Pdf>,
-    cache: &RenderCache<'a>,
-    job: Job,
-    thumb_scale: Option<u32>,
-) {
+fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, taken: Taken) {
+    let Taken {
+        job,
+        thumb_scale,
+        threads,
+        ..
+    } = taken;
     let started = std::time::Instant::now();
     let key = job.key;
     let mut small = None;
     let answer = match pdf {
         Err(e) => RenderAnswer::Failed(e.to_string()),
-        Ok(pdf) => match render_pixmap(pdf, cache, key.page, job.scale, key.opts) {
+        Ok(pdf) => match render_pixmap_with(pdf, cache, key.page, job.scale, key.opts, threads) {
             Err(e) => RenderAnswer::Failed(e.to_string()),
             Ok(pixmap) => {
                 let (w, h, color, pixels) = pixels_of(pixmap);
-                match encode_pixels(w, h, color, &pixels, png::Compression::Fast) {
+                match encode_pixels(w, h, color, &pixels, compression(w, h)) {
                     Err(e) => RenderAnswer::Failed(e.to_string()),
                     Ok(png) => {
                         let channels = if color == png::ColorType::Rgb { 3 } else { 4 };
@@ -619,6 +664,7 @@ fn draw<'a>(
     bump(&shared.stats.render_us, started.elapsed().as_micros() as u64);
     let replies = {
         let mut s = shared.lock();
+        s.running = s.running.saturating_sub(1);
         if let RenderAnswer::Picture(p) = &answer {
             if key.rev == s.rev {
                 s.keep(key, p.clone());
@@ -649,7 +695,7 @@ fn draw<'a>(
         return;
     }
     let shrunk = shrink(&pixels, w, h, channels, tw, th);
-    let Ok(png) = encode_pixels(tw, th, color, &shrunk, png::Compression::Fast) else {
+    let Ok(png) = encode_pixels(tw, th, color, &shrunk, compression(tw, th)) else {
         return;
     };
     let picture = Arc::new(RenderedPage {
@@ -708,7 +754,11 @@ mod tests {
         let RenderAnswer::Picture(p) = ask(&svc, req(1, 0.5, Lane::View, None)) else {
             panic!("no picture");
         };
-        assert_eq!(*p, direct);
+        // The same pixels (the picture for the window is not compressed).
+        let pixels = |png: &[u8]| image::load_from_memory(png).unwrap().to_rgba8();
+        assert_eq!((p.width, p.height), (direct.width, direct.height));
+        assert!(pixels(&p.png) == pixels(&direct.png));
+        assert!(p.png.len() > direct.png.len());
         let RenderAnswer::Picture(again) = ask(&svc, req(1, 0.5, Lane::View, None)) else {
             panic!("no picture");
         };
@@ -836,6 +886,28 @@ mod tests {
             if order[0] == 2 { 1 } else { 2 },
             "{order:?}"
         );
+    }
+
+    #[test]
+    fn the_rasterizer_threads_draw_the_same_pixels() {
+        use crate::testdocs::{font_doc, transparency_doc, vector_doc};
+        for (name, bytes) in [
+            ("text", crate::testdocs::text_doc(1)),
+            ("vector", vector_doc(1)),
+            ("fonts", font_doc(1)),
+            ("transparency", transparency_doc(1)),
+        ] {
+            let pdf = load_pdf(Arc::new(bytes)).unwrap();
+            let cache = RenderCache::new();
+            let one = render_pixmap_with(&pdf, &cache, 0, 1.3, RenderOpts::default(), 0).unwrap();
+            let four = render_pixmap_with(&pdf, &cache, 0, 1.3, RenderOpts::default(), 3).unwrap();
+            assert_eq!(
+                (one.width(), one.height()),
+                (four.width(), four.height()),
+                "{name}"
+            );
+            assert!(one.data() == four.data(), "{name}: the pixels differ");
+        }
     }
 
     #[test]

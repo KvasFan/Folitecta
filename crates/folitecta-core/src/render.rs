@@ -12,7 +12,7 @@ use hayro::hayro_syntax::Pdf;
 use hayro::vello_cpu::color::palette::css::{TRANSPARENT, WHITE};
 use hayro::vello_cpu::peniko::ImageAlphaType;
 use hayro::vello_cpu::{Pixels, Pixmap};
-use hayro::{PixmapSettings, RenderCache, RenderSettings, render};
+use hayro::{RenderCache, RenderSettings};
 use image::RgbaImage;
 
 use crate::error::{Error, Result};
@@ -135,6 +135,23 @@ pub(crate) fn render_pixmap<'a>(
     scale: f32,
     opts: RenderOpts,
 ) -> Result<Pixmap> {
+    render_pixmap_with(pdf, cache, page, scale, opts, 0)
+}
+
+/// Rasterize a page with `threads` threads of the rasterizer besides the
+/// calling one (0: on the calling thread only). Every picture is made here
+/// with these explicit settings: the rasterizer's own default would use as
+/// many threads as the processors.
+pub(crate) fn render_pixmap_with<'a>(
+    pdf: &'a Pdf,
+    cache: &RenderCache<'a>,
+    page: usize,
+    scale: f32,
+    opts: RenderOpts,
+    threads: u16,
+) -> Result<Pixmap> {
+    use hayro::hayro_interpret::TransformExt;
+    use hayro::vello_cpu::{RasterizerSettings, RenderContext, Resources, TargetInit};
     let annotations = opts.annotations;
     let interpreter = InterpreterSettings {
         render_annotations: annotations,
@@ -144,13 +161,34 @@ pub(crate) fn render_pixmap<'a>(
     let p = pages.get(page).ok_or(Error::InvalidPage(page))?;
     let (w, h) = p.render_dimensions();
     let scale = scale.max(0.05).min(MAX_EDGE / w.max(h).max(1.0));
-    let settings = PixmapSettings {
-        x_scale: scale,
-        y_scale: scale,
-        bg_color: if opts.transparent { TRANSPARENT } else { WHITE },
-    };
+    let background = if opts.transparent { TRANSPARENT } else { WHITE };
     let result = catch_unwind(AssertUnwindSafe(|| {
-        render(p, cache, &interpreter, &RenderSettings::default(), &settings)
+        // As `hayro::render` does, with the settings of the rasterizer given.
+        let settings = hayro::vello_cpu::RenderSettings {
+            num_threads: threads,
+            ..Default::default()
+        };
+        let mut ctx = RenderContext::new_with((w * scale) as u16, (h * scale) as u16, settings);
+        let transform = hayro::kurbo::Affine::scale(scale as f64) * p.initial_transform(true).to_kurbo();
+        hayro::render_into(
+            p,
+            cache,
+            &interpreter,
+            &RenderSettings::default(),
+            &mut ctx,
+            transform,
+        );
+        ctx.flush();
+        let mut pixmap = Pixmap::new(ctx.width(), ctx.height());
+        ctx.render_with(
+            &mut pixmap,
+            &mut Resources::default(),
+            RasterizerSettings {
+                target_init: TargetInit::Clear(background),
+                ..Default::default()
+            },
+        );
+        pixmap
     }));
     result.map_err(|_| Error::Render(format!("the renderer failed on page {}", page + 1)))
 }

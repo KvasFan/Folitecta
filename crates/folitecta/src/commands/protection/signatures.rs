@@ -246,9 +246,12 @@ pub async fn current_status(st: AppState) -> Vec<SignatureStatus> {
 }
 
 /// Forget cached validation results (after the trusted list or the options
-/// changed): they are checked again.
-pub fn invalidate_status(_st: AppState) {
+/// changed): they are checked again, and the views that show them draw
+/// again (the last results stay in view meanwhile).
+pub fn invalidate_status(st: AppState) {
     STATUS_GEN.fetch_add(1, Ordering::SeqCst);
+    // A write of the open tabs makes their views draw again.
+    drop(st.docs_mut());
 }
 
 /// Media types of time stamp requests and answers (RFC 3161).

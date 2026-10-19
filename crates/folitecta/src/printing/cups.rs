@@ -340,6 +340,8 @@ pub struct Cups {
 }
 
 impl Cups {
+    /// The print server at `endpoint` (the tests' own).
+    #[cfg(test)]
     pub fn at(endpoint: Endpoint) -> Self {
         Cups {
             endpoint: Some(endpoint),

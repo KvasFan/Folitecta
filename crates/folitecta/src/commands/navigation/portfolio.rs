@@ -324,21 +324,34 @@ fn preview_file(st: AppState) {
     }
 }
 
-/// Open the selected PDF files and print every open document.
+/// Print the chosen PDF files of the portfolio (and nothing else), read
+/// from the portfolio itself without opening them.
 fn print(st: AppState) {
     let Some((p, ps)) = need_portfolio(st) else { return };
     let pdfs: Vec<_> = chosen_files(&p, &ps)
         .into_iter()
-        .filter(|i| i.name.to_lowercase().ends_with(".pdf"))
+        .filter(|i| i.name.to_lowercase().ends_with(".pdf") || i.attachment.mime == "application/pdf")
         .collect();
     if pdfs.is_empty() {
         st.toast(ToastKind::Info, t(st.lang(), "toast.portfolio_no_pdf"), "");
         return;
     }
-    for it in pdfs {
-        open_item(st, it);
+    let files: Vec<(String, std::sync::Arc<Vec<u8>>)> = st
+        .read_active(|t| {
+            pdfs.iter()
+                .filter_map(|it| {
+                    let data = t.doc.attachment_data(&it.attachment).ok()?;
+                    Some((it.name.clone(), std::sync::Arc::new(data)))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    if files.len() < pdfs.len() {
+        st.toast(ToastKind::Warn, t(st.lang(), "toast.portfolio_unreadable"), "");
     }
-    st.set_dialog(Dialog::Print(true));
+    if !files.is_empty() {
+        st.set_dialog(Dialog::Print(crate::state::PrintTarget::Files(files)));
+    }
 }
 
 fn navigate(st: AppState, dir: &str) {

@@ -20,7 +20,8 @@ pub(crate) mod protection;
 pub(crate) mod text;
 pub(crate) mod window;
 pub(crate) use document::{
-    barcodes, compare, convert, doctools, file, fileops, macros, mail, ocr, pages, pictures, sources, split,
+    barcodes, compare, convert, doctools, file, fileops, macros, mail, ocr, pages, pictures, print, sources,
+    split,
 };
 pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
@@ -128,8 +129,6 @@ pub const PARTIAL: &[&str] = &[
     "layersView.selectCorresponding.comments",
     "layersView.selectCorresponding.fields",
     "layersView.selectCorresponding.links",
-    // Opens the PDF files and prints every open document.
-    "view.portfolio.print",
     // There are no tab groups: the files open in this window.
     "sessions.open.addToActiveGroup",
     "sessions.open.addToNewGroup",

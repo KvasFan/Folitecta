@@ -203,6 +203,23 @@ pub fn App() -> Element {
         }
     });
 
+    // The sheets of the print window's preview at /sheet/p/{generation}.png and
+    // the sheets laid out for the system dialog at /sheet/s/{generation}/{doc}/{sheet}/{scale}.png.
+    use_asset_handler("sheet", move |request, responder| {
+        let path = request.uri().path().to_string();
+        commands::print::serve(&path, move |status, body| {
+            let resp = Response::builder()
+                .status(status)
+                .header(
+                    "Content-Type",
+                    if status == 200 { "image/png" } else { "text/plain" },
+                )
+                .header("Cache-Control", "no-store")
+                .body(body);
+            responder.respond(resp.unwrap_or_else(|_| Response::new(Vec::new())));
+        });
+    });
+
     // Serve the media of the player at /media/{id}, with byte ranges for seeking.
     use_asset_handler("media", move |request, responder| {
         let range = request

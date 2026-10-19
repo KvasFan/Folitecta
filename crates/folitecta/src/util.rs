@@ -45,6 +45,95 @@ pub fn parse_page_range(input: &str, page_count: usize) -> Result<Vec<usize>, St
     Ok(out)
 }
 
+/// Why a print range cannot be read.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RangeError {
+    /// This part is not a page or a range of pages.
+    Bad(String),
+    /// A page number past the last page (or 0).
+    OutOfRange(usize),
+}
+
+/// Split `s` at the characters of `seps` outside double quotes.
+fn split_unquoted<'a>(s: &'a str, seps: &[char]) -> Vec<&'a str> {
+    let mut parts = Vec::new();
+    let mut quoted = false;
+    let mut start = 0;
+    for (i, c) in s.char_indices() {
+        if c == '"' {
+            quoted = !quoted;
+        } else if !quoted && seps.contains(&c) {
+            parts.push(&s[start..i]);
+            start = i + c.len_utf8();
+        }
+    }
+    parts.push(&s[start..]);
+    parts
+}
+
+/// The pages of a print range such as `1-3, 7, 10-` (zero-based) in the order
+/// written: repeated pages print again and a range written backwards prints
+/// backwards. With `use_labels` the ends are page labels (`iii-v`), quoted
+/// when a label holds a dash or a comma (`"A-1"-"A-4"`); a number that is
+/// not a label is a page number. An empty range is every page.
+pub fn parse_print_range(
+    input: &str,
+    count: usize,
+    labels: &[String],
+    use_labels: bool,
+) -> Result<Vec<usize>, RangeError> {
+    if input.trim().is_empty() {
+        return Ok((0..count).collect());
+    }
+    let page = |text: &str, part: &str| -> Result<usize, RangeError> {
+        let t = text.trim();
+        let unquoted = t.trim_matches('"');
+        if use_labels {
+            if let Some(i) = labels.iter().position(|l| l == unquoted) {
+                return Ok(i);
+            }
+        }
+        let n: usize = unquoted
+            .parse()
+            .map_err(|_| RangeError::Bad(part.trim().to_string()))?;
+        if n == 0 || n > count {
+            return Err(RangeError::OutOfRange(count));
+        }
+        Ok(n - 1)
+    };
+    let mut out = Vec::new();
+    for part in split_unquoted(input, &[',', ';']) {
+        if part.trim().is_empty() {
+            continue;
+        }
+        let ends = split_unquoted(part, &['-']);
+        let (a, b) = match ends.as_slice() {
+            [one] => {
+                let p = page(one, part)?;
+                (p, p)
+            }
+            [a, b] => (
+                if a.trim().is_empty() { 0 } else { page(a, part)? },
+                if b.trim().is_empty() {
+                    count.saturating_sub(1)
+                } else {
+                    page(b, part)?
+                },
+            ),
+            _ => return Err(RangeError::Bad(part.trim().to_string())),
+        };
+        if count == 0 {
+            return Err(RangeError::OutOfRange(0));
+        }
+        if a <= b {
+            out.extend(a..=b);
+        } else {
+            out.extend((b..=a).rev());
+        }
+    }
+    Ok(out)
+}
+
 /// Format zero-based pages as a 1-based range string.
 pub fn format_pages(pages: &[usize]) -> String {
     let mut sorted = pages.to_vec();
@@ -217,6 +306,47 @@ pub fn move_to_trash(path: &std::path::Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn print_ranges_by_number_and_by_label() {
+        let labels: Vec<String> = ["i", "ii", "iii", "iv", "v", "1", "2", "A-1", "A-2"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let n = labels.len();
+        assert_eq!(parse_print_range("", 3, &[], false), Ok(vec![0, 1, 2]));
+        assert_eq!(
+            parse_print_range("1-3, 2", n, &labels, false),
+            Ok(vec![0, 1, 2, 1])
+        );
+        assert_eq!(parse_print_range("3-1", n, &labels, false), Ok(vec![2, 1, 0]));
+        assert_eq!(parse_print_range("8-", n, &labels, false), Ok(vec![7, 8]));
+        assert_eq!(parse_print_range("-2", n, &labels, false), Ok(vec![0, 1]));
+        assert_eq!(parse_print_range("iii-v", n, &labels, true), Ok(vec![2, 3, 4]));
+        // "1" is a label here (the sixth page).
+        assert_eq!(parse_print_range("1", n, &labels, true), Ok(vec![5]));
+        assert_eq!(
+            parse_print_range("\"A-1\"-\"A-2\"", n, &labels, true),
+            Ok(vec![7, 8])
+        );
+        assert_eq!(parse_print_range("9", n, &labels, true), Ok(vec![8]));
+        assert_eq!(
+            parse_print_range("x", n, &labels, false),
+            Err(RangeError::Bad("x".into()))
+        );
+        assert_eq!(
+            parse_print_range("1-2-3", n, &labels, false),
+            Err(RangeError::Bad("1-2-3".into()))
+        );
+        assert_eq!(
+            parse_print_range("0", n, &labels, false),
+            Err(RangeError::OutOfRange(n))
+        );
+        assert_eq!(
+            parse_print_range("12", n, &labels, false),
+            Err(RangeError::OutOfRange(n))
+        );
+    }
 
     #[test]
     fn page_ranges() {

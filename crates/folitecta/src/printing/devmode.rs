@@ -2,8 +2,7 @@
 //! system: the fields of the driver's DEVMODE (paper, portrait, two-sided,
 //! copies, collation, colour) written into and read from its bytes, who makes
 //! the copies, the order of the sides when Folitecta makes them, where each
-//! band of pixels goes on the device, the bitmap header of a band and the
-//! size of the spool.
+//! band of pixels goes on the device and the bitmap header of a band.
 
 use folitecta_core::print::Sides;
 
@@ -292,13 +291,6 @@ pub fn bottom_up(data: &[u8], stride: usize) -> Vec<u8> {
     out
 }
 
-/// About how many bytes the spooler stores for `sides` sides of
-/// `width` x `height` points drawn at `dpi` (bitmaps are kept as they are).
-pub fn spool_estimate(width: f32, height: f32, dpi: u32, gray: bool, sides: usize) -> u64 {
-    let px = |pt: f32| (f64::from(pt) / 72.0 * f64::from(dpi)).ceil() as u64;
-    px(width) * px(height) * if gray { 1 } else { 3 } * sides as u64
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -502,7 +494,7 @@ mod tests {
     }
 
     #[test]
-    fn band_bitmaps_and_spool_sizes() {
+    fn band_bitmaps() {
         let rgb = dib_info(100, 20, 24);
         assert_eq!(rgb.len(), 10);
         assert_eq!((rgb[0], rgb[1], rgb[2], rgb[3]), (40, 100, 20, 1 | (24 << 16)));
@@ -512,12 +504,5 @@ mod tests {
         assert_eq!(grey[10 + 128], 0x0080_8080);
         let data = [1u8, 2, 3, 4, 5, 6, 7, 8];
         assert_eq!(bottom_up(&data, 4), [5, 6, 7, 8, 1, 2, 3, 4]);
-        // An A4 side at 600 dpi in colour is about 104 MB.
-        let one = spool_estimate(595.28, 841.89, 600, false, 1);
-        assert!((100_000_000..110_000_000).contains(&one), "{one}");
-        assert_eq!(
-            spool_estimate(595.28, 841.89, 300, true, 4),
-            spool_estimate(595.28, 841.89, 300, true, 1) * 4
-        );
     }
 }

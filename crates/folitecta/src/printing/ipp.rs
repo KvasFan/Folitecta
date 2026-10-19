@@ -29,6 +29,7 @@ pub const RESOLUTION: u8 = 0x32;
 pub const RANGE: u8 = 0x33;
 pub const BEG_COLLECTION: u8 = 0x34;
 pub const END_COLLECTION: u8 = 0x37;
+#[cfg(test)]
 pub const TEXT: u8 = 0x41;
 pub const NAME: u8 = 0x42;
 pub const KEYWORD: u8 = 0x44;

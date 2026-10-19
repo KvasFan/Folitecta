@@ -22,6 +22,14 @@ pub mod windows;
 mod types;
 pub use types::*;
 
+/// About how many bytes the spooler stores for `sides` sides of
+/// `width` x `height` points sent as pictures at `dpi` (Windows: the bitmaps
+/// are stored as they are).
+pub fn spool_estimate(width: f32, height: f32, dpi: u32, gray: bool, sides: usize) -> u64 {
+    let px = |pt: f32| (f64::from(pt) / 72.0 * f64::from(dpi)).ceil() as u64;
+    px(width) * px(height) * if gray { 1 } else { 3 } * sides as u64
+}
+
 /// The fake printer replaces the real ones (the self-test).
 static FAKE: Mutex<Option<Arc<fake::FakeBackend>>> = Mutex::new(None);
 
@@ -91,6 +99,17 @@ fn real_backend() -> Arc<dyn PrintBackend> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn spool_sizes_of_pictures() {
+        // An A4 side at 600 dpi in colour is about 104 MB.
+        let one = spool_estimate(595.28, 841.89, 600, false, 1);
+        assert!((100_000_000..110_000_000).contains(&one), "{one}");
+        assert_eq!(
+            spool_estimate(595.28, 841.89, 300, true, 4),
+            spool_estimate(595.28, 841.89, 300, true, 1) * 4
+        );
+    }
 
     #[test]
     fn tests_only_ever_reach_the_fake_printer() {

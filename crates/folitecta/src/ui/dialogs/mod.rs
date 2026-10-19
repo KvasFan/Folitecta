@@ -43,6 +43,12 @@ pub fn Frame(
     /// it stays in view (the dialog works on what the page shows).
     #[props(default = false)]
     side: bool,
+    /// The largest window (the print window).
+    #[props(default = false)]
+    xl: bool,
+    /// The OK button is shown but can be pressed neither with the mouse nor with Enter.
+    #[props(default = false)]
+    ok_disabled: bool,
 ) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
@@ -58,6 +64,7 @@ pub fn Frame(
     let mut pressed_inside = use_signal(|| false);
     let mut pressed_outside = use_signal(|| false);
     let dialog_class = match (wide, side) {
+        _ if xl => "dialog xl",
         (true, true) => "dialog wide side",
         (true, false) => "dialog wide",
         (false, true) => "dialog side",
@@ -82,7 +89,7 @@ pub fn Frame(
                         // After the field being typed in takes its value. Enter on a
                         // button is that button's click (the browser makes it one):
                         // the dialog's OK must not run as well.
-                        if let Some(h) = ok2 {
+                        if let Some(h) = ok2.filter(|_| !ok_disabled) {
                             spawn(async move {
                                 tokio::time::sleep(std::time::Duration::from_millis(30)).await;
                                 let on_button = document::eval("return document.activeElement?.tagName === 'BUTTON';")
@@ -104,7 +111,8 @@ pub fn Frame(
                 div { class: "dialog-foot",
                     button { class: "tbtn", onclick: move |_| st.set_dialog(Dialog::None), "{cancel_text}" }
                     if let Some(h) = on_ok {
-                        button { class: if danger { "tbtn danger" } else { "tbtn primary" }, onclick: move |_| h.call(()), "{ok_text}" }
+                        button { class: if danger { "tbtn danger" } else { "tbtn primary" }, disabled: ok_disabled,
+                            onclick: move |_| if !ok_disabled { h.call(()) }, "{ok_text}" }
                     }
                 }
             }
@@ -285,7 +293,7 @@ pub fn Dialogs() -> Element {
         Dialog::Transitions => rsx! { Transitions {} },
         Dialog::ReplacePages(path) => rsx! { ReplacePages { path: path.display().to_string() } },
         Dialog::OverlayFile(path) => rsx! { OverlayFile { path: path.display().to_string() } },
-        Dialog::Print(all) => rsx! { PrintDialog { all_docs: all } },
+        Dialog::Print(target) => rsx! { crate::ui::features::print::PrintWindow { target } },
         Dialog::Callout { page, tip, rect } => {
             rsx! { CalloutDialog { page, tip_x: tip.0, tip_y: tip.1, rect: rect.to_vec() } }
         }

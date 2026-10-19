@@ -195,6 +195,160 @@ fn a_pattern_removed_with_its_paint_does_not_stay_for_another_paint_of_the_page(
     assert!(streams_of(&bytes).iter().any(|s| holds(s, b"2 2 4 4 re f")));
 }
 
+/// A tiling pattern of 100 × 100 cells drawing a small motif at 40–60.
+fn motif(d: &mut lopdf::Document) -> ObjectId {
+    d.add_object(Stream::new(
+        dictionary! {
+            "Type" => "Pattern", "PatternType" => 1, "PaintType" => 1, "TilingType" => 1,
+            "BBox" => vec![0.into(), 0.into(), 100.into(), 100.into()], "XStep" => 100, "YStep" => 100,
+            "Resources" => dictionary! {},
+        },
+        b"0 0 0 rg 40.123457 40 m 50.765432 60 l 60.111111 40 l h f".to_vec(),
+    ))
+}
+
+#[test]
+fn only_filled_rectangles_under_rectangular_clips_show_a_motif_elsewhere() {
+    // The fill under the mark goes whole; what else paints with the pattern
+    // must show a whole motif for the pattern to stay.
+    let cases = [
+        // An even-odd frame whose box holds whole cells, its ink none.
+        ("frame", "250 250 140 140 re 260 260 120 120 re f*", false),
+        // A rectangle under a triangular clip.
+        (
+            "triangle-clip",
+            "q 250 250 m 390 250 l 320 390 l h W n 250 250 140 140 re f Q",
+            false,
+        ),
+        // A rectangle under a rectangular clip: it shows whole motifs.
+        (
+            "rect-clip",
+            "q 250 250 140 140 re W n 250 250 140 140 re f Q",
+            true,
+        ),
+    ];
+    for (name, kept, shown) in cases {
+        let mut doc = built(|d| {
+            let pat = motif(d);
+            vec![(
+                format!("/Pattern cs /P1 scn 130 230 40 40 re f {kept}"),
+                dictionary! { "Pattern" => dictionary! { "P1" => pat } },
+            )]
+        });
+        mark(&mut doc, 0, [120.0, 220.0, 180.0, 280.0]);
+        let report = apply(&mut doc);
+        let bytes = checked(&mut doc, &report, &format!("motif-{name}"));
+        if shown {
+            assert!(report.pages_as_pictures.is_empty(), "{name}: {report:?}");
+        } else {
+            assert_eq!(
+                report.reasons,
+                vec![(0, PictureReason::Pattern)],
+                "{name}: {report:?}"
+            );
+            assert!(
+                streams_of(&bytes).iter().all(|s| !holds(s, b"50.765432")),
+                "{name}"
+            );
+        }
+    }
+}
+
+/// A shading of `kind` (2 axial, 3 radial) with `function`, as a pattern.
+fn gradient(d: &mut lopdf::Document, kind: i64, coords: Vec<Object>, function: Object) -> ObjectId {
+    d.add_object(dictionary! {
+        "ShadingType" => kind, "ColorSpace" => "DeviceRGB", "Coords" => coords,
+        "Function" => function, "Extend" => vec![true.into(), true.into()],
+    })
+}
+
+fn exponential(c0: [f32; 3], c1: [f32; 3]) -> Object {
+    Object::Dictionary(dictionary! {
+        "FunctionType" => 2, "Domain" => vec![0.into(), 1.into()], "N" => 1,
+        "C0" => c0.iter().map(|v| Object::Real(*v)).collect::<Vec<_>>(),
+        "C1" => c1.iter().map(|v| Object::Real(*v)).collect::<Vec<_>>(),
+    })
+}
+
+#[test]
+fn gradients_shown_elsewhere_are_proven_or_send_the_page_to_pictures() {
+    // A radial gradient whose stitched function paints a band (radii 30 to
+    // 60) only under the mark.
+    let stitched = Object::Dictionary(dictionary! {
+        "FunctionType" => 3, "Domain" => vec![0.into(), 1.into()],
+        "Functions" => vec![
+            exponential([1.0, 0.0, 0.0], [1.0, 0.0, 0.0]),
+            exponential([0.123457, 0.654321, 0.987654], [0.123457, 0.654321, 0.987654]),
+            exponential([0.0, 0.0, 1.0], [0.0, 0.0, 1.0]),
+        ],
+        "Bounds" => vec![Object::Real(0.2), Object::Real(0.4)],
+        "Encode" => vec![0.into(), 1.into(), 0.into(), 1.into(), 0.into(), 1.into()],
+    });
+    let radial = |function: Object| {
+        built(move |d| {
+            let coords = vec![
+                200.into(),
+                200.into(),
+                0.into(),
+                200.into(),
+                200.into(),
+                150.into(),
+            ];
+            let sh = gradient(d, 3, coords, function);
+            let pat = d.add_object(dictionary! { "Type" => "Pattern", "PatternType" => 2, "Shading" => sh });
+            vec![(
+                "/Pattern cs /P1 scn 0 0 400 400 re f".into(),
+                dictionary! { "Pattern" => dictionary! { "P1" => pat } },
+            )]
+        })
+    };
+    let mut doc = radial(stitched);
+    mark(&mut doc, 0, [130.0, 130.0, 270.0, 270.0]);
+    let report = apply(&mut doc);
+    assert_eq!(report.reasons, vec![(0, PictureReason::Shading)], "{report:?}");
+    let bytes = checked(&mut doc, &report, "radial-stitched");
+    assert!(absent(&bytes, "0.123457"));
+    // One exponential function: what it paints under the mark follows from
+    // what shows around it.
+    let mut doc = radial(exponential([1.0, 0.0, 0.0], [0.0, 0.0, 1.0]));
+    mark(&mut doc, 0, [130.0, 130.0, 270.0, 270.0]);
+    let report = apply(&mut doc);
+    assert!(report.pages_as_pictures.is_empty(), "{report:?}");
+    checked(&mut doc, &report, "radial-exponential");
+
+    // An axial gradient painted under a clip: what shows outside the mark is
+    // known for a rectangular clip only.
+    for (name, clip, edited) in [
+        ("axial-triangle", "50 50 m 350 50 l 200 350 l h W n", false),
+        ("axial-rect", "50 50 300 300 re W n", true),
+    ] {
+        let mut doc = built(|d| {
+            let sh = gradient(
+                d,
+                2,
+                vec![0.into(), 0.into(), 400.into(), 0.into()],
+                exponential([1.0, 0.0, 0.0], [0.0, 0.0, 1.0]),
+            );
+            vec![(
+                format!("q {clip} /Sh0 sh Q"),
+                dictionary! { "Shading" => dictionary! { "Sh0" => sh } },
+            )]
+        });
+        mark(&mut doc, 0, [150.0, 100.0, 250.0, 200.0]);
+        let report = apply(&mut doc);
+        if edited {
+            assert!(report.pages_as_pictures.is_empty(), "{name}: {report:?}");
+        } else {
+            assert_eq!(
+                report.reasons,
+                vec![(0, PictureReason::Shading)],
+                "{name}: {report:?}"
+            );
+        }
+        checked(&mut doc, &report, name);
+    }
+}
+
 #[test]
 fn a_pattern_another_page_paints_with_stays_for_that_page() {
     // As with forms drawn on other pages, the pattern stays for the page that

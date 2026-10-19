@@ -963,28 +963,22 @@ fn number(doc: &lopdf::Document, o: &Object) -> Option<f64> {
     }
 }
 
-/// The functions of a shading are smooth (exponential interpolation, or
-/// stitched from those): they hold a few colours, no data.
-fn smooth_functions(doc: &lopdf::Document, f: &Object, depth: usize) -> bool {
-    if depth > 8 {
-        return false;
-    }
-    match deref(doc, f) {
-        Object::Array(a) => a.iter().all(|x| smooth_functions(doc, x, depth + 1)),
-        Object::Dictionary(d) => smooth_dict(doc, d, depth),
-        Object::Stream(_) => false,
-        _ => false,
-    }
-}
-
-fn smooth_dict(doc: &lopdf::Document, d: &Dictionary, depth: usize) -> bool {
-    match d.get(b"FunctionType").ok().and_then(|t| number(doc, t)) {
-        Some(2.0) => true,
-        Some(3.0) => d
-            .get(b"Functions")
+/// The functions of a shading are single exponential interpolations: every
+/// colour they give follows from two colours and an exponent, so a part of
+/// the gradient shown elsewhere tells nothing new. Stitched functions are
+/// not: one of their pieces may be painted under a mark only.
+fn exponential_functions(doc: &lopdf::Document, f: &Object) -> bool {
+    let one = |o: &Object| {
+        deref(doc, o)
+            .as_dict()
             .ok()
-            .is_some_and(|f| smooth_functions(doc, f, depth + 1)),
-        _ => false,
+            .and_then(|d| d.get(b"FunctionType").ok())
+            .and_then(|t| number(doc, t))
+            == Some(2.0)
+    };
+    match deref(doc, f) {
+        Object::Array(a) => !a.is_empty() && a.iter().all(one),
+        o => one(o),
     }
 }
 
@@ -1049,7 +1043,7 @@ pub(crate) fn shading_shown_elsewhere(
         Some(3.0) => shading
             .get(b"Function")
             .ok()
-            .is_some_and(|f| smooth_functions(doc, f, 0)),
+            .is_some_and(|f| exponential_functions(doc, f)),
         _ => false,
     }
 }

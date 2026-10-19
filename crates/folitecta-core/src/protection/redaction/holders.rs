@@ -17,7 +17,7 @@ use super::RedactionLook;
 use super::counts::{Counts, type3_font, type3_glyph_names};
 use super::inline::inline_picture;
 use super::paths::{PathEdit, empty_clip, exclusion_clip, redact_path, shading_shown_elsewhere};
-use super::scan::{Gs, Paint, PathObj, Props, page_state, path_bounds, resource, scan};
+use super::scan::{Gs, Paint, PathObj, Props, exact_region, page_state, path_bounds, resource, scan};
 use crate::content_edit::{Splice, check_splices, joined, name_token, rewrite};
 use crate::content_lex::{name_of, operations};
 use crate::document::{Document, private_resources};
@@ -836,8 +836,17 @@ impl Document {
     /// Whether the colours a shading paints over `area` (page space) under
     /// the marks are painted outside them too, so a clip around the marks
     /// hides nothing that cannot be seen elsewhere; `to_shading` maps page
-    /// space to the shading's space.
-    fn shading_shown(&self, sh: &Dictionary, to_shading: Affine, area: Rect, rects: &[Rect]) -> bool {
+    /// space to the shading's space. What is painted outside is known only
+    /// when the painted region is exactly a rectangle (`exact`): else nothing
+    /// counts as shown.
+    fn shading_shown(
+        &self,
+        sh: &Dictionary,
+        to_shading: Affine,
+        area: Rect,
+        exact: Option<Rect>,
+        rects: &[Rect],
+    ) -> bool {
         let kind = shading_type(&self.inner, sh);
         if kind != 2 && kind != 3 {
             return false;
@@ -847,7 +856,7 @@ impl Document {
             .map(|r| r.intersect(area))
             .filter(|r| r.width() > 0.0 && r.height() > 0.0)
             .collect();
-        let Some((_, pieces)) = exclusion_clip(area, rects, Affine::IDENTITY) else {
+        let Some((_, pieces)) = exact.and_then(|e| exclusion_clip(e, rects, Affine::IDENTITY)) else {
             return false;
         };
         shading_shown_elsewhere(&self.inner, sh, to_shading, &under, &pieces)
@@ -1049,17 +1058,17 @@ impl Document {
                 PathEdit::Replace(text) => paints(text),
             };
             if painted {
-                let area = path_bounds(p)
-                    .map(|b| b.intersect(p.gs.clip))
-                    .unwrap_or(Rect::ZERO);
+                // Only a filled rectangle under rectangular clips tells what
+                // it shows; other paints keep the pattern without showing it.
+                let exact = exact_region(p);
                 if matches!(p.paint, Paint::Fill(_) | Paint::FillStroke(_)) {
                     if let Some(n) = &p.gs.fill_pattern {
-                        kept.entry(n.clone()).or_default().push(area);
+                        kept.entry(n.clone()).or_default().extend(exact);
                     }
                 }
                 if matches!(p.paint, Paint::Stroke | Paint::FillStroke(_)) {
                     if let Some(n) = &p.gs.stroke_pattern {
-                        kept.entry(n.clone()).or_default().push(area);
+                        kept.entry(n.clone()).or_default();
                     }
                 }
             }
@@ -1101,8 +1110,14 @@ impl Document {
                 continue;
             };
             let mut area = gs.clip;
+            // The region painted is exactly a rectangle under rectangular
+            // clips, unless a box of the shading turned by the matrix cuts it.
+            let mut exact = gs.clip_exact;
             if let Some(b) = rect_value(&self.inner, sh.get(b"BBox").ok()) {
                 area = area.intersect(gs.ctm.transform_rect_bbox(b));
+                let c = gs.ctm.as_coeffs();
+                exact &=
+                    (c[1].abs() < 1e-12 && c[2].abs() < 1e-12) || (c[0].abs() < 1e-12 && c[3].abs() < 1e-12);
             }
             if area.width() <= 0.0 || area.height() <= 0.0 || !rects.iter().any(|r| overlaps(area, *r)) {
                 continue;
@@ -1117,7 +1132,7 @@ impl Document {
                 // Painted under the marks only: it goes.
                 None => String::new(),
                 Some((clip, _)) => {
-                    if !self.shading_shown(&sh, gs.ctm.inverse(), area, &rects) {
+                    if !self.shading_shown(&sh, gs.ctm.inverse(), area, exact.then_some(area), &rects) {
                         return Err(R::Shading);
                     }
                     format!("q {clip} {} sh Q", name_token(name))
@@ -1400,6 +1415,9 @@ impl Document {
         rects: &[Rect],
         area: Rect,
     ) -> Vec<(Vec<u8>, PictureReason)> {
+        // What the paint shows outside the marks is known only for a filled
+        // rectangle under rectangular clips.
+        let exact = exact_region(p);
         use PictureReason as R;
         let mut patterns = Vec::new();
         if matches!(p.paint, Paint::Fill(_) | Paint::FillStroke(_)) {
@@ -1419,7 +1437,9 @@ impl Document {
                     matrix,
                     ..
                 } => {
-                    let (under, elsewhere) = cell_tiles(c, step, gs0.ctm * matrix, area, rects);
+                    let m = gs0.ctm * matrix;
+                    let (under, _) = cell_tiles(c, step, m, area, rects);
+                    let elsewhere = exact.is_some_and(|e| cell_tiles(c, step, m, e, rects).1);
                     (under && !elsewhere).then_some(R::Pattern)
                 }
                 PatternKind::Shading(sh, matrix) => {
@@ -1427,7 +1447,7 @@ impl Document {
                     let to_shading = (gs0.ctm * matrix).inverse();
                     (area.width() > 0.0
                         && area.height() > 0.0
-                        && !self.shading_shown(&sh, to_shading, area, rects))
+                        && !self.shading_shown(&sh, to_shading, area, exact, rects))
                     .then_some(R::Shading)
                 }
                 PatternKind::Unknown => Some(R::Pattern),

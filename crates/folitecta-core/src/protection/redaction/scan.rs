@@ -35,6 +35,9 @@ pub(crate) struct Gs {
     pub smask: Option<(ObjectId, Affine)>,
     /// Bounds of the clip in page space.
     pub clip: Rect,
+    /// The clip is exactly `clip`: every clip set was a rectangle of page
+    /// space (no other shape, no text clipping).
+    pub clip_exact: bool,
     /// The text state (forms start from it).
     pub text: TextState,
 }
@@ -192,6 +195,60 @@ pub(crate) fn subpath_bounds(sp: &Subpath, m: Affine) -> Option<Rect> {
     }))
 }
 
+/// The rectangle of page space a subpath is (four sides along the axes),
+/// None for any other shape.
+pub(crate) fn rect_in_page(sp: &Subpath, m: Affine) -> Option<Rect> {
+    let mut pts: Vec<Point> = Vec::new();
+    for el in &sp.els {
+        match el {
+            PathEl::MoveTo(p) | PathEl::LineTo(p) => {
+                let q = m * *p;
+                if pts.last().is_none_or(|l| (*l - q).hypot() > 1e-9) {
+                    pts.push(q);
+                }
+            }
+            PathEl::ClosePath => {}
+            _ => return None,
+        }
+    }
+    if pts.len() == 5 && (pts[0] - pts[4]).hypot() < 1e-9 {
+        pts.pop();
+    }
+    if pts.len() != 4 {
+        return None;
+    }
+    let along = |i: usize| -> Option<bool> {
+        let d = pts[(i + 1) % 4] - pts[i];
+        let eps = 1e-6 * (1.0 + d.hypot());
+        if d.y.abs() < eps {
+            Some(true)
+        } else if d.x.abs() < eps {
+            Some(false)
+        } else {
+            None
+        }
+    };
+    let first = along(0)?;
+    for i in 1..4 {
+        if along(i)? != (first == (i % 2 == 0)) {
+            return None;
+        }
+    }
+    rect_of_points(pts)
+}
+
+/// The region a path paints with its fill, exactly, in page space: a
+/// single rectangle filled under clips that are all rectangles; None when
+/// it is anything else (a stroke, holes, curves, another clip shape).
+pub(crate) fn exact_region(p: &PathObj) -> Option<Rect> {
+    if !matches!(p.paint, Paint::Fill(_) | Paint::FillStroke(_)) || p.subpaths.len() != 1 || !p.gs.clip_exact
+    {
+        return None;
+    }
+    let r = rect_in_page(&p.subpaths[0], p.gs.ctm)?.intersect(p.gs.clip);
+    (r.width() > 0.0 && r.height() > 0.0).then_some(r)
+}
+
 /// Bounds of a path object in page space (strokes widened by what their ink
 /// reaches beyond the centre line: half the width, the corners of square
 /// caps, miter joins up to their limit).
@@ -256,6 +313,7 @@ pub(crate) fn scan(doc: &lopdf::Document, data: &[u8], res: &Dictionary, gs0: &G
     let mut start_point: Option<Point> = None;
     let mut pending_clip: Option<FillRule> = None;
     let mut marked_stack: Vec<usize> = Vec::new();
+    let mut text_clips = false;
     let new_path = |gs: &Gs, start: usize| PathObj {
         start,
         end: start,
@@ -424,6 +482,9 @@ pub(crate) fn scan(doc: &lopdf::Document, data: &[u8], res: &Dictionary, gs0: &G
                     Some(b) => gs.clip.intersect(b),
                     None => Rect::ZERO,
                 };
+                if !(p.subpaths.len() == 1 && rect_in_page(&p.subpaths[0], p.gs.ctm).is_some()) {
+                    gs.clip_exact = false;
+                }
             }
             if !p.subpaths.is_empty() || p.clip.is_some() {
                 out.paths.push(p);
@@ -594,9 +655,19 @@ pub(crate) fn scan(doc: &lopdf::Document, data: &[u8], res: &Dictionary, gs0: &G
                     out.marked[k].end = Some((op.start, op.end));
                 }
             }
-            b"ET" => out.text_ends.push((op.end, gs.ctm)),
+            b"BT" => text_clips = false,
+            b"ET" => {
+                out.text_ends.push((op.end, gs.ctm));
+                // Glyphs shown in a clipping mode clip what follows.
+                if text_clips {
+                    gs.clip_exact = false;
+                }
+            }
             b"Tj" | b"TJ" | b"'" | b"\"" => {
                 gs.text.apply(data, o, &op.operands);
+                if gs.text.render_mode >= 4 {
+                    text_clips = true;
+                }
                 if let Some(m) = gs.smask {
                     out.masked_text.push((op.start, op.end, m));
                 }
@@ -636,6 +707,7 @@ pub(crate) fn page_state(clip: Rect) -> Gs {
         stroke_pattern: None,
         smask: None,
         clip,
+        clip_exact: true,
         text: TextState::default(),
     }
 }

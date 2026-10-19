@@ -740,6 +740,21 @@ fn booklet_sheets(
     Ok((sheets, blanks))
 }
 
+/// The height of the strip at the bottom of the printable area that holds
+/// the labels of poster tiles: the tiles' content stays above it, so a label
+/// never covers any of the poster.
+pub const LABEL_STRIP: f32 = 9.0;
+
+/// The area of a poster tile: the printable area, less the label strip.
+fn tile_area(paper: &Paper, landscape: bool, labels: bool) -> [f32; 4] {
+    let a = area(paper, landscape);
+    if labels {
+        [a[0], a[1] + LABEL_STRIP, a[2], a[3] - LABEL_STRIP]
+    } else {
+        a
+    }
+}
+
 /// The label of a row of tiles: A to Z, then AA, AB, ...
 fn row_label(mut r: u32) -> String {
     let mut out = Vec::new();
@@ -784,7 +799,7 @@ fn poster(
         let mut best: Option<(u32, u32, bool)> = None;
         let mut any_area = false;
         for &landscape in orientations {
-            let ar = area(&opts.paper, landscape);
+            let ar = tile_area(&opts.paper, landscape, labels);
             if ar[2] <= 1.0 || ar[3] <= 1.0 {
                 continue;
             }
@@ -810,7 +825,7 @@ fn poster(
             return Err(PlanError::TooManySheets);
         }
         first_grid.get_or_insert((cols, rows));
-        let ar = area(&opts.paper, landscape);
+        let ar = tile_area(&opts.paper, landscape, labels);
         let (sx, sy) = (ar[2] - o, ar[3] - o);
         let ox = (cols as f32 * sx + o - pw) / 2.0;
         let oy = (rows as f32 * sy + o - ph) / 2.0;
@@ -838,9 +853,10 @@ fn poster(
                 }
                 if labels {
                     let k = r * cols + c + 1;
+                    // In the strip under the content.
                     marks.push(Mark::Label {
                         x: ar[0] + 4.0,
-                        y: ar[1] + 4.0,
+                        y: ar[1] - LABEL_STRIP + 2.5,
                         text: format!("p{} {}{} ({k}/{n})", p + 1, row_label(r), c + 1),
                     });
                 }
@@ -1241,7 +1257,7 @@ mod tests {
                 scale_pct: 200.0,
                 overlap,
                 cut_marks: true,
-                labels: true,
+                labels: false,
             })
         };
         let p = plan(&[0], &geoms, &poster(0.0)).unwrap();
@@ -1273,15 +1289,55 @@ mod tests {
         assert_eq!(lines(&p.sheets[0]), 4);
         assert_eq!(lines(&p.sheets[1]), 2);
         assert_eq!(lines(&p.sheets[5]), 0);
-        let label = p.sheets[5].marks.iter().find_map(|m| match m {
-            Mark::Label { text, .. } => Some(text.clone()),
-            _ => None,
-        });
-        assert_eq!(label.as_deref(), Some("p1 C2 (6/6)"));
         assert_eq!(
             plan(&[0], &geoms, &poster(400.0)),
             Err(PlanError::OverlapTooLarge)
         );
+    }
+
+    #[test]
+    fn poster_labels_never_cover_the_poster() {
+        let geoms = [geom(A4.0, A4.1)];
+        for (overlap, margins) in [(0.0, [0.0; 4]), (5.0, [12.0; 4]), (20.0, [10.0, 30.0, 8.0, 12.0])] {
+            let mut o = opts(Layout::Poster {
+                scale_pct: 300.0,
+                overlap,
+                cut_marks: true,
+                labels: true,
+            });
+            o.paper.margins = margins;
+            let p = plan(&[0], &geoms, &o).unwrap();
+            let Some(PlanWarning::Tiles { cols, rows }) = p.warnings.first().cloned() else {
+                panic!("no tiles");
+            };
+            assert_eq!(p.sheets.len() as u32, cols * rows);
+            for (i, s) in p.sheets.iter().enumerate() {
+                let clip = s.placements[0].clip;
+                let full = area(&s.paper, s.landscape);
+                let (x, y, text) = s
+                    .marks
+                    .iter()
+                    .find_map(|m| match m {
+                        Mark::Label { x, y, text } => Some((*x, *y, text.clone())),
+                        _ => None,
+                    })
+                    .unwrap();
+                // The label (6 pt text: 1.5 pt under its baseline, 4.5 pt above)
+                // lies under the content and inside the printable area.
+                assert!(
+                    y + 4.5 <= clip[1],
+                    "tile {i}: label at {y}, content from {}",
+                    clip[1]
+                );
+                assert!(y - 1.5 >= full[1], "tile {i}");
+                assert!(x >= full[0]);
+                if i + 1 == p.sheets.len() {
+                    // The last tile: the last row and column.
+                    let n = cols * rows;
+                    assert_eq!(text, format!("p1 {}{} ({n}/{n})", row_label(rows - 1), cols));
+                }
+            }
+        }
     }
 
     #[test]

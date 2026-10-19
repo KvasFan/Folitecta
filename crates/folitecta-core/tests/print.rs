@@ -256,7 +256,7 @@ fn poster_tiles_show_the_quarters_of_the_page() {
             scale_pct: 200.0,
             overlap: 0.0,
             cut_marks: true,
-            labels: true,
+            labels: false,
         },
         a4(),
     );

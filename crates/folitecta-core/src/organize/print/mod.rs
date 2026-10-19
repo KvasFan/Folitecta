@@ -11,9 +11,12 @@
 //! as pictures (printing as an image, and the bands of the printers that
 //! receive pixels). The document itself never changes.
 
+pub mod build;
 pub mod paper;
 pub mod plan;
+pub mod raster;
 
+pub use build::{BuildOptions, PrintSeed, PrintSource, validate};
 pub use paper::{
     STANDARD_PAPERS, StandardPaper, closest_paper, default_paper_key, media_size, paper_for_key, same_size,
     standard_name,
@@ -22,6 +25,7 @@ pub use plan::{
     Face, MAX_SIDES, Mark, Placement, PlanError, PlanWarning, PrintPlan, Sheet, apply, mul, nup_grid,
     page_matrix, plan, select,
 };
+pub use raster::sheets_as_images;
 
 use serde::{Deserialize, Serialize};
 

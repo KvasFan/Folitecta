@@ -38,7 +38,8 @@ impl SecurityPermissions {
     fn to_lopdf(self) -> Permissions {
         let mut p = Permissions::empty();
         if self.print {
-            p |= Permissions::PRINTABLE;
+            // Printing at full quality, not only a low-resolution picture.
+            p |= Permissions::PRINTABLE | Permissions::PRINTABLE_IN_HIGH_QUALITY;
         }
         if self.modify {
             p |= Permissions::MODIFIABLE;

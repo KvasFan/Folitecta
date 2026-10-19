@@ -193,6 +193,29 @@ impl Document {
         Ok(doc)
     }
 
+    /// A private copy over objects already read (printing): never saved,
+    /// without history or protection.
+    pub(crate) fn detached(inner: lopdf::Document, bytes: Arc<Vec<u8>>) -> Self {
+        Document {
+            inner,
+            path: None,
+            name_hint: None,
+            source: None,
+            bytes,
+            revision: 0,
+            dirty: false,
+            undo: Vec::new(),
+            redo: Vec::new(),
+            helv_font: None,
+            source_encrypted: false,
+            protection: None,
+            text_cache: Default::default(),
+            marked_cache: Default::default(),
+            struct_cache: Default::default(),
+            image_cache: Default::default(),
+        }
+    }
+
     /// Create a new document with `pages` blank pages of the given size (points).
     pub fn new_blank(pages: usize, width: f32, height: f32) -> Result<Self> {
         let pages = pages.max(1);

@@ -32,10 +32,6 @@ fn matrix_of(doc: &lopdf::Document, dict: &Dictionary) -> [f32; 6] {
         .unwrap_or([1.0, 0.0, 0.0, 1.0, 0.0, 0.0])
 }
 
-fn apply(m: [f32; 6], x: f32, y: f32) -> (f32, f32) {
-    (m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5])
-}
-
 impl Document {
     /// The normal appearance stream of an annotation (resolving `/AS` sub-states).
     fn normal_appearance(&self, annot: &Dictionary) -> Option<ObjectId> {
@@ -138,26 +134,9 @@ impl Document {
                         .ok()
                         .and_then(|b| rect_of(&self.inner, b))
                         .unwrap_or(rect);
-                    let m = matrix_of(&self.inner, &form);
-                    // Transformed appearance box (PDF 32000-1, 12.5.5).
-                    let corners = [
-                        apply(m, bbox[0], bbox[1]),
-                        apply(m, bbox[2], bbox[1]),
-                        apply(m, bbox[0], bbox[3]),
-                        apply(m, bbox[2], bbox[3]),
-                    ];
-                    let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
-                    for (x, y) in corners {
-                        x0 = x0.min(x);
-                        y0 = y0.min(y);
-                        x1 = x1.max(x);
-                        y1 = y1.max(y);
-                    }
-                    let (bw, bh) = ((x1 - x0).max(0.001), (y1 - y0).max(0.001));
-                    let sx = (rect[2] - rect[0]) / bw;
-                    let sy = (rect[3] - rect[1]) / bh;
-                    let tx = rect[0] - x0 * sx;
-                    let ty = rect[1] - y0 * sy;
+                    // The transformed appearance box on the rectangle (PDF 32000-1, 12.5.5).
+                    let [sx, _, _, sy, tx, ty] =
+                        crate::print::build::appearance_matrix(bbox, matrix_of(&self.inner, &form), rect);
                     // Make sure the form is a proper XObject.
                     if let Ok(Object::Stream(s)) = self.inner.get_object_mut(ap_id) {
                         s.dict.set("Type", Object::Name(b"XObject".to_vec()));

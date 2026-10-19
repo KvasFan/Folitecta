@@ -1604,18 +1604,18 @@ fn open_properties(
         .await;
         match chosen {
             Ok(Ok(Some(bytes))) => {
-                let f = printing::devmode::read_fields(&bytes);
-                sides.set(match f.duplex {
-                    printing::devmode::DMDUP_VERTICAL => Sides::LongEdge,
-                    printing::devmode::DMDUP_HORIZONTAL => Sides::ShortEdge,
-                    _ => Sides::OneSided,
-                });
-                gray.set(f.color == printing::devmode::DMCOLOR_MONOCHROME);
-                if f.copies > 0 {
-                    copies.set(f.copies.to_string());
+                let c = printing::devmode::chosen(&bytes);
+                if let Some(s) = c.sides {
+                    sides.set(s);
                 }
-                if f.paper > 0 && f.paper != printing::devmode::DMPAPER_USER {
-                    paper_key.set(format!("dm:{}", f.paper));
+                if let Some(g) = c.gray {
+                    gray.set(g);
+                }
+                if let Some(n) = c.copies {
+                    copies.set(n.to_string());
+                }
+                if let Some(key) = c.paper {
+                    paper_key.set(key);
                 }
                 *PROPERTIES.write() = Some((printer, bytes));
             }

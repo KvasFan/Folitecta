@@ -228,6 +228,32 @@ pub fn read_fields(dm: &[u8]) -> DevFields {
     }
 }
 
+/// What the driver's own settings window chose, for the print window.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Chosen {
+    pub sides: Option<Sides>,
+    pub gray: Option<bool>,
+    pub copies: Option<u32>,
+    /// The media key of the paper (`dm:<code>`).
+    pub paper: Option<String>,
+}
+
+/// The settings of the bytes of a DEVMODE that the print window shows.
+pub fn chosen(dm: &[u8]) -> Chosen {
+    let f = read_fields(dm);
+    Chosen {
+        sides: (f.fields & DM_DUPLEX != 0).then_some(match f.duplex {
+            DMDUP_VERTICAL => Sides::LongEdge,
+            DMDUP_HORIZONTAL => Sides::ShortEdge,
+            _ => Sides::OneSided,
+        }),
+        gray: (f.fields & DM_COLOR != 0).then_some(f.color == DMCOLOR_MONOCHROME),
+        copies: (f.fields & DM_COPIES != 0 && f.copies > 0).then_some(f.copies as u32),
+        paper: (f.fields & DM_PAPERSIZE != 0 && f.paper > 0 && f.paper != DMPAPER_USER)
+            .then(|| format!("dm:{}", f.paper)),
+    }
+}
+
 /// The sides in sending order when Folitecta makes `copies` copies of `n`
 /// sides: whole copies one after the other (collated), or each sheet
 /// repeated (two sides at a time when two-sided).
@@ -461,6 +487,33 @@ mod tests {
         let mut short = vec![0u8; 10];
         write_fields(&mut short, &f);
         assert!(short.iter().all(|b| *b == 0));
+    }
+
+    #[test]
+    fn the_drivers_choices_come_back_to_the_window() {
+        let mut dm = vec![0u8; PUBLIC_SIZE];
+        assert_eq!(chosen(&dm), Chosen::default());
+        let short = JobTicket {
+            sides: Sides::ShortEdge,
+            gray: true,
+            copies: 3,
+            ..ticket()
+        };
+        let (f, _) = job_fields(&short, A4, &caps());
+        write_fields(&mut dm, &f);
+        assert_eq!(
+            chosen(&dm),
+            Chosen {
+                sides: Some(Sides::ShortEdge),
+                gray: Some(true),
+                copies: Some(3),
+                paper: Some("dm:9".into()),
+            }
+        );
+        // A paper of the user's size has no code to choose.
+        let (f, _) = job_fields(&ticket(), (300.0, 400.0), &caps());
+        write_fields(&mut dm, &f);
+        assert_eq!(chosen(&dm).paper, None);
     }
 
     #[test]

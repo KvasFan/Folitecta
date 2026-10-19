@@ -31,6 +31,8 @@ struct Progress {
     /// The checks and steps that ran while the window was not drawn.
     not_drawn: Vec<String>,
     drawn: bool,
+    /// The inner size last asked for the window.
+    asked: Option<(f64, f64)>,
 }
 
 static PROGRESS: Mutex<Option<Progress>> = Mutex::new(None);
@@ -65,6 +67,7 @@ pub(super) fn open(dir: &Path) {
         finished: false,
         not_drawn: Vec::new(),
         drawn: true,
+        asked: None,
     });
     watchdog();
 }
@@ -142,6 +145,16 @@ pub(super) async fn window_drawn() -> bool {
         });
     }
     drawn
+}
+
+/// The window was asked to take this inner size.
+pub(super) fn asked_size(w: f64, h: f64) {
+    with(|p| p.asked = Some((w, h)));
+}
+
+/// The inner size last asked for the window.
+pub(super) fn asked() -> Option<(f64, f64)> {
+    with(|p| p.asked).flatten()
 }
 
 /// The checks and steps that ran while the window was not drawn.

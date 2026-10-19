@@ -121,17 +121,24 @@ for (const root of document.querySelectorAll(chrome)) {
     if (ratio < 3) problems.push({ kind: 'low-contrast', el: desc(el), ratio: Math.round(ratio * 100) / 100 });
   }
 }
-return JSON.stringify({ vw, vh, problems });
+return JSON.stringify({ vw, vh, sw: screen.availWidth, sh: screen.availHeight, problems });
 "#;
 
 async fn pause(ms: u64) {
     tokio::time::sleep(Duration::from_millis(ms)).await;
 }
 
+/// Give the window an inner size. Only a maximized window is unmaximized
+/// first: on Wayland the request goes to the compositor even for a window
+/// that is not maximized, and its answer (the current size) arrived after the
+/// new size and put the old one back, so most sizes were never applied.
 fn set_size(w: f64, h: f64) {
     let window = dioxus::desktop::window();
-    window.set_maximized(false);
+    if window.is_maximized() {
+        window.set_maximized(false);
+    }
     window.set_inner_size(LogicalSize::new(w, h));
+    progress::asked_size(w, h);
 }
 
 /// A sample document with text, marks, comments and bookmarks.
@@ -209,6 +216,22 @@ async fn check(st: AppState, dir: &std::path::Path, name: &str, log: &mut Vec<se
     let timeouts = take_timeouts();
     count += timeouts.len();
     let mut entry = serde_json::json!({ "state": name, "audit": audit, "drawn": drawn });
+    // An audit at another size than the one asked checks the wrong layout. A
+    // size larger than the screen may be cut by the system (noted only).
+    let got = (audit["vw"].as_f64(), audit["vh"].as_f64());
+    if let (Some((w, h)), (Some(vw), Some(vh))) = (progress::asked(), got) {
+        if (vw - w).abs() > 2.0 || (vh - h).abs() > 2.0 {
+            let screen = (audit["sw"].as_f64(), audit["sh"].as_f64());
+            let fits = match screen {
+                (Some(sw), Some(sh)) => w <= sw && h <= sh,
+                _ => true,
+            };
+            if fits {
+                count += 1;
+            }
+            entry["size"] = serde_json::json!({ "asked": [w, h], "got": [vw, vh], "screen": [screen.0, screen.1], "counted": fits });
+        }
+    }
     if cfg!(target_os = "windows") {
         let shot = dir.join(format!("{name}.png"));
         let capture = capture_window(&shot);

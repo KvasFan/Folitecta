@@ -196,6 +196,9 @@ pub fn App() -> Element {
         }
     });
 
+    // Hardware acceleration of the web view.
+    use_hook(|| crate::gpu::apply(&dioxus::desktop::window()));
+
     // Copies of the documents with unsaved changes, and the ones left behind.
     use_hook(|| crate::recovery::start(st));
 

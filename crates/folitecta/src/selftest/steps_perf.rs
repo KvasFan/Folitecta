@@ -485,6 +485,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             machine.insert(var.into(), json!(v));
         }
     }
+    machine.insert("gpu".into(), crate::gpu::report());
     machine.insert(
         "processors".into(),
         json!(std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1)),

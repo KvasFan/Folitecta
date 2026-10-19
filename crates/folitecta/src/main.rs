@@ -6,6 +6,7 @@ mod clipboard;
 mod commands;
 mod features;
 mod files;
+mod gpu;
 mod http;
 mod i18n;
 mod icons;
@@ -83,6 +84,9 @@ fn main() {
         .map(PathBuf::from)
         .collect();
 
+    // Hardware acceleration of the web view: decided before the window and
+    // its web process start.
+    gpu::prepare_environment();
     let icon = icon_from_memory::<Icon>(ICON_PNG).ok();
     let window = WindowBuilder::new()
         .with_title("Folitecta")
@@ -94,7 +98,9 @@ fn main() {
         .with_menu(None::<dioxus::desktop::muda::Menu>)
         .with_custom_head(format!("<meta charset=\"utf-8\"><style>{}</style>", theme::CSS))
         .with_disable_context_menu(!cfg!(debug_assertions))
-        .with_background_color((238, 240, 246, 255));
+        .with_background_color((238, 240, 246, 255))
+        // The environment of the web view is set by `gpu` instead.
+        .with_disable_dma_buf_on_wayland(false);
     if let Some(icon) = icon {
         config = config.with_icon(icon);
     }

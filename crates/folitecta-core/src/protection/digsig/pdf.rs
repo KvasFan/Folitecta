@@ -8,8 +8,16 @@ use x509_cert::Certificate;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use std::collections::HashMap;
+
 use super::cms_sig::{issued_by, sign_detached_stamped, verify_detached};
+use super::dss::{MaterialPlan, RevisionKind, SourceAnalysis, revision_ends};
 use super::id::{CertInfo, DigitalId, cert_info};
+use super::revocation::{
+    CertRevocation, ChainCheck, EvidenceStore, FetchFailure, FetchProblem, FetchSummary, Finding,
+    RevocationArchive, RevocationKind, RevocationNote, RevocationPool, RevocationRequest, RevocationSource,
+    RevocationState, RevocationTransport, TimeBasis, TimeFrame, check_chain,
+};
 use super::timestamp::{self, TimeStampCheck, Transport};
 use crate::document::{Document, Source};
 use crate::error::{Error, Result};
@@ -67,6 +75,9 @@ pub struct SignOptions {
     pub time: u64,
     /// Labels of the appearance: "Digitally signed by", "Date", "Reason", "Location".
     pub labels: [String; 4],
+    /// Revocation data written into the signature (its signed revocation
+    /// information attribute, ISO 32000-1 12.8.3.3.2); none by default.
+    pub revocation_archive: RevocationArchive,
 }
 
 impl Default for SignOptions {
@@ -85,6 +96,7 @@ impl Default for SignOptions {
                 "Reason".into(),
                 "Location".into(),
             ],
+            revocation_archive: RevocationArchive::default(),
         }
     }
 }
@@ -117,8 +129,12 @@ pub struct SignatureStatus {
     /// Length of the signed revision in bytes.
     pub revision_len: usize,
     /// Every later revision of the file ends with a valid document time
-    /// stamp (what else those revisions change is not analysed).
+    /// stamp or only adds validation material (what else the time stamp
+    /// revisions change is not analysed), and one at least is a time stamp.
     pub later_revisions_time_stamped: bool,
+    /// There are later revisions and each only adds validation material (or
+    /// changes nothing the document shows): what was signed is unchanged.
+    pub later_revisions_material: bool,
     /// A document time stamp (`ETSI.RFC3161`): the time of a revision, proven
     /// by an authority, without a signer.
     pub document_time_stamp: bool,
@@ -126,6 +142,13 @@ pub struct SignatureStatus {
     pub time_stamp: Option<TimeStampStatus>,
     /// The separate checks of the signature.
     pub checks: SignatureChecks,
+    /// The revocation of each certificate checked (the signer and its
+    /// issuers up to a trusted certificate; for a document time stamp its
+    /// authority and issuers).
+    pub revocation: Vec<CertRevocation>,
+    /// The time the revocation was checked for.
+    pub revocation_at: Option<i64>,
+    pub revocation_basis: TimeBasis,
 }
 
 /// Result of one of the separate checks of a signature.
@@ -153,8 +176,10 @@ pub struct SignatureChecks {
     /// authority (a warning when it comes from the signer's computer or from
     /// an authority that is not trusted).
     pub time: Check,
-    /// Revocation of the certificates (revocation lists and OCSP answers are
-    /// not read yet).
+    /// Revocation of the certificates of the chain at the signing time, from
+    /// OCSP answers and revocation lists of the signature, its time stamp,
+    /// the document security store or fetched online (not applicable to
+    /// self-signed and directly trusted certificates without an issuer).
     pub revocation: Check,
 }
 
@@ -174,6 +199,9 @@ pub struct TimeStampStatus {
     /// The authority, or one of its issuers, is trusted.
     pub trusted: bool,
     pub problems: Vec<String>,
+    /// The revocation of the certificates of the authority of a signature's
+    /// time stamp, at the time of the stamp.
+    pub revocation: Vec<CertRevocation>,
 }
 
 const PLACEHOLDER_RANGE: &[u8] = b"[0 1000000000 1000000000 1000000000]";
@@ -228,7 +256,7 @@ fn now_unix() -> u64 {
 }
 
 /// PDF date string of a Unix time (UTC).
-fn pdf_date(secs: u64) -> String {
+pub(crate) fn pdf_date(secs: u64) -> String {
     time::OffsetDateTime::from_unix_timestamp(secs as i64)
         .ok()
         .and_then(|t| {
@@ -266,7 +294,14 @@ fn chain_of(
         if cur.tbs_certificate.subject == cur.tbs_certificate.issuer {
             break;
         }
-        match certificates.iter().find(|c| issued_by(&cur, c)) {
+        // Candidates named as the issuer, a few at most (a store may carry
+        // many certificates).
+        let found = certificates
+            .iter()
+            .filter(|c| c.tbs_certificate.subject == cur.tbs_certificate.issuer)
+            .take(16)
+            .find(|c| issued_by(&cur, c));
+        match found {
             Some(issuer) => {
                 chain.push(issuer.clone());
                 cur = issuer.clone();
@@ -282,11 +317,15 @@ fn chain_of(
     (chain, ok)
 }
 
-fn time_stamp_status(check: &TimeStampCheck, trusted: &[Certificate]) -> TimeStampStatus {
+fn time_stamp_status(
+    check: &TimeStampCheck,
+    trusted: &[Certificate],
+    dss_certs: &[Certificate],
+) -> TimeStampStatus {
     let (authority, authority_cert, is_trusted) = match &check.authority {
         Some(cert) => {
             let info = cert_info(cert);
-            let (_, ok) = chain_of(cert, &check.certificates, trusted);
+            let (_, ok) = chain_of(cert, &with(&check.certificates, dss_certs), trusted);
             (info.common_name.clone(), Some(info), ok)
         }
         None => (String::new(), None, false),
@@ -299,18 +338,8 @@ fn time_stamp_status(check: &TimeStampCheck, trusted: &[Certificate]) -> TimeSta
         valid: check.valid() && check.usage_ok,
         trusted: is_trusted,
         problems: check.problems.clone(),
+        revocation: Vec::new(),
     }
-}
-
-/// Where each revision of `data` ends: just after each `%%EOF` marker.
-fn revision_ends(data: &[u8]) -> Vec<usize> {
-    let mut out = Vec::new();
-    let mut from = 0;
-    while let Some(i) = find(&data[from..], b"%%EOF") {
-        from += i + 5;
-        out.push(from);
-    }
-    out
 }
 
 /// The end of the first `len` bytes of `data` without the line ends and
@@ -325,8 +354,10 @@ fn content_end(data: &[u8], len: usize) -> usize {
 
 /// The separate checks of a validated signature: `value_ok` when its value
 /// verifies with the certificate, `cert_in_time` when the certificate was
-/// valid at the (proven or claimed) signing time.
-fn checks_of(s: &SignatureStatus, value_ok: bool, cert_in_time: bool) -> SignatureChecks {
+/// valid at the (proven or claimed) signing time, `revocation` the check of
+/// its chain (the integrity of signatures followed by later revisions is
+/// settled once those are analysed).
+fn checks_of(s: &SignatureStatus, value_ok: bool, cert_in_time: bool, revocation: Check) -> SignatureChecks {
     let integrity = if !s.valid {
         Check::Failed
     } else if !s.covers_document {
@@ -350,7 +381,7 @@ fn checks_of(s: &SignatureStatus, value_ok: bool, cert_in_time: bool) -> Signatu
         integrity,
         identity,
         time,
-        revocation: Check::NotChecked,
+        revocation,
     }
 }
 
@@ -454,7 +485,14 @@ impl Document {
             .chain(id.chain.iter())
             .map(|c| c.to_der().map(|d| d.len()).unwrap_or(2000))
             .sum();
-        let reserve = (cert_sizes + 4096).max(8192) + if tsa.is_some() { TOKEN_RESERVE } else { 0 };
+        let archive = &opts.revocation_archive;
+        let reserve = (cert_sizes + 4096).max(8192)
+            + if tsa.is_some() { TOKEN_RESERVE } else { 0 }
+            + if archive.is_empty() {
+                0
+            } else {
+                archive.byte_len() + 64
+            };
         let mut work = self.work_copy()?;
         let mut sig = dictionary! {
             "Type" => "Sig",
@@ -502,7 +540,7 @@ impl Document {
         work.attach_signature(sig_id, &info, opts, time)?;
         work.commit()?;
         work.signed_file(sig_id, reserve, |parts| {
-            sign_detached_stamped(id, parts, time, tsa)
+            sign_detached_stamped(id, parts, time, archive, tsa)
         })
     }
 
@@ -611,6 +649,7 @@ impl Document {
         fill(Arc::make_mut(&mut next.objects));
         self.inner.max_id = self.inner.max_id.max(next.skeleton.max_id);
         let bytes = Arc::new(data.clone());
+        let analysis = Arc::new(SourceAnalysis::of(&self.inner));
         let doc = Document::signed_state(
             self,
             protection,
@@ -618,6 +657,7 @@ impl Document {
                 bytes,
                 signed: true,
                 decrypted: Some(Arc::new(next)),
+                analysis,
             },
         )?;
         Ok(SignedFile {
@@ -839,248 +879,140 @@ impl Document {
             .unwrap_or(field_id)
     }
 
-    /// Validate every signature against the file as it was opened or saved.
-    pub fn validate_signatures(&self, trusted: &[Certificate]) -> Vec<SignatureStatus> {
-        let data = self.signed_bytes();
-        let state = match (&self.source, self.protection()) {
+    /// What the validation of the signatures reads from the document, taken
+    /// quickly: the checks themselves can then run on another thread.
+    pub fn validation_job(&self) -> ValidationJob {
+        let doc = &self.inner;
+        let pages = self.page_ids();
+        let sigs = self
+            .signed_fields()
+            .into_iter()
+            .map(|(field_id, name, sig)| {
+                let text = |k: &[u8]| dict_text(doc, &sig, k).unwrap_or_default();
+                let certify = sig
+                    .get(b"Reference")
+                    .ok()
+                    .map(|r| deref(doc, r))
+                    .and_then(|r| r.as_array().ok())
+                    .and_then(|refs| {
+                        refs.iter().find_map(|r| {
+                            let r = deref(doc, r).as_dict().ok()?;
+                            if r.get(b"TransformMethod").ok()?.as_name().ok()? != b"DocMDP" {
+                                return None;
+                            }
+                            let p = r
+                                .get(b"TransformParams")
+                                .ok()
+                                .map(|t| deref(doc, t))
+                                .and_then(|t| t.as_dict().ok())
+                                .and_then(|t| t.get(b"P").ok())
+                                .and_then(|p| p.as_i64().ok())
+                                .unwrap_or(2);
+                            Some(p.clamp(1, 3) as u8)
+                        })
+                    });
+                SigInput {
+                    page: self
+                        .field_widgets(field_id)
+                        .first()
+                        .and_then(|w| doc.get_dictionary(*w).ok())
+                        .and_then(|w| w.get(b"P").ok())
+                        .and_then(|p| p.as_reference().ok())
+                        .and_then(|p| pages.iter().position(|x| *x == p)),
+                    holder: self.signature_holder(field_id),
+                    signer: text(b"Name"),
+                    m: text(b"M"),
+                    reason: text(b"Reason"),
+                    location: text(b"Location"),
+                    contact: text(b"ContactInfo"),
+                    sub_filter: sig
+                        .get(b"SubFilter")
+                        .ok()
+                        .and_then(|s| s.as_name().ok())
+                        .map(|s| String::from_utf8_lossy(s).to_string())
+                        .unwrap_or_default(),
+                    certify,
+                    ranges: sig
+                        .get(b"ByteRange")
+                        .ok()
+                        .map(|r| deref(doc, r))
+                        .and_then(|r| r.as_array().ok())
+                        .map(|a| {
+                            a.iter()
+                                .filter_map(|v| v.as_i64().ok())
+                                .map(|v| v.max(0) as usize)
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                    contents: match sig.get(b"Contents").ok().map(|c| deref(doc, c)) {
+                        Some(Object::String(b, _)) => b.clone(),
+                        _ => Vec::new(),
+                    },
+                    field: name,
+                }
+            })
+            .collect();
+        let (data, analysis) = match &self.source {
+            Some(s) => (s.bytes.clone(), s.analysis.clone()),
+            None => (self.bytes(), Arc::new(SourceAnalysis::of(&self.inner))),
+        };
+        let protection = match (&self.source, self.protection()) {
             (
                 Some(Source {
                     decrypted: Some(_), ..
                 }),
                 Some(p),
-            ) => Some(p.state()),
+            ) => Some(p.clone()),
             _ => None,
         };
-        let doc = &self.inner;
-        let pages = self.page_ids();
-        let mut out = Vec::new();
-        for (field_id, name, sig) in self.signed_fields() {
-            let text = |k: &[u8]| dict_text(doc, &sig, k).unwrap_or_default();
-            let sub_filter = sig
-                .get(b"SubFilter")
-                .ok()
-                .and_then(|s| s.as_name().ok())
-                .map(|s| String::from_utf8_lossy(s).to_string())
-                .unwrap_or_default();
-            let page = self
-                .field_widgets(field_id)
-                .first()
-                .and_then(|w| doc.get_dictionary(*w).ok())
-                .and_then(|w| w.get(b"P").ok())
-                .and_then(|p| p.as_reference().ok())
-                .and_then(|p| pages.iter().position(|x| *x == p));
-            let certify = sig
-                .get(b"Reference")
-                .ok()
-                .map(|r| deref(doc, r))
-                .and_then(|r| r.as_array().ok())
-                .and_then(|refs| {
-                    refs.iter().find_map(|r| {
-                        let r = deref(doc, r).as_dict().ok()?;
-                        if r.get(b"TransformMethod").ok()?.as_name().ok()? != b"DocMDP" {
-                            return None;
-                        }
-                        let p = r
-                            .get(b"TransformParams")
-                            .ok()
-                            .map(|t| deref(doc, t))
-                            .and_then(|t| t.as_dict().ok())
-                            .and_then(|t| t.get(b"P").ok())
-                            .and_then(|p| p.as_i64().ok())
-                            .unwrap_or(2);
-                        Some(p.clamp(1, 3) as u8)
-                    })
-                });
-            let mut status = SignatureStatus {
-                field: name,
-                page,
-                signer: text(b"Name"),
-                time: util::pdf_date_display(&text(b"M")),
-                reason: text(b"Reason"),
-                location: text(b"Location"),
-                contact: text(b"ContactInfo"),
-                sub_filter,
-                digest_algorithm: String::new(),
-                valid: false,
-                covers_document: false,
-                certify,
-                trusted: false,
-                cert: None,
-                chain: Vec::new(),
-                problems: Vec::new(),
-                revision_len: 0,
-                later_revisions_time_stamped: false,
-                document_time_stamp: false,
-                time_stamp: None,
-                checks: SignatureChecks::default(),
-            };
-            let ranges: Vec<usize> = sig
-                .get(b"ByteRange")
-                .ok()
-                .map(|r| deref(doc, r))
-                .and_then(|r| r.as_array().ok())
-                .map(|a| {
-                    a.iter()
-                        .filter_map(|v| v.as_i64().ok())
-                        .map(|v| v.max(0) as usize)
-                        .collect()
-                })
-                .unwrap_or_default();
-            let model_contents = match sig.get(b"Contents").ok().map(|c| deref(doc, c)) {
-                Some(Object::String(b, _)) => b.clone(),
-                _ => Vec::new(),
-            };
-            if ranges.len() != 4 || model_contents.is_empty() {
-                status
-                    .problems
-                    .push("the signature has no byte range or contents".into());
-                status.checks = checks_of(&status, false, false);
-                out.push(status);
-                continue;
-            }
-            let (a, b, c, d) = (ranges[0], ranges[1], ranges[2], ranges[3]);
-            if a + b > data.len() || c + d > data.len() || a + b > c {
-                status
-                    .problems
-                    .push("the byte range does not fit the file".into());
-                status.checks = checks_of(&status, false, false);
-                out.push(status);
-                continue;
-            }
-            // The value is the one the byte range leaves out, and that gap is
-            // exactly the /Contents string of this signature: a gap moved or
-            // widened (to hide other bytes) makes the signature invalid.
-            let holder = self.signature_holder(field_id);
-            let contents = encrypted::bound_value(&data, (a + b, c), holder)
-                .map(|raw| encrypted::readable_value(state, holder, &raw))
-                .filter(|v| *v == model_contents);
-            let Some(contents) = contents else {
-                status
-                    .problems
-                    .push("the bytes the byte range leaves out are not the value of this signature".into());
-                status.checks = checks_of(&status, false, false);
-                out.push(status);
-                continue;
-            };
-            status.revision_len = c + d;
-            status.covers_document = c + d == data.len();
-            let parts = [&data[a..a + b], &data[c..c + d]];
-            let mut value_ok = false;
-            let mut cert_in_time = true;
-            if status.sub_filter == "ETSI.RFC3161" {
-                // A document time stamp: the token itself is the signature.
-                status.document_time_stamp = true;
-                match timestamp::check_token(&contents, &parts) {
-                    Ok(check) => {
-                        let ts = time_stamp_status(&check, trusted);
-                        status.valid = check.valid();
-                        value_ok = check.signature_ok;
-                        status.digest_algorithm = check.digest_algorithm.clone();
-                        status.problems.extend(check.problems.iter().cloned());
-                        status.signer = ts.authority.clone();
-                        status.time = ts.time.clone();
-                        status.trusted = ts.trusted;
-                        status.cert = ts.authority_cert.clone();
-                        if let Some(cert) = &check.authority {
-                            let (chain, _) = chain_of(cert, &check.certificates, trusted);
-                            status.chain = chain.iter().map(cert_info).collect();
-                        }
-                        status.time_stamp = Some(ts);
-                    }
-                    Err(e) => status.problems.push(e.to_string()),
-                }
-            } else {
-                match verify_detached(&contents, &parts) {
-                    Ok(check) => {
-                        status.valid = check.digest_ok && check.signature_ok;
-                        value_ok = check.signature_ok;
-                        status.digest_algorithm = check.digest_algorithm.clone();
-                        status.problems.extend(check.problems.iter().cloned());
-                        if let Some(t) = check.signing_time {
-                            status.time = display_date(t.max(0) as u64);
-                        }
-                        if let Some(tc) = &check.time_stamp {
-                            let ts = time_stamp_status(tc, trusted);
-                            for p in &ts.problems {
-                                status.problems.push(format!("time stamp: {p}"));
-                            }
-                            status.time_stamp = Some(ts);
-                        }
-                        if let Some(cert) = &check.signer {
-                            let ci = cert_info(cert);
-                            if status.signer.is_empty() {
-                                status.signer = ci.common_name.clone();
-                            }
-                            // Certificate validity at the signing time: the time of a
-                            // valid time stamp, otherwise the time the signer wrote.
-                            let at = status
-                                .time_stamp
-                                .as_ref()
-                                .filter(|ts| ts.valid)
-                                .map(|ts| ts.time_unix)
-                                .or(check.signing_time);
-                            if let Some(t) = at {
-                                if t < ci.not_before_unix || t > ci.not_after_unix {
-                                    cert_in_time = false;
-                                    status
-                                        .problems
-                                        .push("the certificate was not valid at the signing time".into());
-                                }
-                            }
-                            // Issuer chain from the certificates in the signature.
-                            let (chain, ok) = chain_of(cert, &check.certificates, trusted);
-                            status.trusted = ok;
-                            status.chain = chain.iter().map(cert_info).collect();
-                            status.cert = Some(ci);
-                        }
-                    }
-                    Err(e) => status.problems.push(e.to_string()),
-                }
-            }
-            if !status.covers_document {
-                status.problems.push(match status.certify {
-                    Some(1) => {
-                        "the document was changed after certification, which the certification does not allow"
-                            .into()
-                    }
-                    _ if status.document_time_stamp => {
-                        "the document was changed after the time stamp (in a later revision)".into()
-                    }
-                    _ => "the document was changed after it was signed (in a later revision)".into(),
-                });
-            }
-            status.checks = checks_of(&status, value_ok, cert_in_time);
-            out.push(status);
+        ValidationJob {
+            data,
+            protection,
+            sigs,
+            analysis,
+            stamp: self.validation_stamp(),
         }
-        // Signatures followed only by revisions that end with document time stamps.
-        let stamped: Vec<usize> = out
-            .iter()
-            .filter(|s| s.document_time_stamp && s.valid)
-            .map(|s| content_end(&data, s.revision_len))
-            .collect();
-        let ends = revision_ends(&data);
-        for s in out
-            .iter_mut()
-            .filter(|s| !s.covers_document && s.revision_len > 0)
-        {
-            let own = content_end(&data, s.revision_len);
-            let later: Vec<usize> = ends.iter().copied().filter(|e| *e > own).collect();
-            if later.is_empty() || !later.iter().all(|e| stamped.contains(e)) {
-                continue;
-            }
-            s.later_revisions_time_stamped = true;
-            if s.certify != Some(1) {
-                for p in s
-                    .problems
-                    .iter_mut()
-                    .filter(|p| p.ends_with("(in a later revision)"))
-                {
-                    *p = "later revisions add document time stamps (their other changes are not analysed)"
-                        .into();
-                }
-            }
-        }
-        out
+    }
+
+    /// Validate every signature against the file as it was opened or saved,
+    /// now, with the revocation data the document carries.
+    pub fn validate_signatures(&self, trusted: &[Certificate]) -> Vec<SignatureStatus> {
+        self.validation_job()
+            .run(trusted, &RevocationPool::default(), now_unix() as i64)
+    }
+
+    /// Validate every signature at `now` with the revocation data the
+    /// document carries and those of `pool` (fetched online).
+    pub fn validate_signatures_with(
+        &self,
+        trusted: &[Certificate],
+        pool: &RevocationPool,
+        now: i64,
+    ) -> Vec<SignatureStatus> {
+        self.validation_job().run(trusted, pool, now)
+    }
+
+    /// The requests an online check would send now (see
+    /// [`ValidationJob::revocation_requests`]).
+    pub fn revocation_requests(
+        &self,
+        trusted: &[Certificate],
+        pool: &RevocationPool,
+        now: i64,
+    ) -> Vec<RevocationRequest> {
+        self.validation_job().revocation_requests(trusted, pool, now)
+    }
+
+    /// Ask online for the revocation data the signatures miss (see
+    /// [`ValidationJob::fetch_revocation`]).
+    pub fn fetch_revocation(
+        &self,
+        trusted: &[Certificate],
+        pool: &mut RevocationPool,
+        now: i64,
+        send: &mut RevocationTransport<'_>,
+    ) -> FetchSummary {
+        self.validation_job().fetch_revocation(trusted, pool, now, send)
     }
 
     /// Certificates carried by a signature, the signer's first.
@@ -1133,8 +1065,9 @@ impl Document {
         Ok(data[..ranges[2] + ranges[3]].to_vec())
     }
 
-    /// Remove every signature (the fields stay, empty) and the certification
-    /// (one undo step). Returns how many signatures were removed.
+    /// Remove every signature (the fields stay, empty), the certification
+    /// and the document security store (one undo step). Returns how many
+    /// signatures were removed.
     pub fn clear_signatures(&mut self) -> Result<usize> {
         if self.signed_fields().is_empty() {
             return Ok(0);
@@ -1173,7 +1106,6 @@ impl Document {
         }
         if let Ok(c) = self.inner.catalog_mut() {
             c.remove(b"Perms");
-            c.remove(b"DSS");
         }
         // SignaturesExist and AppendOnly (ISO 32000-1, Table 219).
         let form = self
@@ -1199,10 +1131,753 @@ impl Document {
                 }
             }
         }
+        // The validation material of the signatures goes with them: the
+        // certificates and revocation data name the signers. So do the
+        // signature dictionaries no field holds any more.
+        self.remove_dss();
+        self.inner.prune_objects();
         // Without signatures the document is written whole (the base of
         // updates stays, for an undo that brings them back).
         signed.len()
     }
+}
+
+/// A signature field to validate, as read from the document.
+#[derive(Debug, Clone)]
+struct SigInput {
+    field: String,
+    page: Option<usize>,
+    /// The object of the signature dictionary.
+    holder: ObjectId,
+    signer: String,
+    m: String,
+    reason: String,
+    location: String,
+    contact: String,
+    sub_filter: String,
+    certify: Option<u8>,
+    ranges: Vec<usize>,
+    /// `/Contents` as the document model has it.
+    contents: Vec<u8>,
+}
+
+/// What the validation of the signatures of a document needs, taken from it
+/// quickly ([`Document::validation_job`]): the file the signatures are
+/// checked against, the signature dictionaries and the document security
+/// store of that file. Running it takes the time (signatures, revocation
+/// data, later revisions); it can run on another thread.
+#[derive(Clone)]
+pub struct ValidationJob {
+    data: Arc<Vec<u8>>,
+    /// The protection of an encrypted file (its key reads the values and
+    /// the revisions).
+    protection: Option<crate::security::Protection>,
+    sigs: Vec<SigInput>,
+    analysis: Arc<SourceAnalysis>,
+    stamp: (u64, u64),
+}
+
+/// A signature checked before its revocation and later revisions are.
+struct Checked {
+    status: SignatureStatus,
+    value_ok: bool,
+    cert_in_time: bool,
+    /// The value of `/Contents` (the key of its store entry).
+    contents: Vec<u8>,
+    /// The signer, or the authority of a document time stamp.
+    signer: Option<Certificate>,
+    /// Certificates carried by the signature (and its time stamp).
+    certs: Vec<Certificate>,
+    archive: RevocationArchive,
+    /// The time stamp of a signature, or the token of a document time stamp.
+    stamp: Option<TimeStampCheck>,
+    claimed: Option<i64>,
+}
+
+/// The revocation checks of one validated signature, for the validation
+/// material and the online requests.
+pub(crate) struct SignatureChain {
+    pub(crate) contents: Vec<u8>,
+    /// Certificates the signature (or its time stamp) carries itself.
+    pub(crate) own_certs: Vec<Certificate>,
+    pub(crate) rev: ChainCheck,
+    pub(crate) stamp_rev: Option<ChainCheck>,
+}
+
+/// The text of the problem of a signature followed by other revisions.
+fn later_problem(s: &SignatureStatus) -> String {
+    match s.certify {
+        Some(1) => {
+            "the document was changed after certification, which the certification does not allow".into()
+        }
+        _ if s.document_time_stamp => {
+            "the document was changed after the time stamp (in a later revision)".into()
+        }
+        _ => "the document was changed after it was signed (in a later revision)".into(),
+    }
+}
+
+/// At most this many requests are sent in one online check.
+const MAX_REQUESTS: usize = 16;
+/// An online check stops sending requests after this time.
+const RUN_LIMIT: std::time::Duration = std::time::Duration::from_secs(180);
+
+impl ValidationJob {
+    /// The state of the document the job was taken from (its revision and
+    /// how many times it was saved).
+    pub fn stamp(&self) -> (u64, u64) {
+        self.stamp
+    }
+
+    /// The document has signatures.
+    pub fn has_signatures(&self) -> bool {
+        !self.sigs.is_empty()
+    }
+
+    /// Validate every signature at `now`, with the revocation data the file
+    /// carries and those of `pool`.
+    pub fn run(&self, trusted: &[Certificate], pool: &RevocationPool, now: i64) -> Vec<SignatureStatus> {
+        self.run_with_chains(trusted, pool, now)
+            .into_iter()
+            .map(|(s, _)| s)
+            .collect()
+    }
+
+    /// Check the byte range, value, signer and time stamp of one signature.
+    fn check_one(&self, input: &SigInput, trusted: &[Certificate], dss_certs: &[Certificate]) -> Checked {
+        let data = &self.data;
+        let state = self.protection.as_ref().map(|p| p.state());
+        let status = SignatureStatus {
+            field: input.field.clone(),
+            page: input.page,
+            signer: input.signer.clone(),
+            time: util::pdf_date_display(&input.m),
+            reason: input.reason.clone(),
+            location: input.location.clone(),
+            contact: input.contact.clone(),
+            sub_filter: input.sub_filter.clone(),
+            digest_algorithm: String::new(),
+            valid: false,
+            covers_document: false,
+            certify: input.certify,
+            trusted: false,
+            cert: None,
+            chain: Vec::new(),
+            problems: Vec::new(),
+            revision_len: 0,
+            later_revisions_time_stamped: false,
+            later_revisions_material: false,
+            document_time_stamp: false,
+            time_stamp: None,
+            checks: SignatureChecks::default(),
+            revocation: Vec::new(),
+            revocation_at: None,
+            revocation_basis: TimeBasis::Now,
+        };
+        let mut out = Checked {
+            status,
+            value_ok: false,
+            cert_in_time: true,
+            contents: Vec::new(),
+            signer: None,
+            certs: Vec::new(),
+            archive: RevocationArchive::default(),
+            stamp: None,
+            claimed: util::pdf_date_unix(&input.m),
+        };
+        let status = &mut out.status;
+        let ranges = &input.ranges;
+        if ranges.len() != 4 || input.contents.is_empty() {
+            status
+                .problems
+                .push("the signature has no byte range or contents".into());
+            out.cert_in_time = false;
+            return out;
+        }
+        let (a, b, c, d) = (ranges[0], ranges[1], ranges[2], ranges[3]);
+        if a + b > data.len() || c + d > data.len() || a + b > c {
+            status
+                .problems
+                .push("the byte range does not fit the file".into());
+            out.cert_in_time = false;
+            return out;
+        }
+        // The value is the one the byte range leaves out, and that gap is
+        // exactly the /Contents string of this signature: a gap moved or
+        // widened (to hide other bytes) makes the signature invalid.
+        let contents = encrypted::bound_value(data, (a + b, c), input.holder)
+            .map(|raw| encrypted::readable_value(state, input.holder, &raw))
+            .filter(|v| *v == input.contents);
+        let Some(contents) = contents else {
+            status
+                .problems
+                .push("the bytes the byte range leaves out are not the value of this signature".into());
+            out.cert_in_time = false;
+            return out;
+        };
+        status.revision_len = c + d;
+        status.covers_document = c + d == data.len();
+        let parts = [&data[a..a + b], &data[c..c + d]];
+        if status.sub_filter == "ETSI.RFC3161" {
+            // A document time stamp: the token itself is the signature.
+            status.document_time_stamp = true;
+            match timestamp::check_token(&contents, &parts) {
+                Ok(check) => {
+                    let ts = time_stamp_status(&check, trusted, dss_certs);
+                    status.valid = check.valid();
+                    out.value_ok = check.signature_ok;
+                    status.digest_algorithm = check.digest_algorithm.clone();
+                    status.problems.extend(check.problems.iter().cloned());
+                    status.signer = ts.authority.clone();
+                    status.time = ts.time.clone();
+                    status.trusted = ts.trusted;
+                    status.cert = ts.authority_cert.clone();
+                    let available = with(&check.certificates, dss_certs);
+                    if let Some(cert) = &check.authority {
+                        let (chain, _) = chain_of(cert, &available, trusted);
+                        status.chain = chain.iter().map(cert_info).collect();
+                    }
+                    status.time_stamp = Some(ts);
+                    out.signer = check.authority.clone();
+                    out.certs = check.certificates.clone();
+                    out.claimed = Some(check.time);
+                    out.stamp = Some(check);
+                }
+                Err(e) => status.problems.push(e.to_string()),
+            }
+        } else {
+            match verify_detached(&contents, &parts) {
+                Ok(check) => {
+                    status.valid = check.digest_ok && check.signature_ok;
+                    out.value_ok = check.signature_ok;
+                    status.digest_algorithm = check.digest_algorithm.clone();
+                    status.problems.extend(check.problems.iter().cloned());
+                    if let Some(t) = check.signing_time {
+                        status.time = display_date(t.max(0) as u64);
+                    }
+                    if let Some(tc) = &check.time_stamp {
+                        let ts = time_stamp_status(tc, trusted, dss_certs);
+                        for p in &ts.problems {
+                            status.problems.push(format!("time stamp: {p}"));
+                        }
+                        status.time_stamp = Some(ts);
+                    }
+                    let available = with(&check.certificates, dss_certs);
+                    if let Some(cert) = &check.signer {
+                        let ci = cert_info(cert);
+                        if status.signer.is_empty() {
+                            status.signer = ci.common_name.clone();
+                        }
+                        // Certificate validity at the signing time: the time of a
+                        // valid time stamp, otherwise the time the signer wrote.
+                        let at = status
+                            .time_stamp
+                            .as_ref()
+                            .filter(|ts| ts.valid)
+                            .map(|ts| ts.time_unix)
+                            .or(check.signing_time);
+                        if let Some(t) = at {
+                            if t < ci.not_before_unix || t > ci.not_after_unix {
+                                out.cert_in_time = false;
+                                status
+                                    .problems
+                                    .push("the certificate was not valid at the signing time".into());
+                            }
+                        }
+                        // Issuer chain from the certificates in the signature and the store.
+                        let (chain, ok) = chain_of(cert, &available, trusted);
+                        status.trusted = ok;
+                        status.chain = chain.iter().map(cert_info).collect();
+                        status.cert = Some(ci);
+                    }
+                    out.signer = check.signer.clone();
+                    out.certs = check.certificates.clone();
+                    if let Some(tc) = &check.time_stamp {
+                        for c in &tc.certificates {
+                            if !out.certs.contains(c) {
+                                out.certs.push(c.clone());
+                            }
+                        }
+                    }
+                    out.archive = check.revocation.clone();
+                    out.claimed = check.signing_time.or(out.claimed);
+                    out.stamp = check.time_stamp;
+                }
+                Err(e) => status.problems.push(e.to_string()),
+            }
+        }
+        out.contents = contents;
+        out
+    }
+
+    /// Validate every signature, with the revocation checks of each.
+    pub(crate) fn run_with_chains(
+        &self,
+        trusted: &[Certificate],
+        pool: &RevocationPool,
+        now: i64,
+    ) -> Vec<(SignatureStatus, SignatureChain)> {
+        let saved = &self.analysis.dss;
+        let dss_certs = saved.certificates();
+        let dss_archive = saved.dss().archive();
+        let checked: Vec<Checked> = self
+            .sigs
+            .iter()
+            .map(|s| self.check_one(s, trusted, dss_certs))
+            .collect();
+        // Document time stamps that prove a revision existed: valid and of a
+        // trusted authority (revision length, time).
+        let proofs: Vec<(usize, i64)> = checked
+            .iter()
+            .filter(|c| c.status.document_time_stamp && c.status.valid)
+            .filter_map(|c| {
+                c.status
+                    .time_stamp
+                    .as_ref()
+                    .filter(|ts| ts.valid && ts.trusted)
+                    .map(|ts| (c.status.revision_len, ts.time_unix))
+            })
+            .collect();
+        let proven_after = |len: usize| proofs.iter().filter(|(l, _)| *l > len).map(|(_, t)| *t).min();
+        let mut store = EvidenceStore::default();
+        let mut out = Vec::new();
+        for mut c in checked {
+            let len = c.status.revision_len;
+            let exist_of = move |at: i64| proven_after(len).unwrap_or(now).max(at);
+            let mut stamp_rev = None;
+            let (rev, frame) = match &c.signer {
+                None => (ChainCheck::default(), None),
+                Some(signer) if c.status.document_time_stamp => {
+                    let token = c.stamp.as_ref();
+                    let at = token.map_or(now, |t| t.time);
+                    let frame = TimeFrame {
+                        at,
+                        basis: TimeBasis::Claimed,
+                        exist: exist_of(at),
+                        now,
+                    };
+                    let token_data = token.map(|t| t.revocation.clone()).unwrap_or_default();
+                    let evidence = store.gather(&[
+                        (RevocationSource::TimeStamp, &token_data),
+                        (RevocationSource::Dss, &dss_archive),
+                        (RevocationSource::Fetched, &pool.data),
+                    ]);
+                    let available = with(&c.certs, dss_certs);
+                    let rev = check_chain(
+                        signer,
+                        &available,
+                        trusted,
+                        &store,
+                        &evidence,
+                        &pool.failures,
+                        frame,
+                    );
+                    (rev, Some(frame))
+                }
+                Some(signer) => {
+                    // The time stamp's authority, at the time of the stamp: a
+                    // revocation of it then (or of its key) takes the proof away.
+                    let stamp = c.stamp.as_ref().filter(|t| t.valid() && t.usage_ok);
+                    let ts_status = c.status.time_stamp.clone();
+                    let mut proven = false;
+                    if let (Some(tc), Some(authority)) = (stamp, stamp.and_then(|t| t.authority.as_ref())) {
+                        let frame = TimeFrame {
+                            at: tc.time,
+                            basis: TimeBasis::Claimed,
+                            exist: exist_of(tc.time),
+                            now,
+                        };
+                        let evidence = store.gather(&[
+                            (RevocationSource::TimeStamp, &tc.revocation),
+                            (RevocationSource::Dss, &dss_archive),
+                            (RevocationSource::Fetched, &pool.data),
+                        ]);
+                        let available = with(&tc.certificates, dss_certs);
+                        let ts_rev = check_chain(
+                            authority,
+                            &available,
+                            trusted,
+                            &store,
+                            &evidence,
+                            &pool.failures,
+                            frame,
+                        );
+                        let compromised = ts_rev.entries.iter().any(|e| {
+                            matches!(e.state, RevocationState::Revoked { time, reason }
+                                if time <= tc.time || matches!(reason, Some(1) | Some(2)))
+                        });
+                        if compromised {
+                            c.status.problems.push(
+                                "time stamp: the certificate of the authority was revoked by the time of the stamp".into(),
+                            );
+                        }
+                        proven = ts_status.as_ref().is_some_and(|t| t.valid && t.trusted) && !compromised;
+                        if let Some(ts) = c.status.time_stamp.as_mut() {
+                            ts.revocation = ts_rev.entries.clone();
+                        }
+                        stamp_rev = Some(ts_rev);
+                    }
+                    let (at, basis) = match (proven, stamp, c.claimed) {
+                        (true, Some(tc), _) => (tc.time, TimeBasis::TimeStamp),
+                        (_, _, Some(t)) => (t, TimeBasis::Claimed),
+                        _ => (now, TimeBasis::Now),
+                    };
+                    let frame = TimeFrame {
+                        at,
+                        basis,
+                        exist: if proven { at } else { exist_of(at) },
+                        now,
+                    };
+                    let stamp_data = c.stamp.as_ref().map(|t| t.revocation.clone()).unwrap_or_default();
+                    let evidence = store.gather(&[
+                        (RevocationSource::Signature, &c.archive),
+                        (RevocationSource::TimeStamp, &stamp_data),
+                        (RevocationSource::Dss, &dss_archive),
+                        (RevocationSource::Fetched, &pool.data),
+                    ]);
+                    let available = with(&c.certs, dss_certs);
+                    let rev = check_chain(
+                        signer,
+                        &available,
+                        trusted,
+                        &store,
+                        &evidence,
+                        &pool.failures,
+                        frame,
+                    );
+                    (rev, Some(frame))
+                }
+            };
+            c.status.revocation = rev.entries.clone();
+            if let Some(f) = frame {
+                c.status.revocation_at = Some(f.at);
+                c.status.revocation_basis = f.basis;
+            }
+            c.status.checks = checks_of(&c.status, c.value_ok, c.cert_in_time, rev.check);
+            out.push((
+                c.status,
+                SignatureChain {
+                    contents: c.contents,
+                    own_certs: c.certs,
+                    rev,
+                    stamp_rev,
+                },
+            ));
+        }
+        self.later_revisions(&mut out);
+        out
+    }
+
+    /// What the revisions after each signature do: signatures followed only
+    /// by validation material keep their integrity; followed by document
+    /// time stamps (and material), they are reported as such.
+    fn later_revisions(&self, out: &mut [(SignatureStatus, SignatureChain)]) {
+        let data = &self.data;
+        let stamped: Vec<usize> = out
+            .iter()
+            .filter(|(s, _)| s.document_time_stamp && s.valid)
+            .map(|(s, _)| content_end(data, s.revision_len))
+            .collect();
+        let ends = revision_ends(data);
+        // Bytes after the last end of a revision belong to no revision.
+        let trailing = ends.last().is_none_or(|e| *e < content_end(data, data.len()));
+        for (s, _) in out.iter_mut() {
+            if s.covers_document || s.revision_len == 0 {
+                continue;
+            }
+            let own = content_end(data, s.revision_len);
+            let later: Vec<usize> = ends.iter().copied().filter(|e| *e > own).collect();
+            let mut kinds = if later.is_empty() {
+                Vec::new()
+            } else {
+                self.analysis
+                    .kinds(data, own, &later, &stamped, self.protection.as_ref())
+            };
+            if trailing || kinds.is_empty() {
+                kinds.push(RevisionKind::Other);
+            }
+            let material = |k: &RevisionKind| matches!(k, RevisionKind::Material | RevisionKind::Neutral);
+            s.later_revisions_material = kinds.iter().all(material);
+            s.later_revisions_time_stamped =
+                kinds.iter().all(|k| material(k) || *k == RevisionKind::TimeStamp)
+                    && kinds.contains(&RevisionKind::TimeStamp);
+            if s.later_revisions_material {
+                // Validation material does not change what was signed (EN 319
+                // 142-1 5.4.2.3): no problem, certification included.
+            } else if s.later_revisions_time_stamped && s.certify != Some(1) {
+                s.problems.push(
+                    "later revisions add document time stamps or validation material (the other changes of time stamp revisions are not analysed)"
+                        .into(),
+                );
+            } else {
+                let problem = later_problem(s);
+                s.problems.push(problem);
+            }
+            s.checks.integrity = if !s.valid {
+                Check::Failed
+            } else if s.later_revisions_material {
+                Check::Passed
+            } else {
+                Check::Warning
+            };
+        }
+    }
+
+    /// The certificates whose revocation is not determined and that can be
+    /// asked about: of chains that end at a trusted certificate, with their
+    /// issuer at hand; each with its requests (OCSP first, then the lists).
+    fn targets(&self, trusted: &[Certificate], pool: &RevocationPool, now: i64) -> Vec<Target> {
+        let mut out: Vec<Target> = Vec::new();
+        for (_, chain) in self.run_with_chains(trusted, pool, now) {
+            for rc in std::iter::once(&chain.rev).chain(chain.stamp_rev.iter()) {
+                if !rc.trusted {
+                    continue;
+                }
+                for (entry, (cert, issuer)) in rc.entries.iter().zip(&rc.subjects) {
+                    let Some(issuer) = issuer else { continue };
+                    if entry.state != RevocationState::Unknown
+                        || out.iter().any(|t| t.sha == entry.cert_sha256)
+                    {
+                        continue;
+                    }
+                    let mut requests = Vec::new();
+                    if let Ok(body) = super::ocsp::request(cert, issuer) {
+                        for url in super::revocation::ocsp_urls(cert) {
+                            requests.push(RevocationRequest {
+                                cert: entry.cert_sha256.clone(),
+                                subject: entry.subject.clone(),
+                                url,
+                                ocsp: Some(body.clone()),
+                            });
+                        }
+                    }
+                    for url in super::revocation::crl_urls(cert) {
+                        requests.push(RevocationRequest {
+                            cert: entry.cert_sha256.clone(),
+                            subject: entry.subject.clone(),
+                            url,
+                            ocsp: None,
+                        });
+                    }
+                    if requests.is_empty() {
+                        continue;
+                    }
+                    out.push(Target {
+                        sha: entry.cert_sha256.clone(),
+                        cert: cert.clone(),
+                        issuer: issuer.clone(),
+                        available: rc.certs.clone(),
+                        requests,
+                    });
+                }
+            }
+        }
+        out
+    }
+
+    /// The requests an online check would send now, in order (at most 16):
+    /// only for certificates of chains that end at a trusted certificate and
+    /// whose revocation is not determined.
+    pub fn revocation_requests(
+        &self,
+        trusted: &[Certificate],
+        pool: &RevocationPool,
+        now: i64,
+    ) -> Vec<RevocationRequest> {
+        self.targets(trusted, pool, now)
+            .into_iter()
+            .flat_map(|t| t.requests)
+            .take(MAX_REQUESTS)
+            .collect()
+    }
+
+    /// Ask online for the revocation data the signatures miss: for each
+    /// certificate, its OCSP responders first, then its revocation lists,
+    /// until one answer decides. Answers are checked before they are kept in
+    /// `pool`; failures are kept for the certificates still undetermined.
+    /// At most 16 requests, and none after three minutes.
+    pub fn fetch_revocation(
+        &self,
+        trusted: &[Certificate],
+        pool: &mut RevocationPool,
+        now: i64,
+        send: &mut RevocationTransport<'_>,
+    ) -> FetchSummary {
+        let started = std::time::Instant::now();
+        let mut summary = FetchSummary::default();
+        let mut lists: HashMap<String, std::result::Result<Vec<u8>, String>> = HashMap::new();
+        for t in self.targets(trusted, pool, now) {
+            summary.certificates += 1;
+            let mut failures = Vec::new();
+            let mut decided = false;
+            for req in &t.requests {
+                if decided {
+                    break;
+                }
+                let fail = |problem| FetchFailure {
+                    cert: t.sha.clone(),
+                    url: req.url.clone(),
+                    problem,
+                };
+                let cached = req.ocsp.is_none().then(|| lists.get(&req.url).cloned()).flatten();
+                let body = match cached {
+                    Some(b) => b,
+                    None if summary.requests >= MAX_REQUESTS || started.elapsed() > RUN_LIMIT => {
+                        failures.push(fail(FetchProblem::NotAsked));
+                        continue;
+                    }
+                    None => {
+                        summary.requests += 1;
+                        let b = send(req).map_err(|e| e.to_string());
+                        if req.ocsp.is_none() {
+                            lists.insert(req.url.clone(), b.clone());
+                        }
+                        b
+                    }
+                };
+                let body = match body {
+                    Ok(b) => b,
+                    Err(e) => {
+                        failures.push(fail(FetchProblem::Transport(e)));
+                        continue;
+                    }
+                };
+                let (finding, kept) = if req.ocsp.is_some() {
+                    match super::ocsp::parse(&body) {
+                        Ok(p) => (
+                            p.finding(&t.cert, &t.issuer, &t.available, now),
+                            p.response.clone(),
+                        ),
+                        Err(n) => (Finding::Unusable(n), Vec::new()),
+                    }
+                } else {
+                    match super::crl::parse(&body) {
+                        Ok(p) => (p.finding(&t.cert, &t.issuer, now), p.der.clone()),
+                        Err(n) => (Finding::Unusable(n), Vec::new()),
+                    }
+                };
+                match finding {
+                    Finding::Good { .. } | Finding::Revoked { .. } => {
+                        if req.ocsp.is_some() {
+                            pool.data.push_ocsp(kept);
+                        } else {
+                            pool.data.push_crl(kept);
+                        }
+                        decided = true;
+                    }
+                    Finding::NotAbout => failures.push(fail(FetchProblem::AnotherCertificate)),
+                    Finding::Unusable(n) => failures.push(fail(FetchProblem::Answer(Box::new(n)))),
+                }
+            }
+            summary.failures += failures.len();
+            pool.failures.retain(|f| f.cert != t.sha);
+            if decided {
+                summary.decided += 1;
+            } else {
+                pool.failures.extend(failures);
+            }
+        }
+        summary
+    }
+
+    /// The validation material the signatures need: for each signature
+    /// whose integrity, signer and revocation did not fail and whose chain
+    /// ends at a trusted certificate, the revocation data that decided and
+    /// the certificates of its chain (those it carries itself left out),
+    /// and an entry of its own when its validation succeeded.
+    pub fn plan_material(
+        &self,
+        trusted: &[Certificate],
+        pool: &RevocationPool,
+        now: i64,
+    ) -> Result<MaterialPlan> {
+        if self.sigs.is_empty() {
+            return Err(Error::Invalid("the document has no signatures".into()));
+        }
+        let mut plan = MaterialPlan {
+            stamp: self.stamp,
+            ..MaterialPlan::default()
+        };
+        for (s, chain) in self.run_with_chains(trusted, pool, now) {
+            let c = &s.checks;
+            if !s.valid
+                || c.integrity == Check::Failed
+                || c.identity != Check::Passed
+                || c.revocation == Check::Failed
+            {
+                plan.skipped.push(s.field.clone());
+                continue;
+            }
+            plan.signatures += 1;
+            let (mut certs, mut ocsps, mut crls) = (Vec::new(), Vec::new(), Vec::new());
+            let mut inside: Vec<Certificate> = chain.own_certs.clone();
+            for rc in std::iter::once(&chain.rev).chain(chain.stamp_rev.iter()) {
+                for (kind, der, _) in &rc.used {
+                    match kind {
+                        RevocationKind::Ocsp => {
+                            if let Ok(p) = super::ocsp::parse(der) {
+                                inside.extend(p.certs);
+                            }
+                            ocsps.push(MaterialPlan::push(&mut plan.ocsps, der));
+                        }
+                        RevocationKind::Crl => crls.push(MaterialPlan::push(&mut plan.crls, der)),
+                    }
+                }
+            }
+            for rc in std::iter::once(&chain.rev).chain(chain.stamp_rev.iter()) {
+                for cert in &rc.certs {
+                    if inside.contains(cert) {
+                        continue;
+                    }
+                    if let Ok(der) = cert.to_der() {
+                        let i = MaterialPlan::push(&mut plan.certs, &der);
+                        if !certs.contains(&i) {
+                            certs.push(i);
+                        }
+                    }
+                }
+            }
+            for e in chain
+                .rev
+                .entries
+                .iter()
+                .filter(|e| e.state == RevocationState::Unknown)
+            {
+                plan.missing.push((
+                    e.subject.clone(),
+                    e.notes.first().cloned().unwrap_or(RevocationNote::NoData),
+                ));
+            }
+            let succeeded = matches!(c.revocation, Check::Passed | Check::NotChecked);
+            if !succeeded {
+                plan.without_entry += 1;
+            } else if !(certs.is_empty() && ocsps.is_empty() && crls.is_empty()) {
+                plan.vri
+                    .push((super::dss::vri_key(&chain.contents), certs, ocsps, crls));
+            }
+        }
+        Ok(plan)
+    }
+}
+
+/// A certificate an online check asks about.
+struct Target {
+    sha: String,
+    cert: Certificate,
+    issuer: Certificate,
+    available: Vec<Certificate>,
+    requests: Vec<RevocationRequest>,
+}
+
+/// `a` followed by the certificates of `b` it does not have.
+fn with(a: &[Certificate], b: &[Certificate]) -> Vec<Certificate> {
+    let mut out = a.to_vec();
+    for c in b {
+        if !out.contains(c) {
+            out.push(c.clone());
+        }
+    }
+    out
 }
 
 /// Helper used by tests and the interface: the signature fields that are empty.

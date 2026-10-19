@@ -6,6 +6,7 @@ use std::sync::Arc;
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
 use crate::error::{Error, Result};
+use crate::protection::digsig::dss::SourceAnalysis;
 use crate::protection::encrypted::{self, DecryptedBase};
 use crate::security::{EncryptionInfo, Protection};
 use crate::util::{self, deref, dict_text, num, rect_of};
@@ -112,6 +113,9 @@ pub(crate) struct Source {
     /// For an encrypted file: its decrypted objects and last revision, the
     /// base of encrypted incremental updates.
     pub(crate) decrypted: Option<Arc<DecryptedBase>>,
+    /// The document security store of the file and the kinds of its
+    /// revisions (what validation reads, worked out once per file).
+    pub(crate) analysis: Arc<SourceAnalysis>,
 }
 
 /// The bytes of a file to write for a document.
@@ -570,11 +574,13 @@ impl Document {
         }
         let signed = doc.has_signatures();
         let encrypt_ref = doc.protection.as_ref().and_then(Protection::encrypt_ref);
+        let analysis = Arc::new(SourceAnalysis::of(&doc.inner));
         doc.source = if !source_encrypted {
             Some(Source {
                 bytes,
                 signed,
                 decrypted: None,
+                analysis,
             })
         } else if let (true, Some(encrypt_ref)) = (signed, encrypt_ref) {
             // Taken before serializing, which changes the trailer.
@@ -583,6 +589,7 @@ impl Document {
                 bytes,
                 signed,
                 decrypted: Some(Arc::new(base)),
+                analysis,
             })
         } else {
             None
@@ -697,12 +704,14 @@ impl Document {
 
     /// The file just written becomes the base of the next updates.
     fn written(&mut self, bytes: Arc<Vec<u8>>, next: Option<Arc<DecryptedBase>>) {
+        let analysis = Arc::new(SourceAnalysis::of(&self.inner));
         self.saves += 1;
         self.source = match (&self.protection, next) {
             (None, _) => Some(Source {
                 bytes,
                 signed: self.has_signatures(),
                 decrypted: None,
+                analysis,
             }),
             (Some(_), Some(next)) => {
                 // Numbers used by the file (its cross-reference streams) are not reused.
@@ -711,10 +720,17 @@ impl Document {
                     bytes,
                     signed: true,
                     decrypted: Some(next),
+                    analysis,
                 })
             }
             (Some(_), None) => None,
         };
+    }
+
+    /// The state signatures are validated in: the revision of the document
+    /// and how many times it was saved (the file it is checked against).
+    pub fn validation_stamp(&self) -> (u64, u64) {
+        (self.revision, self.saves)
     }
 
     /// The key of the encryption the saved files get (None for plain files).
@@ -911,6 +927,7 @@ impl Document {
             bytes,
             signed: true,
             decrypted: Some(base),
+            ..
         }) = &self.source
         {
             if signed {
@@ -1768,6 +1785,7 @@ mod tests {
             bytes: Arc::new(raw.clone()),
             signed: true,
             decrypted: Some(Arc::new(base)),
+            analysis: Arc::new(SourceAnalysis::of(&loaded.doc)),
         });
         let id = crate::digsig::DigitalId::create_self_signed(
             &crate::digsig::IdentityInfo {

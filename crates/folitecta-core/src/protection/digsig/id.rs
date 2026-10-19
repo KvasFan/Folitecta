@@ -137,8 +137,9 @@ impl IdKey {
         }
     }
 
-    /// Signature algorithm as written in certificates.
-    fn cert_signature_alg(&self) -> AlgorithmIdentifierOwned {
+    /// Signature algorithm as written in certificates (and in revocation
+    /// lists and OCSP answers).
+    pub(crate) fn cert_signature_alg(&self) -> AlgorithmIdentifierOwned {
         match self {
             IdKey::Rsa(_) => alg_null(SHA256_WITH_RSA),
             IdKey::P256(_) => alg(ECDSA_SHA256),
@@ -641,112 +642,337 @@ impl DigitalId {
 
     /// Create a self-signed digital ID valid for `years` years.
     pub fn create_self_signed(info: &IdentityInfo, kind: KeyKind, years: u32) -> Result<DigitalId> {
-        Self::self_signed(info, kind, years, None)
+        Self::self_signed(info, kind, years, Vec::new())
     }
 
     /// Create a self-signed digital ID of a time stamp authority (its
     /// certificate is meant for time stamps only), valid for `years` years.
     pub fn create_time_stamp_authority(info: &IdentityInfo, kind: KeyKind, years: u32) -> Result<DigitalId> {
-        Self::self_signed(info, kind, years, Some(super::timestamp::KP_TIME_STAMPING))
+        Self::self_signed(info, kind, years, vec![ExtendedUsage::TimeStamping])
     }
 
-    /// A self-signed ID; `usage` is the only extended key usage of its
-    /// certificate when given.
+    /// A self-signed ID valid from now for `years` years; `usages` are the
+    /// only extended key usages of its certificate when not empty.
     fn self_signed(
         info: &IdentityInfo,
         kind: KeyKind,
         years: u32,
-        usage: Option<ObjectIdentifier>,
+        usages: Vec<ExtendedUsage>,
     ) -> Result<DigitalId> {
-        if info.name.trim().is_empty() {
-            return Err(Error::Invalid("the name of the digital ID is empty".into()));
-        }
-        let key = match kind {
-            KeyKind::Rsa2048 | KeyKind::Rsa3072 => {
-                let bits = if kind == KeyKind::Rsa2048 { 2048 } else { 3072 };
-                IdKey::Rsa(Box::new(rsa::RsaPrivateKey::new(&mut OsRng, bits).map_err(bad)?))
-            }
-            KeyKind::EcP256 => IdKey::P256(p256::ecdsa::SigningKey::random(&mut OsRng)),
-        };
-        let mut parts = vec![format!("CN={}", escape_rdn(info.name.trim()))];
-        for (prefix, v) in [
-            ("OU", &info.unit),
-            ("O", &info.organization),
-            ("C", &info.country),
-        ] {
-            if !v.trim().is_empty() {
-                parts.push(format!("{prefix}={}", escape_rdn(v.trim())));
-            }
-        }
-        let mut name: Name = parts.join(",").parse().map_err(bad)?;
-        if !info.email.trim().is_empty() {
-            // The e-mail address is an IA5String attribute.
-            let email = der::asn1::Ia5String::new(info.email.trim()).map_err(bad)?;
-            let attr = x509_cert::attr::AttributeTypeAndValue {
-                oid: OID_EMAIL,
-                value: Any::encode_from(&email).map_err(bad)?,
-            };
-            let rdn =
-                x509_cert::name::RelativeDistinguishedName(SetOfVec::try_from(vec![attr]).map_err(bad)?);
-            name.0.push(rdn);
-        }
-        let mut serial = [0u8; 16];
-        OsRng.fill_bytes(&mut serial);
-        serial[0] &= 0x7F;
-        serial[0] |= 0x01;
         let validity = Validity::from_now(std::time::Duration::from_secs(
             u64::from(years.clamp(1, 30)) * 365 * 86_400,
         ))
         .map_err(bad)?;
-        // Key usage: digital signature and non-repudiation.
-        let key_usage = Extension {
-            extn_id: KEY_USAGE,
-            critical: true,
-            extn_value: OctetString::new(
-                BitString::new(6, vec![0xC0])
-                    .map_err(bad)?
-                    .to_der()
-                    .map_err(bad)?,
-            )
-            .map_err(bad)?,
+        let profile = CertProfile {
+            usages,
+            ..CertProfile::default()
         };
-        let mut extensions: Extensions = vec![key_usage];
-        if let Some(usage) = usage {
-            // Critical, as RFC 3161 asks for the certificates of authorities.
-            extensions.push(Extension {
-                extn_id: EXTENDED_KEY_USAGE,
-                critical: true,
-                extn_value: OctetString::new(vec![usage].to_der().map_err(bad)?).map_err(bad)?,
-            });
-        }
-        let tbs = TbsCertificate {
-            version: Version::V3,
-            serial_number: SerialNumber::new(&serial).map_err(bad)?,
-            signature: key.cert_signature_alg(),
-            issuer: name.clone(),
-            validity,
-            subject: name,
-            subject_public_key_info: key.public_key_info()?,
-            issuer_unique_id: None,
-            subject_unique_id: None,
-            extensions: Some(extensions),
-        };
-        let signature = key.sign(&tbs.to_der().map_err(bad)?)?;
-        let certificate = Certificate {
-            tbs_certificate: tbs,
-            signature_algorithm: key.cert_signature_alg(),
-            signature: BitString::from_bytes(&signature).map_err(bad)?,
-        };
-        Ok(DigitalId {
-            certificate,
-            chain: Vec::new(),
-            key,
-        })
+        build(info, kind, validity, &profile, None)
+    }
+
+    /// Create a self-signed digital ID with the validity, usages and
+    /// addresses of `profile` (a certification authority when `profile.ca`).
+    pub fn create_with(info: &IdentityInfo, kind: KeyKind, profile: &CertProfile) -> Result<DigitalId> {
+        build(info, kind, profile.validity()?, profile, None)
+    }
+
+    /// A digital ID whose certificate is issued (signed) by this one, with
+    /// the validity, usages and addresses of `profile`; its chain is this
+    /// ID's certificate followed by this ID's chain.
+    pub fn issue(&self, info: &IdentityInfo, kind: KeyKind, profile: &CertProfile) -> Result<DigitalId> {
+        build(info, kind, profile.validity()?, profile, Some(self))
     }
 
     pub fn info(&self) -> CertInfo {
         cert_info(&self.certificate)
     }
+}
+
+/// An extended key usage of a certificate made by Folitecta.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExtendedUsage {
+    /// Time stamps (RFC 3161): the only usage of an authority's certificate.
+    TimeStamping,
+    /// Signing OCSP answers for the issuer (a delegated responder, RFC 6960
+    /// 4.2.2.2).
+    OcspSigning,
+}
+
+impl ExtendedUsage {
+    fn oid(self) -> ObjectIdentifier {
+        match self {
+            ExtendedUsage::TimeStamping => KP_TIME_STAMPING,
+            ExtendedUsage::OcspSigning => KP_OCSP_SIGNING,
+        }
+    }
+}
+
+/// What a certificate made by Folitecta holds besides its owner and key
+/// (used for the certification authorities, signers and responders of the
+/// tests and the self-test).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct CertProfile {
+    /// Validity (Unix seconds).
+    pub not_before: i64,
+    pub not_after: i64,
+    /// A certification authority: basic constraints with cA set, and key
+    /// usages to sign certificates and revocation lists.
+    pub ca: bool,
+    /// Extended key usages (critical when present).
+    pub usages: Vec<ExtendedUsage>,
+    /// Address of the OCSP responder of the issuer (authority information
+    /// access, RFC 5280 4.2.2.1).
+    pub ocsp_url: Option<String>,
+    /// Address of the issuer's revocation list (CRL distribution point,
+    /// RFC 5280 4.2.1.13).
+    pub crl_url: Option<String>,
+    /// The certificate of a delegated OCSP responder whose own revocation
+    /// is not checked (id-pkix-ocsp-nocheck, RFC 6960 4.2.2.2.1).
+    pub ocsp_no_check: bool,
+}
+
+impl CertProfile {
+    fn validity(&self) -> Result<Validity> {
+        if self.not_after <= self.not_before {
+            return Err(Error::Invalid("the validity of the certificate is empty".into()));
+        }
+        Ok(Validity {
+            not_before: x509_time(self.not_before)?,
+            not_after: x509_time(self.not_after)?,
+        })
+    }
+}
+
+/// A certificate time: UTCTime before 2050, GeneralizedTime after (RFC 5280
+/// 4.1.2.5).
+pub(crate) fn x509_time(secs: i64) -> Result<x509_cert::time::Time> {
+    use x509_cert::time::Time;
+    let d = std::time::Duration::from_secs(u64::try_from(secs).map_err(bad)?);
+    Ok(if secs < 2_524_608_000 {
+        Time::UtcTime(der::asn1::UtcTime::from_unix_duration(d).map_err(bad)?)
+    } else {
+        Time::GeneralTime(der::asn1::GeneralizedTime::from_unix_duration(d).map_err(bad)?)
+    })
+}
+
+pub(crate) const KP_TIME_STAMPING: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.6.1.5.5.7.3.8");
+pub(crate) const KP_OCSP_SIGNING: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.6.1.5.5.7.3.9");
+const SUBJECT_KEY_ID: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.29.14");
+const AUTHORITY_KEY_ID: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.29.35");
+const BASIC_CONSTRAINTS: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.29.19");
+pub(crate) const AUTHORITY_INFO_ACCESS: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.6.1.5.5.7.1.1");
+pub(crate) const CRL_DISTRIBUTION_POINTS: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.29.31");
+pub(crate) const AD_OCSP: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.6.1.5.5.7.48.1");
+pub(crate) const OCSP_NO_CHECK: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.6.1.5.5.7.48.1.5");
+
+fn extension(oid: ObjectIdentifier, critical: bool, value: Vec<u8>) -> Result<Extension> {
+    Ok(Extension {
+        extn_id: oid,
+        critical,
+        extn_value: OctetString::new(value).map_err(bad)?,
+    })
+}
+
+fn uri(url: &str) -> Result<x509_cert::ext::pkix::name::GeneralName> {
+    Ok(
+        x509_cert::ext::pkix::name::GeneralName::UniformResourceIdentifier(
+            der::asn1::Ia5String::new(url).map_err(bad)?,
+        ),
+    )
+}
+
+/// The distinguished name of a new ID.
+fn name_of(info: &IdentityInfo) -> Result<Name> {
+    if info.name.trim().is_empty() {
+        return Err(Error::Invalid("the name of the digital ID is empty".into()));
+    }
+    let mut parts = vec![format!("CN={}", escape_rdn(info.name.trim()))];
+    for (prefix, v) in [
+        ("OU", &info.unit),
+        ("O", &info.organization),
+        ("C", &info.country),
+    ] {
+        if !v.trim().is_empty() {
+            parts.push(format!("{prefix}={}", escape_rdn(v.trim())));
+        }
+    }
+    let mut name: Name = parts.join(",").parse().map_err(bad)?;
+    if !info.email.trim().is_empty() {
+        // The e-mail address is an IA5String attribute.
+        let email = der::asn1::Ia5String::new(info.email.trim()).map_err(bad)?;
+        let attr = x509_cert::attr::AttributeTypeAndValue {
+            oid: OID_EMAIL,
+            value: Any::encode_from(&email).map_err(bad)?,
+        };
+        let rdn = x509_cert::name::RelativeDistinguishedName(SetOfVec::try_from(vec![attr]).map_err(bad)?);
+        name.0.push(rdn);
+    }
+    Ok(name)
+}
+
+/// A new digital ID: self-signed without `issuer`, else issued by it.
+fn build(
+    info: &IdentityInfo,
+    kind: KeyKind,
+    validity: Validity,
+    profile: &CertProfile,
+    issuer: Option<&DigitalId>,
+) -> Result<DigitalId> {
+    let name = name_of(info)?;
+    let key = match kind {
+        KeyKind::Rsa2048 | KeyKind::Rsa3072 => {
+            let bits = if kind == KeyKind::Rsa2048 { 2048 } else { 3072 };
+            IdKey::Rsa(Box::new(rsa::RsaPrivateKey::new(&mut OsRng, bits).map_err(bad)?))
+        }
+        KeyKind::EcP256 => IdKey::P256(p256::ecdsa::SigningKey::random(&mut OsRng)),
+    };
+    let mut serial = [0u8; 16];
+    OsRng.fill_bytes(&mut serial);
+    serial[0] &= 0x7F;
+    serial[0] |= 0x01;
+    let spki = key.public_key_info()?;
+    // Key usage: digital signature and non-repudiation; an authority signs
+    // certificates and revocation lists.
+    let usage = if profile.ca {
+        BitString::new(1, vec![0x86]).map_err(bad)?
+    } else {
+        BitString::new(6, vec![0xC0]).map_err(bad)?
+    };
+    let mut extensions: Extensions = vec![extension(KEY_USAGE, true, usage.to_der().map_err(bad)?)?];
+    if profile.ca {
+        let bc = x509_cert::ext::pkix::BasicConstraints {
+            ca: true,
+            path_len_constraint: None,
+        };
+        extensions.push(extension(BASIC_CONSTRAINTS, true, bc.to_der().map_err(bad)?)?);
+    }
+    if !profile.usages.is_empty() {
+        // Critical, as RFC 3161 asks for the certificates of authorities.
+        let oids: Vec<ObjectIdentifier> = profile.usages.iter().map(|u| u.oid()).collect();
+        extensions.push(extension(EXTENDED_KEY_USAGE, true, oids.to_der().map_err(bad)?)?);
+    }
+    let own_id = OctetString::new(spki_hash(&spki)).map_err(bad)?;
+    extensions.push(extension(SUBJECT_KEY_ID, false, own_id.to_der().map_err(bad)?)?);
+    if let Some(issuer) = issuer {
+        let aki = x509_cert::ext::pkix::AuthorityKeyIdentifier {
+            key_identifier: Some(OctetString::new(key_hash(&issuer.certificate)).map_err(bad)?),
+            authority_cert_issuer: None,
+            authority_cert_serial_number: None,
+        };
+        extensions.push(extension(AUTHORITY_KEY_ID, false, aki.to_der().map_err(bad)?)?);
+    }
+    if let Some(url) = &profile.ocsp_url {
+        let aia =
+            x509_cert::ext::pkix::AuthorityInfoAccessSyntax(vec![x509_cert::ext::pkix::AccessDescription {
+                access_method: AD_OCSP,
+                access_location: uri(url)?,
+            }]);
+        extensions.push(extension(
+            AUTHORITY_INFO_ACCESS,
+            false,
+            aia.to_der().map_err(bad)?,
+        )?);
+    }
+    if let Some(url) = &profile.crl_url {
+        use x509_cert::ext::pkix::crl::dp::DistributionPoint;
+        use x509_cert::ext::pkix::name::DistributionPointName;
+        let cdp = x509_cert::ext::pkix::CrlDistributionPoints(vec![DistributionPoint {
+            distribution_point: Some(DistributionPointName::FullName(vec![uri(url)?])),
+            reasons: None,
+            crl_issuer: None,
+        }]);
+        extensions.push(extension(
+            CRL_DISTRIBUTION_POINTS,
+            false,
+            cdp.to_der().map_err(bad)?,
+        )?);
+    }
+    if profile.ocsp_no_check {
+        extensions.push(extension(OCSP_NO_CHECK, false, vec![0x05, 0x00])?);
+    }
+    let (issuer_name, signer) = match issuer {
+        Some(i) => (i.certificate.tbs_certificate.subject.clone(), &i.key),
+        None => (name.clone(), &key),
+    };
+    let tbs = TbsCertificate {
+        version: Version::V3,
+        serial_number: SerialNumber::new(&serial).map_err(bad)?,
+        signature: signer.cert_signature_alg(),
+        issuer: issuer_name,
+        validity,
+        subject: name,
+        subject_public_key_info: spki,
+        issuer_unique_id: None,
+        subject_unique_id: None,
+        extensions: Some(extensions),
+    };
+    let signature = signer.sign(&tbs.to_der().map_err(bad)?)?;
+    let certificate = Certificate {
+        tbs_certificate: tbs,
+        signature_algorithm: signer.cert_signature_alg(),
+        signature: BitString::from_bytes(&signature).map_err(bad)?,
+    };
+    let chain = match issuer {
+        Some(i) => std::iter::once(i.certificate.clone())
+            .chain(i.chain.iter().cloned())
+            .collect(),
+        None => Vec::new(),
+    };
+    Ok(DigitalId {
+        certificate,
+        chain,
+        key,
+    })
+}
+
+fn spki_hash(spki: &SubjectPublicKeyInfoOwned) -> Vec<u8> {
+    Sha1::digest(spki.subject_public_key.raw_bytes()).to_vec()
+}
+
+/// SHA-1 of the public key of `cert` (the value of its key identifiers and
+/// of the key hash of OCSP, RFC 5280 4.2.1.2 and RFC 6960 4.1.1).
+pub(crate) fn key_hash(cert: &Certificate) -> Vec<u8> {
+    spki_hash(&cert.tbs_certificate.subject_public_key_info)
+}
+
+/// The value of an extension of `cert`.
+pub(crate) fn extension_value(cert: &Certificate, oid: ObjectIdentifier) -> Option<&[u8]> {
+    cert.tbs_certificate
+        .extensions
+        .iter()
+        .flatten()
+        .find(|e| e.extn_id == oid)
+        .map(|e| e.extn_value.as_bytes())
+}
+
+/// The extended key usages of `cert` list `oid`.
+pub(crate) fn has_extended_usage(cert: &Certificate, oid: ObjectIdentifier) -> bool {
+    extension_value(cert, EXTENDED_KEY_USAGE)
+        .and_then(|v| Vec::<ObjectIdentifier>::from_der(v).ok())
+        .is_some_and(|usages| usages.contains(&oid))
+}
+
+/// `cert` is a certification authority (basic constraints with cA).
+pub(crate) fn is_ca(cert: &Certificate) -> bool {
+    extension_value(cert, BASIC_CONSTRAINTS)
+        .and_then(|v| x509_cert::ext::pkix::BasicConstraints::from_der(v).ok())
+        .is_some_and(|b| b.ca)
+}
+
+/// `cert` may sign revocation lists: it has no key usage, or its key usage
+/// lists cRLSign (RFC 5280 4.2.1.3).
+pub(crate) fn may_sign_crls(cert: &Certificate) -> bool {
+    match extension_value(cert, KEY_USAGE) {
+        None => true,
+        Some(v) => x509_cert::ext::pkix::KeyUsage::from_der(v).is_ok_and(|k| k.crl_sign()),
+    }
+}
+
+/// The subject key identifier of `cert`, when it has one.
+pub(crate) fn subject_key_id(cert: &Certificate) -> Option<Vec<u8>> {
+    extension_value(cert, SUBJECT_KEY_ID)
+        .and_then(|v| OctetString::from_der(v).ok())
+        .map(|o| o.as_bytes().to_vec())
 }
 
 /// Certificates read from a file: DER, PEM (one or more) or the certificates of

@@ -1,14 +1,23 @@
-//! A small HTTP/1.1 client for the requests Folitecta sends on its own (time
-//! stamps): one POST, plain or over the system's TLS (native-tls), following
-//! a few redirections. Nothing is sent unless the user set the address.
+//! A small HTTP/1.1 client for the requests Folitecta sends on its own: time
+//! stamps (a POST to the server the user set) and revocation data (an OCSP
+//! POST or the GET of a revocation list, only when the user turned online
+//! revocation checks on). Plain or over the system's TLS (native-tls),
+//! following a few redirections, each request within a time limit.
 
 use std::io::{Read, Write};
-use std::net::{TcpStream, ToSocketAddrs};
-use std::time::Duration;
+use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+use std::time::{Duration, Instant};
 
+/// Time a connection or a read may wait.
 const TIMEOUT: Duration = Duration::from_secs(20);
-/// Largest answer accepted.
+/// Time a whole request (connection, request, answer) may take.
+const DEADLINE: Duration = Duration::from_secs(60);
+/// Largest answer accepted for a POST (time stamps, OCSP answers).
 const MAX_ANSWER: usize = 8 * 1024 * 1024;
+/// Largest answer accepted for a GET (revocation lists).
+const MAX_DOWNLOAD: usize = 32 * 1024 * 1024;
+/// Longest line of the size of a chunk.
+const MAX_CHUNK_LINE: usize = 1024;
 
 /// An address split for a request.
 #[derive(Debug, Clone, PartialEq)]
@@ -96,23 +105,52 @@ fn redirect_target(base: &Url, location: &str) -> Result<Url, String> {
 trait Stream: Read + Write {}
 impl<T: Read + Write> Stream for T {}
 
-fn connect(url: &Url) -> Result<Box<dyn Stream>, String> {
-    let addrs = (url.host.as_str(), url.port)
-        .to_socket_addrs()
-        .map_err(|e| format!("{}: {e}", url.host))?;
+/// The time left before `deadline`, at most `TIMEOUT`.
+fn left(deadline: Instant) -> Result<Duration, String> {
+    let rest = deadline.saturating_duration_since(Instant::now());
+    if rest.is_zero() {
+        Err("the server did not answer in time".into())
+    } else {
+        Ok(rest.min(TIMEOUT))
+    }
+}
+
+/// The addresses of a host, looked up within the time limit.
+fn resolve(url: &Url, deadline: Instant) -> Result<Vec<SocketAddr>, String> {
+    let (host, port) = (url.host.clone(), url.port);
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(
+            (host.as_str(), port)
+                .to_socket_addrs()
+                .map(|a| a.collect::<Vec<_>>()),
+        );
+    });
+    match rx.recv_timeout(left(deadline)?) {
+        Ok(Ok(addrs)) => Ok(addrs),
+        Ok(Err(e)) => Err(format!("{}: {e}", url.host)),
+        Err(_) => Err(format!("{}: the name could not be looked up in time", url.host)),
+    }
+}
+
+/// A connection to the server of `url`, and its TCP socket (to bound each read).
+fn connect(url: &Url, deadline: Instant) -> Result<(Box<dyn Stream>, TcpStream), String> {
     let mut last = format!("{}: no address found", url.host);
-    for addr in addrs {
-        match TcpStream::connect_timeout(&addr, TIMEOUT) {
+    for addr in resolve(url, deadline)? {
+        match TcpStream::connect_timeout(&addr, left(deadline)?) {
             Ok(tcp) => {
-                tcp.set_read_timeout(Some(TIMEOUT)).map_err(|e| e.to_string())?;
-                tcp.set_write_timeout(Some(TIMEOUT)).map_err(|e| e.to_string())?;
+                tcp.set_read_timeout(Some(left(deadline)?))
+                    .map_err(|e| e.to_string())?;
+                tcp.set_write_timeout(Some(left(deadline)?))
+                    .map_err(|e| e.to_string())?;
+                let socket = tcp.try_clone().map_err(|e| e.to_string())?;
                 if !url.tls {
-                    return Ok(Box::new(tcp));
+                    return Ok((Box::new(tcp), socket));
                 }
                 let connector = native_tls::TlsConnector::new().map_err(|e| e.to_string())?;
                 return connector
                     .connect(&url.host, tcp)
-                    .map(|s| Box::new(s) as Box<dyn Stream>)
+                    .map(|s| (Box::new(s) as Box<dyn Stream>, socket))
                     .map_err(|e| format!("{}: {e}", url.host));
             }
             Err(e) => last = format!("{addr}: {e}"),
@@ -123,15 +161,15 @@ fn connect(url: &Url) -> Result<Box<dyn Stream>, String> {
 
 /// An answer of the server.
 #[derive(Debug, Clone, PartialEq)]
-struct Answer {
-    status: u16,
-    reason: String,
-    headers: Vec<(String, String)>,
-    body: Vec<u8>,
+pub(crate) struct Answer {
+    pub status: u16,
+    pub reason: String,
+    pub headers: Vec<(String, String)>,
+    pub body: Vec<u8>,
 }
 
 impl Answer {
-    fn header(&self, name: &str) -> Option<&str> {
+    pub(crate) fn header(&self, name: &str) -> Option<&str> {
         self.headers
             .iter()
             .find(|(n, _)| n.eq_ignore_ascii_case(name))
@@ -143,96 +181,209 @@ fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
     hay.windows(needle.len()).position(|w| w == needle)
 }
 
-/// The body of a chunked answer, once every chunk has arrived.
-fn dechunk(mut data: &[u8]) -> Option<Vec<u8>> {
-    let mut out = Vec::new();
-    loop {
-        let line_end = find(data, b"\r\n")?;
-        let size_text = std::str::from_utf8(&data[..line_end]).ok()?;
-        let size = usize::from_str_radix(size_text.split(';').next()?.trim(), 16).ok()?;
-        data = &data[line_end + 2..];
-        if size == 0 {
-            return Some(out);
+/// An answer read as its bytes arrive: the head once, then the body (the
+/// chunks of a chunked answer are taken as they complete, so a long answer
+/// is read in linear time).
+#[derive(Default)]
+struct Incoming {
+    data: Vec<u8>,
+    /// The answer once its head is read, and where its body starts.
+    head: Option<(Answer, usize)>,
+    /// Chunked body: where the next chunk starts, and the body so far.
+    pos: usize,
+    body: Vec<u8>,
+    /// Where the search for the end of the head goes on.
+    scanned: usize,
+}
+
+impl Incoming {
+    fn head(&mut self, closed: bool) -> Result<bool, String> {
+        if self.head.is_some() {
+            return Ok(true);
         }
-        if data.len() < size + 2 {
-            return None;
+        let from = self.scanned.saturating_sub(3);
+        let Some(i) = find(&self.data[from..], b"\r\n\r\n") else {
+            self.scanned = self.data.len();
+            return if closed {
+                Err("the server closed the connection without answering".into())
+            } else {
+                Ok(false)
+            };
+        };
+        let head_end = from + i;
+        let head = String::from_utf8_lossy(&self.data[..head_end]);
+        let mut lines = head.split("\r\n");
+        let status_line = lines.next().unwrap_or_default();
+        let mut parts = status_line.splitn(3, ' ');
+        let version = parts.next().unwrap_or_default();
+        if !version.starts_with("HTTP/") {
+            return Err("the server did not answer with HTTP".into());
         }
-        out.extend_from_slice(&data[..size]);
-        data = &data[size + 2..];
+        let status: u16 = parts
+            .next()
+            .and_then(|s| s.parse().ok())
+            .ok_or("the answer of the server cannot be read")?;
+        let reason = parts.next().unwrap_or_default().to_string();
+        let headers: Vec<(String, String)> = lines
+            .filter_map(|l| l.split_once(':'))
+            .map(|(n, v)| (n.trim().to_string(), v.trim().to_string()))
+            .collect();
+        let answer = Answer {
+            status,
+            reason,
+            headers,
+            body: Vec::new(),
+        };
+        self.pos = head_end + 4;
+        self.head = Some((answer, head_end + 4));
+        Ok(true)
+    }
+
+    /// Take the chunks that have arrived; `true` once the last one has.
+    fn chunks(&mut self) -> Result<bool, String> {
+        loop {
+            let rest = &self.data[self.pos..];
+            let Some(line_end) = find(&rest[..rest.len().min(MAX_CHUNK_LINE)], b"\r\n") else {
+                return if rest.len() >= MAX_CHUNK_LINE {
+                    Err("a chunk of the answer cannot be read".into())
+                } else {
+                    Ok(false)
+                };
+            };
+            let size_text =
+                std::str::from_utf8(&rest[..line_end]).map_err(|_| "a chunk of the answer cannot be read")?;
+            let size = usize::from_str_radix(size_text.split(';').next().unwrap_or("").trim(), 16)
+                .map_err(|_| "a chunk of the answer cannot be read".to_string())?;
+            if size == 0 {
+                return Ok(true);
+            }
+            // No chunk may make the answer larger than any answer accepted.
+            if size > MAX_DOWNLOAD || self.body.len() + size > MAX_DOWNLOAD {
+                return Err("the answer of the server is too large".into());
+            }
+            let start = line_end + 2;
+            let Some(after) = start.checked_add(size).and_then(|e| e.checked_add(2)) else {
+                return Err("the answer of the server is too large".into());
+            };
+            if rest.len() < after {
+                return Ok(false);
+            }
+            self.body.extend_from_slice(&rest[start..start + size]);
+            self.pos += after;
+        }
+    }
+
+    /// The whole answer when it has arrived (`closed`: the server closed the
+    /// connection, so an answer without a length ends here).
+    fn answer(&mut self, closed: bool) -> Result<Option<Answer>, String> {
+        if !self.head(closed)? {
+            return Ok(None);
+        }
+        let (answer, body_at) = self.head.as_ref().expect("head");
+        let chunked = answer
+            .header("Transfer-Encoding")
+            .map(|v| v.to_ascii_lowercase().contains("chunked"))
+            .unwrap_or(false);
+        let length = answer
+            .header("Content-Length")
+            .and_then(|v| v.parse::<usize>().ok());
+        let status = answer.status;
+        let body_at = *body_at;
+        let body = if chunked {
+            if !self.chunks()? {
+                return if closed {
+                    Err("the answer of the server is incomplete".into())
+                } else {
+                    Ok(None)
+                };
+            }
+            std::mem::take(&mut self.body)
+        } else if let Some(len) = length {
+            let rest = &self.data[body_at..];
+            if rest.len() < len {
+                return if closed {
+                    Err("the answer of the server is incomplete".into())
+                } else {
+                    Ok(None)
+                };
+            }
+            rest[..len].to_vec()
+        } else if closed || matches!(status, 204 | 304) {
+            self.data[body_at..].to_vec()
+        } else {
+            return Ok(None);
+        };
+        let (mut answer, _) = self.head.take().expect("head");
+        answer.body = body;
+        Ok(Some(answer))
     }
 }
 
 /// The answer in `data`, when it is complete (`closed`: the server closed the
 /// connection, so an answer without a length ends here).
+#[cfg(test)]
 fn parse_answer(data: &[u8], closed: bool) -> Result<Option<Answer>, String> {
-    let Some(head_end) = find(data, b"\r\n\r\n") else {
-        return if closed {
-            Err("the server closed the connection without answering".into())
-        } else {
-            Ok(None)
-        };
+    let mut incoming = Incoming {
+        data: data.to_vec(),
+        ..Incoming::default()
     };
-    let head = String::from_utf8_lossy(&data[..head_end]);
-    let mut lines = head.split("\r\n");
-    let status_line = lines.next().unwrap_or_default();
-    let mut parts = status_line.splitn(3, ' ');
-    let version = parts.next().unwrap_or_default();
-    if !version.starts_with("HTTP/") {
-        return Err("the server did not answer with HTTP".into());
-    }
-    let status: u16 = parts
-        .next()
-        .and_then(|s| s.parse().ok())
-        .ok_or("the answer of the server cannot be read")?;
-    let reason = parts.next().unwrap_or_default().to_string();
-    let headers: Vec<(String, String)> = lines
-        .filter_map(|l| l.split_once(':'))
-        .map(|(n, v)| (n.trim().to_string(), v.trim().to_string()))
-        .collect();
-    let mut answer = Answer {
-        status,
-        reason,
-        headers,
-        body: Vec::new(),
-    };
-    let rest = &data[head_end + 4..];
-    let chunked = answer
-        .header("Transfer-Encoding")
-        .map(|v| v.to_ascii_lowercase().contains("chunked"))
-        .unwrap_or(false);
-    if chunked {
-        return match dechunk(rest) {
-            Some(body) => {
-                answer.body = body;
-                Ok(Some(answer))
-            }
-            None if closed => Err("the answer of the server is incomplete".into()),
-            None => Ok(None),
-        };
-    }
-    if let Some(len) = answer
-        .header("Content-Length")
-        .and_then(|v| v.parse::<usize>().ok())
-    {
-        if rest.len() >= len {
-            answer.body = rest[..len].to_vec();
-            return Ok(Some(answer));
-        }
-        return if closed {
-            Err("the answer of the server is incomplete".into())
-        } else {
-            Ok(None)
-        };
-    }
-    if closed || matches!(status, 204 | 304) {
-        answer.body = rest.to_vec();
-        return Ok(Some(answer));
-    }
-    Ok(None)
+    incoming.answer(closed)
 }
 
-fn send_once(url: &Url, content_type: &str, accept: &str, body: &[u8]) -> Result<Answer, String> {
-    let mut stream = connect(url)?;
+/// Read the answer to a request sent on `stream` (any connection: a local
+/// socket of the print server, TCP), at most `MAX_ANSWER` bytes; the
+/// connection's own timeouts bound the wait.
+pub(crate) fn read_answer(stream: &mut dyn Read) -> Result<Answer, String> {
+    let mut incoming = Incoming::default();
+    let mut buf = [0u8; 16 * 1024];
+    loop {
+        match stream.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => {
+                incoming.data.extend_from_slice(&buf[..n]);
+                if incoming.data.len() > MAX_ANSWER {
+                    return Err("the answer of the server is too large".into());
+                }
+                if let Some(answer) = incoming.answer(false)? {
+                    return Ok(answer);
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                ) =>
+            {
+                return Err("the server did not answer in time".into());
+            }
+            Err(_) if !incoming.data.is_empty() => break,
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    incoming
+        .answer(true)?
+        .ok_or_else(|| "the answer of the server is incomplete".into())
+}
+
+/// How a request is sent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Method {
+    Get,
+    Post,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn send_once(
+    url: &Url,
+    method: Method,
+    content_type: &str,
+    accept: &str,
+    body: &[u8],
+    max: usize,
+    deadline: Instant,
+) -> Result<Answer, String> {
+    let (mut stream, socket) = connect(url, deadline)?;
     let host = if url.host.contains(':') {
         format!("[{}]", url.host)
     } else {
@@ -244,50 +395,75 @@ fn send_once(url: &Url, content_type: &str, accept: &str, body: &[u8]) -> Result
     } else {
         format!("{host}:{}", url.port)
     };
-    let head = format!(
-        "POST {} HTTP/1.1\r\nHost: {host_header}\r\nUser-Agent: Folitecta/{}\r\nContent-Type: {content_type}\r\nAccept: {accept}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        url.target,
-        folitecta_core::VERSION,
-        body.len()
-    );
+    let head = match method {
+        Method::Post => format!(
+            "POST {} HTTP/1.1\r\nHost: {host_header}\r\nUser-Agent: Folitecta/{}\r\nContent-Type: {content_type}\r\nAccept: {accept}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            url.target,
+            folitecta_core::VERSION,
+            body.len()
+        ),
+        Method::Get => format!(
+            "GET {} HTTP/1.1\r\nHost: {host_header}\r\nUser-Agent: Folitecta/{}\r\nAccept: {accept}\r\nConnection: close\r\n\r\n",
+            url.target,
+            folitecta_core::VERSION,
+        ),
+    };
     let mut request = head.into_bytes();
-    request.extend_from_slice(body);
+    if method == Method::Post {
+        request.extend_from_slice(body);
+    }
     stream.write_all(&request).map_err(|e| e.to_string())?;
     stream.flush().map_err(|e| e.to_string())?;
-    let mut data = Vec::new();
+    let mut incoming = Incoming::default();
     let mut buf = [0u8; 16 * 1024];
     loop {
+        socket
+            .set_read_timeout(Some(left(deadline)?))
+            .map_err(|e| e.to_string())?;
         match stream.read(&mut buf) {
             Ok(0) => break,
             Ok(n) => {
-                data.extend_from_slice(&buf[..n]);
-                if data.len() > MAX_ANSWER {
+                incoming.data.extend_from_slice(&buf[..n]);
+                if incoming.data.len() > max {
                     return Err("the answer of the server is too large".into());
                 }
-                if let Some(answer) = parse_answer(&data, false)? {
+                if let Some(answer) = incoming.answer(false)? {
                     return Ok(answer);
                 }
             }
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-            // A TLS connection closed without its closing message ends the answer too.
             Err(e)
-                if !data.is_empty()
-                    && e.kind() != std::io::ErrorKind::TimedOut
-                    && e.kind() != std::io::ErrorKind::WouldBlock =>
+                if matches!(
+                    e.kind(),
+                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                ) =>
             {
-                break;
+                return Err("the server did not answer in time".into());
             }
+            // A TLS connection closed without its closing message ends the answer too.
+            Err(_) if !incoming.data.is_empty() => break,
             Err(e) => return Err(e.to_string()),
         }
     }
-    parse_answer(&data, true)?.ok_or_else(|| "the answer of the server is incomplete".into())
+    incoming
+        .answer(true)?
+        .ok_or_else(|| "the answer of the server is incomplete".into())
 }
 
-/// POST `body` to `url` and return the body of a successful answer.
-pub fn post(url: &str, content_type: &str, accept: &str, body: &[u8]) -> Result<Vec<u8>, String> {
+/// Send a request to `url`, following redirections, and return the body of
+/// a successful answer.
+fn request(
+    url: &str,
+    method: Method,
+    content_type: &str,
+    accept: &str,
+    body: &[u8],
+    max: usize,
+) -> Result<Vec<u8>, String> {
     let mut target = parse_url(url)?;
     for _ in 0..4 {
-        let answer = send_once(&target, content_type, accept, body)?;
+        let deadline = Instant::now() + DEADLINE;
+        let answer = send_once(&target, method, content_type, accept, body, max, deadline)?;
         match answer.status {
             200..=299 => return Ok(answer.body),
             301 | 302 | 303 | 307 | 308 => {
@@ -304,6 +480,17 @@ pub fn post(url: &str, content_type: &str, accept: &str, body: &[u8]) -> Result<
         }
     }
     Err("the server redirected the request too many times".into())
+}
+
+/// POST `body` to `url` and return the body of a successful answer.
+pub fn post(url: &str, content_type: &str, accept: &str, body: &[u8]) -> Result<Vec<u8>, String> {
+    request(url, Method::Post, content_type, accept, body, MAX_ANSWER)
+}
+
+/// GET `url` (no body) and return the body of a successful answer (up to
+/// 32 MiB, for revocation lists).
+pub fn get(url: &str, accept: &str) -> Result<Vec<u8>, String> {
+    request(url, Method::Get, "", accept, &[], MAX_DOWNLOAD)
 }
 
 #[cfg(test)]
@@ -425,5 +612,176 @@ mod tests {
         let err = post(&base, "a/b", "a/c", b"x").unwrap_err();
         assert_eq!(err, "the server answered 500 Internal Server Error");
         server.join().unwrap();
+    }
+
+    #[test]
+    fn gets_follow_redirections_and_send_no_body() {
+        let (base, server) = serve(vec![
+            b"HTTP/1.1 302 Found\r\nLocation: /b\r\nContent-Length: 0\r\n\r\n".to_vec(),
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n3\r\ncrl\r\n0\r\n\r\n".to_vec(),
+        ]);
+        let body = get(&format!("{base}/a"), "application/pkix-crl").unwrap();
+        assert_eq!(body, b"crl");
+        let requests = server.join().unwrap();
+        let first = String::from_utf8_lossy(&requests[0]);
+        assert!(first.starts_with("GET /a HTTP/1.1\r\n"), "{first}");
+        assert!(first.contains("Accept: application/pkix-crl\r\n"));
+        assert!(!first.contains("Content-Type") && !first.contains("Content-Length"));
+        assert!(first.ends_with("\r\n\r\n"));
+        assert!(String::from_utf8_lossy(&requests[1]).starts_with("GET /b "));
+        // A redirection to another scheme is refused.
+        let (base, server) = serve(vec![
+            b"HTTP/1.1 302 Found\r\nLocation: ldap://x/y\r\nContent-Length: 0\r\n\r\n".to_vec(),
+        ]);
+        assert!(get(&base, "a/b").is_err());
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn long_chunked_answers_are_read_whole() {
+        // Many small chunks: each is taken once as it arrives.
+        let mut answer = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n".to_vec();
+        let mut expected = Vec::new();
+        for i in 0..20_000u32 {
+            let piece = format!("{i:08}");
+            answer.extend_from_slice(format!("{:x}\r\n{piece}\r\n", piece.len()).as_bytes());
+            expected.extend_from_slice(piece.as_bytes());
+        }
+        answer.extend_from_slice(b"0\r\n\r\n");
+        let started = Instant::now();
+        let mut incoming = Incoming::default();
+        let mut got = None;
+        for part in answer.chunks(4096) {
+            incoming.data.extend_from_slice(part);
+            if let Some(a) = incoming.answer(false).unwrap() {
+                got = Some(a);
+                break;
+            }
+        }
+        assert_eq!(got.unwrap().body, expected);
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "{:?}",
+            started.elapsed()
+        );
+    }
+
+    #[test]
+    fn slow_servers_are_stopped_by_the_deadline() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut s, _) = listener.accept().unwrap();
+            let mut buf = [0u8; 1024];
+            let _ = s.read(&mut buf);
+            // One byte every 300 ms, never the end of the answer.
+            for b in b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".iter()
+            {
+                if s.write_all(&[*b]).is_err() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(300));
+            }
+        });
+        let url = parse_url(&format!("http://{addr}/slow")).unwrap();
+        let started = Instant::now();
+        let err = send_once(
+            &url,
+            Method::Get,
+            "",
+            "a/b",
+            &[],
+            MAX_DOWNLOAD,
+            Instant::now() + Duration::from_secs(2),
+        )
+        .unwrap_err();
+        assert!(
+            started.elapsed() < Duration::from_secs(4),
+            "{:?}",
+            started.elapsed()
+        );
+        assert_eq!(err, "the server did not answer in time");
+        drop(server);
+    }
+
+    /// Answers cut, chunked with any sizes (the largest numbers among them) or
+    /// with any lengths are errors or incomplete, never a panic.
+    #[test]
+    fn any_framing_of_an_answer_is_read_without_panicking() {
+        let mut x: u64 = 0x2545_F491_4F6C_DD1D;
+        let mut next = move || {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            x
+        };
+        let sizes = [
+            "ffffffffffffffff",
+            "fffffffffffffffe",
+            "7fffffffffffffff",
+            "10000000000000000",
+            "0",
+            "3",
+            "zz",
+            "",
+        ];
+        for round in 0..20_000 {
+            let mut data = b"HTTP/1.1 200 OK\r\n".to_vec();
+            if round % 2 == 0 {
+                data.extend_from_slice(b"Transfer-Encoding: chunked\r\n\r\n");
+                for _ in 0..(next() % 4) {
+                    let size = if next() % 3 == 0 {
+                        sizes[(next() % sizes.len() as u64) as usize].to_string()
+                    } else {
+                        format!("{:x}", next() % 40)
+                    };
+                    data.extend_from_slice(size.as_bytes());
+                    data.extend_from_slice(b"\r\n");
+                    for _ in 0..(next() % 50) {
+                        data.push((next() % 256) as u8);
+                    }
+                    if next() % 2 == 0 {
+                        data.extend_from_slice(b"\r\n");
+                    }
+                }
+            } else {
+                data.extend_from_slice(format!("Content-Length: {}\r\n\r\n", next() % 100).as_bytes());
+                for _ in 0..(next() % 80) {
+                    data.push((next() % 256) as u8);
+                }
+            }
+            let cut = (next() as usize) % (data.len() + 1);
+            for closed in [false, true] {
+                let _ = parse_answer(&data[..cut], closed);
+            }
+            let _ = read_answer(&mut std::io::Cursor::new(data[..cut].to_vec()));
+        }
+        let whole = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n3\r\nabc\r\n0\r\n\r\n".to_vec();
+        assert_eq!(
+            read_answer(&mut std::io::Cursor::new(whole)).unwrap().body,
+            b"abc"
+        );
+    }
+
+    #[test]
+    fn huge_chunk_sizes_are_refused() {
+        // A chunk size near the largest number: refused, never an overflow.
+        for size in ["fffffffffffffffe", "ffffffffffffffff", "2000001"] {
+            let answer = format!(
+                "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n{size}\r\nabcdefghijklmnopqrstuvwxyz0123456789\r\n0\r\n\r\n"
+            );
+            let err = parse_answer(answer.as_bytes(), true).unwrap_err();
+            assert_eq!(err, "the answer of the server is too large", "{size}");
+        }
+        // Through a server on this computer, as the probe sends it.
+        let (base, server) = serve(vec![
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nfffffffffffffffe\r\nabcdefghijklmnopqrstuvwxyz0123456789\r\n0\r\n\r\n".to_vec(),
+        ]);
+        assert!(get(&format!("{base}/list.crl"), "application/pkix-crl").is_err());
+        server.join().unwrap();
+        // A size line that never ends.
+        let mut endless = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n".to_vec();
+        endless.extend(std::iter::repeat_n(b'1', 4096));
+        assert!(parse_answer(&endless, false).is_err());
     }
 }

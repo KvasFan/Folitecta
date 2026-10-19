@@ -63,14 +63,23 @@ pub fn extract_pages(st: AppState, pages: Vec<usize>) {
                 Ok(()) => st.toast(
                     ToastKind::Ok,
                     tf(st.lang(), "toast.saved", &[("name", &path.display().to_string())]),
-                    "",
+                    protected_detail(st, &part),
                 ),
-                Err(e) => st.error(e),
+                Err(e) => st.core_error(&e),
             },
-            Some(Err(e)) => st.error(e),
+            Some(Err(e)) => st.core_error(&e),
             None => {}
         }
     });
+}
+
+/// The detail of the message about files made from a protected document.
+pub(crate) fn protected_detail(st: AppState, doc: &Document) -> String {
+    if doc.is_protected() {
+        t(st.lang(), "toast.protected_kept")
+    } else {
+        String::new()
+    }
 }
 
 /// Split the active document into files of `every` pages inside a chosen folder.
@@ -97,11 +106,12 @@ pub fn split_document(st: AppState, every: usize) {
         match result {
             Some(Ok(parts)) => {
                 let mut count = 0;
+                let detail = parts.first().map(|p| protected_detail(st, p)).unwrap_or_default();
                 for (i, mut part) in parts.into_iter().enumerate() {
                     let path = dir.join(format!("{stem}-{:03}.pdf", i + 1));
                     match part.save_as(&path) {
                         Ok(()) => count += 1,
-                        Err(e) => st.error(e),
+                        Err(e) => st.core_error(&e),
                     }
                 }
                 st.toast(
@@ -111,7 +121,7 @@ pub fn split_document(st: AppState, every: usize) {
                         "toast.exported",
                         &[("count", &count.to_string()), ("dir", &dir.display().to_string())],
                     ),
-                    "",
+                    detail,
                 );
             }
             Some(Err(e)) => st.error(e),
@@ -133,10 +143,10 @@ pub fn insert_from_file(st: AppState, path: PathBuf, at: usize) {
     match Document::open(&path) {
         Ok(other) => {
             if let Some(Err(e)) = st.with_active(|t| t.doc.insert_document(at, &other, None)) {
-                st.error(e);
+                st.core_error(&e);
             }
         }
-        Err(e) => st.error(format!("{}: {e}", path.display())),
+        Err(e) => st.error(format!("{}: {}", path.display(), st.core_error_text(&e))),
     }
 }
 

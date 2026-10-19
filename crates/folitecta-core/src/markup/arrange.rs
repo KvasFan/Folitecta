@@ -124,11 +124,20 @@ impl Document {
     /// one undo step.
     fn place_shown(&mut self, page: usize, placed: &[(ObjectId, Shown)]) -> Result<()> {
         let size = self.page_size(page)?;
-        self.begin_edit();
-        for (aid, r) in placed {
-            self.reshape_annotation(*aid, crate::geom::normalize(display_rect_to_pdf(&size, *r)))?;
+        let placed: Vec<(ObjectId, [f32; 4])> = placed
+            .iter()
+            .map(|(aid, r)| (*aid, crate::geom::normalize(display_rect_to_pdf(&size, *r))))
+            .collect();
+        // A resized comment whose text cannot be drawn is refused before the edit.
+        if let Some(problem) = placed.iter().find_map(|(aid, r)| self.reshape_problem(*aid, *r)) {
+            return Err(problem.into());
         }
-        self.commit()
+        self.edit_step(|doc| {
+            for (aid, r) in &placed {
+                doc.reshape_annotation(*aid, *r)?;
+            }
+            Ok(())
+        })
     }
 
     /// Align comments of a page on an edge or a middle line.

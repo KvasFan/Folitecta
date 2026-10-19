@@ -38,6 +38,8 @@ pub enum ConfirmAction {
     TrashDocument,
     /// Move the files selected in the explorer to the recycle bin.
     TrashFiles,
+    /// Import the comments of this file that can be drawn, leaving out the others.
+    ImportCommentsSkipping(std::sync::Arc<Vec<u8>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -45,6 +47,18 @@ pub enum AfterUnsaved {
     Close,
     CloseAll,
     Exit,
+}
+
+/// What the password of the password dialog opens.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PasswordTarget {
+    /// A file, in a new tab.
+    File(PathBuf),
+    /// A file in place of the document of tab `tab` (Revert); the tab stays
+    /// as it is until the file is open.
+    Replace { path: PathBuf, tab: u64 },
+    /// The revision a signature of the document of tab `tab` covers.
+    Revision { tab: u64, field: String },
 }
 
 /// Modal dialogs. Each variant carries the data the dialog needs.
@@ -86,7 +100,11 @@ pub enum Dialog {
         tab: u64,
         then: AfterUnsaved,
     },
-    Password(PathBuf),
+    /// A password, for `target`; `retry` after a wrong one.
+    Password {
+        target: PasswordTarget,
+        retry: bool,
+    },
     Note {
         page: usize,
         x: f32,
@@ -131,8 +149,8 @@ pub enum Dialog {
     Transitions,
     ReplacePages(PathBuf),
     OverlayFile(PathBuf),
-    /// Print the active document (`false`) or every open document (`true`).
-    Print(bool),
+    /// The print window.
+    Print(PrintTarget),
     /// Text of a new callout pointing at `tip` with its box at `rect` (PDF space).
     Callout {
         page: usize,
@@ -200,6 +218,10 @@ pub enum Dialog {
     SignatureDetails(String),
     /// Add a document time stamp from a time stamp server.
     TimeStamp,
+    /// Options of signature validation (online revocation checks).
+    SignatureOptions,
+    /// Add validation material (certificates, revocation data) to the document.
+    ValidationMaterial,
     /// Digital IDs: import, create, export, delete.
     DigitalIds,
     /// Trusted certificates.
@@ -370,6 +392,8 @@ pub enum Dialog {
     SecurityPolicies,
     /// The commands of the Quick Access Toolbar.
     CustomizeQat,
+    /// The files of an e-mail message (state in `commands::mail::MAIL`).
+    Mail,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.
@@ -378,17 +402,36 @@ pub type LoupePos = (usize, f32, f32, f64, f64);
 /// Points placed so far by a multi-click tool: page and display points.
 pub type Drawing = (usize, Vec<(f32, f32)>);
 
-/// One printed page: tab id, page index, revision of the view (`DocTab::view_rev`).
-pub type PrintPage = (u64, usize, u64);
+/// What the print window prints.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PrintTarget {
+    /// The active document.
+    Active,
+    /// These pages of the active document (zero-based).
+    Pages(Vec<usize>),
+    /// Every open document.
+    AllOpen,
+    /// PDF files given by name and contents (the files of a portfolio), with
+    /// the protection of the document they come from (and the tab holding it).
+    Files {
+        files: Vec<PrintFile>,
+        protection: Option<folitecta_core::Protection>,
+        tab: Option<u64>,
+    },
+}
 
-/// Pages being printed through the hidden print view.
+/// A PDF file to print: its name and contents.
+pub type PrintFile = (String, std::sync::Arc<Vec<u8>>);
+
+/// Sheets laid out for the system print dialog, as pictures.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PrintJob {
-    pub pages: Vec<PrintPage>,
+    /// The generation of the sheets (part of their addresses).
+    pub generation: u64,
+    /// The number of sheets of each document.
+    pub sheets: Vec<usize>,
     /// Render scale in thousandths (1000 = 72 dpi).
     pub scale_milli: u32,
-    pub annotations: bool,
-    /// Scale each page to the paper; otherwise print at actual size.
-    pub fit: bool,
-    pub id: u64,
+    /// Width and height of the paper of the first sheet, in points.
+    pub paper: (f32, f32),
 }

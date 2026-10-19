@@ -50,11 +50,21 @@ undo step; the dictionaries are files read at run time, not built in), `marks` (
 headers and footers, page numbering),
 `structure` and `accessibility` (tags, reading order, the accessibility check), `digsig`
 (signatures; `timestamp` builds RFC 3161 requests, checks the answers and tokens and holds a
-small authority for the tests, while the interface's `http` module carries the requests; the
-validation reports integrity, signer, time and revocation as separate checks), `redaction` (the glyphs under the marks leave their text operations, each
+small authority for the tests, while the interface's `http` module carries the requests; `ocsp`
+and `crl` read OCSP answers and revocation lists from the bytes as received and hold a small
+responder and list issuer for the tests; `revocation` decides the state of each certificate of a
+chain for the time a signature is proven or claimed to exist; `dss` reads and extends the
+document security store and tells later revisions that only add validation material from the
+others by their structure; the validation reports integrity, signer, time and revocation as
+separate checks, and the interface runs it off its thread through a `ValidationJob`), `redaction` (the glyphs under the marks leave their text operations, each
 replaced by a move of its width found by the text probe, the pixels of pictures under the marks
 are covered, comments and fields over them go; pages that cannot be edited that way are drawn as
-pictures), `compare`, `combine` (documents made from several files), `pictures` (the pictures
+pictures), `compare`, `combine` (documents made from several files), `delivery` (copies prepared to be
+sent, made from a snapshot of the document: chosen pages that keep nothing of the others — the
+resources of the kept pages are cut to what their content names, and the bookmarks, links, named
+destinations, form fields, tags, opening view and article threads of the others go and are counted —,
+comments kept, flattened or removed, the protection of the document kept or the copy refused,
+signatures kept only by the unchanged signed file or an incremental update of it), `pictures` (the pictures
 a page draws: where they are, their pixels, an edited picture put back), `imaging` (turning,
 cropping, straightening, filters and pixel formats) and `barcodes` (barcodes written by rxing and
 drawn as vector shapes; read from rendered pages one at a time, each painted out before the next
@@ -69,13 +79,47 @@ node, so nested page trees from any producer are handled uniformly.
 Content streams are rewritten operation by operation with a small lexer (`content_lex`) that keeps
 the bytes of every operation it does not change.
 
+Generated text chooses its font in `fonts` (`TextWriter`): text whose characters all have a
+WinAnsi code is drawn with the standard Helvetica, as before; other text with a subset of GNU
+FreeFont FreeSans embedded in the appearance that draws it, as a Type 0 font (Identity-H,
+CIDFontType2 with `/FontFile2`, `/CIDToGIDMap` and `/W`) with a `/ToUnicode` map, its codes the
+characters in the order they are first drawn. The subsetter keeps the glyph numbers, records and
+metrics of the glyphs used; each appearance owns its subset (marked `/FolitectaFont` with the key
+of its characters), and a drawing made again with the same characters uses it again. Text that
+needs right-to-left order, joining or combining marks, and characters the font lacks, are refused
+before an edit begins (`check_text`, `appearance::text_problem`); a failed edit is abandoned with
+its undo and redo history as it was (`Document::edit_step`). The font is a data file, never built
+into the program (see `fonts/README.md`).
+
 Encrypted files are decrypted in memory (password-protected files prompt for the password); the
-encryption of the file — its key, passwords and permissions — is kept aside and applied again
-whenever the document is saved, so a protected file stays protected and opens with the same
-passwords. Save Unrestricted Copy writes a plain copy on purpose. Signed documents are saved as an
-incremental update, which keeps their signatures valid. Every file is written to a temporary file
+encryption of the file — its key, passwords and permissions — is kept aside (`security::Protection`)
+and applied again whenever the document is saved, so a protected file stays protected and opens
+with the same passwords. Documents made from a protected one (extracted pages, filled copies,
+summaries, reports, duplicates) carry its protection, and content of a protected file is refused
+by unprotected documents. New protection is AES-256 (revision 6) by default, AES-128 on request.
+Save Unrestricted Copy writes a plain copy on purpose. Signed documents are saved as an
+incremental update, which keeps their signatures valid; for a protected signed document the
+update is encrypted with the document's key (`protection::encrypted::protected_update`, over the
+decrypted objects of the file as it was written). The value of a signature (its `/Contents`) is
+never encrypted — the byte range leaves exactly that string out, as widely used readers and
+writers expect — and is read back from the bytes the byte range leaves out, which must be the
+`/Contents` string of that signature object. Every file is written to a temporary file
 in the same folder and renamed over the target only when it is complete
 (`document::write_pdf_file`, `util::write_atomic`), so a failed save never damages the original.
+
+A later revision of a signed file counts as "validation material only" (the signature keeps
+its integrity) by an allow-list, never by what the revision says of itself
+(`digsig::dss::classify`): it must have the regular shape of a careful writer's update —
+objects separated only by white space and comments, then one cross-reference section (a table
+or one stream, never hybrid) whose subsections do not overlap or repeat numbers, whose in-use
+entries point inside the update at headers of the same number and generation, which frees no
+number in use, declares a `/Size` above its numbers, follows the previous section (`/Prev`) and
+is the one `startxref` names, and whose object streams hold only new objects in index order
+without `/Extends`. It may not define or free any object the document reaches (the catalog may
+change only its `/DSS`, `/Version` and `/Extensions /ESIC`, the document information only its
+modification date and producer), every such object must be unchanged, and the renderer's own
+reader (hayro-syntax) must resolve each of them to the same values as the PDF library, before
+and after. Anything else is reported as a change after signing.
 
 ### Rendering
 
@@ -88,6 +132,16 @@ pages are drawn side by side and keep their cache. The UI never blocks on render
 requests `/page/{tab}/{page}/{revision}/{scale}.png` and the response is produced on a worker
 thread. Because the revision is part of the URL the browser cache stays valid until the document
 changes.
+
+### Printing
+
+`print` plans the sheets of a print job as pure geometry (one page per sheet, several pages per
+sheet, booklets, posters, the order of two-sided output) and writes them as a vector PDF: each page
+used becomes form XObjects (its content, then its printable annotations) placed on sheets of the
+paper's size, with the objects copied once and the layers fixed to their print state. The file is
+checked before it is sent or saved, and encrypted like its source as the last step when it is
+saved. `raster` draws sheets as pictures, and the renderer draws pages in bands for printers that
+receive pixels.
 
 ### Command registry
 
@@ -149,14 +203,26 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
   removed when a document is saved or closed and on Exit. Each window is a session (process id
   and start time) holding a lock file while it runs; copies of sessions whose lock is free are
   offered. Copies are written through a temporary file, one checkpoint at a time, off the
-  interface thread; documents opened from encrypted files are not copied, signed ones are copied
+  interface thread; protected documents are not copied, signed ones are copied
   as an incremental update.
-- `dictionaries/` and `ocr/` (at the root of the repository) — the Hunspell dictionaries and the
-  text recognition models shipped with the program, as data files next to it in the release
-  packages (the `Resources` of the macOS bundle). They are looked for in the user's
-  `Folitecta/dictionaries` (or `Folitecta/ocr`) folder first, then next to the program, then in
-  the source tree, and the dictionaries on Linux in `/usr/share/hunspell` too.
+- `mail.rs` — the files of an e-mail message written into a new private folder (one per message,
+  open to the user only) and handed to the system's mail program (Simple MAPI on Windows, Mail on
+  macOS, `xdg-email` on Linux), or saved with the message as an unsent draft (`.eml`); a mail
+  program that is missing or cannot take the files is reported, nothing else is opened in its
+  place. The e-mail dialog (`commands/document/mail.rs`, its model `mail_draft.rs`, drawn by
+  `ui/features/mail.rs`) prepares every file away from the interface thread, two at a time, and
+  shows its size, facts and first pages. Tests and the self-test use a stand-in mail program.
+- `dictionaries/`, `ocr/` and `fonts/` (at the root of the repository) — the Hunspell
+  dictionaries, the text recognition models and the font of generated text beyond WinAnsi
+  (FreeSans) shipped with the program, as data files next to it in the release packages (the
+  `Resources` of the macOS bundle; `fonts/source`, the source of the font, stays in the source
+  archives). They are looked for in the user's `Folitecta/dictionaries` (or `Folitecta/ocr`,
+  `Folitecta/fonts`) folder first, then next to the program, then in the source tree, and the
+  dictionaries on Linux in `/usr/share/hunspell` too.
 - `features.rs` — generates `docs/FEATURES.md` (`folitecta --features-md <path>`).
+- `printing/` — the printers: IPP to the local print server on Linux and macOS (the vector print
+  file is sent), GDI on Windows (the sheets drawn in bands), and a fake printer for the tests and
+  the self-test; the print window is `ui/features/print.rs`, its jobs `commands/document/print.rs`.
 - `selftest/` — the interface self-test (`folitecta --ui-selftest <dir>`): layout audits at
   several window sizes and simulated input on the canvas, with a report and screenshots.
 
@@ -181,13 +247,23 @@ Mouse coordinates on a page image are converted to PDF user space with
   draws them itself (pictures inside forms and inline pictures are not found); edited pictures are
   written as 8-bit RGB, gray, palette or black and white pictures (CMYK, ICC profiles and 16-bit
   samples are not kept, and stencil masks become black and white pictures).
-- Generated text (comments, stamps, page marks) uses Helvetica with WinAnsi encoding: characters
-  the WinAnsi encoding lacks appear as `?`.
+- Text boxes, typewriter text, callouts and measurement labels draw text beyond WinAnsi with the
+  embedded FreeSans subset; right-to-left text, letters that join or combine (Arabic, Hebrew,
+  Indic scripts, Thai marks) and characters FreeSans lacks (Chinese, Japanese, Korean, ...) are
+  refused, with no choice of another font yet; `/DA` still names Helvetica. Text stamps refuse
+  text beyond WinAnsi. The other generated text (designed stamps, tables, calculator tapes, form
+  fields, watermarks, headers and footers, page numbers, Bates numbers, comment summaries,
+  documents made from text or e-mail, signature appearances, typed signature marks, media
+  captions, barcode captions, redaction overlay text) still uses Helvetica with WinAnsi encoding,
+  where characters the encoding lacks appear as `?`.
 - Text recognition reads the Latin script, written left to right (lines turned up to about 45
   degrees); the invisible text uses WinAnsi, so letters it lacks (such as Polish `ł`) are written
   without their accent.
-- Revocation of certificates (revocation lists, OCSP) is not checked and no long-term validation
-  material is added; later revisions after a signature are reported, but what they change is
-  not analysed (only whether they end with document time stamps). There is no conversion to
-  PDF/A.
+- Revocation is checked from OCSP answers and from complete revocation lists of the
+  certificate's own issuer; indirect, delta and partitioned lists are not read, missing issuers
+  are not fetched and certificate policies are not checked. Revocation data are asked online
+  only when the user turns that on. Validation material is added to the document security
+  store, but no long-term validation profile is claimed. Later revisions after a signature are
+  recognised when they only add validation material or end with document time stamps; other
+  changes are reported, not analysed. There is no conversion to PDF/A.
 - Commands marked *planned* in [FEATURES.md](FEATURES.md) open a roadmap notice.

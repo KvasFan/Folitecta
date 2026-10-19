@@ -9,13 +9,14 @@
 //! [`markup`] (comments), [`graphics`] (pictures and barcodes), [`page_text`],
 //! [`interactive`] (forms and scripts), [`navigation`], [`protection`] and
 //! [`tags`]; the document model, rendering, the registry and the shared
-//! helpers ([`util`], [`geom`], [`xml`], [`zip`]) stay at the root. Every
+//! helpers ([`util`], [`geom`], [`xml`], [`zip`], [`fonts`]) stay at the root. Every
 //! module is also reachable from the root (`folitecta_core::pages`, ...).
 
 pub(crate) mod changes;
 pub mod commands;
 pub mod document;
 pub mod error;
+pub mod fonts;
 pub mod geom;
 pub mod render;
 pub mod render_service;
@@ -44,8 +45,8 @@ pub use markup::{
 };
 pub use navigation::{layers, links, outline};
 pub use organize::{
-    attachments, combine, compare, doctools, email, export, marks, metadata, pages, pagetools, portfolio,
-    textdoc,
+    attachments, combine, compare, delivery, doctools, email, export, marks, metadata, pages, pagetools,
+    portfolio, print, textdoc,
 };
 pub(crate) use page_text::{content_edit, content_lex};
 pub use page_text::{ocr, search, spelling, text, textedit, textlayer, textops};
@@ -59,13 +60,15 @@ pub use attachments::Attachment;
 pub use barcodes::{BarcodeKind, FoundBarcode};
 pub use buttons::{ButtonBehaviour, ButtonState};
 pub use commands::{Command, CommandKind, Registry, Status, registry};
-pub use comment_exchange::CommentFormat;
+pub use comment_exchange::{CommentFormat, LeftOutReply, UndrawableComment};
 pub use comment_review::{CommentInfo, REVIEW_STATES, StateChange};
 pub use comment_summary::{SummaryEntry, SummaryLabels, SummaryLayout, SummaryOptions, SummarySort};
+pub use delivery::{CopyComments, CopyFacts, CopyOptions, CopySignatures, CopySource, LeftOut, PreparedCopy};
 pub use document::{DocInfo, Document, PageSize};
 pub use error::{Error, Result};
 pub use export::ImageFormat;
 pub use flatten::FlattenScope;
+pub use fonts::{AppearanceFont, GlyphProblem};
 pub use form_calc::{CalcOp, Calculation};
 pub use form_data::{FormDataFormat, PageWidget};
 pub use form_design::{FieldProps, NewField};
@@ -81,7 +84,7 @@ pub use render::{
     Lane, RenderAnswer, RenderOpts, RenderRequest, RenderService, RenderStats, RenderedPage, Renderer,
 };
 pub use scripts::ScriptInfo;
-pub use security::SecurityPermissions;
+pub use security::{EncryptionInfo, EncryptionProfile, PasswordIssue, Protection, SecurityPermissions};
 pub use signmarks::SignatureMark;
 pub use spelling::{DictionaryFile, Misspelling, SpellOptions, SpellPlace, SpellScope, Speller};
 pub use stamps::STAMP_PRESETS;

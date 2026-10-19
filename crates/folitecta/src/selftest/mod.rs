@@ -434,15 +434,19 @@ mod steps_panes;
 mod steps_perf;
 mod steps_pictures;
 mod steps_policies;
+mod steps_print;
+mod steps_protection;
 mod steps_qat;
 mod steps_recovery;
 mod steps_review;
+mod steps_revocation;
 mod steps_spelling;
 mod steps_split;
 mod steps_split_view;
 mod steps_text;
 mod steps_timestamp;
 mod steps_tools;
+mod steps_unicode;
 
 /// What the interaction steps share: the app, where the screenshots go,
 /// the report and the zoom of the pages.
@@ -503,7 +507,11 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "qat" => Box::pin(steps_qat::run(cx)),
             "email" => Box::pin(steps_email::run(cx)),
             "timestamp" => Box::pin(steps_timestamp::run(cx)),
+            "revocation" => Box::pin(steps_revocation::run(cx)),
+            "protection" => Box::pin(steps_protection::run(cx)),
             "frames" => Box::pin(steps_frames::run(cx)),
+            "print" => Box::pin(steps_print::run(cx)),
+            "unicode" => Box::pin(steps_unicode::run(cx)),
             "perf" => Box::pin(steps_perf::run(cx)),
             _ => Box::pin(async { cx.record("unknown step", false, name.to_string()) }),
         };
@@ -529,7 +537,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
 }
 
 /// The interaction steps in the order of a full run.
-const STEPS: [&str; 25] = [
+const STEPS: &[&str] = &[
     "tools",
     "review",
     "panes",
@@ -553,7 +561,11 @@ const STEPS: [&str; 25] = [
     "qat",
     "email",
     "timestamp",
+    "revocation",
+    "protection",
+    "print",
     "frames",
+    "unicode",
     "perf",
 ];
 
@@ -576,14 +588,14 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
         failures: 0,
         z,
     };
-    for name in STEPS {
+    for &name in STEPS {
         run_step(&mut cx, name).await;
     }
     let failures = cx.failures;
 
     // 58. Undo everything added above.
     st.set_tool(Tool::Hand);
-    for _ in 0..90 {
+    for _ in 0..100 {
         crate::commands::dispatch(st, "undo");
     }
     pause(500).await;
@@ -610,6 +622,8 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
     ));
     // A neutral author name: screenshots never show the account name.
     st.ui_mut().author = "Reviewer".into();
+    // Print jobs go to the fake printer (and its folder), never to a printer.
+    crate::printing::use_fake(Some(dir.join("print-jobs")));
     let full = only.is_none();
     // Welcome screen (no document) at the smallest and a large size.
     pause(1500).await;
@@ -637,7 +651,8 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
     } else if only.as_deref() == Some("interactions") {
         total += interactions(st, &dir, &mut log).await;
     } else if let Some(step) = only.as_deref().and_then(|o| o.strip_prefix("step:")) {
-        // FOLITECTA_SELFTEST_ONLY=step:<name> runs one interaction step (for debugging).
+        // FOLITECTA_SELFTEST_ONLY=step:<name> runs one interaction step (for
+        // debugging); step:<a>,<b> runs several, in that order.
         set_size(1280.0, 800.0);
         st.with_active(|t| t.zoom = crate::state::Zoom::Fixed(1.0));
         pause(800).await;
@@ -648,7 +663,9 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
             failures: 0,
             z: 1.0,
         };
-        run_step(&mut cx, step).await;
+        for name in step.split(',').map(str::trim).filter(|n| !n.is_empty()) {
+            run_step(&mut cx, name).await;
+        }
         total += cx.failures;
     }
     total += print_layout(st, &dir, &mut log).await;
@@ -682,37 +699,76 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
     std::process::exit(if total == 0 { 0 } else { 3 });
 }
 
-/// The printed layout of the first pages, emulated on screen (the system
-/// dialog is modal): every page image decoded and laid out. Returns the
-/// number of problems.
+/// A print file, its number of sheets and the paper of the first.
+type LaidOut = (std::sync::Arc<Vec<u8>>, usize, (f32, f32));
+
+/// The sheets of the first pages, two on each side, laid out for the system
+/// dialog and emulated on screen (the dialog itself is modal and never
+/// opened): every sheet picture decoded and shown. Returns the number of
+/// problems.
 async fn print_layout(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_json::Value>) -> usize {
-    let started = begin("step", "print");
+    use folitecta_core::print::{Layout, NupOrder, PrintOptions};
+    let started = begin("step", "print-layout");
     set_size(1280.0, 800.0);
     pause(800).await;
-    let pages: Vec<crate::state::PrintPage> = st
-        .read_active(|t| {
-            (0..3.min(t.doc.page_count()))
-                .map(|p| (t.id, p, t.page_rev(p)))
-                .collect()
+    let seed = st.read_active(|t| t.doc.print_seed());
+    let built = match seed {
+        Some(seed) => tokio::task::spawn_blocking(move || -> Result<LaidOut, String> {
+            let src = folitecta_core::print::PrintSource::load(seed).map_err(|e| e.to_string())?;
+            let opts = PrintOptions {
+                layout: Layout::NUp {
+                    per_sheet: 2,
+                    order: NupOrder::Horizontal,
+                    gutter: 0.0,
+                    borders: true,
+                    auto_rotate: true,
+                },
+                ..Default::default()
+            };
+            let pages: Vec<usize> = (0..3.min(src.page_count())).collect();
+            let plan = folitecta_core::print::plan(&pages, src.geoms(), &opts).map_err(|e| e.to_string())?;
+            let o = folitecta_core::print::BuildOptions {
+                content: folitecta_core::print::Content::DocumentAndComments,
+                compress: true,
+            };
+            let pdf = src
+                .build(&plan, 0..plan.sheets.len(), &o, &mut |_, _| true)
+                .map_err(|e| e.to_string())?
+                .ok_or("cancelled")?;
+            let paper = plan
+                .sheets
+                .first()
+                .map(|s| (s.paper.width, s.paper.height))
+                .unwrap_or_default();
+            Ok((std::sync::Arc::new(pdf), plan.sheets.len(), paper))
         })
-        .unwrap_or_default();
-    let ready = tokio::time::timeout(
-        wait_limit() * 2,
-        crate::files::prepare_print(st, pages, 100.0, true, true),
-    )
-    .await
-    .ok();
-    let _ = eval("document.documentElement.classList.add('emulate-print'); window.scrollTo(0, 0);").await;
-    pause(800).await;
-    let shown = eval(
-        "return [...document.querySelectorAll('.print-view .print-page img')].filter(i => i.complete && i.naturalWidth > 0 && i.getBoundingClientRect().width > 100).length;",
-    )
-    .await
-    .ok()
-    .and_then(|v| v.as_u64())
-    .unwrap_or(0);
-    let mut entry = serde_json::json!({ "interaction": "print layout with 3 rendered pages" });
-    let mut pass = ready == Some(3) && shown == 3;
+        .await
+        .map_err(|e| e.to_string())
+        .and_then(|r| r),
+        None => Err("no document".into()),
+    };
+    let mut entry = serde_json::json!({ "interaction": "print layout: 3 pages on 2 sheets of 2 pages, as pictures for the system dialog" });
+    let (ready, shown, why) = match built {
+        Ok((pdf, sheets, paper)) => {
+            let job = crate::commands::print::lay_out_sheets(st, vec![pdf], vec![sheets], paper, 100);
+            let ready = tokio::time::timeout(wait_limit() * 2, crate::files::prepare_print(st, job))
+                .await
+                .ok();
+            let _ =
+                eval("document.documentElement.classList.add('emulate-print'); window.scrollTo(0, 0);").await;
+            pause(800).await;
+            let shown = eval(
+                "return [...document.querySelectorAll('.print-view .print-page img')].filter(i => i.complete && i.naturalWidth > 0 && i.getBoundingClientRect().width > 100).length;",
+            )
+            .await
+            .ok()
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+            (ready, shown, String::new())
+        }
+        Err(e) => (None, 0, e),
+    };
+    let mut pass = ready == Some(2) && shown == 2;
     if cfg!(target_os = "windows") {
         let shot = dir.join("print-layout.png");
         let capture = capture_window(&shot);
@@ -721,12 +777,14 @@ async fn print_layout(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
         entry["capture"] = capture.err().into();
     }
     let _ = eval("document.documentElement.classList.remove('emulate-print');").await;
+    st.set_print_job(None);
     let timeouts = take_timeouts();
     pass &= timeouts.is_empty();
     let detail = match ready {
-        Some(n) => format!("{n} pages ready, {shown} shown"),
+        Some(n) => format!("{n} sheets ready, {shown} shown"),
+        None if !why.is_empty() => why,
         None => format!(
-            "the pages were not ready within {:.0} s",
+            "the sheets were not ready within {:.0} s",
             (wait_limit() * 2).as_secs_f64()
         ),
     };
@@ -739,8 +797,58 @@ async fn print_layout(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     .into();
     progress::report(&entry, usize::from(!pass));
     log.push(entry);
-    finish("step", "print", if pass { "pass" } else { "FAIL" }, started);
+    finish(
+        "step",
+        "print-layout",
+        if pass { "pass" } else { "FAIL" },
+        started,
+    );
     usize::from(!pass)
+}
+
+/// The e-mail dialog with its first file prepared (pages, what was left
+/// out, the first pages shown) and, with `failed`, a mail program that did
+/// not take the files. Returns the number of problems.
+async fn mail_dialog(
+    st: AppState,
+    dir: &std::path::Path,
+    tag: &str,
+    failed: bool,
+    log: &mut Vec<serde_json::Value>,
+) -> usize {
+    use crate::commands::mail::{self, MAIL, Pages, Phase, Prep, Start};
+    mail::start(
+        st,
+        Start::Documents {
+            all: false,
+            zip: false,
+        },
+    );
+    mail::edit_row(st, 0, |it| {
+        it.pages = Pages::Range;
+        it.range = "1".into();
+        it.comments = folitecta_core::CopyComments::Flatten;
+    });
+    for _ in 0..100 {
+        pause(200).await;
+        let ready = MAIL.peek().as_ref().is_some_and(|d| {
+            d.items
+                .first()
+                .is_some_and(|i| !matches!(i.prep, Prep::Pending | Prep::Running(_)))
+        });
+        if ready {
+            break;
+        }
+    }
+    let mut total = check(st, dir, &format!("960x620-{tag}-dialog-mail"), log).await;
+    if failed {
+        mail::edit_text(|d| {
+            d.phase = Phase::Failed(crate::mail::HandOverError::NoProgram("self-test".into()))
+        });
+        total += check(st, dir, &format!("960x620-{tag}-dialog-mail-failed"), log).await;
+    }
+    st.set_dialog(Dialog::None);
+    total
 }
 
 /// Every layout state and interaction check; returns the number of problems.
@@ -884,6 +992,18 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
             },
         ),
         ("timestamp", Dialog::TimeStamp),
+        ("signature-options", Dialog::SignatureOptions),
+        ("validation-material", Dialog::ValidationMaterial),
+        (
+            "password",
+            Dialog::Password {
+                target: crate::state::PasswordTarget::Replace {
+                    path: "signed.pdf".into(),
+                    tab: 0,
+                },
+                retry: true,
+            },
+        ),
         ("digital-ids", Dialog::DigitalIds),
         ("trusted-certs", Dialog::TrustedCerts),
         ("signature-library", Dialog::SignatureLibrary),
@@ -957,6 +1077,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("spell-check", Dialog::SpellCheck),
         ("security-policies", Dialog::SecurityPolicies),
         ("customize-qat", Dialog::CustomizeQat),
+        ("print", Dialog::Print(crate::state::PrintTarget::Active)),
         ("ocr", Dialog::Ocr { pictures_only: false }),
         ("ocr-pictures", Dialog::Ocr { pictures_only: true }),
         (
@@ -1027,6 +1148,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
             total += check(st, &dir, &format!("960x620-{code}-dialog-{name}"), log).await;
         }
         st.set_dialog(Dialog::None);
+        total += mail_dialog(st, &dir, code, true, log).await;
     }
     *crate::commands::tables::TABLE_EDIT.write() = None;
     *crate::commands::sources::SOURCES.write() = Default::default();
@@ -1036,6 +1158,9 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         st.set_open_menu(Some("edit".into()));
         total += check(st, &dir, &format!("960x620-{}", theme.attr()), log).await;
         st.set_open_menu(None);
+        if theme == Theme::Dark {
+            total += mail_dialog(st, &dir, theme.attr(), false, log).await;
+        }
     }
     st.ui_mut().theme = Theme::Light;
     st.ui_mut().ribbon = false;

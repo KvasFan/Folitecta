@@ -282,6 +282,7 @@ impl Document {
         behind: bool,
         layer: Option<ObjectId>,
     ) -> Result<()> {
+        self.check_import_from(other)?;
         self.check(pages)?;
         let n = other.page_count();
         if n == 0 {
@@ -456,6 +457,25 @@ impl Document {
 
     /// Page labels (`/PageLabels` number tree) as shown to users; falls back to 1, 2, 3, ...
     pub fn page_labels(&self) -> Vec<String> {
+        self.page_label_parts()
+            .into_iter()
+            .map(|(style, prefix, value)| {
+                let number = match style.as_slice() {
+                    b"D" => value.to_string(),
+                    b"R" => roman(value).to_uppercase(),
+                    b"r" => roman(value),
+                    b"A" => letters(value).to_uppercase(),
+                    b"a" => letters(value),
+                    _ => String::new(),
+                };
+                format!("{prefix}{number}")
+            })
+            .collect()
+    }
+
+    /// The parts of the label of every page: numbering style (`D`, `R`, `r`,
+    /// `A`, `a` or empty), prefix and number (1, 2, 3, ... without labels).
+    pub(crate) fn page_label_parts(&self) -> Vec<(Vec<u8>, String, i64)> {
         let n = self.page_count();
         let doc = &self.inner;
         let mut ranges: Vec<(usize, Dictionary)> = Vec::new();
@@ -506,7 +526,7 @@ impl Document {
         ranges.sort_by_key(|(s, _)| *s);
         (0..n)
             .map(|p| match ranges.iter().rev().find(|(s, _)| *s <= p) {
-                None => (p + 1).to_string(),
+                None => (b"D".to_vec(), String::new(), (p + 1) as i64),
                 Some((start, d)) => {
                     let first = d.get(b"St").ok().and_then(|s| s.as_i64().ok()).unwrap_or(1);
                     let value = first + (p - start) as i64;
@@ -516,15 +536,7 @@ impl Document {
                         .and_then(|o| crate::util::text_of(doc, o))
                         .unwrap_or_default();
                     let style = d.get(b"S").ok().and_then(|s| s.as_name().ok()).unwrap_or(b"");
-                    let number = match style {
-                        b"D" => value.to_string(),
-                        b"R" => roman(value).to_uppercase(),
-                        b"r" => roman(value),
-                        b"A" => letters(value).to_uppercase(),
-                        b"a" => letters(value),
-                        _ => String::new(),
-                    };
-                    format!("{prefix}{number}")
+                    (style.to_vec(), prefix, value)
                 }
             })
             .collect()
@@ -534,6 +546,15 @@ impl Document {
     /// (`D`, `R`, `r`, `A`, `a` or empty), a prefix and a first number.
     pub fn set_page_labels(&mut self, ranges: &[(usize, &str, &str, i64)]) -> Result<()> {
         self.begin_edit();
+        if let Err(e) = self.write_page_labels(ranges) {
+            self.abandon_edit();
+            return Err(e);
+        }
+        self.commit()
+    }
+
+    /// Write the page labels (see [`Document::set_page_labels`]) without an undo step.
+    pub(crate) fn write_page_labels(&mut self, ranges: &[(usize, &str, &str, i64)]) -> Result<()> {
         if ranges.is_empty() {
             self.inner.catalog_mut()?.remove(b"PageLabels");
         } else {
@@ -558,7 +579,7 @@ impl Document {
                 .catalog_mut()?
                 .set("PageLabels", dictionary! { "Nums" => nums });
         }
-        self.commit()
+        Ok(())
     }
 
     /// Flatten one annotation (by its position in the page's `/Annots`).

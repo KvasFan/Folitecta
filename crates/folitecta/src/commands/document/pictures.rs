@@ -580,26 +580,6 @@ pub fn launch(st: AppState, path: &Path) {
     }
 }
 
-/// Folder of the picture files given to other apps; files older than a
-/// day (left by an app that was closed while editing) are removed.
-fn outside_dir() -> PathBuf {
-    let dir = std::env::temp_dir().join("folitecta-pictures");
-    let _ = std::fs::create_dir_all(&dir);
-    let day = std::time::Duration::from_secs(24 * 3600);
-    for e in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
-        let old = e
-            .metadata()
-            .and_then(|m| m.modified())
-            .ok()
-            .and_then(|m| m.elapsed().ok())
-            .is_some_and(|age| age > day);
-        if old {
-            let _ = std::fs::remove_file(e.path());
-        }
-    }
-    dir
-}
-
 /// Write the picture to a file for another app; with `launch` the app opens it.
 pub fn edit_outside(st: AppState, launch_app: bool) {
     let Some((page, index)) = target(st) else { return };
@@ -607,14 +587,33 @@ pub fn edit_outside(st: AppState, launch_app: bool) {
         return;
     };
     let ext = edit_type(st);
-    let path = outside_dir().join(format!(
+    // A folder of the user's own; the one of protected documents goes as
+    // soon as no protected document is open.
+    let protected = st
+        .docs
+        .peek()
+        .iter()
+        .find(|t| t.id == at.tab)
+        .is_some_and(|t| t.doc.is_protected());
+    let kind = if protected {
+        crate::private_files::PROTECTED
+    } else {
+        crate::private_files::PICTURES
+    };
+    let dir = match crate::private_files::private_dir(kind) {
+        Ok(dir) => dir,
+        Err(e) => return st.error(e),
+    };
+    let path = dir.join(format!(
         "picture-{}-{}-{}-{}.{ext}",
         at.tab,
         page + 1,
         index + 1,
         next_generation()
     ));
-    let written = match ext.as_str() {
+    let format = image::ImageFormat::from_extension(&ext).unwrap_or(image::ImageFormat::Png);
+    let mut encoded = std::io::Cursor::new(Vec::new());
+    let made = match ext.as_str() {
         // JPEG and BMP have no transparency: the picture is laid on white.
         "jpg" | "bmp" => {
             let rgb = image::RgbImage::from_fn(work.pixels.width(), work.pixels.height(), |x, y| {
@@ -623,12 +622,15 @@ pub fn edit_outside(st: AppState, launch_app: bool) {
                 let mix = |c: u8| ((c as u32 * a + 255 * (255 - a) + 127) / 255) as u8;
                 image::Rgb([mix(p[0]), mix(p[1]), mix(p[2])])
             });
-            rgb.save(&path)
+            rgb.write_to(&mut encoded, format)
         }
-        _ => work.pixels.save(&path),
+        _ => work.pixels.write_to(&mut encoded, format),
     };
+    let written = made.map_err(|e| e.to_string()).and_then(|_| {
+        crate::private_files::write_private_file(&path, encoded.get_ref()).map_err(|e| e.to_string())
+    });
     if let Err(e) = written {
-        st.error(e.to_string());
+        st.error(e);
         return;
     }
     let modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();

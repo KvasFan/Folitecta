@@ -65,7 +65,6 @@ impl Document {
             return Err(Error::Invalid("stamp text is empty".into()));
         }
         let page_id = self.page_id(page)?;
-        self.begin_edit();
         let mut annot = self.base_annotation(page_id, "Stamp", rect, author, text, color);
         annot.set(
             "Name",
@@ -77,6 +76,12 @@ impl Document {
                 .into_bytes(),
             ),
         );
+        // Text stamps are drawn with Helvetica only: text beyond WinAnsi is
+        // refused before anything changes, never drawn as `?`.
+        if let Some(problem) = crate::appearance::text_problem(&self.inner, &annot) {
+            return Err(problem.into());
+        }
+        self.begin_edit();
         annot.set("BS", dictionary! { "W" => 1.0f32, "S" => "S" });
         self.finish_annotation(page_id, annot)
     }

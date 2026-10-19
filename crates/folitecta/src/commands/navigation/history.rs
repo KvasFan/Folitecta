@@ -52,6 +52,8 @@ pub fn record_open(st: AppState, path: &Path, title: &str, pages: usize) {
 }
 
 /// Note that a document was closed at `page`, and keep a thumbnail of it.
+/// A protected document leaves no picture of its page behind (an older one
+/// is removed).
 pub fn record_close(st: AppState, path: &Path, page: usize, doc: &folitecta_core::Document) {
     {
         let mut ui = st.ui_mut();
@@ -61,6 +63,12 @@ pub fn record_close(st: AppState, path: &Path, page: usize, doc: &folitecta_core
         }
     }
     st.save_prefs();
+    if doc.is_protected() {
+        if let Some(target) = thumb_path(path) {
+            let _ = std::fs::remove_file(target);
+        }
+        return;
+    }
     if let Some(target) = thumb_path(path) {
         let scale = doc
             .page_size(0)

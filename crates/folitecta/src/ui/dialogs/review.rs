@@ -280,10 +280,21 @@ pub(super) fn AnnotationText(page: usize, index: usize, contents: String) -> Ele
     let st = use_context::<AppState>();
     let lang = st.lang();
     let text = use_signal(|| contents.clone());
+    // A text box shows its text: say while typing what it cannot draw.
+    let text_box = st
+        .read_active(|t| {
+            t.doc
+                .annotations(page)
+                .ok()
+                .and_then(|a| a.get(index).map(|a| a.subtype == "FreeText"))
+        })
+        .flatten()
+        .unwrap_or(false);
     rsx! {
         Frame { title: t(lang, "dialog.note.title"),
             on_ok: move |_| { let c = text(); apply(st, |tab| tab.doc.set_annotation_contents(page, index, &c)); },
             Area { label: t(lang, "dialog.note.title"), value: text, autofocus: true }
+            if text_box { super::tools::GlyphHint { text } }
         }
     }
 }

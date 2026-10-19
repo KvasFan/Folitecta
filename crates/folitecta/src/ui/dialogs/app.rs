@@ -1,4 +1,4 @@
-//! Application dialogs: toolbars, zoom, about, shortcuts, feature matrix, preferences, command line, confirmations, unsaved changes, password and printing.
+//! Application dialogs: toolbars, zoom, about, shortcuts, feature matrix, preferences, command line, confirmations, unsaved changes, password, and the sheets laid out for the system print dialog.
 
 use super::*;
 
@@ -74,71 +74,29 @@ pub(super) fn ZoomLevelDialog() -> Element {
     }
 }
 
-#[component]
-pub(super) fn PrintDialog(all_docs: bool) -> Element {
-    let st = use_context::<AppState>();
-    let lang = st.lang();
-    let mode = use_signal(|| default_scope(st));
-    let range = use_signal(String::new);
-    let mut dpi = use_signal(|| "150".to_string());
-    let mut annots = use_signal(|| true);
-    let mut fit = use_signal(|| true);
-    let docs = st.docs.read().len();
-    let total_pages: usize = st.docs.read().iter().map(|t| t.doc.page_count()).sum();
-    rsx! {
-        Frame { title: if all_docs { t(lang, "dialog.print.title_all") } else { t(lang, "dialog.print.title") }, ok_label: Some(t(lang, "dialog.print.go")),
-            on_ok: move |_| {
-                let pages: Vec<crate::state::PrintPage> = if all_docs {
-                    st.docs.read().iter().flat_map(|t| (0..t.doc.page_count()).map(move |p| (t.id, p, t.page_rev(p)))).collect()
-                } else {
-                    match scope_pages(st, mode(), &range()) {
-                        Ok(pages) => st.read_active(|t| pages.iter().map(|p| (t.id, *p, t.page_rev(*p))).collect()).unwrap_or_default(),
-                        Err(e) => { st.error(e); return; }
-                    }
-                };
-                let d: f32 = dpi().parse().unwrap_or(150.0);
-                st.set_dialog(Dialog::None);
-                files::start_print(st, pages, d, annots(), fit());
-            },
-            if all_docs {
-                div { class: "hint", "{tf(lang, \"dialog.print.all_hint\", &[(\"docs\", &docs.to_string()), (\"pages\", &total_pages.to_string())])}" }
-            } else {
-                PageScope { mode, range }
-            }
-            div { class: "field-grid",
-                div { class: "field", label { "{t(lang, \"dialog.export.dpi\")}" }
-                    select { onchange: move |e| dpi.set(e.value()),
-                        option { value: "100", "100 dpi" }
-                        option { value: "150", selected: true, "150 dpi" }
-                        option { value: "300", "300 dpi" }
-                    }
-                }
-            }
-            label { class: "check", input { r#type: "checkbox", checked: annots(), onchange: move |_| annots.set(!annots()) } span { "{t(lang, \"dialog.rasterize.annots\")}" } }
-            label { class: "check", input { r#type: "checkbox", checked: fit(), onchange: move |_| fit.set(!fit()) } span { "{t(lang, \"dialog.print.fit\")}" } }
-            div { class: "hint", "{t(lang, \"dialog.print.hint\")}" }
-        }
-    }
-}
-
-/// Hidden page images laid out for the system print dialog.
+/// The sheets laid out as pictures for the system print dialog.
 #[component]
 pub fn PrintView() -> Element {
     let st = use_context::<AppState>();
     let Some(job) = (st.print_job)() else {
         return rsx! {};
     };
-    let q = if job.annotations { "" } else { "?annots=0" };
-    let class = if job.fit {
-        "print-view fit"
-    } else {
-        "print-view actual"
-    };
+    let page_style = format!(
+        "@media print {{ @page {{ size: {:.2}pt {:.2}pt; margin: 0; }} }}",
+        job.paper.0, job.paper.1
+    );
+    let sheets: Vec<(usize, usize)> = job
+        .sheets
+        .iter()
+        .enumerate()
+        .flat_map(|(d, n)| (0..*n).map(move |i| (d, i)))
+        .collect();
     rsx! {
-        div { class: "{class}", key: "{job.id}",
-            for (i, (tab, page, rev)) in job.pages.iter().enumerate() {
-                div { class: "print-page", key: "{i}",
-                    img { src: "/page/{tab}/{page}/{rev}/{job.scale_milli}.png{q}", alt: "" }
+        div { class: "print-view fit", key: "{job.generation}",
+            style { "{page_style}" }
+            for (d, i) in sheets {
+                div { class: "print-page", key: "{d}-{i}",
+                    img { src: "/sheet/s/{job.generation}/{d}/{i}/{job.scale_milli}.png", alt: "" }
                 }
             }
         }
@@ -163,6 +121,7 @@ pub(super) fn About() -> Element {
                         li { "Rendering: hayro (Apache-2.0 OR MIT)" }
                         li { "Document model: lopdf (MIT)" }
                         li { "User interface: Dioxus (MIT OR Apache-2.0)" }
+                        li { "Text beyond Western European characters: GNU FreeFont FreeSans (GPL-3.0-or-later with the font exception)" }
                         li { a { href: "https://github.com/KvasFan/Folitecta", onclick: move |e| { e.prevent_default(); let _ = crate::util::open_external("https://github.com/KvasFan/Folitecta"); }, "github.com/KvasFan/Folitecta" } }
                     }
                     div { class: "row", style: "gap:8px; margin-top: 8px",
@@ -333,8 +292,11 @@ pub(super) fn NotImplemented(id: String) -> Element {
 pub(super) fn Confirm(title: String, body: String, action: ConfirmAction) -> Element {
     let st = use_context::<AppState>();
     let act = action.clone();
+    // Importing the comments that can be drawn is a choice, not a loss.
+    let choice = matches!(action, ConfirmAction::ImportCommentsSkipping(_));
+    let ok_label = choice.then(|| t(st.lang(), "dialog.import_undrawable.ok"));
     rsx! {
-        Frame { title, danger: true,
+        Frame { title, danger: !choice, ok_label,
             on_ok: move |_| {
                 match act.clone() {
                     ConfirmAction::DeleteAllComments => apply(st, |tab| tab.doc.delete_all_comments(None).map(|_| ())),
@@ -368,6 +330,7 @@ pub(super) fn Confirm(title: String, body: String, action: ConfirmAction) -> Ele
                         st.with_active(|t| t.selected_pages.clear());
                         apply(st, move |tab| tab.doc.delete_pages(&pages));
                     }
+                    ConfirmAction::ImportCommentsSkipping(data) => files::import_drawable_comments(st, &data),
                 }
             },
             p { "{body}" }
@@ -404,17 +367,40 @@ pub(super) fn Unsaved(tab: u64, then: crate::state::AfterUnsaved) -> Element {
 }
 
 #[component]
-pub(super) fn Password(path: String) -> Element {
+pub(super) fn Password(target: PasswordTarget, retry: bool) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
     let pw = use_signal(String::new);
-    let p = std::path::PathBuf::from(path.clone());
+    let (body, label, value) = match &target {
+        PasswordTarget::File(path) => ("dialog.password.body", "dialog.file", path.display().to_string()),
+        PasswordTarget::Replace { path, .. } => (
+            "dialog.password.body_revert",
+            "dialog.file",
+            path.display().to_string(),
+        ),
+        PasswordTarget::Revision { field, .. } => {
+            ("dialog.password.body_revision", "sig.field", field.clone())
+        }
+    };
     rsx! {
         Frame { title: t(lang, "dialog.password.title"),
-            on_ok: move |_| { let password = pw(); st.set_dialog(Dialog::None); files::open_path(st, p.clone(), Some(&password)); },
-            p { "{t(lang, \"dialog.password.body\")}" }
-            div { class: "kv", span { class: "k", "{t(lang, \"dialog.file\")}" } span { class: "v", "{path}" } }
-            div { class: "field", label { "{t(lang, \"dialog.password.field\")}" } input { r#type: "password", autofocus: true, value: "{pw}", oninput: move |e| { let mut s = pw; s.set(e.value()); } } }
+            on_ok: move |_| {
+                let password = pw();
+                st.set_dialog(Dialog::None);
+                match target.clone() {
+                    PasswordTarget::File(path) => files::open_path(st, path, Some(&password)),
+                    PasswordTarget::Replace { path, tab } => files::open_in_place_of(st, tab, path, Some(&password)),
+                    PasswordTarget::Revision { tab, field } => {
+                        crate::commands::signatures::open_signed_revision_with(st, tab, &field, Some(&password))
+                    }
+                }
+            },
+            p { "{t(lang, body)}" }
+            if retry {
+                p { class: "hint warn password-wrong", "{t(lang, \"dialog.password.wrong\")}" }
+            }
+            div { class: "kv", span { class: "k", "{t(lang, label)}" } span { class: "v", "{value}" } }
+            div { class: "field", label { "{t(lang, \"dialog.password.field\")}" } input { class: "password-input", r#type: "password", autofocus: true, value: "{pw}", oninput: move |e| { let mut s = pw; s.set(e.value()); } } }
         }
     }
 }

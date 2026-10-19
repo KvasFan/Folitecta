@@ -71,3 +71,16 @@ cbc = { version = "0.1", features = ["std"] }
 aes = "0.8"
 hmac = "0.12"
 rand_core = { version = "0.6", features = ["getrandom"] }
+# Generated text beyond WinAnsi (fonts module): the TrueType reader of the
+# renderer (MIT/Apache-2.0; the same version hayro uses, so nothing new is
+# built), and the Unicode composition and bidirectional classes already built
+# for the PDF library (MIT/Apache-2.0)
+skrifa = "0.46"
+unicode-normalization = "0.1"
+unicode-bidi = "0.3"
+# Passwords of AES-256 protection prepared as the PDF format asks (SASLprep,
+# MIT/Apache-2.0), already used by the PDF library
+stringprep = "0.1"
+# MD5 of the password algorithms of revisions 2 to 4 (MIT/Apache-2.0), already
+# used by the PDF library
+md-5 = "0.11"

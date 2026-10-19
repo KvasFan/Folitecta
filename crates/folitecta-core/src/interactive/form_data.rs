@@ -422,9 +422,10 @@ impl Document {
     }
 
     /// A copy of the document with its fields filled from `values` (field
-    /// name, value), and the number of fields filled.
+    /// name, value), and the number of fields filled; protected like the
+    /// document when it is.
     pub fn filled_copy(&self, values: &[(String, String)]) -> Result<(Document, usize)> {
-        let mut copy = Document::from_bytes(self.bytes().as_ref().clone(), None, None)?;
+        let mut copy = self.derived()?;
         let n = copy.set_field_values(values)?;
         copy.clear_history();
         Ok((copy, n))

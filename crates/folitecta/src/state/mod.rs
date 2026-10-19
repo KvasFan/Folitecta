@@ -35,6 +35,9 @@ pub struct CompareState {
     pub filter: String,
     /// Whole text rows are highlighted.
     pub rows: bool,
+    /// The protection of the first protected document compared: the report,
+    /// which quotes their text, gets it.
+    pub protection: Option<folitecta_core::Protection>,
 }
 
 /// All reactive state, cheap to copy into closures.
@@ -205,7 +208,13 @@ impl AppState {
 
     // Setters usable through a shared copy of the state (signals are handles).
     pub fn set_dialog(&self, v: Dialog) {
+        let leaves_mail = *self.dialog.peek() == Dialog::Mail && v != Dialog::Mail;
         *self.dialog.write_unchecked() = v;
+        if leaves_mail {
+            // The message of the e-mail dialog goes with it (its prepared files
+            // are released, its work stopped).
+            crate::commands::mail::forget();
+        }
     }
     pub fn set_palette(&self, v: Option<String>) {
         *self.palette.write_unchecked() = v;
@@ -363,9 +372,32 @@ impl AppState {
         });
     }
 
-    pub fn error(&self, err: impl std::fmt::Display) {
-        let title = crate::i18n::t(self.lang(), "toast.error");
-        self.toast(ToastKind::Error, title, err.to_string());
+    /// Show an error. The errors of the core about generated text (and
+    /// problems of generated text themselves) are shown in the language of
+    /// the interface.
+    pub fn error<E: std::fmt::Display + 'static>(&self, err: E) {
+        let lang = self.lang();
+        let title = crate::i18n::t(lang, "toast.error");
+        let any = &err as &dyn std::any::Any;
+        let message = if let Some(e) = any.downcast_ref::<folitecta_core::Error>() {
+            crate::i18n::core_error(lang, e)
+        } else if let Some(p) = any.downcast_ref::<folitecta_core::GlyphProblem>() {
+            crate::i18n::glyph_problem(lang, p)
+        } else {
+            err.to_string()
+        };
+        self.toast(ToastKind::Error, title, message);
+    }
+
+    /// The text of an error of the core in the interface language (see
+    /// [`crate::i18n::core_error`]).
+    pub fn core_error_text(&self, e: &folitecta_core::Error) -> String {
+        crate::i18n::core_error(self.lang(), e)
+    }
+
+    /// Show an error of the core (see [`AppState::core_error_text`]).
+    pub fn core_error(&self, e: &folitecta_core::Error) {
+        self.error(self.core_error_text(e));
     }
 
     pub fn close_menus(&self) {

@@ -12,6 +12,8 @@ mod i18n;
 mod icons;
 mod mail;
 mod perf;
+mod printing;
+mod private_files;
 mod recovery;
 mod selftest;
 mod state;
@@ -77,6 +79,10 @@ fn main() {
         // SAFETY: called before any other thread is started.
         unsafe { std::env::set_var("FOLITECTA_CONFIG_DIR", cfg.dir.join("config")) };
     }
+    // The font of text beyond WinAnsi: its folders, and read it away from the
+    // interface so the first text that needs it does not wait.
+    folitecta_core::fonts::set_font_dirs(util::font_dirs());
+    std::thread::spawn(folitecta_core::fonts::preload);
     let skip_value = selftest.as_ref().map(|c| c.dir.display().to_string());
     let files: Vec<PathBuf> = args
         .into_iter()

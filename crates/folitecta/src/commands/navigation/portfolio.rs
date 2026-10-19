@@ -297,15 +297,14 @@ pub fn open_item(st: AppState, item: folitecta_core::portfolio::PortfolioItem) {
     let is_pdf = item.name.to_lowercase().ends_with(".pdf") || item.attachment.mime == "application/pdf";
     if is_pdf {
         let data = st
-            .read_active(|t| t.doc.attachment_data(&item.attachment).ok())
+            .read_active(|t| {
+                let data = t.doc.attachment_data(&item.attachment).ok()?;
+                Some((data, t.doc.protection().cloned()))
+            })
             .flatten();
-        match data.map(|d| Document::from_bytes(d, None, None)) {
-            Some(Ok(mut doc)) => {
-                doc.set_name_hint(&item.name);
-                crate::files::open_document_tab(st, doc);
-            }
-            Some(Err(e)) => st.error(e),
-            None => {}
+        // A file of a protected document is protected like it.
+        if let Some((data, protection)) = data {
+            crate::files::open_embedded_pdf(st, data, &item.name, protection);
         }
     } else {
         crate::commands::attachments::open_attachment(st, item.attachment);
@@ -324,21 +323,52 @@ fn preview_file(st: AppState) {
     }
 }
 
-/// Open the selected PDF files and print every open document.
+/// Print the chosen PDF files of the portfolio (and nothing else), read
+/// from the portfolio itself without opening them.
 fn print(st: AppState) {
     let Some((p, ps)) = need_portfolio(st) else { return };
-    let pdfs: Vec<_> = chosen_files(&p, &ps)
-        .into_iter()
-        .filter(|i| i.name.to_lowercase().ends_with(".pdf"))
-        .collect();
-    if pdfs.is_empty() {
+    let chosen = chosen_files(&p, &ps);
+    let Some((files, unreadable, protection, tab)) = st.read_active(|t| {
+        let (files, unreadable) = pdf_files(&t.doc, &chosen);
+        // The files keep the protection (and the access) of the portfolio.
+        (files, unreadable, t.doc.protection().cloned(), t.id)
+    }) else {
+        return;
+    };
+    if files.is_empty() && unreadable == 0 {
         st.toast(ToastKind::Info, t(st.lang(), "toast.portfolio_no_pdf"), "");
         return;
     }
-    for it in pdfs {
-        open_item(st, it);
+    if unreadable > 0 {
+        st.toast(ToastKind::Warn, t(st.lang(), "toast.portfolio_unreadable"), "");
     }
-    st.set_dialog(Dialog::Print(true));
+    if !files.is_empty() {
+        st.set_dialog(Dialog::Print(crate::state::PrintTarget::Files {
+            files,
+            protection,
+            tab: Some(tab),
+        }));
+    }
+}
+
+/// The PDF files among `items` of the portfolio `doc`, read from it (names
+/// and contents), and how many of them could not be read.
+pub(crate) fn pdf_files(
+    doc: &Document,
+    items: &[folitecta_core::portfolio::PortfolioItem],
+) -> (Vec<crate::state::PrintFile>, usize) {
+    let mut files = Vec::new();
+    let mut unreadable = 0;
+    for it in items
+        .iter()
+        .filter(|i| i.name.to_lowercase().ends_with(".pdf") || i.attachment.mime == "application/pdf")
+    {
+        match doc.attachment_data(&it.attachment) {
+            Ok(data) => files.push((it.name.clone(), std::sync::Arc::new(data))),
+            Err(_) => unreadable += 1,
+        }
+    }
+    (files, unreadable)
 }
 
 fn navigate(st: AppState, dir: &str) {
@@ -490,4 +520,32 @@ handlers! {
     "portfolioSchemaList.delete" => |st| edit_columns(st, "delete"),
     "portfolioSchemaList.up" => |st| edit_columns(st, "up"),
     "portfolioSchemaList.down" => |st| edit_columns(st, "down"),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_portfolio_prints_its_own_pdf_files_only() {
+        let one = Document::from_text("First file", Default::default()).unwrap();
+        let two = Document::from_text("Second file", Default::default()).unwrap();
+        let doc = Document::new_portfolio(
+            vec![
+                ("one.pdf".into(), one.bytes().to_vec()),
+                ("notes.txt".into(), b"not a PDF".to_vec()),
+                ("two.pdf".into(), two.bytes().to_vec()),
+            ],
+            "Files",
+        )
+        .unwrap();
+        let p = doc.portfolio().unwrap();
+        let items: Vec<_> = p.files_in(None).into_iter().cloned().collect();
+        let (files, unreadable) = pdf_files(&doc, &items);
+        assert_eq!(unreadable, 0);
+        let names: Vec<&str> = files.iter().map(|(n, _)| n.as_str()).collect();
+        assert_eq!(names, ["one.pdf", "two.pdf"]);
+        assert_eq!(*files[0].1, *one.bytes());
+        assert_eq!(*files[1].1, *two.bytes());
+    }
 }

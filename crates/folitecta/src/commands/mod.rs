@@ -20,14 +20,15 @@ pub(crate) mod protection;
 pub(crate) mod text;
 pub(crate) mod window;
 pub(crate) use document::{
-    barcodes, compare, convert, doctools, file, fileops, macros, mail, ocr, pages, pictures, sources, split,
+    barcodes, compare, convert, doctools, file, fileops, macros, mail, ocr, pages, pictures, print, sources,
+    split,
 };
 pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
     arrange, calculator, comment_styles, comments, format, media, review, stamps, tables,
 };
 pub(crate) use navigation::{attachments, bookmarks, explorer, history, layers, panes, portfolio, sessions};
-pub(crate) use protection::{policies, protect, redaction, signatures, signs};
+pub(crate) use protection::{policies, protect, redaction, revocation, signatures, signs};
 pub(crate) use text::{find_replace, search, spelling, textedit};
 pub(crate) use window::{edit, help, interface, qat, split_view, view};
 
@@ -69,6 +70,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     bookmarks::HANDLERS,
     interface::HANDLERS,
     signatures::HANDLERS,
+    revocation::HANDLERS,
     signs::HANDLERS,
     macros::HANDLERS,
     layers::HANDLERS,
@@ -128,8 +130,6 @@ pub const PARTIAL: &[&str] = &[
     "layersView.selectCorresponding.comments",
     "layersView.selectCorresponding.fields",
     "layersView.selectCorresponding.links",
-    // Opens the PDF files and prints every open document.
-    "view.portfolio.print",
     // There are no tab groups: the files open in this window.
     "sessions.open.addToActiveGroup",
     "sessions.open.addToNewGroup",
@@ -359,7 +359,7 @@ pub(crate) fn no_doc(st: AppState) -> bool {
 
 pub(crate) fn core_result(st: AppState, r: Option<folitecta_core::Result<()>>) {
     match r {
-        Some(Err(e)) => st.error(e),
+        Some(Err(e)) => st.core_error(&e),
         _ => files::set_window_title(st),
     }
 }

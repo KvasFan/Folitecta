@@ -73,21 +73,28 @@ pub fn open_attachment(st: AppState, att: Attachment) {
         );
         return;
     }
-    let data = match st.read_active(|t| t.doc.attachment_data(&att)) {
+    let data = match st.read_active(|t| t.doc.attachment_data(&att).map(|d| (d, t.doc.is_protected()))) {
         Some(Ok(d)) => d,
         Some(Err(e)) => return st.error(e),
         None => return,
     };
-    let dir = std::env::temp_dir()
-        .join("Folitecta")
-        .join(format!("attachments-{}", std::process::id()));
-    let path = dir.join(safe_file_name(&att.name));
-    let r = std::fs::create_dir_all(&dir)
-        .and_then(|_| std::fs::write(&path, data))
+    let (data, protected) = data;
+    // A folder of the user's own; the one of protected documents goes as
+    // soon as no protected document is open.
+    let kind = if protected {
+        crate::private_files::PROTECTED
+    } else {
+        crate::private_files::ATTACHMENTS
+    };
+    let r = crate::private_files::private_dir(kind)
+        .map(|dir| dir.join(safe_file_name(&att.name)))
+        .and_then(|path| crate::private_files::write_private_file(&path, &data).map(|_| path))
         .map_err(|e| e.to_string())
-        .and_then(|_| crate::util::open_external(&path.display().to_string()));
-    if let Err(e) = r {
-        st.error(e);
+        .and_then(|path| crate::util::open_external(&path.display().to_string()));
+    match r {
+        Err(e) => st.error(e),
+        Ok(()) if protected => st.toast(ToastKind::Info, t(st.lang(), "toast.protected_attachment"), ""),
+        Ok(()) => {}
     }
 }
 

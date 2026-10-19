@@ -201,6 +201,8 @@ pub fn App() -> Element {
 
     // Copies of the documents with unsaved changes, and the ones left behind.
     use_hook(|| crate::recovery::start(st));
+    // Decrypted files left by windows that ended without Exit.
+    use_hook(crate::private_files::sweep);
 
     // Open files passed on the command line.
     use_future(move || {
@@ -319,6 +321,23 @@ pub fn App() -> Element {
                 }
             };
             responder.respond(resp);
+        });
+    });
+
+    // The sheets of the print window's preview at /sheet/p/{generation}.png and
+    // the sheets laid out for the system dialog at /sheet/s/{generation}/{doc}/{sheet}/{scale}.png.
+    use_asset_handler("sheet", move |request, responder| {
+        let path = request.uri().path().to_string();
+        commands::print::serve(&path, move |status, body| {
+            let resp = Response::builder()
+                .status(status)
+                .header(
+                    "Content-Type",
+                    if status == 200 { "image/png" } else { "text/plain" },
+                )
+                .header("Cache-Control", "no-store")
+                .body(body);
+            responder.respond(resp.unwrap_or_else(|_| Response::new(Vec::new())));
         });
     });
 

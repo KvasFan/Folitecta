@@ -3,17 +3,20 @@
 
 use std::path::PathBuf;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use dioxus::prelude::*;
 use folitecta_core::digsig::{
-    CertInfo, Certificate, DigitalId, IdentityInfo, KeyKind, SignOptions, SignPlacement, SignatureStatus,
-    Transport, cert_info, cert_to_der, parse_certificates,
+    CertInfo, Certificate, Check, DigitalId, IdentityInfo, KeyKind, SignOptions, SignPlacement,
+    SignatureStatus, SignedFile, Transport, cert_info, cert_to_der, parse_certificates,
 };
 
 use crate::commands::{handlers, no_doc, show_pane};
 use crate::files;
 use crate::i18n::{t, tf};
-use crate::state::{AppState, ConfirmAction, Dialog, Pane, ToastKind, Tool, app_data_dir};
+use crate::state::{
+    AppState, ConfirmAction, Dialog, DocTab, Pane, PasswordTarget, ToastKind, Tool, app_data_dir,
+};
 
 /// A digital ID kept in Folitecta's data folder.
 #[derive(Debug, Clone, PartialEq)]
@@ -144,26 +147,144 @@ pub fn remove_trusted(sha1: &str) {
     }
 }
 
-/// Signature validation results of the active document (cached per revision).
-pub fn signature_status(st: AppState) -> Vec<SignatureStatus> {
-    st.with_active(|t| {
-        if let Some((rev, s)) = &t.sig_status {
-            if *rev == t.revision {
-                return s.clone();
-            }
-        }
-        let s = t.doc.validate_signatures(&trusted_certs());
-        t.sig_status = Some((t.revision, s.clone()));
-        s
-    })
-    .unwrap_or_default()
+/// The state validation results are for: the document's revision and saves
+/// (the file it is checked against), the online data of its tab, and the
+/// generation of the trusted list and options.
+pub type StatusKey = ((u64, u64), u64, u64);
+
+/// Bumped when the trusted list or the options of validation change.
+static STATUS_GEN: AtomicU64 = AtomicU64::new(0);
+
+/// Holds the checks before they start (the self-test looks at the views
+/// while checks are under way); set only through [`HoldChecks`].
+static HOLD_CHECKS: AtomicBool = AtomicBool::new(false);
+
+/// The longest a check waits for a hold to end.
+const HOLD_LIMIT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Holds the checks while it lives; dropped (also when the code that made
+/// it stops half-way), the checks go on.
+pub(crate) struct HoldChecks;
+
+impl HoldChecks {
+    pub(crate) fn new() -> HoldChecks {
+        HOLD_CHECKS.store(true, Ordering::SeqCst);
+        HoldChecks
+    }
 }
 
-/// Forget cached validation results (after the trusted list changed).
-pub fn invalidate_status(st: AppState) {
-    for t in st.docs_mut().iter_mut() {
-        t.sig_status = None;
+impl Drop for HoldChecks {
+    fn drop(&mut self) {
+        HOLD_CHECKS.store(false, Ordering::SeqCst);
     }
+}
+
+/// Wait while the checks are held, at most `limit`.
+async fn wait_while_held(limit: std::time::Duration) {
+    let started = std::time::Instant::now();
+    while HOLD_CHECKS.load(Ordering::SeqCst) && started.elapsed() < limit {
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+}
+
+/// Validations under way: (tab, key).
+static CHECKING: Mutex<Vec<(u64, StatusKey)>> = Mutex::new(Vec::new());
+
+pub fn status_key(t: &DocTab) -> StatusKey {
+    (
+        t.doc.validation_stamp(),
+        t.revocation_gen,
+        STATUS_GEN.load(Ordering::SeqCst),
+    )
+}
+
+fn with_tab<T>(st: AppState, id: u64, f: impl FnOnce(&mut DocTab) -> T) -> Option<T> {
+    let mut docs = st.docs_mut();
+    let tab = docs.iter_mut().find(|t| t.id == id)?;
+    let out = f(tab);
+    tab.refresh();
+    Some(out)
+}
+
+/// Validate the document of tab `tab` on another thread (the checks of
+/// signatures, revocation data and later revisions take time) and keep the
+/// result for the state it was made for.
+async fn validate_tab(st: AppState, tab: u64) -> Option<Vec<SignatureStatus>> {
+    wait_while_held(HOLD_LIMIT).await;
+    let (key, job, pool) = st
+        .docs
+        .peek()
+        .iter()
+        .find(|t| t.id == tab)
+        .map(|t| (status_key(t), t.doc.validation_job(), t.revocation.clone()))?;
+    let result =
+        tokio::task::spawn_blocking(move || job.run(&trusted_certs(), &pool, super::revocation::now_secs()))
+            .await
+            .ok();
+    if let Some(s) = &result {
+        let current = st.docs.peek().iter().find(|t| t.id == tab).map(status_key);
+        if current == Some(key) {
+            with_tab(st, tab, |t| t.sig_status = Some((key, s.clone())));
+        }
+    }
+    result
+}
+
+/// Signature validation results of the active document: the results for its
+/// current state when they are ready, else the last ones (while the checks
+/// run on another thread).
+pub fn signature_status(st: AppState) -> Vec<SignatureStatus> {
+    let Some((tab, key, cached)) = st.read_active(|t| (t.id, status_key(t), t.sig_status.clone())) else {
+        return Vec::new();
+    };
+    if let Some((k, s)) = &cached {
+        if *k == key {
+            return s.clone();
+        }
+    }
+    let start = {
+        let mut running = CHECKING.lock().expect("validations");
+        let new = !running.contains(&(tab, key));
+        if new {
+            running.push((tab, key));
+        }
+        new
+    };
+    if start {
+        dioxus::core::spawn_forever(async move {
+            validate_tab(st, tab).await;
+            CHECKING.lock().expect("validations").retain(|r| *r != (tab, key));
+        });
+    }
+    cached.map(|(_, s)| s).unwrap_or_default()
+}
+
+/// The checks of the active document are running (its results are not for
+/// its current state yet).
+pub fn signatures_checking(st: AppState) -> bool {
+    st.read_active(|t| t.sig_status.as_ref().map(|(k, _)| *k) != Some(status_key(t)))
+        .unwrap_or(false)
+}
+
+/// Signature validation results of the active document for its current
+/// state, waiting for the checks when they are not ready.
+pub async fn current_status(st: AppState) -> Vec<SignatureStatus> {
+    let Some((tab, key, cached)) = st.read_active(|t| (t.id, status_key(t), t.sig_status.clone())) else {
+        return Vec::new();
+    };
+    match cached {
+        Some((k, s)) if k == key => s,
+        _ => validate_tab(st, tab).await.unwrap_or_default(),
+    }
+}
+
+/// Forget cached validation results (after the trusted list or the options
+/// changed): they are checked again, and the views that show them draw
+/// again (the last results stay in view meanwhile).
+pub fn invalidate_status(st: AppState) {
+    STATUS_GEN.fetch_add(1, Ordering::SeqCst);
+    // A write of the open tabs makes their views draw again.
+    drop(st.docs_mut());
 }
 
 /// Media types of time stamp requests and answers (RFC 3161).
@@ -216,44 +337,47 @@ pub fn cancel_pending() {
     PENDING.lock().expect("pending signature").take();
 }
 
-/// The bytes of the active document signed by `id` (with a time stamp from
-/// the server at `tsa`), made on a worker thread while the server answers.
+/// The active document signed by `id` (with a time stamp from the server
+/// at `tsa`), made on a worker thread while the server answers: the signed
+/// file (encrypted like the document when it is protected) and the
+/// document it opens as.
 pub async fn signed_bytes(
     st: AppState,
     id: DigitalId,
     opts: SignOptions,
     tsa: Option<String>,
-) -> Result<Vec<u8>, String> {
+) -> Result<SignedFile, String> {
     let copy = st
         .read_active(|t| t.doc.work_copy())
         .ok_or("no document")?
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| st.core_error_text(&e))?;
     tokio::task::spawn_blocking(move || {
         let mut send = tsa.map(tsa_transport);
         let send: Option<&mut Transport<'_>> = send.as_mut().map(|s| s as &mut Transport<'_>);
-        copy.sign_with(&id, &opts, send)
+        copy.sign_to_file(&id, &opts, send)
     })
     .await
     .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())
+    .map_err(|e| st.core_error_text(&e))
 }
 
-/// The bytes of the active document with a document time stamp from the
-/// server at `url`.
-pub async fn time_stamped_bytes(st: AppState, url: String) -> Result<Vec<u8>, String> {
+/// The active document with a document time stamp from the server at `url`.
+pub async fn time_stamped_bytes(st: AppState, url: String) -> Result<SignedFile, String> {
     let copy = st
         .read_active(|t| t.doc.work_copy())
         .ok_or("no document")?
-        .map_err(|e| e.to_string())?;
-    tokio::task::spawn_blocking(move || copy.time_stamp(&mut tsa_transport(url)))
+        .map_err(|e| st.core_error_text(&e))?;
+    tokio::task::spawn_blocking(move || copy.time_stamp_to_file(&mut tsa_transport(url)))
         .await
         .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+        .map_err(|e| st.core_error_text(&e))
 }
 
-/// Ask where to save a signed (or time-stamped) file, write it and show it
-/// in place of the active document.
-async fn save_signed(st: AppState, bytes: Vec<u8>, suffix: &str, done: &str) {
+/// Ask where to save a signed (or time-stamped) file made from the document
+/// of tab `tab`, write it and show it in place of that document. A
+/// protected document's signed file is shown as it was made: its password
+/// is not asked again.
+pub async fn save_signed(st: AppState, tab: u64, signed: SignedFile, suffix: &str, done: &str) {
     let name = files::suggested_name(st, suffix);
     let Some(file) = rfd::AsyncFileDialog::new()
         .set_title(t(st.lang(), "sig.save_signed"))
@@ -266,13 +390,31 @@ async fn save_signed(st: AppState, bytes: Vec<u8>, suffix: &str, done: &str) {
         return;
     };
     let path = file.path().to_path_buf();
-    if let Err(e) = folitecta_core::document::write_pdf_file(&path, &bytes) {
-        st.error(e);
+    write_signed(st, tab, signed, path, done);
+}
+
+/// Write a signed file to `path` and show it in place of the document of
+/// tab `tab`.
+pub fn write_signed(st: AppState, tab: u64, signed: SignedFile, path: PathBuf, done: &str) {
+    if let Err(e) = folitecta_core::document::write_pdf_file(&path, &signed.bytes) {
+        st.core_error(&e);
         return;
     }
-    files::replace_active_with(st, path);
+    let protected = signed.is_protected();
+    match signed.into_document(Some(path)) {
+        Ok(doc) => files::replace_tab_document(st, tab, doc, true),
+        Err(e) => {
+            st.core_error(&e);
+            return;
+        }
+    }
     show_pane(st, Pane::Signatures);
-    st.toast(ToastKind::Ok, t(st.lang(), done), "");
+    let detail = if protected {
+        t(st.lang(), "toast.protected_kept")
+    } else {
+        String::new()
+    };
+    st.toast(ToastKind::Ok, t(st.lang(), done), detail);
 }
 
 /// Sign the active document and save the signed file.
@@ -280,12 +422,16 @@ fn finish_sign(st: AppState, id: DigitalId, opts: SignOptions, tsa: Option<Strin
     if no_doc(st) {
         return;
     }
+    let Some(tab) = st.read_active(|t| t.id) else {
+        return;
+    };
     if tsa.is_some() {
         st.toast(ToastKind::Info, t(st.lang(), "toast.time_stamp_asking"), "");
     }
-    spawn(async move {
+    // The dialog that asked has closed: not tied to it.
+    dioxus::core::spawn_forever(async move {
         match signed_bytes(st, id, opts, tsa).await {
-            Ok(bytes) => save_signed(st, bytes, "-signed", "toast.signed").await,
+            Ok(signed) => save_signed(st, tab, signed, "-signed", "toast.signed").await,
             Err(e) => st.error(e),
         }
     });
@@ -296,10 +442,13 @@ pub fn time_stamp_document(st: AppState, url: String) {
     if no_doc(st) {
         return;
     }
+    let Some(tab) = st.read_active(|t| t.id) else {
+        return;
+    };
     st.toast(ToastKind::Info, t(st.lang(), "toast.time_stamp_asking"), "");
-    spawn(async move {
+    dioxus::core::spawn_forever(async move {
         match time_stamped_bytes(st, url).await {
-            Ok(bytes) => save_signed(st, bytes, "-timestamped", "toast.time_stamped").await,
+            Ok(stamped) => save_signed(st, tab, stamped, "-timestamped", "toast.time_stamped").await,
             Err(e) => st.error(e),
         }
     });
@@ -321,27 +470,34 @@ fn validate_all(st: AppState) {
         return;
     }
     invalidate_status(st);
-    let s = signature_status(st);
     show_pane(st, Pane::Signatures);
-    if s.is_empty() {
-        st.toast(ToastKind::Info, t(st.lang(), "toast.no_signatures"), "");
-        return;
-    }
-    let valid = s.iter().filter(|x| x.valid).count();
-    let kind = if valid == s.len() {
-        ToastKind::Ok
-    } else {
-        ToastKind::Warn
-    };
-    st.toast(
-        kind,
-        tf(
-            st.lang(),
-            "toast.signatures_checked",
-            &[("valid", &valid.to_string()), ("count", &s.len().to_string())],
-        ),
-        "",
-    );
+    dioxus::core::spawn_forever(async move {
+        let s = current_status(st).await;
+        if s.is_empty() {
+            st.toast(ToastKind::Info, t(st.lang(), "toast.no_signatures"), "");
+            return;
+        }
+        let valid = s
+            .iter()
+            .filter(|x| x.valid && x.checks.revocation != Check::Failed)
+            .count();
+        let kind = if valid == s.len() {
+            ToastKind::Ok
+        } else {
+            ToastKind::Warn
+        };
+        st.toast(
+            kind,
+            tf(
+                st.lang(),
+                "toast.signatures_checked",
+                &[("valid", &valid.to_string()), ("count", &s.len().to_string())],
+            ),
+            "",
+        );
+        // With online checks on, ask for what the signatures miss.
+        super::revocation::refresh_online(st);
+    });
 }
 
 fn clear_all(st: AppState) {
@@ -364,21 +520,49 @@ fn summary(st: AppState) {
     if no_doc(st) {
         return;
     }
-    let s = signature_status(st);
-    match s.first() {
-        Some(first) => st.set_dialog(Dialog::SignatureDetails(first.field.clone())),
-        None => st.toast(ToastKind::Info, t(st.lang(), "toast.no_signatures"), ""),
+    dioxus::core::spawn_forever(async move {
+        let s = current_status(st).await;
+        match s.first() {
+            Some(first) => st.set_dialog(Dialog::SignatureDetails(first.field.clone())),
+            None => st.toast(ToastKind::Info, t(st.lang(), "toast.no_signatures"), ""),
+        }
+    });
+}
+
+/// Open the revision a signature of the active document covers in a new tab.
+pub fn open_signed_revision(st: AppState, field: &str) {
+    if let Some(tab) = st.read_active(|t| t.id) {
+        open_signed_revision_with(st, tab, field, None);
     }
 }
 
-/// Open the revision a signature covers in a new tab.
-pub fn open_signed_revision(st: AppState, field: &str) {
-    match st.read_active(|t| t.doc.signed_revision(field)) {
-        Some(Ok(bytes)) => match folitecta_core::Document::from_bytes(bytes, None, None) {
+/// Open the revision a signature of the document of tab `tab` covers in a
+/// new tab; the revision of a protected document is encrypted like it, and
+/// its password is asked.
+pub fn open_signed_revision_with(st: AppState, tab: u64, field: &str, password: Option<&str>) {
+    let bytes = st
+        .docs
+        .peek()
+        .iter()
+        .find(|t| t.id == tab)
+        .map(|t| t.doc.signed_revision(field));
+    let ask = |retry| {
+        st.set_dialog(Dialog::Password {
+            target: PasswordTarget::Revision {
+                tab,
+                field: field.to_string(),
+            },
+            retry,
+        })
+    };
+    match bytes {
+        Some(Ok(bytes)) => match folitecta_core::Document::from_bytes(bytes, None, password) {
             Ok(doc) => files::open_document_tab(st, doc),
-            Err(e) => st.error(e),
+            Err(folitecta_core::Error::PasswordRequired) => ask(false),
+            Err(folitecta_core::Error::WrongPassword) => ask(true),
+            Err(e) => st.core_error(&e),
         },
-        Some(Err(e)) => st.error(e),
+        Some(Err(e)) => st.core_error(&e),
         None => {}
     }
 }
@@ -406,4 +590,45 @@ handlers! {
     "pubsec.cert.browse" => |st| st.set_dialog(Dialog::TrustedCerts),
     "pubsec.cert.details" => |st| st.set_dialog(Dialog::TrustedCerts),
     "pubsec.cert.remove" => |st| st.set_dialog(Dialog::TrustedCerts),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn holds_end_with_their_guard_and_after_their_limit() {
+        {
+            let _hold = HoldChecks::new();
+            assert!(HOLD_CHECKS.load(Ordering::SeqCst));
+        }
+        assert!(!HOLD_CHECKS.load(Ordering::SeqCst));
+        // Code that stops half-way (a panic, a dropped future) ends it too.
+        let stopped = std::panic::catch_unwind(|| {
+            let _hold = HoldChecks::new();
+            panic!("stopped");
+        });
+        assert!(stopped.is_err());
+        assert!(!HOLD_CHECKS.load(Ordering::SeqCst));
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_time()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let hold = HoldChecks::new();
+            let held = async move {
+                let _hold = hold;
+                std::future::pending::<()>().await;
+            };
+            // The future holding it is dropped before it ends.
+            let _ = tokio::time::timeout(std::time::Duration::from_millis(50), held).await;
+        });
+        assert!(!HOLD_CHECKS.load(Ordering::SeqCst));
+        // A hold that is never ended gives way after its limit.
+        let hold = HoldChecks::new();
+        let started = std::time::Instant::now();
+        runtime.block_on(wait_while_held(std::time::Duration::from_millis(200)));
+        assert!(started.elapsed() < std::time::Duration::from_secs(2));
+        drop(hold);
+    }
 }

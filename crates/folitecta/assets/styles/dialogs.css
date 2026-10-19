@@ -2,6 +2,7 @@
 .backdrop { position: fixed; inset: 0; background: rgba(10, 12, 24, .45); display: grid; place-items: center; z-index: 500; padding: 12px; }
 .dialog { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); width: min(480px, 100%); max-width: 100%; max-height: calc(100vh - 24px); display: flex; flex-direction: column; overflow: hidden; }
 .dialog.wide { width: min(760px, 100%); }
+.dialog.xl { width: min(1080px, 100%); height: min(860px, calc(100vh - 24px)); }
 /* At the side, below the ribbon, so the page it works on stays in view. */
 .backdrop.side { place-items: start end; background: rgba(10, 12, 24, .12); padding: 92px 18px 18px; }
 .dialog.side { width: min(430px, 100%); max-height: calc(100vh - 110px); }
@@ -20,6 +21,7 @@
 .field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
 .field-grid.three { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
 .hint { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.hint.warn { color: var(--warn-fg); }
 .radio-row { display: flex; gap: 6px 14px; flex-wrap: wrap; }
 .radio-row label { display: flex; align-items: center; gap: 6px; }
 .radio-col { display: flex; flex-direction: column; gap: 6px; }

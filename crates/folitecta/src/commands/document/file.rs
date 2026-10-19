@@ -3,7 +3,7 @@
 use crate::commands::{confirm, doc_dialog, handlers, no_doc, open_url};
 use crate::files;
 use crate::i18n::t;
-use crate::state::{AfterUnsaved, AppState, ConfirmAction, Dialog, ToastKind};
+use crate::state::{AfterUnsaved, AppState, ConfirmAction, Dialog, PrintTarget, ToastKind};
 use crate::util;
 use dioxus::prelude::ReadableExt;
 
@@ -39,8 +39,8 @@ fn duplicate_tab(st: AppState) {
     if no_doc(st) {
         return;
     }
-    let bytes = st.read_active(|t| t.doc.bytes()).unwrap();
-    match folitecta_core::Document::from_bytes(bytes.as_ref().clone(), None, None) {
+    // The copy keeps the protection and the signatures of the document.
+    match st.read_active(|t| t.doc.duplicate()).unwrap() {
         Ok(doc) => {
             let id = st.alloc_id();
             st.docs_mut().push(crate::state::DocTab::new(id, doc));
@@ -85,8 +85,8 @@ handlers! {
     "closeTabsToTheRight" => |st| close_where(st, |i, a| i > a),
     "duplicateTab" => duplicate_tab,
     "reopenJustClosedDoc" => |st| files::reopen_closed(st),
-    "print" => |st| doc_dialog(st, Dialog::Print(false)),
-    "printAll" => |st| doc_dialog(st, Dialog::Print(true)),
+    "print" => |st| doc_dialog(st, Dialog::Print(PrintTarget::Active)),
+    "printAll" => |st| doc_dialog(st, Dialog::Print(PrintTarget::AllOpen)),
     "exit" => |st| files::exit_app(st),
     "docProps" => |st| doc_dialog(st, Dialog::DocProps),
     "openSrcFolder" => |st| {

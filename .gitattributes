@@ -9,3 +9,12 @@
 *.ttf binary
 *.woff2 binary
 *.onnx binary
+*.gz binary
+*.zip binary
+*.sig binary
+
+# Unchanged copies of the files of GNU FreeFont (fonts/README.md): kept byte for byte.
+fonts/AUTHORS -text
+fonts/COPYING -text
+fonts/CREDITS -text
+fonts/README -text

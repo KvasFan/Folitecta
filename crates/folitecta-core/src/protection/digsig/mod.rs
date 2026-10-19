@@ -1,14 +1,30 @@
 //! Digital signatures: digital IDs (PKCS#12), CMS signatures, time stamps
-//! (RFC 3161), signing and validating PDF documents.
+//! (RFC 3161), signing and validating PDF documents, revocation of
+//! certificates (OCSP, revocation lists) and validation material in the
+//! document security store.
 
 pub mod cms_sig;
+pub mod crl;
+mod der_walk;
+pub(crate) mod dss;
 pub mod id;
+pub mod ocsp;
 pub mod pdf;
+pub mod revocation;
 pub mod timestamp;
 
-pub use id::{CertInfo, DigitalId, IdentityInfo, KeyKind, cert_info, parse_certificates};
+pub use dss::{Dss, DssVri, MaterialPlan, MaterialReport};
+pub use id::{
+    CertInfo, CertProfile, DigitalId, ExtendedUsage, IdentityInfo, KeyKind, cert_info, parse_certificates,
+};
 pub use pdf::{
-    Check, SigAppearance, SignOptions, SignPlacement, SignatureChecks, SignatureStatus, TimeStampStatus,
+    Check, SigAppearance, SignOptions, SignPlacement, SignatureChecks, SignatureStatus, SignedFile,
+    TimeStampStatus, ValidationJob,
+};
+pub use revocation::{
+    CertRevocation, FetchFailure, FetchProblem, FetchSummary, RevocationArchive, RevocationKind,
+    RevocationNote, RevocationPool, RevocationRequest, RevocationSource, RevocationState,
+    RevocationTransport, TimeBasis,
 };
 pub use timestamp::Transport;
 /// A certificate (re-exported for callers that store or compare certificates).

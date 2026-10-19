@@ -25,6 +25,13 @@ use crate::util::{self, deref};
 /// their comment), form fields and links.
 const NOT_DRAWN: &[&[u8]] = &[b"Redact", b"Popup", b"Widget", b"Link"];
 
+/// Whether annotations of `subtype` can be put on a layer by the drawing
+/// layer and the layer commands (comments; not marks for redaction, pop-up
+/// notes, form fields or links).
+pub fn can_be_on_layer(subtype: &str) -> bool {
+    !NOT_DRAWN.contains(&subtype.as_bytes())
+}
+
 fn subtype_of(d: &Dictionary) -> &[u8] {
     d.get(b"Subtype")
         .ok()

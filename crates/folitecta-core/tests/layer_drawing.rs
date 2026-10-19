@@ -1266,3 +1266,44 @@ fn pdfa_1_refuses_layers_and_configurations_are_named() {
         .unwrap();
     assert!(d.has(b"Name"));
 }
+
+#[test]
+fn only_comments_go_on_layers() {
+    use folitecta_core::layer_drawing::can_be_on_layer;
+    for kind in [
+        "Ink",
+        "Square",
+        "FreeText",
+        "Text",
+        "Highlight",
+        "Stamp",
+        "FileAttachment",
+        "Sound",
+    ] {
+        assert!(can_be_on_layer(kind), "{kind}");
+    }
+    for kind in ["Widget", "Link", "Popup", "Redact"] {
+        assert!(!can_be_on_layer(kind), "{kind}");
+    }
+    // What the field offers is what the command accepts.
+    let (mut doc, ink) = with_layer();
+    doc.add_shape(
+        0,
+        Shape::Square,
+        [10.0, 10.0, 90.0, 90.0],
+        RED,
+        None,
+        2.0,
+        "R",
+        "x",
+    )
+    .unwrap();
+    let id = doc.annotations(0).unwrap()[0].id.unwrap();
+    doc.inner_mut()
+        .get_dictionary_mut(id)
+        .unwrap()
+        .set("Subtype", "Widget");
+    doc.commit().unwrap();
+    assert!(!can_be_on_layer(&doc.annotations(0).unwrap()[0].subtype));
+    assert!(doc.set_annotations_layer(0, &[0], Some(ink)).is_err());
+}

@@ -97,8 +97,9 @@ pub fn RightPane() -> Element {
                         {prop(t(lang, "props.type"), annot_name(lang, &a.subtype))}
                         {prop(t(lang, "dialog.note.author"), a.author.clone())}
                         {prop(t(lang, "dialog.props.modified"), a.modified.clone())}
-                        // Marks for redaction and links do not go on layers here.
-                        if !layers.is_empty() && !["Link", "Popup", "Redact"].contains(&a.subtype.as_str()) {
+                        // Only what the layer commands put on layers (not marks for
+                        // redaction, fields or links).
+                        if !layers.is_empty() && folitecta_core::layer_drawing::can_be_on_layer(&a.subtype) {
                             {
                                 let (cur, several) = sel_layer.unwrap_or((None, false));
                                 let cur_value = match cur {

@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
 
@@ -197,12 +198,53 @@ enum Msg {
     Stop,
 }
 
+/// What the render threads of a document did since they started.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RenderStats {
+    /// Pictures asked for.
+    pub requests: u64,
+    /// Pictures drawn.
+    pub rendered: u64,
+    /// Pictures answered from those kept, without drawing.
+    pub reused: u64,
+    /// Requests answered without a picture because it was no longer wanted.
+    pub dropped: u64,
+    /// Time spent drawing and encoding, in microseconds.
+    pub render_us: u64,
+}
+
+#[derive(Default)]
+struct StatCounters {
+    requests: AtomicU64,
+    rendered: AtomicU64,
+    reused: AtomicU64,
+    dropped: AtomicU64,
+    render_us: AtomicU64,
+}
+
+impl StatCounters {
+    fn bump(counter: &AtomicU64, n: u64) {
+        counter.fetch_add(n, Ordering::Relaxed);
+    }
+
+    fn snapshot(&self) -> RenderStats {
+        RenderStats {
+            requests: self.requests.load(Ordering::Relaxed),
+            rendered: self.rendered.load(Ordering::Relaxed),
+            reused: self.reused.load(Ordering::Relaxed),
+            dropped: self.dropped.load(Ordering::Relaxed),
+            render_us: self.render_us.load(Ordering::Relaxed),
+        }
+    }
+}
+
 /// Render threads of one document. Each owns its own parse of the document,
 /// render cache and memo of recent renders; a page always goes to the same
 /// thread (page number modulo the threads), so the pages on the screen are
 /// drawn side by side and each page still finds its cache.
 pub struct RenderService {
     workers: Vec<(Sender<Msg>, Option<JoinHandle<()>>)>,
+    stats: Arc<StatCounters>,
 }
 
 /// Render threads per document: half the processors, from one to three.
@@ -218,7 +260,7 @@ fn scale_key(scale: f32) -> u32 {
     (scale * 1000.0).round() as u32
 }
 
-fn worker(rx: Receiver<Msg>, initial: Arc<Vec<u8>>) {
+fn worker(rx: Receiver<Msg>, initial: Arc<Vec<u8>>, stats: Arc<StatCounters>) {
     let mut bytes = initial;
     'outer: loop {
         let pdf = load_pdf(bytes.clone());
@@ -245,13 +287,17 @@ fn worker(rx: Receiver<Msg>, initial: Arc<Vec<u8>>) {
                 } => {
                     let key = (page, scale_key(scale), opts);
                     if let Some(hit) = memo.get(&key) {
+                        StatCounters::bump(&stats.reused, 1);
                         reply(Ok(hit.as_ref().clone()));
                         continue;
                     }
+                    let started = std::time::Instant::now();
                     let result = match &pdf {
                         Ok(pdf) => render_with_opts(pdf, &cache, page, scale, opts),
                         Err(e) => Err(Error::Render(e.to_string())),
                     };
+                    StatCounters::bump(&stats.rendered, 1);
+                    StatCounters::bump(&stats.render_us, started.elapsed().as_micros() as u64);
                     if let Ok(rendered) = &result {
                         if memo.len() >= 48 {
                             memo.clear();
@@ -273,18 +319,25 @@ impl RenderService {
 
     /// Start `n` render threads (at least one).
     pub fn with_workers(bytes: Arc<Vec<u8>>, n: usize) -> Self {
+        let stats = Arc::new(StatCounters::default());
         let workers = (0..n.max(1))
             .map(|i| {
                 let (tx, rx) = channel();
                 let bytes = bytes.clone();
+                let stats = stats.clone();
                 let handle = std::thread::Builder::new()
                     .name(format!("folitecta-render-{i}"))
-                    .spawn(move || worker(rx, bytes))
+                    .spawn(move || worker(rx, bytes, stats))
                     .expect("spawn render thread");
                 (tx, Some(handle))
             })
             .collect();
-        RenderService { workers }
+        RenderService { workers, stats }
+    }
+
+    /// What the render threads did since they started.
+    pub fn stats(&self) -> RenderStats {
+        self.stats.snapshot()
     }
 
     fn send(&self, page: usize, msg: Msg) {
@@ -311,6 +364,7 @@ impl RenderService {
         opts: RenderOpts,
         reply: impl FnOnce(Result<RenderedPage>) + Send + 'static,
     ) {
+        StatCounters::bump(&self.stats.requests, 1);
         self.send(
             page,
             Msg::Render {

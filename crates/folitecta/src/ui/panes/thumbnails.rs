@@ -4,6 +4,7 @@ use super::*;
 
 #[component]
 pub(super) fn ThumbnailsPane() -> Element {
+    crate::perf::THUMBNAIL_PANES.bump();
     let st = use_context::<AppState>();
     let lang = st.lang();
     let mut drag_src = use_signal(|| None::<usize>);

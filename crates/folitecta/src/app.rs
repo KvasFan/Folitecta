@@ -171,6 +171,8 @@ pub fn App() -> Element {
     // Serve page renders at /page/{tab}/{page}/{revision}/{scale_milli}.png[?bg=0][&annots=0]
     let docs = st.docs;
     use_asset_handler("page", move |request, responder| {
+        crate::perf::PAGE_REQUESTS.bump();
+        let asked = std::time::Instant::now();
         let uri = request.uri();
         let query = uri.query().unwrap_or("");
         let opts = RenderOpts {
@@ -178,12 +180,21 @@ pub fn App() -> Element {
             transparent: query.split('&').any(|kv| kv == "bg=0"),
         };
         let Some((id, page, scale)) = parse_page_path(uri.path()) else {
+            crate::perf::PAGE_OTHER.bump();
             responder.respond(Response::builder().status(404).body(Vec::new()).unwrap());
             return;
         };
         let service = docs.peek().iter().find(|t| t.id == id).map(|t| t.render.clone());
         match service {
             Some(svc) => svc.render_ext(page, scale, opts, move |res| {
+                match &res {
+                    Ok(r) => {
+                        crate::perf::PAGE_PICTURES.bump();
+                        crate::perf::PAGE_BYTES.add(r.png.len() as u64);
+                    }
+                    Err(_) => crate::perf::PAGE_OTHER.bump(),
+                }
+                crate::perf::PAGE_WAIT_US.add(asked.elapsed().as_micros() as u64);
                 let resp = match res {
                     Ok(r) => Response::builder()
                         .status(200)
@@ -199,7 +210,10 @@ pub fn App() -> Element {
                 };
                 responder.respond(resp);
             }),
-            None => responder.respond(Response::builder().status(404).body(Vec::new()).unwrap()),
+            None => {
+                crate::perf::PAGE_OTHER.bump();
+                responder.respond(Response::builder().status(404).body(Vec::new()).unwrap())
+            }
         }
     });
 

@@ -10,6 +10,7 @@ mod http;
 mod i18n;
 mod icons;
 mod mail;
+mod perf;
 mod recovery;
 mod selftest;
 mod state;

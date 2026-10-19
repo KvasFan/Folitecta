@@ -379,6 +379,7 @@ fn page_rows(
 /// the same when the focus moves, so each view keeps its place.
 #[component]
 fn Canvas(pane: u8) -> Element {
+    crate::perf::CANVASES.bump();
     let st = use_context::<AppState>();
     use_hook(|| {
         spawn(async move {

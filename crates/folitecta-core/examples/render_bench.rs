@@ -1,35 +1,48 @@
 //! Measures how long the pictures of the pages take, through the code path of
-//! the interface: the documents are generated here (text, vector drawings,
-//! photos, scanned pages, a long document with comments) plus
+//! the interface: the documents are generated in memory
+//! (`folitecta_core::testdocs`: text, vector drawings, photos, scanned pages,
+//! embedded TrueType, CFF and composite fonts, forms, transparency, compressed
+//! object streams, long documents with comments, bookmarks and links) plus
 //! `docs/sample.pdf`, so no file of the user is ever read.
 //!
 //! ```text
 //! cargo build --release -p folitecta-core --example render_bench
-//! target/release/examples/render_bench [--quick] [--reps N] [--out DIR] [--only NAME]
+//! taskset -c 4-7,12-15 target/release/examples/render_bench [--quick] [--reps N] [--out DIR] [--only NAME]
 //! ```
 //!
-//! Run it on a quiet machine, or pinned to a few cores (`taskset -c 12-15`
-//! on Linux) when other work runs; note the pinning next to the numbers.
+//! Every time is the median of `--reps` runs (10 by default) with the first
+//! and third quartiles in brackets: `12.3 [11.9–12.8]`. Run it on a quiet
+//! machine, or pinned to whole physical cores: on a processor with two
+//! threads per core, pin to both threads of each core used (`lscpu -e` shows
+//! the pairs; `4-7,12-15` on an 8-core, 16-thread processor where 12 is the
+//! second thread of core 4). The load average of the machine is printed with
+//! the numbers.
 //!
-//! Sections: for each document (`--only text|vector|photo|scan|sample`)
+//! Sections: for each document (`--only text|vector|photo|scan|fonts|form|transparency|sample`)
 //! opening (lopdf model and renderer parse), the time of a page split into
 //! rasterizing and PNG encoding for every zoom of the interface (100, 200 and
 //! 400 % at a pixel ratio of 1 and 2, and the thumbnails), tiles and low
 //! resolution pictures, other ways of sending the pixels to the window
-//! (encoding and decoding time, bytes) and the cost of an edit; then the
-//! render service (`--only service`: 1 to 4 threads, a burst of zoom steps
-//! without cancelling stale requests, thumbnails asked before the pages) and
-//! the document calls every page of the view makes each time the interface
-//! draws it again (`--only model`). `--out DIR` writes the documents and the
-//! encoded pictures, for other renderers and decoders.
+//! (encoding and decoding time, bytes) and the cost of an edit (the render
+//! right after the new document reaches the render threads is cold); then
+//! the render service (`--only service`: 1 to 4 threads, a burst of zoom
+//! steps all at once and at the pace of a wheel, thumbnails asked before the
+//! pages or already being drawn) and the document calls the interface makes
+//! each time it draws the pages again (`--only model`: comments, bookmarks,
+//! links, form fields, the text of the pages after an edit). `--out DIR`
+//! writes the documents and the encoded pictures, for other renderers and
+//! decoders.
 
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::channel;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
-use folitecta_core::{Document, RenderService, Renderer};
+use folitecta_core::testdocs::{
+    Rng, font_doc, form_doc, long_doc_linked, photo_doc, scan_doc, text_doc, transparency_doc, vector_doc,
+};
+use folitecta_core::{Document, Markup, RenderService, Renderer};
 use hayro::hayro_interpret::{InterpreterSettings, TransformExt};
 use hayro::hayro_syntax::Pdf;
 use hayro::kurbo::Affine;
@@ -38,7 +51,6 @@ use hayro::vello_cpu::peniko::ImageAlphaType;
 use hayro::vello_cpu::{Pixels, Pixmap, RasterizerSettings, RenderContext, Resources, TargetInit};
 use hayro::{PixmapSettings, RenderCache, RenderSettings, render, render_into};
 use image::ExtendedColorType;
-use lopdf::{Dictionary, Object, Stream, dictionary};
 
 /// The largest edge of a page picture (as in `render.rs`).
 const MAX_EDGE: f32 = 12_000.0;
@@ -55,7 +67,7 @@ struct Opts {
 fn main() {
     let mut opts = Opts {
         quick: false,
-        reps: 3,
+        reps: 10,
         out: None,
         only: None,
     };
@@ -64,9 +76,9 @@ fn main() {
         match a.as_str() {
             "--quick" => {
                 opts.quick = true;
-                opts.reps = 1;
+                opts.reps = 3;
             }
-            "--reps" => opts.reps = args.next().and_then(|v| v.parse().ok()).unwrap_or(3).max(1),
+            "--reps" => opts.reps = args.next().and_then(|v| v.parse().ok()).unwrap_or(10).max(1),
             "--out" => opts.out = args.next().map(PathBuf::from),
             "--only" => opts.only = args.next(),
             other => {
@@ -80,42 +92,48 @@ fn main() {
     }
     let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
     println!("# Folitecta render benchmark");
+    println!("processors available to this process: {cores}");
+    if let Ok(load) = std::fs::read_to_string("/proc/loadavg") {
+        println!("load average at the start: {}", load.trim());
+    }
     println!(
-        "processors available to this process: {cores} (the interface starts {} render threads per document here)",
-        cores.div_ceil(2).clamp(1, 3)
+        "times in milliseconds: median of {} runs [first quartile–third quartile]\n",
+        opts.reps
     );
-    println!("times are medians of {} runs, in milliseconds\n", opts.reps);
 
     let started = Instant::now();
-    let mut docs: Vec<(&str, Vec<u8>)> = vec![
-        ("text", text_doc(if opts.quick { 4 } else { 12 })),
-        ("vector", vector_doc(if opts.quick { 2 } else { 4 })),
-        ("photo", photo_doc(2)),
-        ("scan", scan_doc(if opts.quick { 2 } else { 4 })),
+    let wanted = |name: &str| opts.only.as_deref().is_none_or(|o| o == name);
+    type Gen = Box<dyn Fn() -> Vec<u8>>;
+    let quick = opts.quick;
+    let mut docs: Vec<(&str, Gen)> = vec![
+        ("text", Box::new(move || text_doc(if quick { 4 } else { 12 }))),
+        ("vector", Box::new(move || vector_doc(if quick { 2 } else { 4 }))),
+        ("photo", Box::new(|| photo_doc(2))),
+        ("scan", Box::new(move || scan_doc(if quick { 2 } else { 4 }))),
+        ("fonts", Box::new(move || font_doc(if quick { 2 } else { 4 }))),
+        ("form", Box::new(move || form_doc(if quick { 2 } else { 4 }, 30))),
+        (
+            "transparency",
+            Box::new(move || transparency_doc(if quick { 2 } else { 3 })),
+        ),
     ];
     let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/sample.pdf");
     if let Ok(bytes) = std::fs::read(&sample) {
-        docs.push(("sample", bytes));
+        docs.push(("sample", Box::new(move || bytes.clone())));
     }
-    println!(
-        "documents generated in {:.0} ms\n",
-        started.elapsed().as_secs_f64() * 1000.0
-    );
-    let wanted = |name: &str| opts.only.as_deref().is_none_or(|o| o == name);
-    if let Some(dir) = &opts.out {
-        // The documents themselves, for other renderers and decoders.
-        for (name, bytes) in &docs {
-            let _ = std::fs::write(dir.join(format!("{name}.pdf")), bytes);
-        }
-    }
-
-    for (name, bytes) in &docs {
+    for (name, make) in &docs {
         if !wanted(name) {
             continue;
         }
+        let t = Instant::now();
+        let bytes = make();
+        println!("## {name} (generated in {:.0} ms)", ms_since(t));
+        if let Some(dir) = &opts.out {
+            // The documents themselves, for other renderers and decoders.
+            let _ = std::fs::write(dir.join(format!("{name}.pdf")), &bytes);
+        }
         reset_peak_rss();
-        let bytes = Arc::new(bytes.clone());
-        println!("## {name}");
+        let bytes = Arc::new(bytes);
         let pdf = open_section(bytes.clone(), &opts);
         scale_section(&pdf, bytes.clone(), &opts);
         tile_section(&pdf, &opts);
@@ -129,9 +147,11 @@ fn main() {
         reset_peak_rss();
         let text = Arc::new(text_doc(12));
         let vector = Arc::new(vector_doc(4));
+        let fonts = Arc::new(font_doc(8));
         println!("## render service");
         service_section("text", text.clone(), &opts);
         service_section("vector", vector.clone(), &opts);
+        service_section("fonts", fonts.clone(), &opts);
         zoom_burst_section("text", text.clone(), &opts);
         zoom_burst_section("vector", vector.clone(), &opts);
         open_burst_section("text", text, &opts);
@@ -141,12 +161,20 @@ fn main() {
         }
     }
     if wanted("model") {
-        println!("## document calls made by every page of the view");
+        println!("## document calls made each time the interface draws the pages again");
         let sizes: &[usize] = if opts.quick { &[50, 300] } else { &[50, 300, 1000] };
         for &pages in sizes {
             model_section(pages, &opts);
         }
+        let forms: &[usize] = if opts.quick { &[10] } else { &[10, 50] };
+        for &pages in forms {
+            form_model_section(pages, &opts);
+        }
     }
+    if let Ok(load) = std::fs::read_to_string("/proc/loadavg") {
+        println!("load average at the end: {}", load.trim());
+    }
+    println!("benchmark finished in {:.0} s", started.elapsed().as_secs_f64());
 }
 
 // ---- measuring ---------------------------------------------------------------------
@@ -155,8 +183,46 @@ fn ms_since(t: Instant) -> f64 {
     t.elapsed().as_secs_f64() * 1000.0
 }
 
-/// Median time of `reps` runs of `f` (milliseconds) and the last result.
-fn timed<T>(reps: usize, mut f: impl FnMut() -> T) -> (f64, T) {
+/// The median and the quartiles of repeated measures (milliseconds). It
+/// prints as `median [first quartile–third quartile]`, with the precision
+/// asked (`{:.1}`).
+#[derive(Clone, Copy)]
+struct Stat {
+    med: f64,
+    q1: f64,
+    q3: f64,
+}
+
+impl Stat {
+    fn of(v: &[f64]) -> Stat {
+        let mut v = v.to_vec();
+        v.sort_by(f64::total_cmp);
+        let at = |q: f64| {
+            if v.is_empty() {
+                return 0.0;
+            }
+            // Linear interpolation between the closest ranks.
+            let pos = q * (v.len() - 1) as f64;
+            let (lo, hi) = (pos.floor() as usize, pos.ceil() as usize);
+            v[lo] + (v[hi] - v[lo]) * (pos - lo as f64)
+        };
+        Stat {
+            med: at(0.5),
+            q1: at(0.25),
+            q3: at(0.75),
+        }
+    }
+}
+
+impl std::fmt::Display for Stat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let p = f.precision().unwrap_or(1);
+        write!(f, "{:.p$} [{:.p$}–{:.p$}]", self.med, self.q1, self.q3)
+    }
+}
+
+/// `reps` runs of `f`: their times (median and quartiles) and the last result.
+fn timed<T>(reps: usize, mut f: impl FnMut() -> T) -> (Stat, T) {
     let mut times = Vec::with_capacity(reps);
     let mut last = None;
     for _ in 0..reps.max(1) {
@@ -166,18 +232,13 @@ fn timed<T>(reps: usize, mut f: impl FnMut() -> T) -> (f64, T) {
         // The previous result is freed after the measure.
         last = Some(value);
     }
-    (median(&mut times), last.expect("at least one run"))
+    (Stat::of(&times), last.expect("at least one run"))
 }
 
-/// Median of the times `f` measures itself.
-fn median_of(reps: usize, mut f: impl FnMut() -> f64) -> f64 {
-    let mut v: Vec<f64> = (0..reps.max(1)).map(|_| f()).collect();
-    median(&mut v)
-}
-
-fn median(v: &mut [f64]) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
+/// The times `f` measures itself, `reps` times.
+fn median_of(reps: usize, mut f: impl FnMut() -> f64) -> Stat {
+    let v: Vec<f64> = (0..reps.max(1)).map(|_| f()).collect();
+    Stat::of(&v)
 }
 
 /// Peak resident memory of this process (Linux), in megabytes.
@@ -391,18 +452,18 @@ fn scale_section(pdf: &Pdf, bytes: Arc<Vec<u8>>, opts: &Opts) {
                 assert_eq!((r.width, r.height), px);
             }
         }
-        let raster = median(&mut warm);
+        let raster = Stat::of(&warm);
         let mp = (px.0 as f64 * px.1 as f64) / 1e6;
         println!(
             "| {view} | {scale:.2} | {}×{} | {:.1} | {raster:.1} | {:.1} | {:.1} | {} | {} | {:.0} |",
             px.0,
             px.1,
-            median(&mut cold),
-            median(&mut enc),
-            median(&mut total),
+            Stat::of(&cold),
+            Stat::of(&enc),
+            Stat::of(&total),
             kib(png_len),
             kib(px.0 as usize * px.1 as usize * 4),
-            mp / (raster.max(0.001) / 1000.0)
+            mp / (raster.med.max(0.001) / 1000.0)
         );
     }
     println!();
@@ -635,33 +696,41 @@ fn service_section(name: &str, bytes: Arc<Vec<u8>>, opts: &Opts) {
                     .unwrap_or(0.0),
             );
         }
-        let total = median(&mut all);
+        let total = Stat::of(&all);
         println!(
             "| {n} | {total:.0} ms | {:.1} | {:.0} ms |",
-            pages as f64 / (total / 1000.0),
-            median(&mut first)
+            pages as f64 / (total.med / 1000.0),
+            Stat::of(&first)
         );
     }
     println!();
 }
 
-/// Six steps of Ctrl+wheel zoom (×1.1 each) over three visible pages, faster
-/// than the pages are drawn: the queue of each thread draws every stale
-/// scale before the last one. Compared with drawing only the last step.
+/// Six steps of Ctrl+wheel zoom (×1.1 each) over three visible pages: the
+/// time from the last step until its pages are drawn. Three ways: every step
+/// asked at once (an upper bound of what dropping stale steps saves), only
+/// the last step, and the steps asked at the pace of a wheel (one every
+/// 30 ms), where a render already started cannot be stopped.
 fn zoom_burst_section(name: &str, bytes: Arc<Vec<u8>>, opts: &Opts) {
     let visible = [0usize, 1, 2];
     let steps: Vec<f32> = (0..6).map(|k| 2.0 * 1.1f32.powi(k)).collect();
     let last = *steps.last().expect("steps");
-    let run = |scales: &[f32]| -> f64 {
+    let run = |scales: &[f32], every: Duration| -> f64 {
         let svc = RenderService::with_workers(bytes.clone(), 3);
         // The threads have parsed the document and drawn the pages once.
         for p in visible {
             svc.render_blocking(p, 1.0).expect("render");
         }
         let (tx, rx) = channel();
-        let t = Instant::now();
         let mut wanted = 0;
-        for s in scales {
+        let mut t = Instant::now();
+        for (i, s) in scales.iter().enumerate() {
+            if i > 0 {
+                std::thread::sleep(every);
+            }
+            if *s == last {
+                t = Instant::now();
+            }
             for p in visible {
                 let tx = tx.clone();
                 let s = *s;
@@ -681,32 +750,36 @@ fn zoom_burst_section(name: &str, bytes: Arc<Vec<u8>>, opts: &Opts) {
         }
         ms_since(t)
     };
-    let fifo = median_of(opts.reps, || run(&steps));
-    let only_last = median_of(opts.reps, || run(&[last]));
+    let fifo = median_of(opts.reps, || run(&steps, Duration::ZERO));
+    let paced = median_of(opts.reps, || run(&steps, Duration::from_millis(30)));
+    let only_last = median_of(opts.reps, || run(&[last], Duration::ZERO));
     println!(
-        "zoom burst (3 threads, 3 visible {name} pages, 6 wheel steps from scale 2.0 to {last:.2}): \
-         sharp pages after {fifo:.0} ms when every step is drawn (today), {only_last:.0} ms when only the last one is\n"
+        "zoom burst (3 threads, 3 visible {name} pages, 6 wheel steps from scale 2.0 to {last:.2}), time from the last step to its pages: \
+         every step asked at once {fifo:.0} ms, every step at the pace of a wheel (30 ms apart) {paced:.0} ms, only the last step {only_last:.0} ms\n"
     );
 }
 
 /// A document opens with the thumbnails pane shown: the pane asks for its
 /// thumbnails (scale 0.285) in the same queues as the canvas, before the two
-/// pages of the canvas (125 % on a pixel ratio of 2). Time until those two
-/// are drawn, against the canvas alone.
+/// pages of the canvas (125 % on a pixel ratio of 2), or a moment after
+/// (thumbnails already being drawn, which cannot be stopped). Time until the
+/// two canvas pages are drawn, against the canvas alone.
 fn open_burst_section(name: &str, bytes: Arc<Vec<u8>>, opts: &Opts) {
     let pages = Renderer::new(bytes.clone()).expect("renderer").page_count();
     let thumbs = pages.min(8);
-    let run = |with_thumbs: bool| -> f64 {
+    let run = |thumbs_first: Option<Duration>| -> f64 {
         let svc = RenderService::with_workers(bytes.clone(), 3);
         let (tx, rx) = channel();
-        let t = Instant::now();
-        if with_thumbs {
+        let mut t = Instant::now();
+        if let Some(gap) = thumbs_first {
             for p in 0..thumbs {
                 let tx = tx.clone();
                 svc.render(p, 0.285, move |_| {
                     let _ = tx.send(false);
                 });
             }
+            std::thread::sleep(gap);
+            t = Instant::now();
         }
         for p in 0..2 {
             let tx = tx.clone();
@@ -722,20 +795,25 @@ fn open_burst_section(name: &str, bytes: Arc<Vec<u8>>, opts: &Opts) {
         }
         ms_since(t)
     };
-    let alone = median_of(opts.reps, || run(false));
-    let with = median_of(opts.reps, || run(true));
+    let alone = median_of(opts.reps, || run(None));
+    let with = median_of(opts.reps, || run(Some(Duration::ZERO)));
+    let started = median_of(opts.reps, || run(Some(Duration::from_millis(10))));
     println!(
         "opening a {name} document (3 threads): the two canvas pages are drawn after {alone:.0} ms alone, \
-         {with:.0} ms behind {thumbs} thumbnails asked first\n"
+         {with:.0} ms behind {thumbs} thumbnails asked first, {started:.0} ms when the thumbnails started 10 ms before\n"
     );
 }
 
-/// The calls of `ui/canvas/page.rs` for every page of the view, each time the
-/// documents signal changes (scrolling to another page, a selection, a
-/// zoom): `page_comment_infos` always, `annotations` with the hand tool;
-/// the canvas and the status bar also ask for the page labels and the count.
+/// The calls of the interface each time it draws the pages again (scrolling
+/// to another page, a selection, a zoom): for every page of the view
+/// `page_comment_infos` always and `annotations` with the hand tool, the page
+/// labels and the count; the comments pane (`comment_infos`), the bookmarks
+/// pane (`outline`, with a named destination for every page) and the links
+/// pane (`all_links`) when they are open. Then the text of every page, at
+/// the first text selection and again after a highlight (an edit of the
+/// comments only).
 fn model_section(pages: usize, opts: &Opts) {
-    let bytes = long_doc(pages);
+    let bytes = long_doc_linked(pages);
     let size = bytes.len();
     let (load, mut doc) = timed(opts.reps, || {
         Document::from_bytes(bytes.clone(), None, None).expect("load")
@@ -754,45 +832,63 @@ fn model_section(pages: usize, opts: &Opts) {
             .map(|p| doc.annotations(p).map(|a| a.len()).unwrap_or(0))
             .sum::<usize>()
     });
-    // Both calls find the page through `Document::page_id`, which walks the page tree.
+    // Both calls find the page through `Document::page_id`.
     let (ids, _) = timed(opts.reps, || {
         (0..pages).filter(|p| doc.page_id(*p).is_ok()).count()
     });
     let (labels, _) = timed(opts.reps, || doc.page_labels());
     let (sizes, _) = timed(opts.reps, || doc.page_sizes());
+    let (comments, _) = timed(opts.reps, || doc.comment_infos().len());
+    let (outline, items) = timed(opts.reps, || doc.outline().len());
+    let (links, nlinks) = timed(opts.reps, || doc.all_links().len());
+    println!(
+        "  every page of the view: page_comment_infos {infos:.1} ms ({n} comments), annotations {annots:.1} ms \
+         (page_id of every page alone {ids:.1} ms); page_count {count:.2} ms; page_labels {labels:.2} ms; page_sizes {sizes:.2} ms"
+    );
+    println!(
+        "  panes: comments (comment_infos) {comments:.1} ms; bookmarks (outline, {items} items with named destinations) {outline:.1} ms; \
+         links (all_links, {nlinks}) {links:.1} ms"
+    );
     let t = Instant::now();
     let layers = doc.text_layers();
     let text_first = ms_since(t);
     let (text_again, _) = timed(opts.reps, || doc.text_layers().len());
+    // A highlight on the first page changes only the comments.
+    let quad = [60.0, 790.0, 300.0, 790.0, 60.0, 776.0, 300.0, 776.0];
+    doc.add_text_markup(0, Markup::Highlight, &[quad], [1.0, 0.9, 0.2], "Reviewer", "")
+        .expect("highlight");
+    let t = Instant::now();
+    let after = doc.text_layers().len();
+    let text_after_edit = ms_since(t);
     println!(
-        "{pages} pages, {n} comments: page_count {count:.2} ms; page_comment_infos of every page {infos:.1} ms; \
-         annotations of every page {annots:.1} ms (page_id of every page alone {ids:.1} ms); page_labels {labels:.2} ms; page_sizes {sizes:.2} ms; \
-         text of every page (first text selection) {text_first:.0} ms ({} pages), then {text_again:.3} ms",
+        "  text of every page: first text selection {text_first:.0} ms ({} pages), then {text_again:.3} ms; \
+         after a highlight (comments only) {text_after_edit:.0} ms ({after} pages)",
         layers.len()
     );
     println!(
-        "  so one change of the documents signal costs about {:.0} ms of document calls on the interface thread, \
-         before any diffing\n",
-        infos + annots + 2.0 * labels + 4.0 * count
+        "  so one change of the documents signal costs about {:.0} ms of document calls on the interface thread \
+         (panes closed), {:.0} ms with the comments, bookmarks and links panes open, before any diffing\n",
+        infos.med + annots.med + 2.0 * labels.med + 4.0 * count.med,
+        infos.med + annots.med + 2.0 * labels.med + 4.0 * count.med + comments.med + outline.med + links.med
+    );
+}
+
+/// A form of `pages` pages with 20 fields a page: what every page of the view
+/// asks with the hand tool (`page_widgets`, which reads every field) and the
+/// fields pane (`form_fields`).
+fn form_model_section(pages: usize, opts: &Opts) {
+    let bytes = form_doc(pages, 20);
+    let doc = Document::from_bytes(bytes, None, None).expect("load");
+    let (fields, n) = timed(opts.reps, || doc.form_fields().len());
+    let (widgets, w) = timed(opts.reps, || {
+        (0..pages).map(|p| doc.page_widgets(p).len()).sum::<usize>()
+    });
+    println!(
+        "form of {pages} pages, {n} fields: form_fields {fields:.1} ms; page_widgets of every page {widgets:.1} ms ({w} widgets)\n"
     );
 }
 
 // ---- generated documents ------------------------------------------------------------
-
-/// A small random number generator (xorshift), so the documents are the same every run.
-struct Rng(u64);
-
-impl Rng {
-    fn next(&mut self) -> u64 {
-        self.0 ^= self.0 << 13;
-        self.0 ^= self.0 >> 7;
-        self.0 ^= self.0 << 17;
-        self.0
-    }
-    fn f(&mut self) -> f32 {
-        (self.next() >> 40) as f32 / (1u64 << 24) as f32
-    }
-}
 
 fn rand_f32() -> f32 {
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -801,360 +897,4 @@ fn rand_f32() -> f32 {
     let v = r.f();
     SEED.store(r.0, Ordering::Relaxed);
     v
-}
-
-/// A document with `pages` pages built from content streams, resources and
-/// annotations; returns the bytes of the file.
-struct Builder {
-    doc: lopdf::Document,
-    pages_id: lopdf::ObjectId,
-    kids: Vec<Object>,
-}
-
-impl Builder {
-    fn new() -> Self {
-        let mut doc = lopdf::Document::with_version("1.7");
-        let pages_id = doc.new_object_id();
-        Builder {
-            doc,
-            pages_id,
-            kids: Vec::new(),
-        }
-    }
-
-    fn page(&mut self, size: (f32, f32), content: Vec<u8>, resources: Dictionary, annots: Vec<Object>) {
-        let mut stream = Stream::new(Dictionary::new(), content);
-        let _ = stream.compress();
-        let content_id = self.doc.add_object(stream);
-        let mut page = dictionary! {
-            "Type" => "Page",
-            "Parent" => self.pages_id,
-            "MediaBox" => vec![0.into(), 0.into(), size.0.into(), size.1.into()],
-            "Contents" => content_id,
-            "Resources" => resources,
-        };
-        if !annots.is_empty() {
-            page.set("Annots", annots);
-        }
-        let id = self.doc.add_object(page);
-        self.kids.push(id.into());
-    }
-
-    fn image(
-        &mut self,
-        w: u32,
-        h: u32,
-        color: &str,
-        bits: i64,
-        filter: &str,
-        data: Vec<u8>,
-    ) -> lopdf::ObjectId {
-        let dict = dictionary! {
-            "Type" => "XObject",
-            "Subtype" => "Image",
-            "Width" => w as i64,
-            "Height" => h as i64,
-            "ColorSpace" => color,
-            "BitsPerComponent" => bits,
-            "Filter" => filter,
-        };
-        self.doc.add_object(Stream::new(dict, data))
-    }
-
-    fn finish(mut self) -> Vec<u8> {
-        let count = self.kids.len() as i64;
-        self.doc.objects.insert(
-            self.pages_id,
-            Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => self.kids, "Count" => count }),
-        );
-        let catalog = self
-            .doc
-            .add_object(dictionary! { "Type" => "Catalog", "Pages" => self.pages_id });
-        self.doc.trailer.set("Root", catalog);
-        let mut out = Vec::new();
-        self.doc.save_to(&mut out).expect("save");
-        out
-    }
-}
-
-const WORDS: [&str; 24] = [
-    "document",
-    "page",
-    "render",
-    "the",
-    "of",
-    "and",
-    "picture",
-    "quick",
-    "brown",
-    "fox",
-    "jumps",
-    "over",
-    "lazy",
-    "dog",
-    "zoom",
-    "scroll",
-    "editor",
-    "comment",
-    "field",
-    "signature",
-    "layer",
-    "outline",
-    "text",
-    "print",
-];
-
-fn line_text(rng: &mut Rng, chars: usize) -> String {
-    let mut s = String::new();
-    while s.len() < chars {
-        if !s.is_empty() {
-            s.push(' ');
-        }
-        s.push_str(WORDS[(rng.next() % WORDS.len() as u64) as usize]);
-    }
-    s
-}
-
-fn fonts() -> Dictionary {
-    let font = |name: &str| {
-        Object::Dictionary(dictionary! {
-            "Type" => "Font", "Subtype" => "Type1", "BaseFont" => name, "Encoding" => "WinAnsiEncoding"
-        })
-    };
-    dictionary! { "F1" => font("Helvetica"), "F2" => font("Times-Roman"), "F3" => font("Helvetica-Bold") }
-}
-
-/// A4 pages of dense text in two columns (about 9000 glyphs a page).
-fn text_doc(pages: usize) -> Vec<u8> {
-    let mut b = Builder::new();
-    let mut rng = Rng(7);
-    for p in 0..pages {
-        let mut c = format!(
-            "BT /F3 15 Tf 50 800 Td (Chapter {} - {}) Tj ET\n",
-            p + 1,
-            line_text(&mut rng, 30)
-        );
-        for col in 0..2 {
-            let x = 50 + col * 255;
-            c.push_str(&format!("BT /F{} 8.5 Tf 10.4 TL {x} 776 Td\n", col + 1));
-            for _ in 0..70 {
-                c.push_str(&format!("({}) '\n", line_text(&mut rng, 58)));
-            }
-            c.push_str("ET\n");
-        }
-        b.page(
-            (595.0, 842.0),
-            c.into_bytes(),
-            dictionary! { "Font" => fonts() },
-            vec![],
-        );
-    }
-    b.finish()
-}
-
-/// Drawings: 2000 polylines of 8 curves each, 800 shapes filled with
-/// transparency and a fine grid on every page.
-fn vector_doc(pages: usize) -> Vec<u8> {
-    let mut b = Builder::new();
-    let mut rng = Rng(11);
-    for _ in 0..pages {
-        let mut c = String::from("0.2 w 0.8 0.8 0.85 RG\n");
-        for i in 0..=120 {
-            let x = 10.0 + i as f32 * 6.85;
-            c.push_str(&format!("{x:.2} 10 m {x:.2} 585 l\n"));
-        }
-        for i in 0..=84 {
-            let y = 10.0 + i as f32 * 6.85;
-            c.push_str(&format!("10 {y:.2} m 832 {y:.2} l\n"));
-        }
-        c.push_str("S\n/GS1 gs\n");
-        for _ in 0..800 {
-            let (cx, cy, r) = (rng.f() * 842.0, rng.f() * 595.0, 4.0 + rng.f() * 30.0);
-            c.push_str(&format!("{:.3} {:.3} {:.3} rg\n", rng.f(), rng.f(), rng.f()));
-            for k in 0..6 {
-                let a = k as f32 * std::f32::consts::TAU / 6.0;
-                let (x, y) = (cx + r * a.cos(), cy + r * a.sin());
-                c.push_str(&format!("{x:.2} {y:.2} {}\n", if k == 0 { "m" } else { "l" }));
-            }
-            c.push_str("h f\n");
-        }
-        c.push_str("/GS0 gs\n");
-        for _ in 0..2000 {
-            c.push_str(&format!(
-                "{:.2} w {:.3} {:.3} {:.3} RG\n",
-                0.3 + rng.f(),
-                rng.f(),
-                rng.f(),
-                rng.f()
-            ));
-            let (mut x, mut y) = (rng.f() * 842.0, rng.f() * 595.0);
-            c.push_str(&format!("{x:.2} {y:.2} m\n"));
-            for _ in 0..8 {
-                let pts: Vec<f32> = (0..6).map(|_| (rng.f() - 0.5) * 40.0).collect();
-                c.push_str(&format!(
-                    "{:.2} {:.2} {:.2} {:.2} {:.2} {:.2} c\n",
-                    x + pts[0],
-                    y + pts[1],
-                    x + pts[2],
-                    y + pts[3],
-                    x + pts[4],
-                    y + pts[5]
-                ));
-                x += pts[4];
-                y += pts[5];
-            }
-            c.push_str("S\n");
-        }
-        let gs = dictionary! {
-            "GS0" => dictionary! { "Type" => "ExtGState", "ca" => 1.0, "CA" => 1.0 },
-            "GS1" => dictionary! { "Type" => "ExtGState", "ca" => 0.5 },
-        };
-        b.page(
-            (842.0, 595.0),
-            c.into_bytes(),
-            dictionary! { "ExtGState" => gs },
-            vec![],
-        );
-    }
-    b.finish()
-}
-
-fn jpeg(pixels: &[u8], w: u32, h: u32, color: ExtendedColorType, quality: u8) -> Vec<u8> {
-    let mut out = Vec::new();
-    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, quality)
-        .encode(pixels, w, h, color)
-        .expect("JPEG");
-    out
-}
-
-/// Landscape A4 pages, each covered by a different 4000×3000 photo (JPEG).
-fn photo_doc(pages: usize) -> Vec<u8> {
-    let mut b = Builder::new();
-    let (w, h) = (4000u32, 3000u32);
-    for p in 0..pages {
-        let mut rng = Rng(100 + p as u64);
-        let mut px = Vec::with_capacity((w * h * 3) as usize);
-        for y in 0..h {
-            for x in 0..w {
-                let (fx, fy) = (x as f32 / w as f32, y as f32 / h as f32);
-                let wave = ((fx * 23.0 + p as f32).sin() * (fy * 17.0).cos() * 0.5 + 0.5) * 120.0;
-                let n = (rng.next() & 31) as f32;
-                px.push((fx * 200.0 + n) as u8);
-                px.push((wave + n) as u8);
-                px.push((fy * 180.0 + 40.0 - n) as u8);
-            }
-        }
-        let img = b.image(
-            w,
-            h,
-            "DeviceRGB",
-            8,
-            "DCTDecode",
-            jpeg(&px, w, h, ExtendedColorType::Rgb8, 85),
-        );
-        let content = b"q 842 0 0 595 0 0 cm /Im0 Do Q\n".to_vec();
-        b.page(
-            (842.0, 595.0),
-            content,
-            dictionary! { "XObject" => dictionary! { "Im0" => img } },
-            vec![],
-        );
-    }
-    b.finish()
-}
-
-/// Scanned A4 pages at 300 dpi (2480×3508): grey JPEG pages and a last page
-/// in black and white (1 bit, Flate).
-fn scan_doc(pages: usize) -> Vec<u8> {
-    let mut b = Builder::new();
-    let (w, h) = (2480u32, 3508u32);
-    for p in 0..pages {
-        let mut rng = Rng(300 + p as u64);
-        let mut grey = vec![0u8; (w * h) as usize];
-        for y in 0..h {
-            for x in 0..w {
-                let paper = 235 + (rng.next() % 16) as u8;
-                // Lines of "words": dark blocks 40 px high every 70 px, between the margins.
-                let in_line = y > 300 && y < 3300 && (y % 70) < 40 && x > 250 && x < 2230;
-                let in_word = (x / 37 + y / 70 * 7) % 9 != 0 && ((x * 7 + y / 70) % 37) > 6;
-                grey[(y * w + x) as usize] = if in_line && in_word {
-                    30 + (rng.next() % 40) as u8
-                } else {
-                    paper
-                };
-            }
-        }
-        let img = if p + 1 == pages && pages > 1 {
-            // Black and white: 1 bit per pixel, rows padded to bytes.
-            let row = w.div_ceil(8) as usize;
-            let mut bits = vec![0u8; row * h as usize];
-            for y in 0..h as usize {
-                for x in 0..w as usize {
-                    if grey[y * w as usize + x] > 128 {
-                        bits[y * row + x / 8] |= 0x80 >> (x % 8);
-                    }
-                }
-            }
-            let mut e = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
-            std::io::Write::write_all(&mut e, &bits).expect("deflate");
-            b.image(w, h, "DeviceGray", 1, "FlateDecode", e.finish().expect("deflate"))
-        } else {
-            b.image(
-                w,
-                h,
-                "DeviceGray",
-                8,
-                "DCTDecode",
-                jpeg(&grey, w, h, ExtendedColorType::L8, 70),
-            )
-        };
-        let content = b"q 595 0 0 842 0 0 cm /Im0 Do Q\n".to_vec();
-        b.page(
-            (595.0, 842.0),
-            content,
-            dictionary! { "XObject" => dictionary! { "Im0" => img } },
-            vec![],
-        );
-    }
-    b.finish()
-}
-
-/// A long document: a few lines of text and two comments (a note with its
-/// pop-up and a rectangle) on every page.
-fn long_doc(pages: usize) -> Vec<u8> {
-    let mut b = Builder::new();
-    let mut rng = Rng(5);
-    for p in 0..pages {
-        let mut c = String::from("BT /F1 11 Tf 13 TL 60 780 Td\n");
-        for _ in 0..12 {
-            c.push_str(&format!("({}) '\n", line_text(&mut rng, 70)));
-        }
-        c.push_str("ET\n");
-        let popup = b.doc.add_object(dictionary! {
-            "Type" => "Annot", "Subtype" => "Popup", "Rect" => vec![400.into(), 600.into(), 580.into(), 700.into()], "Open" => false
-        });
-        let note = b.doc.add_object(dictionary! {
-            "Type" => "Annot", "Subtype" => "Text",
-            "Rect" => vec![60.into(), 600.into(), 80.into(), 620.into()],
-            "Contents" => Object::string_literal(format!("Note on page {}", p + 1)),
-            "T" => Object::string_literal("Reviewer"),
-            "M" => Object::string_literal("D:20261019120000Z"),
-            "CreationDate" => Object::string_literal("D:20261019120000Z"),
-            "Popup" => popup,
-        });
-        let square = b.doc.add_object(dictionary! {
-            "Type" => "Annot", "Subtype" => "Square",
-            "Rect" => vec![100.into(), 400.into(), 300.into(), 500.into()],
-            "C" => vec![1.into(), 0.into(), 0.into()],
-            "Contents" => Object::string_literal("A rectangle"),
-            "T" => Object::string_literal("Reviewer"),
-        });
-        b.page(
-            (595.0, 842.0),
-            c.into_bytes(),
-            dictionary! { "Font" => fonts() },
-            vec![note.into(), popup.into(), square.into()],
-        );
-    }
-    b.finish()
 }

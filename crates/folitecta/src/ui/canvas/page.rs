@@ -14,6 +14,7 @@ pub(super) fn PageView(
     view_rotation: i32,
     label: String,
 ) -> Element {
+    crate::perf::PAGE_VIEWS.bump();
     let st = use_context::<AppState>();
     let mut drag = use_signal(|| None::<Drag>);
     let mut ink: Signal<Vec<(f64, f64)>> = use_signal(Vec::new);

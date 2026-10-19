@@ -138,6 +138,9 @@ struct Job {
     scale: f32,
     lane: Lane,
     seq: u64,
+    /// One of its askers wants it whatever the views hold (a thumbnail, a
+    /// picture for another use): it stays when the views move.
+    wanted_outside: bool,
 }
 
 struct Kept {
@@ -228,7 +231,9 @@ impl State {
             return true;
         }
         match (job.lane, self.focus.held) {
-            (Lane::View | Lane::Preview, Some((a, b))) => job.key.page < a || job.key.page > b,
+            (Lane::View | Lane::Preview, Some((a, b))) if !job.wanted_outside => {
+                job.key.page < a || job.key.page > b
+            }
             _ => false,
         }
     }
@@ -444,6 +449,7 @@ impl RenderService {
             scale: req.scale,
             lane: req.lane,
             seq: s.seq,
+            wanted_outside: matches!(req.lane, Lane::Thumb | Lane::Other),
         };
         if s.stale(&job) {
             drop(s);
@@ -458,11 +464,14 @@ impl RenderService {
             s.queue.push(job);
         } else if let Some(j) = s.queue.iter_mut().find(|j| j.key == key) {
             // Asked again: as recent as the last request, in the most urgent
-            // lane (and wanted as long as any of its askers wants it).
+            // lane (and wanted as long as any of its askers wants it: a
+            // thumbnail asked with the small picture of a page in a view
+            // stays when the view moves on).
             j.seq = job.seq;
             if matches!(job.lane, Lane::View | Lane::Other) && j.lane != Lane::Other {
                 j.lane = job.lane;
             }
+            j.wanted_outside |= job.wanted_outside;
         }
         drop(s);
         self.shared.wake.notify_one();
@@ -932,6 +941,31 @@ mod tests {
             ask(&svc, req(0, 0.2, Lane::Thumb, None)),
             RenderAnswer::Picture(_)
         ));
+    }
+
+    #[test]
+    fn a_thumbnail_asked_with_a_page_preview_stays_wanted() {
+        let svc = RenderService::with_workers(doc(6), 1);
+        let (tx, rx) = std::sync::mpsc::channel();
+        // The thread busy with a large picture while the others are asked.
+        let busy = tx.clone();
+        svc.request(req(0, 4.0, Lane::View, None), move |a| {
+            let _ = busy.send((0, matches!(a, RenderAnswer::Picture(_))));
+        });
+        // The canvas asks for the small picture of page 5, the thumbnails
+        // pane for the same picture.
+        let preview = tx.clone();
+        svc.request(req(5, 0.2, Lane::Preview, None), move |a| {
+            let _ = preview.send((1, matches!(a, RenderAnswer::Picture(_))));
+        });
+        svc.request(req(5, 0.2, Lane::Thumb, None), move |a| {
+            let _ = tx.send((2, matches!(a, RenderAnswer::Picture(_))));
+        });
+        // The views no longer hold page 5; the pane still shows it.
+        svc.set_held(Some((0, 2)));
+        let mut got: Vec<(u8, bool)> = (0..3).map(|_| rx.recv().unwrap()).collect();
+        got.sort();
+        assert_eq!(got, vec![(0, true), (1, true), (2, true)]);
     }
 
     #[test]

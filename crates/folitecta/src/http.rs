@@ -16,6 +16,8 @@ const DEADLINE: Duration = Duration::from_secs(60);
 const MAX_ANSWER: usize = 8 * 1024 * 1024;
 /// Largest answer accepted for a GET (revocation lists).
 const MAX_DOWNLOAD: usize = 32 * 1024 * 1024;
+/// Longest line of the size of a chunk.
+const MAX_CHUNK_LINE: usize = 1024;
 
 /// An address split for a request.
 #[derive(Debug, Clone, PartialEq)]
@@ -241,8 +243,12 @@ impl Incoming {
     fn chunks(&mut self) -> Result<bool, String> {
         loop {
             let rest = &self.data[self.pos..];
-            let Some(line_end) = find(rest, b"\r\n") else {
-                return Ok(false);
+            let Some(line_end) = find(&rest[..rest.len().min(MAX_CHUNK_LINE)], b"\r\n") else {
+                return if rest.len() >= MAX_CHUNK_LINE {
+                    Err("a chunk of the answer cannot be read".into())
+                } else {
+                    Ok(false)
+                };
             };
             let size_text =
                 std::str::from_utf8(&rest[..line_end]).map_err(|_| "a chunk of the answer cannot be read")?;
@@ -251,12 +257,19 @@ impl Incoming {
             if size == 0 {
                 return Ok(true);
             }
+            // No chunk may make the answer larger than any answer accepted.
+            if size > MAX_DOWNLOAD || self.body.len() + size > MAX_DOWNLOAD {
+                return Err("the answer of the server is too large".into());
+            }
             let start = line_end + 2;
-            if rest.len() < start + size + 2 {
+            let Some(after) = start.checked_add(size).and_then(|e| e.checked_add(2)) else {
+                return Err("the answer of the server is too large".into());
+            };
+            if rest.len() < after {
                 return Ok(false);
             }
             self.body.extend_from_slice(&rest[start..start + size]);
-            self.pos += start + size + 2;
+            self.pos += after;
         }
     }
 
@@ -653,5 +666,27 @@ mod tests {
         );
         assert_eq!(err, "the server did not answer in time");
         drop(server);
+    }
+
+    #[test]
+    fn huge_chunk_sizes_are_refused() {
+        // A chunk size near the largest number: refused, never an overflow.
+        for size in ["fffffffffffffffe", "ffffffffffffffff", "2000001"] {
+            let answer = format!(
+                "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n{size}\r\nabcdefghijklmnopqrstuvwxyz0123456789\r\n0\r\n\r\n"
+            );
+            let err = parse_answer(answer.as_bytes(), true).unwrap_err();
+            assert_eq!(err, "the answer of the server is too large", "{size}");
+        }
+        // Through a server on this computer, as the probe sends it.
+        let (base, server) = serve(vec![
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nfffffffffffffffe\r\nabcdefghijklmnopqrstuvwxyz0123456789\r\n0\r\n\r\n".to_vec(),
+        ]);
+        assert!(get(&format!("{base}/list.crl"), "application/pkix-crl").is_err());
+        server.join().unwrap();
+        // A size line that never ends.
+        let mut endless = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n".to_vec();
+        endless.extend(std::iter::repeat_n(b'1', 4096));
+        assert!(parse_answer(&endless, false).is_err());
     }
 }

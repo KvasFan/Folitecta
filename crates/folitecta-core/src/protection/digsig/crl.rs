@@ -16,8 +16,11 @@ use x509_cert::serial_number::SerialNumber;
 
 use super::cms_sig::{digest_of_sig_alg, verify_with_cert};
 use super::der_walk::signed_part;
-use super::id::{DigitalId, cert_info, is_ca, key_hash, may_sign_crls, subject_key_id, x509_time};
-use super::revocation::{CLOCK_SKEW, Finding, RevocationNote, crl_urls};
+use super::id::{
+    CRL_DISTRIBUTION_POINTS, DigitalId, cert_info, extension_value, is_ca, key_hash, may_sign_crls,
+    subject_key_id, x509_time,
+};
+use super::revocation::{CLOCK_SKEW, Finding, RevocationNote};
 use crate::error::{Error, Result};
 
 const CRL_NUMBER: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.29.20");
@@ -187,15 +190,27 @@ fn time(t: &x509_cert::time::Time) -> i64 {
     t.to_unix_duration().as_secs() as i64
 }
 
-/// URIs among general names.
-fn uris(names: &[GeneralName]) -> Vec<String> {
-    names
+/// The names of the distribution points of `cert` that a complete list of
+/// its issuer may name (points of indirect or reason-partitioned lists left
+/// out), and whether some point is named relative to the issuer (not read);
+/// `None` when the certificate names no distribution point.
+fn points_of(cert: &Certificate) -> Option<(Vec<GeneralName>, bool)> {
+    let value = extension_value(cert, CRL_DISTRIBUTION_POINTS)?;
+    let points = x509_cert::ext::pkix::CrlDistributionPoints::from_der(value).ok()?;
+    let mut names = Vec::new();
+    let mut relative = false;
+    for p in points
+        .0
         .iter()
-        .filter_map(|n| match n {
-            GeneralName::UniformResourceIdentifier(u) => Some(u.to_string()),
-            _ => None,
-        })
-        .collect()
+        .filter(|p| p.crl_issuer.is_none() && p.reasons.is_none())
+    {
+        match &p.distribution_point {
+            Some(DistributionPointName::FullName(n)) => names.extend(n.iter().cloned()),
+            Some(DistributionPointName::NameRelativeToCRLIssuer(_)) => relative = true,
+            None => {}
+        }
+    }
+    Some((names, relative))
 }
 
 impl ParsedCrl {
@@ -227,12 +242,32 @@ impl ParsedCrl {
                 {
                     return Finding::NotAbout;
                 }
-                if let Some(DistributionPointName::FullName(names)) = &idp.distribution_point {
-                    let listed = uris(names);
-                    let own = crl_urls(cert);
-                    if !listed.is_empty() && !own.is_empty() && !listed.iter().any(|u| own.contains(u)) {
-                        return Finding::NotAbout;
+                // A list of one distribution point covers the certificates
+                // that name it (RFC 5280 6.3.3 b 2 i).
+                match &idp.distribution_point {
+                    None => {}
+                    Some(DistributionPointName::NameRelativeToCRLIssuer(_)) => {
+                        return Finding::Unusable(RevocationNote::UnsupportedList);
                     }
+                    Some(DistributionPointName::FullName(listed)) => match points_of(cert) {
+                        // Without distribution points, the certificate is in
+                        // the partition named after its issuer.
+                        None => {
+                            let issuer = GeneralName::DirectoryName(cert.tbs_certificate.issuer.clone());
+                            if !listed.contains(&issuer) {
+                                return Finding::NotAbout;
+                            }
+                        }
+                        Some((names, relative)) => {
+                            if !listed.iter().any(|l| names.contains(l)) {
+                                return if relative {
+                                    Finding::Unusable(RevocationNote::UnsupportedList)
+                                } else {
+                                    Finding::NotAbout
+                                };
+                            }
+                        }
+                    },
                 }
             } else if ext.extn_id == AUTHORITY_KEY_ID {
                 let id = x509_cert::ext::pkix::AuthorityKeyIdentifier::from_der(value)

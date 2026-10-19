@@ -1399,3 +1399,159 @@ fn material_follows_cross_reference_tables_too() {
     assert!(st.later_revisions_material, "{:?}", st.problems);
     assert_eq!(st.checks.revocation, Check::Passed);
 }
+
+/// A DER element (short lengths and two-byte lengths).
+fn tlv(tag: u8, parts: &[&[u8]]) -> Vec<u8> {
+    let body: Vec<u8> = parts.concat();
+    let n = body.len();
+    let mut out = vec![tag];
+    if n < 128 {
+        out.push(n as u8);
+    } else if n < 256 {
+        out.extend_from_slice(&[0x81, n as u8]);
+    } else {
+        out.extend_from_slice(&[0x82, (n >> 8) as u8, n as u8]);
+    }
+    out.extend_from_slice(&body);
+    out
+}
+
+/// An issuing distribution point naming one distribution point.
+fn idp(point: Vec<u8>) -> x509_cert::ext::Extension {
+    x509_cert::ext::Extension {
+        extn_id: const_oid::ObjectIdentifier::new_unwrap("2.5.29.28"),
+        critical: true,
+        extn_value: der::asn1::OctetString::new(tlv(0x30, &[&tlv(0xA0, &[&tlv(0xA0, &[&point])])])).unwrap(),
+    }
+}
+
+#[test]
+fn lists_of_other_distribution_points_are_not_about_the_certificate() {
+    let ca = ca();
+    let t = tsa();
+    let trusted = [ca.certificate.clone(), t.certificate.clone()];
+    for with_cdp in [true, false] {
+        let s = ca
+            .issue(
+                &who("Partitioned Signer"),
+                KeyKind::EcP256,
+                &CertProfile {
+                    crl_url: with_cdp.then(|| "http://ca.example/p1.crl".to_string()),
+                    ..profile(SIGN - DAY, SIGN + 100 * DAY)
+                },
+            )
+            .unwrap();
+        let doc = reopen(sign(&s, RevocationArchive::default(), Some(&t)));
+        let revoked = [RevokedEntry::of(&s.certificate, SIGN - DAY, Some(1))];
+        // The complete list revokes the signer.
+        let full = crl::make(&ca, &revoked, SIGN + 60, None, 1).unwrap();
+        assert_eq!(
+            check(&doc, &trusted, &pool(crls(vec![full]))).checks.revocation,
+            Check::Failed
+        );
+        // A list of another partition (named by a directory name, or by an
+        // address the certificate does not name) says nothing about it.
+        let other_name = tlv(
+            0xA4,
+            &[&tlv(
+                0x30,
+                &[&tlv(
+                    0x31,
+                    &[&tlv(
+                        0x30,
+                        &[&tlv(0x06, &[&[0x55, 0x04, 0x03]]), &tlv(0x0C, &[b"Partition 2"])],
+                    )],
+                )],
+            )],
+        );
+        let other_uri = tlv(0x86, &[b"http://ca.example/p2.crl"]);
+        for point in [other_name, other_uri] {
+            let partition = crl::make_with(&ca, &[], SIGN + 60, None, 2, vec![idp(point)]).unwrap();
+            let st = check(&doc, &trusted, &pool(crls(vec![partition])));
+            assert_eq!(
+                st.checks.revocation,
+                Check::Warning,
+                "CDP {with_cdp}: {:?}",
+                st.revocation
+            );
+            assert_eq!(st.revocation[0].state, RevocationState::Unknown);
+        }
+        // The list of the certificate's own partition is read.
+        let own = if with_cdp {
+            tlv(0x86, &[b"http://ca.example/p1.crl"])
+        } else {
+            // Without distribution points: the partition named after the issuer.
+            let issuer = der::Encode::to_der(&s.certificate.tbs_certificate.issuer).unwrap();
+            tlv(0xA4, &[&issuer])
+        };
+        let partition = crl::make_with(&ca, &revoked, SIGN + 60, None, 3, vec![idp(own)]).unwrap();
+        let st = check(&doc, &trusted, &pool(crls(vec![partition])));
+        assert_eq!(
+            st.checks.revocation,
+            Check::Failed,
+            "CDP {with_cdp}: {:?}",
+            st.revocation
+        );
+    }
+}
+
+#[test]
+fn backdated_answers_of_expired_responders_are_not_used() {
+    let ca = ca();
+    let s = signer(&ca);
+    let t = tsa();
+    let trusted = [ca.certificate.clone(), t.certificate.clone()];
+    let doc = reopen(sign(&s, RevocationArchive::default(), Some(&t)));
+    let responder = ca
+        .issue(
+            &who("Old Responder"),
+            KeyKind::EcP256,
+            &CertProfile {
+                usages: vec![ExtendedUsage::OcspSigning],
+                ocsp_no_check: true,
+                ..profile(SIGN - 300 * DAY, SIGN - 10 * DAY)
+            },
+        )
+        .unwrap();
+    let req = ocsp::request(&s.certificate, &ca.certificate).unwrap();
+    let answer = |produced_at, this_update| {
+        ocsp::respond(
+            &responder,
+            &ca.certificate,
+            &req,
+            &|_| OcspAnswer::Good,
+            OcspTimes {
+                produced_at,
+                this_update,
+                next_update: None,
+            },
+        )
+        .unwrap()
+    };
+    // Produced while the responder was valid, but stating the state after.
+    let st = check(
+        &doc,
+        &trusted,
+        &pool(ocsps(vec![answer(SIGN - 20 * DAY, SIGN + 60)])),
+    );
+    assert_eq!(st.checks.revocation, Check::Warning);
+    assert!(
+        st.revocation[0]
+            .notes
+            .contains(&RevocationNote::InconsistentTimes),
+        "{:?}",
+        st.revocation
+    );
+    // Produced after the responder expired.
+    let st = check(&doc, &trusted, &pool(ocsps(vec![answer(SIGN + 60, SIGN + 60)])));
+    assert!(
+        st.revocation[0]
+            .notes
+            .contains(&RevocationNote::ResponderNotValid),
+        "{:?}",
+        st.revocation
+    );
+    // Produced in the future.
+    let st = check(&doc, &trusted, &pool(ocsps(vec![answer(NOW + DAY, SIGN + 60)])));
+    assert_eq!(st.revocation[0].state, RevocationState::Unknown);
+}

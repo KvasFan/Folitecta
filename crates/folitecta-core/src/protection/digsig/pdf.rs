@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::collections::HashMap;
 
 use super::cms_sig::{issued_by, sign_detached_stamped, verify_detached};
-use super::dss::{MaterialPlan, RevisionKind, SourceAnalysis};
+use super::dss::{MaterialPlan, RevisionKind, SourceAnalysis, revision_ends};
 use super::id::{CertInfo, DigitalId, cert_info};
 use super::revocation::{
     CertRevocation, ChainCheck, EvidenceStore, FetchFailure, FetchProblem, FetchSummary, Finding,
@@ -340,17 +340,6 @@ fn time_stamp_status(
         problems: check.problems.clone(),
         revocation: Vec::new(),
     }
-}
-
-/// Where each revision of `data` ends: just after each `%%EOF` marker.
-fn revision_ends(data: &[u8]) -> Vec<usize> {
-    let mut out = Vec::new();
-    let mut from = 0;
-    while let Some(i) = find(&data[from..], b"%%EOF") {
-        from += i + 5;
-        out.push(from);
-    }
-    out
 }
 
 /// The end of the first `len` bytes of `data` without the line ends and

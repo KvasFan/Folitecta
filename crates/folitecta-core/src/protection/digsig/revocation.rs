@@ -251,6 +251,8 @@ pub enum RevocationNote {
     /// Data issued after the certificate expired, which need not list it.
     AfterExpiry,
     FromFuture,
+    /// The answer says the state at a time after it was given.
+    InconsistentTimes,
     BadSignature,
     NotAuthorized,
     ResponderNotValid,
@@ -283,6 +285,7 @@ impl RevocationNote {
             RevocationNote::NotAfterProof => "not_after_proof",
             RevocationNote::AfterExpiry => "after_expiry",
             RevocationNote::FromFuture => "from_future",
+            RevocationNote::InconsistentTimes => "inconsistent_times",
             RevocationNote::BadSignature => "bad_signature",
             RevocationNote::NotAuthorized => "not_authorized",
             RevocationNote::ResponderNotValid => "responder_not_valid",
@@ -312,6 +315,9 @@ impl RevocationNote {
                 "the revocation data were issued after the certificate expired and need not list it".into()
             }
             RevocationNote::FromFuture => "the revocation data are dated in the future".into(),
+            RevocationNote::InconsistentTimes => {
+                "the OCSP answer gives the state at a time after it was given".into()
+            }
             RevocationNote::BadSignature => {
                 "the revocation data were changed or are not signed by their issuer".into()
             }
@@ -328,7 +334,7 @@ impl RevocationNote {
             RevocationNote::Refused => "the OCSP responder refused to answer".into(),
             RevocationNote::Unreadable => "the revocation data cannot be read".into(),
             RevocationNote::UnsupportedList => {
-                "the revocation list is of a kind Folitecta does not read (delta, indirect or partitioned)"
+                "the revocation list is of a kind Folitecta does not read (delta, indirect, partitioned by reasons, or naming its distribution point relative to its issuer)"
                     .into()
             }
             RevocationNote::UnsupportedOcsp => "the OCSP answer is of a kind Folitecta does not read".into(),

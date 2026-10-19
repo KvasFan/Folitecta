@@ -470,7 +470,13 @@ impl ParsedOcsp {
         let Some((responder, delegated)) = accepted else {
             return Finding::Unusable(refused);
         };
-        if this > now + CLOCK_SKEW {
+        // The responder was checked when it answered (producedAt), and the
+        // state it gives (thisUpdate) cannot be later than its answer: a
+        // backdated answer of an expired responder is not used.
+        if this > produced + CLOCK_SKEW {
+            return Finding::Unusable(RevocationNote::InconsistentTimes);
+        }
+        if this > now + CLOCK_SKEW || produced > now + CLOCK_SKEW {
             return Finding::Unusable(RevocationNote::FromFuture);
         }
         let authority = cert_info(responder).common_name;

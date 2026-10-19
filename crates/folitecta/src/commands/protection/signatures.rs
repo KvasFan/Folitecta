@@ -594,7 +594,12 @@ handlers! {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::AtomicUsize;
+
+    use dioxus::core::{NoOpMutations, VirtualDom};
+
     use super::*;
+    use crate::state::DocTab;
 
     #[test]
     fn holds_end_with_their_guard_and_after_their_limit() {
@@ -630,5 +635,55 @@ mod tests {
         runtime.block_on(wait_while_held(std::time::Duration::from_millis(200)));
         assert!(started.elapsed() < std::time::Duration::from_secs(2));
         drop(hold);
+    }
+
+    static RENDERS: AtomicUsize = AtomicUsize::new(0);
+
+    /// A component that shows the signature status of a signed document, as
+    /// the signatures pane and the details of a signature do.
+    fn showing_status() -> Element {
+        let st = AppState::init();
+        use_hook(|| {
+            let id = folitecta_core::digsig::DigitalId::create_self_signed(
+                &folitecta_core::digsig::IdentityInfo {
+                    name: "Render".into(),
+                    ..Default::default()
+                },
+                folitecta_core::digsig::KeyKind::EcP256,
+                1,
+            )
+            .unwrap();
+            let signed = folitecta_core::Document::new_blank(1, 100.0, 100.0)
+                .unwrap()
+                .sign(&id, &Default::default())
+                .unwrap();
+            let doc = folitecta_core::Document::from_bytes(signed, None, None).unwrap();
+            st.docs_mut().push(DocTab::new(1, doc));
+        });
+        RENDERS.fetch_add(1, Ordering::SeqCst);
+        let n = signature_status(st).len();
+        rsx! { div { "{n}" } }
+    }
+
+    #[test]
+    fn showing_the_signature_status_renders_a_bounded_number_of_times() {
+        // Reading the status while rendering must not write the documents
+        // (a write makes the component render again and again, and then
+        // the effects of every component never run): it renders once, and
+        // once more when the results of the checks arrive.
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(1)
+            .enable_all()
+            .build()
+            .unwrap();
+        let _inside = runtime.enter();
+        let mut dom = VirtualDom::new(showing_status);
+        dom.rebuild_in_place();
+        for _ in 0..40 {
+            dom.render_immediate(&mut NoOpMutations);
+            std::thread::sleep(std::time::Duration::from_millis(25));
+        }
+        let renders = RENDERS.load(Ordering::SeqCst);
+        assert!(renders <= 2, "{renders} renders");
     }
 }

@@ -764,3 +764,27 @@ fn opened_profiles_are_kept_or_refused() {
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn passwords_typed_in_another_normal_form_open_the_content() {
+    // An owner password with accents typed decomposed (NFD) opened the file
+    // into noise; every form now opens it with its content, for both
+    // profiles.
+    let dir = folder("normal-forms");
+    for profile in EncryptionProfile::ALL {
+        let p = dir.join(format!("{}.pdf", profile.key()));
+        marked()
+            .save_encrypted(&p, "üser", "pässwörd€", no_printing(), profile)
+            .unwrap();
+        for typed in ["üser", "u\u{308}ser", "pässwörd€", "pa\u{308}sswo\u{308}rd€"] {
+            let doc = Document::open_with_password(&p, typed)
+                .unwrap_or_else(|e| panic!("{profile:?} {typed:?}: {e}"));
+            assert!(readable(&doc), "{profile:?} {typed:?}");
+        }
+        assert!(matches!(
+            Document::open_with_password(&p, "pässword€"),
+            Err(Error::WrongPassword)
+        ));
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}

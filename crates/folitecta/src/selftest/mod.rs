@@ -421,6 +421,7 @@ mod progress;
 mod steps_arrange;
 mod steps_barcodes;
 mod steps_calc;
+mod steps_effects;
 mod steps_email;
 mod steps_features;
 mod steps_field_items;
@@ -512,6 +513,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "protection" => Box::pin(steps_protection::run(cx)),
             "frames" => Box::pin(steps_frames::run(cx)),
             "print" => Box::pin(steps_print::run(cx)),
+            "effects" => Box::pin(steps_effects::run(cx)),
             "unicode" => Box::pin(steps_unicode::run(cx)),
             _ => Box::pin(async { cx.record("unknown step", false, name.to_string()) }),
         };
@@ -567,6 +569,7 @@ const STEPS: &[&str] = &[
     "print",
     "frames",
     "unicode",
+    "effects",
 ];
 
 async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_json::Value>) -> usize {

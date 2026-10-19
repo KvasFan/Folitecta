@@ -49,7 +49,7 @@ fn answer(mut s: std::net::TcpStream, authority: &DigitalId, serial: u64) -> std
 }
 
 /// A time stamp server on this computer answering with `authority`; its address.
-fn local_server(authority: DigitalId) -> Option<String> {
+pub(super) fn local_server(authority: DigitalId) -> Option<String> {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").ok()?;
     let url = format!("http://{}/tsa", listener.local_addr().ok()?);
     std::thread::spawn(move || {
@@ -60,7 +60,7 @@ fn local_server(authority: DigitalId) -> Option<String> {
     Some(url)
 }
 
-fn identity(name: &str) -> IdentityInfo {
+pub(super) fn identity(name: &str) -> IdentityInfo {
     IdentityInfo {
         name: name.into(),
         organization: "Folitecta".into(),
@@ -104,7 +104,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         return;
     };
     let signed_path = dir.join("signed-with-time-stamp.pdf");
-    let _ = std::fs::write(&signed_path, &signed);
+    let _ = std::fs::write(&signed_path, &signed.bytes);
     let before = st.docs.read().len();
     crate::files::open_path(st, signed_path, None);
     pause(1000).await;
@@ -120,7 +120,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         return;
     };
     let stamped_path = dir.join("time-stamped.pdf");
-    let _ = std::fs::write(&stamped_path, &stamped);
+    let _ = std::fs::write(&stamped_path, &stamped.bytes);
     crate::files::open_path(st, stamped_path, None);
     pause(1000).await;
     let trusted = [authority.certificate.clone(), signer.certificate.clone()];
@@ -135,7 +135,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
                 && s.time_stamp.as_ref().is_some_and(|t| t.valid && t.trusted)
                 && s.checks.time == Check::Passed
                 && s.checks.identity == Check::Passed
-                && s.revision_len == signed.len()
+                && s.revision_len == signed.bytes.len()
                 && s.later_revisions_time_stamped
         })
         .unwrap_or(false);

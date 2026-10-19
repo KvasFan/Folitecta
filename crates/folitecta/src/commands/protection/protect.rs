@@ -189,13 +189,15 @@ pub fn apply_redactions_now(
             t.redacting = false;
             let (doc, report) = match worked {
                 Ok(Ok(w)) => w,
-                Ok(Err(e)) => return Err(e.to_string()),
+                Ok(Err(e)) => return Err(crate::i18n::core_error(lang, &e)),
                 Err(e) => return Err(e.to_string()),
             };
             if t.doc.revision() != revision {
                 return Ok(None);
             }
-            t.doc.adopt_state(doc).map_err(|e| e.to_string())?;
+            t.doc
+                .adopt_state(doc)
+                .map_err(|e| crate::i18n::core_error(lang, &e))?;
             t.redaction = Some(RedactionPending {
                 revision: t.doc.revision(),
                 report: report.clone(),
@@ -290,12 +292,12 @@ pub async fn save_redacted_copy_to(st: AppState, tab: u64, path: PathBuf) -> Res
     st.set_busy(true);
     let target = path.clone();
     let done = tokio::task::spawn_blocking(move || {
-        let mut doc = snapshot.open().map_err(|e| e.to_string())?;
-        let prepared = doc.prepare_save().map_err(|e| e.to_string())?;
-        let check = check_redacted_bytes(&prepared.bytes, prepared.key.as_ref(), &report)
-            .map_err(|e| e.to_string())?;
+        let core = |e: folitecta_core::Error| crate::i18n::core_error(lang, &e);
+        let mut doc = snapshot.open().map_err(core)?;
+        let prepared = doc.prepare_save().map_err(core)?;
+        let check = check_redacted_bytes(&prepared.bytes, prepared.key.as_ref(), &report).map_err(core)?;
         if check.passed() {
-            folitecta_core::document::write_pdf_file(&target, &prepared.bytes).map_err(|e| e.to_string())?;
+            folitecta_core::document::write_pdf_file(&target, &prepared.bytes).map_err(core)?;
         }
         Ok::<_, String>((check, prepared))
     })
@@ -306,7 +308,7 @@ pub async fn save_redacted_copy_to(st: AppState, tab: u64, path: PathBuf) -> Res
     let (check, prepared) = match done {
         Ok(x) => x,
         Err(e) => {
-            st.error(&e);
+            st.error(e.clone());
             return Err(e);
         }
     };

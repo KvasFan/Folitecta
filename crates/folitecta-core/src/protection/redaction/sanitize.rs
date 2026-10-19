@@ -723,22 +723,8 @@ impl Document {
                 d.remove(b"Thumb");
             }
         }
-        self.remove_xfa();
+        self.remove_xfa()?;
         Ok((n, layers))
-    }
-
-    /// Remove the XFA form (it repeats the page text and the field values).
-    pub(crate) fn remove_xfa(&mut self) -> bool {
-        let mut gone = false;
-        if let Some(af) = self.acroform_id() {
-            if let Ok(d) = self.inner.get_dictionary_mut(af) {
-                gone |= d.remove(b"XFA").is_some();
-            }
-        }
-        if let Ok(c) = self.inner.catalog_mut() {
-            gone |= c.remove(b"NeedsRendering").is_some();
-        }
-        gone
     }
 
     fn replace_quotes(&mut self, terms: &[Term]) -> Result<usize> {

@@ -416,7 +416,6 @@ impl Document {
         if l.len() < 4 {
             return Err(Error::Invalid("the comment is not a line".into()));
         }
-        self.begin_edit();
         d.set("L", vec![l[2].clone(), l[3].clone(), l[0].clone(), l[1].clone()]);
         if let Ok(Object::Array(le)) = d.get(b"LE") {
             if le.len() == 2 {
@@ -425,9 +424,14 @@ impl Document {
             }
         }
         d.set("M", Object::string_literal(util::pdf_date_now()));
-        self.generate_appearance(&mut d)?;
-        *self.inner.get_dictionary_mut(id)? = d;
-        self.commit()
+        if let Some(problem) = crate::appearance::text_problem(&self.inner, &d) {
+            return Err(problem.into());
+        }
+        self.edit_step(|doc| {
+            doc.generate_appearance(&mut d)?;
+            *doc.inner.get_dictionary_mut(id)? = d;
+            Ok(())
+        })
     }
 
     /// Serialized document in which the given annotations are hidden, for

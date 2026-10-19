@@ -14,6 +14,8 @@ use crate::util::{num, rect_of};
 pub struct AnnotSnapshot {
     root: Dictionary,
     objects: BTreeMap<ObjectId, Object>,
+    /// Copied from a protected document: refused by documents that are not.
+    protected: bool,
 }
 
 /// Keys that point back into the source page tree or to other annotations.
@@ -41,6 +43,11 @@ fn remap(obj: &mut Object, map: &BTreeMap<ObjectId, ObjectId>) {
         Object::Stream(s) => s.dict.iter_mut().for_each(|(_, v)| remap(v, map)),
         _ => {}
     }
+}
+
+/// Scale factors of a move (the size kept).
+fn is_move(sx: f32, sy: f32) -> bool {
+    (sx - 1.0).abs() < 1e-4 && (sy - 1.0).abs() < 1e-4
 }
 
 /// Apply `f` to every (x, y) pair of an annotation's geometry entries.
@@ -115,10 +122,16 @@ impl Document {
                 objects.insert(id, obj.clone());
             }
         }
-        Ok(AnnotSnapshot { root, objects })
+        Ok(AnnotSnapshot {
+            root,
+            objects,
+            protected: self.is_protected(),
+        })
     }
 
-    /// Insert a snapshot on `page`, shifted by `(dx, dy)` points. Returns the new annotation id.
+    /// Insert a snapshot on `page`, shifted by `(dx, dy)` points. Returns the
+    /// new annotation id. A comment of a protected document is refused by a
+    /// document that is not protected.
     pub fn paste_annotation_snapshot(
         &mut self,
         page: usize,
@@ -126,6 +139,9 @@ impl Document {
         dx: f32,
         dy: f32,
     ) -> Result<ObjectId> {
+        if snap.protected && !self.is_protected() {
+            return Err(Error::ProtectedSource);
+        }
         let page_id = self.page_id(page)?;
         self.begin_edit();
         let mut map = BTreeMap::new();
@@ -205,15 +221,14 @@ impl Document {
         if n[2] - n[0] < 1.0 || n[3] - n[1] < 1.0 {
             return Err(Error::Invalid("annotation rectangle is empty".into()));
         }
-        self.begin_edit();
-        self.reshape_annotation(aid, n)?;
-        self.commit()
+        if let Some(problem) = self.reshape_problem(aid, n) {
+            return Err(problem.into());
+        }
+        self.edit_step(|doc| doc.reshape_annotation(aid, n))
     }
 
-    /// Give the annotation object `aid` the rectangle `n` (normalized),
-    /// scaling its geometry and drawing it again, as part of the edit under
-    /// way (no undo step of its own).
-    pub(crate) fn reshape_annotation(&mut self, aid: ObjectId, n: [f32; 4]) -> Result<()> {
+    /// The rectangle of an annotation object and the factors that turn it into `n`.
+    fn reshape_scale(&self, aid: ObjectId, n: [f32; 4]) -> Result<([f32; 4], f32, f32)> {
         let old = self
             .inner
             .get_dictionary(aid)?
@@ -223,12 +238,40 @@ impl Document {
             .unwrap_or(n);
         let sx = (n[2] - n[0]) / (old[2] - old[0]).max(0.001);
         let sy = (n[3] - n[1]) / (old[3] - old[1]).max(0.001);
+        Ok((old, sx, sy))
+    }
+
+    /// Why giving the annotation object `aid` the rectangle `n` would fail:
+    /// a resized comment whose text cannot be drawn (a moved one keeps its
+    /// drawing). Checked before the edit.
+    pub(crate) fn reshape_problem(&self, aid: ObjectId, n: [f32; 4]) -> Option<crate::fonts::GlyphProblem> {
+        let (_, sx, sy) = self.reshape_scale(aid, n).ok()?;
+        if is_move(sx, sy) {
+            return None;
+        }
+        crate::appearance::text_problem(&self.inner, self.inner.get_dictionary(aid).ok()?)
+    }
+
+    /// Give the annotation object `aid` the rectangle `n` (normalized),
+    /// scaling its geometry and drawing it again, as part of the edit under
+    /// way (no undo step of its own). A moved comment whose text cannot be
+    /// drawn keeps its drawing (moved with the rectangle); a resized one is
+    /// an error.
+    pub(crate) fn reshape_annotation(&mut self, aid: ObjectId, n: [f32; 4]) -> Result<()> {
+        let (old, sx, sy) = self.reshape_scale(aid, n)?;
         let dict = self.inner.get_dictionary_mut(aid)?;
         dict.set("Rect", Object::Array(n.iter().map(|v| (*v).into()).collect()));
         map_geometry(dict, &|x, y| (n[0] + (x - old[0]) * sx, n[1] + (y - old[1]) * sy));
         dict.set("M", Object::string_literal(crate::util::pdf_date_now()));
         // Redraw supported comments so strokes and text keep their size.
-        if !self.refresh_appearance(aid)? {
+        let redrawn = match self.refresh_appearance(aid) {
+            Err(Error::Glyphs(_)) if is_move(sx, sy) && self.inner.get_dictionary(aid)?.has(b"AP") => {
+                // The bounding box of the drawing is placed on the new rectangle.
+                return Ok(());
+            }
+            other => other?,
+        };
+        if !redrawn {
             let widget = self
                 .inner
                 .get_dictionary(aid)

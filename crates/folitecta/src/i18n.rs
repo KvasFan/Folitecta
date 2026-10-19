@@ -238,6 +238,113 @@ pub fn tf(lang: Lang, key: &str, args: &[(&str, &str)]) -> String {
     s
 }
 
+/// Why generated text cannot be drawn, in the language of the interface.
+pub fn glyph_problem(lang: Lang, problem: &folitecta_core::GlyphProblem) -> String {
+    use folitecta_core::GlyphProblem as P;
+    use folitecta_core::fonts::describe_chars;
+    match problem {
+        P::Missing { font, chars } => tf(
+            lang,
+            "toast.glyphs_missing",
+            &[("font", font), ("chars", &describe_chars(chars))],
+        ),
+        P::NeedsLayout(chars) => tf(lang, "toast.glyphs_layout", &[("chars", &describe_chars(chars))]),
+        P::FontMissing { file, .. } => tf(lang, "toast.font_missing", &[("file", file)]),
+        P::FontUnreadable { path, reason } => tf(
+            lang,
+            "toast.font_unreadable",
+            &[("file", &path.display().to_string()), ("reason", reason)],
+        ),
+        P::NotEmbeddable { font } => tf(lang, "toast.font_not_embeddable", &[("font", font)]),
+        P::StampText(chars) => tf(lang, "toast.glyphs_stamp", &[("chars", &describe_chars(chars))]),
+    }
+}
+
+/// A comment of an imported file that cannot be drawn: page, author, the
+/// start of its text and why.
+pub fn undrawable_comment(lang: Lang, c: &folitecta_core::UndrawableComment) -> String {
+    let excerpt = |s: &str| {
+        let mut text: String = s.chars().take(40).collect();
+        if s.chars().count() > 40 {
+            text.push('…');
+        }
+        text
+    };
+    let text = excerpt(&c.contents);
+    let author = if c.author.is_empty() {
+        String::new()
+    } else {
+        format!(", {}", c.author)
+    };
+    let mut out = tf(
+        lang,
+        "toast.comment_undrawable",
+        &[
+            ("page", &(c.page + 1).to_string()),
+            ("author", &author),
+            ("text", &text),
+            ("problem", glyph_problem(lang, &c.problem).trim_end_matches('.')),
+        ],
+    );
+    if !c.replies.is_empty() {
+        let replies: Vec<String> = c
+            .replies
+            .iter()
+            .map(|r| {
+                if r.author.is_empty() {
+                    format!("“{}”", excerpt(&r.contents))
+                } else {
+                    format!("{}: “{}”", r.author, excerpt(&r.contents))
+                }
+            })
+            .collect();
+        out.push(' ');
+        out.push_str(&tf(
+            lang,
+            "toast.comment_replies_left_out",
+            &[("list", &replies.join(", "))],
+        ));
+    }
+    out
+}
+
+/// The comments of an import that cannot be drawn, one after the other.
+pub fn undrawable_list(lang: Lang, list: &[folitecta_core::UndrawableComment]) -> String {
+    list.iter()
+        .map(|c| undrawable_comment(lang, c))
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+/// The message of an error of the core: the problems of generated text and
+/// the errors of protection in the language of the interface, the others as
+/// the core words them.
+pub fn core_error(lang: Lang, err: &folitecta_core::Error) -> String {
+    use folitecta_core::Error as E;
+    match err {
+        E::WrongPassword => t(lang, "dialog.password.wrong"),
+        E::PasswordRequired => t(lang, "toast.password_required"),
+        E::ProtectedSource => t(lang, "toast.protected_source"),
+        E::UnsupportedProtection(what) if what == folitecta_core::security::CERTIFICATE_PROTECTION => {
+            t(lang, "toast.certificate_protection")
+        }
+        E::UnsupportedProtection(what) => tf(lang, "toast.unsupported_protection", &[("what", what)]),
+        E::ProtectionNotKept(why) => tf(lang, "toast.protection_not_kept", &[("why", why)]),
+        folitecta_core::Error::Glyphs(p) => {
+            format!("{} {}", glyph_problem(lang, p), t(lang, "toast.nothing_changed"))
+        }
+        folitecta_core::Error::Undrawable(list) => tf(
+            lang,
+            "toast.comments_undrawable",
+            &[
+                ("count", &list.len().to_string()),
+                ("list", &undrawable_list(lang, list)),
+            ],
+        ),
+        other => other.to_string(),
+    }
+}
+
 /// Localized label of a registry command (falls back to the registry label).
 pub fn cmd_label(lang: Lang, cmd: &Command) -> String {
     if lang != Lang::En {
@@ -361,6 +468,55 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn problems_of_generated_text_are_translated() {
+        let missing = folitecta_core::Error::Glyphs(folitecta_core::GlyphProblem::Missing {
+            font: "FreeSans".into(),
+            chars: vec!['漢'],
+        });
+        let en = core_error(Lang::En, &missing);
+        let it = core_error(Lang::It, &missing);
+        assert!(
+            en.contains("漢 (U+6F22)") && en.ends_with("The document was not changed."),
+            "{en}"
+        );
+        assert!(
+            it.contains("漢 (U+6F22)") && it.contains("non ha i glifi"),
+            "{it}"
+        );
+        let list = vec![folitecta_core::UndrawableComment {
+            page: 1,
+            author: "Reviewer".into(),
+            name: "c1".into(),
+            contents: "שלום".into(),
+            problem: folitecta_core::GlyphProblem::NeedsLayout(vec!['ש']),
+            replies: vec![folitecta_core::LeftOutReply {
+                author: "Second".into(),
+                contents: "ok".into(),
+            }],
+        }];
+        let it = core_error(Lang::It, &folitecta_core::Error::Undrawable(list));
+        assert!(
+            it.contains("(1)") && it.contains("pagina 2, Reviewer: “שלום”"),
+            "{it}"
+        );
+        assert!(it.contains("ancora disegnare nel testo generato"), "{it}");
+        assert!(
+            it.contains("(risposte lasciate fuori con esso: Second: “ok”)"),
+            "{it}"
+        );
+        let stamp = folitecta_core::Error::Glyphs(folitecta_core::GlyphProblem::StampText(vec!['Ł']));
+        let it = core_error(Lang::It, &stamp);
+        assert!(
+            it.starts_with("Ł (U+0141): i timbri di testo") && !it.contains("Helvetica"),
+            "{it}"
+        );
+        assert_eq!(
+            core_error(Lang::It, &folitecta_core::Error::NoPath),
+            folitecta_core::Error::NoPath.to_string()
+        );
     }
 
     #[test]

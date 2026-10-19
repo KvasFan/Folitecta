@@ -1,9 +1,13 @@
 use std::path::PathBuf;
 
-use folitecta_core::{Document, Error, SecurityPermissions};
+use folitecta_core::{Document, EncryptionProfile, Error, SecurityPermissions};
 
-fn folder(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("folitecta-protect-{name}-{}", std::process::id()));
+fn folder(name: &str, profile: EncryptionProfile) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!(
+        "folitecta-protect-{name}-{}-{}",
+        profile.key(),
+        std::process::id()
+    ));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     dir
@@ -33,11 +37,17 @@ fn no_printing() -> SecurityPermissions {
 
 #[test]
 fn a_password_protected_file_stays_protected_after_saving() {
-    let dir = folder("password");
+    for profile in EncryptionProfile::ALL {
+        password_protected_file_stays_protected(profile);
+    }
+}
+
+fn password_protected_file_stays_protected(profile: EncryptionProfile) {
+    let dir = folder("password", profile);
     let original = dir.join("protected.pdf");
     Document::new_blank(2, 300.0, 300.0)
         .unwrap()
-        .save_encrypted(&original, "user-pw", "owner-pw", no_printing())
+        .save_encrypted(&original, "user-pw", "owner-pw", no_printing(), profile)
         .unwrap();
     let (p_before, _) = protection_of(&original, "owner-pw");
 
@@ -78,11 +88,17 @@ fn a_password_protected_file_stays_protected_after_saving() {
 
 #[test]
 fn restrictions_without_an_open_password_are_kept() {
-    let dir = folder("restricted");
+    for profile in EncryptionProfile::ALL {
+        restrictions_are_kept(profile);
+    }
+}
+
+fn restrictions_are_kept(profile: EncryptionProfile) {
+    let dir = folder("restricted", profile);
     let original = dir.join("restricted.pdf");
     Document::new_blank(1, 300.0, 300.0)
         .unwrap()
-        .save_encrypted(&original, "", "owner-only", no_printing())
+        .save_encrypted(&original, "", "owner-only", no_printing(), profile)
         .unwrap();
     let (p_before, _) = protection_of(&original, "owner-only");
     // Opens without a password, as before.
@@ -102,11 +118,17 @@ fn restrictions_without_an_open_password_are_kept() {
 
 #[test]
 fn an_unrestricted_copy_is_an_explicit_choice() {
-    let dir = folder("unrestricted");
+    for profile in EncryptionProfile::ALL {
+        unrestricted_copy_is_explicit(profile);
+    }
+}
+
+fn unrestricted_copy_is_explicit(profile: EncryptionProfile) {
+    let dir = folder("unrestricted", profile);
     let original = dir.join("protected.pdf");
     Document::new_blank(1, 300.0, 300.0)
         .unwrap()
-        .save_encrypted(&original, "user-pw", "owner-pw", no_printing())
+        .save_encrypted(&original, "user-pw", "owner-pw", no_printing(), profile)
         .unwrap();
     let mut doc = Document::open_with_password(&original, "user-pw").unwrap();
     let plain = dir.join("plain.pdf");

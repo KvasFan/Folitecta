@@ -75,6 +75,14 @@ impl Document {
 
     /// Import the comments of an FDF file (one undo step).
     pub fn import_comments_fdf(&mut self, data: &[u8]) -> Result<usize> {
+        self.fdf_import(data, false).map(|(n, _)| n)
+    }
+
+    pub(super) fn fdf_import(
+        &mut self,
+        data: &[u8],
+        skip: bool,
+    ) -> Result<(usize, Vec<super::UndrawableComment>)> {
         let pos = data
             .windows(5)
             .position(|w| w == b"%FDF-")
@@ -114,6 +122,6 @@ impl Document {
                 (page < pages).then_some((page, id, d))
             })
             .collect();
-        self.import_from_source(&src, entries)
+        self.import_from_source(&src, entries, skip)
     }
 }

@@ -636,57 +636,12 @@ fn one_revision(bytes: &[u8]) -> bool {
     }
 }
 
-/// The plain objects of a protected file's bytes, decrypted with `key`.
+/// The plain objects of a protected file's bytes (whole, or with
+/// encrypted incremental updates), decrypted with `key`.
 fn decrypted(bytes: &[u8], key: &ProtectionKey) -> Result<Vec<u8>> {
-    let (a, b) = last_trailer(bytes).ok_or_else(|| Error::Invalid("the file has no trailer".into()))?;
-    let trailer =
-        dict_keys(&bytes[a..b]).ok_or_else(|| Error::Invalid("the trailer cannot be read".into()))?;
-    let enc_id = trailer
-        .get(b"Encrypt")
-        .ok()
-        .and_then(|e| e.as_reference().ok())
-        .ok_or_else(|| Error::Invalid("the file is not encrypted".into()))?;
-    // The trailer without /Encrypt (same length, so offsets stay): the
-    // objects load as written, still encrypted.
-    let mut plain = bytes.to_vec();
-    let at = find(&plain[..b], b"/Encrypt", a).ok_or_else(|| Error::Invalid("no /Encrypt".into()))?;
-    let mut end = at + 8;
-    let mut parts = 0;
-    while end < b && parts < 3 {
-        while end < b && plain[end].is_ascii_whitespace() {
-            end += 1;
-        }
-        let s = end;
-        while end < b && !plain[end].is_ascii_whitespace() && plain[end] != b'/' && plain[end] != b'>' {
-            end += 1;
-        }
-        if end > s {
-            parts += 1;
-        }
-    }
-    for c in &mut plain[at..end] {
-        *c = b' ';
-    }
-    let mut doc = lopdf::Document::load_mem(&plain)?;
-    // The key must be the one the file was encrypted with.
-    let written_u = doc
-        .get_dictionary(enc_id)
-        .ok()
-        .and_then(|d| d.get(b"U").ok())
-        .and_then(|u| u.as_str().ok())
-        .map(<[u8]>::to_vec)
-        .unwrap_or_default();
-    if written_u != key.0.user_value() {
-        return Err(Error::Invalid(
-            "the file is not protected with the document's key".into(),
-        ));
-    }
-    doc.objects.remove(&enc_id);
-    for (id, obj) in doc.objects.iter_mut() {
-        lopdf::encryption::decrypt_object(&key.0, *id, obj)
-            .map_err(|e| Error::Invalid(format!("the file cannot be decrypted: {e:?}")))?;
-    }
+    let mut doc = crate::document::load_with_key(bytes, key)?;
     doc.trailer.remove(b"Encrypt");
+    doc.trailer.remove(b"Prev");
     crate::document::serialize(&mut doc)
 }
 

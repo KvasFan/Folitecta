@@ -1869,6 +1869,7 @@ dependencies = [
  "image",
  "lopdf",
  "mail-parser",
+ "md-5",
  "p256",
  "p384",
  "pkcs12",
@@ -1887,11 +1888,15 @@ dependencies = [
  "sha2 0.10.9",
  "signature",
  "similar",
+ "skrifa 0.46.2",
  "spellbook",
  "spki",
+ "stringprep",
  "thiserror 2.0.21",
  "time",
  "tract-onnx",
+ "unicode-bidi",
+ "unicode-normalization",
  "x509-cert",
 ]
 

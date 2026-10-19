@@ -295,7 +295,10 @@ pub(super) fn DocProps() -> Element {
                 span { class: "k", "{t(lang, \"dialog.props.modified\")}" } span { class: "v", "{info.modified}" }
                 span { class: "k", "{t(lang, \"dialog.props.creator\")}" } span { class: "v", "{info.creator}" }
                 span { class: "k", "{t(lang, \"dialog.props.producer\")}" } span { class: "v", "{info.producer}" }
-                span { class: "k", "{t(lang, \"dialog.props.encrypted\")}" } span { class: "v", "{yes_no(info.encrypted)}" }
+                span { class: "k", "{t(lang, \"dialog.props.encrypted\")}" }
+                span { class: "v props-encryption",
+                    if info.encryption.is_empty() { "{yes_no(info.encrypted)}" } else { "{yes_no(info.encrypted)} · {info.encryption}" }
+                }
                 span { class: "k", "{t(lang, \"dialog.props.form\")}" } span { class: "v", "{yes_no(info.has_form)}" }
                 span { class: "k", "{t(lang, \"dialog.props.tagged\")}" } span { class: "v", "{yes_no(info.tagged)}" }
             }

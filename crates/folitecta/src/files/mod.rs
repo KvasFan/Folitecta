@@ -8,7 +8,7 @@ use dioxus::prelude::*;
 use folitecta_core::{Document, Error as CoreError, ImageFormat};
 
 use crate::i18n::{t, tf};
-use crate::state::{AfterUnsaved, AppState, Dialog, DocTab, ToastKind};
+use crate::state::{AfterUnsaved, AppState, Dialog, DocTab, PasswordTarget, ToastKind};
 
 mod comments;
 mod documents;

@@ -314,7 +314,7 @@ pub fn LayerNameDialog(group: bool, rename: Option<Vec<usize>>) -> Element {
                     Ok(())
                 });
                 match r {
-                    Some(Err(e)) => st.error(e),
+                    Some(Err(e)) => st.core_error(&e),
                     _ => {
                         crate::files::set_window_title(st);
                         st.set_dialog(Dialog::None);

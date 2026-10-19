@@ -1,4 +1,5 @@
 {
+  "policy.aes128": "AES-128",
   "policy.apply": "Applica…",
   "policy.default_no_print": "Niente stampa né copia",
   "policy.default_read_only": "Sola lettura (stampa consentita)",
@@ -82,6 +83,7 @@
   "sig.place_field": "Campo «{name}»",
   "sig.place_invisible": "Firma invisibile",
   "sig.placement": "Posizione",
+  "sig.protected_note": "Il documento è protetto: il file firmato è cifrato come lui e si apre con le stesse password. La firma stessa (il certificato del firmatario e l'ora) resta leggibile senza password, come richiede il formato PDF.",
   "sig.reason": "Motivo",
   "sig.save_signed": "Salva il documento firmato",
   "sig.self_signed": "Autofirmato",

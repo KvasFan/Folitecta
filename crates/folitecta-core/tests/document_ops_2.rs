@@ -238,6 +238,7 @@ fn encrypted_copy_requires_the_password() {
             copy: false,
             ..Default::default()
         },
+        folitecta_core::EncryptionProfile::Aes256,
     )
     .unwrap();
     assert!(
@@ -257,8 +258,14 @@ fn encrypted_copy_requires_the_password() {
     let owner = Document::open_with_password(&path, "owner").unwrap();
     assert_eq!(owner.page_count(), 2);
     assert!(
-        doc.save_encrypted(dir.join("x.pdf"), "", "", SecurityPermissions::default())
-            .is_err()
+        doc.save_encrypted(
+            dir.join("x.pdf"),
+            "",
+            "",
+            SecurityPermissions::default(),
+            folitecta_core::EncryptionProfile::Aes256
+        )
+        .is_err()
     );
     let _ = std::fs::remove_dir_all(&dir);
 }

@@ -480,7 +480,7 @@ impl Document {
                 .iter()
                 .filter(|(_, _, l)| l.overlay != Overlay::Standard)
                 .count(),
-            signatures: self.signed_count(),
+            signatures: self.signed_field_count(),
         }
     }
 
@@ -620,7 +620,10 @@ impl Document {
             "Redaction{}",
             nonce.iter().map(|b| format!("{b:02x}")).collect::<String>()
         );
-        report.signatures = self.clear_signatures_in();
+        report.signatures = self.clear_signatures_inner();
+        if report.signatures > 0 {
+            self.mark_signature_fields();
+        }
         let pages: Vec<usize> = marks.keys().copied().collect();
         let probe = probe_pages(
             &self.inner,
@@ -754,7 +757,7 @@ impl Document {
             }
         }
         // An XFA form repeats the page text and the field values.
-        self.remove_xfa();
+        self.remove_xfa()?;
         report.glyphs = work.glyphs;
         report.pictures = work.pictures;
         report.paths = work.paths;
@@ -796,6 +799,39 @@ impl Document {
             replaced,
         };
         Ok(report)
+    }
+
+    /// The form says signature fields exist (ISO 32000-1 §12.7.2, Table 219:
+    /// bit 1) when empty ones remain after the signatures went.
+    fn mark_signature_fields(&mut self) {
+        let any_field = self
+            .form_fields()
+            .iter()
+            .any(|f| f.kind == crate::forms::FieldKind::Signature);
+        if !any_field {
+            return;
+        }
+        let af = self
+            .inner
+            .catalog()
+            .ok()
+            .and_then(|c| c.get(b"AcroForm").ok())
+            .cloned();
+        match af {
+            Some(Object::Reference(r)) => {
+                if let Ok(d) = self.inner.get_dictionary_mut(r) {
+                    d.set("SigFlags", 1i64);
+                }
+            }
+            Some(Object::Dictionary(_)) => {
+                if let Ok(Object::Dictionary(d)) =
+                    self.inner.catalog_mut().and_then(|c| c.get_mut(b"AcroForm"))
+                {
+                    d.set("SigFlags", 1i64);
+                }
+            }
+            _ => {}
+        }
     }
 
     /// The pictures, forms and patterns listed in the resources a page uses

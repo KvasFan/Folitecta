@@ -410,7 +410,7 @@ fn stream_data(s: &Stream) -> Vec<u8> {
 }
 
 /// The ToUnicode map of a font: code bytes and the text they stand for.
-fn to_unicode(data: &[u8]) -> Vec<(Vec<u8>, String)> {
+pub(crate) fn to_unicode(data: &[u8]) -> Vec<(Vec<u8>, String)> {
     // Tokens: hex strings, brackets and the operators that matter.
     #[derive(Debug, PartialEq)]
     enum Tok {

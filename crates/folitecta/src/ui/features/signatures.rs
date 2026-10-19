@@ -321,6 +321,7 @@ pub fn SignDialog(certify: u8, invisible: bool, field: Option<String>) -> Elemen
         t(lang, "cmd.document.signatures.sign")
     };
     let has_ids = !ids.is_empty();
+    let protected = st.read_active(|t| t.doc.is_protected()).unwrap_or(false);
     rsx! {
         crate::ui::dialogs::Frame { title: title.trim_end_matches('…').to_string(), wide: true, ok_label: Some(t(lang, "sig.sign")),
             on_ok: move |_| {
@@ -369,6 +370,9 @@ pub fn SignDialog(certify: u8, invisible: bool, field: Option<String>) -> Elemen
                 st.set_dialog(Dialog::None);
                 start_sign(st, id, opts, stamp().then_some(server));
             },
+            if protected {
+                p { class: "hint sig-protected-note", "{t(lang, \"sig.protected_note\")}" }
+            }
             if !has_ids {
                 div { class: "callout", "{t(lang, \"sig.no_ids\")}"
                     div { class: "row", button { class: "tbtn primary", onclick: move |_| st.set_dialog(Dialog::DigitalIds), "{t(lang, \"cmd.signs.digitalIDs\")}" } }
@@ -458,6 +462,7 @@ pub fn SignDialog(certify: u8, invisible: bool, field: Option<String>) -> Elemen
 pub fn TimeStampDialog() -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
+    let protected = st.read_active(|t| t.doc.is_protected()).unwrap_or(false);
     let mut url = use_signal(|| st.ui.read().value("sign.tsa").unwrap_or("").to_string());
     let mut error = use_signal(String::new);
     let title = t(lang, "cmd.document.signatures.timestamp");
@@ -474,6 +479,9 @@ pub fn TimeStampDialog() -> Element {
                 time_stamp_document(st, server);
             },
             div { class: "hint", "{t(lang, \"sig.time_stamp_intro\")}" }
+            if protected {
+                p { class: "hint sig-protected-note", "{t(lang, \"sig.protected_note\")}" }
+            }
             div { class: "field",
                 label { "{t(lang, \"sig.tsa\")}" }
                 input { class: "tsa-url", value: "{url}", placeholder: "https://", autofocus: true, oninput: move |e| url.set(e.value()) }

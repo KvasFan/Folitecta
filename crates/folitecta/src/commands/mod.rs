@@ -359,7 +359,7 @@ pub(crate) fn no_doc(st: AppState) -> bool {
 
 pub(crate) fn core_result(st: AppState, r: Option<folitecta_core::Result<()>>) {
     match r {
-        Some(Err(e)) => st.error(e),
+        Some(Err(e)) => st.core_error(&e),
         _ => files::set_window_title(st),
     }
 }

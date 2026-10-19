@@ -182,11 +182,13 @@ impl Document {
         if moves.is_empty() {
             return Ok(());
         }
-        self.begin_edit();
-        for (aid, r) in moves {
-            self.reshape_annotation(aid, r)?;
-        }
-        self.commit()
+        // Moves keep the drawing of text that cannot be drawn again.
+        self.edit_step(|doc| {
+            for (aid, r) in moves {
+                doc.reshape_annotation(aid, r)?;
+            }
+            Ok(())
+        })
     }
 
     /// Delete the comments `indices` of a page, with their popups, replies

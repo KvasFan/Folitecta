@@ -7,13 +7,13 @@ use std::sync::Mutex;
 use dioxus::prelude::*;
 use folitecta_core::digsig::{
     CertInfo, Certificate, DigitalId, IdentityInfo, KeyKind, SignOptions, SignPlacement, SignatureStatus,
-    Transport, cert_info, cert_to_der, parse_certificates,
+    SignedFile, Transport, cert_info, cert_to_der, parse_certificates,
 };
 
 use crate::commands::{handlers, no_doc, show_pane};
 use crate::files;
 use crate::i18n::{t, tf};
-use crate::state::{AppState, ConfirmAction, Dialog, Pane, ToastKind, Tool, app_data_dir};
+use crate::state::{AppState, ConfirmAction, Dialog, Pane, PasswordTarget, ToastKind, Tool, app_data_dir};
 
 /// A digital ID kept in Folitecta's data folder.
 #[derive(Debug, Clone, PartialEq)]
@@ -216,44 +216,47 @@ pub fn cancel_pending() {
     PENDING.lock().expect("pending signature").take();
 }
 
-/// The bytes of the active document signed by `id` (with a time stamp from
-/// the server at `tsa`), made on a worker thread while the server answers.
+/// The active document signed by `id` (with a time stamp from the server
+/// at `tsa`), made on a worker thread while the server answers: the signed
+/// file (encrypted like the document when it is protected) and the
+/// document it opens as.
 pub async fn signed_bytes(
     st: AppState,
     id: DigitalId,
     opts: SignOptions,
     tsa: Option<String>,
-) -> Result<Vec<u8>, String> {
+) -> Result<SignedFile, String> {
     let copy = st
         .read_active(|t| t.doc.work_copy())
         .ok_or("no document")?
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| st.core_error_text(&e))?;
     tokio::task::spawn_blocking(move || {
         let mut send = tsa.map(tsa_transport);
         let send: Option<&mut Transport<'_>> = send.as_mut().map(|s| s as &mut Transport<'_>);
-        copy.sign_with(&id, &opts, send)
+        copy.sign_to_file(&id, &opts, send)
     })
     .await
     .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())
+    .map_err(|e| st.core_error_text(&e))
 }
 
-/// The bytes of the active document with a document time stamp from the
-/// server at `url`.
-pub async fn time_stamped_bytes(st: AppState, url: String) -> Result<Vec<u8>, String> {
+/// The active document with a document time stamp from the server at `url`.
+pub async fn time_stamped_bytes(st: AppState, url: String) -> Result<SignedFile, String> {
     let copy = st
         .read_active(|t| t.doc.work_copy())
         .ok_or("no document")?
-        .map_err(|e| e.to_string())?;
-    tokio::task::spawn_blocking(move || copy.time_stamp(&mut tsa_transport(url)))
+        .map_err(|e| st.core_error_text(&e))?;
+    tokio::task::spawn_blocking(move || copy.time_stamp_to_file(&mut tsa_transport(url)))
         .await
         .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+        .map_err(|e| st.core_error_text(&e))
 }
 
-/// Ask where to save a signed (or time-stamped) file, write it and show it
-/// in place of the active document.
-async fn save_signed(st: AppState, bytes: Vec<u8>, suffix: &str, done: &str) {
+/// Ask where to save a signed (or time-stamped) file made from the document
+/// of tab `tab`, write it and show it in place of that document. A
+/// protected document's signed file is shown as it was made: its password
+/// is not asked again.
+pub async fn save_signed(st: AppState, tab: u64, signed: SignedFile, suffix: &str, done: &str) {
     let name = files::suggested_name(st, suffix);
     let Some(file) = rfd::AsyncFileDialog::new()
         .set_title(t(st.lang(), "sig.save_signed"))
@@ -266,13 +269,31 @@ async fn save_signed(st: AppState, bytes: Vec<u8>, suffix: &str, done: &str) {
         return;
     };
     let path = file.path().to_path_buf();
-    if let Err(e) = folitecta_core::document::write_pdf_file(&path, &bytes) {
-        st.error(e);
+    write_signed(st, tab, signed, path, done);
+}
+
+/// Write a signed file to `path` and show it in place of the document of
+/// tab `tab`.
+pub fn write_signed(st: AppState, tab: u64, signed: SignedFile, path: PathBuf, done: &str) {
+    if let Err(e) = folitecta_core::document::write_pdf_file(&path, &signed.bytes) {
+        st.core_error(&e);
         return;
     }
-    files::replace_active_with(st, path);
+    let protected = signed.is_protected();
+    match signed.into_document(Some(path)) {
+        Ok(doc) => files::replace_tab_document(st, tab, doc, true),
+        Err(e) => {
+            st.core_error(&e);
+            return;
+        }
+    }
     show_pane(st, Pane::Signatures);
-    st.toast(ToastKind::Ok, t(st.lang(), done), "");
+    let detail = if protected {
+        t(st.lang(), "toast.protected_kept")
+    } else {
+        String::new()
+    };
+    st.toast(ToastKind::Ok, t(st.lang(), done), detail);
 }
 
 /// Sign the active document and save the signed file.
@@ -280,12 +301,16 @@ fn finish_sign(st: AppState, id: DigitalId, opts: SignOptions, tsa: Option<Strin
     if no_doc(st) {
         return;
     }
+    let Some(tab) = st.read_active(|t| t.id) else {
+        return;
+    };
     if tsa.is_some() {
         st.toast(ToastKind::Info, t(st.lang(), "toast.time_stamp_asking"), "");
     }
-    spawn(async move {
+    // The dialog that asked has closed: not tied to it.
+    dioxus::core::spawn_forever(async move {
         match signed_bytes(st, id, opts, tsa).await {
-            Ok(bytes) => save_signed(st, bytes, "-signed", "toast.signed").await,
+            Ok(signed) => save_signed(st, tab, signed, "-signed", "toast.signed").await,
             Err(e) => st.error(e),
         }
     });
@@ -296,10 +321,13 @@ pub fn time_stamp_document(st: AppState, url: String) {
     if no_doc(st) {
         return;
     }
+    let Some(tab) = st.read_active(|t| t.id) else {
+        return;
+    };
     st.toast(ToastKind::Info, t(st.lang(), "toast.time_stamp_asking"), "");
-    spawn(async move {
+    dioxus::core::spawn_forever(async move {
         match time_stamped_bytes(st, url).await {
-            Ok(bytes) => save_signed(st, bytes, "-timestamped", "toast.time_stamped").await,
+            Ok(stamped) => save_signed(st, tab, stamped, "-timestamped", "toast.time_stamped").await,
             Err(e) => st.error(e),
         }
     });
@@ -371,14 +399,40 @@ fn summary(st: AppState) {
     }
 }
 
-/// Open the revision a signature covers in a new tab.
+/// Open the revision a signature of the active document covers in a new tab.
 pub fn open_signed_revision(st: AppState, field: &str) {
-    match st.read_active(|t| t.doc.signed_revision(field)) {
-        Some(Ok(bytes)) => match folitecta_core::Document::from_bytes(bytes, None, None) {
+    if let Some(tab) = st.read_active(|t| t.id) {
+        open_signed_revision_with(st, tab, field, None);
+    }
+}
+
+/// Open the revision a signature of the document of tab `tab` covers in a
+/// new tab; the revision of a protected document is encrypted like it, and
+/// its password is asked.
+pub fn open_signed_revision_with(st: AppState, tab: u64, field: &str, password: Option<&str>) {
+    let bytes = st
+        .docs
+        .peek()
+        .iter()
+        .find(|t| t.id == tab)
+        .map(|t| t.doc.signed_revision(field));
+    let ask = |retry| {
+        st.set_dialog(Dialog::Password {
+            target: PasswordTarget::Revision {
+                tab,
+                field: field.to_string(),
+            },
+            retry,
+        })
+    };
+    match bytes {
+        Some(Ok(bytes)) => match folitecta_core::Document::from_bytes(bytes, None, password) {
             Ok(doc) => files::open_document_tab(st, doc),
-            Err(e) => st.error(e),
+            Err(folitecta_core::Error::PasswordRequired) => ask(false),
+            Err(folitecta_core::Error::WrongPassword) => ask(true),
+            Err(e) => st.core_error(&e),
         },
-        Some(Err(e)) => st.error(e),
+        Some(Err(e)) => st.core_error(&e),
         None => {}
     }
 }

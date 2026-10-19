@@ -8,7 +8,7 @@ use folitecta_core::redaction::{
     CheckProblem, Overlay, RedactionLook, RedactionMethod, RedactionOptions, SanitizeOptions,
     check_redacted_bytes,
 };
-use folitecta_core::{BarcodeKind, Document, SecurityPermissions, TextLayout};
+use folitecta_core::{BarcodeKind, Document, EncryptionProfile, SecurityPermissions, TextLayout};
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
 mod redaction_util;
@@ -475,7 +475,13 @@ fn an_incremental_file_is_reported_as_keeping_an_earlier_version() {
 fn protected(user: &str) -> (Document, Vec<u8>, std::path::PathBuf) {
     let path = temp(&format!("protected-{}", user.len()));
     sample()
-        .save_encrypted(&path, user, "owner-pw", SecurityPermissions::default())
+        .save_encrypted(
+            &path,
+            user,
+            "owner-pw",
+            SecurityPermissions::default(),
+            EncryptionProfile::Aes256,
+        )
         .unwrap();
     let bytes = std::fs::read(&path).unwrap();
     let doc = if user.is_empty() {
@@ -1136,4 +1142,98 @@ fn words_left_quoted_on_purpose_stay_known_to_the_check() {
     let check = check_now(&mut doc, &report);
     assert!(check.passed(), "{check:?}");
     assert!(check.quoted_elsewhere >= 1, "{check:?}");
+}
+
+#[test]
+fn a_protected_signed_document_is_written_whole_and_encrypted_without_its_signatures() {
+    let path = temp("protected-signed");
+    sample()
+        .save_encrypted(
+            &path,
+            "user-pw",
+            "owner-pw",
+            SecurityPermissions::default(),
+            EncryptionProfile::Aes256,
+        )
+        .unwrap();
+    let opened = Document::open_with_password(&path, "user-pw").unwrap();
+    let id = DigitalId::create_self_signed(
+        &IdentityInfo {
+            name: "Reviewer".into(),
+            ..IdentityInfo::default()
+        },
+        KeyKind::EcP256,
+        1,
+    )
+    .unwrap();
+    let mut doc = opened
+        .sign_to_file(&id, &SignOptions::default(), None)
+        .unwrap()
+        .into_document(None)
+        .unwrap();
+    assert!(doc.is_protected() && doc.has_signatures());
+    mark_word(&mut doc, 0, "Secret");
+    let mut work = doc.snapshot().open().unwrap();
+    let report = work.apply_redactions_opts(None, &all_options()).unwrap();
+    doc.adopt_state(work).unwrap();
+    assert_eq!(report.signatures, 1);
+    assert!(!doc.has_signatures());
+    let prepared = doc.prepare_save().unwrap();
+    // A whole file (the signed base holds what was removed), encrypted.
+    assert!(holds(&prepared.bytes, b"/Encrypt"));
+    assert_eq!(prepared.bytes.windows(5).filter(|w| *w == b"%%EOF").count(), 1);
+    let check = check_redacted_bytes(&prepared.bytes, prepared.key.as_ref(), &report).unwrap();
+    assert!(check.passed(), "{check:?}");
+    folitecta_core::document::write_pdf_file(&path, &prepared.bytes).unwrap();
+    doc.finish_save(&path, &prepared);
+    assert!(matches!(
+        Document::open(&path),
+        Err(folitecta_core::Error::PasswordRequired)
+    ));
+    for pw in ["user-pw", "owner-pw"] {
+        let back = Document::open_with_password(&path, pw).unwrap();
+        assert!(back.is_protected());
+        assert!(!back.has_signatures());
+        assert!(!back.page_text(0).contains("Secret"));
+        assert!(back.page_text(0).contains("plan for Monday"));
+    }
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn an_aes128_file_opened_with_a_non_ascii_owner_password_is_redacted_and_checked() {
+    let path = temp("aes128-owner");
+    let owner = "pässwörd€";
+    sample()
+        .save_encrypted(
+            &path,
+            "user-pw",
+            owner,
+            SecurityPermissions::default(),
+            EncryptionProfile::Aes128,
+        )
+        .unwrap();
+    let original = std::fs::read(&path).unwrap();
+    let mut doc = Document::open_with_password(&path, owner).unwrap();
+    assert!(doc.is_protected());
+    mark_word(&mut doc, 0, "Secret");
+    let report = doc.apply_redactions_opts(None, &all_options()).unwrap();
+    let prepared = doc.prepare_save().unwrap();
+    let key = prepared.key.clone().unwrap();
+    let check = check_redacted_bytes(&prepared.bytes, Some(&key), &report).unwrap();
+    assert!(check.passed(), "{check:?}");
+    // The original file, read through the same key, still has the text.
+    let check = check_redacted_bytes(&original, Some(&key), &report).unwrap();
+    assert!(
+        check.problems.contains(&CheckProblem::Text { page: 0 }),
+        "{check:?}"
+    );
+    folitecta_core::document::write_pdf_file(&path, &prepared.bytes).unwrap();
+    for pw in ["user-pw", owner] {
+        let back = Document::open_with_password(&path, pw).unwrap();
+        assert!(back.is_protected());
+        assert!(!back.page_text(0).contains("Secret"), "{pw}");
+        assert!(back.page_text(0).contains("plan for Monday"));
+    }
+    let _ = std::fs::remove_file(&path);
 }

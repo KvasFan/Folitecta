@@ -37,6 +37,8 @@ pub enum ConfirmAction {
     TrashDocument,
     /// Move the files selected in the explorer to the recycle bin.
     TrashFiles,
+    /// Import the comments of this file that can be drawn, leaving out the others.
+    ImportCommentsSkipping(std::sync::Arc<Vec<u8>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -44,6 +46,18 @@ pub enum AfterUnsaved {
     Close,
     CloseAll,
     Exit,
+}
+
+/// What the password of the password dialog opens.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PasswordTarget {
+    /// A file, in a new tab.
+    File(PathBuf),
+    /// A file in place of the document of tab `tab` (Revert); the tab stays
+    /// as it is until the file is open.
+    Replace { path: PathBuf, tab: u64 },
+    /// The revision a signature of the document of tab `tab` covers.
+    Revision { tab: u64, field: String },
 }
 
 /// Modal dialogs. Each variant carries the data the dialog needs.
@@ -85,7 +99,11 @@ pub enum Dialog {
         tab: u64,
         then: AfterUnsaved,
     },
-    Password(PathBuf),
+    /// A password, for `target`; `retry` after a wrong one.
+    Password {
+        target: PasswordTarget,
+        retry: bool,
+    },
     Note {
         page: usize,
         x: f32,
@@ -374,6 +392,8 @@ pub enum Dialog {
     SecurityPolicies,
     /// The commands of the Quick Access Toolbar.
     CustomizeQat,
+    /// The files of an e-mail message (state in `commands::mail::MAIL`).
+    Mail,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

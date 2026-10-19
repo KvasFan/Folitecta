@@ -39,7 +39,7 @@ pub use markup::{
 pub use navigation::{layers, links, outline};
 pub use organize::{
     attachments, combine, compare, doctools, email, export, marks, metadata, pages, pagetools, portfolio,
-    textdoc,
+    print, textdoc,
 };
 pub(crate) use page_text::{content_edit, content_lex};
 pub use page_text::{ocr, search, spelling, text, textedit, textlayer, textops};

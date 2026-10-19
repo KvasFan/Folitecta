@@ -350,6 +350,11 @@ impl Document {
         self.bytes.clone()
     }
 
+    /// The encryption of the file the document was opened from.
+    pub(crate) fn protection(&self) -> Option<&lopdf::EncryptionState> {
+        self.protection.as_ref()
+    }
+
     /// The document was opened from an encrypted file (it is kept decrypted
     /// in memory).
     pub fn from_encrypted_file(&self) -> bool {

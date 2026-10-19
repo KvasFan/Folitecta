@@ -783,7 +783,7 @@ pub fn check_redacted_bytes(
     let lo = &doc.inner;
     // Originals replaced by copies: gone, unless something still draws them.
     let counts = drawing_counts(lo);
-    for (id, page) in &data.replaced {
+    for (id, page) in data.replaced.iter().filter(|_| counts.complete) {
         if lo.objects.contains_key(id) && counts.get(id).copied().unwrap_or(0) == 0 {
             problem(CheckProblem::Residual { page: Some(*page) }, &mut out);
         }

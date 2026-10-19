@@ -109,7 +109,7 @@ struct Ctx<'a> {
     page: &'a PageProbe,
     page_id: ObjectId,
     markers: &'a HashMap<(StreamKey, usize), usize>,
-    counts: &'a HashMap<ObjectId, usize>,
+    counts: &'a Counts,
     used_glyphs: HashSet<usize>,
     used_images: HashSet<usize>,
     next_name: usize,
@@ -618,7 +618,7 @@ impl Document {
         marks: &[Mark],
         probe: &Probe,
         markers: &HashMap<(StreamKey, usize), usize>,
-        counts: &HashMap<ObjectId, usize>,
+        counts: &Counts,
         work: &mut Work,
     ) -> std::result::Result<(), PictureReason> {
         use PictureReason as R;
@@ -1124,10 +1124,24 @@ fn mask_gs(gid: ObjectId, m: Affine) -> Gs {
     gs
 }
 
+/// How many times each picture and form is drawn in the document.
+pub(super) struct Counts {
+    pub map: HashMap<ObjectId, usize>,
+    /// Every drawing was counted (very large documents stop early: then
+    /// nothing is changed in place and nothing is removed for not being drawn).
+    pub complete: bool,
+}
+
+impl Counts {
+    pub fn get(&self, id: &ObjectId) -> Option<&usize> {
+        self.map.get(id)
+    }
+}
+
 /// How many times each picture and form is drawn in the document: by the
 /// pages, the forms they draw and the appearances of annotations. Drawings
 /// inside patterns and soft masks count twice (they repeat).
-pub(super) fn drawing_counts(doc: &lopdf::Document) -> HashMap<ObjectId, usize> {
+pub(super) fn drawing_counts(doc: &lopdf::Document) -> Counts {
     fn walk(
         doc: &lopdf::Document,
         data: &[u8],
@@ -1228,13 +1242,17 @@ pub(super) fn drawing_counts(doc: &lopdf::Document) -> HashMap<ObjectId, usize> 
             }
         }
     }
-    if budget == 0 {
+    let complete = budget > 0;
+    if !complete {
         // Not every drawing was counted: nothing is changed in place.
         for v in counts.values_mut() {
             *v = (*v).max(2);
         }
     }
-    counts
+    Counts {
+        map: counts,
+        complete,
+    }
 }
 
 /// Remove `ids` from the document and every reference to them (dictionary

@@ -747,12 +747,16 @@ impl Document {
         // removed layers and comments.
         let counts_after = drawing_counts(&self.inner);
         let drawn_after = |id: &ObjectId| counts_after.get(id).copied().unwrap_or(0) > 0;
-        let gone: HashSet<ObjectId> = replaced
-            .iter()
-            .map(|(id, _)| *id)
-            .chain(counts.iter().filter(|(_, n)| **n > 0).map(|(id, _)| *id))
-            .filter(|id| !drawn_after(id))
-            .collect();
+        let gone: HashSet<ObjectId> = if counts.complete && counts_after.complete {
+            replaced
+                .iter()
+                .map(|(id, _)| *id)
+                .chain(counts.map.iter().filter(|(_, n)| **n > 0).map(|(id, _)| *id))
+                .filter(|id| !drawn_after(id))
+                .collect()
+        } else {
+            HashSet::new()
+        };
         self.tidy_structure(
             &work.copies,
             &work.touched,

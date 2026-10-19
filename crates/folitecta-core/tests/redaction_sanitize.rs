@@ -869,3 +869,28 @@ fn terms_are_the_words_under_the_marks() {
     assert_eq!(preview.attachments, 0);
     let _ = Dictionary::new();
 }
+
+#[test]
+fn pages_drawn_as_pictures_pass_the_check_and_their_originals_go() {
+    let mut doc = sample();
+    let code = RedactionLook {
+        text: "CODE-9".into(),
+        ..RedactionLook::default()
+    };
+    let layer = doc.text_layer(0).unwrap();
+    let r = pdf_rect(&doc, 0, word_box(&layer, "Secret plan"));
+    doc.add_redaction_with(0, r, "Reviewer", &code).unwrap();
+    let opts = RedactionOptions {
+        method: RedactionMethod::Picture,
+        sanitize: SanitizeOptions::none(),
+    };
+    let report = doc.apply_redactions_opts(None, &opts).unwrap();
+    assert_eq!(report.pages_as_pictures, vec![0]);
+    let check = check_now(&mut doc, &report);
+    assert!(check.passed(), "{check:?}");
+    let bytes = saved(&mut doc, "pictures");
+    assert!(absent(&bytes, "Secret plan"));
+    let reopened = Document::from_bytes(bytes, None, None).unwrap();
+    assert!(reopened.page_text(0).contains("CODE-9"));
+    assert!(reopened.page_text(1).contains("Other page text"));
+}

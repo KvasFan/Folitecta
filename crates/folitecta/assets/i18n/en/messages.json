@@ -163,6 +163,8 @@
   "toast.pages_split": "{count} page(s) added",
   "toast.password_required": "The document is protected by a password.",
   "toast.path_copied": "Path copied to the clipboard",
+  "toast.pdfa1_layers": "PDF/A-1 does not allow layers",
+  "toast.pdfa1_layers_detail": "The document says it follows PDF/A-1. To add layers, first use Document › Enable Editing (Discard PDF/A).",
   "toast.pdfa_discarded": "The document no longer claims PDF/A conformance",
   "toast.phrases_highlighted": "{count} highlight(s) for {phrases} phrase(s)",
   "toast.picture_changed": "The document changed while the picture was being edited: nothing was replaced",

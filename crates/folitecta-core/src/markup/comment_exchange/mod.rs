@@ -551,14 +551,16 @@ impl Document {
                 continue;
             };
             let layer = match &it.layer {
-                Some(name) => Some(match layers.get(name) {
-                    Some(id) => *id,
+                Some(name) => match layers.get(name) {
+                    Some(id) => Some(*id),
+                    // PDF/A-1 has no layers: the comment comes on none.
+                    None if !self.layers_allowed() => None,
                     None => {
                         let (id, _) = self.add_layer_in_edit(name.trim(), &[])?;
                         layers.insert(name.clone(), id);
-                        id
+                        Some(id)
                     }
-                }),
+                },
                 None => None,
             };
             let mut d = it.dict;

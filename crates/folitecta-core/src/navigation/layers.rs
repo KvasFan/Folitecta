@@ -340,6 +340,10 @@ fn edit_oc_in<R>(
         (oc_ref, d_ref, oc, d)
     };
     let r = f(&mut oc, &mut d);
+    // PDF/A-2 and later ask every configuration for a name.
+    if !d.has(b"Name") {
+        d.set("Name", lopdf::text_string("Default"));
+    }
     match d_ref {
         Some(id) => {
             doc.objects.insert(id, Object::Dictionary(d));
@@ -562,6 +566,22 @@ impl Document {
         edit_oc_in(&mut self.inner, f)
     }
 
+    /// Layers can be added: a document that says it follows PDF/A-1 may not
+    /// have optional content (ISO 19005-1); its claim must go first.
+    pub fn layers_allowed(&self) -> bool {
+        self.pdfa_part() != Some(1)
+    }
+
+    fn check_layers_allowed(&self) -> Result<()> {
+        if self.layers_allowed() {
+            Ok(())
+        } else {
+            Err(Error::Invalid(
+                "PDF/A-1 does not allow layers: discard the PDF/A identification first".into(),
+            ))
+        }
+    }
+
     pub(crate) fn check_layer(&self, id: ObjectId) -> Result<()> {
         if self.layers().iter().any(|l| l.id == id) {
             Ok(())
@@ -658,6 +678,7 @@ impl Document {
         if !parent.is_empty() && node_at(&self.layer_tree(), parent).is_none() {
             return Err(Error::Invalid("layer not found".into()));
         }
+        self.check_layers_allowed()?;
         self.edit_step(|doc| doc.add_layer_in_edit(name, parent))
     }
 
@@ -668,6 +689,7 @@ impl Document {
         name: &str,
         parent: &[usize],
     ) -> Result<(ObjectId, Vec<usize>)> {
+        self.check_layers_allowed()?;
         let id = self.inner.add_object(dictionary! {
             "Type" => "OCG",
             "Name" => lopdf::text_string(name),
@@ -704,6 +726,7 @@ impl Document {
         if label.is_empty() {
             return Err(Error::Invalid("the group needs a name".into()));
         }
+        self.check_layers_allowed()?;
         if self.ocproperties().is_none() {
             // A group alone still needs the layer properties.
             self.begin_edit();

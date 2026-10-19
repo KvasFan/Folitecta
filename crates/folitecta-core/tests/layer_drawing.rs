@@ -1194,3 +1194,75 @@ fn summaries_and_pictures_of_files_leave_out_hidden_layers() {
         &bytes
     ));
 }
+
+/// A document that says it follows PDF/A of the given part.
+fn pdfa(part: u32) -> Document {
+    let mut doc = Document::new_blank(1, 300.0, 300.0).unwrap();
+    let xmp = format!(
+        r#"<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/" pdfaid:part="{part}" pdfaid:conformance="B"/></rdf:RDF></x:xmpmeta>"#
+    );
+    let meta = doc.inner_mut().add_object(lopdf::Stream::new(
+        dictionary! { "Type" => "Metadata", "Subtype" => "XML" },
+        xmp.into_bytes(),
+    ));
+    doc.inner_mut().catalog_mut().unwrap().set("Metadata", meta);
+    doc.commit().unwrap();
+    doc
+}
+
+#[test]
+fn pdfa_1_refuses_layers_and_configurations_are_named() {
+    let mut one = pdfa(1);
+    assert_eq!(one.pdfa_part(), Some(1));
+    assert!(!one.layers_allowed());
+    assert!(one.add_layer("Ink", &[]).is_err());
+    assert!(one.add_layer_group("Group", &[]).is_err());
+    one.add_note(0, 100.0, 100.0, "Note", "R", RED).unwrap();
+    assert!(one.move_annotations_to_new_layer(0, &[0], "Moved").is_err());
+    assert!(!one.inner().catalog().unwrap().has(b"OCProperties"));
+    // A comment from a file that names a layer comes on none.
+    let (drawn, _) = drawn_on_ink();
+    one.import_comments_fdf(&drawn.export_comments_fdf(None).unwrap())
+        .unwrap();
+    assert!(!one.inner().catalog().unwrap().has(b"OCProperties"));
+    assert!(
+        one.annotations(0)
+            .unwrap()
+            .iter()
+            .all(|a| one.annotation_layer(a.page, a.index).is_none())
+    );
+    // PDF/A-2: layers, with a named default configuration.
+    let mut two = pdfa(2);
+    assert!(two.layers_allowed());
+    two.add_layer("Ink", &[]).unwrap();
+    let back = reopen(&mut two, "pdfa2");
+    let oc = back
+        .inner()
+        .catalog()
+        .unwrap()
+        .get(b"OCProperties")
+        .unwrap()
+        .clone();
+    let oc = match oc {
+        Object::Reference(r) => back.inner().get_dictionary(r).unwrap().clone(),
+        o => o.as_dict().unwrap().clone(),
+    };
+    let d = match oc.get(b"D").unwrap() {
+        Object::Reference(r) => back.inner().get_dictionary(*r).unwrap().clone(),
+        o => o.as_dict().unwrap().clone(),
+    };
+    assert!(d.has(b"Name"));
+    let (mut doc, _) = with_layer();
+    let back = reopen(&mut doc, "named");
+    let catalog = back.inner().catalog().unwrap();
+    let d = catalog
+        .get(b"OCProperties")
+        .unwrap()
+        .as_dict()
+        .unwrap()
+        .get(b"D")
+        .unwrap()
+        .as_dict()
+        .unwrap();
+    assert!(d.has(b"Name"));
+}

@@ -78,6 +78,23 @@ fn no_layers(st: AppState) -> bool {
     false
 }
 
+/// New layers are refused in a document that says it follows PDF/A-1 (it
+/// may have none), with a message.
+fn layers_refused(st: AppState) -> bool {
+    if no_doc(st) {
+        return true;
+    }
+    if st.read_active(|t| t.doc.layers_allowed()).unwrap_or(true) {
+        return false;
+    }
+    st.toast(
+        ToastKind::Warn,
+        t(st.lang(), "toast.pdfa1_layers"),
+        t(st.lang(), "toast.pdfa1_layers_detail"),
+    );
+    true
+}
+
 /// Show (`Some(true)`), hide or toggle (`None`) the targeted layers in the view.
 pub fn set_visibility(st: AppState, ids: &[Id], visible: Option<bool>) {
     let mut states = view_states(st);
@@ -376,7 +393,7 @@ fn merge_dialog(st: AppState) {
 }
 
 fn import_as_layer(st: AppState) {
-    if no_doc(st) {
+    if layers_refused(st) {
         return;
     }
     dioxus::prelude::spawn(async move {
@@ -451,7 +468,7 @@ pub fn set_comments_layer(st: AppState, layer: Option<Id>) {
 
 /// Move the chosen comments, or the selected picture, to a new layer.
 fn move_to_new_layer(st: AppState) {
-    if no_doc(st) {
+    if layers_refused(st) {
         return;
     }
     let chosen = st
@@ -475,8 +492,8 @@ pub fn layers_state(st: AppState, id: &str) -> Option<bool> {
 }
 
 handlers! {
-    "layersView.addNewLayer" => |st| doc_dialog(st, Dialog::LayerName { group: false, rename: None }),
-    "layersView.addNewGroup" => |st| doc_dialog(st, Dialog::LayerName { group: true, rename: None }),
+    "layersView.addNewLayer" => |st| { if !layers_refused(st) { doc_dialog(st, Dialog::LayerName { group: false, rename: None }) } },
+    "layersView.addNewGroup" => |st| { if !layers_refused(st) { doc_dialog(st, Dialog::LayerName { group: true, rename: None }) } },
     "layersView.showSelected" => |st| show_targets(st, Some(true)),
     "layersView.hideSelected" => |st| show_targets(st, Some(false)),
     "layersView.toggleSelected" => |st| show_targets(st, None),

@@ -607,6 +607,20 @@ impl Document {
         meta.contains("pdfaid:part")
     }
 
+    /// The part of PDF/A the document says it follows (1, 2, 3, ...).
+    pub fn pdfa_part(&self) -> Option<u32> {
+        let meta = self.xmp_metadata()?;
+        let at = meta.find("pdfaid:part")? + "pdfaid:part".len();
+        // pdfaid:part="1" or <pdfaid:part>1</pdfaid:part>
+        let near: String = meta[at..].chars().take(8).collect();
+        let digits: String = near
+            .chars()
+            .skip_while(|c| !c.is_ascii_digit())
+            .take_while(|c| c.is_ascii_digit())
+            .collect();
+        digits.parse().ok()
+    }
+
     fn xmp_metadata(&self) -> Option<String> {
         let doc = &self.inner;
         let r = doc.catalog().ok()?.get(b"Metadata").ok()?.as_reference().ok()?;

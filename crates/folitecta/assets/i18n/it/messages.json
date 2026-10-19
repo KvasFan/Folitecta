@@ -163,6 +163,8 @@
   "toast.pages_split": "{count} pagine aggiunte",
   "toast.password_required": "Il documento è protetto da una password.",
   "toast.path_copied": "Percorso copiato negli appunti",
+  "toast.pdfa1_layers": "PDF/A-1 non ammette livelli",
+  "toast.pdfa1_layers_detail": "Il documento dichiara di seguire PDF/A-1. Per aggiungere livelli usa prima Documento › Abilita modifica (scarta PDF/A).",
   "toast.pdfa_discarded": "Il documento non dichiara più la conformità PDF/A",
   "toast.phrases_highlighted": "{count} evidenziazioni per {phrases} frasi",
   "toast.picture_changed": "Il documento è cambiato mentre l'immagine veniva modificata: non è stato sostituito nulla",

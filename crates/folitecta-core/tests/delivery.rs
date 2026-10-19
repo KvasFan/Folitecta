@@ -560,6 +560,7 @@ fn a_protected_document_gives_protected_copies() {
         let original_p = permissions_of(&file);
         let doc = Document::from_bytes(file, None, Some("user-pw")).unwrap();
         assert!(doc.is_protected(), "{kind}");
+        assert_eq!(doc.rc4_protection(), kind == "RC4", "{kind}");
         let copy = doc
             .prepare_copy(&some_pages(&[0, 2], CopyComments::Remove))
             .unwrap();
@@ -789,6 +790,25 @@ fn links_through_named_destinations_and_unusual_names_follow_their_pages() {
     let mut doc = fixture();
     doc.add_named_link(0, [200.0, 20.0, 260.0, 40.0], "annex")
         .unwrap();
+    // An empty place in the list of annotations does not shift the links.
+    let first = doc.page_id(0).unwrap();
+    let mut annots = match doc
+        .inner()
+        .get_dictionary(first)
+        .unwrap()
+        .get(b"Annots")
+        .unwrap()
+        .clone()
+    {
+        Object::Array(a) => a,
+        Object::Reference(r) => doc.inner().get_object(r).unwrap().as_array().unwrap().clone(),
+        _ => Vec::new(),
+    };
+    annots.insert(0, Object::Null);
+    doc.inner_mut()
+        .get_dictionary_mut(first)
+        .unwrap()
+        .set("Annots", annots);
     // A destination named in PDFDocEncoding (not UTF-8) on page 4.
     let target = doc.page_id(3).unwrap();
     let catalog_id = doc.inner().trailer.get(b"Root").unwrap().as_reference().unwrap();

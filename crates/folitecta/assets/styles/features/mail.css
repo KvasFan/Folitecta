@@ -23,3 +23,4 @@
 .chip.mail-ok { background: var(--ok-bg); color: var(--ok-fg); }
 .chip.mail-warn { background: var(--warn-bg); color: var(--warn-fg); }
 @media (max-width: 760px) { .mail-dialog { grid-template-columns: minmax(0, 1fr); } .mail-list, .mail-detail { max-height: 30vh; } }
+.mail-status.warn { color: var(--warn-fg); background: var(--warn-bg); border-radius: var(--radius-sm); padding: 6px 8px; }

@@ -376,6 +376,11 @@ pub fn hand_over(st: AppState) {
                 return;
             }
         };
+        // Closed while the files were written: nothing is handed over.
+        if current_id() != Some(id) {
+            let _ = std::fs::remove_dir_all(&dir);
+            return;
+        }
         let count = paths.len();
         with_draft(id, |d| {
             d.outbox = Some(dir);

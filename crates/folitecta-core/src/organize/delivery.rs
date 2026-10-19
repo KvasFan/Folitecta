@@ -323,6 +323,15 @@ impl Document {
         self.copy_source().prepare(opts)
     }
 
+    /// The document is protected with RC4 (the older security handlers),
+    /// whose key stream is the same for every file written with its key: two
+    /// versions of it side by side let a reader compare them.
+    pub fn rc4_protection(&self) -> bool {
+        self.protection_state().is_some_and(|s| {
+            s.get_stream_filter().method() == b"V2" || s.get_string_filter().method() == b"V2"
+        })
+    }
+
     /// Facts of the document as it is: its signatures counted as kept, and
     /// checked when the document is not protected.
     pub fn copy_facts(&self) -> CopyFacts {
@@ -652,27 +661,31 @@ impl Document {
         for (pid, index) in &gone_links {
             by_page.entry(*pid).or_default().push(*index);
         }
-        for (pid, mut indices) in by_page {
-            let refs = self
+        for (pid, indices) in by_page {
+            // The positions are those of the `/Annots` array as it is written.
+            let raw: Vec<Object> = self
                 .inner
                 .get_dictionary(pid)
-                .map(|d| crate::annots::annot_refs(&self.inner, d))
+                .ok()
+                .and_then(|d| d.get(b"Annots").ok())
+                .and_then(|a| deref(&self.inner, a).as_array().ok())
+                .cloned()
                 .unwrap_or_default();
-            indices.sort_unstable();
-            for &i in indices.iter().rev() {
-                if let Some((Some(id), _)) = refs.get(i) {
-                    gone_annots.insert(*id);
-                    left.links += 1;
+            for &i in &indices {
+                match raw.get(i) {
+                    Some(Object::Reference(id)) => {
+                        gone_annots.insert(*id);
+                        left.links += 1;
+                    }
+                    Some(_) => left.links += 1,
+                    None => {}
                 }
             }
-            let keep_list: Vec<Object> = refs
+            let keep_list: Vec<Object> = raw
                 .into_iter()
                 .enumerate()
                 .filter(|(i, _)| !indices.contains(i))
-                .map(|(_, (id, d))| match id {
-                    Some(id) => Object::Reference(id),
-                    None => Object::Dictionary(d),
-                })
+                .map(|(_, o)| o)
                 .collect();
             self.inner
                 .get_dictionary_mut(pid)?

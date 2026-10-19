@@ -146,6 +146,10 @@ pub struct DocFacts {
     /// Form fields with values to export.
     pub has_form: bool,
     pub protected: bool,
+    /// Protected with RC4: two versions of it must not go together.
+    pub rc4: bool,
+    /// The document has a file that is no longer there.
+    pub missing: bool,
 }
 
 impl DocFacts {
@@ -158,6 +162,7 @@ impl DocFacts {
             .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|d| d.as_secs())
             .unwrap_or(0);
+        let missing = doc.path().is_some() && saved.is_none();
         DocFacts {
             tab: id,
             title: doc.display_name(),
@@ -175,6 +180,8 @@ impl DocFacts {
                 )
             }),
             protected: doc.is_protected(),
+            rc4: doc.rc4_protection(),
+            missing,
         }
     }
 
@@ -501,9 +508,23 @@ pub fn prepared_rows(d: &MailDraft) -> Option<Vec<Outgoing>> {
     (!out.is_empty()).then_some(out)
 }
 
+/// Two versions of a document protected with RC4 are included: their files
+/// would share the key stream (FOL-L036), so only one can go.
+pub fn rc4_twice(d: &MailDraft) -> bool {
+    let mut seen = std::collections::HashSet::new();
+    d.items
+        .iter()
+        .filter(|it| it.include && it.doc.rc4 && !matches!(it.kind, ItemKind::Data(_)))
+        .any(|it| !seen.insert(it.doc.tab))
+}
+
 /// The files to attach: the prepared rows, or one archive holding them.
-/// `None` until everything is ready (or when nothing is included).
+/// `None` until everything is ready (or when nothing is included, or two
+/// versions of a document protected with RC4 are).
 pub fn attachments(d: &MailDraft) -> Option<Vec<Outgoing>> {
+    if rc4_twice(d) {
+        return None;
+    }
     let rows = prepared_rows(d)?;
     if !d.zip {
         return Some(rows);
@@ -1002,6 +1023,56 @@ mod tests {
         d.items[2].prep = ready(b"%PDF");
         d.items[0].prep = ready(b"%PDF");
         assert_eq!(rows_to_start(&d, 2), [1, 3]);
+    }
+
+    #[test]
+    fn two_versions_of_a_document_protected_with_rc4_do_not_go_together() {
+        let mut doc = facts("a.pdf", Some("/x/a.pdf"), true, false);
+        doc.protected = true;
+        doc.rc4 = true;
+        let mut d = new_draft(
+            Lang::En,
+            Start::Documents {
+                all: false,
+                zip: false,
+            },
+            &[doc],
+        );
+        for it in d.items.iter_mut() {
+            it.prep = ready(b"%PDF");
+        }
+        assert!(attachments(&d).is_some());
+        d.items[1].include = true;
+        assert!(rc4_twice(&d));
+        assert!(attachments(&d).is_none());
+        // With the newer protection both may go.
+        for it in d.items.iter_mut() {
+            it.doc.rc4 = false;
+        }
+        assert_eq!(attachments(&d).map(|f| f.len()), Some(2));
+    }
+
+    #[test]
+    fn only_fields_with_values_make_form_data() {
+        let mut doc = Document::new_blank(1, 300.0, 300.0).unwrap();
+        doc.add_form_field(
+            0,
+            folitecta_core::NewField::PushButton,
+            [10.0, 10.0, 80.0, 40.0],
+            &folitecta_core::FieldProps::default(),
+        )
+        .unwrap();
+        assert!(doc.has_form());
+        assert!(!DocFacts::of(1, &doc, 0, &[]).has_form);
+        doc.add_form_field(
+            0,
+            folitecta_core::NewField::Text,
+            [10.0, 50.0, 80.0, 80.0],
+            &folitecta_core::FieldProps::default(),
+        )
+        .unwrap();
+        let f = DocFacts::of(1, &doc, 0, &[]);
+        assert!(f.has_form && !f.protected && !f.rc4 && !f.missing);
     }
 
     #[test]

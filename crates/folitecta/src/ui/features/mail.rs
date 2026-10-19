@@ -45,6 +45,7 @@ fn kind_text(lang: Lang, it: &MailItem) -> String {
             &[("when", &folitecta_core::util::unix_display(it.doc.saved_at))],
         ),
         ItemKind::Current if it.doc.saved.is_some() => t(lang, "dialog.mail.kind_changes"),
+        ItemKind::Current if it.doc.missing => t(lang, "dialog.mail.kind_missing"),
         ItemKind::Current => t(lang, "dialog.mail.kind_new"),
         ItemKind::Data(k @ DataKind::Form(_)) => {
             tf(lang, "dialog.mail.kind_data", &[("format", &format(*k))])
@@ -98,8 +99,10 @@ pub fn MailDialog() -> Element {
         .iter()
         .filter(|i| i.include && matches!(i.prep, Prep::Failed(_)))
         .count();
+    let rc4_twice = m::rc4_twice(&d);
     let status = match &ready {
         _ if included == 0 => t(lang, "dialog.mail.nothing"),
+        _ if rc4_twice => t(lang, "dialog.mail.rc4_twice"),
         Some(files) if d.zip => tf(
             lang,
             "dialog.mail.summary_zip",
@@ -146,7 +149,7 @@ pub fn MailDialog() -> Element {
                             rsx! {
                                 div { class: if selected { "mail-row selected" } else { "mail-row" }, role: "listitem", key: "{d.id}-{i}",
                                     input { r#type: "checkbox", class: "mail-include", checked: it.include, "aria-label": "{include_label}",
-                                        onchange: move |_| m::edit_row(st, i, |it| it.include = !it.include) }
+                                        onchange: move |_| m::edit_names(st, move |d| if let Some(x) = d.items.get_mut(i) { x.include = !x.include; }) }
                                     button { class: "mail-pick", "aria-current": if selected { "true" } else { "false" },
                                         onclick: move |_| m::edit_text(|d| d.selected = i),
                                         Icon { name: icon }
@@ -198,7 +201,7 @@ pub fn MailDialog() -> Element {
                     p { class: "hint", "{t(lang, \"dialog.mail.mac_hint\")}" }
                 }
             }
-            div { class: "mail-status", role: "status", "aria-live": "polite", "{status}" }
+            div { class: if rc4_twice { "mail-status warn" } else { "mail-status" }, role: "status", "aria-live": "polite", "{status}" }
             match &d.phase {
                 Phase::Writing => rsx! { p { class: "hint", "{t(lang, \"dialog.mail.writing\")}" } },
                 Phase::Handing => rsx! { p { class: "hint", "{t(lang, \"dialog.mail.waiting\")}" } },
@@ -224,9 +227,11 @@ pub fn MailDialog() -> Element {
                 },
                 Phase::Editing => rsx! {},
             }
-            div { class: "row mail-actions",
-                button { class: "tbtn mail-save", disabled: !can_go, onclick: move |_| m::save_draft(st), "{t(lang, \"dialog.mail.save_draft\")}" }
-                span { class: "hint", "{t(lang, \"dialog.mail.save_hint\")}" }
+            if !matches!(d.phase, Phase::Opened(_) | Phase::Failed(_)) {
+                div { class: "row mail-actions",
+                    button { class: "tbtn mail-save", disabled: !can_go, onclick: move |_| m::save_draft(st), "{t(lang, \"dialog.mail.save_draft\")}" }
+                    span { class: "hint", "{t(lang, \"dialog.mail.save_hint\")}" }
+                }
             }
         }
     }

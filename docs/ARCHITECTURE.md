@@ -202,8 +202,9 @@ Mouse coordinates on a page image are converted to PDF user space with
 - Redaction applies rectangles only (no quadrilateral marks) and does not remove content
   outside the crop box. The moves that replace removed glyphs keep their widths, so the length
   of a removed word can be measured; shapes of removed glyphs stay in embedded font programs
-  that other text still uses. Comments, form values and page text elsewhere that quote the
-  removed words are reported, not changed. Gradients, patterns and transparency masks that could
-  keep content under a mark, vertical writing and drawings nested more than 12 deep make the
-  page a picture.
+  that other text still uses, and in Type 3 fonts other pages share. Comments, form values and
+  page text elsewhere that quote the removed words are reported, not changed. Gradients and
+  transparency masks that could keep content under a mark, tiling patterns whose cell would
+  keep content under a mark that no other cell shows, vertical writing and drawings nested
+  more than 12 deep make the page a picture.
 - Commands marked *planned* in [FEATURES.md](FEATURES.md) open a roadmap notice.

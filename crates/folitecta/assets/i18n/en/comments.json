@@ -112,6 +112,7 @@
   "redact.terms_none": "No words of the removed text to look for.",
   "redact.text": "Overlay text",
   "redact.text_hint": "A code or a reason, written over the area",
+  "redact.width_hint": "The space a removed word took stays on its line, so the length of the word can still be measured.",
   "review.accepted": "Accepted",
   "review.cancelled": "Cancelled",
   "review.completed": "Completed",

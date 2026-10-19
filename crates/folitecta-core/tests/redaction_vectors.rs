@@ -43,20 +43,20 @@ fn a_line_and_a_rectangle_under_a_mark_lose_their_geometry_there() {
     assert!(report.verified);
     let bytes = saved(&mut doc, "lines");
     let p = painted(&bytes, 0);
-    // The stroke keeps its parts outside the mark widened by half its width.
+    // The stroke (butt caps) keeps everything whose ink stays outside the mark.
     let pieces: Vec<&Vec<Pt>> = p.strokes.iter().flat_map(|(s, _)| s.iter()).collect();
     assert_eq!(pieces.len(), 2, "{pieces:?}");
     let xs: Vec<(f64, f64)> = pieces.iter().map(|s| (s[0].0, s[s.len() - 1].0)).collect();
     assert!(
-        (xs[0].0 - 50.0).abs() < 0.01 && (xs[0].1 - 148.0).abs() < 0.01,
+        (xs[0].0 - 50.0).abs() < 0.01 && (xs[0].1 - 150.0).abs() < 0.01,
         "{xs:?}"
     );
     assert!(
-        (xs[1].0 - 252.0).abs() < 0.01 && (xs[1].1 - 350.0).abs() < 0.01,
+        (xs[1].0 - 250.0).abs() < 0.01 && (xs[1].1 - 350.0).abs() < 0.01,
         "{xs:?}"
     );
     for s in &pieces {
-        assert!(s.iter().all(|q| !(q.0 > 148.01 && q.0 < 251.99)), "{s:?}");
+        assert!(s.iter().all(|q| !(q.0 > 150.01 && q.0 < 249.99)), "{s:?}");
     }
     let m = [150.0, 90.0, 250.0, 210.0];
     let red = [1.0, 0.0, 0.0];
@@ -148,18 +148,15 @@ fn a_stroked_curve_is_flattened_only_where_it_meets_a_mark() {
     let p = painted(&bytes, 0);
     // The other circle is still written with curves.
     assert!(p.operators.iter().filter(|o| *o == "c").count() >= 4);
-    // No point of the cut circle inside the mark widened by half the line width.
-    let wide = [239.5, 279.5, 270.5, 320.5];
+    // No point of the cut circle inside the mark.
+    let m = [240.0, 280.0, 270.0, 320.0];
     let near_big = |q: &Pt| (((q.0 - 300.0).powi(2) + (q.1 - 300.0).powi(2)).sqrt() - 50.0).abs() < 5.0;
     let mut length = 0.0;
     for (subs, _) in &p.strokes {
         for s in subs.iter().filter(|s| s.iter().all(near_big)) {
             for q in s {
                 assert!(
-                    !(q.0 > wide[0] + 0.01
-                        && q.0 < wide[2] - 0.01
-                        && q.1 > wide[1] + 0.01
-                        && q.1 < wide[3] - 0.01),
+                    !(q.0 > m[0] + 0.01 && q.0 < m[2] - 0.01 && q.1 > m[1] + 0.01 && q.1 < m[3] - 0.01),
                     "{q:?}"
                 );
             }
@@ -169,13 +166,19 @@ fn a_stroked_curve_is_flattened_only_where_it_meets_a_mark() {
                 .sum::<f64>();
         }
     }
-    // The arc inside the widened mark, measured on the circle.
+    // The arc whose ink (half a point across the line, butt caps) enters the
+    // mark, measured on the circle: the cross-section at each point meets it.
     let mut inside = 0.0;
     let steps = 100_000;
     for i in 0..steps {
         let a = i as f64 / steps as f64 * std::f64::consts::TAU;
-        let (x, y) = (300.0 + 50.0 * a.cos(), 300.0 + 50.0 * a.sin());
-        if x > wide[0] && x < wide[2] && y > wide[1] && y < wide[3] {
+        let (c, sn) = (a.cos(), a.sin());
+        let hits = (0..=20).any(|k| {
+            let r = 49.5 + k as f64 / 20.0;
+            let (x, y) = (300.0 + r * c, 300.0 + r * sn);
+            x > m[0] && x < m[2] && y > m[1] && y < m[3]
+        });
+        if hits {
             inside += std::f64::consts::TAU * 50.0 / steps as f64;
         }
     }
@@ -706,7 +709,7 @@ fn a_page_rotated_by_90_degrees_gets_its_lines_cut_in_page_space() {
     let pieces: Vec<&Vec<Pt>> = p.strokes.iter().flat_map(|(s, _)| s.iter()).collect();
     assert_eq!(pieces.len(), 2, "{pieces:?}");
     for s in pieces {
-        assert!(s.iter().all(|q| !(q.0 > 149.0 && q.0 < 251.0)), "{s:?}");
+        assert!(s.iter().all(|q| !(q.0 > 150.01 && q.0 < 249.99)), "{s:?}");
     }
 }
 
@@ -951,4 +954,167 @@ fn a_pattern_whose_cell_draws_text_deep_inside_forms_sends_the_page_to_pictures(
     mark(&mut doc, 0, [150.0, 150.0, 250.0, 250.0]);
     let report = apply(&mut doc);
     assert_eq!(report.reasons, vec![(0, PictureReason::Pattern)], "{report:?}");
+}
+
+#[test]
+fn a_wide_line_loses_only_what_its_ink_puts_under_the_mark() {
+    // Butt caps: the cut follows the mark along the line, not its width.
+    let mut doc = doc_with(400.0, 400.0, &["0 0 1 RG 20 w 50 200 m 350 200 l S"], |_| {
+        Dictionary::new()
+    });
+    mark(&mut doc, 0, [150.0, 150.0, 250.0, 250.0]);
+    let report = apply(&mut doc);
+    assert_eq!(report.paths, 1, "{report:?}");
+    let bytes = saved(&mut doc, "wide-line");
+    let p = painted(&bytes, 0);
+    let ends: Vec<(f64, f64)> = p
+        .strokes
+        .iter()
+        .flat_map(|(s, _)| s.iter())
+        .map(|s| (s[0].0, s[s.len() - 1].0))
+        .collect();
+    assert_eq!(ends.len(), 2, "{ends:?}");
+    assert!(
+        (ends[0].1 - 150.0).abs() < 0.01 && (ends[1].0 - 250.0).abs() < 0.01,
+        "{ends:?}"
+    );
+    // The ink stops at the mark: next to it the line is drawn, inside nothing.
+    let img = render(&without_covers(&bytes), 0);
+    assert!(near(px(&img, 147, 200), [0, 0, 255]));
+    assert!(near(px(&img, 253, 200), [0, 0, 255]));
+    assert!(near(px(&img, 155, 200), [255, 255, 255]));
+
+    // A line ending before the mark keeps all of it, even with its width.
+    let mut doc = doc_with(400.0, 400.0, &["0 0 1 RG 20 w 50 200 m 145 200 l S"], |_| {
+        Dictionary::new()
+    });
+    mark(&mut doc, 0, [150.0, 150.0, 250.0, 250.0]);
+    let report = apply(&mut doc);
+    assert_eq!(report.paths, 0, "{report:?}");
+    // With round caps the end that would reach into the mark goes.
+    let mut doc = doc_with(400.0, 400.0, &["0 0 1 RG 20 w 1 J 50 200 m 145 200 l S"], |_| {
+        Dictionary::new()
+    });
+    mark(&mut doc, 0, [150.0, 150.0, 250.0, 250.0]);
+    let report = apply(&mut doc);
+    assert_eq!(report.paths, 1, "{report:?}");
+    let img = render(&without_covers(&saved(&mut doc, "round-cap")), 0);
+    for x in [151, 153] {
+        assert!(near(px(&img, x, 200), [255, 255, 255]), "ink at {x}");
+    }
+}
+
+/// A tiling pattern whose cell holds `cell`, `w` × `h`.
+fn tiling(d: &mut lopdf::Document, w: i64, h: i64, cell: &[u8]) -> lopdf::ObjectId {
+    d.add_object(Stream::new(
+        dictionary! {
+            "Type" => "Pattern", "PatternType" => 1, "PaintType" => 1, "TilingType" => 1,
+            "BBox" => vec![0.into(), 0.into(), w.into(), h.into()], "XStep" => w, "YStep" => h,
+            "Resources" => dictionary! {},
+        },
+        cell.to_vec(),
+    ))
+}
+
+#[test]
+fn patterns_painted_only_under_a_mark_leave_and_unique_cells_send_the_page_to_pictures() {
+    // Painted only under the mark: the fill goes and the pattern with it.
+    let mut doc = built(|d| {
+        let pat = tiling(d, 100, 20, b"0 0 0 rg 1.234567 2.345678 3.456789 4.567891 re f");
+        vec![(
+            "/Pattern cs /P1 scn 150 140 100 20 re f".into(),
+            dictionary! { "Pattern" => dictionary! { "P1" => pat } },
+        )]
+    });
+    mark(&mut doc, 0, [140.0, 130.0, 260.0, 170.0]);
+    let report = apply(&mut doc);
+    assert!(report.pages_as_pictures.is_empty(), "{report:?}");
+    let bytes = saved(&mut doc, "pattern-gone");
+    assert!(streams_of(&bytes).iter().all(|s| !holds(s, b"3.456789")));
+    // One cell as large as the page, with art partly under the mark: the
+    // art there exists nowhere else, so the page becomes a picture.
+    let mut doc = built(|d| {
+        let pat = tiling(
+            d,
+            400,
+            400,
+            b"0 0 0 rg 150.123457 300 m 160.765432 350 l 170.111111 300 l h f 300 300 m 310 350 l 320 300 l h f",
+        );
+        vec![(
+            "/Pattern cs /P1 scn 0 0 400 400 re f".into(),
+            dictionary! { "Pattern" => dictionary! { "P1" => pat } },
+        )]
+    });
+    mark(&mut doc, 0, [140.0, 290.0, 180.0, 360.0]);
+    let report = apply(&mut doc);
+    assert_eq!(report.reasons, vec![(0, PictureReason::Pattern)], "{report:?}");
+    let bytes = saved(&mut doc, "pattern-cell");
+    assert!(streams_of(&bytes).iter().all(|s| !holds(s, b"160.765432")));
+    // A small motif repeated over the page shows elsewhere: the fill is cut.
+    let mut doc = built(|d| {
+        let pat = tiling(d, 10, 10, b"0 0 0 rg 2 2 4 4 re f");
+        vec![(
+            "/Pattern cs /P1 scn 0 0 400 400 re f".into(),
+            dictionary! { "Pattern" => dictionary! { "P1" => pat } },
+        )]
+    });
+    mark(&mut doc, 0, [140.0, 290.0, 180.0, 360.0]);
+    let report = apply(&mut doc);
+    assert!(report.pages_as_pictures.is_empty(), "{report:?}");
+    assert_eq!(report.paths, 1);
+}
+
+/// A page drawing Type 3 text: glyph `a` draws inner text, `b` a box.
+fn type3_page(extra: &str) -> Document {
+    built(|d| {
+        let f1 = helvetica(d);
+        let pa = d.add_object(Stream::new(
+            dictionary! {},
+            b"500 0 0 0 500 700 d1 BT /F1 1 Tf (T3INNERSECRET) Tj ET 0 0 500 700 re f".to_vec(),
+        ));
+        let pb = d.add_object(Stream::new(
+            dictionary! {},
+            b"500 0 0 0 500 700 d1 0 0 250 350 re f".to_vec(),
+        ));
+        let t3 = d.add_object(dictionary! {
+            "Type" => "Font", "Subtype" => "Type3",
+            "FontBBox" => vec![0.into(), 0.into(), 500.into(), 700.into()],
+            "FontMatrix" => vec![0.001.into(), 0.into(), 0.into(), 0.001.into(), 0.into(), 0.into()],
+            "CharProcs" => dictionary! { "a" => pa, "b" => pb },
+            "Encoding" => dictionary! { "Type" => "Encoding", "Differences" => vec![97.into(), Object::Name(b"a".to_vec()), Object::Name(b"b".to_vec())] },
+            "FirstChar" => 97, "LastChar" => 98, "Widths" => vec![500.into(), 500.into()],
+            "Resources" => dictionary! { "Font" => dictionary! { "F1" => f1 } },
+        });
+        vec![(
+            format!("BT /T3 20 Tf 50 300 Td (abab) Tj ET BT /T3 20 Tf 50 100 Td (bb) Tj ET {extra}"),
+            dictionary! { "Font" => dictionary! { "T3" => t3, "F1" => f1 } },
+        )]
+    })
+}
+
+#[test]
+fn type3_procedures_of_removed_glyphs_leave_the_page() {
+    // The whole first line goes: `a` is shown nowhere else.
+    let mut doc = type3_page("");
+    mark(&mut doc, 0, [45.0, 290.0, 95.0, 320.0]);
+    let report = apply(&mut doc);
+    assert!(report.pages_as_pictures.is_empty(), "{report:?}");
+    assert_eq!(report.glyphs, 4, "{report:?}");
+    let bytes = saved(&mut doc, "type3-procs");
+    assert!(absent(&bytes, "T3INNERSECRET"));
+    assert_eq!(
+        Document::from_bytes(bytes, None, None)
+            .unwrap()
+            .text_layer(0)
+            .unwrap()
+            .glyphs
+            .len(),
+        2
+    );
+    // When the page still shows `a` elsewhere, its procedure stays.
+    let mut doc = type3_page("BT /T3 20 Tf 50 200 Td (a) Tj ET");
+    mark(&mut doc, 0, [45.0, 290.0, 95.0, 320.0]);
+    apply(&mut doc);
+    let bytes = saved(&mut doc, "type3-kept");
+    assert!(streams_of(&bytes).iter().any(|s| holds(s, b"T3INNERSECRET")));
 }

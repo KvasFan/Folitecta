@@ -23,6 +23,8 @@ pub(crate) struct Gs {
     /// From the user space of the stream to the default space of the page.
     pub ctm: Affine,
     pub lw: f64,
+    /// Line cap (0 butt, 1 round, 2 projecting square).
+    pub cap: i64,
     /// Line join (0 miter, 1 round, 2 bevel) and miter limit.
     pub join: i64,
     pub miter: f64,
@@ -427,6 +429,11 @@ pub(crate) fn scan(doc: &lopdf::Document, data: &[u8], res: &Dictionary, gs0: &G
                     gs.join = v[0] as i64;
                 }
             }
+            b"J" => {
+                if let Some(v) = n().filter(|v| v.len() == 1) {
+                    gs.cap = v[0] as i64;
+                }
+            }
             b"M" => {
                 if let Some(v) = n().filter(|v| v.len() == 1) {
                     gs.miter = v[0];
@@ -451,6 +458,9 @@ pub(crate) fn scan(doc: &lopdf::Document, data: &[u8], res: &Dictionary, gs0: &G
                 }
                 if let Some(v) = get(b"LJ") {
                     gs.join = v as i64;
+                }
+                if let Some(v) = get(b"LC") {
+                    gs.cap = v as i64;
                 }
                 if let Some(v) = get(b"ML") {
                     gs.miter = v;
@@ -595,6 +605,7 @@ pub(crate) fn page_state(clip: Rect) -> Gs {
     Gs {
         ctm: Affine::IDENTITY,
         lw: 1.0,
+        cap: 0,
         join: 0,
         miter: 10.0,
         fill_pattern: None,

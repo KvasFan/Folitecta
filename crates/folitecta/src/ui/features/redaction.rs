@@ -303,6 +303,7 @@ pub fn ApplyRedactionsDialog(page: Option<usize>) -> Element {
             },
             p { class: "apply-summary", "{summary_text}" }
             p { class: "hint", "{t(lang, \"dialog.redact.body\")}" }
+            p { class: "hint", "{t(lang, \"redact.width_hint\")}" }
             if summary.blurred > 0 {
                 div { class: "callout warn", "{tf(lang, \"redact.apply_blurred\", &[(\"count\", &summary.blurred.to_string())])}" }
             }

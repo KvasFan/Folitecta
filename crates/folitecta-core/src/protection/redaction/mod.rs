@@ -632,14 +632,31 @@ impl Document {
             None,
         )
         .ok();
-        let mut terms = self.terms_of(&marks, probe.as_ref(), &opts.sanitize.placeholder);
-        terms.retain(|t| {
-            !opts
-                .sanitize
-                .skip_terms
-                .contains(&t.text.iter().collect::<String>())
-        });
+        // Every word under the marks is looked for by the check; the ones the
+        // person chose to leave are not replaced where they are quoted.
+        let all_terms = self.terms_of(&marks, probe.as_ref(), &opts.sanitize.placeholder);
+        let terms: Vec<Term> = all_terms
+            .iter()
+            .filter(|t| {
+                !opts
+                    .sanitize
+                    .skip_terms
+                    .contains(&t.text.iter().collect::<String>())
+            })
+            .cloned()
+            .collect();
         let counts = drawing_counts(&self.inner);
+        // The pictures, forms and patterns the marked pages list in their
+        // resources (shared, or inherited from the page tree): those nothing
+        // draws once the redaction is done go too.
+        let listed: HashSet<ObjectId> = {
+            let ids = self.page_ids();
+            marks
+                .keys()
+                .filter_map(|p| ids.get(*p))
+                .flat_map(|pid| self.listed_by_page(*pid))
+                .collect()
+        };
         let markers = probe.as_ref().map(|p| p.ids.draw_markers()).unwrap_or_default();
         let mut work = Work::default();
         let mut as_pictures: BTreeMap<usize, PictureReason> = BTreeMap::new();
@@ -724,13 +741,15 @@ impl Document {
                 .unwrap_or_else(|| marks.keys().next().copied().unwrap_or(0));
             replaced.push((*id, page));
         }
-        // Page thumbnails and the private data of other programs show the old page.
+        // Page thumbnails, metadata and the private data of other programs
+        // describe the old page.
         for &p in marks.keys() {
             if let Some(&pid) = page_ids.get(p) {
                 if let Ok(d) = self.inner.get_dictionary_mut(pid) {
                     d.remove(b"Thumb");
                     d.remove(b"PieceInfo");
                     d.remove(b"LastModified");
+                    d.remove(b"Metadata");
                 }
             }
         }
@@ -747,16 +766,13 @@ impl Document {
         // removed layers and comments.
         let counts_after = drawing_counts(&self.inner);
         let drawn_after = |id: &ObjectId| counts_after.get(id).copied().unwrap_or(0) > 0;
-        let gone: HashSet<ObjectId> = if counts.complete && counts_after.complete {
-            replaced
-                .iter()
-                .map(|(id, _)| *id)
-                .chain(counts.map.iter().filter(|(_, n)| **n > 0).map(|(id, _)| *id))
-                .filter(|id| !drawn_after(id))
-                .collect()
-        } else {
-            HashSet::new()
-        };
+        let gone: HashSet<ObjectId> = replaced
+            .iter()
+            .map(|(id, _)| *id)
+            .chain(counts.map.iter().filter(|(_, n)| **n > 0).map(|(id, _)| *id))
+            .chain(listed.iter().copied())
+            .filter(|id| !drawn_after(id))
+            .collect();
         self.tidy_structure(
             &work.copies,
             &work.touched,
@@ -773,12 +789,44 @@ impl Document {
         self.source = None;
         report.check = CheckData {
             marks: check_marks,
-            terms,
+            terms: all_terms,
+            skipped: opts.sanitize.skip_terms.clone(),
             quoting: opts.sanitize.quoting,
             cover_tag: cover_tag.into_bytes(),
             replaced,
         };
         Ok(report)
+    }
+
+    /// The pictures, forms and patterns listed in the resources a page uses
+    /// and in those of the forms and patterns they list.
+    fn listed_by_page(&self, page_id: ObjectId) -> HashSet<ObjectId> {
+        let doc = &self.inner;
+        let mut out = HashSet::new();
+        let mut todo = vec![crate::page_text::probe::page_resources(doc, page_id)];
+        while let Some(res) = todo.pop() {
+            for cat in [b"XObject".as_slice(), b"Pattern"] {
+                let Some(d) = res.get(cat).ok().and_then(|x| deref(doc, x).as_dict().ok()) else {
+                    continue;
+                };
+                for (_, v) in d.iter() {
+                    let Ok(id) = v.as_reference() else { continue };
+                    if !out.insert(id) {
+                        continue;
+                    }
+                    if let Some(r) = doc
+                        .get_object(id)
+                        .and_then(Object::as_stream)
+                        .ok()
+                        .and_then(|s| s.dict.get(b"Resources").ok())
+                        .and_then(|r| deref(doc, r).as_dict().ok())
+                    {
+                        todo.push(r.clone());
+                    }
+                }
+            }
+        }
+        out
     }
 
     /// The pictures and forms a page draws (forms followed).

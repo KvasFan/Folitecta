@@ -112,6 +112,7 @@
   "redact.terms_none": "Nessuna parola del testo rimosso da cercare.",
   "redact.text": "Testo sovrapposto",
   "redact.text_hint": "Un codice o un motivo, scritto sopra l'area",
+  "redact.width_hint": "Lo spazio occupato da una parola rimossa resta sulla sua riga, quindi la lunghezza della parola si può ancora misurare.",
   "review.accepted": "Accettato",
   "review.cancelled": "Annullato",
   "review.completed": "Completato",

@@ -317,6 +317,26 @@ pub(crate) fn shows_glyphs(data: &[u8], op: &TextOp) -> bool {
     }
 }
 
+/// The bytes of the strings an operation shows (the codes of a simple font).
+pub(crate) fn shown_bytes(data: &[u8], op: &TextOp) -> Vec<u8> {
+    let Some(last) = op.operands.last() else {
+        return Vec::new();
+    };
+    let tok = &data[last.0..last.1];
+    if op.operator == b"TJ" {
+        array_items(tok)
+            .unwrap_or_default()
+            .into_iter()
+            .flat_map(|i| match i {
+                ArrayItem::Str(b) => b,
+                ArrayItem::Num(_) => Vec::new(),
+            })
+            .collect()
+    } else {
+        string_bytes(tok).unwrap_or_default()
+    }
+}
+
 /// A glyph or a position adjustment of a text-showing operation.
 #[derive(Debug, Clone, PartialEq)]
 enum Piece {

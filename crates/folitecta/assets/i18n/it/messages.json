@@ -174,7 +174,7 @@
   "toast.redaction_busy": "È in corso l'applicazione di una redazione di questo documento.",
   "toast.redaction_changed": "Il documento è cambiato mentre si applicava la redazione, quindi non è stato modificato nulla. Applicala di nuovo.",
   "toast.redaction_check_failed": "{name} non è stato scritto: il controllo ha trovato {count} problemi.",
-  "toast.redaction_checked": "{name} salvato e controllato: sotto le aree redatte non restano testo, immagini o disegni, le parole rimosse non sono conservate altrove e il file ha una sola versione.",
+  "toast.redaction_checked": "{name} salvato e controllato: sotto le aree redatte non restano testo, immagini o disegni, le parole rimosse non sono state trovate in ciò che usano solo quelle pagine e il file ha una sola versione.",
   "toast.redaction_conformance": "La dichiarazione PDF/A o PDF/UA del documento è conservata in nuovi metadati minimi.",
   "toast.redaction_detail": "Rimossi: {glyphs} caratteri, {pictures} immagini, {paths} disegni, {comments} commenti, {fields} campi modulo.",
   "toast.redaction_fallback": "Pagine trasformate in immagini perché {reason}: {pages}.",

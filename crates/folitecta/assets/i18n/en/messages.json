@@ -174,7 +174,7 @@
   "toast.redaction_busy": "A redaction of this document is being applied.",
   "toast.redaction_changed": "The document changed while the redaction was being applied, so nothing was changed. Apply it again.",
   "toast.redaction_check_failed": "{name} was not written: the check found {count} problem(s).",
-  "toast.redaction_checked": "{name} saved and checked: no text, picture or drawing is left under the redacted areas, the removed words are stored nowhere else, and the file has one version.",
+  "toast.redaction_checked": "{name} saved and checked: no text, picture or drawing is left under the redacted areas, the removed words were not found in what only those pages use, and the file has one version.",
   "toast.redaction_conformance": "The PDF/A or PDF/UA claim of the document is kept in new minimal metadata.",
   "toast.redaction_detail": "Removed: {glyphs} characters, {pictures} pictures, {paths} drawings, {comments} comments, {fields} form fields.",
   "toast.redaction_fallback": "Pages drawn as pictures because {reason}: {pages}.",

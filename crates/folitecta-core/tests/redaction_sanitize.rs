@@ -894,3 +894,246 @@ fn pages_drawn_as_pictures_pass_the_check_and_their_originals_go() {
     assert!(reopened.page_text(0).contains("CODE-9"));
     assert!(reopened.page_text(1).contains("Other page text"));
 }
+
+/// 410 pages sharing one resources object; a 10 000-operation logo on every
+/// page; page 0 also draws a picture and a form with a word under the mark.
+fn big_shared() -> (Vec<u8>, ObjectId, ObjectId) {
+    let mut d = lopdf::Document::with_version("1.7");
+    let f = helvetica(&mut d);
+    let mut px = vec![90u8; 32 * 8];
+    for i in 0..20 {
+        px[i * 12..i * 12 + 11].copy_from_slice(b"BIGSECRETPX");
+    }
+    let im = d.add_object(Stream::new(
+        dictionary! { "Type" => "XObject", "Subtype" => "Image", "Width" => 32, "Height" => 8, "ColorSpace" => "DeviceGray", "BitsPerComponent" => 8 },
+        px,
+    ));
+    let fx = d.add_object(Stream::new(
+        dictionary! {
+            "Type" => "XObject", "Subtype" => "Form", "BBox" => vec![0.into(), 0.into(), 600.into(), 800.into()],
+            "Resources" => dictionary! { "Font" => dictionary! { "F1" => f } },
+        },
+        b"BT /F1 12 Tf 100 600 Td (BIGSECRETFORM) Tj ET".to_vec(),
+    ));
+    let mut logo = String::new();
+    for i in 0..2500 {
+        logo.push_str(&format!(
+            "{} 760 m {} 770 l {} 760 l h f\n",
+            20 + i % 50,
+            21 + i % 50,
+            22 + i % 50
+        ));
+    }
+    let lg = d.add_object(Stream::new(
+        dictionary! { "Type" => "XObject", "Subtype" => "Form", "BBox" => vec![0.into(), 750.into(), 600.into(), 800.into()], "Resources" => dictionary! {} },
+        logo.into_bytes(),
+    ));
+    let shared = d.add_object(dictionary! { "Font" => dictionary! { "F1" => f }, "XObject" => dictionary! { "Im" => im, "Fx" => fx, "Logo" => lg } });
+    let pages_id = d.new_object_id();
+    let mut kids = Vec::new();
+    for i in 0..410 {
+        let content = if i == 0 {
+            // The form twice under the mark: each drawing gets a copy.
+            "/Logo Do q 64 0 0 16 100 300 cm /Im Do Q /Fx Do q 1 0 0 1 0 -100 cm /Fx Do Q".to_string()
+        } else {
+            "/Logo Do BT /F1 12 Tf 100 100 Td (ordinary page) Tj ET".to_string()
+        };
+        let c = d.add_object(Stream::new(dictionary! {}, content.into_bytes()));
+        kids.push(Object::Reference(d.add_object(dictionary! {
+            "Type" => "Page", "Parent" => pages_id, "Contents" => c, "Resources" => shared,
+            "MediaBox" => vec![0.into(), 0.into(), 600.into(), 800.into()],
+        })));
+    }
+    d.objects.insert(
+        pages_id,
+        Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => kids, "Count" => 410 }),
+    );
+    let cat = d.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+    d.trailer.set("Root", cat);
+    let mut out = Vec::new();
+    d.save_to(&mut out).unwrap();
+    (out, fx, shared)
+}
+
+#[test]
+fn a_large_document_sharing_its_resources_keeps_no_original_and_the_check_says_when_one_is_back() {
+    let (bytes, fx, shared) = big_shared();
+    let original = lopdf::Document::load_mem(&bytes).unwrap();
+    let mut doc = Document::from_bytes(bytes, None, None).unwrap();
+    doc.add_redaction(0, [90.0, 290.0, 300.0, 620.0], "Reviewer")
+        .unwrap();
+    let report = doc.apply_redactions_opts(None, &all_options()).unwrap();
+    assert!(report.pages_as_pictures.is_empty(), "{report:?}");
+    let check = check_now(&mut doc, &report);
+    assert!(check.passed(), "{check:?}");
+    let saved_bytes = saved(&mut doc, "big");
+    assert!(absent(&saved_bytes, "BIGSECRETPX") && absent(&saved_bytes, "BIGSECRETFORM"));
+    // The original form put back into the shared resources: the check fails.
+    let mut lo = lopdf::Document::load_mem(&saved_bytes).unwrap();
+    lo.objects.insert(fx, original.get_object(fx).unwrap().clone());
+    if let Ok(Object::Dictionary(x)) = lo.get_dictionary_mut(shared).unwrap().get_mut(b"XObject") {
+        x.set("Back", fx);
+    }
+    let mut back = Vec::new();
+    lo.save_to(&mut back).unwrap();
+    let check = check_redacted_bytes(&back, None, &report).unwrap();
+    assert!(
+        check.problems.contains(&CheckProblem::Residual { page: Some(0) }),
+        "{check:?}"
+    );
+}
+
+/// A page whose picture carries metadata quoting the word, named by the
+/// document's open action and a bookmark.
+fn targeted_page() -> Document {
+    let mut d = lopdf::Document::with_version("1.7");
+    let f = helvetica(&mut d);
+    let imd = d.add_object(Stream::new(
+        dictionary! { "Type" => "Metadata", "Subtype" => "XML" },
+        b"<x:xmpmeta>photo of RESIDUALWORD</x:xmpmeta>".to_vec(),
+    ));
+    let img = d.add_object(Stream::new(
+        dictionary! { "Type" => "XObject", "Subtype" => "Image", "Width" => 4, "Height" => 4, "ColorSpace" => "DeviceGray", "BitsPerComponent" => 8, "Metadata" => imd },
+        vec![200u8; 16],
+    ));
+    let pmd = d.add_object(Stream::new(
+        dictionary! { "Type" => "Metadata", "Subtype" => "XML" },
+        b"<x:xmpmeta>page about RESIDUALWORD</x:xmpmeta>".to_vec(),
+    ));
+    let pages_id = d.new_object_id();
+    let c = d.add_object(Stream::new(
+        dictionary! {},
+        b"BT /F1 12 Tf 100 700 Td (RESIDUALWORD) Tj ET q 32 0 0 32 300 690 cm /Im Do Q".to_vec(),
+    ));
+    let p0 = d.add_object(dictionary! {
+        "Type" => "Page", "Parent" => pages_id, "Contents" => c, "Metadata" => pmd,
+        "MediaBox" => vec![0.into(), 0.into(), 600.into(), 800.into()],
+        "Resources" => dictionary! { "Font" => dictionary! { "F1" => f }, "XObject" => dictionary! { "Im" => img } },
+    });
+    d.objects.insert(
+        pages_id,
+        Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => vec![p0.into()], "Count" => 1 }),
+    );
+    let outlines = d.new_object_id();
+    let item = d.add_object(dictionary! { "Title" => lopdf::text_string("Start"), "Parent" => outlines, "Dest" => vec![p0.into(), Object::Name(b"Fit".to_vec())] });
+    d.objects.insert(
+        outlines,
+        Object::Dictionary(
+            dictionary! { "Type" => "Outlines", "First" => item, "Last" => item, "Count" => 1 },
+        ),
+    );
+    let cat = d.add_object(dictionary! {
+        "Type" => "Catalog", "Pages" => pages_id, "Outlines" => outlines,
+        "OpenAction" => vec![p0.into(), Object::Name(b"Fit".to_vec())],
+    });
+    d.trailer.set("Root", cat);
+    let mut out = Vec::new();
+    d.save_to(&mut out).unwrap();
+    Document::from_bytes(out, None, None).unwrap()
+}
+
+#[test]
+fn a_page_named_by_destinations_is_still_checked_and_its_metadata_goes() {
+    let mut doc = targeted_page();
+    let original = doc.bytes().to_vec();
+    doc.add_redaction(0, [95.0, 690.0, 335.0, 725.0], "Reviewer")
+        .unwrap();
+    let quoting_only = RedactionOptions {
+        method: RedactionMethod::Content,
+        sanitize: SanitizeOptions {
+            quoting: true,
+            ..SanitizeOptions::none()
+        },
+    };
+    let report = doc.apply_redactions_opts(None, &quoting_only).unwrap();
+    let check = check_now(&mut doc, &report);
+    assert!(check.passed(), "{check:?}");
+    let bytes = saved(&mut doc, "targeted");
+    // The metadata of the covered picture and of the page went (metadata
+    // sanitizing off), with the word they quoted.
+    assert!(absent(&bytes, "RESIDUALWORD"));
+    // The original file: what only the page uses still quotes the word, and
+    // the destinations naming the page do not hide it from the check.
+    let check = check_redacted_bytes(&original, None, &report).unwrap();
+    assert!(
+        check.problems.contains(&CheckProblem::Residual { page: Some(0) }),
+        "{check:?}"
+    );
+}
+
+#[test]
+fn undrawn_resources_a_page_inherits_go_with_both_methods() {
+    for method in [RedactionMethod::Content, RedactionMethod::Picture] {
+        let mut d = lopdf::Document::with_version("1.7");
+        let f = helvetica(&mut d);
+        let form = |d: &mut lopdf::Document, text: &str| {
+            d.add_object(Stream::new(
+                dictionary! {
+                    "Type" => "XObject", "Subtype" => "Form", "BBox" => vec![0.into(), 0.into(), 600.into(), 800.into()],
+                    "Resources" => dictionary! { "Font" => dictionary! { "F1" => f } },
+                },
+                format!("BT /F1 12 Tf 100 600 Td ({text}) Tj ET").into_bytes(),
+            ))
+        };
+        let fx = form(&mut d, "PICSECRETFORM");
+        let fu = form(&mut d, "PICSECRETUNDRAWN");
+        let pages_id = d.new_object_id();
+        let c = d.add_object(Stream::new(dictionary! {}, b"/Fx Do".to_vec()));
+        let p0 = d.add_object(dictionary! { "Type" => "Page", "Parent" => pages_id, "Contents" => c, "MediaBox" => vec![0.into(), 0.into(), 600.into(), 800.into()] });
+        d.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Pages", "Kids" => vec![p0.into()], "Count" => 1,
+                "Resources" => dictionary! { "Font" => dictionary! { "F1" => f }, "XObject" => dictionary! { "Fx" => fx, "Fu" => fu } },
+            }),
+        );
+        let cat = d.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+        d.trailer.set("Root", cat);
+        let mut out = Vec::new();
+        d.save_to(&mut out).unwrap();
+        let mut doc = Document::from_bytes(out, None, None).unwrap();
+        doc.add_redaction(0, [50.0, 580.0, 560.0, 630.0], "Reviewer")
+            .unwrap();
+        let report = doc
+            .apply_redactions_opts(
+                None,
+                &RedactionOptions {
+                    method,
+                    sanitize: SanitizeOptions::none(),
+                },
+            )
+            .unwrap();
+        assert!(check_now(&mut doc, &report).passed(), "{method:?}");
+        let bytes = saved(&mut doc, "inherited-undrawn");
+        assert!(
+            absent(&bytes, "PICSECRETFORM") && absent(&bytes, "PICSECRETUNDRAWN"),
+            "{method:?}"
+        );
+    }
+}
+
+#[test]
+fn words_left_quoted_on_purpose_stay_known_to_the_check() {
+    let mut doc = sample();
+    doc.add_bookmark("Secret plan", 0, &[]).unwrap();
+    mark_word(&mut doc, 0, "Secret");
+    let opts = RedactionOptions {
+        method: RedactionMethod::Content,
+        sanitize: SanitizeOptions {
+            quoting: true,
+            skip_terms: vec!["secret".into()],
+            ..SanitizeOptions::none()
+        },
+    };
+    let report = doc.apply_redactions_opts(None, &opts).unwrap();
+    assert!(
+        report.terms().contains(&"Secret".to_string()),
+        "{:?}",
+        report.terms()
+    );
+    assert_eq!(doc.outline()[0].title, "Secret plan");
+    // The bookmark left on purpose is reported, not a failure.
+    let check = check_now(&mut doc, &report);
+    assert!(check.passed(), "{check:?}");
+    assert!(check.quoted_elsewhere >= 1, "{check:?}");
+}

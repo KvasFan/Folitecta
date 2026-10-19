@@ -110,7 +110,10 @@ impl CheckMark {
 #[derive(Clone, Default, PartialEq)]
 pub(crate) struct CheckData {
     pub marks: BTreeMap<usize, Vec<CheckMark>>,
+    /// Every word of the removed text.
     pub terms: Vec<Term>,
+    /// The words (lower case) the person chose to leave where they are quoted.
+    pub skipped: Vec<String>,
     pub quoting: bool,
     /// The `/FolitectaMark` of the covers drawn by this redaction.
     pub cover_tag: Vec<u8>,
@@ -687,8 +690,18 @@ fn decrypted(bytes: &[u8], key: &ProtectionKey) -> Result<Vec<u8>> {
     crate::document::serialize(&mut doc)
 }
 
-/// The objects reachable from `start`, not following `skip` keys.
+/// The objects reachable from `start`, not following `skip` keys, and not
+/// entering pages other than those of `start` (a destination naming a page
+/// does not make what the page uses its own).
 fn reachable(doc: &lopdf::Document, start: &[Object], skip: &[&[u8]]) -> HashSet<ObjectId> {
+    let starts: HashSet<ObjectId> = start.iter().filter_map(|o| o.as_reference().ok()).collect();
+    let is_page = |o: &Object| {
+        o.as_dict()
+            .ok()
+            .and_then(|d| d.get(b"Type").ok())
+            .and_then(|t| t.as_name().ok())
+            .is_some_and(|t| t == b"Page" || t == b"Pages")
+    };
     let mut seen = HashSet::new();
     let mut todo: Vec<&Object> = start.iter().collect();
     while let Some(o) = todo.pop() {
@@ -696,7 +709,9 @@ fn reachable(doc: &lopdf::Document, start: &[Object], skip: &[&[u8]]) -> HashSet
             Object::Reference(r) => {
                 if seen.insert(*r) {
                     if let Ok(x) = doc.get_object(*r) {
-                        todo.push(x);
+                        if !is_page(x) || starts.contains(r) {
+                            todo.push(x);
+                        }
                     }
                 }
             }
@@ -783,7 +798,7 @@ pub fn check_redacted_bytes(
     let lo = &doc.inner;
     // Originals replaced by copies: gone, unless something still draws them.
     let counts = drawing_counts(lo);
-    for (id, page) in data.replaced.iter().filter(|_| counts.complete) {
+    for (id, page) in &data.replaced {
         if lo.objects.contains_key(id) && counts.get(id).copied().unwrap_or(0) == 0 {
             problem(CheckProblem::Residual { page: Some(*page) }, &mut out);
         }
@@ -850,9 +865,13 @@ pub fn check_redacted_bytes(
                 problem(CheckProblem::Residual { page: Some(p) }, &mut out);
             }
         }
-        // Places that quote the removed text.
-        let quotes = doc.quote_places(terms);
-        for (place, n) in quotes {
+        // Places that quote the removed text (the words left there on
+        // purpose are only reported).
+        let (left, chosen): (Vec<Term>, Vec<Term>) = terms
+            .iter()
+            .cloned()
+            .partition(|t| data.skipped.contains(&t.text.iter().collect::<String>()));
+        for (place, n) in doc.quote_places(&chosen) {
             if n == 0 {
                 continue;
             }
@@ -861,6 +880,9 @@ pub fn check_redacted_bytes(
             } else {
                 out.quoted_elsewhere += n;
             }
+        }
+        if !left.is_empty() {
+            out.quoted_elsewhere += doc.quote_places(&left).iter().map(|(_, n)| n).sum::<usize>();
         }
         out.quoted_elsewhere += doc.quoted_in_pages_and_fields(terms);
     }
@@ -890,8 +912,19 @@ impl Document {
             }
         }
         s.push('\n');
+        // The text layer joins words its own way; its characters under the
+        // marks are left out.
         if let Some(layer) = self.text_layer(page) {
-            s.push_str(&layer.text);
+            for (i, c) in layer.text.chars().enumerate() {
+                let under = layer
+                    .char_glyph
+                    .get(i)
+                    .copied()
+                    .flatten()
+                    .and_then(|g| layer.glyphs.get(g))
+                    .is_some_and(|g| shown.iter().any(|m| meets(&g.bbox, m)));
+                s.push(if under { ' ' } else { c });
+            }
         }
         s
     }

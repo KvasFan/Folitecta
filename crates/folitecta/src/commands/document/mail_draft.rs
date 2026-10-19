@@ -557,15 +557,18 @@ pub fn zip_of(files: &[Outgoing]) -> Result<Vec<u8>, String> {
 }
 
 /// The rows to start preparing now: included, waiting, the selected one
-/// first, so that no more than `limit` run at once. A row being prepared is
+/// first, so that no more than `limit` run at once. `in_flight` counts the
+/// preparations still running, those stopped because their row changed
+/// included (they end soon, but they still work). A row being prepared is
 /// never started again; typing the subject, the message or a name changes
 /// no row, so it starts nothing.
-pub fn rows_to_start(d: &MailDraft, limit: usize) -> Vec<usize> {
+pub fn rows_to_start(d: &MailDraft, limit: usize, in_flight: usize) -> Vec<usize> {
     let running = d
         .items
         .iter()
         .filter(|it| matches!(it.prep, Prep::Running(_)))
-        .count();
+        .count()
+        .max(in_flight);
     let mut order: Vec<usize> = (0..d.items.len()).collect();
     order.sort_by_key(|&i| i != d.selected);
     order
@@ -1007,22 +1010,25 @@ mod tests {
             &docs,
         );
         d.selected = 2;
-        assert_eq!(rows_to_start(&d, 2), [2, 0]);
+        assert_eq!(rows_to_start(&d, 2, 0), [2, 0]);
         d.items[2].prep = Prep::Running(0);
         d.items[0].prep = Prep::Running(0);
         // Typing the subject or the message changes no row: nothing starts.
         d.subject = "typed".into();
         d.subject_auto = false;
         d.body = "hello".into();
-        assert!(rows_to_start(&d, 2).is_empty());
-        // A row changed while it runs waits for a free place, then starts again.
+        assert!(rows_to_start(&d, 2, 2).is_empty());
+        // A row changed while it runs: its preparation is stopped but still
+        // works until it sees it, so the row waits for a free place.
         touch(&mut d, 2);
         assert_eq!(d.items[2].rev, 1);
-        assert_eq!(rows_to_start(&d, 2), [2]);
         assert_eq!(d.subject, "typed");
+        assert!(rows_to_start(&d, 2, 2).is_empty());
+        // The stopped one ended: the row starts again.
+        assert_eq!(rows_to_start(&d, 2, 1), [2]);
         d.items[2].prep = ready(b"%PDF");
         d.items[0].prep = ready(b"%PDF");
-        assert_eq!(rows_to_start(&d, 2), [1, 3]);
+        assert_eq!(rows_to_start(&d, 2, 0), [1, 3]);
     }
 
     #[test]

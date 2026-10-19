@@ -754,13 +754,13 @@ impl Document {
                         out.kids.push(k);
                         continue;
                     }
-                    let own = self
+                    let own_page = self
                         .inner
                         .get_dictionary(id)
                         .ok()
                         .and_then(|d| d.get(b"Pg").ok())
-                        .and_then(|p| p.as_reference().ok())
-                        .or(pg);
+                        .and_then(|p| p.as_reference().ok());
+                    let own = own_page.or(pg);
                     let inner = self.kid_list(id);
                     let p = self.prune_kids(inner, own, gone_pages, gone_annots, removed, seen, depth + 1);
                     if p.changed {
@@ -768,8 +768,9 @@ impl Document {
                     }
                     out.deep |= p.changed || p.deep;
                     out.had |= p.had;
-                    if p.had && !p.has {
-                        // Everything it held went with the pages or annotations.
+                    if !p.has && (p.had || own_page.is_some_and(|g| gone_pages.contains(&g))) {
+                        // Everything it held went with the pages or annotations,
+                        // or it held nothing and belonged to a page that went.
                         let mut sub_seen = HashSet::new();
                         self.struct_subtree(id, removed, &mut sub_seen);
                         out.changed = true;

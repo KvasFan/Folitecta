@@ -78,10 +78,14 @@ pub struct LeftOut {
     pub tags: usize,
     /// Pictures, fonts and drawings only the other pages used.
     pub resources: usize,
+    /// Layers (optional content groups) only the other pages used.
+    pub layers: usize,
     /// The view the document opened with showed a page left out.
     pub open_action: bool,
     /// Article threads (they ran through pages left out).
     pub threads: bool,
+    /// The XFA form data (it held the values of fields that went too).
+    pub xfa: bool,
 }
 
 impl LeftOut {
@@ -134,10 +138,22 @@ const NAMED: [&[u8]; 7] = [
 /// Largest content stream read to find the names it uses.
 const CONTENT_LIMIT: usize = 256 << 20;
 
+/// The error of a preparation stopped on purpose.
+const STOPPED: &str = "the preparation was stopped";
+
+/// Go on unless `stop` is set.
+fn go_on(stop: &AtomicBool) -> Result<()> {
+    if stop.load(Ordering::Relaxed) {
+        Err(Error::Invalid(STOPPED.into()))
+    } else {
+        Ok(())
+    }
+}
+
 /// The written file carries an encryption dictionary in its trailer.
+/// (Read from its cross-reference section and trailer, wherever they are.)
 fn carries_encryption(bytes: &[u8]) -> bool {
-    let tail = &bytes[bytes.len().saturating_sub(8192)..];
-    tail.windows(8).any(|w| w == b"/Encrypt")
+    lopdf::Document::load_metadata_mem(bytes).is_ok_and(|m| m.encrypted)
 }
 
 /// The pages to keep, checked: `None` when every page is kept.
@@ -407,11 +423,12 @@ impl Document {
     /// dictionaries are copied, one for each page). Content that cannot be
     /// read keeps its resources as they are. Returns how many objects no kept
     /// resource names any more.
-    fn cut_page_resources(&mut self, pages: &[ObjectId]) -> usize {
+    fn cut_page_resources(&mut self, pages: &[ObjectId], stop: &AtomicBool) -> Result<usize> {
         let mut dropped = HashSet::new();
         let mut kept = HashSet::new();
         let mut queue: Vec<ObjectId> = Vec::new();
         for &pid in pages {
+            go_on(stop)?;
             let contents: Option<Vec<u8>> = self
                 .inner
                 .get_page_contents(pid)
@@ -463,6 +480,9 @@ impl Document {
             if !done.insert(id) {
                 continue;
             }
+            if done.len() % 64 == 0 {
+                go_on(stop)?;
+            }
             let (content, res) = match self.inner.get_object(id) {
                 Ok(Object::Stream(s)) => {
                     let res = s
@@ -494,7 +514,7 @@ impl Document {
                 _ => {}
             }
         }
-        dropped.difference(&kept).count()
+        Ok(dropped.difference(&kept).count())
     }
 
     /// The names a content uses with the resources `res`. Forms, patterns and
@@ -565,8 +585,10 @@ impl Document {
     /// that belongs to them; nothing of the other pages stays in the file.
     /// Bookmarks, links and named destinations leading to the other pages,
     /// their form fields, tags and article threads go, and are counted; page
-    /// labels stay as they were shown. No undo step: for work copies.
-    pub(crate) fn keep_only_pages(&mut self, pages: &[usize]) -> Result<LeftOut> {
+    /// labels stay as they were shown; layers only they used and the XFA
+    /// form data (when fields go) go too. No undo step: for work copies.
+    /// `stop` ends the work early (with an error).
+    pub(crate) fn keep_only_pages(&mut self, pages: &[usize], stop: &AtomicBool) -> Result<LeftOut> {
         let n = self.page_count();
         let Some(pages) = checked_pages(Some(pages), n)? else {
             return Ok(LeftOut::default());
@@ -610,6 +632,7 @@ impl Document {
             .flat_map(|p| self.annots_of(*p).into_iter().map(move |a| (a, *p)))
             .collect();
         let fields = self.form_fields();
+        let layers_used = self.used_layers();
         let catalog = self.inner.catalog()?.clone();
         let open_action_gone = catalog.get(b"OpenAction").ok().is_some_and(|a| {
             let target = match deref(&self.inner, a) {
@@ -723,13 +746,31 @@ impl Document {
 
         // Form fields: a field whose widgets were all on other pages goes,
         // with the parents left without kids.
+        // A widget no page lists is on the page its `/P` names.
+        let all_pages: HashSet<ObjectId> = ids.iter().copied().collect();
+        let page_of = |w: &ObjectId| -> Option<ObjectId> {
+            widget_page.get(w).copied().or_else(|| {
+                self.inner
+                    .get_dictionary(*w)
+                    .ok()?
+                    .get(b"P")
+                    .ok()?
+                    .as_reference()
+                    .ok()
+                    .filter(|p| all_pages.contains(p))
+            })
+        };
         let mut gone_fields: HashSet<ObjectId> = HashSet::new();
+        let mut fields_touched = false;
         for f in &fields {
-            let pages_of: Vec<Option<&ObjectId>> = f.widgets.iter().map(|w| widget_page.get(w)).collect();
+            let pages_of: Vec<Option<ObjectId>> = f.widgets.iter().map(&page_of).collect();
             let on_kept_page = pages_of
                 .iter()
-                .any(|p| p.is_some_and(|p| !gone_pages.contains(p)));
-            let on_gone_page = pages_of.iter().any(|p| p.is_some_and(|p| gone_pages.contains(p)));
+                .any(|p| p.is_some_and(|p| !gone_pages.contains(&p)));
+            let on_gone_page = pages_of
+                .iter()
+                .any(|p| p.is_some_and(|p| gone_pages.contains(&p)));
+            fields_touched |= on_gone_page;
             if on_gone_page && !on_kept_page {
                 gone_fields.insert(f.id);
                 gone_fields.extend(f.widgets.iter().copied());
@@ -812,8 +853,13 @@ impl Document {
             self.write_page_labels(&refs)?;
         }
 
+        // The XFA form data holds the values of the fields that went.
+        if fields_touched {
+            left.xfa = self.remove_xfa()?;
+        }
+
         // Resources only the other pages used, then every reference left.
-        left.resources = self.cut_page_resources(&kept_ids);
+        left.resources = self.cut_page_resources(&kept_ids, stop)?;
         let mut gone: HashSet<ObjectId> = gone_pages;
         gone.extend(gone_annots);
         gone.extend(gone_fields);
@@ -823,7 +869,168 @@ impl Document {
             self.inner.objects.remove(id);
         }
         util::prune_unreachable(&mut self.inner);
+        // Layers only the other pages used.
+        let still = self.used_layers();
+        let gone_layers: HashSet<ObjectId> = layers_used.difference(&still).copied().collect();
+        if !gone_layers.is_empty() {
+            left.layers = self.remove_layers(&gone_layers)?;
+            util::prune_unreachable(&mut self.inner);
+        }
         Ok(left)
+    }
+
+    /// The optional content groups of `/OCProperties /OCGs`.
+    fn layer_ids(&self) -> HashSet<ObjectId> {
+        let doc = &self.inner;
+        doc.catalog()
+            .ok()
+            .and_then(|c| c.get(b"OCProperties").ok())
+            .and_then(|o| deref(doc, o).as_dict().ok())
+            .and_then(|o| o.get(b"OCGs").ok())
+            .and_then(|a| deref(doc, a).as_array().ok())
+            .map(|a| a.iter().filter_map(|o| o.as_reference().ok()).collect())
+            .unwrap_or_default()
+    }
+
+    /// The objects written for `/OCProperties` itself (its configurations
+    /// and lists), the layers excepted.
+    fn layer_settings_objects(&self, layers: &HashSet<ObjectId>) -> HashSet<ObjectId> {
+        let doc = &self.inner;
+        let mut out = HashSet::new();
+        let mut stack: Vec<Object> = doc
+            .catalog()
+            .ok()
+            .and_then(|c| c.get(b"OCProperties").ok())
+            .cloned()
+            .into_iter()
+            .collect();
+        while let Some(o) = stack.pop() {
+            match o {
+                Object::Reference(r) if !layers.contains(&r) && out.insert(r) => {
+                    stack.extend(doc.get_object(r).ok().cloned());
+                }
+                Object::Array(a) => stack.extend(a),
+                Object::Dictionary(d) => stack.extend(d.iter().map(|(_, v)| v.clone())),
+                _ => {}
+            }
+        }
+        out
+    }
+
+    /// The layers something of the document uses (content, pictures,
+    /// annotations, membership dictionaries): not only listed by
+    /// `/OCProperties`.
+    fn used_layers(&self) -> HashSet<ObjectId> {
+        let layers = self.layer_ids();
+        if layers.is_empty() {
+            return layers;
+        }
+        let settings = self.layer_settings_objects(&layers);
+        let catalog = self
+            .inner
+            .trailer
+            .get(b"Root")
+            .and_then(|r| r.as_reference())
+            .ok();
+        fn refs(o: &Object, layers: &HashSet<ObjectId>, out: &mut HashSet<ObjectId>) {
+            match o {
+                Object::Reference(r) if layers.contains(r) => {
+                    out.insert(*r);
+                }
+                Object::Array(a) => a.iter().for_each(|i| refs(i, layers, out)),
+                Object::Dictionary(d) => d.iter().for_each(|(_, v)| refs(v, layers, out)),
+                Object::Stream(s) => s.dict.iter().for_each(|(_, v)| refs(v, layers, out)),
+                _ => {}
+            }
+        }
+        let mut used = HashSet::new();
+        for (id, o) in &self.inner.objects {
+            if layers.contains(id) || settings.contains(id) {
+                continue;
+            }
+            if Some(*id) == catalog {
+                if let Object::Dictionary(d) = o {
+                    for (k, v) in d.iter() {
+                        if k != b"OCProperties" {
+                            refs(v, &layers, &mut used);
+                        }
+                    }
+                }
+                continue;
+            }
+            refs(o, &layers, &mut used);
+        }
+        used
+    }
+
+    /// Take the `gone` layers out of `/OCProperties` (the list of layers,
+    /// the order, the layers on and off, radio-button groups and usage
+    /// settings of every configuration); without layers left it goes.
+    /// Returns how many layers went.
+    fn remove_layers(&mut self, gone: &HashSet<ObjectId>) -> Result<usize> {
+        fn strip(o: &mut Object, gone: &HashSet<ObjectId>) {
+            match o {
+                Object::Array(items) => {
+                    items.retain(|i| !matches!(i, Object::Reference(r) if gone.contains(r)));
+                    for i in items.iter_mut() {
+                        strip(i, gone);
+                    }
+                    // Groups of the order left with a label only, empty
+                    // radio-button groups, usage settings without layers.
+                    items.retain(|i| match i {
+                        Object::Array(a) => a.iter().any(|x| !matches!(x, Object::String(..))),
+                        Object::Dictionary(d) => d
+                            .get(b"OCGs")
+                            .map(|g| !matches!(g, Object::Array(a) if a.is_empty()))
+                            .unwrap_or(true),
+                        _ => true,
+                    });
+                }
+                Object::Dictionary(d) => {
+                    for (_, v) in d.iter_mut() {
+                        strip(v, gone);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let layers = self.layer_ids();
+        let count = layers.intersection(gone).count();
+        for id in self.layer_settings_objects(&layers) {
+            if let Some(o) = self.inner.objects.get_mut(&id) {
+                strip(o, gone);
+            }
+        }
+        let catalog = self.inner.catalog_mut()?;
+        if let Ok(o) = catalog.get_mut(b"OCProperties") {
+            strip(o, gone);
+        }
+        if self.layer_ids().is_empty() {
+            self.inner.catalog_mut()?.remove(b"OCProperties");
+        }
+        Ok(count)
+    }
+
+    /// Remove the XFA form data (and the need to render it) from the form.
+    /// Returns whether there was any.
+    fn remove_xfa(&mut self) -> Result<bool> {
+        let form = self.inner.catalog()?.get(b"AcroForm").ok().cloned();
+        let had = match form {
+            Some(Object::Reference(id)) => self
+                .inner
+                .get_dictionary_mut(id)
+                .map(|d| d.remove(b"XFA").is_some())
+                .unwrap_or(false),
+            Some(Object::Dictionary(_)) => match self.inner.catalog_mut()?.get_mut(b"AcroForm") {
+                Ok(Object::Dictionary(d)) => d.remove(b"XFA").is_some(),
+                _ => false,
+            },
+            _ => false,
+        };
+        if had {
+            self.inner.catalog_mut()?.remove(b"NeedsRendering");
+        }
+        Ok(had)
     }
 }
 
@@ -840,13 +1047,7 @@ impl CopySource {
     /// the same way (same passwords and permissions), or refused. `stop`
     /// ends the work early (with an error) when it is set.
     pub fn prepare_until(&self, opts: &CopyOptions, stop: &AtomicBool) -> Result<PreparedCopy> {
-        let check = || {
-            if stop.load(Ordering::Relaxed) {
-                Err(Error::Invalid("the preparation was stopped".into()))
-            } else {
-                Ok(())
-            }
-        };
+        let check = || go_on(stop);
         let mut work = Document::from_bytes(self.bytes.to_vec(), None, None)?;
         work.source = self.source.clone();
         work.set_protection(self.protection.clone());
@@ -864,35 +1065,38 @@ impl CopySource {
             work.source = None;
         }
         let left_out = match &pages {
-            Some(p) => work.keep_only_pages(p)?,
+            Some(p) => work.keep_only_pages(p, stop)?,
             None => LeftOut::default(),
         };
         check()?;
         if opts.comments != CopyComments::Keep {
-            let all: Vec<usize> = (0..work.page_count()).collect();
             let before = work.page_annotation_ids();
-            match opts.comments {
-                CopyComments::Flatten => {
-                    work.flatten_where(&all, FlattenScope::Comments, None, &|s| {
-                        !crate::annots::NON_COMMENT_SUBTYPES
-                            .iter()
-                            .any(|n| n.as_bytes() == s)
-                    })?;
+            let comment = |s: &[u8]| {
+                !crate::annots::NON_COMMENT_SUBTYPES
+                    .iter()
+                    .any(|n| n.as_bytes() == s)
+            };
+            // Page by page, so a stop is seen soon; the objects that go are
+            // taken out of the file in one pass at the end.
+            let mut gone = HashSet::new();
+            for p in 0..work.page_count() {
+                check()?;
+                match opts.comments {
+                    CopyComments::Flatten => {
+                        work.flatten_where(&[p], FlattenScope::Comments, None, &comment, &mut gone)?;
+                    }
+                    CopyComments::Remove => {
+                        work.delete_comments_inner(&[p])?;
+                    }
+                    CopyComments::Keep => {}
                 }
-                CopyComments::Remove => {
-                    work.delete_comments_inner(&all)?;
-                }
-                CopyComments::Keep => {}
             }
             let after = work.page_annotation_ids();
-            let gone: HashSet<ObjectId> = before.difference(&after).copied().collect();
-            let mut removed: HashSet<ObjectId> = work
-                .prune_structure(&HashSet::new(), &gone)?
-                .into_iter()
-                .collect();
-            removed.extend(gone);
-            util::drop_references(&mut work.inner, &removed);
-            for id in &removed {
+            gone.extend(before.difference(&after).copied());
+            let removed = work.prune_structure(&HashSet::new(), &gone)?;
+            gone.extend(removed);
+            util::drop_references(&mut work.inner, &gone);
+            for id in &gone {
                 work.inner.objects.remove(id);
             }
         }

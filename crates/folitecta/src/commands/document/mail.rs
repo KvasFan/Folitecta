@@ -194,7 +194,8 @@ fn job_for(st: AppState, item: &MailItem, plan: Plan) -> Result<Job, Problem> {
 /// Start the rows that wait (two at a time) and the archive once they are ready.
 fn start_jobs(st: AppState) {
     let Some(d) = MAIL.peek().clone() else { return };
-    for i in rows_to_start(&d, AT_ONCE) {
+    let in_flight = running().iter().filter(|e| e.0 == d.id).count();
+    for i in rows_to_start(&d, AT_ONCE, in_flight) {
         let item = &d.items[i];
         let rev = item.rev;
         let job = match item.plan().and_then(|plan| job_for(st, item, plan)) {
@@ -217,9 +218,9 @@ fn start_jobs(st: AppState) {
                 Ok(Err(p)) => Prep::Failed(p),
                 Err(e) => Prep::Failed(Problem::Other(e.to_string())),
             };
-            if set_prep(id, i, rev, prep) {
-                start_jobs(st);
-            }
+            set_prep(id, i, rev, prep);
+            // A place is free (even when the result came too late to be kept).
+            start_jobs(st);
         });
     }
     let Some(d) = MAIL.peek().clone() else { return };

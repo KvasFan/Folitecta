@@ -284,6 +284,25 @@ pub(crate) fn xdg_result(code: Option<i32>) -> Result<Sent, HandOverError> {
     }
 }
 
+/// The arguments of `xdg-email` for a message: UTF-8 text, the subject and
+/// the message only when they are not empty (an empty one makes it fail),
+/// and the files.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub(crate) fn xdg_email_args(subject: &str, body: &str, files: &[PathBuf]) -> Vec<std::ffi::OsString> {
+    let mut args: Vec<std::ffi::OsString> = vec!["--utf8".into()];
+    for (flag, text) in [("--subject", subject), ("--body", body)] {
+        if !text.is_empty() {
+            args.push(flag.into());
+            args.push(text.into());
+        }
+    }
+    for f in files {
+        args.push("--attach".into());
+        args.push(f.into());
+    }
+    args
+}
+
 /// Whether the program that handles e-mail links (its desktop file id and
 /// the categories of that file) is a web browser, which drops attachments.
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
@@ -403,7 +422,7 @@ mod platform {
     use std::process::{Command, Stdio};
     use std::time::{Duration, Instant};
 
-    use super::{HandOverError, Sent, is_web_browser, xdg_result};
+    use super::{HandOverError, Sent, is_web_browser, xdg_email_args, xdg_result};
 
     /// The categories of the desktop file `id` of an installed program.
     fn categories(id: &str) -> String {
@@ -430,7 +449,26 @@ mod platform {
     /// handles e-mail links is checked first: none, or a web browser (which
     /// would drop the files), is reported instead of being opened.
     pub(super) fn compose(subject: &str, body: &str, files: &[PathBuf]) -> Result<Sent, HandOverError> {
-        if let Ok(out) = Command::new("xdg-mime")
+        compose_with(None, Duration::from_secs(8), subject, body, files)
+    }
+
+    /// [`compose`] with the programs looked for in `path` (the folders of
+    /// the system when `None`) and waiting at most `wait` for `xdg-email`.
+    pub(super) fn compose_with(
+        path: Option<&std::ffi::OsStr>,
+        wait: Duration,
+        subject: &str,
+        body: &str,
+        files: &[PathBuf],
+    ) -> Result<Sent, HandOverError> {
+        let command = |name: &str| {
+            let mut c = Command::new(name);
+            if let Some(p) = path {
+                c.env("PATH", p);
+            }
+            c
+        };
+        if let Ok(out) = command("xdg-mime")
             .args(["query", "default", "x-scheme-handler/mailto"])
             .stderr(Stdio::null())
             .output()
@@ -445,12 +483,8 @@ mod platform {
                 }
             }
         }
-        let mut cmd = Command::new("xdg-email");
-        cmd.args(["--utf8", "--subject", subject, "--body", body]);
-        for f in files {
-            cmd.arg("--attach").arg(f);
-        }
-        let mut child = cmd
+        let mut child = command("xdg-email")
+            .args(xdg_email_args(subject, body, files))
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
@@ -461,7 +495,7 @@ mod platform {
         loop {
             match child.try_wait() {
                 Ok(Some(status)) => return xdg_result(status.code()),
-                Ok(None) if started.elapsed() < Duration::from_secs(8) => {
+                Ok(None) if started.elapsed() < wait => {
                     std::thread::sleep(Duration::from_millis(100));
                 }
                 Ok(None) => {
@@ -621,6 +655,102 @@ mod tests {
         ));
         assert!(!is_web_browser("org.kde.kmail2.desktop", "Office;Email;"));
         assert!(!is_web_browser("thunderbird.desktop", "Network;Email;"));
+    }
+
+    #[test]
+    fn empty_subjects_and_messages_are_left_out_of_xdg_email() {
+        let files = [PathBuf::from("/tmp/a.pdf")];
+        let args = |s: &str, b: &str| -> Vec<String> {
+            xdg_email_args(s, b, &files)
+                .into_iter()
+                .map(|a| a.to_string_lossy().to_string())
+                .collect()
+        };
+        assert_eq!(
+            args("a.pdf", ""),
+            ["--utf8", "--subject", "a.pdf", "--attach", "/tmp/a.pdf"]
+        );
+        assert_eq!(args("", ""), ["--utf8", "--attach", "/tmp/a.pdf"]);
+        assert_eq!(
+            args("a.pdf", "Hello"),
+            [
+                "--utf8",
+                "--subject",
+                "a.pdf",
+                "--body",
+                "Hello",
+                "--attach",
+                "/tmp/a.pdf"
+            ]
+        );
+    }
+
+    /// The hand-over on Linux with stand-ins of `xdg-mime` and `xdg-email`
+    /// (the only programs on the path given to them: the real ones are never
+    /// reached). `xdg-email` fails like the real one on an empty subject or
+    /// message, and records its arguments.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_hand_over_with_stand_in_programs() {
+        use std::os::unix::fs::PermissionsExt;
+        let run = |name: &str, handler: &str, code: i32, subject: &str, body: &str| {
+            let dir = base(&format!("stubs-{name}"));
+            let log = dir.join("args.log");
+            let stub = |file: &str, text: String| {
+                let p = dir.join(file);
+                std::fs::write(&p, text).unwrap();
+                std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+            };
+            stub(
+                "xdg-mime",
+                r#"#!/bin/sh
+printf '%s\n' 'HANDLER'
+"#
+                .replace("HANDLER", handler),
+            );
+            stub(
+                "xdg-email",
+                r#"#!/bin/sh
+for a in "$@"; do printf '%s\n' "$a" >> 'LOG'; done
+prev=
+for a in "$@"; do
+  case "$prev" in --subject|--body) [ -z "$a" ] && exit 1;; esac
+  prev=$a
+done
+exit CODE
+"#
+                .replace("LOG", &log.display().to_string())
+                .replace("CODE", &code.to_string()),
+            );
+            let file = dir.join("a.pdf");
+            std::fs::write(&file, b"%PDF").unwrap();
+            let sent = platform::compose_with(
+                Some(dir.as_os_str()),
+                Duration::from_secs(5),
+                subject,
+                body,
+                std::slice::from_ref(&file),
+            );
+            let args = std::fs::read_to_string(&log).ok();
+            let _ = std::fs::remove_dir_all(&dir);
+            (sent, args)
+        };
+        // The subject made from the file name and no message: it opens.
+        let (sent, args) = run("ok", "org.example.Mail.desktop", 0, "a.pdf", "");
+        assert_eq!(sent, Ok(Sent::Opened));
+        let args = args.unwrap();
+        assert!(args.starts_with("--utf8\n--subject\na.pdf\n--attach\n"), "{args}");
+        assert!(!args.contains("--body"));
+        // Exit codes of xdg-email.
+        let (sent, _) = run("none", "org.example.Mail.desktop", 3, "a.pdf", "text");
+        assert!(matches!(sent, Err(HandOverError::NoProgram(_))));
+        // No program for e-mail links, or a web browser: xdg-email is not run.
+        let (sent, args) = run("unset", "", 0, "a.pdf", "");
+        assert!(matches!(sent, Err(HandOverError::NoProgram(_))));
+        assert!(args.is_none());
+        let (sent, args) = run("browser", "firefox.desktop", 0, "a.pdf", "");
+        assert!(matches!(sent, Err(HandOverError::Attachments(_))));
+        assert!(args.is_none());
     }
 
     #[test]

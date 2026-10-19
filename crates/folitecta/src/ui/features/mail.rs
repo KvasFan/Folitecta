@@ -64,6 +64,7 @@ fn left_out_text(lang: Lang, l: &folitecta_core::LeftOut) -> String {
         (l.fields, "dialog.mail.left_fields"),
         (l.tags, "dialog.mail.left_tags"),
         (l.resources, "dialog.mail.left_resources"),
+        (l.layers, "dialog.mail.left_layers"),
     ] {
         if n > 0 {
             parts.push(tf(lang, key, &[("count", &n.to_string())]));
@@ -74,6 +75,9 @@ fn left_out_text(lang: Lang, l: &folitecta_core::LeftOut) -> String {
     }
     if l.threads {
         parts.push(t(lang, "dialog.mail.left_threads"));
+    }
+    if l.xfa {
+        parts.push(t(lang, "dialog.mail.left_xfa"));
     }
     parts.join(", ")
 }

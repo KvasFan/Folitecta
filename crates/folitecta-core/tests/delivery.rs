@@ -902,3 +902,277 @@ fn tags_of_the_other_pages_leave_the_id_tree_and_the_bookmarks() {
     assert_eq!(titled.len(), 2);
     assert!(titled.iter().all(|d| !d.has(b"SE")));
 }
+
+fn catalog_of(d: &Document) -> lopdf::ObjectId {
+    d.inner().trailer.get(b"Root").unwrap().as_reference().unwrap()
+}
+
+fn four_pages() -> Document {
+    Document::from_text(
+        "PAGE-ONE\u{c}PAGE-TWO\u{c}PAGE-THREE\u{c}PAGE-FOUR",
+        TextLayout::default(),
+    )
+    .unwrap()
+}
+
+#[test]
+fn xfa_data_goes_with_the_fields_of_left_out_pages() {
+    let mut d = four_pages();
+    for (page, name) in [(0, "name"), (3, "salary")] {
+        let props = FieldProps {
+            name: name.into(),
+            ..FieldProps::default()
+        };
+        d.add_form_field(page, NewField::Text, [300.0, 100.0, 450.0, 120.0], &props)
+            .unwrap();
+    }
+    d.set_field_values(&[("salary".into(), "FIELD-SECRET".into())])
+        .unwrap();
+    let xfa = d.inner_mut().add_object(Stream::new(
+        dictionary! {},
+        b"<xfa:datasets><xfa:data><form><salary>XFA-SECRET</salary></form></xfa:data></xfa:datasets>"
+            .to_vec(),
+    ));
+    let form = d
+        .inner()
+        .catalog()
+        .unwrap()
+        .get(b"AcroForm")
+        .unwrap()
+        .as_reference()
+        .unwrap();
+    d.inner_mut()
+        .get_dictionary_mut(form)
+        .unwrap()
+        .set("XFA", Object::Reference(xfa));
+    d.commit().unwrap();
+    let copy = d.prepare_copy(&some_pages(&[0, 1], CopyComments::Keep)).unwrap();
+    assert!(!contains_anywhere(&copy.bytes, "FIELD-SECRET"));
+    assert!(!contains_anywhere(&copy.bytes, "XFA-SECRET"));
+    assert!(copy.facts.left_out.xfa);
+    assert_eq!(copy.facts.left_out.fields, 1);
+    // A copy that keeps every field keeps the XFA data too.
+    let all = d.prepare_copy(&CopyOptions::default()).unwrap();
+    assert!(contains_anywhere(&all.bytes, "XFA-SECRET"));
+}
+
+#[test]
+fn layers_only_the_other_pages_used_go() {
+    let mut d = four_pages();
+    let mut layers = Vec::new();
+    for (page, name) in [(0, "LAYER-KEPT"), (3, "LAYER-SECRET")] {
+        let ocg = d.inner_mut().add_object(dictionary! {
+            "Type" => "OCG", "Name" => Object::string_literal(name),
+        });
+        let img = d.inner_mut().add_object(Stream::new(
+            dictionary! {
+                "Type" => "XObject", "Subtype" => "Image", "Width" => 1, "Height" => 1,
+                "ColorSpace" => "DeviceGray", "BitsPerComponent" => 8, "OC" => ocg,
+            },
+            b"\x00".to_vec(),
+        ));
+        let pid = d.page_id(page).unwrap();
+        let content = d
+            .inner_mut()
+            .add_object(Stream::new(dictionary! {}, b"q /ImL Do Q".to_vec()));
+        let inner = d.inner_mut();
+        let p = inner.get_dictionary_mut(pid).unwrap();
+        let mut contents = match p.get(b"Contents").unwrap().clone() {
+            Object::Array(a) => a,
+            o => vec![o],
+        };
+        contents.push(Object::Reference(content));
+        p.set("Contents", contents);
+        p.set(
+            "Resources",
+            dictionary! { "XObject" => dictionary! { "ImL" => img } },
+        );
+        layers.push(Object::Reference(ocg));
+    }
+    let cat = catalog_of(&d);
+    d.inner_mut().get_dictionary_mut(cat).unwrap().set(
+        "OCProperties",
+        dictionary! {
+            "OCGs" => layers.clone(),
+            "D" => dictionary! {
+                "Order" => vec![Object::string_literal("Group"), Object::Array(layers.clone())],
+                "OFF" => vec![layers[1].clone()],
+            },
+        },
+    );
+    d.commit().unwrap();
+    let copy = d.prepare_copy(&some_pages(&[0, 1], CopyComments::Keep)).unwrap();
+    assert!(!contains_anywhere(&copy.bytes, "LAYER-SECRET"));
+    assert!(contains_anywhere(&copy.bytes, "LAYER-KEPT"));
+    assert_eq!(copy.facts.left_out.layers, 1);
+    let back = reopen(&copy.bytes);
+    let props = back
+        .inner()
+        .catalog()
+        .unwrap()
+        .get(b"OCProperties")
+        .unwrap()
+        .as_dict()
+        .unwrap()
+        .clone();
+    assert_eq!(props.get(b"OCGs").unwrap().as_array().unwrap().len(), 1);
+    let config = props.get(b"D").unwrap().as_dict().unwrap();
+    assert!(config.get(b"OFF").unwrap().as_array().unwrap().is_empty());
+    // Without the other pages, every layer goes with them.
+    let none = d.prepare_copy(&some_pages(&[1], CopyComments::Keep)).unwrap();
+    assert_eq!(none.facts.left_out.layers, 2);
+    assert!(
+        reopen(&none.bytes)
+            .inner()
+            .catalog()
+            .unwrap()
+            .get(b"OCProperties")
+            .is_err()
+    );
+}
+
+#[test]
+fn a_widget_no_page_lists_follows_the_page_it_names() {
+    let mut d = four_pages();
+    let props = FieldProps {
+        name: "orphan".into(),
+        ..FieldProps::default()
+    };
+    d.add_form_field(3, NewField::Text, [300.0, 100.0, 450.0, 120.0], &props)
+        .unwrap();
+    d.set_field_values(&[("orphan".into(), "ORPHAN-SECRET".into())])
+        .unwrap();
+    // The widget keeps its /P but the page no longer lists it.
+    let p4 = d.page_id(3).unwrap();
+    d.inner_mut().get_dictionary_mut(p4).unwrap().remove(b"Annots");
+    d.commit().unwrap();
+    let copy = d.prepare_copy(&some_pages(&[0, 1], CopyComments::Keep)).unwrap();
+    assert!(!contains_anywhere(&copy.bytes, "ORPHAN-SECRET"));
+    assert_eq!(copy.facts.left_out.fields, 1);
+    assert!(reopen(&copy.bytes).form_fields().is_empty());
+}
+
+#[test]
+fn empty_tags_of_left_out_pages_go() {
+    let mut d = four_pages();
+    d.auto_tag().unwrap();
+    let root = d
+        .inner()
+        .catalog()
+        .unwrap()
+        .get(b"StructTreeRoot")
+        .unwrap()
+        .as_reference()
+        .unwrap();
+    let p4 = d.page_id(3).unwrap();
+    let first = match d.inner().get_dictionary(root).unwrap().get(b"K").unwrap().clone() {
+        Object::Array(a) => a[0].as_reference().unwrap(),
+        o => o.as_reference().unwrap(),
+    };
+    let figure = d.inner_mut().add_object(dictionary! {
+        "Type" => "StructElem", "S" => "Figure", "P" => first, "Pg" => p4,
+        "Alt" => Object::string_literal("ALT-EMPTY-SECRET"),
+    });
+    let inner = d.inner_mut();
+    let e = inner.get_dictionary_mut(first).unwrap();
+    let mut kids = match e.get(b"K").ok().cloned() {
+        Some(Object::Array(a)) => a,
+        Some(o) => vec![o],
+        None => Vec::new(),
+    };
+    kids.push(Object::Reference(figure));
+    e.set("K", kids);
+    d.commit().unwrap();
+    let copy = d.prepare_copy(&some_pages(&[0, 1], CopyComments::Keep)).unwrap();
+    assert!(!contains_anywhere(&copy.bytes, "ALT-EMPTY-SECRET"));
+    assert!(parent_tree_is_consistent(&reopen(&copy.bytes)));
+    // On a kept page it stays.
+    let kept = d.prepare_copy(&some_pages(&[0, 3], CopyComments::Keep)).unwrap();
+    assert!(contains_anywhere(&kept.bytes, "ALT-EMPTY-SECRET"));
+}
+
+#[test]
+fn large_protected_files_with_cross_reference_streams_stay_protected() {
+    // More than 2000 objects, written with a cross-reference stream, so the
+    // trailer is far from the end of the file.
+    let mut d = Document::new_blank(700, 200.0, 200.0).unwrap();
+    for p in 0..700 {
+        d.add_note(p, 10.0, 10.0, "n", "Reviewer", [1.0, 0.8, 0.2])
+            .unwrap();
+    }
+    let mut doc = lopdf::Document::load_mem(&d.bytes()).unwrap();
+    assert!(doc.objects.len() > 2000);
+    doc.trailer.set(
+        "ID",
+        Object::Array(vec![
+            Object::String(b"0123456789abcdef".to_vec(), lopdf::StringFormat::Hexadecimal),
+            Object::String(b"0123456789abcdef".to_vec(), lopdf::StringFormat::Hexadecimal),
+        ]),
+    );
+    let mut modern = Vec::new();
+    doc.save_modern(&mut modern).unwrap();
+    let mut doc = lopdf::Document::load_mem(&modern).unwrap();
+    let state = EncryptionState::try_from(EncryptionVersion::V2 {
+        document: &doc,
+        owner_password: "owner-pw",
+        user_password: "user-pw",
+        key_length: 128,
+        permissions: lopdf::Permissions::all(),
+    })
+    .unwrap();
+    doc.encrypt(&state).unwrap();
+    let mut file = Vec::new();
+    doc.save_to(&mut file).unwrap();
+    let opened = Document::from_bytes(file, None, Some("user-pw")).unwrap();
+    for opts in [CopyOptions::default(), some_pages(&[0, 5], CopyComments::Remove)] {
+        let copy = opened.prepare_copy(&opts).unwrap();
+        assert!(copy.facts.protected);
+        assert!(matches!(
+            Document::from_bytes(copy.bytes.clone(), None, None),
+            Err(Error::PasswordRequired)
+        ));
+        let back = Document::from_bytes(copy.bytes, None, Some("user-pw")).unwrap();
+        assert_eq!(back.page_count(), opts.pages.map_or(700, |p| p.len()));
+    }
+}
+
+#[test]
+fn many_comments_flatten_in_one_pass_and_a_stop_ends_the_work() {
+    let mut d = Document::new_blank(150, 200.0, 200.0).unwrap();
+    for p in 0..150 {
+        for k in 0..4 {
+            let y = 10.0 + 30.0 * k as f32;
+            d.add_free_text(
+                p,
+                [10.0, y, 150.0, y + 25.0],
+                "FLAT-TEXT",
+                "Reviewer",
+                10.0,
+                [0.0, 0.0, 0.0],
+                true,
+            )
+            .unwrap();
+        }
+    }
+    let started = std::time::Instant::now();
+    let flat = d
+        .prepare_copy(&CopyOptions {
+            pages: None,
+            comments: CopyComments::Flatten,
+        })
+        .unwrap();
+    let took = started.elapsed();
+    let back = reopen(&flat.bytes);
+    assert!(back.comments().is_empty());
+    assert_eq!(back.page_count(), 150);
+    assert!(back.marks_on_page(149).iter().any(|m| m == "Flatten"));
+    assert!(contains_anywhere(&flat.bytes, "FLAT-TEXT"));
+    // 600 comments: well under the time a pass over the file for each would take.
+    assert!(took < std::time::Duration::from_secs(30), "{took:?}");
+    let stop = std::sync::atomic::AtomicBool::new(true);
+    assert!(
+        d.copy_source()
+            .prepare_until(&some_pages(&[0], CopyComments::Flatten), &stop)
+            .is_err()
+    );
+}

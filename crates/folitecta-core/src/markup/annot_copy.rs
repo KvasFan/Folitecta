@@ -14,6 +14,8 @@ use crate::util::{num, rect_of};
 pub struct AnnotSnapshot {
     root: Dictionary,
     objects: BTreeMap<ObjectId, Object>,
+    /// Copied from a protected document: refused by documents that are not.
+    protected: bool,
 }
 
 /// Keys that point back into the source page tree or to other annotations.
@@ -120,10 +122,16 @@ impl Document {
                 objects.insert(id, obj.clone());
             }
         }
-        Ok(AnnotSnapshot { root, objects })
+        Ok(AnnotSnapshot {
+            root,
+            objects,
+            protected: self.is_protected(),
+        })
     }
 
-    /// Insert a snapshot on `page`, shifted by `(dx, dy)` points. Returns the new annotation id.
+    /// Insert a snapshot on `page`, shifted by `(dx, dy)` points. Returns the
+    /// new annotation id. A comment of a protected document is refused by a
+    /// document that is not protected.
     pub fn paste_annotation_snapshot(
         &mut self,
         page: usize,
@@ -131,6 +139,9 @@ impl Document {
         dx: f32,
         dy: f32,
     ) -> Result<ObjectId> {
+        if snap.protected && !self.is_protected() {
+            return Err(Error::ProtectedSource);
+        }
         let page_id = self.page_id(page)?;
         self.begin_edit();
         let mut map = BTreeMap::new();

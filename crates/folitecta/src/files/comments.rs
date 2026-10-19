@@ -101,7 +101,7 @@ pub fn import_comment_data(st: AppState, data: Vec<u8>) {
                 action: crate::state::ConfirmAction::ImportCommentsSkipping(std::sync::Arc::new(data)),
             });
         }
-        Some(Err(e)) => st.error(e),
+        Some(Err(e)) => st.core_error(&e),
         None => {}
     }
 }
@@ -122,7 +122,7 @@ pub fn import_drawable_comments(st: AppState, data: &[u8]) {
                 "",
             );
         }
-        Some(Err(e)) => st.error(e),
+        Some(Err(e)) => st.core_error(&e),
         None => st.set_dialog(Dialog::None),
     }
 }

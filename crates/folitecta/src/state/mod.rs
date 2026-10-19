@@ -35,6 +35,9 @@ pub struct CompareState {
     pub filter: String,
     /// Whole text rows are highlighted.
     pub rows: bool,
+    /// The protection of the first protected document compared: the report,
+    /// which quotes their text, gets it.
+    pub protection: Option<folitecta_core::Protection>,
 }
 
 /// All reactive state, cheap to copy into closures.
@@ -365,6 +368,17 @@ impl AppState {
             err.to_string()
         };
         self.toast(ToastKind::Error, title, message);
+    }
+
+    /// The text of an error of the core in the interface language (see
+    /// [`crate::i18n::core_error`]).
+    pub fn core_error_text(&self, e: &folitecta_core::Error) -> String {
+        crate::i18n::core_error(self.lang(), e)
+    }
+
+    /// Show an error of the core (see [`AppState::core_error_text`]).
+    pub fn core_error(&self, e: &folitecta_core::Error) {
+        self.error(self.core_error_text(e));
     }
 
     pub fn close_menus(&self) {

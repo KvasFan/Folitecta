@@ -5,11 +5,15 @@ use der::Encode;
 use lopdf::{Dictionary, Object, ObjectId, Stream, StringFormat, dictionary};
 use x509_cert::Certificate;
 
+use std::path::PathBuf;
+use std::sync::Arc;
+
 use super::cms_sig::{issued_by, sign_detached_stamped, verify_detached};
 use super::id::{CertInfo, DigitalId, cert_info};
 use super::timestamp::{self, TimeStampCheck, Transport};
-use crate::document::Document;
+use crate::document::{Document, Source};
 use crate::error::{Error, Result};
+use crate::protection::encrypted;
 use crate::util::{self, deref, dict_text, fmt_num, helvetica_width, pdf_literal, rect_of};
 
 /// Where the signature goes.
@@ -176,8 +180,34 @@ const PLACEHOLDER_RANGE: &[u8] = b"[0 1000000000 1000000000 1000000000]";
 /// Space reserved for a time stamp token (bytes; written as hexadecimal).
 const TOKEN_RESERVE: usize = 16 * 1024;
 
-fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
-    hay.windows(needle.len()).position(|w| w == needle)
+use encrypted::find_bytes as find;
+
+/// A signed (or time-stamped) file, and the document it opens as.
+pub struct SignedFile {
+    /// The bytes of the file.
+    pub bytes: Vec<u8>,
+    /// For a protected document: the signed state itself, so the file opens
+    /// without asking for its password again.
+    document: Option<Document>,
+}
+
+impl SignedFile {
+    /// The file is encrypted like the protected document it was made from.
+    pub fn is_protected(&self) -> bool {
+        self.document.is_some()
+    }
+
+    /// The document the file opens as, once written at `path`: the signed
+    /// state of a protected document as it is, else the file read again.
+    pub fn into_document(self, path: Option<PathBuf>) -> Result<Document> {
+        match self.document {
+            Some(mut doc) => {
+                doc.set_path(path);
+                Ok(doc)
+            }
+            None => Document::from_bytes(self.bytes, path, None),
+        }
+    }
 }
 
 fn hex_upper(data: &[u8]) -> Vec<u8> {
@@ -344,39 +374,34 @@ impl Document {
         !self.signed_fields().is_empty()
     }
 
-    /// The current state as an incremental update of the opened file, when the
-    /// file carries signatures (saving it whole would break them).
+    /// The current state as a plain incremental update of the opened (or last
+    /// saved) file, when that file and the document carry signatures (saving
+    /// it whole would break them).
     pub(crate) fn incremental_bytes(&self) -> Result<Option<Vec<u8>>> {
-        let Some(src) = self.source.clone() else {
+        let Some(src) = &self.source else {
             return Ok(None);
         };
-        let prev = lopdf::Document::load_mem(&src)?;
-        let prev_signed = Document::from_bytes(src.to_vec(), None, None)
-            .map(|d| d.has_signatures())
-            .unwrap_or(false);
-        if !prev_signed {
+        if src.decrypted.is_some() || !src.signed || !self.has_signatures() {
             return Ok(None);
         }
-        let mut inc = lopdf::IncrementalDocument::create_from(src.to_vec(), prev);
-        let changed: Vec<(ObjectId, Object)> = self
-            .inner
-            .objects
-            .iter()
-            .filter(|(id, o)| {
-                inc.get_prev_documents()
-                    .get_object(**id)
-                    .map(|p| p != *o)
-                    .unwrap_or(true)
-            })
-            .map(|(id, o)| (*id, o.clone()))
-            .collect();
-        if changed.is_empty() {
-            return Ok(Some(src.to_vec()));
+        let prev = lopdf::Document::load_mem(&src.bytes)?;
+        if prev.xref_start == 0 {
+            return Err(Error::Invalid(
+                "the cross-reference table of the signed file was rebuilt when it was opened, so its signatures cannot be kept by an update; nothing was written".into(),
+            ));
         }
-        for (id, o) in changed {
-            inc.new_document.objects.insert(id, o);
+        let changed = encrypted::changed_objects(&self.inner.objects, &prev.objects);
+        if changed.is_empty() {
+            return Ok(Some(src.bytes.to_vec()));
+        }
+        let mut inc = lopdf::IncrementalDocument::create_from(src.bytes.to_vec(), prev);
+        for id in changed {
+            inc.new_document
+                .objects
+                .insert(id, self.inner.objects[&id].clone());
         }
         inc.new_document.max_id = inc.new_document.max_id.max(self.inner.max_id);
+        encrypted::clean_trailer(&mut inc.new_document.trailer);
         for key in [&b"Root"[..], b"Info"] {
             if let Ok(v) = self.inner.trailer.get(key) {
                 inc.new_document.trailer.set(key, v.clone());
@@ -387,13 +412,12 @@ impl Document {
         Ok(Some(out))
     }
 
-    /// A copy of the current state, with the same base of incremental
-    /// updates, to sign or time-stamp away from the document (for example on
-    /// another thread while a time stamp server answers).
+    /// A copy of the current state, with the same protection and base of
+    /// incremental updates, to sign or time-stamp away from the document (for
+    /// example on another thread while a time stamp server answers).
     pub fn work_copy(&self) -> Result<Document> {
-        let mut work =
-            Document::from_bytes(self.bytes().to_vec(), self.path().map(|p| p.to_path_buf()), None)?;
-        work.source = self.source.clone();
+        let mut work = self.duplicate()?;
+        work.set_path(self.path().map(|p| p.to_path_buf()));
         Ok(work)
     }
 
@@ -412,6 +436,18 @@ impl Document {
         opts: &SignOptions,
         tsa: Option<&mut Transport<'_>>,
     ) -> Result<Vec<u8>> {
+        Ok(self.sign_to_file(id, opts, tsa)?.bytes)
+    }
+
+    /// Sign the document with `id` (with a time stamp of the authority `tsa`
+    /// reaches): the signed file, encrypted like the document when it is
+    /// protected, and the document it opens as.
+    pub fn sign_to_file(
+        &self,
+        id: &DigitalId,
+        opts: &SignOptions,
+        tsa: Option<&mut Transport<'_>>,
+    ) -> Result<SignedFile> {
         let time = if opts.time == 0 { now_unix() } else { opts.time };
         let info = id.info();
         let cert_sizes: usize = std::iter::once(&id.certificate)
@@ -425,7 +461,6 @@ impl Document {
             "Filter" => "Adobe.PPKLite",
             "SubFilter" => "adbe.pkcs7.detached",
             "ByteRange" => vec![0.into(), 1_000_000_000i64.into(), 1_000_000_000i64.into(), 1_000_000_000i64.into()],
-            "Contents" => Object::String(vec![0u8; reserve], StringFormat::Hexadecimal),
             "M" => Object::string_literal(pdf_date(time)),
             "Name" => lopdf::text_string(&info.common_name),
             "Prop_Build" => dictionary! { "App" => dictionary! { "Name" => "Folitecta" } },
@@ -452,6 +487,12 @@ impl Document {
                 })],
             );
         }
+        // The value comes last: a reader that stops decrypting at it reads
+        // every other entry first.
+        sig.set(
+            "Contents",
+            Object::String(vec![0u8; reserve], StringFormat::Hexadecimal),
+        );
         let sig_id = work.inner.add_object(sig);
         if opts.certify > 0 {
             work.inner
@@ -460,7 +501,9 @@ impl Document {
         }
         work.attach_signature(sig_id, &info, opts, time)?;
         work.commit()?;
-        work.signed_file(reserve, |parts| sign_detached_stamped(id, parts, time, tsa))
+        work.signed_file(sig_id, reserve, |parts| {
+            sign_detached_stamped(id, parts, time, tsa)
+        })
     }
 
     /// Add a document time stamp (RFC 3161, `ETSI.RFC3161`) from the
@@ -468,6 +511,12 @@ impl Document {
     /// proven by the authority. Returns the bytes of the stamped file (an
     /// incremental update of a signed file, so its signatures stay valid).
     pub fn time_stamp(&self, tsa: &mut Transport<'_>) -> Result<Vec<u8>> {
+        Ok(self.time_stamp_to_file(tsa)?.bytes)
+    }
+
+    /// Add a document time stamp: the stamped file, encrypted like the
+    /// document when it is protected, and the document it opens as.
+    pub fn time_stamp_to_file(&self, tsa: &mut Transport<'_>) -> Result<SignedFile> {
         let mut work = self.work_copy()?;
         let sig = dictionary! {
             "Type" => "DocTimeStamp",
@@ -483,27 +532,35 @@ impl Document {
         }
         work.invisible_field(acro, sig_id, "Timestamp")?;
         work.commit()?;
-        work.signed_file(TOKEN_RESERVE, |parts| timestamp::stamp(parts, tsa))
+        work.signed_file(sig_id, TOKEN_RESERVE, |parts| timestamp::stamp(parts, tsa))
     }
 
     /// The file of this signed state: the byte range written and the
     /// signature made by `make` over the bytes around the `/Contents` value
-    /// (`reserve` bytes of zeros) put in its place.
-    fn signed_file(&self, reserve: usize, make: impl FnOnce(&[&[u8]]) -> Result<Vec<u8>>) -> Result<Vec<u8>> {
-        let mut data = match self.incremental_bytes()? {
-            Some(b) => b,
-            None => self.bytes().to_vec(),
-        };
-        // Byte range: everything except the /Contents value.
+    /// of `sig_id` (`reserve` bytes of zeros) put in its place. A protected
+    /// document is written encrypted (the value excepted) and becomes the
+    /// document the file opens as.
+    fn signed_file(
+        mut self,
+        sig_id: ObjectId,
+        reserve: usize,
+        make: impl FnOnce(&[&[u8]]) -> Result<Vec<u8>>,
+    ) -> Result<SignedFile> {
+        let file = self.file_bytes_from()?;
+        let (mut data, from) = (file.bytes, file.from);
+        // Byte range: everything except the /Contents value (searched in what
+        // this write added, never in an earlier revision).
         let zeros = vec![b'0'; reserve * 2];
         let mut needle = vec![b'<'];
         needle.extend(&zeros);
         needle.push(b'>');
-        let start =
-            find(&data, &needle).ok_or_else(|| Error::Invalid("signature placeholder not found".into()))?;
+        let start = from
+            + find(&data[from..], &needle)
+                .ok_or_else(|| Error::Invalid("signature placeholder not found".into()))?;
         let end = start + needle.len();
-        let range_pos = find(&data, PLACEHOLDER_RANGE)
-            .ok_or_else(|| Error::Invalid("byte range placeholder not found".into()))?;
+        let range_pos = from
+            + find(&data[from..], PLACEHOLDER_RANGE)
+                .ok_or_else(|| Error::Invalid("byte range placeholder not found".into()))?;
         let ranges = [0usize, start, end, data.len() - end];
         let mut text = format!("[{} {} {} {}]", ranges[0], ranges[1], ranges[2], ranges[3]).into_bytes();
         if text.len() > PLACEHOLDER_RANGE.len() {
@@ -522,7 +579,51 @@ impl Document {
             ));
         }
         data[start + 1..start + 1 + hex.len()].copy_from_slice(&hex);
-        Ok(data)
+        let Some(protection) = self.protection().cloned() else {
+            return Ok(SignedFile {
+                bytes: data,
+                document: None,
+            });
+        };
+        // The signed state of a protected document is the document the file
+        // opens as: its signature dictionary gets what the file has.
+        let mut value = cms;
+        value.resize(reserve, 0);
+        let fill = |objects: &mut std::collections::BTreeMap<ObjectId, Object>| {
+            if let Some(Ok(d)) = objects.get_mut(&sig_id).map(Object::as_dict_mut) {
+                d.set(
+                    "ByteRange",
+                    ranges
+                        .iter()
+                        .map(|v| Object::Integer(*v as i64))
+                        .collect::<Vec<_>>(),
+                );
+                d.set(
+                    "Contents",
+                    Object::String(value.clone(), StringFormat::Hexadecimal),
+                );
+            }
+        };
+        let mut next = file
+            .next
+            .ok_or_else(|| Error::ProtectionNotKept("the signed file has no base for its updates".into()))?;
+        fill(&mut self.inner.objects);
+        fill(Arc::make_mut(&mut next.objects));
+        self.inner.max_id = self.inner.max_id.max(next.skeleton.max_id);
+        let bytes = Arc::new(data.clone());
+        let doc = Document::signed_state(
+            self,
+            protection,
+            Source {
+                bytes,
+                signed: true,
+                decrypted: Some(Arc::new(next)),
+            },
+        )?;
+        Ok(SignedFile {
+            bytes: data,
+            document: Some(doc),
+        })
     }
 
     /// Put the signature dictionary into a field and draw its appearance.
@@ -719,9 +820,37 @@ impl Document {
         Ok(self.inner.add_object(stream))
     }
 
+    /// The bytes signatures are checked against: the file as it was opened or
+    /// last saved (encrypted when it is), else the current state.
+    fn signed_bytes(&self) -> Arc<Vec<u8>> {
+        self.source
+            .as_ref()
+            .map(|s| s.bytes.clone())
+            .unwrap_or_else(|| self.bytes())
+    }
+
+    /// The object that holds the signature dictionary of field `field_id`.
+    fn signature_holder(&self, field_id: ObjectId) -> ObjectId {
+        self.inner
+            .get_dictionary(field_id)
+            .ok()
+            .and_then(|d| d.get(b"V").ok())
+            .and_then(|v| v.as_reference().ok())
+            .unwrap_or(field_id)
+    }
+
     /// Validate every signature against the file as it was opened or saved.
     pub fn validate_signatures(&self, trusted: &[Certificate]) -> Vec<SignatureStatus> {
-        let data = self.source.clone().unwrap_or_else(|| self.bytes());
+        let data = self.signed_bytes();
+        let state = match (&self.source, self.protection()) {
+            (
+                Some(Source {
+                    decrypted: Some(_), ..
+                }),
+                Some(p),
+            ) => Some(p.state()),
+            _ => None,
+        };
         let doc = &self.inner;
         let pages = self.page_ids();
         let mut out = Vec::new();
@@ -797,11 +926,11 @@ impl Document {
                         .collect()
                 })
                 .unwrap_or_default();
-            let contents = match sig.get(b"Contents").ok().map(|c| deref(doc, c)) {
+            let model_contents = match sig.get(b"Contents").ok().map(|c| deref(doc, c)) {
                 Some(Object::String(b, _)) => b.clone(),
                 _ => Vec::new(),
             };
-            if ranges.len() != 4 || contents.is_empty() {
+            if ranges.len() != 4 || model_contents.is_empty() {
                 status
                     .problems
                     .push("the signature has no byte range or contents".into());
@@ -818,6 +947,21 @@ impl Document {
                 out.push(status);
                 continue;
             }
+            // The value is the one the byte range leaves out, and that gap is
+            // exactly the /Contents string of this signature: a gap moved or
+            // widened (to hide other bytes) makes the signature invalid.
+            let holder = self.signature_holder(field_id);
+            let contents = encrypted::bound_value(&data, (a + b, c), holder)
+                .map(|raw| encrypted::readable_value(state, holder, &raw))
+                .filter(|v| *v == model_contents);
+            let Some(contents) = contents else {
+                status
+                    .problems
+                    .push("the bytes the byte range leaves out are not the value of this signature".into());
+                status.checks = checks_of(&status, false, false);
+                out.push(status);
+                continue;
+            };
             status.revision_len = c + d;
             status.covers_document = c + d == data.len();
             let parts = [&data[a..a + b], &data[c..c + d]];
@@ -963,9 +1107,10 @@ impl Document {
         }
     }
 
-    /// Bytes of the revision a signature covers (the document as it was signed).
+    /// Bytes of the revision a signature covers (the document as it was
+    /// signed; encrypted like the file when it is).
     pub fn signed_revision(&self, field: &str) -> Result<Vec<u8>> {
-        let data = self.source.clone().unwrap_or_else(|| self.bytes());
+        let data = self.signed_bytes();
         let (_, _, sig) = self
             .signed_fields()
             .into_iter()
@@ -1052,8 +1197,8 @@ impl Document {
                 }
             }
         }
-        // The file no longer needs incremental updates.
-        self.source = None;
+        // Without signatures the document is written whole (the base of
+        // updates stays, for an undo that brings them back).
         signed.len()
     }
 }
@@ -1068,5 +1213,182 @@ impl Document {
             .filter(|f| doc.get_dictionary(f.id).map(|d| !d.has(b"V")).unwrap_or(false))
             .map(|f| f.name)
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use lopdf::encryption::crypt_filters::{Aes256CryptFilter, CryptFilter};
+    use lopdf::{EncryptionState, EncryptionVersion};
+
+    use super::*;
+    use crate::security::{EncryptionProfile, Protection};
+
+    fn rc4_protection(doc: &mut Document) -> Protection {
+        let id = vec![5u8; 16];
+        doc.inner.trailer.set(
+            "ID",
+            Object::Array(vec![
+                Object::String(id.clone(), StringFormat::Hexadecimal),
+                Object::String(id, StringFormat::Hexadecimal),
+            ]),
+        );
+        let state = EncryptionState::try_from(EncryptionVersion::V2 {
+            document: &doc.inner,
+            owner_password: "owner",
+            user_password: "pw",
+            key_length: 128,
+            permissions: Default::default(),
+        })
+        .unwrap();
+        Protection::opened(state, doc.inner.trailer.get(b"ID").ok().cloned(), None, None)
+    }
+
+    /// A blank document protected by `kind` (0 AES-128, 1 AES-256, 2 RC4).
+    fn protected_blank(kind: usize) -> Document {
+        let mut doc = Document::new_blank(1, 200.0, 200.0).unwrap();
+        let p = match kind {
+            2 => rc4_protection(&mut doc),
+            _ => {
+                let profile = EncryptionProfile::ALL[1 - kind];
+                Protection::new("pw", "owner", Default::default(), profile, &mut doc.inner).unwrap()
+            }
+        };
+        doc.inherit_protection(&p);
+        doc
+    }
+
+    #[test]
+    fn signature_dictionaries_are_read_back_whole() {
+        // What the PDF library's reader does with a signature value it cannot
+        // decrypt (it stops the dictionary there) is repaired whatever the
+        // encryption and wherever the value is.
+        for kind in 0..3 {
+            for contents_last in [false, true] {
+                let mut doc = protected_blank(kind);
+                let mut sig = dictionary! {
+                    "Type" => "Sig",
+                    "Filter" => "Adobe.PPKLite",
+                    "SubFilter" => "adbe.pkcs7.detached",
+                    "ByteRange" => vec![0.into(), 1_000_000_000i64.into(), 1_000_000_000i64.into(), 1_000_000_000i64.into()],
+                };
+                let contents = Object::String(vec![0u8; 64], StringFormat::Hexadecimal);
+                if !contents_last {
+                    sig.set("Contents", contents.clone());
+                }
+                sig.set("Reason", Object::string_literal("Secret Reason"));
+                sig.set("M", Object::string_literal("D:20261019120000Z"));
+                if contents_last {
+                    sig.set("Contents", contents);
+                }
+                let sig_id = doc.inner.add_object(sig);
+                let acro = doc.ensure_acroform().unwrap();
+                doc.invisible_field(acro, sig_id, "Signature").unwrap();
+                doc.commit().unwrap();
+                let file = doc
+                    .signed_file(sig_id, 64, |_| Ok(vec![0x30, 3, 2, 1, 5]))
+                    .unwrap();
+                assert!(!file.bytes.windows(13).any(|w| w == b"Secret Reason"));
+                let back = Document::from_bytes(file.bytes, None, Some("pw")).unwrap();
+                let d = back.inner.get_dictionary(sig_id).unwrap();
+                let text = |k: &[u8]| d.get(k).unwrap().as_str().unwrap().to_vec();
+                assert_eq!(
+                    text(b"Reason"),
+                    b"Secret Reason",
+                    "kind {kind}, last {contents_last}"
+                );
+                assert_eq!(text(b"M"), b"D:20261019120000Z");
+                let mut expected = vec![0x30, 3, 2, 1, 5];
+                expected.resize(64, 0);
+                assert_eq!(text(b"Contents"), expected);
+            }
+        }
+    }
+
+    #[test]
+    fn values_encrypted_by_their_producer_are_read() {
+        // Another producer may encrypt the value of a signature: it is read
+        // decrypted, and the signature validates.
+        let id = DigitalId::create_self_signed(
+            &crate::digsig::IdentityInfo {
+                name: "Producer".into(),
+                ..Default::default()
+            },
+            crate::digsig::KeyKind::EcP256,
+            1,
+        )
+        .unwrap();
+        let signed = protected_blank(1).sign(&id, &SignOptions::default()).unwrap();
+        let back = Document::from_bytes(signed.clone(), None, Some("pw")).unwrap();
+        let (field_id, _, sig) = back.signed_fields()[0].clone();
+        let holder = back.signature_holder(field_id);
+        let (start, end) = encrypted::byte_range(&sig)
+            .and_then(encrypted::byte_range_gap)
+            .unwrap();
+        let value = encrypted::hex_in_gap(&signed, start, end).unwrap();
+        let state = back.protection().unwrap().state();
+        let filter = state.get_string_filter();
+        let key = filter.compute_key(state.file_encryption_key(), holder).unwrap();
+        // The vector and the padding take 32 bytes of the room.
+        let n = (value.len() - 32) / 16 * 16;
+        let cipher = loop {
+            let c = filter.encrypt(&key, &value[..n]).unwrap();
+            if c[0] != 0x30 {
+                break c;
+            }
+        };
+        let hex = hex_upper(&cipher);
+        let mut changed = signed.clone();
+        changed[start + 1..start + 1 + hex.len()].copy_from_slice(&hex);
+        for b in &mut changed[start + 1 + hex.len()..end - 1] {
+            *b = b' ';
+        }
+        let v = Document::from_bytes(changed, None, Some("pw"))
+            .unwrap()
+            .validate_signatures(&[]);
+        assert!(v[0].valid && v[0].covers_document, "{:?}", v[0].problems);
+    }
+
+    #[test]
+    fn a_protection_that_cannot_encrypt_stops_the_save() {
+        let mut doc = Document::new_blank(1, 200.0, 200.0).unwrap();
+        doc.inner.trailer.set(
+            "ID",
+            Object::Array(vec![
+                Object::String(vec![1; 16], StringFormat::Hexadecimal),
+                Object::String(vec![1; 16], StringFormat::Hexadecimal),
+            ]),
+        );
+        // A 128-bit key for an AES-256 filter: nothing can be encrypted.
+        let mut filters: BTreeMap<Vec<u8>, std::sync::Arc<dyn CryptFilter>> = BTreeMap::new();
+        filters.insert(b"StdCF".to_vec(), std::sync::Arc::new(Aes256CryptFilter));
+        let state = EncryptionState::try_from(EncryptionVersion::V4 {
+            document: &doc.inner,
+            encrypt_metadata: true,
+            crypt_filters: filters,
+            stream_filter: b"StdCF".to_vec(),
+            string_filter: b"StdCF".to_vec(),
+            owner_password: "o",
+            user_password: "u",
+            permissions: Default::default(),
+        })
+        .unwrap();
+        let p = Protection::opened(state, doc.inner.trailer.get(b"ID").ok().cloned(), None, None);
+        doc.inherit_protection(&p);
+        doc.add_note(0, 20.0, 180.0, "kept", "Ann", [1.0, 1.0, 0.0])
+            .unwrap();
+        let dir = std::env::temp_dir().join(format!("folitecta-noprotect-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("existing.pdf");
+        std::fs::write(&target, b"old bytes").unwrap();
+        assert!(matches!(doc.save_as(&target), Err(Error::ProtectionNotKept(_))));
+        assert_eq!(std::fs::read(&target).unwrap(), b"old bytes");
+        assert!(doc.is_dirty());
+        let copy = dir.join("copy.pdf");
+        assert!(matches!(doc.save_copy(&copy), Err(Error::ProtectionNotKept(_))));
+        assert!(!copy.exists());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

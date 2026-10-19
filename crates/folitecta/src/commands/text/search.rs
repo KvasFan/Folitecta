@@ -208,17 +208,14 @@ pub fn open_other(st: AppState, hit: OtherHit) {
             let data = st
                 .read_active(|t| {
                     let a = t.doc.attachments().into_iter().find(|a| a.name == name)?;
-                    t.doc.attachment_data(&a).ok()
+                    Some((t.doc.attachment_data(&a).ok()?, t.doc.protection().cloned()))
                 })
                 .flatten();
-            match data.map(|d| Document::from_bytes(d, None, None)) {
-                Some(Ok(mut doc)) => {
-                    doc.set_name_hint(&name);
-                    crate::files::open_document_tab(st, doc);
+            // An attachment of a protected document is protected like it.
+            if let Some((data, protection)) = data {
+                if crate::files::open_embedded_pdf(st, data, &name, protection) {
                     st.navigate(page, true);
                 }
-                Some(Err(e)) => st.error(e),
-                None => {}
             }
         }
         FoundIn::Link { page, .. } => st.navigate(page, true),

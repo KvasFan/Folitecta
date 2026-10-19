@@ -9,9 +9,10 @@
 //! used again later is another session), and a lock file it holds while it
 //! runs, so the copies of a window that ended are known at once. Copies are
 //! written to a temporary file and renamed, one checkpoint at a time, on a
-//! thread of their own. Documents opened from encrypted files are not copied
-//! (the copy would be readable without the password); the copy of a signed
-//! document is an incremental update, so its signatures stay valid.
+//! thread of their own. Protected documents (opened from encrypted files, or
+//! made from protected documents) are not copied: the copy would be readable
+//! without the password. The copy of a signed document is an incremental
+//! update, so its signatures stay valid.
 
 use std::collections::HashMap;
 use std::fs::{File, TryLockError};
@@ -183,6 +184,8 @@ struct Open {
     tab: u64,
     /// It has changes and may be copied.
     keep: bool,
+    /// It is protected: never copied.
+    protected: bool,
     title: String,
     path: Option<PathBuf>,
     pages: usize,
@@ -209,13 +212,18 @@ pub fn checkpoint(st: AppState) {
             .read()
             .iter()
             .map(|t| {
-                let keep = t.doc.is_dirty() && !t.doc.from_encrypted_file();
+                // Protected documents are never copied plain.
+                let protected = t.doc.is_protected() || t.doc.from_encrypted_file();
+                let keep = t.doc.is_dirty() && !protected;
                 let state = t.doc.bytes();
-                let copy = (keep && changed(&written, t.id, &state)).then(|| t.doc.copy_bytes());
+                let copy = (keep && changed(&written, t.id, &state))
+                    .then(|| t.doc.copy_bytes())
+                    .flatten();
                 let origin = origins.get(&t.id);
                 Open {
                     tab: t.id,
                     keep,
+                    protected,
                     title: t.title(),
                     path: t
                         .doc
@@ -242,7 +250,8 @@ fn write_copies(dir: &Path, open: Vec<Open>) {
     let notes = entries(dir);
     for d in &open {
         let s = stem(me, d.tab);
-        if !d.keep {
+        // A protected document is never written plain, whatever else says.
+        if !d.keep || d.protected {
             remove(dir, &s);
             lock(&WRITTEN).remove(&d.tab);
             continue;
@@ -456,6 +465,30 @@ mod tests {
         assert!(!running(&dir, other));
         assert!(!running(&dir, "no-such-session"));
         assert!(running(&dir, session()));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn protected_documents_are_never_copied() {
+        let dir = std::env::temp_dir().join(format!("folitecta-recovery-protected-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let state = folitecta_core::Document::new_blank(1, 100.0, 100.0)
+            .unwrap()
+            .bytes();
+        let open = |tab: u64, protected: bool| Open {
+            tab,
+            keep: true,
+            protected,
+            title: "doc".into(),
+            path: None,
+            pages: 1,
+            state: state.clone(),
+            copy: None,
+        };
+        write_copies(&dir, vec![open(990_001, true), open(990_002, false)]);
+        let copy = |tab| dir.join(format!("{}.pdf", stem(session(), tab)));
+        assert!(!copy(990_001).exists(), "a protected document was copied");
+        assert!(copy(990_002).exists());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

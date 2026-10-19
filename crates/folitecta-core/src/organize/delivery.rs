@@ -16,21 +16,36 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use lopdf::{Dictionary, Object, ObjectId};
 
-use crate::document::{Document, serialize};
+use crate::document::{Document, Source, serialize};
 use crate::error::{Error, Result};
 use crate::flatten::FlattenScope;
 use crate::links::LinkTarget;
 use crate::outline::OutlineItem;
+use crate::security::Protection;
 use crate::util::{self, deref};
 
 /// A snapshot of a document to prepare copies from on another thread: its
 /// current bytes, the file it was opened from (for incremental updates of
 /// signed files) and its protection. Cheap to take.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct CopySource {
     bytes: Arc<Vec<u8>>,
-    source: Option<Arc<Vec<u8>>>,
-    protection: Option<lopdf::EncryptionState>,
+    source: Option<Source>,
+    protection: Option<Protection>,
+    /// The highest object number the document gave out (an update of its
+    /// file must not reuse one).
+    max_id: u32,
+}
+
+impl std::fmt::Debug for CopySource {
+    // Without the decrypted objects of the file it was opened from.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CopySource")
+            .field("bytes", &self.bytes.len())
+            .field("source", &self.source.as_ref().map(|s| s.bytes.len()))
+            .field("protection", &self.protection)
+            .finish()
+    }
 }
 
 /// What happens to the comments of a copy.
@@ -330,7 +345,8 @@ impl Document {
         CopySource {
             bytes: self.bytes(),
             source: self.source.clone(),
-            protection: self.protection_state().cloned(),
+            protection: self.protection().cloned(),
+            max_id: self.inner.max_id,
         }
     }
 
@@ -343,7 +359,8 @@ impl Document {
     /// whose key stream is the same for every file written with its key: two
     /// versions of it side by side let a reader compare them.
     pub fn rc4_protection(&self) -> bool {
-        self.protection_state().is_some_and(|s| {
+        self.protection().is_some_and(|p| {
+            let s = p.state();
             s.get_stream_filter().method() == b"V2" || s.get_string_filter().method() == b"V2"
         })
     }
@@ -1051,6 +1068,7 @@ impl CopySource {
         let mut work = Document::from_bytes(self.bytes.to_vec(), None, None)?;
         work.source = self.source.clone();
         work.set_protection(self.protection.clone());
+        work.inner.max_id = work.inner.max_id.max(self.max_id);
         let pages = checked_pages(opts.pages.as_deref(), work.page_count())?;
         let changes = pages.is_some() || opts.comments != CopyComments::Keep;
         let incremental = !changes && work.updates_incrementally();
@@ -1107,7 +1125,7 @@ impl CopySource {
         // FOL-L036: protected with the kept encryption of the document (the
         // way it is saved), or refused; never a plain copy.
         let protected = self.protection.is_some();
-        let bytes = match work.file_bytes() {
+        let bytes = match work.file_bytes_from().map(|f| f.bytes) {
             Ok(b) if !protected || carries_encryption(&b) => b,
             Ok(_) => return Err(Error::Invalid(PROTECTION_REFUSED.into())),
             Err(_) if protected => return Err(Error::Invalid(PROTECTION_REFUSED.into())),
@@ -1119,11 +1137,17 @@ impl CopySource {
             Arc::new(bytes.clone())
         };
         if incremental && signed > 0 {
-            let copy = Document::from_bytes(bytes.clone(), None, None)?;
-            let intact = copy.validate_signatures(&[]).iter().filter(|s| s.valid).count();
+            // Checked when the copy opens without a password.
+            let intact = match protected {
+                false => {
+                    let copy = Document::from_bytes(bytes.clone(), None, None)?;
+                    Some(copy.validate_signatures(&[]).iter().filter(|s| s.valid).count())
+                }
+                true => None,
+            };
             signatures = CopySignatures::Kept {
                 count: signed,
-                intact: Some(intact),
+                intact,
             };
         }
         Ok(PreparedCopy {

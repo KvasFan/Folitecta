@@ -282,6 +282,7 @@ impl Document {
         behind: bool,
         layer: Option<ObjectId>,
     ) -> Result<()> {
+        self.check_import_from(other)?;
         self.check(pages)?;
         let n = other.page_count();
         if n == 0 {

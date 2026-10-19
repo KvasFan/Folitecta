@@ -102,7 +102,13 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     )
     .and_then(|mut d| {
         d.add_note(1, 40.0, 500.0, "MAIL-NOTE", "Reviewer", [1.0, 0.8, 0.2])?;
-        d.save_encrypted(&path, "user-pw", "owner-pw", SecurityPermissions::default())
+        d.save_encrypted(
+            &path,
+            "user-pw",
+            "owner-pw",
+            SecurityPermissions::default(),
+            folitecta_core::EncryptionProfile::Aes128,
+        )
     });
     crate::files::open_path(st, path.clone(), Some("user-pw"));
     pause(600).await;

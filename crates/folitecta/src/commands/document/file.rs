@@ -39,8 +39,8 @@ fn duplicate_tab(st: AppState) {
     if no_doc(st) {
         return;
     }
-    let bytes = st.read_active(|t| t.doc.bytes()).unwrap();
-    match folitecta_core::Document::from_bytes(bytes.as_ref().clone(), None, None) {
+    // The copy keeps the protection and the signatures of the document.
+    match st.read_active(|t| t.doc.duplicate()).unwrap() {
         Ok(doc) => {
             let id = st.alloc_id();
             st.docs_mut().push(crate::state::DocTab::new(id, doc));

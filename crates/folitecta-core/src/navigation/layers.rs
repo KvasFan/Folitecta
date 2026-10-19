@@ -1053,7 +1053,8 @@ impl Document {
 
     /// A new document with only some layer content: the given layers (their
     /// content only, without the content that is not on a layer), or the
-    /// visible content when `only` is `None`.
+    /// visible content when `only` is `None`. Protected like this document
+    /// when it is.
     pub fn extract_layers(
         &self,
         only: Option<&HashSet<ObjectId>>,
@@ -1078,7 +1079,9 @@ impl Document {
         copy.drop_layers(&all)?;
         copy.commit()?;
         let bytes = copy.bytes().to_vec();
-        Document::from_bytes(bytes, None, None)
+        let mut out = Document::from_bytes(bytes, None, None)?;
+        out.protect_like(self);
+        Ok(out)
     }
 
     /// Merge layers into `target`: their content, annotations and XObjects
@@ -1158,6 +1161,7 @@ impl Document {
         behind: bool,
         name: &str,
     ) -> Result<ObjectId> {
+        self.check_import_from(other)?;
         let name = name.trim();
         if name.is_empty() {
             return Err(Error::Invalid("the layer needs a name".into()));

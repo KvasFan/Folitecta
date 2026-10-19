@@ -409,17 +409,40 @@ pub(super) fn Unsaved(tab: u64, then: crate::state::AfterUnsaved) -> Element {
 }
 
 #[component]
-pub(super) fn Password(path: String) -> Element {
+pub(super) fn Password(target: PasswordTarget, retry: bool) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
     let pw = use_signal(String::new);
-    let p = std::path::PathBuf::from(path.clone());
+    let (body, label, value) = match &target {
+        PasswordTarget::File(path) => ("dialog.password.body", "dialog.file", path.display().to_string()),
+        PasswordTarget::Replace { path, .. } => (
+            "dialog.password.body_revert",
+            "dialog.file",
+            path.display().to_string(),
+        ),
+        PasswordTarget::Revision { field, .. } => {
+            ("dialog.password.body_revision", "sig.field", field.clone())
+        }
+    };
     rsx! {
         Frame { title: t(lang, "dialog.password.title"),
-            on_ok: move |_| { let password = pw(); st.set_dialog(Dialog::None); files::open_path(st, p.clone(), Some(&password)); },
-            p { "{t(lang, \"dialog.password.body\")}" }
-            div { class: "kv", span { class: "k", "{t(lang, \"dialog.file\")}" } span { class: "v", "{path}" } }
-            div { class: "field", label { "{t(lang, \"dialog.password.field\")}" } input { r#type: "password", autofocus: true, value: "{pw}", oninput: move |e| { let mut s = pw; s.set(e.value()); } } }
+            on_ok: move |_| {
+                let password = pw();
+                st.set_dialog(Dialog::None);
+                match target.clone() {
+                    PasswordTarget::File(path) => files::open_path(st, path, Some(&password)),
+                    PasswordTarget::Replace { path, tab } => files::open_in_place_of(st, tab, path, Some(&password)),
+                    PasswordTarget::Revision { tab, field } => {
+                        crate::commands::signatures::open_signed_revision_with(st, tab, &field, Some(&password))
+                    }
+                }
+            },
+            p { "{t(lang, body)}" }
+            if retry {
+                p { class: "hint warn password-wrong", "{t(lang, \"dialog.password.wrong\")}" }
+            }
+            div { class: "kv", span { class: "k", "{t(lang, label)}" } span { class: "v", "{value}" } }
+            div { class: "field", label { "{t(lang, \"dialog.password.field\")}" } input { class: "password-input", r#type: "password", autofocus: true, value: "{pw}", oninput: move |e| { let mut s = pw; s.set(e.value()); } } }
         }
     }
 }

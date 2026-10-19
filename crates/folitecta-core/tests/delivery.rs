@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use folitecta_core::digsig::{DigitalId, IdentityInfo, KeyKind, SignOptions};
 use folitecta_core::{
-    CopyComments, CopyOptions, CopySignatures, Document, Error, FieldProps, LeftOut, LinkTarget, NewField,
-    SecurityPermissions, TextLayout,
+    CopyComments, CopyOptions, CopySignatures, Document, EncryptionProfile, Error, FieldProps, LeftOut,
+    LinkTarget, NewField, SecurityPermissions, TextLayout,
 };
 use lopdf::encryption::crypt_filters::{Aes256CryptFilter, CryptFilter, Rc4CryptFilter};
 use lopdf::{Dictionary, EncryptionState, EncryptionVersion, Object, Stream, dictionary};
@@ -549,7 +549,13 @@ fn a_protected_document_gives_protected_copies() {
         .unwrap();
     let aes128 = dir.join("aes128.pdf");
     plain
-        .save_encrypted(&aes128, "user-pw", "owner-pw", no_printing())
+        .save_encrypted(
+            &aes128,
+            "user-pw",
+            "owner-pw",
+            no_printing(),
+            EncryptionProfile::Aes128,
+        )
         .unwrap();
     let files = [
         ("AES-128", std::fs::read(&aes128).unwrap()),
@@ -588,7 +594,13 @@ fn a_protected_document_gives_protected_copies() {
     // Restrictions without an open password: the copy keeps its encryption too.
     let owner_only = dir.join("owner-only.pdf");
     plain
-        .save_encrypted(&owner_only, "", "owner-pw", no_printing())
+        .save_encrypted(
+            &owner_only,
+            "",
+            "owner-pw",
+            no_printing(),
+            EncryptionProfile::Aes128,
+        )
         .unwrap();
     let doc = Document::open(&owner_only).unwrap();
     assert!(doc.is_protected());
@@ -703,7 +715,8 @@ fn signatures_stay_only_on_the_unchanged_signed_file() {
         });
     assert!(form.is_none_or(|f| !f.has(b"SigFlags")));
 
-    // Protected and signed: written whole and encrypted, so the signature goes.
+    // Protected and signed: an encrypted update of the file, so the signature
+    // stays (checked once the copy is opened with its password).
     let mut prot = lopdf::Document::load_mem(&signed).unwrap();
     let state = {
         let mut filters: BTreeMap<Vec<u8>, Arc<dyn CryptFilter>> = BTreeMap::new();
@@ -726,10 +739,33 @@ fn signatures_stay_only_on_the_unchanged_signed_file() {
     let doc = Document::from_bytes(file.clone(), None, Some("user-pw")).unwrap();
     assert!(doc.has_signatures());
     let copy = doc.prepare_copy(&CopyOptions::default()).unwrap();
-    assert_eq!(copy.facts.signatures, CopySignatures::Removed(1));
+    assert_eq!(
+        copy.facts.signatures,
+        CopySignatures::Kept {
+            count: 1,
+            intact: None
+        }
+    );
     assert!(copy.facts.protected);
+    assert!(copy.bytes.starts_with(&file), "an update of the signed file");
     assert_eq!(permissions_of(&copy.bytes), permissions_of(&file));
-    let back = Document::from_bytes(copy.bytes, None, Some("user-pw")).unwrap();
+    let back = Document::from_bytes(copy.bytes.clone(), None, Some("user-pw")).unwrap();
+    assert!(back.has_signatures());
+    // The test file was encrypted after signing, so its signature is broken;
+    // the copy keeps it exactly as it was.
+    let valid = |d: &Document| {
+        d.validate_signatures(&[])
+            .iter()
+            .map(|v| v.valid)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(valid(&back), valid(&doc));
+    // Some pages only: written whole and encrypted, so the signature goes.
+    let cut = doc.prepare_copy(&some_pages(&[0], CopyComments::Keep)).unwrap();
+    assert_eq!(cut.facts.signatures, CopySignatures::Removed(1));
+    assert!(cut.facts.protected);
+    assert_eq!(permissions_of(&cut.bytes), permissions_of(&file));
+    let back = Document::from_bytes(cut.bytes, None, Some("user-pw")).unwrap();
     assert!(!back.has_signatures());
 }
 

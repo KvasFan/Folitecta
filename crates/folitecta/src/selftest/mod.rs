@@ -433,6 +433,7 @@ mod steps_ocr;
 mod steps_panes;
 mod steps_pictures;
 mod steps_policies;
+mod steps_protection;
 mod steps_qat;
 mod steps_recovery;
 mod steps_review;
@@ -503,6 +504,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "qat" => Box::pin(steps_qat::run(cx)),
             "email" => Box::pin(steps_email::run(cx)),
             "timestamp" => Box::pin(steps_timestamp::run(cx)),
+            "protection" => Box::pin(steps_protection::run(cx)),
             "frames" => Box::pin(steps_frames::run(cx)),
             "unicode" => Box::pin(steps_unicode::run(cx)),
             _ => Box::pin(async { cx.record("unknown step", false, name.to_string()) }),
@@ -529,7 +531,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
 }
 
 /// The interaction steps in the order of a full run.
-const STEPS: [&str; 25] = [
+const STEPS: [&str; 26] = [
     "tools",
     "review",
     "panes",
@@ -553,6 +555,7 @@ const STEPS: [&str; 25] = [
     "qat",
     "email",
     "timestamp",
+    "protection",
     "frames",
     "unicode",
 ];
@@ -929,6 +932,16 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
             },
         ),
         ("timestamp", Dialog::TimeStamp),
+        (
+            "password",
+            Dialog::Password {
+                target: crate::state::PasswordTarget::Replace {
+                    path: "signed.pdf".into(),
+                    tab: 0,
+                },
+                retry: true,
+            },
+        ),
         ("digital-ids", Dialog::DigitalIds),
         ("trusted-certs", Dialog::TrustedCerts),
         ("signature-library", Dialog::SignatureLibrary),

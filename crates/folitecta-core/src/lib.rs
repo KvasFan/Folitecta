@@ -76,7 +76,7 @@ pub use outline::{BookmarkTarget, DestView, OutlineItem};
 pub use pagetools::{Sides, TRANSITIONS};
 pub use render::{RenderOpts, RenderService, RenderedPage, Renderer};
 pub use scripts::ScriptInfo;
-pub use security::SecurityPermissions;
+pub use security::{EncryptionInfo, EncryptionProfile, PasswordIssue, Protection, SecurityPermissions};
 pub use signmarks::SignatureMark;
 pub use spelling::{DictionaryFile, Misspelling, SpellOptions, SpellPlace, SpellScope, Speller};
 pub use stamps::STAMP_PRESETS;

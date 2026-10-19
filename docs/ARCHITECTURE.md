@@ -87,10 +87,18 @@ its undo and redo history as it was (`Document::edit_step`). The font is a data 
 into the program (see `fonts/README.md`).
 
 Encrypted files are decrypted in memory (password-protected files prompt for the password); the
-encryption of the file — its key, passwords and permissions — is kept aside and applied again
-whenever the document is saved, so a protected file stays protected and opens with the same
-passwords. Save Unrestricted Copy writes a plain copy on purpose. Signed documents are saved as an
-incremental update, which keeps their signatures valid. Every file is written to a temporary file
+encryption of the file — its key, passwords and permissions — is kept aside (`security::Protection`)
+and applied again whenever the document is saved, so a protected file stays protected and opens
+with the same passwords. Documents made from a protected one (extracted pages, filled copies,
+summaries, reports, duplicates) carry its protection, and content of a protected file is refused
+by unprotected documents. New protection is AES-256 (revision 6) by default, AES-128 on request.
+Save Unrestricted Copy writes a plain copy on purpose. Signed documents are saved as an
+incremental update, which keeps their signatures valid; for a protected signed document the
+update is encrypted with the document's key (`protection::encrypted::protected_update`, over the
+decrypted objects of the file as it was written). The value of a signature (its `/Contents`) is
+never encrypted — the byte range leaves exactly that string out, as widely used readers and
+writers expect — and is read back from the bytes the byte range leaves out, which must be the
+`/Contents` string of that signature object. Every file is written to a temporary file
 in the same folder and renamed over the target only when it is complete
 (`document::write_pdf_file`, `util::write_atomic`), so a failed save never damages the original.
 
@@ -166,7 +174,7 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
   removed when a document is saved or closed and on Exit. Each window is a session (process id
   and start time) holding a lock file while it runs; copies of sessions whose lock is free are
   offered. Copies are written through a temporary file, one checkpoint at a time, off the
-  interface thread; documents opened from encrypted files are not copied, signed ones are copied
+  interface thread; protected documents are not copied, signed ones are copied
   as an incremental update.
 - `mail.rs` — the files of an e-mail message written into a new private folder (one per message,
   open to the user only) and handed to the system's mail program (Simple MAPI on Windows, Mail on

@@ -316,10 +316,20 @@ pub fn undrawable_list(lang: Lang, list: &[folitecta_core::UndrawableComment]) -
         .join("; ")
 }
 
-/// The message of an error of the core: the problems of generated text in
-/// the language of the interface, the others as the core words them.
+/// The message of an error of the core: the problems of generated text and
+/// the errors of protection in the language of the interface, the others as
+/// the core words them.
 pub fn core_error(lang: Lang, err: &folitecta_core::Error) -> String {
+    use folitecta_core::Error as E;
     match err {
+        E::WrongPassword => t(lang, "dialog.password.wrong"),
+        E::PasswordRequired => t(lang, "toast.password_required"),
+        E::ProtectedSource => t(lang, "toast.protected_source"),
+        E::UnsupportedProtection(what) if what == folitecta_core::security::CERTIFICATE_PROTECTION => {
+            t(lang, "toast.certificate_protection")
+        }
+        E::UnsupportedProtection(what) => tf(lang, "toast.unsupported_protection", &[("what", what)]),
+        E::ProtectionNotKept(why) => tf(lang, "toast.protection_not_kept", &[("why", why)]),
         folitecta_core::Error::Glyphs(p) => {
             format!("{} {}", glyph_problem(lang, p), t(lang, "toast.nothing_changed"))
         }

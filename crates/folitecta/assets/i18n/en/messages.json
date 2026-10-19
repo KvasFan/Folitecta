@@ -17,6 +17,7 @@
   "toast.calc_bad_amount": "That is not an amount",
   "toast.cell_not_merged": "The cell is not merged",
   "toast.cert_trusted": "Certificate added to the trusted certificates",
+  "toast.certificate_protection": "The file is protected with certificates (public-key protection), which Folitecta cannot open yet.",
   "toast.certs_added": "Added {count} certificates",
   "toast.choose_button": "Choose a push button first (Form › Edit Fields).",
   "toast.choose_choice_field": "Choose a combo box or list box first (Form › Edit Fields).",
@@ -150,6 +151,7 @@
   "toast.pages_resized": "{count} page(s) resized",
   "toast.pages_selected": "{count} pages selected",
   "toast.pages_split": "{count} page(s) added",
+  "toast.password_required": "The document is protected by a password.",
   "toast.path_copied": "Path copied to the clipboard",
   "toast.pdfa_discarded": "The document no longer claims PDF/A conformance",
   "toast.phrases_highlighted": "{count} highlight(s) for {phrases} phrase(s)",
@@ -176,7 +178,11 @@
   "toast.portfolio_no_pdf": "No PDF files to print",
   "toast.portfolio_select": "Select files or folders first",
   "toast.profile_missing": "Fill in your profile first",
-  "toast.protected_note": "The copy opens with the password you chose.",
+  "toast.protected_attachment": "The attachment of a protected document is opened from a folder only you can read, removed when Folitecta is closed with Exit.",
+  "toast.protected_kept": "Protected like the document: it opens with the same passwords.",
+  "toast.protected_note": "The copy is encrypted with {method} and opens with the password you chose.",
+  "toast.protected_source": "The content comes from a protected file and this document is not protected, so it is not copied. Save an unrestricted copy of that file first if you want to use it.",
+  "toast.protection_not_kept": "The protection of the document cannot be kept, so nothing was written ({why}).",
   "toast.qat_added": "On the Quick Access Toolbar: {command}",
   "toast.qat_choose": "Choose an entry of the Quick Access Toolbar first.",
   "toast.qat_removed": "Taken off the Quick Access Toolbar: {command}",
@@ -265,5 +271,6 @@
   "toast.text_substituted": "The page font has no glyphs for \"{chars}\": a standard font of the same family draws them",
   "toast.time_stamp_asking": "Asking the time stamp server…",
   "toast.time_stamped": "Time stamp added and document saved",
-  "toast.trashed": "The file is in the recycle bin"
+  "toast.trashed": "The file is in the recycle bin",
+  "toast.unsupported_protection": "The file is protected in a way Folitecta cannot open yet ({what})."
 }

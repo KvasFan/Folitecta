@@ -160,6 +160,78 @@ pub fn copy_to_clipboard(text: &str) {
     });
 }
 
+/// Where decrypted content of protected documents is handed to other
+/// programs (attachments, pictures to edit): a folder of this window that
+/// only the user can read, removed when no protected document is open any
+/// more, on Exit, and — left by a window that ended otherwise — at the next
+/// start.
+pub fn protected_temp_dir() -> std::io::Result<std::path::PathBuf> {
+    let dir = protected_temp_root().join(format!("protected-{}", std::process::id()));
+    std::fs::create_dir_all(&dir)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))?;
+    }
+    Ok(dir)
+}
+
+fn protected_temp_root() -> std::path::PathBuf {
+    std::env::temp_dir().join("Folitecta")
+}
+
+/// Make a file of [`protected_temp_dir`] readable by the user only.
+pub fn make_private(path: &std::path::Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    }
+    #[cfg(not(unix))]
+    let _ = path;
+    Ok(())
+}
+
+/// Remove this window's folder of decrypted content.
+pub fn forget_protected_temp() {
+    let _ = std::fs::remove_dir_all(protected_temp_root().join(format!("protected-{}", std::process::id())));
+}
+
+/// Remove the folders of decrypted content left by windows that ended
+/// without Exit: their process is gone (Linux), or they are older than half
+/// a day.
+pub fn sweep_protected_temp() {
+    let half_day = std::time::Duration::from_secs(12 * 3600);
+    let me = std::process::id();
+    for e in std::fs::read_dir(protected_temp_root())
+        .into_iter()
+        .flatten()
+        .flatten()
+    {
+        let name = e.file_name().to_string_lossy().to_string();
+        let Some(pid) = name
+            .strip_prefix("protected-")
+            .and_then(|p| p.parse::<u32>().ok())
+        else {
+            continue;
+        };
+        if pid == me {
+            continue;
+        }
+        let gone =
+            std::path::Path::new("/proc").is_dir() && !std::path::Path::new(&format!("/proc/{pid}")).exists();
+        let old = e
+            .metadata()
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|m| m.elapsed().ok())
+            .is_some_and(|age| age > half_day);
+        if gone || old {
+            let _ = std::fs::remove_dir_all(e.path());
+        }
+    }
+}
+
 /// Open a URL or file with the system default application.
 pub fn open_external(target: &str) -> Result<(), String> {
     open::that_detached(target).map_err(|e| e.to_string())

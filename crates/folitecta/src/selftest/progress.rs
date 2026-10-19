@@ -28,6 +28,9 @@ struct Progress {
     entries: Vec<serde_json::Value>,
     problems: usize,
     finished: bool,
+    /// The checks and steps that ran while the window was not drawn.
+    not_drawn: Vec<String>,
+    drawn: bool,
 }
 
 static PROGRESS: Mutex<Option<Progress>> = Mutex::new(None);
@@ -60,6 +63,8 @@ pub(super) fn open(dir: &Path) {
         entries: Vec::new(),
         problems: 0,
         finished: false,
+        not_drawn: Vec::new(),
+        drawn: true,
     });
     watchdog();
 }
@@ -108,6 +113,40 @@ pub(super) fn report(entry: &serde_json::Value, problems: usize) {
         p.entries.push(entry.clone());
         p.problems += problems;
     });
+}
+
+/// Whether the window is drawn: a frame comes within a moment. A minimized
+/// window or one covered by others gets no frames, and then the page runs no
+/// scroll, resize or observer callbacks: what is checked meanwhile may be
+/// wrong. Noted in the log when it changes, and kept for the report.
+pub(super) async fn window_drawn() -> bool {
+    let drawn = eval(
+        "return await new Promise(r => { const t = setTimeout(() => r(false), 800); requestAnimationFrame(() => { clearTimeout(t); r(true); }); });",
+    )
+    .await
+    .ok()
+    .and_then(|v| v.as_bool())
+    .unwrap_or(false);
+    let changed = with(|p| {
+        if !drawn {
+            p.not_drawn.push(p.current.clone());
+        }
+        std::mem::replace(&mut p.drawn, drawn) != drawn
+    })
+    .unwrap_or(false);
+    if changed {
+        line(if drawn {
+            "  the window is drawn again"
+        } else {
+            "  the window is not drawn (minimized or covered): what is checked may be wrong"
+        });
+    }
+    drawn
+}
+
+/// The checks and steps that ran while the window was not drawn.
+pub(super) fn not_drawn() -> Vec<String> {
+    with(|p| p.not_drawn.clone()).unwrap_or_default()
 }
 
 /// The run is over: the watchdog stops.

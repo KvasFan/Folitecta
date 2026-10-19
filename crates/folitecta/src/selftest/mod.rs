@@ -193,6 +193,7 @@ Pack my box with five dozen liquor jugs. Visit https://github.com/KvasFan/Folite
 async fn check(st: AppState, dir: &std::path::Path, name: &str, log: &mut Vec<serde_json::Value>) -> usize {
     let started = begin("state", name);
     pause(700).await;
+    let drawn = progress::window_drawn().await;
     let audit = match eval(AUDIT_JS).await {
         Ok(v) => v
             .as_str()
@@ -207,7 +208,7 @@ async fn check(st: AppState, dir: &std::path::Path, name: &str, log: &mut Vec<se
         .unwrap_or(1);
     let timeouts = take_timeouts();
     count += timeouts.len();
-    let mut entry = serde_json::json!({ "state": name, "audit": audit });
+    let mut entry = serde_json::json!({ "state": name, "audit": audit, "drawn": drawn });
     if cfg!(target_os = "windows") {
         let shot = dir.join(format!("{name}.png"));
         let capture = capture_window(&shot);
@@ -401,6 +402,7 @@ mod steps_email;
 mod steps_features;
 mod steps_field_items;
 mod steps_files;
+mod steps_frames;
 mod steps_layout;
 mod steps_links;
 mod steps_note_icon;
@@ -450,6 +452,7 @@ impl Ctx<'_> {
 /// a hang.
 async fn run_step(cx: &mut Ctx<'_>, name: &str) {
     let started = begin("step", name);
+    progress::window_drawn().await;
     let before = cx.failures;
     let ended = {
         let fut: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + '_>> = match name {
@@ -476,6 +479,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "qat" => Box::pin(steps_qat::run(cx)),
             "email" => Box::pin(steps_email::run(cx)),
             "timestamp" => Box::pin(steps_timestamp::run(cx)),
+            "frames" => Box::pin(steps_frames::run(cx)),
             _ => Box::pin(async { cx.record("unknown step", false, name.to_string()) }),
         };
         tokio::time::timeout(step_limit(), fut).await.is_ok()
@@ -500,7 +504,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
 }
 
 /// The interaction steps in the order of a full run.
-const STEPS: [&str; 23] = [
+const STEPS: [&str; 24] = [
     "tools",
     "review",
     "panes",
@@ -524,6 +528,7 @@ const STEPS: [&str; 23] = [
     "qat",
     "email",
     "timestamp",
+    "frames",
 ];
 
 async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_json::Value>) -> usize {
@@ -621,6 +626,21 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
         total += cx.failures;
     }
     total += print_layout(st, &dir, &mut log).await;
+    // What was checked while the window was not drawn may be wrong.
+    let hidden = progress::not_drawn();
+    let pass = hidden.is_empty();
+    let entry = serde_json::json!({
+        "interaction": "the window is drawn during the whole run (not minimized or covered)",
+        "pass": pass,
+        "detail": format!(
+            "{} checks or steps without frames: {}",
+            hidden.len(),
+            hidden.iter().take(20).cloned().collect::<Vec<_>>().join(", ")
+        ),
+    });
+    progress::report(&entry, usize::from(!pass));
+    log.push(entry);
+    total += usize::from(!pass);
     let report = serde_json::json!({ "total_problems": total, "complete": true, "states": log });
     let _ = std::fs::write(
         dir.join("report.json"),

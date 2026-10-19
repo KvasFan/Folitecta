@@ -274,6 +274,7 @@
   "dialog.print.warn.low": "The security settings allow printing at low resolution only: the sheets are printed as images at 150 dpi.",
   "dialog.print.warn.no_duplex": "This printer prints on one side only: print the front sides, put the sheets back in the tray and print the back sides.",
   "dialog.print.warn.paper_by_page": "The printer chooses the paper for each page size.",
+  "dialog.print.warn.sides_unsupported": "This printer cannot turn the paper on that edge: choose another printer, or print the front sides, put the sheets back in the tray and print the back sides.",
   "dialog.print.warn.system": "The system dialog prints pictures of the sheets.",
   "dialog.print.warn.windows_raster": "On Windows the sheets go to the printer as pictures at the chosen resolution: about {size} for this job.",
   "dialog.props.author": "Author",

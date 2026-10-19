@@ -183,7 +183,8 @@ impl PrintPrefs {
     pub fn options(&self, paper: Paper, alternatives: Vec<Paper>, sides: Sides) -> PrintOptions {
         PrintOptions {
             subset: self.subset,
-            reverse: self.reverse,
+            // A booklet is folded in its own order (the row is not shown).
+            reverse: self.reverse && self.mode != Mode::Booklet,
             layout: self.layout(),
             orientation: if self.mode == Mode::Booklet {
                 Orientation::Auto
@@ -194,6 +195,20 @@ impl PrintPrefs {
             alternatives,
             sides,
         }
+    }
+}
+
+/// Why the sides of a plan cannot print on a printer (the key of the
+/// message), when they cannot: it prints one side only, or it cannot turn
+/// the paper on that edge (a booklet turns it on the short edge). The job
+/// would otherwise lose its second sides without a word.
+pub fn sides_problem(sides: Sides, caps: &PrinterCaps) -> Option<&'static str> {
+    if !sides.duplex() || caps.sides.contains(&sides) {
+        None
+    } else if !caps.duplex {
+        Some("dialog.print.warn.no_duplex")
+    } else {
+        Some("dialog.print.warn.sides_unsupported")
     }
 }
 
@@ -782,8 +797,11 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
         }
         Err(_) => (None, None),
     };
-    let duplex_plan = plan_now.as_ref().is_some_and(|p| p.sides.duplex());
-    let no_duplex = is_printer() && caps_now.as_ref().is_some_and(|c| !c.duplex) && duplex_plan;
+    let sides_warning = match (is_printer(), caps_now.as_ref(), plan_now.as_ref()) {
+        (true, Some(c), Some(p)) => sides_problem(p.sides, c),
+        _ => None,
+    };
+    let no_duplex = sides_warning.is_some();
     let pages_total: usize = plans_now
         .as_ref()
         .map(|l| l.iter().map(|(_, p)| p.pages.len()).sum())
@@ -817,8 +835,8 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
     if job_running {
         warnings.push(t(lang, "dialog.print.warn.busy"));
     }
-    if no_duplex {
-        warnings.push(t(lang, "dialog.print.warn.no_duplex"));
+    if let Some(key) = sides_warning {
+        warnings.push(t(lang, key));
     }
     if let Ok(list) = &plans_now {
         for (_, plan) in list {
@@ -1697,6 +1715,41 @@ mod tests {
             ..Default::default()
         };
         assert!(matches!(c.layout(), Layout::Single { sizing: Sizing::Custom(s), .. } if s == 150.0));
+    }
+
+    #[test]
+    fn a_booklet_ignores_reverse_order() {
+        let p = PrintPrefs {
+            mode: Mode::Booklet,
+            reverse: true,
+            ..Default::default()
+        };
+        assert!(!p.options(Paper::default(), Vec::new(), Sides::OneSided).reverse);
+        let q = PrintPrefs {
+            mode: Mode::Multiple,
+            reverse: true,
+            ..Default::default()
+        };
+        assert!(q.options(Paper::default(), Vec::new(), Sides::OneSided).reverse);
+    }
+
+    #[test]
+    fn sides_a_printer_cannot_print_block_the_job() {
+        let long_only = PrinterCaps {
+            sides: vec![Sides::OneSided, Sides::LongEdge],
+            duplex: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            sides_problem(Sides::ShortEdge, &long_only),
+            Some("dialog.print.warn.sides_unsupported")
+        );
+        assert_eq!(sides_problem(Sides::LongEdge, &long_only), None);
+        assert_eq!(sides_problem(Sides::OneSided, &PrinterCaps::default()), None);
+        assert_eq!(
+            sides_problem(Sides::ShortEdge, &PrinterCaps::default()),
+            Some("dialog.print.warn.no_duplex")
+        );
     }
 
     #[test]

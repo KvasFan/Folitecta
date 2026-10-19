@@ -274,6 +274,7 @@
   "dialog.print.warn.low": "Le impostazioni di sicurezza consentono solo la stampa a bassa risoluzione: i fogli vengono stampati come immagini a 150 dpi.",
   "dialog.print.warn.no_duplex": "Questa stampante stampa su un solo lato: stampa i fronti, rimetti i fogli nel cassetto e stampa i retri.",
   "dialog.print.warn.paper_by_page": "La stampante sceglie la carta per ogni formato di pagina.",
+  "dialog.print.warn.sides_unsupported": "Questa stampante non può girare il foglio su quel lato: scegli un'altra stampante, oppure stampa i fronti, rimetti i fogli nel cassetto e stampa i retri.",
   "dialog.print.warn.system": "La finestra di sistema stampa immagini dei fogli.",
   "dialog.print.warn.windows_raster": "Su Windows i fogli vanno alla stampante come immagini alla risoluzione scelta: circa {size} per questo lavoro.",
   "dialog.props.author": "Autore",

@@ -386,18 +386,55 @@ async fn revert_revision_and_traces(cx: &mut Ctx<'_>, tab: u64) {
     let path = st
         .read_active(|t| t.doc.path().map(|p| p.to_path_buf()))
         .flatten();
+    let protection = st.read_active(|t| t.doc.protection().cloned()).flatten();
     let _ = st.with_active(|t| {
         t.doc
             .add_note(0, 40.0, 40.0, "protected note", "Reviewer", [1.0, 0.9, 0.2])
     });
+    // A PDF embedded in the protected document, opened in a tab of its own
+    // (as from the attachments or a portfolio), is protected too.
+    let embedded = Document::new_blank(1, 200.0, 200.0)
+        .map(|d| d.bytes().to_vec())
+        .unwrap_or_default();
+    let opened = crate::files::open_embedded_pdf(st, embedded, "embedded.pdf", protection);
+    pause(500).await;
+    let embedded_tab = st.read_active(|t| (t.id, t.doc.is_protected()));
+    let _ = st.with_active(|t| {
+        t.doc
+            .add_note(0, 20.0, 20.0, "embedded note", "Reviewer", [1.0, 0.9, 0.2])
+    });
+    // The private folder of decrypted files (user only).
+    let private = crate::util::protected_temp_dir().ok();
+    #[cfg(unix)]
+    let private_mode = private.as_deref().and_then(|d| {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::metadata(d).ok().map(|m| m.permissions().mode() & 0o777)
+    });
+    #[cfg(not(unix))]
+    let private_mode = Some(0o700);
     crate::recovery::checkpoint(st);
     pause(1500).await;
-    let copy = crate::recovery::folder()
-        .map(|d| d.join(format!("{}-{tab}.pdf", crate::recovery::session())))
-        .is_some_and(|p| p.exists());
+    let copy_of = |id: u64| {
+        crate::recovery::folder()
+            .map(|d| d.join(format!("{}-{id}.pdf", crate::recovery::session())))
+            .is_some_and(|p| p.exists())
+    };
+    let copy = copy_of(tab);
+    let embedded_copy = embedded_tab.is_some_and(|(id, _)| copy_of(id));
+    let embedded_ok = opened && embedded_tab.is_some_and(|(id, p)| id != tab && p) && !embedded_copy;
+    if let Some((id, _)) = embedded_tab.filter(|(id, _)| *id != tab) {
+        crate::files::close_tab(st, id, true, AfterUnsaved::Close);
+        pause(300).await;
+    }
+    if let Some(idx) = st.docs.peek().iter().position(|t| t.id == tab) {
+        st.set_active(idx);
+    }
     let dirty = st.read_active(|t| t.doc.is_dirty()).unwrap_or(false);
     crate::files::close_tab(st, tab, true, AfterUnsaved::Close);
     pause(500).await;
+    // No protected document is open any more: the private folder is gone.
+    let private_gone = private.as_deref().is_some_and(|d| !d.exists())
+        || st.docs.peek().iter().any(|t| t.doc.is_protected());
     let thumb = path
         .as_deref()
         .and_then(crate::commands::history::thumb_path)
@@ -410,8 +447,11 @@ async fn revert_revision_and_traces(cx: &mut Ctx<'_>, tab: u64) {
             .any(|h| h.path == p && !h.title.is_empty())
     });
     cx.record(
-        "a protected document leaves no recovery copy, no history thumbnail and no title in the history",
-        dirty && !copy && !thumb && !title_kept,
-        format!("dirty {dirty}, recovery copy {copy}, thumbnail {thumb}, title kept {title_kept}"),
+        "a protected document and a PDF embedded in it leave no recovery copy, no history thumbnail and no title in the history; decrypted files go to a private folder removed with the last protected document",
+        dirty && !copy && !thumb && !title_kept && embedded_ok && private_mode == Some(0o700) && private_gone,
+        format!(
+            "dirty {dirty}, recovery copy {copy}, thumbnail {thumb}, title kept {title_kept}, embedded {embedded_tab:?} opened {opened} copy {embedded_copy}, private folder mode {:?} gone {private_gone}",
+            private_mode.map(|m| format!("{m:o}"))
+        ),
     );
 }

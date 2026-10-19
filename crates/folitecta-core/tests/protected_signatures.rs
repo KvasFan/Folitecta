@@ -425,3 +425,39 @@ fn moved_byte_ranges_are_not_trusted() {
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn reasons_that_look_like_syntax_keep_signatures_valid() {
+    // The value of a signature is found by reading its dictionary token by
+    // token: words and brackets inside its strings do not matter.
+    let dir = folder("reasons");
+    let id = signer("Reasons");
+    let (protected_doc, _) = protected(&dir, EncryptionProfile::Aes256, false, USER);
+    for reason in [
+        "see obj 7 for details",
+        "the endobj word",
+        "1 0 obj << /Contents <00> >> endobj",
+        "unbalanced ) and ( with \\ backslash",
+    ] {
+        let plain = Document::new_blank(1, 300.0, 300.0)
+            .unwrap()
+            .sign(&id, &sign_opts(reason))
+            .unwrap();
+        let v = Document::from_bytes(plain, None, None)
+            .unwrap()
+            .validate_signatures(&[]);
+        assert!(
+            v[0].valid && v[0].reason == reason,
+            "plain {reason:?}: {:?}",
+            v[0].problems
+        );
+        let s = protected_doc.sign(&id, &sign_opts(reason)).unwrap();
+        let v = open_bytes(s, USER).validate_signatures(&[]);
+        assert!(
+            v[0].valid && v[0].reason == reason,
+            "protected {reason:?}: {:?}",
+            v[0].problems
+        );
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}

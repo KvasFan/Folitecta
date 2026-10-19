@@ -514,3 +514,253 @@ fn owner_passwords_decrypt_and_save_right() {
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// The page text and the note of `doc` are the ones `marked` wrote.
+fn readable(doc: &Document) -> bool {
+    doc.page_text(0).contains("MARKER-PAGE-7Q")
+        && doc
+            .annotations(0)
+            .unwrap()
+            .iter()
+            .any(|a| a.contents.contains("MARKER-NOTE-7Q"))
+}
+
+/// `marked` protected with RC4 128-bit by the PDF library (as older
+/// producers write), with these passwords.
+fn rc4_with(user: &str, owner: &str) -> Vec<u8> {
+    let plain = marked().bytes();
+    let mut doc = lopdf::Document::load_mem(&plain).unwrap();
+    let id = vec![6u8; 16];
+    doc.trailer.set(
+        "ID",
+        Object::Array(vec![
+            Object::String(id.clone(), lopdf::StringFormat::Hexadecimal),
+            Object::String(id, lopdf::StringFormat::Hexadecimal),
+        ]),
+    );
+    let state = lopdf::EncryptionState::try_from(lopdf::EncryptionVersion::V2 {
+        document: &doc,
+        owner_password: owner,
+        user_password: user,
+        key_length: 128,
+        permissions: lopdf::Permissions::default(),
+    })
+    .unwrap();
+    doc.encrypt(&state).unwrap();
+    let mut out = Vec::new();
+    doc.save_to(&mut out).unwrap();
+    out
+}
+
+#[test]
+fn passwords_outside_ascii_open_the_content_and_keep_it() {
+    // Revisions 2 to 4 encode passwords in PDFDocEncoding; the PDF library
+    // made the key from their UTF-8 bytes, so such files opened as noise and
+    // a save wrote the noise.
+    let dir = folder("latin");
+    let mut files: Vec<(String, Vec<u8>, &str, &str)> = Vec::new();
+    for (user, owner) in [("pässwörd€", "città perché"), ("città perché", "Łódka-owner")] {
+        for profile in EncryptionProfile::ALL {
+            let p = dir.join("source.pdf");
+            marked()
+                .save_encrypted(&p, user, owner, no_printing(), profile)
+                .unwrap();
+            files.push((
+                format!("{} {user}", profile.key()),
+                std::fs::read(&p).unwrap(),
+                user,
+                owner,
+            ));
+        }
+        files.push((format!("rc4 {user}"), rc4_with(user, owner), user, owner));
+    }
+    for (name, raw, user, owner) in files {
+        for pw in [user, owner] {
+            let mut doc = Document::from_bytes(raw.clone(), None, Some(pw)).unwrap();
+            assert!(readable(&doc), "{name}, opened with {pw}");
+            doc.add_note(0, 60.0, 600.0, "after", "Bob", [0.3, 0.6, 1.0])
+                .unwrap();
+            let saved = dir.join("saved.pdf");
+            doc.save_as(&saved).unwrap();
+            let bytes = std::fs::read(&saved).unwrap();
+            assert_eq!(p_of(&bytes), p_of(&raw), "{name}");
+            for again in [user, owner] {
+                let back = Document::from_bytes(bytes.clone(), None, Some(again)).unwrap();
+                assert!(readable(&back), "{name}, saved after {pw}, opened with {again}");
+                assert_eq!(back.annotations(0).unwrap().len(), 2, "{name}");
+            }
+        }
+        assert!(matches!(
+            Document::from_bytes(raw.clone(), None, Some("wrong")),
+            Err(Error::WrongPassword)
+        ));
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn owner_passwords_of_version_4_files_without_a_length() {
+    // Version 4 fixes the key at 128 bits, so /Length may be left out.
+    let dir = folder("nolength");
+    let p = dir.join("aes128.pdf");
+    marked()
+        .save_encrypted(
+            &p,
+            "user-pw",
+            "owner-pw",
+            no_printing(),
+            EncryptionProfile::Aes128,
+        )
+        .unwrap();
+    let mut raw = std::fs::read(&p).unwrap();
+    let standard = raw.windows(9).position(|w| w == b"/Standard").unwrap();
+    let open = raw[..standard].iter().rposition(|c| *c == b'<').unwrap() - 1;
+    let at = open + raw[open..].windows(11).position(|w| w == b"/Length 128").unwrap();
+    raw[at..at + 11].copy_from_slice(b"           ");
+    assert!(encryption_dict(&raw).get(b"Length").is_err());
+    for pw in ["user-pw", "owner-pw"] {
+        let doc = Document::from_bytes(raw.clone(), None, Some(pw)).unwrap();
+        assert!(readable(&doc), "{pw}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn protected_copies_always_render() {
+    // Binary strings are written in hexadecimal: in literal strings, readers
+    // turn line ends among the encrypted bytes into other bytes (about one
+    // copy in a thousand failed to open in the renderer before).
+    let plain = marked().bytes();
+    for i in 0..1000 {
+        let profile = if i % 4 == 3 {
+            EncryptionProfile::Aes128
+        } else {
+            EncryptionProfile::Aes256
+        };
+        let raw =
+            folitecta_core::security::protected_copy(&plain, "user-pw", "owner-pw", no_printing(), profile)
+                .unwrap();
+        let r = Renderer::new_with_password(Arc::new(raw), "user-pw");
+        assert!(r.is_ok_and(|r| r.page_count() == 1), "copy {i} ({profile:?})");
+    }
+}
+
+/// `marked`, with an XMP metadata stream, protected by the PDF library in
+/// one of the ways other producers protect files.
+fn library_profile(kind: &str) -> Vec<u8> {
+    use lopdf::encryption::crypt_filters::{
+        Aes128CryptFilter, Aes256CryptFilter, CryptFilter, IdentityCryptFilter,
+    };
+    let mut source = marked();
+    let meta = source.inner_mut().add_object(lopdf::Stream::new(
+        dictionary! { "Type" => "Metadata", "Subtype" => "XML" },
+        b"<x:xmpmeta>MARKER-XMP</x:xmpmeta>".to_vec(),
+    ));
+    source.inner_mut().catalog_mut().unwrap().set("Metadata", meta);
+    source.commit().unwrap();
+    let mut doc = lopdf::Document::load_mem(&source.bytes()).unwrap();
+    let id = vec![4u8; 16];
+    doc.trailer.set(
+        "ID",
+        Object::Array(vec![
+            Object::String(id.clone(), lopdf::StringFormat::Hexadecimal),
+            Object::String(id, lopdf::StringFormat::Hexadecimal),
+        ]),
+    );
+    let mut filters: std::collections::BTreeMap<Vec<u8>, Arc<dyn CryptFilter>> = Default::default();
+    let (owner_password, user_password) = ("owner-pw", "user-pw");
+    let permissions = lopdf::Permissions::default();
+    let state = match kind {
+        "r5" => {
+            filters.insert(b"StdCF".to_vec(), Arc::new(Aes256CryptFilter));
+            #[allow(deprecated)]
+            lopdf::EncryptionState::try_from(lopdf::EncryptionVersion::R5 {
+                encrypt_metadata: true,
+                crypt_filters: filters,
+                file_encryption_key: &[7u8; 32],
+                stream_filter: b"StdCF".to_vec(),
+                string_filter: b"StdCF".to_vec(),
+                owner_password,
+                user_password,
+                permissions,
+            })
+        }
+        _ => {
+            filters.insert(b"StdCF".to_vec(), Arc::new(Aes128CryptFilter));
+            let string_filter = if kind == "identity" {
+                filters.insert(b"Identity".to_vec(), Arc::new(IdentityCryptFilter));
+                b"Identity".to_vec()
+            } else {
+                b"StdCF".to_vec()
+            };
+            lopdf::EncryptionState::try_from(lopdf::EncryptionVersion::V4 {
+                document: &doc,
+                encrypt_metadata: kind != "metadata-plain",
+                crypt_filters: filters,
+                stream_filter: b"StdCF".to_vec(),
+                string_filter,
+                owner_password,
+                user_password,
+                permissions,
+            })
+        }
+    }
+    .unwrap();
+    doc.encrypt(&state).unwrap();
+    if kind == "attachments-apart" {
+        let enc = doc.trailer.get(b"Encrypt").unwrap().as_reference().unwrap();
+        let d = doc.get_dictionary_mut(enc).unwrap();
+        d.set("EFF", Object::Name(b"EmbeddedFiles".to_vec()));
+    }
+    let mut out = Vec::new();
+    doc.save_to(&mut out).unwrap();
+    out
+}
+
+#[test]
+fn opened_profiles_are_kept_or_refused() {
+    let dir = folder("opened");
+    // Kept: AES-256 of revision 5, and AES-128 with the metadata left plain.
+    for (kind, method) in [("r5", "AES-256 (R5)"), ("metadata-plain", "AES-128")] {
+        let raw = library_profile(kind);
+        for pw in ["user-pw", "owner-pw"] {
+            let mut doc = Document::from_bytes(raw.clone(), None, Some(pw)).unwrap();
+            assert!(readable(&doc), "{kind} {pw}");
+            assert_eq!(doc.encryption().unwrap().method, method);
+            doc.rotate_pages(&[0], 90).unwrap();
+            let p = dir.join(format!("{kind}.pdf"));
+            doc.save_as(&p).unwrap();
+            let saved = std::fs::read(&p).unwrap();
+            let (v, r, _) = p_of(&saved);
+            assert_eq!((v, r), (p_of(&raw).0, p_of(&raw).1), "{kind}");
+            // The metadata stays readable without the password exactly when
+            // the file says so.
+            assert_eq!(
+                contains(&saved, b"MARKER-XMP"),
+                kind == "metadata-plain",
+                "{kind}"
+            );
+            assert!(!contains(&saved, b"MARKER-NOTE-7Q"));
+            let back = Document::from_bytes(saved, None, Some("user-pw")).unwrap();
+            assert!(readable(&back), "{kind}");
+            assert_eq!(back.page_size(0).unwrap().rotation, 90);
+        }
+    }
+    // Refused: strings left unencrypted (Identity), attachments encrypted
+    // apart. They open; protected files are not written; an unrestricted
+    // copy stays an explicit choice.
+    for kind in ["identity", "attachments-apart"] {
+        let raw = library_profile(kind);
+        let mut doc = Document::from_bytes(raw, None, Some("user-pw")).unwrap();
+        assert!(doc.page_text(0).contains("MARKER-PAGE-7Q"), "{kind}");
+        let p = dir.join(format!("{kind}.pdf"));
+        assert!(
+            matches!(doc.save_as(&p), Err(Error::ProtectionNotKept(_))),
+            "{kind}"
+        );
+        assert!(!p.exists());
+        doc.save_unprotected_copy(&p).unwrap();
+        assert!(Document::open(&p).is_ok());
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}

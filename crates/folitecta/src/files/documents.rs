@@ -264,8 +264,12 @@ pub fn close_tab(st: AppState, id: u64, force: bool, then: AfterUnsaved) {
         crate::commands::history::record_close(st, &p, tab.page, &tab.doc);
         st.closed_mut().push(p);
     }
-    // The recovery copy of a closed document goes.
+    // The recovery copy of a closed document goes, and so do the decrypted
+    // files handed to other programs once no protected document is open.
     crate::recovery::checkpoint(st);
+    if !st.docs.peek().iter().any(|t| t.doc.is_protected()) {
+        crate::util::forget_protected_temp();
+    }
     let n = st.docs.read().len();
     let active = (st.active)();
     if n == 0 {
@@ -334,7 +338,7 @@ pub fn exit_app(st: AppState) {
         None => {
             // Left on purpose: nothing to recover next time.
             crate::recovery::forget_session();
-            crate::commands::attachments::forget_protected_attachments();
+            crate::util::forget_protected_temp();
             dioxus::desktop::window().close()
         }
     }
@@ -419,6 +423,31 @@ pub fn reopen_closed(st: AppState) {
     match path {
         Some(p) => open_path(st, p, None),
         None => st.toast(ToastKind::Info, t(st.lang(), "label.none"), ""),
+    }
+}
+
+/// Open a PDF embedded in a document (an attachment, a file of a portfolio)
+/// in a new tab named `name`; protected like that document when it is
+/// (`protection`). Returns whether it opened.
+pub fn open_embedded_pdf(
+    st: AppState,
+    data: Vec<u8>,
+    name: &str,
+    protection: Option<folitecta_core::Protection>,
+) -> bool {
+    match Document::from_bytes(data, None, None) {
+        Ok(mut doc) => {
+            if let Some(p) = &protection {
+                doc.inherit_protection(p);
+            }
+            doc.set_name_hint(name);
+            open_document_tab(st, doc);
+            true
+        }
+        Err(e) => {
+            st.core_error(&e);
+            false
+        }
     }
 }
 

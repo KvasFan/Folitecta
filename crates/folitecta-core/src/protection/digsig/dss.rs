@@ -21,7 +21,7 @@ use x509_cert::Certificate;
 use super::revocation::{RevocationArchive, RevocationNote, hex, sha256};
 use crate::document::Document;
 use crate::error::{Error, Result};
-use crate::protection::encrypted::{self, same_object};
+use crate::protection::encrypted;
 use crate::security::Protection;
 
 /// At most this many items are read from each array of the store.
@@ -579,6 +579,34 @@ fn store_reach(doc: &lopdf::Document, root: ObjectId) -> Option<HashSet<ObjectId
     reach(&doc.objects, start, MAX_OBJECTS * 4)
 }
 
+/// Two objects hold the same values: strings compared by their bytes
+/// whatever their notation (an encrypted update writes them in
+/// hexadecimal), streams by their dictionary and content, wherever they
+/// were read from.
+fn same(a: &Object, b: &Object) -> bool {
+    match (a, b) {
+        (Object::String(x, _), Object::String(y, _)) => x == y,
+        (Object::Array(x), Object::Array(y)) => {
+            x.len() == y.len() && x.iter().zip(y).all(|(a, b)| same(a, b))
+        }
+        (Object::Dictionary(x), Object::Dictionary(y)) => same_dict(x, y),
+        (Object::Stream(x), Object::Stream(y)) => same_dict(&x.dict, &y.dict) && x.content == y.content,
+        _ => a == b,
+    }
+}
+
+fn same_dict(x: &Dictionary, y: &Dictionary) -> bool {
+    x.len() == y.len() && x.iter().all(|(k, v)| y.get(k).is_ok_and(|w| same(v, w)))
+}
+
+fn same_opt(a: Option<&Object>, b: Option<&Object>) -> bool {
+    match (a, b) {
+        (Some(a), Some(b)) => same(a, b),
+        (None, None) => true,
+        _ => false,
+    }
+}
+
 /// A dictionary of names, integers and booleans only (no references, no strings).
 fn plain_dict(obj: &Object) -> bool {
     match obj {
@@ -600,8 +628,8 @@ fn catalog_ok(prev: &Dictionary, next: &Dictionary) -> bool {
         let (a, b) = (prev.get(k).ok(), next.get(k).ok());
         match k {
             b"DSS" => true,
-            b"Version" => b.is_none_or(|v| v.as_name().is_ok()) && (a == b || b.is_some()),
-            b"Extensions" if a != b => {
+            b"Version" => b.is_none_or(|v| v.as_name().is_ok()) && (same_opt(a, b) || b.is_some()),
+            b"Extensions" if !same_opt(a, b) => {
                 let strip = |o: Option<&Object>| -> Option<Option<Dictionary>> {
                     match o {
                         None => Some(None),
@@ -617,10 +645,15 @@ fn catalog_ok(prev: &Dictionary, next: &Dictionary) -> bool {
                     .and_then(|e| e.as_dict().ok())
                     .and_then(|e| e.get(b"ESIC").ok())
                     .is_none_or(plain_dict);
-                matches!((strip(a), strip(b)), (Some(x), Some(y)) if x == y || x.is_none() && y.as_ref().is_some_and(|d| d.is_empty()))
-                    && esic_plain
+                let unchanged = |x: &Option<Dictionary>, y: &Option<Dictionary>| match (x, y) {
+                    (Some(x), Some(y)) => same_dict(x, y),
+                    (None, None) => true,
+                    (None, Some(y)) => y.is_empty(),
+                    (Some(_), None) => false,
+                };
+                matches!((strip(a), strip(b)), (Some(x), Some(y)) if unchanged(&x, &y)) && esic_plain
             }
-            _ => a == b,
+            _ => same_opt(a, b),
         }
     })
 }
@@ -639,7 +672,7 @@ fn info_ok(prev: Option<&Dictionary>, next: Option<&Dictionary>) -> bool {
         .collect();
     keys.into_iter().all(|k| match k {
         b"ModDate" | b"Producer" => next.get(k).is_ok_and(|v| matches!(v, Object::String(..))),
-        _ => prev.get(k).ok() == next.get(k).ok(),
+        _ => same_opt(prev.get(k).ok(), next.get(k).ok()),
     })
 }
 
@@ -719,14 +752,14 @@ pub(crate) fn classify(
         }
         match (prev.objects.get(id), next.objects.get(id)) {
             (None, None) => {}
-            (Some(a), Some(b)) if same_object(a, b) => {}
+            (Some(a), Some(b)) if same(a, b) => {}
             _ => return Other,
         }
     }
     let (Some(d_next), Some(d_prev)) = (store_reach(next, root), store_reach(prev, root)) else {
         return Other;
     };
-    let mut store_changed = prev_cat.get(b"DSS").ok() != next_cat.get(b"DSS").ok();
+    let mut store_changed = !same_opt(prev_cat.get(b"DSS").ok(), next_cat.get(b"DSS").ok());
     for id in &d_next {
         if r_next.contains(id) {
             return Other;
@@ -736,7 +769,7 @@ pub(crate) fn classify(
                 if !d_prev.contains(id) || r_prev.contains(id) {
                     return Other;
                 }
-                store_changed |= !same_object(a, b);
+                store_changed |= !same(a, b);
             }
             (None, Some(_)) => store_changed = true,
             _ => {}
@@ -1282,5 +1315,15 @@ mod tests {
         let mut pages = next.clone();
         pages.set("Pages", Object::Reference((5, 0)));
         assert!(!catalog_ok(&prev, &pages));
+        // The notation of a string is not a change (an encrypted update
+        // writes strings in hexadecimal).
+        let mut lang = prev.clone();
+        lang.set("Lang", Object::String(b"en".to_vec(), StringFormat::Literal));
+        let mut hex = lang.clone();
+        hex.set("Lang", Object::String(b"en".to_vec(), StringFormat::Hexadecimal));
+        hex.set("DSS", Object::Reference((9, 0)));
+        assert!(catalog_ok(&lang, &hex));
+        hex.set("Lang", Object::String(b"it".to_vec(), StringFormat::Hexadecimal));
+        assert!(!catalog_ok(&lang, &hex));
     }
 }

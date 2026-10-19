@@ -302,17 +302,9 @@ pub fn open_item(st: AppState, item: folitecta_core::portfolio::PortfolioItem) {
                 Some((data, t.doc.protection().cloned()))
             })
             .flatten();
-        match data.map(|(d, p)| Document::from_bytes(d, None, None).map(|doc| (doc, p))) {
-            Some(Ok((mut doc, protection))) => {
-                // A file of a protected document is protected like it.
-                if let Some(p) = &protection {
-                    doc.inherit_protection(p);
-                }
-                doc.set_name_hint(&item.name);
-                crate::files::open_document_tab(st, doc);
-            }
-            Some(Err(e)) => st.error(e),
-            None => {}
+        // A file of a protected document is protected like it.
+        if let Some((data, protection)) = data {
+            crate::files::open_embedded_pdf(st, data, &item.name, protection);
         }
     } else {
         crate::commands::attachments::open_attachment(st, item.attachment);

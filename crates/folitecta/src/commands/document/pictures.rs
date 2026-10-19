@@ -607,7 +607,22 @@ pub fn edit_outside(st: AppState, launch_app: bool) {
         return;
     };
     let ext = edit_type(st);
-    let path = outside_dir().join(format!(
+    // A picture of a protected document goes to a folder only the user can read.
+    let protected = st
+        .docs
+        .peek()
+        .iter()
+        .find(|t| t.id == at.tab)
+        .is_some_and(|t| t.doc.is_protected());
+    let dir = if protected {
+        match crate::util::protected_temp_dir() {
+            Ok(dir) => dir,
+            Err(e) => return st.error(e),
+        }
+    } else {
+        outside_dir()
+    };
+    let path = dir.join(format!(
         "picture-{}-{}-{}-{}.{ext}",
         at.tab,
         page + 1,
@@ -630,6 +645,12 @@ pub fn edit_outside(st: AppState, launch_app: bool) {
     if let Err(e) = written {
         st.error(e.to_string());
         return;
+    }
+    if protected {
+        if let Err(e) = crate::util::make_private(&path) {
+            st.error(e);
+            return;
+        }
     }
     let modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
     *EXTERNAL.write() = Some(External {

@@ -229,7 +229,14 @@ fn an_unrestricted_copy_stays_an_explicit_choice() {
     doc.save_unprotected_copy(&path).unwrap();
     let plain = Document::open(&path).unwrap();
     assert!(!plain.is_protected());
-    assert!(contains(&std::fs::read(&path).unwrap(), b"MARKER-GATE-NOTE"));
+    // The note is in it, readable without a password.
+    assert!(
+        plain
+            .annotations(0)
+            .unwrap()
+            .iter()
+            .any(|a| a.contents.contains("MARKER-GATE-NOTE"))
+    );
     assert!(doc.is_protected());
     let _ = std::fs::remove_dir_all(&dir);
 }

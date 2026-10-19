@@ -378,7 +378,10 @@ const LIST_KEYS: &[&[u8]] = &[b"Annots", b"Kids", b"Fields", b"CO", b"K", b"B"];
 /// removed from dictionaries (ISO 32000-1, 7.3.9: a `null` value is the same
 /// as an absent entry). The gone objects themselves are left for the caller to
 /// remove. Returns how many references were dropped.
-pub(crate) fn drop_references(doc: &mut lopdf::Document, gone: &std::collections::HashSet<ObjectId>) -> usize {
+pub(crate) fn drop_references(
+    doc: &mut lopdf::Document,
+    gone: &std::collections::HashSet<ObjectId>,
+) -> usize {
     use std::collections::HashSet;
     fn is_gone(o: &Object, gone: &HashSet<ObjectId>) -> bool {
         matches!(o, Object::Reference(r) if gone.contains(r))
@@ -438,7 +441,12 @@ pub(crate) fn drop_references(doc: &mut lopdf::Document, gone: &std::collections
         }
     }
     let mut count = 0;
-    let ids: Vec<ObjectId> = doc.objects.keys().copied().filter(|id| !gone.contains(id)).collect();
+    let ids: Vec<ObjectId> = doc
+        .objects
+        .keys()
+        .copied()
+        .filter(|id| !gone.contains(id))
+        .collect();
     for id in ids {
         let list = list_arrays.contains(&id) && matches!(doc.objects.get(&id), Some(Object::Array(_)));
         if let Some(o) = doc.objects.get_mut(&id) {
@@ -515,14 +523,18 @@ mod tests {
         let set = std::collections::HashSet::from([gone]);
         assert_eq!(drop_references(&mut doc, &set), 5);
         // An array item becomes null; a list item goes.
-        assert_eq!(
-            doc.get_object(dest).unwrap().as_array().unwrap()[0],
-            Object::Null
-        );
+        assert_eq!(doc.get_object(dest).unwrap().as_array().unwrap()[0], Object::Null);
         let d = doc.get_dictionary(dict).unwrap();
         assert!(!d.has(b"P") && d.has(b"Q"));
         assert_eq!(d.get(b"Annots").unwrap().as_array().unwrap(), &vec![r(kept)]);
-        assert!(!doc.get_object(stream).unwrap().as_stream().unwrap().dict.has(b"Pg"));
+        assert!(
+            !doc.get_object(stream)
+                .unwrap()
+                .as_stream()
+                .unwrap()
+                .dict
+                .has(b"Pg")
+        );
         assert_eq!(doc.get_object(list).unwrap().as_array().unwrap(), &vec![r(kept)]);
         // What the trailer does not reach goes.
         doc.trailer.set("Root", r(dict));

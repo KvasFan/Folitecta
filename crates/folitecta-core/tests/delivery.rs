@@ -214,8 +214,18 @@ fn a_copy_of_some_pages_leaves_the_others_out() {
     let back = reopen(&copy.bytes);
     assert_eq!(back.page_count(), 2);
     assert_eq!(copy.facts.pages, 2);
-    for gone in ["MARK-CHARLIE", "MARK-DELTA", "FIELD-SECRET", "Chapter 3", "Chapter 4", "annex"] {
-        assert!(!contains_anywhere(&copy.bytes, gone), "{gone} is still in the copy");
+    for gone in [
+        "MARK-CHARLIE",
+        "MARK-DELTA",
+        "FIELD-SECRET",
+        "Chapter 3",
+        "Chapter 4",
+        "annex",
+    ] {
+        assert!(
+            !contains_anywhere(&copy.bytes, gone),
+            "{gone} is still in the copy"
+        );
     }
     for kept in ["MARK-ALPHA", "MARK-BRAVO", "SECRET-REMARK"] {
         assert!(contains_anywhere(&copy.bytes, kept), "{kept} is missing");
@@ -242,7 +252,13 @@ fn a_copy_of_some_pages_leaves_the_others_out() {
     assert!(parent_tree_is_consistent(&back));
     let left = copy.facts.left_out;
     assert_eq!(
-        (left.bookmarks, left.links, left.destinations, left.fields, left.threads),
+        (
+            left.bookmarks,
+            left.links,
+            left.destinations,
+            left.fields,
+            left.threads
+        ),
         (2, 1, 1, 1, false)
     );
     assert!(left.tags >= 2, "{left:?}");
@@ -281,7 +297,10 @@ fn shared_resources(on_tree: bool) -> Document {
             // Its own resources are the shared dictionary, as many producers write it.
             form.set("Resources", Object::Reference(shared));
         } else if k != 1 {
-            form.set("Resources", dictionary! { "Font" => dictionary! { "F1" => font } });
+            form.set(
+                "Resources",
+                dictionary! { "Font" => dictionary! { "F1" => font } },
+            );
         }
         let text = format!("BT /F1 12 Tf 10 10 Td (FORM-MARK-{k}) Tj ET");
         let fid = doc.add_object(Stream::new(form, text.into_bytes()));
@@ -357,7 +376,10 @@ fn pictures_and_drawings_only_the_other_pages_use_leave_the_copy() {
                 o => o.as_dict().unwrap(),
             };
             let xo = res.get(b"XObject").unwrap().as_dict().unwrap();
-            let mut names: Vec<String> = xo.iter().map(|(k, _)| String::from_utf8_lossy(k).to_string()).collect();
+            let mut names: Vec<String> = xo
+                .iter()
+                .map(|(k, _)| String::from_utf8_lossy(k).to_string())
+                .collect();
             names.sort();
             assert_eq!(names, [format!("Fm{p}"), format!("Im{p}")]);
             // The form of page 2 has no resources of its own: it draws with the
@@ -522,7 +544,8 @@ fn a_protected_document_gives_protected_copies() {
         TextLayout::default(),
     )
     .unwrap();
-    plain.add_note(1, 30.0, 500.0, "NOTE-TEXT", "Reviewer", [1.0, 0.8, 0.2])
+    plain
+        .add_note(1, 30.0, 500.0, "NOTE-TEXT", "Reviewer", [1.0, 0.8, 0.2])
         .unwrap();
     let aes128 = dir.join("aes128.pdf");
     plain
@@ -541,7 +564,10 @@ fn a_protected_document_gives_protected_copies() {
             .prepare_copy(&some_pages(&[0, 2], CopyComments::Remove))
             .unwrap();
         assert!(
-            matches!(Document::from_bytes(copy.bytes.clone(), None, None), Err(Error::PasswordRequired)),
+            matches!(
+                Document::from_bytes(copy.bytes.clone(), None, None),
+                Err(Error::PasswordRequired)
+            ),
             "{kind}: the copy opens without a password"
         );
         for pw in ["user-pw", "owner-pw"] {
@@ -567,7 +593,10 @@ fn a_protected_document_gives_protected_copies() {
     assert!(doc.is_protected());
     let copy = doc.prepare_copy(&some_pages(&[1], CopyComments::Keep)).unwrap();
     assert!(copy.bytes.windows(8).any(|w| w == b"/Encrypt"));
-    assert_eq!(permissions_of(&copy.bytes), permissions_of(&std::fs::read(&owner_only).unwrap()));
+    assert_eq!(
+        permissions_of(&copy.bytes),
+        permissions_of(&std::fs::read(&owner_only).unwrap())
+    );
     assert!(copy.facts.protected);
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -590,7 +619,8 @@ fn signer() -> DigitalId {
 #[test]
 fn signatures_stay_only_on_the_unchanged_signed_file() {
     let mut blank = Document::new_blank(2, 300.0, 400.0).unwrap();
-    blank.add_note(0, 30.0, 370.0, "draft", "Reviewer", [1.0, 0.8, 0.2])
+    blank
+        .add_note(0, 30.0, 370.0, "draft", "Reviewer", [1.0, 0.8, 0.2])
         .unwrap();
     let signed = blank.sign(&signer(), &SignOptions::default()).unwrap();
     let doc = reopen(&signed);
@@ -641,14 +671,22 @@ fn signatures_stay_only_on_the_unchanged_signed_file() {
     let cert = with_dss
         .inner_mut()
         .add_object(Stream::new(dictionary! {}, b"CERT-DER-MARK".to_vec()));
-    let catalog_id = with_dss.inner().trailer.get(b"Root").unwrap().as_reference().unwrap();
+    let catalog_id = with_dss
+        .inner()
+        .trailer
+        .get(b"Root")
+        .unwrap()
+        .as_reference()
+        .unwrap();
     with_dss
         .inner_mut()
         .get_dictionary_mut(catalog_id)
         .unwrap()
         .set("DSS", dictionary! { "Certs" => vec![Object::Reference(cert)] });
     with_dss.commit().unwrap();
-    let cut = with_dss.prepare_copy(&some_pages(&[1], CopyComments::Keep)).unwrap();
+    let cut = with_dss
+        .prepare_copy(&some_pages(&[1], CopyComments::Keep))
+        .unwrap();
     assert_eq!(cut.facts.signatures, CopySignatures::Removed(1));
     assert!(!contains_anywhere(&cut.bytes, "CERT-DER-MARK"));
     let back = reopen(&cut.bytes);
@@ -698,7 +736,12 @@ fn signatures_stay_only_on_the_unchanged_signed_file() {
 fn the_open_document_is_not_changed() {
     let doc = fixture();
     let bytes = doc.bytes();
-    let (pages, comments, dirty, undo) = (doc.page_count(), doc.comments().len(), doc.is_dirty(), doc.can_undo());
+    let (pages, comments, dirty, undo) = (
+        doc.page_count(),
+        doc.comments().len(),
+        doc.is_dirty(),
+        doc.can_undo(),
+    );
     for opts in [
         some_pages(&[1], CopyComments::Flatten),
         some_pages(&[0, 3], CopyComments::Remove),
@@ -744,7 +787,8 @@ fn a_copy_without_changes_is_the_current_state() {
 #[test]
 fn links_through_named_destinations_and_unusual_names_follow_their_pages() {
     let mut doc = fixture();
-    doc.add_named_link(0, [200.0, 20.0, 260.0, 40.0], "annex").unwrap();
+    doc.add_named_link(0, [200.0, 20.0, 260.0, 40.0], "annex")
+        .unwrap();
     // A destination named in PDFDocEncoding (not UTF-8) on page 4.
     let target = doc.page_id(3).unwrap();
     let catalog_id = doc.inner().trailer.get(b"Root").unwrap().as_reference().unwrap();

@@ -1045,10 +1045,8 @@ impl Document {
                 }
             }
             None => {
-                if let Ok(Object::Dictionary(d)) = self
-                    .inner
-                    .catalog_mut()
-                    .and_then(|c| c.get_mut(b"AcroForm"))
+                if let Ok(Object::Dictionary(d)) =
+                    self.inner.catalog_mut().and_then(|c| c.get_mut(b"AcroForm"))
                 {
                     clear(d);
                 }

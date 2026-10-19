@@ -740,6 +740,51 @@ async fn print_layout(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     usize::from(!pass)
 }
 
+/// The e-mail dialog with its first file prepared (pages, what was left
+/// out, the first pages shown) and, with `failed`, a mail program that did
+/// not take the files. Returns the number of problems.
+async fn mail_dialog(
+    st: AppState,
+    dir: &std::path::Path,
+    tag: &str,
+    failed: bool,
+    log: &mut Vec<serde_json::Value>,
+) -> usize {
+    use crate::commands::mail::{self, MAIL, Pages, Phase, Prep, Start};
+    mail::start(
+        st,
+        Start::Documents {
+            all: false,
+            zip: false,
+        },
+    );
+    mail::edit_row(st, 0, |it| {
+        it.pages = Pages::Range;
+        it.range = "1".into();
+        it.comments = folitecta_core::CopyComments::Flatten;
+    });
+    for _ in 0..100 {
+        pause(200).await;
+        let ready = MAIL.peek().as_ref().is_some_and(|d| {
+            d.items
+                .first()
+                .is_some_and(|i| !matches!(i.prep, Prep::Pending | Prep::Running(_)))
+        });
+        if ready {
+            break;
+        }
+    }
+    let mut total = check(st, dir, &format!("960x620-{tag}-dialog-mail"), log).await;
+    if failed {
+        mail::edit_text(|d| {
+            d.phase = Phase::Failed(crate::mail::HandOverError::NoProgram("self-test".into()))
+        });
+        total += check(st, dir, &format!("960x620-{tag}-dialog-mail-failed"), log).await;
+    }
+    st.set_dialog(Dialog::None);
+    total
+}
+
 /// Every layout state and interaction check; returns the number of problems.
 async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_json::Value>) -> usize {
     let dir = dir.to_path_buf();
@@ -1024,6 +1069,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
             total += check(st, &dir, &format!("960x620-{code}-dialog-{name}"), log).await;
         }
         st.set_dialog(Dialog::None);
+        total += mail_dialog(st, &dir, code, true, log).await;
     }
     *crate::commands::tables::TABLE_EDIT.write() = None;
     *crate::commands::sources::SOURCES.write() = Default::default();
@@ -1033,6 +1079,9 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         st.set_open_menu(Some("edit".into()));
         total += check(st, &dir, &format!("960x620-{}", theme.attr()), log).await;
         st.set_open_menu(None);
+        if theme == Theme::Dark {
+            total += mail_dialog(st, &dir, theme.attr(), false, log).await;
+        }
     }
     st.ui_mut().theme = Theme::Light;
     st.ui_mut().ribbon = false;

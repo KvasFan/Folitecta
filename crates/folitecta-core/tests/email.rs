@@ -110,7 +110,11 @@ fn long_subjects_and_names_stay_within_the_line_limits() {
     for line in text.split("\r\n") {
         assert!(line.len() <= 998, "line of {} characters", line.len());
         for word in line.split(' ').filter(|w| w.starts_with("=?")) {
-            assert!(word.trim_matches('"').len() <= 75, "encoded word of {} characters", word.len());
+            assert!(
+                word.trim_matches('"').len() <= 75,
+                "encoded word of {} characters",
+                word.len()
+            );
         }
     }
     // RFC 2231 for the file name of a disposition.

@@ -116,6 +116,10 @@ pub struct PreparedCopy {
     pub facts: CopyFacts,
 }
 
+/// The message of the error a copy of a protected document gets when it
+/// could not be protected the same way (nothing is attached then).
+pub const PROTECTION_REFUSED: &str = "the copy could not be protected like the document; it is not attached";
+
 /// Resource categories whose entries are named by content streams.
 const NAMED: [&[u8]; 7] = [
     b"Font",
@@ -341,6 +345,25 @@ impl Document {
         }
     }
 
+    /// Whether `needle` is anywhere in the objects of the document: in a
+    /// string, a name or a decoded stream (to check what a copy left out).
+    pub fn holds(&self, needle: &[u8]) -> bool {
+        fn find(o: &Object, has: &dyn Fn(&[u8]) -> bool) -> bool {
+            match o {
+                Object::String(s, _) | Object::Name(s) => has(s),
+                Object::Array(a) => a.iter().any(|i| find(i, has)),
+                Object::Dictionary(d) => d.iter().any(|(k, v)| has(k) || find(v, has)),
+                Object::Stream(s) => {
+                    s.dict.iter().any(|(k, v)| has(k) || find(v, has))
+                        || has(&s.get_plain_content().unwrap_or_else(|_| s.content.clone()))
+                }
+                _ => false,
+            }
+        }
+        let has = |b: &[u8]| !needle.is_empty() && b.windows(needle.len()).any(|w| w == needle);
+        self.inner.objects.values().any(|o| find(o, &has))
+    }
+
     /// The annotations on the pages.
     fn page_annotation_ids(&self) -> HashSet<ObjectId> {
         let mut out = HashSet::new();
@@ -471,11 +494,7 @@ impl Document {
     /// count here.
     fn used_names(&self, content: &[u8], res: &Dictionary, queue: &mut Vec<ObjectId>) -> HashSet<Vec<u8>> {
         let doc = &self.inner;
-        let sub = |cat: &[u8]| {
-            res.get(cat)
-                .ok()
-                .and_then(|s| deref(doc, s).as_dict().ok())
-        };
+        let sub = |cat: &[u8]| res.get(cat).ok().and_then(|s| deref(doc, s).as_dict().ok());
         let mut used = HashSet::new();
         let mut inlined = HashSet::new();
         let mut pending = vec![content.to_vec()];
@@ -626,9 +645,7 @@ impl Document {
                     false
                 })
             });
-        let labels = catalog
-            .has(b"PageLabels")
-            .then(|| self.page_label_parts());
+        let labels = catalog.has(b"PageLabels").then(|| self.page_label_parts());
 
         // Links to the other pages leave the kept pages.
         let mut by_page: HashMap<ObjectId, Vec<usize>> = HashMap::new();
@@ -665,7 +682,11 @@ impl Document {
         self.write_page_tree(&kept_ids)?;
 
         // Bookmarks leading to the other pages go; their children move up.
-        fn keep_items(items: Vec<OutlineItem>, gone: &dyn Fn(Option<usize>) -> bool, dropped: &mut usize) -> Vec<OutlineItem> {
+        fn keep_items(
+            items: Vec<OutlineItem>,
+            gone: &dyn Fn(Option<usize>) -> bool,
+            dropped: &mut usize,
+        ) -> Vec<OutlineItem> {
             let mut out = Vec::new();
             for mut item in items {
                 let children = keep_items(std::mem::take(&mut item.children), gone, dropped);
@@ -692,7 +713,9 @@ impl Document {
         let mut gone_fields: HashSet<ObjectId> = HashSet::new();
         for f in &fields {
             let pages_of: Vec<Option<&ObjectId>> = f.widgets.iter().map(|w| widget_page.get(w)).collect();
-            let on_kept_page = pages_of.iter().any(|p| p.is_some_and(|p| !gone_pages.contains(p)));
+            let on_kept_page = pages_of
+                .iter()
+                .any(|p| p.is_some_and(|p| !gone_pages.contains(p)));
             let on_gone_page = pages_of.iter().any(|p| p.is_some_and(|p| gone_pages.contains(p)));
             if on_gone_page && !on_kept_page {
                 gone_fields.insert(f.id);
@@ -709,14 +732,20 @@ impl Document {
             if gone_fields.contains(&p) {
                 continue;
             }
-            let Ok(d) = self.inner.get_dictionary(p) else { continue };
+            let Ok(d) = self.inner.get_dictionary(p) else {
+                continue;
+            };
             let kids: Vec<ObjectId> = d
                 .get(b"Kids")
                 .ok()
                 .and_then(|k| deref(&self.inner, k).as_array().ok())
                 .map(|a| a.iter().filter_map(|k| k.as_reference().ok()).collect())
                 .unwrap_or_default();
-            if !kids.is_empty() && kids.iter().all(|k| gone_fields.contains(k) || gone_annots.contains(k)) {
+            if !kids.is_empty()
+                && kids
+                    .iter()
+                    .all(|k| gone_fields.contains(k) || gone_annots.contains(k))
+            {
                 gone_fields.insert(p);
                 parents.extend(d.get(b"Parent").ok().and_then(|q| q.as_reference().ok()));
             }
@@ -754,7 +783,12 @@ impl Document {
                 });
                 if !goes_on {
                     let first = if style.is_empty() { 1 } else { value.max(1) };
-                    ranges.push((i, String::from_utf8_lossy(&style).to_string(), prefix.clone(), first));
+                    ranges.push((
+                        i,
+                        String::from_utf8_lossy(&style).to_string(),
+                        prefix.clone(),
+                        first,
+                    ));
                 }
                 last = Some((style, prefix, value));
             }
@@ -853,13 +887,15 @@ impl CopySource {
             util::prune_unreachable(&mut work.inner);
         }
         check()?;
-        let bytes = work.file_bytes()?;
+        // FOL-L036: protected with the kept encryption of the document (the
+        // way it is saved), or refused; never a plain copy.
         let protected = self.protection.is_some();
-        if protected && !carries_encryption(&bytes) {
-            return Err(Error::Invalid(
-                "the copy could not be protected like the document; it is not attached".into(),
-            ));
-        }
+        let bytes = match work.file_bytes() {
+            Ok(b) if !protected || carries_encryption(&b) => b,
+            Ok(_) => return Err(Error::Invalid(PROTECTION_REFUSED.into())),
+            Err(_) if protected => return Err(Error::Invalid(PROTECTION_REFUSED.into())),
+            Err(e) => return Err(e),
+        };
         let plain = if protected {
             Arc::new(serialize(&mut work.inner)?)
         } else {
@@ -914,7 +950,10 @@ mod tests {
             b"q /Im#31 Do (not /A name) Tj <2F42> Tj BI /W 1 /H 1 /CS /G ID \x2f\x58 EI /F2 12 Tf % /C comment\n/Sh sh",
             &mut names,
         );
-        let mut got: Vec<String> = names.iter().map(|n| String::from_utf8_lossy(n).to_string()).collect();
+        let mut got: Vec<String> = names
+            .iter()
+            .map(|n| String::from_utf8_lossy(n).to_string())
+            .collect();
         got.sort();
         assert_eq!(got, ["CS", "F2", "G", "H", "Im1", "Sh", "W"]);
     }

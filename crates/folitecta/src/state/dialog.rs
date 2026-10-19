@@ -370,6 +370,8 @@ pub enum Dialog {
     SecurityPolicies,
     /// The commands of the Quick Access Toolbar.
     CustomizeQat,
+    /// The files of an e-mail message (state in `commands::mail::MAIL`).
+    Mail,
 }
 
 /// Loupe position: page, x and y in display points, pointer client x and y.

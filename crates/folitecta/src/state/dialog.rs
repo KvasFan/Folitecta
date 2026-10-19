@@ -47,6 +47,18 @@ pub enum AfterUnsaved {
     Exit,
 }
 
+/// What the password of the password dialog opens.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PasswordTarget {
+    /// A file, in a new tab.
+    File(PathBuf),
+    /// A file in place of the document of tab `tab` (Revert); the tab stays
+    /// as it is until the file is open.
+    Replace { path: PathBuf, tab: u64 },
+    /// The revision a signature of the document of tab `tab` covers.
+    Revision { tab: u64, field: String },
+}
+
 /// Modal dialogs. Each variant carries the data the dialog needs.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub enum Dialog {
@@ -86,7 +98,11 @@ pub enum Dialog {
         tab: u64,
         then: AfterUnsaved,
     },
-    Password(PathBuf),
+    /// A password, for `target`; `retry` after a wrong one.
+    Password {
+        target: PasswordTarget,
+        retry: bool,
+    },
     Note {
         page: usize,
         x: f32,

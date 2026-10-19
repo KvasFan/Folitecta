@@ -297,10 +297,17 @@ pub fn open_item(st: AppState, item: folitecta_core::portfolio::PortfolioItem) {
     let is_pdf = item.name.to_lowercase().ends_with(".pdf") || item.attachment.mime == "application/pdf";
     if is_pdf {
         let data = st
-            .read_active(|t| t.doc.attachment_data(&item.attachment).ok())
+            .read_active(|t| {
+                let data = t.doc.attachment_data(&item.attachment).ok()?;
+                Some((data, t.doc.protection().cloned()))
+            })
             .flatten();
-        match data.map(|d| Document::from_bytes(d, None, None)) {
-            Some(Ok(mut doc)) => {
+        match data.map(|(d, p)| Document::from_bytes(d, None, None).map(|doc| (doc, p))) {
+            Some(Ok((mut doc, protection))) => {
+                // A file of a protected document is protected like it.
+                if let Some(p) = &protection {
+                    doc.inherit_protection(p);
+                }
                 doc.set_name_hint(&item.name);
                 crate::files::open_document_tab(st, doc);
             }

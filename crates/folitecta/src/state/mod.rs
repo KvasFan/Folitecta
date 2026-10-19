@@ -35,6 +35,9 @@ pub struct CompareState {
     pub filter: String,
     /// Whole text rows are highlighted.
     pub rows: bool,
+    /// The protection of the first protected document compared: the report,
+    /// which quotes their text, gets it.
+    pub protection: Option<folitecta_core::Protection>,
 }
 
 /// All reactive state, cheap to copy into closures.
@@ -347,6 +350,30 @@ impl AppState {
     pub fn error(&self, err: impl std::fmt::Display) {
         let title = crate::i18n::t(self.lang(), "toast.error");
         self.toast(ToastKind::Error, title, err.to_string());
+    }
+
+    /// The text of an error of the core, in the interface language for the
+    /// errors of protection (the others as the core says them).
+    pub fn core_error_text(&self, e: &folitecta_core::Error) -> String {
+        use crate::i18n::{t, tf};
+        use folitecta_core::Error as E;
+        let lang = self.lang();
+        match e {
+            E::WrongPassword => t(lang, "dialog.password.wrong"),
+            E::PasswordRequired => t(lang, "toast.password_required"),
+            E::ProtectedSource => t(lang, "toast.protected_source"),
+            E::UnsupportedProtection(what) if what == folitecta_core::security::CERTIFICATE_PROTECTION => {
+                t(lang, "toast.certificate_protection")
+            }
+            E::UnsupportedProtection(what) => tf(lang, "toast.unsupported_protection", &[("what", what)]),
+            E::ProtectionNotKept(why) => tf(lang, "toast.protection_not_kept", &[("why", why)]),
+            other => other.to_string(),
+        }
+    }
+
+    /// Show an error of the core (see [`AppState::core_error_text`]).
+    pub fn core_error(&self, e: &folitecta_core::Error) {
+        self.error(self.core_error_text(e));
     }
 
     pub fn close_menus(&self) {

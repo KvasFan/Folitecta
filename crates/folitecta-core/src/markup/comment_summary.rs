@@ -463,7 +463,8 @@ impl Document {
         list
     }
 
-    /// Build a new document summarizing the comments.
+    /// Build a new document summarizing the comments (protected like this
+    /// document when it is).
     pub fn summarize_comments(&self, opts: &SummaryOptions) -> Result<Document> {
         let mut entries = self.summary_entries(opts.include_hidden, opts.sort);
         if entries.is_empty() {
@@ -568,6 +569,8 @@ impl Document {
         let _ = out.set_info(&title, "", "", "");
         out.commit()?;
         out.clear_history();
+        // It quotes the comments: protected like the document.
+        out.protect_like(self);
         Ok(out)
     }
 

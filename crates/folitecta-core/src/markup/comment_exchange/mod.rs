@@ -184,9 +184,11 @@ impl Document {
     }
 
     /// Import the comments of another PDF: the comments of each page go to the
-    /// page with the same number (one undo step).
+    /// page with the same number (one undo step). The comments of a protected
+    /// file are refused by a document that is not protected.
     pub fn import_comments_pdf(&mut self, data: &[u8]) -> Result<usize> {
         let other = Document::from_bytes(data.to_vec(), None, None)?;
+        self.check_import_from(&other)?;
         let pages = self.page_count().min(other.page_count());
         let mut entries = Vec::new();
         for page in 0..pages {

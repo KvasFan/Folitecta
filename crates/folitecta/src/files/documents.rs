@@ -26,7 +26,13 @@ pub fn open_path(st: AppState, path: PathBuf, password: Option<&str>) {
     match result {
         Ok(doc) => {
             let name = doc.display_name();
-            let (title, pages) = (doc.info().title, doc.page_count());
+            // The title of a protected document stays out of the settings.
+            let title = if doc.is_protected() {
+                String::new()
+            } else {
+                doc.info().title
+            };
+            let pages = doc.page_count();
             let id = st.alloc_id();
             st.docs_mut().push(DocTab::new(id, doc));
             let idx = st.docs.read().len() - 1;
@@ -42,8 +48,15 @@ pub fn open_path(st: AppState, path: PathBuf, password: Option<&str>) {
                 "",
             );
         }
-        Err(CoreError::PasswordRequired) => st.set_dialog(Dialog::Password(path)),
-        Err(e) => st.error(format!("{}: {e}", path.display())),
+        Err(CoreError::PasswordRequired) => st.set_dialog(Dialog::Password {
+            target: PasswordTarget::File(path),
+            retry: false,
+        }),
+        Err(CoreError::WrongPassword) => st.set_dialog(Dialog::Password {
+            target: PasswordTarget::File(path),
+            retry: true,
+        }),
+        Err(e) => st.error(format!("{}: {}", path.display(), st.core_error_text(&e))),
     }
 }
 
@@ -158,7 +171,7 @@ pub fn save_as(st: AppState) {
                     "",
                 );
             }
-            Some(Err(e)) => st.error(e),
+            Some(Err(e)) => st.core_error(&e),
             None => {}
         }
     });
@@ -207,7 +220,7 @@ fn save_copy_with(st: AppState, unprotected: bool) {
                 tf(st.lang(), "toast.saved", &[("name", &path.display().to_string())]),
                 "",
             ),
-            Some(Err(e)) => st.error(e),
+            Some(Err(e)) => st.core_error(&e),
             None => {}
         }
     });
@@ -321,29 +334,83 @@ pub fn exit_app(st: AppState) {
         None => {
             // Left on purpose: nothing to recover next time.
             crate::recovery::forget_session();
+            crate::commands::attachments::forget_protected_attachments();
             dioxus::desktop::window().close()
         }
     }
 }
 
+/// Go back to the file of the active document (its password is asked
+/// again when it is protected).
 pub fn revert(st: AppState) {
-    let path = st.read_active(|t| t.doc.path().map(Path::to_path_buf)).flatten();
-    let Some(path) = path else {
+    let target = st
+        .read_active(|t| t.doc.path().map(|p| (t.id, p.to_path_buf())))
+        .flatten();
+    let Some((tab, path)) = target else {
         st.toast(ToastKind::Warn, t(st.lang(), "toast.no_document"), "");
         return;
     };
-    match Document::open(&path) {
-        Ok(doc) => {
-            st.with_active(|t| {
-                t.doc = doc;
-                t.revision = u64::MAX; // force refresh
-            });
-            set_window_title(st);
-            // Back to the file: no changes left to recover.
-            crate::recovery::checkpoint(st);
-        }
-        Err(e) => st.error(e),
+    open_in_place_of(st, tab, path, None);
+}
+
+/// Open the file at `path` in place of the document of tab `tab`, asking
+/// for its password when it needs one. The tab keeps its document until the
+/// file is open.
+pub fn open_in_place_of(st: AppState, tab: u64, path: PathBuf, password: Option<&str>) {
+    let result = match password {
+        Some(pw) => Document::open_with_password(&path, pw),
+        None => Document::open(&path),
+    };
+    match result {
+        Ok(doc) => replace_tab_document(st, tab, doc, false),
+        Err(CoreError::PasswordRequired) => st.set_dialog(Dialog::Password {
+            target: PasswordTarget::Replace { path, tab },
+            retry: false,
+        }),
+        Err(CoreError::WrongPassword) => st.set_dialog(Dialog::Password {
+            target: PasswordTarget::Replace { path, tab },
+            retry: true,
+        }),
+        Err(e) => st.core_error(&e),
     }
+}
+
+/// Show `doc` in tab `tab` in place of its document (in a new tab when that
+/// one was closed meanwhile) and make it active; `opened` adds its file to
+/// the recent files and the history, as a file opened.
+pub fn replace_tab_document(st: AppState, tab: u64, doc: Document, opened: bool) {
+    let path = doc.path().map(Path::to_path_buf);
+    let title = if doc.is_protected() {
+        String::new()
+    } else {
+        doc.info().title
+    };
+    let pages = doc.page_count();
+    let at = st.docs.peek().iter().position(|t| t.id == tab);
+    let idx = match at {
+        Some(i) => {
+            let mut docs = st.docs_mut();
+            let t = &mut docs[i];
+            t.doc = doc;
+            t.revision = u64::MAX; // force refresh
+            t.sig_status = None;
+            i
+        }
+        None => {
+            let id = st.alloc_id();
+            st.docs_mut().push(DocTab::new(id, doc));
+            st.docs.peek().len() - 1
+        }
+    };
+    st.set_active(idx);
+    if let (true, Some(p)) = (opened, &path) {
+        st.ui_mut().push_recent(p);
+        crate::commands::history::record_open(st, p, &title, pages);
+        st.save_prefs();
+    }
+    set_window_title(st);
+    // Back to a file: no changes left to recover.
+    crate::recovery::checkpoint(st);
 }
 
 pub fn reopen_closed(st: AppState) {
@@ -352,19 +419,6 @@ pub fn reopen_closed(st: AppState) {
         Some(p) => open_path(st, p, None),
         None => st.toast(ToastKind::Info, t(st.lang(), "label.none"), ""),
     }
-}
-
-/// Replace the active tab with the file at path (used after signing, when the
-/// saved file is the document to continue with).
-pub fn replace_active_with(st: AppState, path: PathBuf) {
-    if let Some(i) = st.active_index() {
-        st.docs_mut().remove(i);
-        let n = st.docs.read().len();
-        if n > 0 {
-            st.set_active(i.min(n - 1));
-        }
-    }
-    open_path(st, path, None);
 }
 
 /// Open a document created in memory (untitled) in a new tab.
@@ -377,10 +431,22 @@ pub fn open_document_tab(st: AppState, mut doc: Document) {
     set_window_title(st);
 }
 
-/// Write an encrypted copy of the active document.
-pub fn save_encrypted(st: AppState, user: String, owner: String, perms: folitecta_core::SecurityPermissions) {
+/// Write a copy of the active document protected with new passwords,
+/// permissions and encryption (encrypted away from the interface).
+pub fn save_encrypted(
+    st: AppState,
+    user: String,
+    owner: String,
+    perms: folitecta_core::SecurityPermissions,
+    profile: folitecta_core::EncryptionProfile,
+) {
     let name = suggested_name(st, "-protected");
-    spawn(async move {
+    let Some(bytes) = st.read_active(|t| t.doc.bytes()) else {
+        st.toast(ToastKind::Warn, t(st.lang(), "toast.no_document"), "");
+        return;
+    };
+    // The dialog that asked has closed: not tied to it.
+    dioxus::core::spawn_forever(async move {
         let Some(file) = pdf_dialog()
             .set_title("Save protected copy")
             .set_file_name(&name)
@@ -390,14 +456,20 @@ pub fn save_encrypted(st: AppState, user: String, owner: String, perms: folitect
             return;
         };
         let path = file.path().to_path_buf();
-        match st.read_active(|t| t.doc.save_encrypted(&path, &user, &owner, perms)) {
-            Some(Ok(())) => st.toast(
+        let target = path.clone();
+        let written = tokio::task::spawn_blocking(move || {
+            let out = folitecta_core::security::protected_copy(&bytes, &user, &owner, perms, profile)?;
+            folitecta_core::document::write_pdf_file(&target, &out)
+        })
+        .await;
+        match written {
+            Ok(Ok(())) => st.toast(
                 ToastKind::Ok,
                 tf(st.lang(), "toast.saved", &[("name", &path.display().to_string())]),
-                t(st.lang(), "toast.protected_note"),
+                tf(st.lang(), "toast.protected_note", &[("method", profile.method())]),
             ),
-            Some(Err(e)) => st.error(e),
-            None => {}
+            Ok(Err(e)) => st.core_error(&e),
+            Err(e) => st.error(e),
         }
     });
 }

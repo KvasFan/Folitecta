@@ -208,11 +208,15 @@ pub fn open_other(st: AppState, hit: OtherHit) {
             let data = st
                 .read_active(|t| {
                     let a = t.doc.attachments().into_iter().find(|a| a.name == name)?;
-                    t.doc.attachment_data(&a).ok()
+                    Some((t.doc.attachment_data(&a).ok()?, t.doc.protection().cloned()))
                 })
                 .flatten();
-            match data.map(|d| Document::from_bytes(d, None, None)) {
-                Some(Ok(mut doc)) => {
+            match data.map(|(d, p)| Document::from_bytes(d, None, None).map(|doc| (doc, p))) {
+                Some(Ok((mut doc, protection))) => {
+                    // An attachment of a protected document is protected like it.
+                    if let Some(p) = &protection {
+                        doc.inherit_protection(p);
+                    }
                     doc.set_name_hint(&name);
                     crate::files::open_document_tab(st, doc);
                     st.navigate(page, true);

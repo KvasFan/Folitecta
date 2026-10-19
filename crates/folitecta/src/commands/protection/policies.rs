@@ -1,10 +1,11 @@
-//! Security policies: named sets of the permissions of password protection,
-//! kept in the settings, managed in a list (new, edit, clone, rename,
-//! delete, import, export) and applied to the Password Security dialog.
-//! Passwords are never kept: they are typed when the policy is applied.
+//! Security policies: named sets of the permissions and encryption of
+//! password protection, kept in the settings, managed in a list (new, edit,
+//! clone, rename, delete, import, export) and applied to the Password
+//! Security dialog. Passwords are never kept: they are typed when the policy
+//! is applied.
 
 use dioxus::prelude::*;
-use folitecta_core::SecurityPermissions;
+use folitecta_core::{EncryptionProfile, SecurityPermissions};
 use serde::{Deserialize, Serialize};
 
 use crate::commands::{handlers, no_doc};
@@ -20,6 +21,9 @@ pub struct SecurityPolicy {
     /// The document asks for a password to be opened (else only the
     /// permissions are protected, by the owner password).
     pub open_password: bool,
+    /// The encryption (AES-256 when a policy written by an older version
+    /// does not say).
+    pub encryption: EncryptionProfile,
 }
 
 /// What the list shows: the policy selected and the one being edited
@@ -49,6 +53,7 @@ fn defaults(lang: Lang) -> Vec<SecurityPolicy> {
                 assemble: false,
             },
             open_password: false,
+            encryption: EncryptionProfile::default(),
         },
         SecurityPolicy {
             name: t(lang, "policy.default_no_print"),
@@ -58,6 +63,7 @@ fn defaults(lang: Lang) -> Vec<SecurityPolicy> {
                 ..SecurityPermissions::default()
             },
             open_password: false,
+            encryption: EncryptionProfile::default(),
         },
     ]
 }
@@ -219,8 +225,15 @@ pub fn apply(st: AppState) {
     }
 }
 
-/// Keep the permissions of the Password Security dialog as a new policy.
-pub fn save_permissions(st: AppState, name: &str, permissions: SecurityPermissions, open_password: bool) {
+/// Keep the permissions and encryption of the Password Security dialog as a
+/// new policy.
+pub fn save_permissions(
+    st: AppState,
+    name: &str,
+    permissions: SecurityPermissions,
+    open_password: bool,
+    encryption: EncryptionProfile,
+) {
     let mut list = policies(st);
     let name = if name.trim().is_empty() {
         t(st.lang(), "policy.new_name")
@@ -231,6 +244,7 @@ pub fn save_permissions(st: AppState, name: &str, permissions: SecurityPermissio
         name: free_name(&list, &name),
         permissions,
         open_password,
+        encryption,
     });
     save(st, &list);
     st.toast(ToastKind::Ok, t(st.lang(), "toast.policy_saved"), "");
@@ -312,5 +326,19 @@ mod tests {
         let old: Vec<SecurityPolicy> =
             serde_json::from_str(r#"[{"name":"A","permissions":{"print":false}}]"#).unwrap();
         assert!(!old[0].permissions.print && old[0].permissions.copy && !old[0].open_password);
+    }
+
+    #[test]
+    fn policies_carry_their_encryption() {
+        let list: Vec<SecurityPolicy> = serde_json::from_str(
+            r#"[{"name":"Old"},{"name":"Legacy","encryption":"aes-128"},{"name":"Future","encryption":"aes-512"},
+                {"name":"Null","encryption":null},{"name":"Number","encryption":128}]"#,
+        )
+        .unwrap();
+        let profiles: Vec<EncryptionProfile> = list.iter().map(|p| p.encryption).collect();
+        use EncryptionProfile::{Aes128, Aes256};
+        assert_eq!(profiles, [Aes256, Aes128, Aes256, Aes256, Aes256]);
+        let json = serde_json::to_string(&SecurityPolicy::default()).unwrap();
+        assert!(json.contains(r#""encryption":"aes-256""#), "{json}");
     }
 }

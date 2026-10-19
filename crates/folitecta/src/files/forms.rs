@@ -153,15 +153,19 @@ pub fn populate_forms(st: AppState) {
         };
         let folder = folder.path().to_path_buf();
         let mut written = 0;
+        let mut detail = String::new();
         for (i, row) in rows.iter().enumerate() {
             let copy = st.read_active(|t| t.doc.filled_copy(row));
             let path = folder.join(row_file_name(row, &stem, i + 1));
             match copy {
                 Some(Ok((mut doc, _))) => match doc.save_as(&path) {
-                    Ok(()) => written += 1,
-                    Err(e) => return st.error(e),
+                    Ok(()) => {
+                        written += 1;
+                        detail = super::protected_detail(st, &doc);
+                    }
+                    Err(e) => return st.core_error(&e),
                 },
-                Some(Err(e)) => return st.error(e),
+                Some(Err(e)) => return st.core_error(&e),
                 None => return,
             }
         }
@@ -175,7 +179,7 @@ pub fn populate_forms(st: AppState) {
                     ("folder", &folder.display().to_string()),
                 ],
             ),
-            "",
+            detail,
         );
     });
 }

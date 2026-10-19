@@ -17,6 +17,7 @@
   "toast.calc_bad_amount": "Non è un importo",
   "toast.cell_not_merged": "La cella non è unita",
   "toast.cert_trusted": "Certificato aggiunto ai certificati attendibili",
+  "toast.certificate_protection": "Il file è protetto con certificati (protezione a chiave pubblica), che Folitecta non sa ancora aprire.",
   "toast.certs_added": "Aggiunti {count} certificati",
   "toast.choose_button": "Scegli prima un pulsante (Modulo › Modifica campi).",
   "toast.choose_choice_field": "Scegli prima una casella combinata o un elenco (Modulo › Modifica campi).",
@@ -136,6 +137,7 @@
   "toast.pages_resized": "{count} pagine ridimensionate",
   "toast.pages_selected": "{count} pagine selezionate",
   "toast.pages_split": "{count} pagine aggiunte",
+  "toast.password_required": "Il documento è protetto da una password.",
   "toast.path_copied": "Percorso copiato negli appunti",
   "toast.pdfa_discarded": "Il documento non dichiara più la conformità PDF/A",
   "toast.phrases_highlighted": "{count} evidenziazioni per {phrases} frasi",
@@ -162,7 +164,11 @@
   "toast.portfolio_no_pdf": "Nessun file PDF da stampare",
   "toast.portfolio_select": "Seleziona prima file o cartelle",
   "toast.profile_missing": "Compila prima il tuo profilo",
-  "toast.protected_note": "La copia si apre con la password scelta.",
+  "toast.protected_attachment": "L'allegato di un documento protetto viene aperto da una cartella che solo tu puoi leggere, rimossa quando Folitecta viene chiuso con Esci.",
+  "toast.protected_kept": "Protetto come il documento: si apre con le stesse password.",
+  "toast.protected_note": "La copia è cifrata con {method} e si apre con la password scelta.",
+  "toast.protected_source": "Il contenuto viene da un file protetto e questo documento non è protetto, quindi non viene copiato. Per usarlo salva prima una copia senza restrizioni di quel file.",
+  "toast.protection_not_kept": "La protezione del documento non può essere mantenuta, quindi non è stato scritto nulla ({why}).",
   "toast.qat_added": "Sulla barra di accesso rapido: {command}",
   "toast.qat_choose": "Scegli prima una voce della barra di accesso rapido.",
   "toast.qat_removed": "Tolto dalla barra di accesso rapido: {command}",
@@ -251,5 +257,6 @@
   "toast.text_substituted": "Il carattere della pagina non ha i glifi per \"{chars}\": li disegna un carattere standard della stessa famiglia",
   "toast.time_stamp_asking": "Richiesta al server di marche temporali…",
   "toast.time_stamped": "Marca temporale aggiunta e documento salvato",
-  "toast.trashed": "Il file è nel cestino"
+  "toast.trashed": "Il file è nel cestino",
+  "toast.unsupported_protection": "Il file è protetto in un modo che Folitecta non sa ancora aprire ({what})."
 }

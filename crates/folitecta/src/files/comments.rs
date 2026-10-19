@@ -78,7 +78,7 @@ pub fn import_comments(st: AppState) {
                     "",
                 );
             }
-            Some(Err(e)) => st.error(e),
+            Some(Err(e)) => st.core_error(&e),
             None => {}
         }
     });

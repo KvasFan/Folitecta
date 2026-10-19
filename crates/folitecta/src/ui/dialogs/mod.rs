@@ -14,7 +14,7 @@ use crate::commands::{implemented_ids, is_implemented, is_partial, option_on, pa
 use crate::files;
 use crate::i18n::{Lang, cmd_label, t, tf};
 use crate::icons::Icon;
-use crate::state::{AppState, ConfirmAction, Dialog, Guide, Theme, ToastKind, Tool, Zoom};
+use crate::state::{AppState, ConfirmAction, Dialog, Guide, PasswordTarget, Theme, ToastKind, Tool, Zoom};
 use crate::util::{format_pages, parse_color, parse_page_range};
 
 mod app;
@@ -218,7 +218,7 @@ fn apply(st: AppState, f: impl FnOnce(&mut crate::state::DocTab) -> folitecta_co
             files::set_window_title(st);
             st.set_dialog(Dialog::None);
         }
-        Some(Err(e)) => st.error(e),
+        Some(Err(e)) => st.core_error(&e),
         None => st.set_dialog(Dialog::None),
     }
 }
@@ -256,7 +256,7 @@ pub fn Dialogs() -> Element {
         Dialog::NotImplemented(id) => rsx! { NotImplemented { id } },
         Dialog::Confirm { title, body, action } => rsx! { Confirm { title, body, action } },
         Dialog::Unsaved { tab, then } => rsx! { Unsaved { tab, then } },
-        Dialog::Password(path) => rsx! { Password { path: path.display().to_string() } },
+        Dialog::Password { target, retry } => rsx! { Password { target, retry } },
         Dialog::Note { page, x, y } => rsx! { NoteDialog { page, x, y } },
         Dialog::TextBox { page, rect, border } => {
             rsx! { TextBoxDialog { page, rect: rect.to_vec(), border } }
@@ -435,7 +435,7 @@ fn apply_count(
                 "",
             );
         }
-        Some(Err(e)) => st.error(e),
+        Some(Err(e)) => st.core_error(&e),
         None => st.set_dialog(Dialog::None),
     }
 }

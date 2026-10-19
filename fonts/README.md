@@ -57,9 +57,16 @@ the characters drawn. The glyph numbers stay those of FreeSans.
 
 ## Source
 
-The source of the fonts (the FontForge files they are built from) is the signed archive in
-[`source/`](source): `freefont-src-20120503.tar.gz` with its signature
-`freefont-src-20120503.tar.gz.sig`, unchanged copies of the files of the same name at
-https://ftp.gnu.org/gnu/freefont/. It is part of the source code of every Folitecta release (the
-`fonts/source` folder of the repository and of the source archives of each release), and is not
-copied into the program packages.
+The Corresponding Source of `FreeSans.ttf` (the FontForge files it is built from) is the signed
+archive `freefont-src-20120503.tar.gz` with its signature `freefont-src-20120503.tar.gz.sig`,
+unchanged copies of the files of the same name. You can get it, at no charge, from any of these
+places:
+
+- the Folitecta repository, https://github.com/KvasFan/Folitecta, in the folder `fonts/source/`
+  (https://github.com/KvasFan/Folitecta/tree/main/fonts/source);
+- the source archive of every tagged Folitecta release (for example `Source code (zip)` and
+  `Source code (tar.gz)` on the release page of the same version as this program), in the
+  folder `fonts/source/`;
+- the GNU project, https://ftp.gnu.org/gnu/freefont/freefont-src-20120503.tar.gz (and `.sig`).
+
+The program packages carry the font next to the program but not this archive.

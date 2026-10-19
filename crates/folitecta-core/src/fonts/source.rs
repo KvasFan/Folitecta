@@ -301,6 +301,18 @@ pub(crate) mod tests {
             std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fonts/README.md"))
                 .unwrap();
         assert!(readme.contains(FREESANS_SHA256));
+        // Directions to the Corresponding Source travel with the font (GPLv3 6(d)).
+        for place in [
+            "https://github.com/KvasFan/Folitecta",
+            "fonts/source/",
+            "every tagged Folitecta release",
+            "https://ftp.gnu.org/gnu/freefont/freefont-src-20120503.tar.gz",
+        ] {
+            assert!(readme.contains(place), "{place}");
+        }
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fonts/source");
+        assert!(source.join("freefont-src-20120503.tar.gz").is_file());
+        assert!(source.join("freefont-src-20120503.tar.gz.sig").is_file());
     }
 
     #[test]

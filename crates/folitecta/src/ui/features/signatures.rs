@@ -131,6 +131,9 @@ pub fn SignaturesPane() -> Element {
             div { class: "pane-empty", "{t(lang, \"label.none\")}" }
         } else if checking && status.is_empty() {
             div { class: "pane-empty sig-checking", "{t(lang, \"sig.checking\")}" }
+        } else if checking {
+            // The last results stay in view, dimmed, while the checks run again.
+            div { class: "hint pad sig-checking", "{t(lang, \"sig.checking\")}" }
         }
         for s in status.iter().cloned() {
             {
@@ -140,7 +143,7 @@ pub fn SignaturesPane() -> Element {
                 let page = s.page;
                 let cert_line = s.cert.as_ref().map(|c| c.issuer_common_name.clone()).unwrap_or_default();
                 rsx! {
-                    div { class: "list-item sig-item {class}", key: "{s.field}",
+                    div { class: if checking { "list-item sig-item {class} stale" } else { "list-item sig-item {class}" }, key: "{s.field}",
                         onclick: move |_| { if let Some(p) = page { st.go_to_page(p); } },
                         div { class: "title",
                             span { class: "sig-dot {class}" }
@@ -219,9 +222,13 @@ pub fn SignatureDetailsDialog(field: String) -> Element {
     } else {
         "sig.signer"
     };
+    let checking = signatures_checking(st);
     rsx! {
         crate::ui::dialogs::Frame { title: t(lang, "sig.details_title"), wide: true,
-            div { class: "sig-state big {class}", "{text}" }
+            div { class: if checking { "sig-state big {class} stale" } else { "sig-state big {class}" }, "{text}" }
+            if checking {
+                div { class: "hint sig-checking", "{t(lang, \"sig.checking\")}" }
+            }
             div { class: "prop-head", "{t(lang, \"sig.checks\")}" }
             div { class: "sig-checks",
                 for (i, (label, cls, value)) in checks.into_iter().enumerate() {

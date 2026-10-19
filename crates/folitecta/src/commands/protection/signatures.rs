@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use dioxus::prelude::*;
 use folitecta_core::digsig::{
@@ -155,6 +155,10 @@ pub type StatusKey = ((u64, u64), u64, u64);
 /// Bumped when the trusted list or the options of validation change.
 static STATUS_GEN: AtomicU64 = AtomicU64::new(0);
 
+/// Holds the checks before they start (the self-test looks at the views
+/// while checks are under way).
+pub(crate) static HOLD_CHECKS: AtomicBool = AtomicBool::new(false);
+
 /// Validations under way: (tab, key).
 static CHECKING: Mutex<Vec<(u64, StatusKey)>> = Mutex::new(Vec::new());
 
@@ -178,6 +182,9 @@ fn with_tab<T>(st: AppState, id: u64, f: impl FnOnce(&mut DocTab) -> T) -> Optio
 /// signatures, revocation data and later revisions take time) and keep the
 /// result for the state it was made for.
 async fn validate_tab(st: AppState, tab: u64) -> Option<Vec<SignatureStatus>> {
+    while HOLD_CHECKS.load(Ordering::SeqCst) {
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
     let (key, job, pool) = st
         .docs
         .peek()

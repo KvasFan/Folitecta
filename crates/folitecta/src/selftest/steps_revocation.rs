@@ -307,6 +307,34 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         format!("{rows} row(s), {ok_rows} ok, source {source:?}, {checks_ok} check(s) passed"),
     );
 
+    // While the signatures are checked again (held here), the pane keeps the
+    // last results dimmed and says that they are being checked.
+    crate::commands::signatures::HOLD_CHECKS.store(true, std::sync::atomic::Ordering::SeqCst);
+    crate::commands::signatures::invalidate_status(st);
+    let (mut label, mut stale) = (0, 0);
+    for _ in 0..20 {
+        pause(150).await;
+        label = count(".sig-checking").await;
+        stale = count(".sig-item.stale").await;
+        if label > 0 && stale > 0 {
+            break;
+        }
+    }
+    crate::commands::signatures::HOLD_CHECKS.store(false, std::sync::atomic::Ordering::SeqCst);
+    let mut cleared = false;
+    for _ in 0..40 {
+        pause(150).await;
+        if count(".sig-checking").await == 0 && count(".sig-item.stale").await == 0 {
+            cleared = true;
+            break;
+        }
+    }
+    cx.record(
+        "while the signatures are checked again the last results stay, dimmed, with a note",
+        label == 1 && stale == 1 && cleared,
+        format!("{label} note(s), {stale} dimmed item(s), cleared afterwards {cleared}"),
+    );
+
     // 4. Validation material, saved; the reopened file passes from its store
     // without asking anything.
     st.set_dialog(Dialog::ValidationMaterial);

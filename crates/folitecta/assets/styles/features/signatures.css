@@ -8,6 +8,8 @@
 .sig-state.warn { color: var(--warn); }
 .sig-state.bad { color: var(--danger); }
 .sig-state.big { font-size: 14px; padding: 6px 0; }
+/* Results of an earlier state while the signatures are checked again */
+.sig-item.stale, .sig-state.stale { opacity: .55; }
 /* The separate checks: integrity, identity, time, revocation */
 .sig-checks { display: flex; flex-direction: column; gap: 4px; padding: 2px 0 4px; }
 .sig-check { display: grid; grid-template-columns: 10px minmax(90px, 140px) minmax(0, 1fr); gap: 8px; align-items: center; }

@@ -17,15 +17,32 @@ fn flate(data: &[u8]) -> Vec<u8> {
     enc.finish().unwrap_or_default()
 }
 
+/// The memory the compressed pictures of a print file may take (the file
+/// is held, then read again by its check).
+pub const PICTURES_BUDGET: usize = 768 << 20;
+
+/// How drawing the sheets as pictures ended.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Pictures {
+    /// The print file of the pictures.
+    Done(Vec<u8>),
+    Cancelled,
+    /// The pictures grew past the memory budget (lower the resolution or
+    /// print fewer pages).
+    TooLarge,
+}
+
 /// The sheets of the print file `pdf` as pictures at `dpi` (8-bit grey or
-/// RGB), one page of the same size for each. `progress(done, total)` is
-/// called before each sheet; when it returns false the result is `Ok(None)`.
+/// RGB), one page of the same size for each, while the compressed pictures
+/// stay within `budget` bytes. `progress(done, total)` is called before each
+/// sheet; when it returns false the work stops.
 pub fn sheets_as_images(
     pdf: Arc<Vec<u8>>,
     dpi: f32,
     gray: bool,
+    budget: usize,
     progress: &mut dyn FnMut(usize, usize) -> bool,
-) -> Result<Option<Vec<u8>>> {
+) -> Result<Pictures> {
     if !(dpi.is_finite() && (36.0..=1200.0).contains(&dpi)) {
         return Err(Error::Invalid(format!(
             "{dpi} dpi is not a resolution to print at"
@@ -37,9 +54,10 @@ pub fn sheets_as_images(
     let mut out = lopdf::Document::with_version("1.7");
     let pages_id = out.new_object_id();
     let mut kids = Vec::with_capacity(total);
+    let mut held = 0usize;
     for (i, (w, h)) in sizes.into_iter().enumerate() {
         if !progress(i, total) {
-            return Ok(None);
+            return Ok(Pictures::Cancelled);
         }
         let img = renderer.render_rgba(
             i,
@@ -82,7 +100,13 @@ pub fn sheets_as_images(
         );
         image.set("BitsPerComponent", Object::Integer(8));
         image.set("Filter", Object::Name(b"FlateDecode".to_vec()));
-        let image_id = out.add_object(Stream::new(image, flate(&data)));
+        let packed = flate(&data);
+        drop(data);
+        held += packed.len();
+        if held > budget {
+            return Ok(Pictures::TooLarge);
+        }
+        let image_id = out.add_object(Stream::new(image, packed));
         let content = format!("q {w} 0 0 {h} 0 0 cm /Im0 Do Q\n");
         let contents = out.add_object(Stream::new(Dictionary::new(), content.into_bytes()));
         let mut xobjects = Dictionary::new();
@@ -112,5 +136,5 @@ pub fn sheets_as_images(
     out.trailer.set("Root", Object::Reference(catalog_id));
     let mut bytes = Vec::new();
     out.save_to(&mut bytes)?;
-    Ok(Some(bytes))
+    Ok(Pictures::Done(bytes))
 }

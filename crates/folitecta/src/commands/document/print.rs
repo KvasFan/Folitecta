@@ -158,6 +158,8 @@ enum Done {
 /// Why one document's job failed.
 enum Failed {
     Check(String),
+    /// The sheets as pictures would not fit in memory.
+    TooLarge,
     Print(PrintError),
     Other(String),
 }
@@ -193,13 +195,21 @@ fn run_one(
     let raster_backend = matches!(dest, Destination::Printer(_)) && backend.raster();
     let image_dpi = if low { Some(150) } else { req.as_image };
     if let (Some(dpi), false) = (image_dpi, raster_backend) {
-        let images = print::sheets_as_images(pdf.clone(), dpi as f32, req.ticket.gray, &mut |done, total| {
-            set(JobProgress::Rendering { sheet: done, total });
-            !stopped()
-        })
+        let images = print::sheets_as_images(
+            pdf.clone(),
+            dpi as f32,
+            req.ticket.gray,
+            print::PICTURES_BUDGET,
+            &mut |done, total| {
+                set(JobProgress::Rendering { sheet: done, total });
+                !stopped()
+            },
+        )
         .map_err(|e| Failed::Other(e.to_string()))?;
-        let Some(images) = images else {
-            return Ok(Done::Cancelled);
+        let images = match images {
+            print::Pictures::Done(images) => images,
+            print::Pictures::Cancelled => return Ok(Done::Cancelled),
+            print::Pictures::TooLarge => return Err(Failed::TooLarge),
         };
         pdf = Arc::new(images);
         print::validate(&pdf, &item.plan, range).map_err(|e| Failed::Check(e.to_string()))?;
@@ -242,6 +252,7 @@ fn failure_text(st: AppState, f: &Failed, printer: &str) -> String {
     match f {
         Failed::Check(e) => format!("{} ({e})", t(lang, "toast.print_check_failed")),
         Failed::Other(e) => tf(lang, "toast.print_failed", &[("reason", e)]),
+        Failed::TooLarge => t(lang, "toast.print_images_too_large"),
         Failed::Print(e) => match e {
             PrintError::Auth => t(lang, "toast.print_auth"),
             PrintError::FormatNotSupported => t(lang, "toast.print_format"),

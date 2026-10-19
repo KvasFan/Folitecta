@@ -169,6 +169,7 @@
   "toast.print_forbidden": "Printing is not allowed by the security settings of this document.",
   "toast.print_format": "This printer does not accept PDF files: print through the system dialog.",
   "toast.print_ignored": "The printer ignored some settings: {names}",
+  "toast.print_images_too_large": "The sheets are too large to print as pictures at this resolution: choose a lower resolution or fewer pages.",
   "toast.print_no_server": "No local print server answered: print through the system dialog or save the sheets as PDF.",
   "toast.print_not_accepting": "The printer is not accepting jobs.",
   "toast.print_not_found": "The printer {printer} no longer exists.",

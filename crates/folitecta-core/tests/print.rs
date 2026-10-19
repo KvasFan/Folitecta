@@ -760,9 +760,14 @@ fn sheets_print_as_pictures_of_the_same_size() {
     let plan = plan_of(&src, &[0, 1], &options(Layout::default(), a4()));
     let vector = build(&src, &plan, Content::Document);
     for gray in [false, true] {
-        let raster = print::sheets_as_images(vector.clone(), 50.0, gray, &mut |_, _| true)
+        let print::Pictures::Done(raster) =
+            print::sheets_as_images(vector.clone(), 50.0, gray, print::PICTURES_BUDGET, &mut |_, _| {
+                true
+            })
             .unwrap()
-            .unwrap();
+        else {
+            panic!("no pictures");
+        };
         let back = lopdf::Document::load_mem(&raster).unwrap();
         assert_eq!(back.get_pages().len(), 2);
         let images = back
@@ -782,13 +787,27 @@ fn sheets_print_as_pictures_of_the_same_size() {
         }
     }
     let mut calls = 0;
-    let stopped = print::sheets_as_images(vector.clone(), 50.0, false, &mut |_, _| {
-        calls += 1;
-        false
-    })
+    let stopped = print::sheets_as_images(
+        vector.clone(),
+        50.0,
+        false,
+        print::PICTURES_BUDGET,
+        &mut |_, _| {
+            calls += 1;
+            false
+        },
+    )
     .unwrap();
-    assert!(stopped.is_none() && calls == 1);
-    assert!(print::sheets_as_images(vector, 5.0, false, &mut |_, _| true).is_err());
+    assert!(stopped == print::Pictures::Cancelled && calls == 1);
+    assert!(
+        print::sheets_as_images(vector.clone(), 5.0, false, print::PICTURES_BUDGET, &mut |_, _| {
+            true
+        })
+        .is_err()
+    );
+    // Pictures that would grow past the memory budget are refused, not held.
+    let small = print::sheets_as_images(vector, 300.0, false, 10_000, &mut |_, _| true).unwrap();
+    assert_eq!(small, print::Pictures::TooLarge);
 }
 
 /// How long a long document takes: the plan, the print file of every sheet

@@ -25,7 +25,7 @@ pub use plan::{
     Face, MAX_SIDES, Mark, Placement, PlanError, PlanWarning, PrintPlan, Sheet, apply, mul, nup_grid,
     page_matrix, plan, select,
 };
-pub use raster::sheets_as_images;
+pub use raster::{PICTURES_BUDGET, Pictures, sheets_as_images};
 
 use serde::{Deserialize, Serialize};
 

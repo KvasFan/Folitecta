@@ -169,6 +169,7 @@
   "toast.print_forbidden": "La stampa non è consentita dalle impostazioni di sicurezza di questo documento.",
   "toast.print_format": "Questa stampante non accetta file PDF: stampa con la finestra di sistema.",
   "toast.print_ignored": "La stampante ha ignorato alcune impostazioni: {names}",
+  "toast.print_images_too_large": "I fogli sono troppo grandi per stamparli come immagini a questa risoluzione: scegli una risoluzione più bassa o meno pagine.",
   "toast.print_no_server": "Nessun server di stampa locale ha risposto: stampa con la finestra di sistema o salva i fogli come PDF.",
   "toast.print_not_accepting": "La stampante non accetta lavori.",
   "toast.print_not_found": "La stampante {printer} non esiste più.",

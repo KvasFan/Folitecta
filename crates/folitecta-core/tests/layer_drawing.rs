@@ -1307,3 +1307,209 @@ fn only_comments_go_on_layers() {
     assert!(!can_be_on_layer(&doc.annotations(0).unwrap()[0].subtype));
     assert!(doc.set_annotations_layer(0, &[0], Some(ink)).is_err());
 }
+
+#[test]
+fn membership_policies_and_base_state_off() {
+    // Comments under each policy, against the page content under the same
+    // dictionary: the comments follow the same visibility as the content.
+    for policy in ["AnyOn", "AllOn", "AnyOff", "AllOff"] {
+        for (a_on, b_on) in [(true, true), (true, false), (false, false)] {
+            let mut doc = Document::new_blank(1, 300.0, 300.0).unwrap();
+            let (a, _) = doc.add_layer("A", &[]).unwrap();
+            let (b, _) = doc.add_layer("B", &[]).unwrap();
+            doc.add_shape(
+                0,
+                Shape::Square,
+                [10.0, 10.0, 90.0, 90.0],
+                RED,
+                Some(RED),
+                2.0,
+                "R",
+                "",
+            )
+            .unwrap();
+            let ocmd = dictionary! {
+                "Type" => "OCMD",
+                "OCGs" => vec![Object::Reference(a), Object::Reference(b)],
+                "P" => policy,
+            };
+            let aid = doc.annotations(0).unwrap()[0].id.unwrap();
+            // A direct membership dictionary on the comment.
+            doc.inner_mut()
+                .get_dictionary_mut(aid)
+                .unwrap()
+                .set("OC", ocmd.clone());
+            let shared = doc.inner_mut().add_object(ocmd);
+            let pid = doc.page_id(0).unwrap();
+            doc.inner_mut().get_dictionary_mut(pid).unwrap().set(
+                "Resources",
+                dictionary! { "Properties" => dictionary! { "MC0" => shared } },
+            );
+            let content = doc.inner_mut().add_object(lopdf::Stream::new(
+                dictionary! {},
+                b"/OC /MC0 BDC 0 0 1 rg 200 200 50 50 re f EMC".to_vec(),
+            ));
+            doc.inner_mut()
+                .get_dictionary_mut(pid)
+                .unwrap()
+                .set("Contents", content);
+            doc.commit().unwrap();
+            let view = HashMap::from([(a, a_on), (b, b_on)]);
+            let bytes = doc.view_bytes(&HashSet::new(), &view).unwrap();
+            let comment = !is_white(pixel(bytes.clone(), 50, 50));
+            let page = !is_white(pixel(bytes, 225, 225));
+            assert_eq!(comment, page, "{policy} A={a_on} B={b_on}");
+            assert_eq!(doc.annotation_layers(0, 0), vec![a, b]);
+        }
+    }
+    // Layers off unless listed (/BaseState /OFF): a comment on an unlisted
+    // layer is hidden, and a new layer is visible.
+    let mut doc = Document::new_blank(1, 300.0, 300.0).unwrap();
+    let (a, _) = doc.add_layer("A", &[]).unwrap();
+    {
+        let catalog = doc.inner_mut().catalog_mut().unwrap();
+        let oc = catalog.get_mut(b"OCProperties").unwrap().as_dict_mut().unwrap();
+        let d = oc.get_mut(b"D").unwrap().as_dict_mut().unwrap();
+        d.set("BaseState", "OFF");
+        d.set("ON", Vec::<Object>::new());
+        d.remove(b"OFF");
+    }
+    doc.commit().unwrap();
+    assert!(!doc.layers()[0].visible);
+    doc.set_drawing_layer(Some(a)).unwrap();
+    doc.add_shape(
+        0,
+        Shape::Square,
+        [10.0, 10.0, 90.0, 90.0],
+        RED,
+        Some(RED),
+        2.0,
+        "R",
+        "",
+    )
+    .unwrap();
+    assert!(is_white(pixel(doc.render_bytes().unwrap(), 50, 50)));
+    let (b, _) = doc.add_layer("B", &[]).unwrap();
+    doc.set_drawing_layer(Some(b)).unwrap();
+    doc.add_shape(
+        0,
+        Shape::Square,
+        [110.0, 10.0, 190.0, 90.0],
+        RED,
+        Some(RED),
+        2.0,
+        "R",
+        "",
+    )
+    .unwrap();
+    let back = reopen(&mut doc, "base-off");
+    let bytes = back.render_bytes().unwrap();
+    assert!(is_white(pixel(bytes.clone(), 50, 50)));
+    assert!(!is_white(pixel(bytes, 150, 50)));
+}
+
+#[test]
+fn signed_documents_keep_their_signature_with_a_layered_comment() {
+    use folitecta_core::digsig::{DigitalId, IdentityInfo, KeyKind, SignOptions, SignPlacement};
+    let (doc, _) = with_layer();
+    let id = DigitalId::create_self_signed(
+        &IdentityInfo {
+            name: "Signer".into(),
+            organization: "Example".into(),
+            unit: "Unit".into(),
+            email: "signer@example.org".into(),
+            country: "IT".into(),
+        },
+        KeyKind::EcP256,
+        3,
+    )
+    .unwrap();
+    let signed = doc
+        .sign(
+            &id,
+            &SignOptions {
+                placement: SignPlacement::New {
+                    page: 0,
+                    rect: [40.0, 200.0, 240.0, 260.0],
+                },
+                ..SignOptions::default()
+            },
+        )
+        .unwrap();
+    let path = folder("signed").join("signed.pdf");
+    std::fs::write(&path, &signed).unwrap();
+    let mut doc = Document::open(&path).unwrap();
+    let ink = layer_named(&doc, "Ink");
+    doc.set_drawing_layer(Some(ink)).unwrap();
+    doc.add_shape(
+        0,
+        Shape::Square,
+        [10.0, 10.0, 90.0, 90.0],
+        RED,
+        None,
+        2.0,
+        "R",
+        "",
+    )
+    .unwrap();
+    let n = doc.annotations(0).unwrap().len();
+    doc.set_annotations_layer(0, &[n - 1], None).unwrap();
+    doc.set_annotations_layer(0, &[n - 1], Some(ink)).unwrap();
+    doc.save().unwrap();
+    let raw = std::fs::read(&path).unwrap();
+    assert!(raw.starts_with(&signed), "not saved as an update");
+    let back = Document::open(&path).unwrap();
+    let status = back.validate_signatures(&[]);
+    assert_eq!(status.len(), 1);
+    assert!(status[0].valid, "{:?}", status[0]);
+    assert_eq!(back.annotation_layer(0, n - 1), Some(layer_named(&back, "Ink")));
+}
+
+#[test]
+fn e_mail_copies_keep_the_layers_their_comments_use() {
+    use folitecta_core::{CopyComments, CopyOptions};
+    let mut doc = Document::new_blank(3, 300.0, 300.0).unwrap();
+    let (ink, _) = doc.add_layer("Ink", &[]).unwrap();
+    let (unused, _) = doc.add_layer("Unused here", &[]).unwrap();
+    doc.set_drawing_layer(Some(ink)).unwrap();
+    doc.add_shape(
+        1,
+        Shape::Square,
+        [10.0, 10.0, 90.0, 90.0],
+        RED,
+        Some(RED),
+        2.0,
+        "R",
+        "",
+    )
+    .unwrap();
+    doc.set_drawing_layer(Some(unused)).unwrap();
+    doc.add_shape(
+        0,
+        Shape::Square,
+        [10.0, 10.0, 90.0, 90.0],
+        RED,
+        Some(RED),
+        2.0,
+        "R",
+        "",
+    )
+    .unwrap();
+    doc.set_layer_visible(ink, false).unwrap();
+    // Pages 2 and 3: only a comment uses a layer there.
+    let copy = doc
+        .prepare_copy(&CopyOptions {
+            pages: Some(vec![1, 2]),
+            comments: CopyComments::Keep,
+        })
+        .unwrap();
+    let back = Document::from_bytes(copy.bytes, None, None).unwrap();
+    let names: Vec<String> = back.layers().into_iter().map(|l| l.name).collect();
+    assert_eq!(names, ["Ink"]);
+    let layer = layer_named(&back, "Ink");
+    assert_eq!(back.annotation_layer(0, 0), Some(layer));
+    assert!(every_ocg_listed(&back));
+    // Still hidden by default in the copy.
+    assert!(!back.layers()[0].visible);
+    assert!(is_white(page_pixel(back.render_bytes().unwrap(), 0, 50, 50)));
+}

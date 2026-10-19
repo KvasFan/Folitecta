@@ -266,6 +266,102 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     fake.clear();
     pause(300).await;
     portfolio(cx).await;
+    owner_password(cx).await;
+}
+
+/// A document that opens without a password and forbids printing: the window
+/// refuses it, a wrong owner password changes nothing, the right one allows
+/// printing (for the tab too).
+async fn owner_password(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    let path = cx.dir.join("print-owner-only.pdf");
+    let no_print = folitecta_core::SecurityPermissions {
+        print: false,
+        ..folitecta_core::SecurityPermissions::default()
+    };
+    let written = folitecta_core::Document::new_blank(2, 595.0, 842.0).and_then(|d| {
+        d.save_encrypted(
+            &path,
+            "",
+            "o",
+            no_print,
+            folitecta_core::EncryptionProfile::Aes256,
+        )
+    });
+    if let Err(e) = written {
+        cx.record(
+            "print: a document whose owner password allows printing",
+            false,
+            e.to_string(),
+        );
+        return;
+    }
+    let before = st.active_index();
+    let count = st.docs.read().len();
+    crate::files::open_path(st, path.clone(), None);
+    for _ in 0..30 {
+        if st.docs.read().len() > count {
+            break;
+        }
+        pause(200).await;
+    }
+    let tab = st.read_active(|t| t.id);
+    crate::commands::dispatch(st, "print");
+    let mut refused = false;
+    for _ in 0..50 {
+        refused = eval("const b = document.querySelector('.dialog-foot .tbtn.primary'); return !!(document.querySelector('.print-owner-pw') && b && b.disabled);")
+            .await
+            .ok()
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        if refused {
+            break;
+        }
+        pause(200).await;
+    }
+    type_in(".print-owner-pw", "x").await;
+    click(".print-owner-unlock").await;
+    let wrong = eval("return !!document.querySelector('.print-owner-wrong');")
+        .await
+        .ok()
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    type_in(".print-owner-pw", "o").await;
+    click(".print-owner-unlock").await;
+    let mut allowed = false;
+    for _ in 0..50 {
+        allowed = eval("const b = document.querySelector('.dialog-foot .tbtn.primary'); return !document.querySelector('.print-owner-pw') && !!b && !b.disabled;")
+            .await
+            .ok()
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        if allowed {
+            break;
+        }
+        pause(200).await;
+    }
+    let tab_allowed = tab.and_then(|id| {
+        st.docs
+            .read()
+            .iter()
+            .find(|t| t.id == id)
+            .map(|t| t.doc.print_permission())
+    }) == Some(folitecta_core::print::PrintPermission::Allowed);
+    let notes = window_notes().await;
+    cx.record(
+        "print: a document without a user password refuses printing until its owner password is typed in the window",
+        refused && wrong && allowed && tab_allowed,
+        format!("refused {refused}, wrong password noticed {wrong}, allowed {allowed}, tab allowed {tab_allowed}; {notes}"),
+    );
+    st.set_dialog(Dialog::None);
+    pause(200).await;
+    if let Some(id) = tab {
+        crate::files::close_tab(st, id, true, crate::state::AfterUnsaved::Close);
+        pause(300).await;
+    }
+    if let Some(b) = before {
+        st.set_active(b.min(st.docs.read().len().saturating_sub(1)));
+    }
 }
 
 /// A portfolio prints its own PDF files (three pages in two files), not the
@@ -301,7 +397,7 @@ async fn portfolio(cx: &mut Ctx<'_>) {
     crate::commands::dispatch(st, "view.portfolio.print");
     let sides = wait_sides(3, 20).await;
     let files = match &*st.dialog.peek() {
-        Dialog::Print(crate::state::PrintTarget::Files(f)) => f.len(),
+        Dialog::Print(crate::state::PrintTarget::Files { files, .. }) => files.len(),
         _ => 0,
     };
     let text = text_of(".print-docs").await;

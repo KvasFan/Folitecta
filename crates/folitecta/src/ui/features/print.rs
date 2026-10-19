@@ -279,6 +279,8 @@ struct Doc {
     failed: Option<String>,
     /// Comments hidden by the filter of the view (they do not print).
     filtered: usize,
+    /// The tab of the document (or of the portfolio it comes from).
+    tab: Option<u64>,
 }
 
 fn tab_doc(t: &DocTab) -> Doc {
@@ -297,13 +299,25 @@ fn tab_doc(t: &DocTab) -> Doc {
         permission: t.doc.print_permission(),
         source: None,
         failed: None,
+        tab: Some(t.id),
     }
 }
 
-/// A document of a file not open in a tab.
-fn file_doc(name: &str, bytes: &[u8], lang: Lang) -> Doc {
+/// A document of a file not open in a tab, protected like the document it
+/// comes from (a portfolio): the same permissions, and its print files saved
+/// encrypted the same way.
+fn file_doc(
+    name: &str,
+    bytes: &[u8],
+    lang: Lang,
+    protection: Option<&folitecta_core::Protection>,
+    tab: Option<u64>,
+) -> Doc {
     match folitecta_core::Document::from_bytes(bytes.to_vec(), None, None) {
         Ok(mut doc) => {
+            if let Some(p) = protection {
+                doc.inherit_protection(p);
+            }
             doc.set_name_hint(name);
             Doc {
                 name: name.to_string(),
@@ -321,6 +335,7 @@ fn file_doc(name: &str, bytes: &[u8], lang: Lang) -> Doc {
                 source: None,
                 failed: None,
                 filtered: 0,
+                tab,
             }
         }
         Err(e) => Doc {
@@ -335,6 +350,7 @@ fn file_doc(name: &str, bytes: &[u8], lang: Lang) -> Doc {
             source: None,
             failed: Some(crate::i18n::core_error(lang, &e)),
             filtered: 0,
+            tab,
         },
     }
 }
@@ -468,10 +484,10 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
     let title = match &target {
         PrintTarget::Active | PrintTarget::Pages(_) => t(lang, "dialog.print.title"),
         PrintTarget::AllOpen => t(lang, "dialog.print.title_all"),
-        PrintTarget::Files(f) => tf(
+        PrintTarget::Files { files, .. } => tf(
             lang,
             "dialog.print.title_docs",
-            &[("count", &f.len().to_string())],
+            &[("count", &files.len().to_string())],
         ),
     };
 
@@ -489,7 +505,7 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
                     .collect()
             }
             PrintTarget::AllOpen => tabs.iter().map(tab_doc).collect(),
-            PrintTarget::Files(files) => files
+            PrintTarget::Files { files, tab, .. } => files
                 .iter()
                 .map(|(name, _)| Doc {
                     name: name.clone(),
@@ -503,16 +519,45 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
                     source: None,
                     failed: None,
                     filtered: 0,
+                    tab: *tab,
                 })
                 .collect(),
         }
     });
+    // Read document `i` for printing (again after the owner password).
+    let load_source = move |i: usize| async move {
+        let Some(seed) = docs.peek().get(i).and_then(|d| d.seed.clone()) else {
+            return;
+        };
+        let loaded = tokio::task::spawn_blocking(move || PrintSource::load(seed)).await;
+        let mut list = docs.write();
+        let Some(d) = list.get_mut(i) else { return };
+        match loaded {
+            Ok(Ok(src)) => {
+                d.geoms = src.geoms().to_vec();
+                d.labels = src.labels().to_vec();
+                d.count = src.page_count();
+                d.permission = src.permission();
+                d.source = Some(Arc::new(src));
+            }
+            Ok(Err(e)) => d.failed = Some(crate::i18n::core_error(lang, &e)),
+            Err(e) => d.failed = Some(e.to_string()),
+        }
+    };
     let target_load = target.clone();
     use_hook(move || {
         spawn(async move {
-            if let PrintTarget::Files(files) = target_load {
+            if let PrintTarget::Files {
+                files,
+                protection,
+                tab,
+            } = target_load
+            {
                 for (i, (name, bytes)) in files.into_iter().enumerate() {
-                    let made = tokio::task::spawn_blocking(move || file_doc(&name, &bytes, lang)).await;
+                    let p = protection.clone();
+                    let made =
+                        tokio::task::spawn_blocking(move || file_doc(&name, &bytes, lang, p.as_ref(), tab))
+                            .await;
                     if let Ok(d) = made {
                         if let Some(slot) = docs.write().get_mut(i) {
                             *slot = d;
@@ -522,25 +567,50 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
             }
             let n = docs.peek().len();
             for i in 0..n {
-                let Some(seed) = docs.peek().get(i).and_then(|d| d.seed.clone()) else {
-                    continue;
-                };
-                let loaded = tokio::task::spawn_blocking(move || PrintSource::load(seed)).await;
-                let mut list = docs.write();
-                let Some(d) = list.get_mut(i) else { continue };
-                match loaded {
-                    Ok(Ok(src)) => {
-                        d.geoms = src.geoms().to_vec();
-                        d.labels = src.labels().to_vec();
-                        d.count = src.page_count();
-                        d.source = Some(Arc::new(src));
-                    }
-                    Ok(Err(e)) => d.failed = Some(crate::i18n::core_error(lang, &e)),
-                    Err(e) => d.failed = Some(e.to_string()),
-                }
+                load_source(i).await;
             }
         });
     });
+    // The owner password, given here: printing is allowed to the owner.
+    let mut owner_password = use_signal(String::new);
+    let mut owner_wrong = use_signal(|| false);
+    let mut unlock = move || {
+        let pw = owner_password.peek().clone();
+        let mut unlocked = Vec::new();
+        let list = docs.peek().clone();
+        for (i, d) in list.iter().enumerate() {
+            if d.permission == PrintPermission::Allowed {
+                continue;
+            }
+            let Some(seed) = d.seed.as_ref() else { continue };
+            let Some(p) = seed.protection.as_ref().and_then(|p| p.unlocked(&pw)) else {
+                continue;
+            };
+            // The tab gets the owner's access too (its own document or the
+            // portfolio the file comes from).
+            if let Some(id) = d.tab {
+                if let Some(t) = st.docs_mut().iter_mut().find(|t| t.id == id) {
+                    t.doc.unlock_owner(&pw);
+                }
+            }
+            let mut seed = seed.clone();
+            seed.protection = Some(p);
+            if let Some(slot) = docs.write().get_mut(i) {
+                slot.seed = Some(seed);
+                slot.source = None;
+            }
+            unlocked.push(i);
+        }
+        owner_wrong.set(unlocked.is_empty());
+        if !unlocked.is_empty() {
+            owner_password.set(String::new());
+            spawn(async move {
+                for i in unlocked {
+                    load_source(i).await;
+                }
+            });
+        }
+    };
 
     let mut prefs = use_signal(|| PrintPrefs::load(st));
     let mut copies = use_signal(|| "1".to_string());
@@ -798,6 +868,10 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
         .iter()
         .any(|d| d.permission == PrintPermission::LowQuality);
     let filtered = docs_now.iter().map(|d| d.filtered).sum::<usize>();
+    // A document the permissions restrict, which its owner password lifts.
+    let restricted = docs_now.iter().any(|d| {
+        d.permission != PrintPermission::Allowed && d.seed.as_ref().is_some_and(|s| s.protection.is_some())
+    });
     let p = prefs();
     let printers_now = printers();
     let caps_now = current_caps();
@@ -1492,6 +1566,9 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
                             if let Some((cols, rows)) = tiles {
                                 div { class: "hint print-tiles", "{tf(lang, \"dialog.print.poster.tiles\", &[(\"cols\", &cols.to_string()), (\"rows\", &rows.to_string())])}" }
                             }
+                            if p.labels {
+                                div { class: "hint print-strip", "{t(lang, \"dialog.print.poster.strip\")}" }
+                            }
                         },
                     }}
                     div { class: "field-grid",
@@ -1604,6 +1681,22 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
                             for (k, w) in warnings.iter().enumerate() {
                                 div { key: "{k}", class: "print-warning", "{w}" }
                             }
+                        }
+                    }
+                    if restricted {
+                        div { class: "print-owner",
+                            input { r#type: "password", class: "print-owner-pw", value: "{owner_password}",
+                                placeholder: "{t(lang, \"dialog.print.owner_password\")}",
+                                title: "{t(lang, \"dialog.print.owner_password\")}",
+                                oninput: move |e| { owner_wrong.set(false); owner_password.set(e.value()) },
+                                onkeydown: move |e| if e.key() == Key::Enter { e.stop_propagation(); unlock() },
+                            }
+                            button { class: "tbtn print-owner-unlock", onclick: move |_| unlock(),
+                                "{t(lang, \"dialog.print.owner_unlock\")}"
+                            }
+                        }
+                        if owner_wrong() {
+                            div { class: "print-warning print-owner-wrong", "{t(lang, \"dialog.print.owner_wrong\")}" }
                         }
                     }
                 }
@@ -1799,6 +1892,61 @@ mod tests {
             sides_problem(Sides::ShortEdge, &PrinterCaps::default()),
             Some("dialog.print.warn.no_duplex")
         );
+    }
+
+    #[test]
+    fn files_of_a_protected_portfolio_keep_its_protection() {
+        use folitecta_core::{Document, EncryptionProfile, Error, SecurityPermissions};
+        let dir = std::env::temp_dir().join(format!("folitecta-print-portfolio-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let one = Document::from_text("Embedded file", Default::default()).unwrap();
+        let portfolio =
+            Document::new_portfolio(vec![("one.pdf".into(), one.bytes().to_vec())], "Files").unwrap();
+        let path = dir.join("portfolio.pdf");
+        let no_print = SecurityPermissions {
+            print: false,
+            ..SecurityPermissions::default()
+        };
+        portfolio
+            .save_encrypted(&path, "u", "o", no_print, EncryptionProfile::Aes256)
+            .unwrap();
+        let as_user = Document::open_with_password(&path, "u").unwrap();
+        let items: Vec<_> = as_user
+            .portfolio()
+            .unwrap()
+            .files_in(None)
+            .into_iter()
+            .cloned()
+            .collect();
+        let (files, _) = crate::commands::portfolio::pdf_files(&as_user, &items);
+        let (name, bytes) = &files[0];
+        // Printing is refused as it is for the portfolio itself.
+        let d = file_doc(name, bytes, Lang::En, as_user.protection(), None);
+        assert_eq!(d.permission, PrintPermission::Forbidden);
+        // The owner password lifts it, and a saved print file stays encrypted.
+        let unlocked = as_user.protection().unwrap().unlocked("o").unwrap();
+        assert!(as_user.protection().unwrap().unlocked("x").is_none());
+        let d = file_doc(name, bytes, Lang::En, Some(&unlocked), None);
+        assert_eq!(d.permission, PrintPermission::Allowed);
+        let src = PrintSource::load(d.seed.unwrap()).unwrap();
+        assert!(src.is_protected());
+        let plan = print::plan(&[0], src.geoms(), &PrintOptions::default()).unwrap();
+        let o = BuildOptions {
+            content: Content::Document,
+            compress: true,
+        };
+        let plain = src
+            .build(&plan, 0..plan.sheets.len(), &o, &mut |_, _| true)
+            .unwrap()
+            .unwrap();
+        let saved = src.protect(&plain).unwrap();
+        assert!(matches!(
+            Document::from_bytes(saved.clone(), None, None),
+            Err(Error::PasswordRequired)
+        ));
+        assert!(Document::from_bytes(saved, None, Some("u")).is_ok());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

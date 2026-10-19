@@ -407,8 +407,13 @@ pub enum PrintTarget {
     Pages(Vec<usize>),
     /// Every open document.
     AllOpen,
-    /// PDF files given by name and contents (the files of a portfolio).
-    Files(Vec<PrintFile>),
+    /// PDF files given by name and contents (the files of a portfolio), with
+    /// the protection of the document they come from (and the tab holding it).
+    Files {
+        files: Vec<PrintFile>,
+        protection: Option<folitecta_core::Protection>,
+        tab: Option<u64>,
+    },
 }
 
 /// A PDF file to print: its name and contents.

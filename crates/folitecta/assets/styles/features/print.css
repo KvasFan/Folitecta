@@ -28,6 +28,8 @@
 .print-sheet-count { min-width: 160px; text-align: center; font-size: 13px; }
 .print-summary { text-align: center; color: var(--muted); font-size: 12px; }
 .print-warning { color: var(--warn-fg); background: var(--warn-bg); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 12px; line-height: 1.4; }
+.print-owner { display: flex; gap: 6px; align-items: center; flex: none; }
+.print-owner-pw { flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 9px; background: var(--surface); color: var(--text); }
 .print-chip { gap: 6px; }
 .print-chip .print-cancel { padding: 0 2px; }
 .print-chip .ic { width: 14px; height: 14px; }

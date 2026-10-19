@@ -328,7 +328,11 @@ fn preview_file(st: AppState) {
 fn print(st: AppState) {
     let Some((p, ps)) = need_portfolio(st) else { return };
     let chosen = chosen_files(&p, &ps);
-    let Some((files, unreadable)) = st.read_active(|t| pdf_files(&t.doc, &chosen)) else {
+    let Some((files, unreadable, protection, tab)) = st.read_active(|t| {
+        let (files, unreadable) = pdf_files(&t.doc, &chosen);
+        // The files keep the protection (and the access) of the portfolio.
+        (files, unreadable, t.doc.protection().cloned(), t.id)
+    }) else {
         return;
     };
     if files.is_empty() && unreadable == 0 {
@@ -339,7 +343,11 @@ fn print(st: AppState) {
         st.toast(ToastKind::Warn, t(st.lang(), "toast.portfolio_unreadable"), "");
     }
     if !files.is_empty() {
-        st.set_dialog(Dialog::Print(crate::state::PrintTarget::Files(files)));
+        st.set_dialog(Dialog::Print(crate::state::PrintTarget::Files {
+            files,
+            protection,
+            tab: Some(tab),
+        }));
     }
 }
 

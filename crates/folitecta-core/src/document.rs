@@ -237,6 +237,11 @@ fn load_decrypted(bytes: &[u8], password: &[u8]) -> Result<lopdf::Document> {
     })?;
     let encrypt_ref = encrypt.as_reference()?;
     doc.trailer.set("Encrypt", encrypt);
+    // The key is used only once the user password it is made from is
+    // verified (Algorithms 6 and 7): another key would decrypt into noise.
+    if doc.authenticate_raw_user_password(password).is_err() {
+        return Err(Error::WrongPassword);
+    }
     let state = lopdf::EncryptionState::decode(&doc, password)?;
     for (id, obj) in doc.objects.iter_mut() {
         if *id != encrypt_ref {
@@ -272,11 +277,25 @@ fn load_decrypted(bytes: &[u8], password: &[u8]) -> Result<lopdf::Document> {
     Ok(doc)
 }
 
+/// [`load_decrypted`] for the tests of the password algorithms.
+#[cfg(test)]
+pub(crate) fn load_decrypted_for_test(bytes: &[u8], password: &[u8]) -> Result<lopdf::Document> {
+    load_decrypted(bytes, password)
+}
+
 fn load_inner(bytes: &[u8], password: Option<&str>) -> Result<Loaded> {
     // Revisions 2 to 4: a password the library would make a wrong key of
     // (characters outside ASCII, an owner password) is decrypted here.
-    if let Some(key) = password.and_then(|pw| crate::security::r4_key_password(bytes, pw)) {
-        return finish_load(load_decrypted(bytes, &key)?, bytes);
+    // Files of revision 2 to 4 never reach the preparation for AES-256 below
+    // (a composed form of an owner password would open them into noise).
+    let mut r4 = false;
+    if let Some(pw) = password {
+        match crate::security::r4_key_password(bytes, pw) {
+            crate::security::R4Key::Key(key) => return finish_load(load_decrypted(bytes, &key)?, bytes),
+            crate::security::R4Key::Wrong => return Err(Error::WrongPassword),
+            crate::security::R4Key::Library => r4 = true,
+            crate::security::R4Key::NotR4 => {}
+        }
     }
     let with =
         |pw: &str| lopdf::Document::load_mem_with_options(bytes, lopdf::LoadOptions::with_password(pw));
@@ -288,7 +307,7 @@ fn load_inner(bytes: &[u8], password: Option<&str>) -> Result<Loaded> {
             // revisions encode it differently).
             let prepared = stringprep::saslprep(pw)
                 .ok()
-                .filter(|p| p.as_ref() != pw)
+                .filter(|p| !r4 && p.as_ref() != pw)
                 .map(|p| p.into_owned());
             match prepared.as_deref().map(with) {
                 Some(Ok(doc)) => Ok(doc),

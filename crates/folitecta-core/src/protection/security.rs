@@ -165,42 +165,78 @@ fn user_of_owner(dict: &lopdf::Dictionary, revision: i64, owner: &[u8]) -> Vec<u
     rc4(&hash[..n], &user)
 }
 
-/// For an encrypted file of revision 2 to 4 opened with `password`: the
-/// password bytes that give its file key, when the PDF library would make
-/// a wrong key of the typed password. The library checks the password in
-/// PDFDocEncoding but makes the key from its UTF-8 bytes (wrong for every
-/// character outside ASCII), and makes it from an owner password as if it
-/// were the user password; either way the file would be decrypted into
-/// noise. The password is also tried as UTF-8 bytes, as some producers
-/// write it. `None` when the library's own reading is right.
-pub(crate) fn r4_key_password(bytes: &[u8], password: &str) -> Option<Vec<u8>> {
+/// How a file of revision 2 to 4 opened with a password is decrypted.
+#[derive(Debug, PartialEq)]
+pub(crate) enum R4Key {
+    /// Not a file of revision 2 to 4 that needs its password (the PDF
+    /// library's reading applies).
+    NotR4,
+    /// An ASCII user password: the PDF library makes the right key of it.
+    Library,
+    /// The password bytes that give the file key (decrypted here).
+    Key(Vec<u8>),
+    /// No form of the password opens the file.
+    Wrong,
+}
+
+/// For an encrypted file of revision 2 to 4 opened with `password`: how to
+/// decrypt it. The PDF library checks the password in PDFDocEncoding but
+/// makes the key from its UTF-8 bytes (wrong for every character outside
+/// ASCII), and makes it from an owner password as if it were the user
+/// password; either way the file would be decrypted into noise, so those
+/// passwords are decrypted here. The password is tried as typed and
+/// composed (NFC: accents typed as separate marks are stored composed), in
+/// PDFDocEncoding and as UTF-8 bytes (as some producers write it).
+pub(crate) fn r4_key_password(bytes: &[u8], password: &str) -> R4Key {
+    use unicode_normalization::UnicodeNormalization;
     if password.is_empty() {
-        return None;
+        return R4Key::NotR4;
     }
     // Without a password the file stays encrypted (when it has a user password).
-    let doc = lopdf::Document::load_mem(bytes).ok()?;
-    let dict = doc.get_encrypted().ok()?;
+    let Ok(doc) = lopdf::Document::load_mem(bytes) else {
+        return R4Key::NotR4;
+    };
+    let Ok(dict) = doc.get_encrypted() else {
+        return R4Key::NotR4;
+    };
     let revision = dict.get(b"R").and_then(Object::as_i64).unwrap_or(0);
-    if !(2..=4).contains(&revision) {
-        return None;
+    if !(2..=4).contains(&revision) || other_handler(dict) {
+        return R4Key::NotR4;
     }
     let typed = password.as_bytes().to_vec();
-    let mut candidates = vec![pdf_doc_bytes(password)];
-    if candidates[0] != typed {
-        candidates.push(typed.clone());
+    let composed: String = password.nfc().collect();
+    let mut candidates: Vec<Vec<u8>> = Vec::new();
+    for c in [
+        pdf_doc_bytes(password),
+        pdf_doc_bytes(&composed),
+        typed.clone(),
+        composed.as_bytes().to_vec(),
+    ] {
+        if !c.is_empty() && !candidates.contains(&c) {
+            candidates.push(c);
+        }
     }
-    // The library's own reading is right only for a password whose
-    // PDFDocEncoding is its UTF-8 (ASCII).
-    let library_reads_it = candidates.len() == 1;
     for candidate in candidates {
         if doc.authenticate_raw_user_password(&candidate).is_ok() {
-            return (!library_reads_it).then_some(candidate);
+            // The library's own reading is right only for an ASCII password.
+            return if password.is_ascii() && candidate == typed {
+                R4Key::Library
+            } else {
+                R4Key::Key(candidate)
+            };
         }
         if doc.authenticate_raw_owner_password(&candidate).is_ok() {
-            return Some(user_of_owner(dict, revision, &candidate));
+            return R4Key::Key(user_of_owner(dict, revision, &candidate));
         }
     }
-    None
+    R4Key::Wrong
+}
+
+/// The encryption dictionary names another handler than the standard one.
+fn other_handler(dict: &lopdf::Dictionary) -> bool {
+    dict.get(b"Filter")
+        .and_then(Object::as_name)
+        .is_ok_and(|f| f != b"Standard")
 }
 
 impl EncryptionProfile {
@@ -1000,6 +1036,47 @@ mod handmade {
                 (*id, o)
             })
             .collect()
+    }
+
+    #[test]
+    fn passwords_typed_composed_or_decomposed_open_the_content() {
+        // Accents typed as separate marks (NFD) are stored composed (NFC)
+        // in PDFDocEncoding: both forms open the file, with its content.
+        for (r, aes) in [(2, false), (3, false), (4, false), (4, true)] {
+            let raw = two_revisions(r, &pdf_doc_bytes("pässwörd"), &pdf_doc_bytes("Ownér€"), aes);
+            for typed in ["pässwörd", "pa\u{308}sswo\u{308}rd", "Ownér€", "Owne\u{301}r€"] {
+                let doc = Document::from_bytes(raw.clone(), None, Some(typed))
+                    .unwrap_or_else(|e| panic!("R{r} aes {aes}, {typed:?}: {e}"));
+                assert_eq!(val(&doc), b"NEW-VALUE", "R{r} aes {aes}, {typed:?}");
+                assert!(
+                    doc.page_text(0).contains("MARK-OBJSTM"),
+                    "R{r} aes {aes}, {typed:?}"
+                );
+            }
+            for wrong in ["passwörd", "Owne\u{300}r€", "pässwörd ", "wrong"] {
+                assert!(
+                    matches!(
+                        Document::from_bytes(raw.clone(), None, Some(wrong)),
+                        Err(Error::WrongPassword)
+                    ),
+                    "R{r} aes {aes}, {wrong:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn keys_are_used_only_once_verified() {
+        // Bytes that are not the user password give no document (never a
+        // document decrypted into noise).
+        let raw = two_revisions(4, b"user", b"owner", true);
+        for bytes in [&b"wrong"[..], b"owner", b""] {
+            assert!(matches!(
+                crate::document::load_decrypted_for_test(&raw, bytes),
+                Err(Error::WrongPassword)
+            ));
+        }
+        assert!(crate::document::load_decrypted_for_test(&raw, b"user").is_ok());
     }
 
     #[test]

@@ -13,7 +13,7 @@ are in [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md); the general rules in
 | `crates/folitecta/` | The Dioxus desktop interface: `commands/` (handler tables by area), `ui/` (chrome, panes, canvas, dialogs, features), `state/`, `files/` (native file dialogs), `mail.rs`, `clipboard.rs`, `recovery.rs`, `selftest/`. |
 | `crates/folitecta/assets/i18n/<lang>/<area>.json` | English and Italian strings; a key lives in the file of the area of its first word (`toast.*` in `messages.json`, `short.*` in `short.json`, …). |
 | `crates/folitecta/assets/styles/` | Style sheets by part of the window and by feature; colours only through the tokens of `theme.css`. |
-| `ocr/`, `dictionaries/` | OCR models and Hunspell dictionaries read at run time, copied next to the executable in release packages. |
+| `ocr/`, `dictionaries/`, `fonts/` | OCR models, Hunspell dictionaries and the font of generated text beyond WinAnsi (FreeSans; its source in `fonts/source`, not packaged) read at run time, copied next to the executable in release packages. |
 | `docs/` | Architecture, feature matrix (generated), release notes. |
 | `ai/` | These guides. |
 
@@ -99,9 +99,9 @@ Licences of dependencies: `cargo deny check licenses` (the list is in `deny.toml
   `CHANGELOG.md`, `docs/RELEASE_NOTES.md` and the status line of the README, regenerates the
   feature matrix, and pushes a `vX.Y.Z` tag: the tag runs the full CI (Windows, macOS, Linux) and
   the release workflow, which publishes the packages with their SHA-256 files.
-- After a release, download the Windows package, check its SHA-256, extract it and run the `ocr`
-  and `spelling` self-test steps with that executable (they prove the data folders next to the
-  executable are found).
+- After a release, download the Windows package, check its SHA-256, extract it and run the `ocr`,
+  `spelling` and `unicode` self-test steps with that executable (they prove the data folders next
+  to the executable are found).
 
 ## Starting on a new machine
 

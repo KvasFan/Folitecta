@@ -69,6 +69,18 @@ node, so nested page trees from any producer are handled uniformly.
 Content streams are rewritten operation by operation with a small lexer (`content_lex`) that keeps
 the bytes of every operation it does not change.
 
+Generated text chooses its font in `fonts` (`TextWriter`): text whose characters all have a
+WinAnsi code is drawn with the standard Helvetica, as before; other text with a subset of GNU
+FreeFont FreeSans embedded in the appearance that draws it, as a Type 0 font (Identity-H,
+CIDFontType2 with `/FontFile2`, `/CIDToGIDMap` and `/W`) with a `/ToUnicode` map, its codes the
+characters in the order they are first drawn. The subsetter keeps the glyph numbers, records and
+metrics of the glyphs used; each appearance owns its subset (marked `/FolitectaFont` with the key
+of its characters), and a drawing made again with the same characters uses it again. Text that
+needs right-to-left order, joining or combining marks, and characters the font lacks, are refused
+before an edit begins (`check_text`, `appearance::text_problem`); a failed edit is abandoned with
+its undo and redo history as it was (`Document::edit_step`). The font is a data file, never built
+into the program (see `fonts/README.md`).
+
 Encrypted files are decrypted in memory (password-protected files prompt for the password); the
 encryption of the file — its key, passwords and permissions — is kept aside and applied again
 whenever the document is saved, so a protected file stays protected and opens with the same
@@ -151,11 +163,13 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
   offered. Copies are written through a temporary file, one checkpoint at a time, off the
   interface thread; documents opened from encrypted files are not copied, signed ones are copied
   as an incremental update.
-- `dictionaries/` and `ocr/` (at the root of the repository) — the Hunspell dictionaries and the
-  text recognition models shipped with the program, as data files next to it in the release
-  packages (the `Resources` of the macOS bundle). They are looked for in the user's
-  `Folitecta/dictionaries` (or `Folitecta/ocr`) folder first, then next to the program, then in
-  the source tree, and the dictionaries on Linux in `/usr/share/hunspell` too.
+- `dictionaries/`, `ocr/` and `fonts/` (at the root of the repository) — the Hunspell
+  dictionaries, the text recognition models and the font of generated text beyond WinAnsi
+  (FreeSans) shipped with the program, as data files next to it in the release packages (the
+  `Resources` of the macOS bundle; `fonts/source`, the source of the font, stays in the source
+  archives). They are looked for in the user's `Folitecta/dictionaries` (or `Folitecta/ocr`,
+  `Folitecta/fonts`) folder first, then next to the program, then in the source tree, and the
+  dictionaries on Linux in `/usr/share/hunspell` too.
 - `features.rs` — generates `docs/FEATURES.md` (`folitecta --features-md <path>`).
 - `selftest/` — the interface self-test (`folitecta --ui-selftest <dir>`): layout audits at
   several window sizes and simulated input on the canvas, with a report and screenshots.
@@ -181,8 +195,15 @@ Mouse coordinates on a page image are converted to PDF user space with
   draws them itself (pictures inside forms and inline pictures are not found); edited pictures are
   written as 8-bit RGB, gray, palette or black and white pictures (CMYK, ICC profiles and 16-bit
   samples are not kept, and stencil masks become black and white pictures).
-- Generated text (comments, stamps, page marks) uses Helvetica with WinAnsi encoding: characters
-  the WinAnsi encoding lacks appear as `?`.
+- Text boxes, typewriter text, callouts and measurement labels draw text beyond WinAnsi with the
+  embedded FreeSans subset; right-to-left text, letters that join or combine (Arabic, Hebrew,
+  Indic scripts, Thai marks) and characters FreeSans lacks (Chinese, Japanese, Korean, ...) are
+  refused, with no choice of another font yet; `/DA` still names Helvetica. Text stamps refuse
+  text beyond WinAnsi. The other generated text (designed stamps, tables, calculator tapes, form
+  fields, watermarks, headers and footers, page numbers, Bates numbers, comment summaries,
+  documents made from text or e-mail, signature appearances, typed signature marks, media
+  captions, barcode captions, redaction overlay text) still uses Helvetica with WinAnsi encoding,
+  where characters the encoding lacks appear as `?`.
 - Text recognition reads the Latin script, written left to right (lines turned up to about 45
   degrees); the invisible text uses WinAnsi, so letters it lacks (such as Polish `ł`) are written
   without their accent.

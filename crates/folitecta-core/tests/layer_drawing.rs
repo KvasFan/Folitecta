@@ -745,3 +745,105 @@ fn pictures_move_to_a_new_layer() {
     let text = content(&doc);
     assert!(text.contains(&format!("/OC /FoliOC{} BDC", ink.0)), "{text}");
 }
+
+/// Every layer object of the document is listed in its optional content
+/// properties (no layer copied on its own).
+fn every_ocg_listed(doc: &Document) -> bool {
+    let listed: HashSet<ObjectId> = doc.layers().iter().map(|l| l.id).collect();
+    doc.inner()
+        .objects
+        .iter()
+        .filter(|(_, o)| o.as_dict().is_ok_and(|d| d.has_type(b"OCG")))
+        .all(|(id, _)| listed.contains(id))
+}
+
+fn drawn_on_ink() -> (Document, ObjectId) {
+    let (mut doc, ink) = with_layer();
+    doc.set_drawing_layer(Some(ink)).unwrap();
+    doc.add_shape(
+        0,
+        Shape::Square,
+        [100.0, 100.0, 200.0, 200.0],
+        RED,
+        Some(RED),
+        2.0,
+        "R",
+        "x",
+    )
+    .unwrap();
+    doc.set_popup_open(0, 0, true).unwrap();
+    doc.set_drawing_layer(None).unwrap();
+    (doc, ink)
+}
+
+#[test]
+fn fdf_and_pdf_exchanges_carry_the_layer_by_name() {
+    let (mut doc, ink) = drawn_on_ink();
+    let fdf = doc.export_comments_fdf(None).unwrap();
+    let text = String::from_utf8_lossy(&fdf).to_string();
+    assert!(!text.contains("/OCG"), "the layer object travelled: {text}");
+    assert!(
+        text.replace("/FolitectaLayer (", "/FolitectaLayer(")
+            .contains("/FolitectaLayer(Ink)"),
+        "{text}"
+    );
+    // Into another document with a layer of that name.
+    let mut other = Document::new_blank(1, 300.0, 300.0).unwrap();
+    let (theirs, _) = other.add_layer("Ink", &[]).unwrap();
+    assert_eq!(other.import_comments_fdf(&fdf).unwrap(), 1);
+    assert_eq!(other.annotation_layer(0, 0), Some(theirs));
+    assert!(every_ocg_listed(&other));
+    other.set_layer_visible(theirs, false).unwrap();
+    let back = reopen(&mut other, "fdf-other");
+    assert!(every_ocg_listed(&back));
+    assert!(is_white(pixel(back.render_bytes().unwrap(), 150, 150)));
+    // The pop-up note follows its comment.
+    let popup = oc_entries(&back, 0)
+        .into_iter()
+        .find(|(s, _)| s == "Popup")
+        .unwrap();
+    assert_eq!(
+        popup.1.and_then(|o| o.as_reference().ok()),
+        Some(layer_named(&back, "Ink"))
+    );
+    // Into a document without it: the layer is added.
+    let mut bare = Document::new_blank(1, 300.0, 300.0).unwrap();
+    bare.import_comments(&fdf).unwrap();
+    let back = reopen(&mut bare, "fdf-bare");
+    assert_eq!(back.layers().len(), 1);
+    assert_eq!(back.annotation_layer(0, 0), Some(layer_named(&back, "Ink")));
+    assert!(every_ocg_listed(&back));
+    // Into the same document: updated in place, on the same layer.
+    doc.import_comments_fdf(&fdf).unwrap();
+    assert_eq!(doc.layers().len(), 1);
+    assert_eq!(doc.annotation_layer(0, 0), Some(ink));
+    assert_eq!(doc.annotations(0).unwrap().len(), 2);
+    assert!(every_ocg_listed(&doc));
+    // Comments of another PDF: their layer is matched by name as well.
+    let path = folder("pdf-source").join("source.pdf");
+    doc.save_as(&path).unwrap();
+    let mut target = Document::new_blank(1, 300.0, 300.0).unwrap();
+    let (mine, _) = target.add_layer("Ink", &[]).unwrap();
+    target
+        .import_comments_pdf(&std::fs::read(&path).unwrap())
+        .unwrap();
+    assert_eq!(target.annotation_layer(0, 0), Some(mine));
+    assert_eq!(target.layers().len(), 1);
+    assert!(every_ocg_listed(&target));
+}
+
+#[test]
+fn xfdf_imports_keep_the_layer_of_a_comment_updated_in_place() {
+    let (mut doc, ink) = drawn_on_ink();
+    let xfdf = doc.export_comments_xfdf(None);
+    assert_eq!(doc.import_comments_xfdf(&xfdf).unwrap(), 1);
+    assert_eq!(doc.annotation_layer(0, 0), Some(ink));
+    let back = reopen(&mut doc, "xfdf");
+    assert_eq!(back.annotation_layer(0, 0), Some(layer_named(&back, "Ink")));
+    assert!(every_ocg_listed(&back));
+    // A new comment from XFDF goes to no layer (the format names none).
+    let mut other = Document::new_blank(1, 300.0, 300.0).unwrap();
+    other.add_layer("Ink", &[]).unwrap();
+    other.import_comments_xfdf(&xfdf).unwrap();
+    assert_eq!(other.annotation_layer(0, 0), None);
+}

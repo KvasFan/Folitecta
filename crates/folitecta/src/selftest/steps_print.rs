@@ -248,4 +248,65 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     st.set_dialog(Dialog::None);
     st.ui_mut().values.remove(crate::ui::features::print::PREFS_KEY);
     fake.clear();
+    pause(300).await;
+    portfolio(cx).await;
+}
+
+/// A portfolio prints its own PDF files (three pages in two files), not the
+/// other documents open.
+async fn portfolio(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    let made = (|| -> folitecta_core::Result<folitecta_core::Document> {
+        let one = folitecta_core::Document::new_blank(1, 595.0, 842.0)?;
+        let two = folitecta_core::Document::new_blank(2, 595.0, 842.0)?;
+        folitecta_core::Document::new_portfolio(
+            vec![
+                ("one.pdf".into(), one.bytes().to_vec()),
+                ("two.pdf".into(), two.bytes().to_vec()),
+                ("notes.txt".into(), b"not a PDF".to_vec()),
+            ],
+            "Print test files",
+        )
+    })();
+    let Ok(doc) = made else {
+        cx.record(
+            "print: a portfolio of two PDF files",
+            false,
+            format!("{:?}", made.err()),
+        );
+        return;
+    };
+    let before = st.active_index();
+    let id = st.alloc_id();
+    st.docs_mut().push(DocTab::new(id, doc));
+    let n = st.docs.read().len();
+    st.set_active(n - 1);
+    pause(600).await;
+    crate::commands::dispatch(st, "view.portfolio.print");
+    let sides = wait_sides(3, 20).await;
+    let files = match &*st.dialog.peek() {
+        Dialog::Print(crate::state::PrintTarget::Files(f)) => f.len(),
+        _ => 0,
+    };
+    let text = text_of(".print-docs").await;
+    let want = crate::i18n::tf(
+        st.lang(),
+        "dialog.print.docs_summary",
+        &[("docs", "2"), ("pages", "3")],
+    );
+    cx.record(
+        "print: a portfolio prints its own two PDF files (3 pages), no other open document",
+        sides == 3 && files == 2 && text.trim() == want,
+        format!("{sides} sides, {files} files, '{text}'"),
+    );
+    st.set_dialog(Dialog::None);
+    pause(200).await;
+    let index = st.docs.read().iter().position(|t| t.id == id);
+    if let Some(i) = index {
+        st.docs_mut().remove(i);
+    }
+    if let Some(b) = before {
+        st.set_active(b.min(st.docs.read().len().saturating_sub(1)));
+    }
+    pause(300).await;
 }

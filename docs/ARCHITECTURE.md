@@ -89,6 +89,16 @@ requests `/page/{tab}/{page}/{revision}/{scale}.png` and the response is produce
 thread. Because the revision is part of the URL the browser cache stays valid until the document
 changes.
 
+### Printing
+
+`print` plans the sheets of a print job as pure geometry (one page per sheet, several pages per
+sheet, booklets, posters, the order of two-sided output) and writes them as a vector PDF: each page
+used becomes form XObjects (its content, then its printable annotations) placed on sheets of the
+paper's size, with the objects copied once and the layers fixed to their print state. The file is
+checked before it is sent or saved, and encrypted like its source as the last step when it is
+saved. `raster` draws sheets as pictures, and the renderer draws pages in bands for printers that
+receive pixels.
+
 ### Command registry
 
 `assets/commands.json` lists every user-facing command (id, label, parent, classic menu, ribbon
@@ -157,6 +167,9 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
   `Folitecta/dictionaries` (or `Folitecta/ocr`) folder first, then next to the program, then in
   the source tree, and the dictionaries on Linux in `/usr/share/hunspell` too.
 - `features.rs` — generates `docs/FEATURES.md` (`folitecta --features-md <path>`).
+- `printing/` — the printers: IPP to the local print server on Linux and macOS (the vector print
+  file is sent), GDI on Windows (the sheets drawn in bands), and a fake printer for the tests and
+  the self-test; the print window is `ui/features/print.rs`, its jobs `commands/document/print.rs`.
 - `selftest/` — the interface self-test (`folitecta --ui-selftest <dir>`): layout audits at
   several window sizes and simulated input on the canvas, with a report and screenshots.
 

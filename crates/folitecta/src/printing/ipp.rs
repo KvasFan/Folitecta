@@ -1066,6 +1066,16 @@ mod tests {
     }
 
     #[test]
+    fn margins_are_asked_by_their_own_names() {
+        // IPP has no wildcards in requested attributes.
+        for side in ["bottom", "left", "right", "top"] {
+            let name = format!("media-{side}-margin-supported");
+            assert!(CAPS_ATTRS.contains(&name.as_str()), "{name}");
+        }
+        assert!(CAPS_ATTRS.iter().all(|a| !a.contains('*')));
+    }
+
+    #[test]
     fn names_and_addresses_are_safe() {
         let long = "é".repeat(200);
         let cut = name_value(&long);

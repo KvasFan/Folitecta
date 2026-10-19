@@ -790,3 +790,102 @@ fn sheets_print_as_pictures_of_the_same_size() {
     assert!(stopped.is_none() && calls == 1);
     assert!(print::sheets_as_images(vector, 5.0, false, &mut |_, _| true).is_err());
 }
+
+/// How long a long document takes: the plan, the print file of every sheet
+/// with its check, and one sheet of sixteen pages (the preview).
+/// `cargo test --release -p folitecta-core --test print timing -- --ignored --nocapture`
+#[test]
+#[ignore]
+fn timing_of_a_long_document() {
+    use std::time::Instant;
+    // 500 pages, each with its own picture of 600 x 800 pixels.
+    let mut pages = Vec::new();
+    for i in 0..500 {
+        pages.push((
+            A4.0,
+            A4.1,
+            format!("q 500 0 0 700 40 70 cm /Im{i} Do Q BT /F1 12 Tf 50 30 Td (Page {i}) Tj ET"),
+        ));
+    }
+    let bytes = pdf_with(pages, |d, ids| {
+        for (i, id) in ids.iter().enumerate() {
+            let pixels: Vec<u8> = (0..600 * 800 * 3)
+                .map(|k| ((k * 7 + i * 13) % 251) as u8)
+                .collect();
+            let mut enc = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::fast());
+            std::io::Write::write_all(&mut enc, &pixels).unwrap();
+            let img = d.add_object(Stream::new(
+                dictionary! { "Type" => "XObject", "Subtype" => "Image", "Width" => 600, "Height" => 800,
+                "ColorSpace" => "DeviceRGB", "BitsPerComponent" => 8, "Filter" => "FlateDecode" },
+                enc.finish().unwrap(),
+            ));
+            let page = d.get_dictionary_mut(*id).unwrap();
+            let mut res = page.get(b"Resources").unwrap().as_dict().unwrap().clone();
+            let mut xo = Dictionary::new();
+            xo.set(format!("Im{i}"), img);
+            res.set("XObject", xo);
+            page.set("Resources", res);
+        }
+    });
+    eprintln!("document: {} MB", bytes.len() / 1_000_000);
+    let doc = open(bytes);
+    let t = Instant::now();
+    let src = source(&doc);
+    eprintln!("read for printing: {:?}", t.elapsed());
+    let all: Vec<usize> = (0..500).collect();
+    let t = Instant::now();
+    let plan = plan_of(&src, &all, &options(Layout::default(), a4()));
+    eprintln!("plan of 500 sheets: {:?}", t.elapsed());
+    let t = Instant::now();
+    let pdf = src
+        .build(
+            &plan,
+            0..500,
+            &BuildOptions {
+                content: Content::DocumentAndComments,
+                compress: true,
+            },
+            &mut |_, _| true,
+        )
+        .unwrap()
+        .unwrap();
+    eprintln!("print file: {:?}, {} MB", t.elapsed(), pdf.len() / 1_000_000);
+    let pdf = Arc::new(pdf);
+    let t = Instant::now();
+    print::validate(&pdf, &plan, 0..500).unwrap();
+    eprintln!("check: {:?}", t.elapsed());
+    let nup = options(
+        Layout::NUp {
+            per_sheet: 16,
+            order: NupOrder::Horizontal,
+            gutter: 0.0,
+            borders: false,
+            auto_rotate: true,
+        },
+        a4(),
+    );
+    let plan = plan_of(&src, &all, &nup);
+    let t = Instant::now();
+    let one = src
+        .build(
+            &plan,
+            0..1,
+            &BuildOptions {
+                content: Content::DocumentAndComments,
+                compress: false,
+            },
+            &mut |_, _| true,
+        )
+        .unwrap()
+        .unwrap();
+    let png = Renderer::new(Arc::new(one))
+        .unwrap()
+        .render_page(0, 900.0 / A4.1)
+        .unwrap();
+    eprintln!(
+        "preview of 16 pages on a sheet: {:?} ({}x{})",
+        t.elapsed(),
+        png.width,
+        png.height
+    );
+}

@@ -349,7 +349,7 @@ impl SourceAnalysis {
                 };
                 let next = load_prefix(data, end, protection);
                 let kind = match (&prev, &next) {
-                    (Some(p), Some(n)) => classify(data, prev_end, end, p, n),
+                    (Some(p), Some(n)) => classify(data, prev_end, end, p, n, protection),
                     _ => RevisionKind::Other,
                 };
                 prev_doc = Some(next);
@@ -769,15 +769,30 @@ fn header_at(data: &[u8], pos: usize) -> Option<(u32, u16)> {
 /// At most this many entries are read from the section of one revision.
 const MAX_ENTRIES: usize = 4_000_000;
 
-/// The entries of the cross-reference table at `at`, and whether its
-/// trailer points to a cross-reference stream as well (a hybrid file).
-fn table_section(data: &[u8], at: usize) -> Option<(Vec<(u32, Entry)>, bool)> {
+/// A cross-reference section as the section itself says it.
+struct Section {
+    entries: Vec<(u32, Entry)>,
+    /// Its subsections: first number and count.
+    ranges: Vec<(u32, usize)>,
+    /// It names another section (`/XRefStm`: a hybrid file).
+    hybrid: bool,
+    /// Its entries are written the regular way (table lines of ten and five
+    /// digits, every row of a stream an entry of a known type).
+    regular: bool,
+    /// Where its trailer ends (tables).
+    end: usize,
+}
+
+/// The cross-reference table at `at`, up to the end of its trailer.
+fn table_section(data: &[u8], at: usize) -> Option<Section> {
     let rest = data.get(at..)?;
     if !rest.starts_with(b"xref") {
         return None;
     }
     let mut t = Tokens { data: rest, pos: 4 };
-    let mut out = Vec::new();
+    let mut entries = Vec::new();
+    let mut ranges = Vec::new();
+    let mut regular = true;
     loop {
         let tok = t.next_token()?;
         if tok == b"trailer" {
@@ -785,12 +800,15 @@ fn table_section(data: &[u8], at: usize) -> Option<(Vec<(u32, Entry)>, bool)> {
         }
         let start: u32 = number(tok)?;
         let count: usize = number(t.next_token()?)?;
-        if out.len() + count > MAX_ENTRIES {
+        if entries.len() + count > MAX_ENTRIES {
             return None;
         }
+        ranges.push((start, count));
         for i in 0..count {
-            let offset: usize = number(t.next_token()?)?;
-            let generation: u32 = number(t.next_token()?)?;
+            let (o, g) = (t.next_token()?, t.next_token()?);
+            regular &= o.len() == 10 && g.len() == 5;
+            let offset: usize = number(o)?;
+            let generation: u32 = number(g)?;
             let entry = match t.next_token()? {
                 b"n" => Entry::Normal {
                     offset,
@@ -799,26 +817,28 @@ fn table_section(data: &[u8], at: usize) -> Option<(Vec<(u32, Entry)>, bool)> {
                 b"f" => Entry::Free,
                 _ => return None,
             };
-            out.push((start.checked_add(u32::try_from(i).ok()?)?, entry));
+            entries.push((start.checked_add(u32::try_from(i).ok()?)?, entry));
         }
     }
-    let trailer = &rest[t.pos..];
-    let trailer = &trailer[..encrypted::find_bytes(trailer, b"startxref").unwrap_or(trailer.len())];
-    Some((out, encrypted::find_bytes(trailer, b"/XRefStm").is_some()))
+    let dict_at = skip_space(data, at + t.pos);
+    let end = value_end(data, dict_at)?;
+    let trailer = &data[dict_at..end];
+    Some(Section {
+        entries,
+        ranges,
+        hybrid: encrypted::find_bytes(trailer, b"/XRefStm").is_some(),
+        regular,
+        end,
+    })
 }
 
 fn int_of(d: &Dictionary, key: &[u8]) -> Option<i64> {
     d.get(key).ok()?.as_i64().ok()
 }
 
-/// The entries of the cross-reference stream at `at` (the object the
-/// reader loaded at that very offset), and whether it names another one.
-fn stream_section(
-    data: &[u8],
-    at: usize,
-    base: usize,
-    next: &lopdf::Document,
-) -> Option<(Vec<(u32, Entry)>, bool)> {
+/// The cross-reference stream at `at` (the object the reader loaded at
+/// that very offset).
+fn stream_section(data: &[u8], at: usize, base: usize, next: &lopdf::Document) -> Option<Section> {
     let (num, generation) = header_at(data, at)?;
     let offset = u32::try_from(at.checked_sub(base)?).ok()?;
     if !matches!(next.reference_table.get(num), Some(XrefEntry::Normal { offset: o, generation: g }) if *o == offset && *g == generation)
@@ -864,13 +884,16 @@ fn stream_section(
     let content = s.decompressed_content_with_limit(MAX_STREAM).ok()?;
     let row = w[0] + w[1] + w[2];
     let field = |bytes: &[u8]| bytes.iter().fold(0u64, |a, b| (a << 8) | u64::from(*b));
-    let mut out = Vec::new();
+    let mut entries = Vec::new();
+    let mut ranges = Vec::new();
+    let mut regular = true;
     let mut at_row = 0usize;
     for pair in index.chunks(2) {
         let (start, count) = (u32::try_from(pair[0]).ok()?, usize::try_from(pair[1]).ok()?);
-        if out.len() + count > MAX_ENTRIES {
+        if entries.len() + count > MAX_ENTRIES {
             return None;
         }
+        ranges.push((start, count));
         for i in 0..count {
             let r = content.get(at_row..at_row + row)?;
             at_row += row;
@@ -887,12 +910,326 @@ fn stream_section(
                     index: u32::try_from(b).ok()?,
                 },
                 // Other types are references to the null object.
-                _ => continue,
+                _ => {
+                    regular = false;
+                    continue;
+                }
             };
-            out.push((start.checked_add(u32::try_from(i).ok()?)?, entry));
+            entries.push((start.checked_add(u32::try_from(i).ok()?)?, entry));
         }
     }
-    Some((out, s.dict.has(b"XRefStm")))
+    // Every row of the stream is an entry.
+    regular &= at_row == content.len();
+    Some(Section {
+        entries,
+        ranges,
+        hybrid: s.dict.has(b"XRefStm"),
+        regular,
+        end: 0,
+    })
+}
+
+/// The position after white space and comments from `pos`.
+fn skip_space(data: &[u8], mut pos: usize) -> usize {
+    loop {
+        while data.get(pos).is_some_and(|c| pdf_space(*c)) {
+            pos += 1;
+        }
+        if data.get(pos) == Some(&b'%') {
+            while data.get(pos).is_some_and(|c| *c != b'\n' && *c != b'\r') {
+                pos += 1;
+            }
+            continue;
+        }
+        return pos;
+    }
+}
+
+fn delimiter(c: u8) -> bool {
+    matches!(
+        c,
+        b'(' | b')' | b'<' | b'>' | b'[' | b']' | b'{' | b'}' | b'/' | b'%'
+    )
+}
+
+/// A token of PDF syntax.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Tok {
+    Open,
+    Close,
+    Str,
+    Word,
+}
+
+/// The token at `pos` (white space and comments skipped): its kind, where
+/// it starts and where it ends.
+fn token(data: &[u8], pos: usize) -> Option<(Tok, usize, usize)> {
+    let i = skip_space(data, pos);
+    let c = *data.get(i)?;
+    let two = data.get(i + 1).copied();
+    let (tok, end) = match c {
+        b'<' if two == Some(b'<') => (Tok::Open, i + 2),
+        b'>' if two == Some(b'>') => (Tok::Close, i + 2),
+        b'[' => (Tok::Open, i + 1),
+        b']' => (Tok::Close, i + 1),
+        b'<' => (
+            Tok::Str,
+            i + 1 + data[i + 1..].iter().position(|c| *c == b'>')? + 1,
+        ),
+        b'(' => {
+            let mut depth = 0usize;
+            let mut j = i;
+            loop {
+                match *data.get(j)? {
+                    b'\\' => j += 1,
+                    b'(' => depth += 1,
+                    b')' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+                j += 1;
+            }
+            (Tok::Str, j + 1)
+        }
+        b')' | b'>' | b'{' | b'}' => return None,
+        b'/' => {
+            let mut j = i + 1;
+            while data.get(j).is_some_and(|c| !pdf_space(*c) && !delimiter(*c)) {
+                j += 1;
+            }
+            (Tok::Word, j)
+        }
+        _ => {
+            let mut j = i + 1;
+            while data.get(j).is_some_and(|c| !pdf_space(*c) && !delimiter(*c)) {
+                j += 1;
+            }
+            (Tok::Word, j)
+        }
+    };
+    Some((tok, i, end))
+}
+
+/// Where the value (a dictionary, an array, a string or a word) at `pos` ends.
+fn value_end(data: &[u8], pos: usize) -> Option<usize> {
+    let (tok, _, mut end) = token(data, pos)?;
+    match tok {
+        Tok::Close => return None,
+        Tok::Open => {}
+        _ => return Some(end),
+    }
+    let mut depth = 1usize;
+    for _ in 0..1_000_000 {
+        let (tok, _, e) = token(data, end)?;
+        end = e;
+        match tok {
+            Tok::Open => depth += 1,
+            Tok::Close => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(end);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// The declared `/Length` of the stream dictionary between `from` and `to`
+/// (a number, or a reference to a number among `objects`).
+fn declared_length(
+    data: &[u8],
+    from: usize,
+    to: usize,
+    objects: &BTreeMap<ObjectId, Object>,
+) -> Option<usize> {
+    let mut pos = from;
+    let mut depth = 0usize;
+    while pos < to {
+        let (tok, start, end) = token(data, pos)?;
+        pos = end;
+        match tok {
+            Tok::Open => depth += 1,
+            Tok::Close => depth = depth.saturating_sub(1),
+            Tok::Word if depth == 1 && &data[start..end] == b"/Length" => {
+                let (_, s1, e1) = token(data, pos)?;
+                let n: i64 = number(&data[s1..e1])?;
+                if let Some((Tok::Word, s2, e2)) = token(data, e1) {
+                    if let Some((Tok::Word, s3, e3)) = token(data, e2) {
+                        if &data[s3..e3] == b"R" {
+                            let g: u16 = number(&data[s2..e2])?;
+                            let id = (u32::try_from(n).ok()?, g);
+                            return usize::try_from(objects.get(&id)?.as_i64().ok()?).ok();
+                        }
+                    }
+                }
+                return usize::try_from(n).ok();
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Where the object whose header is at `at` ends (after `endobj`), when it
+/// is one value, or one dictionary followed by the data of its declared
+/// length.
+fn object_extent(data: &[u8], at: usize, objects: &BTreeMap<ObjectId, Object>) -> Option<usize> {
+    header_at(data, at)?;
+    let obj = at + encrypted::find_bytes(&data[at..data.len().min(at + 64)], b"obj")? + 3;
+    let value = skip_space(data, obj);
+    let mut pos = value_end(data, value)?;
+    let (tok, start, end) = token(data, pos)?;
+    if tok == Tok::Word && &data[start..end] == b"stream" {
+        let length = declared_length(data, value, pos, objects)?;
+        let mut d = end;
+        if data.get(d) == Some(&b'\r') {
+            d += 1;
+        }
+        if data.get(d) != Some(&b'\n') {
+            return None;
+        }
+        d += 1;
+        let after = d.checked_add(length)?;
+        let (tok, s, e) = token(data, after)?;
+        if tok != Tok::Word || &data[s..e] != b"endstream" {
+            return None;
+        }
+        pos = e;
+    }
+    let (tok, s, e) = token(data, pos)?;
+    (tok == Tok::Word && &data[s..e] == b"endobj").then_some(e)
+}
+
+/// The object numbers an object stream of `doc` holds, in order, and
+/// whether it extends another one.
+fn container_numbers(doc: &lopdf::Document, container: u32) -> Option<(Vec<u32>, bool)> {
+    let Object::Stream(s) = doc.objects.get(&(container, 0))? else {
+        return None;
+    };
+    if s.dict.get(b"Type").ok()?.as_name().ok()? != b"ObjStm" {
+        return None;
+    }
+    let n = usize::try_from(int_of(&s.dict, b"N")?).ok()?;
+    let first = usize::try_from(int_of(&s.dict, b"First")?).ok()?;
+    let content = s.decompressed_content_with_limit(MAX_STREAM).ok()?;
+    let mut t = Tokens {
+        data: content.get(..first)?,
+        pos: 0,
+    };
+    let mut out = Vec::with_capacity(n.min(100_000));
+    for _ in 0..n {
+        out.push(number(t.next_token()?)?);
+        let _offset: usize = number(t.next_token()?)?;
+    }
+    Some((out, s.dict.has(b"Extends")))
+}
+
+/// Every object of `ids` is the same for the reader of the renderer and for
+/// the PDF library (`doc`), in the file `bytes` (encrypted objects read with
+/// the key of `state`).
+fn renderer_agrees(
+    bytes: Vec<u8>,
+    ids: &HashSet<ObjectId>,
+    doc: &lopdf::Document,
+    state: Option<&lopdf::EncryptionState>,
+) -> bool {
+    use hayro::hayro_syntax::Pdf;
+    use hayro::hayro_syntax::object::ObjectIdentifier;
+    let Ok(pdf) = Pdf::new(bytes) else {
+        return false;
+    };
+    let xref = pdf.xref();
+    ids.iter().all(|id| {
+        let Ok(n) = i32::try_from(id.0) else {
+            return false;
+        };
+        let g = i32::from(id.1);
+        let theirs = xref.get::<hayro::hayro_syntax::object::Object<'_>>(ObjectIdentifier::new(n, g));
+        match (theirs, doc.objects.get(id)) {
+            (None, None) | (None, Some(Object::Null)) => true,
+            (Some(t), Some(o)) => agrees(&t, o, *id, state, false),
+            _ => false,
+        }
+    })
+}
+
+/// A value of the renderer's reader and one of the PDF library agree:
+/// strings and streams compared by their bytes (decrypted with `state` when
+/// the file is encrypted; the value of a signature is never encrypted),
+/// numbers by their value, references by their numbers.
+fn agrees(
+    t: &hayro::hayro_syntax::object::Object<'_>,
+    o: &Object,
+    id: ObjectId,
+    state: Option<&lopdf::EncryptionState>,
+    plain: bool,
+) -> bool {
+    use hayro::hayro_syntax::object::{MaybeRef, Object as H};
+    let decrypt = |bytes: &[u8], stream: bool| -> Vec<u8> {
+        match state.filter(|_| !plain) {
+            Some(st) => {
+                let mut obj = if stream {
+                    Object::Stream(Stream::new(Dictionary::new(), bytes.to_vec()))
+                } else {
+                    Object::String(bytes.to_vec(), StringFormat::Literal)
+                };
+                let _ = lopdf::encryption::decrypt_object(st, id, &mut obj);
+                match obj {
+                    Object::Stream(s) => s.content,
+                    Object::String(b, _) => b,
+                    _ => Vec::new(),
+                }
+            }
+            None => bytes.to_vec(),
+        }
+    };
+    let item = |m: MaybeRef<H<'_>>, o: &Object, plain: bool| match (m, o) {
+        (MaybeRef::Ref(r), Object::Reference(l)) => {
+            i64::from(r.obj_number) == i64::from(l.0) && i64::from(r.gen_number) == i64::from(l.1)
+        }
+        (MaybeRef::NotRef(v), o) => agrees(&v, o, id, state, plain),
+        _ => false,
+    };
+    // The length of a stream is compared through its data (the library
+    // gives the length of the decrypted data).
+    let dict = |d: &hayro::hayro_syntax::object::Dict<'_>, l: &Dictionary, stream: bool| {
+        let signature = encrypted::is_signature_dict(l);
+        let skip = |k: &[u8]| stream && k == b"Length";
+        d.keys().filter(|k| !skip(k)).count() == l.iter().filter(|(k, _)| !skip(k)).count()
+            && d.entries().all(|(k, v)| {
+                let key: &[u8] = &k;
+                let plain = plain || signature && key == b"Contents";
+                skip(key) || l.get(key).is_ok_and(|o| item(v, o, plain))
+            })
+    };
+    match (t, o) {
+        (H::Null(_), Object::Null) => true,
+        (H::Boolean(a), Object::Boolean(b)) => a == b,
+        (H::Number(a), Object::Integer(b)) => a.as_f64() == *b as f64,
+        (H::Number(a), Object::Real(b)) => {
+            (a.as_f64() - f64::from(*b)).abs() <= 1e-4 * f64::from(b.abs()).max(1.0)
+        }
+        (H::String(a), Object::String(b, _)) => decrypt(a.as_bytes(), false) == *b,
+        (H::Name(a), Object::Name(b)) => {
+            let a: &[u8] = a;
+            a == b.as_slice()
+        }
+        (H::Array(a), Object::Array(b)) => {
+            let items: Vec<_> = a.raw_iter().collect();
+            items.len() == b.len() && items.into_iter().zip(b).all(|(m, o)| item(m, o, plain))
+        }
+        (H::Dict(a), Object::Dictionary(b)) => dict(a, b, false),
+        (H::Stream(a), Object::Stream(b)) => {
+            dict(a.dict(), &b.dict, true) && decrypt(&a.raw_data(), true) == b.content
+        }
+        _ => false,
+    }
 }
 
 /// Two entries of the reader's tables are the same.
@@ -925,42 +1262,50 @@ fn same_entry(a: Option<&XrefEntry>, b: Option<&XrefEntry>) -> bool {
     }
 }
 
-/// The object numbers an object stream of `doc` holds, in order.
-fn container_numbers(doc: &lopdf::Document, container: u32) -> Option<Vec<u32>> {
-    let Object::Stream(s) = doc.objects.get(&(container, 0))? else {
-        return None;
-    };
-    if s.dict.get(b"Type").ok()?.as_name().ok()? != b"ObjStm" {
-        return None;
+/// The bytes of the first `end` bytes of `data` the renderer's reader can
+/// read without a password (an encrypted file with its encryption entry
+/// renamed: its objects are decrypted by the caller).
+fn renderer_bytes(data: &[u8], end: usize) -> Option<Vec<u8>> {
+    let mut bytes = data.get(..end)?.to_vec();
+    if encrypted::last_trailer_declares_encryption(&bytes) {
+        hide_encryption(&mut bytes)?;
     }
-    let n = usize::try_from(int_of(&s.dict, b"N")?).ok()?;
-    let first = usize::try_from(int_of(&s.dict, b"First")?).ok()?;
-    let content = s.decompressed_content_with_limit(MAX_STREAM).ok()?;
-    let mut t = Tokens {
-        data: content.get(..first)?,
-        pos: 0,
-    };
-    let mut out = Vec::with_capacity(n.min(100_000));
-    for _ in 0..n {
-        out.push(number(t.next_token()?)?);
-        let _offset: usize = number(t.next_token()?)?;
-    }
-    Some(out)
+    Some(bytes)
+}
+
+/// The number is used in `doc` (an object, or an entry in use).
+fn in_use(doc: &lopdf::Document, n: u32) -> bool {
+    doc.objects.keys().any(|id| id.0 == n)
+        || matches!(
+            doc.reference_table.get(n),
+            Some(XrefEntry::Normal { .. } | XrefEntry::Compressed { .. })
+        )
 }
 
 /// What the revision of `data` between `prev_end` and `end` does, from its
-/// structure (never from what it says of itself):
-/// - its cross-reference section (read here, not through the reader's merged
-///   table) is in its own bytes, follows the one before, is not hybrid, names
-///   each object once, and neither defines nor frees any object the document
-///   reaches (its catalog and document information excepted);
-/// - each object it writes sits at the offset its entry gives, under the
-///   number and generation of the entry, and every object header in its
-///   bytes is such an entry; its object streams hold each number once, at
-///   the index their entries give, and no object of the document;
+/// structure (never from what it says of itself). It only adds validation
+/// material when it has the regular shape of a careful writer's update, and
+/// everything the document shows is unchanged for two readers; anything
+/// else is a change:
+/// - its bytes are objects (a header, one value or a dictionary and the
+///   data of its declared length, `endobj`) with only white space and
+///   comments between them, then one cross-reference section (a table and
+///   its trailer, or the stream object last, never both, never hybrid),
+///   `startxref` with that section's offset and `%%EOF`;
+/// - the section (read here, not through the merged table of a reader)
+///   follows the one before (`/Prev`), declares a `/Size` above its numbers
+///   and not below the one before, has subsections in order that do not
+///   overlap, names each number once, frees no number in use, and neither
+///   defines nor frees any number the document reaches (its catalog and
+///   document information excepted);
+/// - each object it writes sits inside it at the offset of its entry, under
+///   the entry's number and generation, and every object header in its bytes
+///   is such an entry; its object streams (never extending others) hold only
+///   new numbers, each at the index of its entry, in order;
 /// - every object the document reaches from its catalog (without the store)
-///   and its document information has the same entry as before and is
-///   unchanged, dictionary and content;
+///   and its document information keeps its entry and is unchanged,
+///   dictionary and content, and the renderer's own reader resolves each of
+///   them, before and after, to the same values as the PDF library;
 /// - the catalog changes only in `/DSS`, `/Version` and a direct
 ///   `/Extensions` `/ESIC`, the document information only in its
 ///   modification date and producer;
@@ -974,6 +1319,7 @@ pub(crate) fn classify(
     end: usize,
     prev: &lopdf::Document,
     next: &lopdf::Document,
+    protection: Option<&Protection>,
 ) -> RevisionKind {
     use RevisionKind::Other;
     let base = encrypted::find_bytes(data, b"%PDF-").unwrap_or(0);
@@ -988,19 +1334,45 @@ pub(crate) fn classify(
     if declared.is_none() || declared_prev(&data[..end], section_at) != declared {
         return Other;
     }
-    let own = if data[section_at..].starts_with(b"xref") {
+    let table = data[section_at..].starts_with(b"xref");
+    let own = if table {
         table_section(&data[..end], section_at)
     } else {
         stream_section(&data[..end], section_at, base, next)
     };
-    let Some((entries, hybrid)) = own else {
+    let Some(Section {
+        entries,
+        mut ranges,
+        hybrid,
+        regular,
+        end: table_end,
+    }) = own
+    else {
         return Other;
     };
-    if hybrid {
+    if hybrid || !regular {
+        return Other;
+    }
+    // Subsections in order, not overlapping (a stream lists them in order).
+    let listed = ranges.clone();
+    ranges.sort();
+    if !table && listed != ranges
+        || ranges
+            .windows(2)
+            .any(|w| u64::from(w[0].0) + w[0].1 as u64 > u64::from(w[1].0))
+    {
         return Other;
     }
     let mut numbers = HashSet::new();
     if !entries.iter().all(|(n, _)| numbers.insert(*n)) {
+        return Other;
+    }
+    // /Size above every number of the section and not below the one before.
+    let size_of = |doc: &lopdf::Document| doc.trailer.get(b"Size").ok().and_then(|s| s.as_i64().ok());
+    let (Some(size), Some(prev_size)) = (size_of(next), size_of(prev)) else {
+        return Other;
+    };
+    if size < prev_size || entries.iter().any(|(n, _)| i64::from(*n) >= size) {
         return Other;
     }
     let (Some(root), Some(prev_root)) = (trailer_ref(next, b"Root"), trailer_ref(prev, b"Root")) else {
@@ -1030,49 +1402,102 @@ pub(crate) fn classify(
         .map(|id| id.0)
         .filter(|n| !special.contains(n))
         .collect();
-    let mut written: HashSet<(usize, u32, u16)> = HashSet::new();
+    let mut written: Vec<usize> = Vec::new();
     let mut containers: HashMap<u32, Vec<(u32, u32)>> = HashMap::new();
     for (n, e) in &entries {
         if document.contains(n) {
             return Other;
         }
         match *e {
+            // The head of the list of free numbers, or a number never used.
+            Entry::Free if *n != 0 && in_use(prev, *n) => return Other,
             Entry::Free => {}
             Entry::Normal { offset, generation } => {
                 let at = offset + base;
                 if at < prev_end || at >= end || header_at(data, at) != Some((*n, generation)) {
                     return Other;
                 }
-                written.insert((at, *n, generation));
+                // One section only: no other cross-reference stream.
+                let xref_type = next
+                    .objects
+                    .get(&(*n, generation))
+                    .and_then(|o| o.type_name().ok())
+                    == Some(b"XRef".as_slice());
+                if xref_type && (table || at != section_at) {
+                    return Other;
+                }
+                written.push(at);
             }
             Entry::Compressed { container, index } => {
                 containers.entry(container).or_default().push((*n, index))
             }
         }
     }
+    // The section object of a stream is one of its own entries.
+    if !table && !written.contains(&section_at) {
+        return Other;
+    }
     // Every object written in the revision's bytes is one of its entries.
     for (pos, n, g) in object_headers(&data[prev_end..end]) {
-        if !written.contains(&(prev_end + pos, n, g)) {
+        let at = prev_end + pos;
+        if !written.contains(&at) || header_at(data, at) != Some((n, g)) {
             return Other;
         }
     }
-    // Object streams of the revision: written by it, each number once, at
-    // the index of its entry, nothing of the document.
+    // The shape: objects, then the section, then startxref and %%EOF.
+    written.sort_unstable();
+    let mut pos = skip_space(data, prev_end);
+    for at in &written {
+        if pos != *at {
+            return Other;
+        }
+        let Some(after) = object_extent(&data[..end], *at, &next.objects) else {
+            return Other;
+        };
+        pos = skip_space(data, after);
+    }
+    if table {
+        if pos != section_at {
+            return Other;
+        }
+        pos = skip_space(data, table_end);
+    } else if written.last() != Some(&section_at) {
+        return Other;
+    }
+    let Some((Tok::Word, s, e)) = token(&data[..end], pos) else {
+        return Other;
+    };
+    let Some((Tok::Word, ns, ne)) = token(&data[..end], e) else {
+        return Other;
+    };
+    let mut tail = ne;
+    while data.get(tail).is_some_and(|c| pdf_space(*c)) {
+        tail += 1;
+    }
+    if &data[s..e] != b"startxref"
+        || number::<usize>(&data[ns..ne]) != Some(section)
+        || data.get(tail..end) != Some(b"%%EOF".as_slice())
+    {
+        return Other;
+    }
+    // Object streams of the revision: written by it, extending none, holding
+    // only new numbers, each at the index of its entry, in order.
     for (container, members) in &containers {
         let own_container = entries
             .iter()
             .any(|(n, e)| n == container && matches!(e, Entry::Normal { .. }));
-        let Some(held) = container_numbers(next, *container).filter(|_| own_container) else {
+        let Some((held, extends)) = container_numbers(next, *container).filter(|_| own_container) else {
             return Other;
         };
-        let mut seen = HashSet::new();
-        if !held.iter().all(|n| seen.insert(*n)) || held.iter().any(|n| document.contains(n)) {
+        let mut members = members.clone();
+        members.sort_by_key(|(_, index)| *index);
+        let in_order = members.len() == held.len()
+            && members
+                .iter()
+                .enumerate()
+                .all(|(i, (n, index))| *index as usize == i && held[i] == *n);
+        if extends || !in_order || held.iter().any(|n| in_use(prev, *n) || document.contains(n)) {
             return Other;
-        }
-        for (n, index) in members {
-            if usize::try_from(*index).ok().and_then(|i| held.get(i)) != Some(n) {
-                return Other;
-            }
         }
     }
     // The reader resolves every object of the document as before.
@@ -1122,6 +1547,15 @@ pub(crate) fn classify(
             (None, Some(_)) => store_changed = true,
             _ => {}
         }
+    }
+    // A second, independent reader (the renderer's) resolves the objects of
+    // the document to the same values, before and after.
+    let state = protection.map(|p| p.state());
+    let agreed = |len: usize, ids: &HashSet<ObjectId>, doc: &lopdf::Document| {
+        renderer_bytes(data, len).is_some_and(|bytes| renderer_agrees(bytes, ids, doc, state))
+    };
+    if !agreed(prev_end, &r_prev, prev) || !agreed(end, &r_next, next) {
+        return Other;
     }
     if store_changed {
         RevisionKind::Material
@@ -1641,6 +2075,49 @@ mod tests {
         let data = b"%PDF-1.7\n1 0 obj\n<<>>\nendobj\n12 3 obj <<>> endobj\nxobj 4 0 objx\n";
         let h = object_headers(data);
         assert_eq!(h, vec![(9, 1, 0), (29, 12, 3)]);
+    }
+
+    #[test]
+    fn the_renderers_reader_must_agree() {
+        let mut doc = lopdf::Document::with_version("1.7");
+        let content = doc.add_object(Stream::new(dictionary! {}, b"0 0 1 rg 0 0 10 10 re f".to_vec()));
+        let page = doc.add_object(dictionary! {
+            "Type" => "Page",
+            "MediaBox" => vec![0.into(), 0.into(), 10.into(), Object::Real(10.5)],
+            "Contents" => content,
+            "Title" => Object::string_literal("a (page)"),
+        });
+        let pages = doc.add_object(
+            dictionary! { "Type" => "Pages", "Kids" => vec![Object::Reference(page)], "Count" => 1 },
+        );
+        if let Ok(p) = doc.get_dictionary_mut(page) {
+            p.set("Parent", pages);
+        }
+        let root = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+        doc.trailer.set("Root", root);
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).unwrap();
+        let read = lopdf::Document::load_mem(&bytes).unwrap();
+        let ids: HashSet<ObjectId> = [content, page, pages, root].into_iter().collect();
+        assert!(renderer_agrees(bytes.clone(), &ids, &read, None));
+        // What the library read differs from the file: the readers disagree.
+        let mut changed = read.clone();
+        if let Ok(p) = changed.get_dictionary_mut(page) {
+            p.set("Title", Object::string_literal("another"));
+        }
+        assert!(!renderer_agrees(bytes.clone(), &ids, &changed, None));
+        let mut content_changed = read.clone();
+        if let Ok(Object::Stream(s)) = content_changed.get_object_mut(content) {
+            s.set_content(b"1 0 0 rg 0 0 10 10 re f".to_vec());
+        }
+        assert!(!renderer_agrees(bytes.clone(), &ids, &content_changed, None));
+        // An object the renderer cannot read at all.
+        let mut extra = ids.clone();
+        let missing = (99, 0);
+        extra.insert(missing);
+        let mut with_missing = read.clone();
+        with_missing.objects.insert(missing, Object::Integer(1));
+        assert!(!renderer_agrees(bytes, &extra, &with_missing, None));
     }
 
     #[test]

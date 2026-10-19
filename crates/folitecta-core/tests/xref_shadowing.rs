@@ -93,6 +93,8 @@ fn fixture(certify: u8, protect: bool) -> Fixture {
         "Resources",
         dictionary! { "Font" => dictionary! { "F1" => dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica" } } },
     );
+    // An object nothing reaches (a number in use the document does not show).
+    doc.inner_mut().add_object(dictionary! { "Unused" => true });
     doc.commit().unwrap();
     if protect {
         let dir = std::env::temp_dir().join(format!("folitecta-shadow-{}", std::process::id()));
@@ -576,4 +578,279 @@ fn many_end_markers_in_a_stream_are_read_quickly() {
     // The object nothing reaches adds no material and changes nothing.
     assert!(s[0].later_revisions_material, "{:?}", s[0].problems);
     assert!(took < std::time::Duration::from_secs(5), "{took:?}");
+}
+
+/// The objects of an update written after `base`: their offsets.
+fn write_objects(base: &[u8], objs: &[(u32, u16, Vec<u8>)]) -> (Vec<u8>, Vec<(u32, u16, usize)>) {
+    let mut out = base.to_vec();
+    if !out.ends_with(b"\n") {
+        out.push(b'\n');
+    }
+    let mut offs = Vec::new();
+    for (n, g, body) in objs {
+        offs.push((*n, *g, out.len()));
+        out.extend_from_slice(format!("{n} {g} obj\n").as_bytes());
+        out.extend_from_slice(body);
+        out.extend_from_slice(b"\nendobj\n");
+    }
+    (out, offs)
+}
+
+/// A cross-reference table with one subsection per entry line given.
+fn table(lines: &[(u32, Vec<String>)]) -> String {
+    let mut t = String::from("xref\n");
+    for (start, entries) in lines {
+        t.push_str(&format!("{start} {}\n", entries.len()));
+        for e in entries {
+            t.push_str(e);
+        }
+    }
+    t
+}
+
+fn line(offset: usize, generation: u16, kind: char) -> String {
+    format!("{offset:010} {generation:05} {kind} \n")
+}
+
+/// A material update with the lines of its table, its /Size and where its
+/// startxref points (`None`: at the table), changed by `irregular`.
+struct Material {
+    objs: Vec<(u32, u16, Vec<u8>)>,
+    root: ObjectId,
+    info: ObjectId,
+    prev_x: usize,
+    size: u32,
+}
+
+fn material_update(f: &Fixture) -> Material {
+    let prev = load(f, &f.signed);
+    let root = page_root(&prev);
+    let info = prev.trailer.get(b"Info").unwrap().as_reference().unwrap();
+    let size = lopdf::Document::load_mem(&f.signed)
+        .unwrap()
+        .max_id
+        .max(prev.max_id)
+        + 10;
+    let (cert, dss) = (size, size + 1);
+    let mut cat = prev.get_dictionary(root).unwrap().clone();
+    cat.set("DSS", Object::Reference((dss, 0)));
+    Material {
+        objs: vec![
+            (cert, 0, stream_body(None, (cert, 0), "", &f.der)),
+            (dss, 0, format!("<< /Certs [{cert} 0 R] >>").into_bytes()),
+            (root.0, root.1, ser(&Object::Dictionary(cat)).into_bytes()),
+        ],
+        root,
+        info,
+        prev_x: last_startxref(&f.signed),
+        size: size + 2,
+    }
+}
+
+/// The update `m` written with a table built by `lines` from the offsets of
+/// its objects, a trailer with `/Size size`, and `startxref` moved by `shift`.
+fn with_table(
+    f: &Fixture,
+    m: &Material,
+    lines: impl Fn(&[(u32, u16, usize)]) -> Vec<(u32, Vec<String>)>,
+    size: u32,
+    extra_section: bool,
+    shift: isize,
+) -> Vec<u8> {
+    let (mut out, offs) = write_objects(&f.signed, &m.objs);
+    let trailer = |prev: usize| {
+        format!(
+            "trailer\n<< /Size {size} /Root {} {} R /Info {} {} R /Prev {prev} >>\n",
+            m.root.0, m.root.1, m.info.0, m.info.1
+        )
+    };
+    if extra_section {
+        // A second table nothing points to, between the objects and the real one.
+        out.extend_from_slice(table(&lines(&offs)).as_bytes());
+        out.extend_from_slice(trailer(m.prev_x).as_bytes());
+    }
+    let at = out.len();
+    out.extend_from_slice(table(&lines(&offs)).as_bytes());
+    out.extend_from_slice(trailer(m.prev_x).as_bytes());
+    out.extend_from_slice(format!("startxref\n{}\n%%EOF\n", at as isize + shift).as_bytes());
+    out
+}
+
+fn regular_lines(offs: &[(u32, u16, usize)]) -> Vec<(u32, Vec<String>)> {
+    let mut v: Vec<(u32, Vec<String>)> = offs
+        .iter()
+        .map(|(n, g, o)| (*n, vec![line(*o, *g, 'n')]))
+        .collect();
+    v.sort_by_key(|l| l.0);
+    v
+}
+
+#[test]
+fn only_regular_updates_are_material() {
+    for certify in [0, 1] {
+        let f = fixture(certify, false);
+        let m = material_update(&f);
+        let tag = format!("certify {certify}");
+        // The regular update is material.
+        let regular = with_table(&f, &m, regular_lines, m.size, false, 0);
+        let s = first_signature(&f, &regular);
+        assert!(s.later_revisions_material, "{tag}: {:?}", s.problems);
+        // Two sections in one update.
+        let two = with_table(&f, &m, regular_lines, m.size, true, 0);
+        assert_changed(&format!("two sections, {tag}"), &f, &two);
+        // Repeated and overlapping subsections.
+        let repeated = with_table(
+            &f,
+            &m,
+            |offs| {
+                let mut v = regular_lines(offs);
+                v.push(v[0].clone());
+                v
+            },
+            m.size,
+            false,
+            0,
+        );
+        assert_changed(&format!("repeated subsection, {tag}"), &f, &repeated);
+        let overlapping = with_table(
+            &f,
+            &m,
+            |offs| {
+                let mut v = regular_lines(offs);
+                // The two new numbers in one subsection, the second again alone.
+                let i = v.iter().position(|l| v.iter().any(|m| m.0 == l.0 + 1)).unwrap();
+                let j = v.iter().position(|m| m.0 == v[i].0 + 1).unwrap();
+                let pair = vec![v[i].1[0].clone(), v[j].1[0].clone()];
+                v[i].1 = pair;
+                v
+            },
+            m.size,
+            false,
+            0,
+        );
+        assert_changed(&format!("overlapping subsections, {tag}"), &f, &overlapping);
+        // A free entry for a number in use that the document does not reach.
+        let prev = load(&f, &f.signed);
+        let unused = prev
+            .objects
+            .iter()
+            .find(|(_, o)| o.as_dict().is_ok_and(|d| d.has(b"Unused")))
+            .map(|(id, _)| *id)
+            .unwrap();
+        let freed = with_table(
+            &f,
+            &m,
+            |offs| {
+                let mut v = regular_lines(offs);
+                v.push((unused.0, vec![line(0, unused.1 + 1, 'f')]));
+                v.sort_by_key(|l| l.0);
+                v
+            },
+            m.size,
+            false,
+            0,
+        );
+        assert_changed(&format!("free entry of a number in use, {tag}"), &f, &freed);
+        // A /Size that does not cover the new numbers.
+        let small = with_table(&f, &m, regular_lines, m.size - 1, false, 0);
+        assert_changed(&format!("/Size too small, {tag}"), &f, &small);
+        // A startxref that is not the offset of the section.
+        let moved = with_table(&f, &m, regular_lines, m.size, false, -1);
+        assert_changed(&format!("startxref beside the section, {tag}"), &f, &moved);
+        let at_object = {
+            let (mut out, offs) = write_objects(&f.signed, &m.objs);
+            out.extend_from_slice(table(&regular_lines(&offs)).as_bytes());
+            out.extend_from_slice(
+                format!(
+                    "trailer\n<< /Size {} /Root {} 0 R /Info {} 0 R /Prev {} >>\nstartxref\n{}\n%%EOF\n",
+                    m.size, m.root.0, m.info.0, m.prev_x, offs[1].2
+                )
+                .as_bytes(),
+            );
+            out
+        };
+        assert_changed(&format!("startxref at an object, {tag}"), &f, &at_object);
+        // Object streams: a regular one is material, one extending another is not.
+        for extends in [false, true] {
+            let bytes = objstm_update(&f, &m, extends);
+            if extends {
+                assert_changed(&format!("object stream with /Extends, {tag}"), &f, &bytes);
+            } else {
+                let s = first_signature(&f, &bytes);
+                assert!(
+                    s.later_revisions_material,
+                    "object stream, {tag}: {:?}",
+                    s.problems
+                );
+            }
+        }
+    }
+}
+
+/// The material update with its store dictionary in an object stream
+/// (extending another one when `extends`) and a cross-reference stream.
+fn objstm_update(f: &Fixture, m: &Material, extends: bool) -> Vec<u8> {
+    let base = f.signed.windows(5).position(|w| w == b"%PDF-").unwrap();
+    let (cert, dss) = (m.objs[0].0, m.objs[1].0);
+    let (os, other, xs) = (m.size, m.size + 1, m.size + 2);
+    let header = format!("{dss} 0 ");
+    let body = format!("{header}<< /Certs [{cert} 0 R] >>");
+    let extra = if extends {
+        format!(" /Extends {other} 0 R")
+    } else {
+        String::new()
+    };
+    let mut objs = vec![
+        m.objs[0].clone(),
+        m.objs[2].clone(),
+        (
+            os,
+            0,
+            stream_body(
+                None,
+                (os, 0),
+                &format!("/Type /ObjStm /N 1 /First {}{extra}", header.len()),
+                body.as_bytes(),
+            ),
+        ),
+    ];
+    if extends {
+        objs.push((
+            other,
+            0,
+            stream_body(None, (other, 0), "/Type /ObjStm /N 0 /First 0", b""),
+        ));
+    }
+    let (mut out, offs) = write_objects(&f.signed, &objs);
+    let at = out.len();
+    let mut rows: Vec<(u32, u8, u32, u16)> = offs
+        .iter()
+        .map(|(n, g, o)| (*n, 1, (o - base) as u32, *g))
+        .collect();
+    rows.push((dss, 2, os, 0));
+    rows.push((xs, 1, (at - base) as u32, 0));
+    rows.sort_by_key(|r| r.0);
+    let mut data = Vec::new();
+    let mut index = Vec::new();
+    for (n, t, a, b) in &rows {
+        index.push(format!("{n} 1"));
+        data.push(*t);
+        data.extend_from_slice(&a.to_be_bytes());
+        data.extend_from_slice(&b.to_be_bytes());
+    }
+    out.extend_from_slice(
+        format!(
+            "{xs} 0 obj\n<< /Type /XRef /Size {} /W [1 4 2] /Index [{}] /Root {} 0 R /Info {} 0 R /Prev {} /Length {} >>\nstream\n",
+            xs + 1,
+            index.join(" "),
+            m.root.0,
+            m.info.0,
+            m.prev_x,
+            data.len()
+        )
+        .as_bytes(),
+    );
+    out.extend_from_slice(&data);
+    out.extend_from_slice(format!("\nendstream\nendobj\nstartxref\n{}\n%%EOF\n", at - base).as_bytes());
+    out
 }

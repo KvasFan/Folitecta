@@ -125,13 +125,38 @@ and after. Anything else is reported as a change after signing.
 
 `render::Renderer` rasterizes pages with hayro (CPU only, no GPU dependency) and returns PNG bytes,
 encoded with the fast DEFLATE of fdeflate, or the pixels themselves (`render_rgba`) for the
-operations that work on them. `render::RenderService` runs up to three worker threads per open
-document; each owns its own parse of the PDF, a hayro render cache and a small memo of recent
-renders, and a page always goes to the same thread (page number modulo the threads), so visible
-pages are drawn side by side and keep their cache. The UI never blocks on rendering: the webview
-requests `/page/{tab}/{page}/{revision}/{scale}.png` and the response is produced on a worker
-thread. Because the revision is part of the URL the browser cache stays valid until the document
-changes.
+operations that work on them. Every picture is drawn with explicit rasterizer settings.
+`render::RenderService` (`render_service`) runs up to four threads per open document sharing one
+queue: first the pages a view shows (from the top), then those ahead in the scroll direction, the
+other pages the views hold, and the small pictures (previews of pages, thumbnails) last; a
+picture asked again while it waits is drawn once, and a page alone in the queue is drawn by
+several threads of the rasterizer. Each thread owns its own parse of the PDF and hayro render
+cache. The pictures made by all open documents are kept within 256 MB (at least 48 MB each), the
+least recently used dropped first; when a page is drawn its thumbnail is made from the same
+pixels. The pictures for the window are uncompressed PNG up to 8 million pixels (fdeflate above);
+a page whose picture would be larger (a high zoom) is shown as a lighter picture with 512-pixel
+tiles over it, only those in the window being drawn, and the loupe shows tiles of a fixed grid at
+its scale.
+
+The UI never blocks on rendering: the webview requests
+`/page/{tab}/{page}/{revision}/{scale}.png[?lane=…][&tile=c,r]` and the response is produced on a
+render thread. Every page has its own revision: `Document::page_revision` is the revision at
+which its picture last changed, found at each commit, undo and redo by comparing the objects of
+the document with those of the last revision (`changes`: a page changed when an object it shows
+changed — its contents, resources, comments and their appearances, the page tree nodes above
+it; a change of the page tree, the catalog, the layers' default visibility or the form's
+resources counts for every page). The tab turns it into the revision of the picture's address,
+which only grows, so an edit changes the addresses (and the pictures) of the pages it touched
+only and the browser cache stays valid for the others; the handler refuses an address of
+another revision. The text of the pages is kept per page in the same way (`text_revision`),
+so editing comments does not extract the text again.
+
+A view holds the content of the pages near what it shows only (the others are empty boxes of
+their size). Scrolling, the pages shown and Ctrl+wheel zoom are followed by a script in the page
+that tells the program asynchronously; the events the program listens to synchronously (every
+DOM listener of Dioxus answers before the page goes on) are kept off the scrolling and hovering
+paths. On Linux the web view composites on the graphics card (`gpu`: the shared-buffer renderer
+of WebKitGTK is kept on except with the NVIDIA driver; `FOLITECTA_GPU` overrides it).
 
 ### Printing
 

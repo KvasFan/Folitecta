@@ -11,7 +11,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use hayro::kurbo::{Affine, Rect};
-use lopdf::{Dictionary, Object, ObjectId, Stream};
+use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
 use super::RedactionLook;
 use super::inline::inline_picture;
@@ -401,6 +401,16 @@ pub(super) fn used_names(
             _ => {}
         }
     }
+    // Fonts that still show glyphs (not just size the moves of removed ones).
+    for op in text_ops_from(data, &crate::textedit::TextState::default()).0 {
+        if shows_glyphs(data, &op) {
+            if op.font.is_empty() {
+                out.entry(SHOWN_ANY).or_default().insert(Vec::new());
+            } else {
+                out.entry(SHOWN).or_default().insert(op.font.clone());
+            }
+        }
+    }
     for id in nested {
         if let Ok(s) = doc.get_object(id).and_then(Object::as_stream) {
             let data = stream_data(s);
@@ -409,10 +419,34 @@ pub(super) fn used_names(
     }
 }
 
+/// Pseudo-categories of [`used_names`]: fonts showing glyphs, and glyphs
+/// shown with a font set elsewhere.
+const SHOWN: &[u8] = b"#shown";
+const SHOWN_ANY: &[u8] = b"#shown-any";
+
 /// Drop the names of private resources that `data` does not use.
 pub(super) fn drop_unused(doc: &lopdf::Document, data: &[u8], res: &mut Dictionary) {
     let mut used: HashMap<&'static [u8], HashSet<Vec<u8>>> = HashMap::new();
     used_names(doc, data, res, &mut used, &mut HashSet::new());
+    // A font that only sizes the moves of removed glyphs: its program and
+    // its map of codes (which tell the removed characters) give way to a
+    // bare standard font of the same name.
+    if !used.contains_key(SHOWN_ANY) {
+        let shown = used.get(SHOWN).cloned().unwrap_or_default();
+        let set = used.get(b"Font".as_slice()).cloned().unwrap_or_default();
+        if let Ok(Object::Dictionary(fonts)) = res.get_mut(b"Font") {
+            for name in set.iter().filter(|n| !shown.contains(*n)) {
+                if fonts.has(name) {
+                    fonts.set(
+                        name.clone(),
+                        Object::Dictionary(dictionary! {
+                            "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica", "Encoding" => "WinAnsiEncoding",
+                        }),
+                    );
+                }
+            }
+        }
+    }
     for cat in [
         b"Font".as_slice(),
         b"XObject",

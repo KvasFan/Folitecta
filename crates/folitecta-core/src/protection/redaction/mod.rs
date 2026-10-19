@@ -724,21 +724,6 @@ impl Document {
                 .unwrap_or_else(|| marks.keys().next().copied().unwrap_or(0));
             replaced.push((*id, page));
         }
-        let counts_after = drawing_counts(&self.inner);
-        let gone: HashSet<ObjectId> = replaced
-            .iter()
-            .map(|(id, _)| *id)
-            .filter(|id| counts_after.get(id).copied().unwrap_or(0) == 0)
-            .collect();
-        self.tidy_structure(
-            &work.copies,
-            &work.touched,
-            &picture_pages,
-            &gone,
-            &terms,
-            &opts.sanitize.placeholder,
-        );
-        purge(&mut self.inner, &gone);
         // Page thumbnails and the private data of other programs show the old page.
         for &p in marks.keys() {
             if let Some(&pid) = page_ids.get(p) {
@@ -756,6 +741,27 @@ impl Document {
         report.paths = work.paths;
         report.forms = work.forms;
         report.sanitized = self.sanitize_in(&opts.sanitize, &terms);
+        // What nothing draws any more goes with every reference to it — in
+        // resources shared with other pages or inherited from the page tree,
+        // in the structure tree: originals replaced by copies, drawings of
+        // removed layers and comments.
+        let counts_after = drawing_counts(&self.inner);
+        let drawn_after = |id: &ObjectId| counts_after.get(id).copied().unwrap_or(0) > 0;
+        let gone: HashSet<ObjectId> = replaced
+            .iter()
+            .map(|(id, _)| *id)
+            .chain(counts.iter().filter(|(_, n)| **n > 0).map(|(id, _)| *id))
+            .filter(|id| !drawn_after(id))
+            .collect();
+        self.tidy_structure(
+            &work.copies,
+            &work.touched,
+            &picture_pages,
+            &gone,
+            &terms,
+            &opts.sanitize.placeholder,
+        );
+        purge(&mut self.inner, &gone);
         self.inner.prune_objects();
         self.commit()?;
         // The file opened is no base for an incremental update any more: it

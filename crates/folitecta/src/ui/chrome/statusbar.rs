@@ -119,6 +119,7 @@ pub fn StatusBar() -> Element {
             if busy {
                 span { class: "chip", "{t(lang, \"status.rendering\")}" }
             }
+            PrintChip {}
             if tool.is_multi_click() {
                 span { class: "chip sb-opt ellipsis", title: "{t(lang, \"status.multi_hint\")}", "{t(lang, \"status.multi_hint\")}" }
             }
@@ -193,6 +194,51 @@ pub fn StatusBar() -> Element {
                 span { class: "muted sb-opt2 nowrap", "{human_size(size)}" }
             } else {
                 span { "{t(lang, \"status.ready\")}" }
+            }
+        }
+    }
+}
+
+/// The print job under way, with a button that stops it.
+#[component]
+fn PrintChip() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let job = crate::commands::print::JOB.read().clone();
+    if !job.running {
+        return rsx! {};
+    }
+    use crate::printing::JobProgress;
+    let doc = if job.docs > 1 {
+        format!(" ({}/{})", job.doc + 1, job.docs)
+    } else {
+        String::new()
+    };
+    let text = match job.progress {
+        Some(JobProgress::Sending { sent, total }) => tf(
+            lang,
+            "status.printing_send",
+            &[(
+                "percent",
+                &(sent * 100).checked_div(total).unwrap_or(0).to_string(),
+            )],
+        ),
+        Some(JobProgress::Building { done, total }) | Some(JobProgress::Rendering { sheet: done, total }) => {
+            tf(
+                lang,
+                "status.printing",
+                &[("done", &done.to_string()), ("total", &total.to_string())],
+            )
+        }
+        None => t(lang, "status.printing_start"),
+    };
+    rsx! {
+        span { class: "chip print-chip", title: "{text}{doc}",
+            Icon { name: "print" }
+            span { class: "ellipsis", "{text}{doc}" }
+            button { class: "ibtn print-cancel", title: "{t(lang, \"status.print_cancel\")}",
+                onclick: move |_| crate::commands::print::cancel(),
+                Icon { name: "close" }
             }
         }
     }

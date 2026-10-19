@@ -1,0 +1,43 @@
+/* The print window --------------------------------------------------------- */
+.dialog.xl .dialog-body { padding: 0; overflow: hidden; flex: 1; }
+.print-window { display: grid; grid-template-columns: minmax(300px, 360px) minmax(0, 1fr); min-height: 0; height: 100%; }
+.print-settings { overflow: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; border-right: 1px solid var(--border); min-width: 0; }
+.print-settings .check { display: flex; align-items: center; gap: 6px; }
+.print-settings .field-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); align-items: end; }
+.print-hint { display: flex; align-items: flex-start; gap: 6px; }
+.print-hint .ic { width: 16px; height: 16px; flex: none; }
+.print-hint.warn { color: var(--warn-fg); }
+.print-state { margin-top: 2px; }
+.print-properties { align-self: flex-start; margin-top: 4px; }
+.print-modes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.print-modes .tbtn { flex-direction: column; gap: 2px; padding: 6px 4px; font-size: 12px; justify-content: center; min-width: 0; }
+.print-modes .tbtn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.print-modes .tbtn.active { background: var(--active-bg); color: var(--active-fg); border-color: var(--active-border); }
+.print-range { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 9px; background: var(--surface-2); color: var(--text); }
+.print-subset-row { display: flex; flex-direction: column; gap: 8px; }
+.print-preview { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; min-width: 0; min-height: 0; overflow: hidden; background: var(--surface-2); }
+.print-stage-wrap { flex: 1; min-height: 180px; display: flex; background: var(--canvas); border-radius: var(--radius); padding: 16px; outline: none; }
+.print-stage-wrap:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.print-stage-box { flex: 1; min-width: 0; min-height: 0; container-type: size; display: grid; place-items: center; }
+.print-stage { position: relative; background: var(--surface); box-shadow: var(--shadow); }
+.print-sheet-img { display: block; width: 100%; height: 100%; user-select: none; }
+.print-notes { flex: none; max-height: 30%; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+.print-area { position: absolute; border: 1px dashed var(--accent); pointer-events: none; }
+.print-wait { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; text-align: center; padding: 8px; }
+.print-nav { display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap; }
+.print-sheet-count { min-width: 160px; text-align: center; font-size: 13px; }
+.print-summary { text-align: center; color: var(--muted); font-size: 12px; }
+.print-warning { color: var(--warn-fg); background: var(--warn-bg); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 12px; line-height: 1.4; }
+.print-owner { display: flex; gap: 6px; align-items: center; flex: none; }
+.print-owner-pw { flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 9px; background: var(--surface); color: var(--text); }
+.print-chip { gap: 6px; }
+.print-chip .print-cancel { padding: 0 2px; }
+.print-chip .ic { width: 14px; height: 14px; }
+@media (max-width: 860px) {
+  .dialog.xl { height: calc(100vh - 24px); }
+  .print-window { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); overflow: auto; }
+  .print-preview { order: -1; overflow: visible; }
+  .print-stage-wrap { min-height: 220px; height: 280px; flex: none; }
+  .print-notes { max-height: none; }
+  .print-settings { border-right: none; border-top: 1px solid var(--border); overflow: visible; }
+}

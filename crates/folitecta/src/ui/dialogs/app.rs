@@ -1,4 +1,4 @@
-//! Application dialogs: toolbars, zoom, about, shortcuts, feature matrix, preferences, command line, confirmations, unsaved changes, password and printing.
+//! Application dialogs: toolbars, zoom, about, shortcuts, feature matrix, preferences, command line, confirmations, unsaved changes, password, and the sheets laid out for the system print dialog.
 
 use super::*;
 
@@ -74,71 +74,29 @@ pub(super) fn ZoomLevelDialog() -> Element {
     }
 }
 
-#[component]
-pub(super) fn PrintDialog(all_docs: bool) -> Element {
-    let st = use_context::<AppState>();
-    let lang = st.lang();
-    let mode = use_signal(|| default_scope(st));
-    let range = use_signal(String::new);
-    let mut dpi = use_signal(|| "150".to_string());
-    let mut annots = use_signal(|| true);
-    let mut fit = use_signal(|| true);
-    let docs = st.docs.read().len();
-    let total_pages: usize = st.docs.read().iter().map(|t| t.doc.page_count()).sum();
-    rsx! {
-        Frame { title: if all_docs { t(lang, "dialog.print.title_all") } else { t(lang, "dialog.print.title") }, ok_label: Some(t(lang, "dialog.print.go")),
-            on_ok: move |_| {
-                let pages: Vec<crate::state::PrintPage> = if all_docs {
-                    st.docs.read().iter().flat_map(|t| (0..t.doc.page_count()).map(move |p| (t.id, p, t.revision))).collect()
-                } else {
-                    match scope_pages(st, mode(), &range()) {
-                        Ok(pages) => st.read_active(|t| pages.iter().map(|p| (t.id, *p, t.revision)).collect()).unwrap_or_default(),
-                        Err(e) => { st.error(e); return; }
-                    }
-                };
-                let d: f32 = dpi().parse().unwrap_or(150.0);
-                st.set_dialog(Dialog::None);
-                files::start_print(st, pages, d, annots(), fit());
-            },
-            if all_docs {
-                div { class: "hint", "{tf(lang, \"dialog.print.all_hint\", &[(\"docs\", &docs.to_string()), (\"pages\", &total_pages.to_string())])}" }
-            } else {
-                PageScope { mode, range }
-            }
-            div { class: "field-grid",
-                div { class: "field", label { "{t(lang, \"dialog.export.dpi\")}" }
-                    select { onchange: move |e| dpi.set(e.value()),
-                        option { value: "100", "100 dpi" }
-                        option { value: "150", selected: true, "150 dpi" }
-                        option { value: "300", "300 dpi" }
-                    }
-                }
-            }
-            label { class: "check", input { r#type: "checkbox", checked: annots(), onchange: move |_| annots.set(!annots()) } span { "{t(lang, \"dialog.rasterize.annots\")}" } }
-            label { class: "check", input { r#type: "checkbox", checked: fit(), onchange: move |_| fit.set(!fit()) } span { "{t(lang, \"dialog.print.fit\")}" } }
-            div { class: "hint", "{t(lang, \"dialog.print.hint\")}" }
-        }
-    }
-}
-
-/// Hidden page images laid out for the system print dialog.
+/// The sheets laid out as pictures for the system print dialog.
 #[component]
 pub fn PrintView() -> Element {
     let st = use_context::<AppState>();
     let Some(job) = (st.print_job)() else {
         return rsx! {};
     };
-    let q = if job.annotations { "" } else { "?annots=0" };
-    let class = if job.fit {
-        "print-view fit"
-    } else {
-        "print-view actual"
-    };
+    let page_style = format!(
+        "@media print {{ @page {{ size: {:.2}pt {:.2}pt; margin: 0; }} }}",
+        job.paper.0, job.paper.1
+    );
+    let sheets: Vec<(usize, usize)> = job
+        .sheets
+        .iter()
+        .enumerate()
+        .flat_map(|(d, n)| (0..*n).map(move |i| (d, i)))
+        .collect();
     rsx! {
-        div { class: "{class}", key: "{job.id}",
-            for (i, (tab, page, rev)) in job.pages.iter().enumerate() {
-                div { class: "print-page", key: "{i}",
-                    img { src: "/page/{tab}/{page}/{rev}/{job.scale_milli}.png{q}", alt: "" }
+        div { class: "print-view fit", key: "{job.generation}",
+            style { "{page_style}" }
+            for (d, i) in sheets {
+                div { class: "print-page", key: "{d}-{i}",
+                    img { src: "/sheet/s/{job.generation}/{d}/{i}/{job.scale_milli}.png", alt: "" }
                 }
             }
         }

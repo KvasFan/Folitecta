@@ -149,8 +149,8 @@ pub enum Dialog {
     Transitions,
     ReplacePages(PathBuf),
     OverlayFile(PathBuf),
-    /// Print the active document (`false`) or every open document (`true`).
-    Print(bool),
+    /// The print window.
+    Print(PrintTarget),
     /// Text of a new callout pointing at `tip` with its box at `rect` (PDF space).
     Callout {
         page: usize,
@@ -406,17 +406,36 @@ pub type LoupePos = (usize, f32, f32, f64, f64);
 /// Points placed so far by a multi-click tool: page and display points.
 pub type Drawing = (usize, Vec<(f32, f32)>);
 
-/// One printed page: tab id, page index, document revision.
-pub type PrintPage = (u64, usize, u64);
+/// What the print window prints.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PrintTarget {
+    /// The active document.
+    Active,
+    /// These pages of the active document (zero-based).
+    Pages(Vec<usize>),
+    /// Every open document.
+    AllOpen,
+    /// PDF files given by name and contents (the files of a portfolio), with
+    /// the protection of the document they come from (and the tab holding it).
+    Files {
+        files: Vec<PrintFile>,
+        protection: Option<folitecta_core::Protection>,
+        tab: Option<u64>,
+    },
+}
 
-/// Pages being printed through the hidden print view.
+/// A PDF file to print: its name and contents.
+pub type PrintFile = (String, std::sync::Arc<Vec<u8>>);
+
+/// Sheets laid out for the system print dialog, as pictures.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PrintJob {
-    pub pages: Vec<PrintPage>,
+    /// The generation of the sheets (part of their addresses).
+    pub generation: u64,
+    /// The number of sheets of each document.
+    pub sheets: Vec<usize>,
     /// Render scale in thousandths (1000 = 72 dpi).
     pub scale_milli: u32,
-    pub annotations: bool,
-    /// Scale each page to the paper; otherwise print at actual size.
-    pub fit: bool,
-    pub id: u64,
+    /// Width and height of the paper of the first sheet, in points.
+    pub paper: (f32, f32),
 }

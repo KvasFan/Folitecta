@@ -316,6 +316,9 @@ pub(crate) struct ProtectionData {
     /// Why files cannot be written with this protection (a feature of the
     /// opened file Folitecta cannot reproduce).
     unsupported: Option<&'static str>,
+    /// The file was opened with its owner password, or protected in this
+    /// session: every permission is granted (PDF 32000-1, 7.6.4).
+    owner: bool,
 }
 
 impl PartialEq for Protection {
@@ -358,7 +361,69 @@ impl Protection {
             dict,
             encrypt_ref,
             unsupported,
+            owner: false,
         }))
+    }
+
+    /// The same protection, opened with the owner password.
+    pub(crate) fn opened_by_owner(&self) -> Self {
+        let d = &self.0;
+        Protection(Arc::new(ProtectionData {
+            state: d.state.clone(),
+            id: d.id.clone(),
+            dict: d.dict.clone(),
+            encrypt_ref: d.encrypt_ref,
+            unsupported: d.unsupported,
+            owner: true,
+        }))
+    }
+
+    /// The document was opened with the owner password of its file, or was
+    /// protected in this session: the permissions do not restrict it. Opened
+    /// with the user password (or none), the permissions of the file apply.
+    pub fn owner_access(&self) -> bool {
+        self.0.owner
+    }
+
+    /// `password` (empty: none) is the owner password of this protection,
+    /// checked against its encryption dictionary (never the whole file
+    /// again). Revisions 2 to 4 take it in PDFDocEncoding when every
+    /// character has a code there, else as typed; AES-256 prepared with
+    /// SASLprep, else as typed. A character dropped on the way never makes
+    /// another password match.
+    pub fn is_owner_password(&self, password: &str) -> bool {
+        let Some(dict) = self.0.dict.clone() else {
+            return false;
+        };
+        let revision = dict.get(b"R").and_then(Object::as_i64).unwrap_or(0);
+        let mut doc = lopdf::Document::with_version("1.7");
+        let encrypt = doc.add_object(dict);
+        doc.trailer.set("Encrypt", Object::Reference(encrypt));
+        if let Some(id) = &self.0.id {
+            doc.trailer.set("ID", id.clone());
+        }
+        let mut candidates: Vec<Vec<u8>> = Vec::new();
+        if revision <= 4 {
+            if fits_pdf_doc_encoding(password) {
+                candidates.push(pdf_doc_bytes(password));
+            }
+        } else if let Ok(prepared) = stringprep::saslprep(password) {
+            candidates.push(prepared.as_bytes().to_vec());
+        }
+        candidates.push(password.as_bytes().to_vec());
+        candidates.dedup();
+        candidates
+            .iter()
+            .any(|c| doc.authenticate_raw_owner_password(c).is_ok())
+    }
+
+    /// This protection with the owner's access, when `password` is its owner
+    /// password.
+    pub fn unlocked(&self, password: &str) -> Option<Protection> {
+        if self.owner_access() {
+            return Some(self.clone());
+        }
+        self.is_owner_password(password).then(|| self.opened_by_owner())
     }
 
     /// New protection of `doc` with the passwords, permissions and profile
@@ -452,6 +517,8 @@ impl Protection {
             dict: Some(dict),
             encrypt_ref: None,
             unsupported: None,
+            // The passwords were set here: the owner's is known.
+            owner: true,
         })))
     }
 

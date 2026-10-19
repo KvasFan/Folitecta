@@ -161,15 +161,15 @@ fn connect(url: &Url, deadline: Instant) -> Result<(Box<dyn Stream>, TcpStream),
 
 /// An answer of the server.
 #[derive(Debug, Clone, PartialEq)]
-struct Answer {
-    status: u16,
-    reason: String,
-    headers: Vec<(String, String)>,
-    body: Vec<u8>,
+pub(crate) struct Answer {
+    pub status: u16,
+    pub reason: String,
+    pub headers: Vec<(String, String)>,
+    pub body: Vec<u8>,
 }
 
 impl Answer {
-    fn header(&self, name: &str) -> Option<&str> {
+    pub(crate) fn header(&self, name: &str) -> Option<&str> {
         self.headers
             .iter()
             .find(|(n, _)| n.eq_ignore_ascii_case(name))
@@ -328,6 +328,42 @@ fn parse_answer(data: &[u8], closed: bool) -> Result<Option<Answer>, String> {
         ..Incoming::default()
     };
     incoming.answer(closed)
+}
+
+/// Read the answer to a request sent on `stream` (any connection: a local
+/// socket of the print server, TCP), at most `MAX_ANSWER` bytes; the
+/// connection's own timeouts bound the wait.
+pub(crate) fn read_answer(stream: &mut dyn Read) -> Result<Answer, String> {
+    let mut incoming = Incoming::default();
+    let mut buf = [0u8; 16 * 1024];
+    loop {
+        match stream.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => {
+                incoming.data.extend_from_slice(&buf[..n]);
+                if incoming.data.len() > MAX_ANSWER {
+                    return Err("the answer of the server is too large".into());
+                }
+                if let Some(answer) = incoming.answer(false)? {
+                    return Ok(answer);
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                ) =>
+            {
+                return Err("the server did not answer in time".into());
+            }
+            Err(_) if !incoming.data.is_empty() => break,
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    incoming
+        .answer(true)?
+        .ok_or_else(|| "the answer of the server is incomplete".into())
 }
 
 /// How a request is sent.
@@ -666,6 +702,65 @@ mod tests {
         );
         assert_eq!(err, "the server did not answer in time");
         drop(server);
+    }
+
+    /// Answers cut, chunked with any sizes (the largest numbers among them) or
+    /// with any lengths are errors or incomplete, never a panic.
+    #[test]
+    fn any_framing_of_an_answer_is_read_without_panicking() {
+        let mut x: u64 = 0x2545_F491_4F6C_DD1D;
+        let mut next = move || {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            x
+        };
+        let sizes = [
+            "ffffffffffffffff",
+            "fffffffffffffffe",
+            "7fffffffffffffff",
+            "10000000000000000",
+            "0",
+            "3",
+            "zz",
+            "",
+        ];
+        for round in 0..20_000 {
+            let mut data = b"HTTP/1.1 200 OK\r\n".to_vec();
+            if round % 2 == 0 {
+                data.extend_from_slice(b"Transfer-Encoding: chunked\r\n\r\n");
+                for _ in 0..(next() % 4) {
+                    let size = if next() % 3 == 0 {
+                        sizes[(next() % sizes.len() as u64) as usize].to_string()
+                    } else {
+                        format!("{:x}", next() % 40)
+                    };
+                    data.extend_from_slice(size.as_bytes());
+                    data.extend_from_slice(b"\r\n");
+                    for _ in 0..(next() % 50) {
+                        data.push((next() % 256) as u8);
+                    }
+                    if next() % 2 == 0 {
+                        data.extend_from_slice(b"\r\n");
+                    }
+                }
+            } else {
+                data.extend_from_slice(format!("Content-Length: {}\r\n\r\n", next() % 100).as_bytes());
+                for _ in 0..(next() % 80) {
+                    data.push((next() % 256) as u8);
+                }
+            }
+            let cut = (next() as usize) % (data.len() + 1);
+            for closed in [false, true] {
+                let _ = parse_answer(&data[..cut], closed);
+            }
+            let _ = read_answer(&mut std::io::Cursor::new(data[..cut].to_vec()));
+        }
+        let whole = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n3\r\nabc\r\n0\r\n\r\n".to_vec();
+        assert_eq!(
+            read_answer(&mut std::io::Cursor::new(whole)).unwrap().body,
+            b"abc"
+        );
     }
 
     #[test]

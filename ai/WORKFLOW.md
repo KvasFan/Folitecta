@@ -55,14 +55,39 @@ checks that nothing overflows or is clipped, and performs scripted interactions:
 ```powershell
 $env:FOLITECTA_CONFIG_DIR = "<empty folder>"        # never the user's settings
 target\release\folitecta.exe --ui-selftest <output folder>
-# one interaction step only:
-$env:FOLITECTA_SELFTEST_ONLY = "step:layout"         # arrange, email, field_items, layout, ocr, policies, qat, spelling, timestamp
+# one interaction step only (the names are the files selftest/steps_<name>.rs):
+$env:FOLITECTA_SELFTEST_ONLY = "step:layout"         # or "interactions" (every step), "print"
+$env:FOLITECTA_SELFTEST_TIMEOUT = "30"               # seconds a script in the page may take
+$env:FOLITECTA_SELFTEST_STEP_TIMEOUT = "600"         # seconds an interaction step may take
 ```
 
-The report is `<output folder>/report.json`: `total_problems`, then `states` with layout audits
-and `interaction` entries with `pass` and `detail`. Copy the executable to a separate folder
-before running it, do not compile while a self-test runs (timing), and never stop a Folitecta the
-user is running.
+On Linux and macOS the same from a shell (`FOLITECTA_SELFTEST_ONLY=step:layout ./folitecta
+--ui-selftest <output folder>`); `--ui-selftest` points `FOLITECTA_CONFIG_DIR` to
+`<output folder>/config` by itself.
+
+The report is `<output folder>/report.json`: `total_problems`, `complete`, then `states` with
+layout audits and `interaction` entries with `pass` and `detail`. `<output folder>/progress.log`
+is written while the run goes: a line when a state check or a step starts and ends (result and
+duration), one per interaction result, the scripts that got no answer, and a note when the window
+is not drawn. A script that does not answer within the time limit fails its step and the run goes
+on; if the interface stops answering altogether, a watchdog writes the report of what was done
+(`complete: false`) and ends the program with exit code 4. Screenshots are captured on Windows
+only.
+
+Keep the window visible while the self-test runs: a minimized window, or one covered by other
+windows, gets no frames, and then the page runs no scroll, resize or observer callbacks. The run
+still completes, but the checks made meanwhile are listed as failed in "the window is drawn during
+the whole run". On a Linux desktop with KDE Plasma the run can go to a compositor of its own, on a
+virtual screen, where nothing covers it and the desktop stays free (the script receives the
+nested display):
+
+```sh
+dbus-run-session -- kwin_wayland --virtual --no-lockscreen --width 2560 --height 1440 \
+  --exit-with-session "/path/to/script-that-runs folitecta --ui-selftest <output folder>"
+```
+
+Copy the executable to a separate folder before running it, do not compile while a self-test runs
+(timing), and never stop a Folitecta the user is running.
 
 Licences of dependencies: `cargo deny check licenses` (the list is in `deny.toml`).
 

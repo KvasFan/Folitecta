@@ -50,8 +50,13 @@ undo step; the dictionaries are files read at run time, not built in), `marks` (
 headers and footers, page numbering),
 `structure` and `accessibility` (tags, reading order, the accessibility check), `digsig`
 (signatures; `timestamp` builds RFC 3161 requests, checks the answers and tokens and holds a
-small authority for the tests, while the interface's `http` module carries the requests; the
-validation reports integrity, signer, time and revocation as separate checks), `redaction` (the glyphs under the marks leave their text operations, each
+small authority for the tests, while the interface's `http` module carries the requests; `ocsp`
+and `crl` read OCSP answers and revocation lists from the bytes as received and hold a small
+responder and list issuer for the tests; `revocation` decides the state of each certificate of a
+chain for the time a signature is proven or claimed to exist; `dss` reads and extends the
+document security store and tells later revisions that only add validation material from the
+others by their structure; the validation reports integrity, signer, time and revocation as
+separate checks, and the interface runs it off its thread through a `ValidationJob`), `redaction` (the glyphs under the marks leave their text operations, each
 replaced by a move of its width found by the text probe, the pixels of pictures under the marks
 are covered, comments and fields over them go; pages that cannot be edited that way are drawn as
 pictures), `compare`, `combine` (documents made from several files), `pictures` (the pictures
@@ -194,8 +199,11 @@ Mouse coordinates on a page image are converted to PDF user space with
 - Text recognition reads the Latin script, written left to right (lines turned up to about 45
   degrees); the invisible text uses WinAnsi, so letters it lacks (such as Polish `ł`) are written
   without their accent.
-- Revocation of certificates (revocation lists, OCSP) is not checked and no long-term validation
-  material is added; later revisions after a signature are reported, but what they change is
-  not analysed (only whether they end with document time stamps). There is no conversion to
-  PDF/A.
+- Revocation is checked from OCSP answers and from complete revocation lists of the
+  certificate's own issuer; indirect, delta and partitioned lists are not read, missing issuers
+  are not fetched and certificate policies are not checked. Revocation data are asked online
+  only when the user turns that on. Validation material is added to the document security
+  store, but no long-term validation profile is claimed. Later revisions after a signature are
+  recognised when they only add validation material or end with document time stamps; other
+  changes are reported, not analysed. There is no conversion to PDF/A.
 - Commands marked *planned* in [FEATURES.md](FEATURES.md) open a roadmap notice.

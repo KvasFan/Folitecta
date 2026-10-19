@@ -85,7 +85,20 @@ impl Document {
             .iter()
             .map(|im| pdf_rect_to_display(&size, im.rect))
             .collect();
-        for b in self.drawn_picture_bounds(page)? {
+        let drawn: Vec<[f32; 4]> = crate::page_text::probe::probe_pages(
+            &self.inner,
+            &[page],
+            crate::page_text::probe::ProbeOptions {
+                reveal: true,
+                forms: false,
+            },
+            None,
+        )?
+        .pages
+        .remove(&page)
+        .map(|p| p.images.into_iter().map(|i| i.bounds).collect())
+        .ok_or_else(|| Error::Render(format!("the renderer failed on page {}", page + 1)))?;
+        for b in drawn {
             if !shown.iter().any(|m| overlap(&b, m)) {
                 continue;
             }
@@ -96,7 +109,7 @@ impl Document {
                 ));
             }
         }
-        report.glyphs += self.remove_text_in(page, &shown)?;
+        report.glyphs += self.remove_page_text(page, &shown)?;
         for im in images.iter() {
             let m = Affine::new(im.matrix);
             if m.determinant().abs() < 1e-9 {
@@ -154,6 +167,72 @@ impl Document {
             report.pictures += 1;
         }
         Ok(())
+    }
+
+    /// Take the glyphs of the page content whose body meets `areas` (display
+    /// space) out of it, each replaced by a move of its width.
+    fn remove_page_text(&mut self, page: usize, areas: &[[f32; 4]]) -> Result<usize> {
+        use crate::page_text::probe::{ProbeOptions, StreamKey, probe_pages};
+        use crate::textedit::{RemovedGlyph, glyph_removal_splices, text_ops_from};
+        let page_id = self.page_id(page)?;
+        let probe = probe_pages(
+            &self.inner,
+            &[page],
+            ProbeOptions {
+                reveal: true,
+                forms: false,
+            },
+            None,
+        )?;
+        let glyphs = probe
+            .pages
+            .get(&page)
+            .map(|p| p.glyphs.as_slice())
+            .ok_or_else(|| Error::Render(format!("the renderer failed on page {}", page + 1)))?;
+        let j = crate::content_edit::joined(&self.inner, page_id);
+        let (ops, _) = text_ops_from(&j.data, &Default::default());
+        let mut counts: std::collections::HashMap<usize, usize> = Default::default();
+        let mut removed: std::collections::BTreeMap<usize, Vec<RemovedGlyph>> = Default::default();
+        for g in glyphs {
+            let op = g.op.and_then(|m| match probe.ids.text.get(m) {
+                Some((StreamKey::Page(_), k)) => Some(*k),
+                _ => None,
+            });
+            let n = op.map(|o| {
+                let c = counts.entry(o).or_insert(0);
+                *c += 1;
+                *c - 1
+            });
+            if !areas.iter().any(|a| overlap(&g.body, a)) {
+                continue;
+            }
+            match (op, n) {
+                (Some(op), Some(index)) => removed.entry(op).or_default().push(RemovedGlyph {
+                    index,
+                    to_next: g.to_next,
+                    own_advance: g.own_advance,
+                }),
+                _ => {
+                    return Err(Error::Invalid(
+                        "text under the areas is drawn by a drawing the page reuses".into(),
+                    ));
+                }
+            }
+        }
+        if removed.is_empty() {
+            return Ok(0);
+        }
+        let fonts = crate::page_text::probe::page_resources(&self.inner, page_id)
+            .get(b"Font")
+            .ok()
+            .and_then(|f| deref(&self.inner, f).as_dict().ok())
+            .cloned()
+            .unwrap_or_default();
+        let out = glyph_removal_splices(&self.inner, &j.data, &ops, &fonts, &removed, &counts)
+            .map_err(|_| Error::Invalid("text under the areas uses a font Folitecta cannot edit".into()))?;
+        crate::content_edit::check_splices(&j, &out.splices)?;
+        crate::content_edit::rewrite(&mut self.inner, page_id, &j, &out.splices)?;
+        Ok(out.removed)
     }
 
     /// Draw the covers of `marks` (PDF space) over `page`: the filled areas

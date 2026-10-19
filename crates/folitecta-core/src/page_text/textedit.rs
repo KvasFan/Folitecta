@@ -10,22 +10,15 @@
 //! of the same family, size and colour. Text after the change in the same
 //! line flows with it.
 
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::collections::{BTreeMap, HashMap};
 
-use hayro::hayro_interpret::font::{Glyph, GlyphRun};
-use hayro::hayro_interpret::{
-    BlendMode, ClipPath, Context, Device, DrawMode, DrawProps, Image, ImageDrawProps, InterpreterCache,
-    InterpreterSettings, SoftMask, TransformExt, interpret_page,
-};
-use hayro::hayro_syntax::Pdf;
-use hayro::kurbo::{Affine, BezPath, Point};
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
 use crate::content_edit::{Splice, check_splices, hex_string, joined, name_token, rewrite};
 use crate::content_lex::{name_of, operations};
 use crate::document::Document;
 use crate::error::{Error, Result};
+use crate::page_text::probe::{SHOW, probe_page_glyphs};
 use crate::util::{deref, winansi_byte};
 
 /// What a text edit did.
@@ -180,51 +173,131 @@ fn fmt_kern(v: f64) -> String {
 
 // ---- Text-showing operations ---------------------------------------------------------
 
-/// A text-showing operation of the page content with the font in use.
+/// A text-showing operation of a content stream with the text state in use.
 #[derive(Debug, Clone)]
-struct TextOp {
-    start: usize,
-    end: usize,
-    operator: Vec<u8>,
-    operands: Vec<(usize, usize)>,
-    font: Vec<u8>,
+pub(crate) struct TextOp {
+    pub start: usize,
+    pub end: usize,
+    pub operator: Vec<u8>,
+    pub operands: Vec<(usize, usize)>,
+    pub font: Vec<u8>,
     /// The font size operand of `Tf` as written.
-    size: String,
+    pub size: String,
+    /// The font size.
+    pub size_value: f64,
+    /// Character and word spacing (`Tc`, `Tw`), in unscaled text space units.
+    pub char_spacing: f64,
+    pub word_spacing: f64,
+    /// Text rendering mode (`Tr`).
+    pub render_mode: i64,
+    /// The text object (`BT` … `ET`) it belongs to, counted from 0.
+    pub object: usize,
 }
 
-const SHOW: &[&[u8]] = &[b"Tj", b"TJ", b"'", b"\""];
+/// The text state carried by the graphics state (ISO 32000-1 §9.3): forms
+/// start from the state of the operation that draws them.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct TextState {
+    pub font: Vec<u8>,
+    pub size: String,
+    pub size_value: f64,
+    pub char_spacing: f64,
+    pub word_spacing: f64,
+    pub render_mode: i64,
+}
 
-fn text_ops(data: &[u8]) -> Vec<TextOp> {
-    let mut out = Vec::new();
-    let mut font: (Vec<u8>, String) = (Vec::new(), "1".into());
-    let mut stack: Vec<(Vec<u8>, String)> = Vec::new();
-    for op in operations(data) {
-        match op.operator {
-            b"q" => stack.push(font.clone()),
-            b"Q" => {
-                if let Some(f) = stack.pop() {
-                    font = f;
-                }
+impl Default for TextState {
+    fn default() -> Self {
+        TextState {
+            font: Vec::new(),
+            size: "1".into(),
+            size_value: 1.0,
+            char_spacing: 0.0,
+            word_spacing: 0.0,
+            render_mode: 0,
+        }
+    }
+}
+
+fn op_number(data: &[u8], r: (usize, usize)) -> Option<f64> {
+    std::str::from_utf8(data.get(r.0..r.1)?).ok()?.trim().parse().ok()
+}
+
+impl TextState {
+    /// Follow one operation that changes the text state.
+    pub(crate) fn apply(&mut self, data: &[u8], operator: &[u8], operands: &[(usize, usize)]) {
+        let num = |i: usize| operands.get(i).and_then(|r| op_number(data, *r));
+        match operator {
+            b"Tf" if operands.len() == 2 => {
+                self.font = name_of(data, operands[0]).unwrap_or_default();
+                self.size = String::from_utf8_lossy(&data[operands[1].0..operands[1].1]).into_owned();
+                self.size_value = num(1).unwrap_or(1.0);
             }
-            b"Tf" if op.operands.len() == 2 => {
-                let size = &data[op.operands[1].0..op.operands[1].1];
-                font = (
-                    name_of(data, op.operands[0]).unwrap_or_default(),
-                    String::from_utf8_lossy(size).into_owned(),
-                );
+            b"Tc" => self.char_spacing = num(0).unwrap_or(self.char_spacing),
+            b"Tw" => self.word_spacing = num(0).unwrap_or(self.word_spacing),
+            b"Tr" => self.render_mode = num(0).map(|v| v as i64).unwrap_or(self.render_mode),
+            b"\"" if operands.len() == 3 => {
+                self.word_spacing = num(0).unwrap_or(self.word_spacing);
+                self.char_spacing = num(1).unwrap_or(self.char_spacing);
             }
-            o if SHOW.contains(&o) => out.push(TextOp {
-                start: op.start,
-                end: op.end,
-                operator: o.to_vec(),
-                operands: op.operands.clone(),
-                font: font.0.clone(),
-                size: font.1.clone(),
-            }),
             _ => {}
         }
     }
-    out
+}
+
+fn text_ops(data: &[u8]) -> Vec<TextOp> {
+    text_ops_from(data, &TextState::default()).0
+}
+
+/// The text-showing operations of a content stream whose text state starts
+/// as `init`, and where each text object ends (the end of its `ET`).
+pub(crate) fn text_ops_from(data: &[u8], init: &TextState) -> (Vec<TextOp>, Vec<Option<usize>>) {
+    let mut out = Vec::new();
+    let mut ends: Vec<Option<usize>> = Vec::new();
+    let mut state = init.clone();
+    let mut stack: Vec<TextState> = Vec::new();
+    let mut object = 0usize;
+    for op in operations(data) {
+        match op.operator {
+            b"q" => stack.push(state.clone()),
+            b"Q" => {
+                if let Some(f) = stack.pop() {
+                    state = f;
+                }
+            }
+            b"BT" => {
+                object = ends.len();
+                ends.push(None);
+            }
+            b"ET" => {
+                if let Some(e) = ends.get_mut(object) {
+                    *e = Some(op.end);
+                }
+            }
+            o => {
+                state.apply(data, o, &op.operands);
+                if SHOW.contains(&o) {
+                    if ends.is_empty() {
+                        ends.push(None);
+                    }
+                    out.push(TextOp {
+                        start: op.start,
+                        end: op.end,
+                        operator: o.to_vec(),
+                        operands: op.operands.clone(),
+                        font: state.font.clone(),
+                        size: state.size.clone(),
+                        size_value: state.size_value,
+                        char_spacing: state.char_spacing,
+                        word_spacing: state.word_spacing,
+                        render_mode: state.render_mode,
+                        object,
+                    });
+                }
+            }
+        }
+    }
+    (out, ends)
 }
 
 /// A glyph or a position adjustment of a text-showing operation.
@@ -272,6 +345,8 @@ struct FontInfo {
     standard: bool,
     /// Codes of single characters, from the font's ToUnicode map.
     codes: HashMap<char, Vec<u8>>,
+    /// Vertical writing (Identity-V).
+    vertical: bool,
 }
 
 fn page_fonts(doc: &lopdf::Document, page_id: ObjectId) -> Dictionary {
@@ -426,6 +501,7 @@ fn font_info(doc: &lopdf::Document, fonts: &Dictionary, name: &[u8]) -> Option<F
             return None;
         }
         info.two_byte = true;
+        info.vertical = enc == Some(b"Identity-V".as_slice());
         font.get(b"DescendantFonts")
             .ok()
             .and_then(|d| deref(doc, d).as_array().ok())
@@ -465,6 +541,266 @@ fn font_info(doc: &lopdf::Document, fonts: &Dictionary, name: &[u8]) -> Option<F
         }
     }
     Some(info)
+}
+
+fn num_of(doc: &lopdf::Document, o: &Object) -> Option<f64> {
+    match deref(doc, o) {
+        Object::Integer(i) => Some(*i as f64),
+        Object::Real(r) => Some(*r as f64),
+        _ => None,
+    }
+}
+
+/// The width of the glyph of `code` in a font, in thousandths of the font
+/// size (the units of `TJ` numbers), as the font dictionary gives it: the
+/// `/Widths` of simple fonts (or the descriptor's `/MissingWidth`), the
+/// `/Widths` of Type 3 fonts in their glyph space scaled by the font matrix,
+/// the `/W` and `/DW` of the descendant of composite fonts. None when the
+/// dictionary has no widths (the standard fonts).
+pub(crate) fn pdf_glyph_width(doc: &lopdf::Document, font: &Dictionary, code: &[u8]) -> Option<f64> {
+    let subtype = font.get(b"Subtype").ok()?.as_name().ok()?;
+    if subtype == b"Type0" {
+        let cid = code.iter().fold(0i64, |a, b| (a << 8) | *b as i64);
+        let desc = font
+            .get(b"DescendantFonts")
+            .ok()
+            .and_then(|d| deref(doc, d).as_array().ok())
+            .and_then(|a| a.first())
+            .and_then(|d| deref(doc, d).as_dict().ok())?;
+        let dw = desc
+            .get(b"DW")
+            .ok()
+            .and_then(|v| num_of(doc, v))
+            .unwrap_or(1000.0);
+        let Some(w) = desc.get(b"W").ok().and_then(|w| deref(doc, w).as_array().ok()) else {
+            return Some(dw);
+        };
+        let mut i = 0;
+        while i < w.len() {
+            let Some(first) = num_of(doc, &w[i]).map(|v| v as i64) else {
+                break;
+            };
+            match w.get(i + 1).map(|o| deref(doc, o)) {
+                Some(Object::Array(list)) => {
+                    if cid >= first && ((cid - first) as usize) < list.len() {
+                        return num_of(doc, &list[(cid - first) as usize]);
+                    }
+                    i += 2;
+                }
+                Some(_) => {
+                    let last = num_of(doc, &w[i + 1]).map(|v| v as i64)?;
+                    let width = w.get(i + 2).and_then(|o| num_of(doc, o))?;
+                    if cid >= first && cid <= last {
+                        return Some(width);
+                    }
+                    i += 3;
+                }
+                None => break,
+            }
+        }
+        return Some(dw);
+    }
+    let byte = *code.first()? as i64;
+    let first = font
+        .get(b"FirstChar")
+        .ok()
+        .and_then(|v| num_of(doc, v))
+        .unwrap_or(0.0) as i64;
+    let width = font
+        .get(b"Widths")
+        .ok()
+        .and_then(|w| deref(doc, w).as_array().ok())
+        .and_then(|w| w.get(usize::try_from(byte - first).ok()?))
+        .and_then(|v| num_of(doc, v))
+        .or_else(|| {
+            font.get(b"FontDescriptor")
+                .ok()
+                .and_then(|d| deref(doc, d).as_dict().ok())
+                .and_then(|d| d.get(b"MissingWidth").ok())
+                .and_then(|v| num_of(doc, v))
+        });
+    if subtype == b"Type3" {
+        // Type 3 widths are in glyph space: the font matrix makes them text space.
+        let scale = font
+            .get(b"FontMatrix")
+            .ok()
+            .and_then(|m| deref(doc, m).as_array().ok())
+            .and_then(|m| m.first())
+            .and_then(|v| num_of(doc, v))
+            .unwrap_or(0.001);
+        return width.map(|w| w * scale * 1000.0);
+    }
+    if font.has(b"Widths") { width } else { None }
+}
+
+/// A glyph to take out of a text-showing operation.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct RemovedGlyph {
+    /// Its number among the glyphs of the operation.
+    pub index: usize,
+    /// How far the next glyph of the operation starts (`TJ` units), as drawn.
+    pub to_next: Option<f64>,
+    /// The advance of its outline, when known.
+    pub own_advance: Option<f64>,
+}
+
+/// Why the text of an operation cannot be taken out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FontUnsupported;
+
+/// Glyphs taken out of the text-showing operations of a stream.
+#[derive(Debug, Default)]
+pub(crate) struct TextRemoval {
+    pub splices: Vec<Splice>,
+    /// Glyphs taken out.
+    pub removed: usize,
+    /// Text objects (see [`TextOp::object`]) in a clipping mode that lost
+    /// every clipping glyph: they no longer clip, so the caller adds a clip
+    /// that hides what they hid.
+    pub emptied_clips: Vec<usize>,
+}
+
+/// Take `removed` glyphs (by operation index) out of `ops` of `data`, each
+/// replaced by a move of its width so the other glyphs stay where they were.
+/// The move of a glyph followed by another is the distance to it as drawn,
+/// which already holds the `TJ` numbers between them (ISO 32000-1 §9.4.4):
+/// those go with the glyph. The move of the last glyph of an operation is its
+/// width from the font with the character and word spacing. `counts` is the
+/// number of glyphs drawn by each operation. Fails for fonts whose codes
+/// cannot be matched to the glyphs drawn and for vertical writing.
+pub(crate) fn glyph_removal_splices(
+    doc: &lopdf::Document,
+    data: &[u8],
+    ops: &[TextOp],
+    fonts: &Dictionary,
+    removed: &BTreeMap<usize, Vec<RemovedGlyph>>,
+    counts: &HashMap<usize, usize>,
+) -> std::result::Result<TextRemoval, FontUnsupported> {
+    let mut out = TextRemoval::default();
+    // Glyphs drawn and taken out by text object, in clipping modes only.
+    let mut clip_glyphs: HashMap<usize, (usize, usize)> = HashMap::new();
+    let clipping = |op: &TextOp| (4..=7).contains(&op.render_mode);
+    for (k, op) in ops.iter().enumerate() {
+        if clipping(op) {
+            clip_glyphs.entry(op.object).or_default().0 += counts.get(&k).copied().unwrap_or(0);
+        }
+    }
+    for (&k, gone) in removed {
+        if gone.is_empty() {
+            continue;
+        }
+        let op = ops.get(k).ok_or(FontUnsupported)?;
+        let font = fonts
+            .get(&op.font)
+            .ok()
+            .and_then(|f| deref(doc, f).as_dict().ok())
+            .ok_or(FontUnsupported)?;
+        let info = font_info(doc, fonts, &op.font).ok_or(FontUnsupported)?;
+        if info.vertical {
+            return Err(FontUnsupported);
+        }
+        let p = pieces(data, op, if info.two_byte { 2 } else { 1 }).ok_or(FontUnsupported)?;
+        let glyphs = p.iter().filter(|x| matches!(x, Piece::Glyph(_))).count();
+        if glyphs != counts.get(&k).copied().unwrap_or(0) {
+            return Err(FontUnsupported);
+        }
+        let by_index: HashMap<usize, &RemovedGlyph> = gone.iter().map(|g| (g.index, g)).collect();
+        let mut kept: Vec<Piece> = Vec::with_capacity(p.len());
+        let mut n = 0;
+        // After a removed glyph followed by another, the numbers up to that
+        // glyph are part of the move already.
+        let mut skip_numbers = false;
+        let mut taken = 0;
+        for x in p {
+            let piece = match x {
+                Piece::Glyph(code) => {
+                    let g = by_index.get(&n).copied();
+                    n += 1;
+                    match g {
+                        Some(g) => {
+                            taken += 1;
+                            let advance = match g.to_next {
+                                Some(d) => {
+                                    skip_numbers = true;
+                                    d
+                                }
+                                None => {
+                                    skip_numbers = false;
+                                    if op.size_value.abs() < 1e-9 {
+                                        return Err(FontUnsupported);
+                                    }
+                                    let w = pdf_glyph_width(doc, font, &code)
+                                        .or(g.own_advance)
+                                        .unwrap_or(500.0);
+                                    let space = if code == [32] { op.word_spacing } else { 0.0 };
+                                    w + 1000.0 * (op.char_spacing + space) / op.size_value
+                                }
+                            };
+                            // A move to the right is a negative number in a TJ array.
+                            Piece::Kern(-advance)
+                        }
+                        None => {
+                            skip_numbers = false;
+                            Piece::Glyph(code)
+                        }
+                    }
+                }
+                Piece::Kern(v) => {
+                    if skip_numbers {
+                        continue;
+                    }
+                    Piece::Kern(v)
+                }
+            };
+            // Moves next to each other become one.
+            match (kept.last_mut(), &piece) {
+                (Some(Piece::Kern(prev)), Piece::Kern(v)) => *prev += v,
+                _ => kept.push(piece),
+            }
+        }
+        out.removed += taken;
+        if clipping(op) {
+            clip_glyphs.entry(op.object).or_default().1 += taken;
+        }
+        let mut text = String::new();
+        match op.operator.as_slice() {
+            b"'" => text.push_str("T* "),
+            b"\"" if op.operands.len() == 3 => {
+                let raw = |r: (usize, usize)| String::from_utf8_lossy(&data[r.0..r.1]).into_owned();
+                text.push_str(&format!(
+                    "{} Tw {} Tc T* ",
+                    raw(op.operands[0]),
+                    raw(op.operands[1])
+                ));
+            }
+            _ => {}
+        }
+        text.push('[');
+        for x in &kept {
+            match x {
+                Piece::Glyph(c) => text.push_str(&hex_string(c)),
+                Piece::Kern(v) => {
+                    text.push(' ');
+                    text.push_str(&fmt_kern(*v));
+                    text.push(' ');
+                }
+            }
+        }
+        text.push_str("] TJ");
+        out.splices.push(Splice {
+            start: op.start,
+            end: op.end,
+            with: text.into_bytes(),
+        });
+    }
+    let mut emptied: Vec<usize> = clip_glyphs
+        .into_iter()
+        .filter(|(_, (drawn, taken))| *drawn > 0 && taken >= drawn)
+        .map(|(o, _)| o)
+        .collect();
+    emptied.sort_unstable();
+    out.emptied_clips = emptied;
+    Ok(out)
 }
 
 /// The standard font of the family of a page font, for the characters it lacks.
@@ -512,241 +848,6 @@ fn fallback_font(info: &FontInfo) -> &'static str {
 fn winansi(c: char) -> Option<u8> {
     let b = winansi_byte(c);
     (b != b'?' || c == '?').then_some(b)
-}
-
-// ---- Finding which operation drew each glyph -----------------------------------------
-
-/// Tag of the marked content wrapped around every text-showing operation.
-const PROBE: &[u8] = b"FoliTx";
-
-/// A glyph drawn while probing: the operation that drew it (when the page
-/// content drew it itself), its text and its quadrilateral (as in the text layer).
-#[derive(Debug, Clone)]
-struct ProbeGlyph {
-    op: Option<usize>,
-    text: String,
-    quad: [f32; 8],
-    /// How far the text moves after this glyph, in thousandths of the font
-    /// size (the units of the numbers of a `TJ` array): its width with the
-    /// character and word spacing.
-    advance: f64,
-    /// Bounds of the body of the glyph (from below the baseline to the
-    /// height of capitals), narrower than the quad so the lines above and
-    /// below are not touched.
-    body: [f32; 4],
-}
-
-#[derive(Default)]
-struct ProbeDevice {
-    stack: Vec<Option<usize>>,
-    glyphs: Vec<ProbeGlyph>,
-    last_fill: Vec<(i64, i64)>,
-    /// Bounds of every picture drawn, wherever it comes from (display space).
-    images: Vec<[f32; 4]>,
-}
-
-impl<'a> Device<'a> for ProbeDevice {
-    fn draw_path(&mut self, _path: &BezPath, _props: DrawProps<'a>, _mode: &DrawMode) {}
-    fn push_clip_path(&mut self, _clip_path: &ClipPath) {}
-    fn push_transparency_group(
-        &mut self,
-        _opacity: f32,
-        _mask: Option<SoftMask<'a>>,
-        _blend_mode: BlendMode,
-    ) {
-    }
-    fn draw_glyph_run(&mut self, run: &GlyphRun<'_, 'a>, props: DrawProps<'a>, mode: &DrawMode) {
-        let glyphs = run.glyphs();
-        let key: Vec<(i64, i64)> = glyphs
-            .iter()
-            .map(|g| {
-                let o = props.transform * g.transform() * Point::ZERO;
-                ((o.x * 10.0) as i64, (o.y * 10.0) as i64)
-            })
-            .collect();
-        // Fill and stroke text arrives twice; keep the first copy only.
-        if matches!(mode, DrawMode::Stroke(_)) && key == self.last_fill {
-            return;
-        }
-        if !matches!(mode, DrawMode::Stroke(_)) {
-            self.last_fill = key;
-        }
-        let op = self.stack.iter().rev().find_map(|x| *x);
-        // Where the next glyph of the run starts, seen from each glyph.
-        let to_next: Vec<Option<f64>> = (0..glyphs.len())
-            .map(|i| {
-                glyphs
-                    .get(i + 1)
-                    .map(|n| (glyphs[i].transform().inverse() * n.transform() * Point::ZERO).x)
-                    .filter(|d| d.is_finite() && d.abs() < 100_000.0)
-            })
-            .collect();
-        let mut spacing = 0.0;
-        for (i, g) in glyphs.iter().enumerate() {
-            // The same geometry as the text layer, so the glyphs can be matched.
-            let t: Affine = props.transform * g.transform();
-            let (adv, text) = match &**g {
-                Glyph::Outline(o) => (o.advance_width().map(|a| a as f64), g.as_unicode()),
-                Glyph::Type3(_) => (None, g.as_unicode()),
-            };
-            let adv = adv.filter(|a| *a > 0.0).unwrap_or_else(|| {
-                glyphs
-                    .get(i + 1)
-                    .map(|n| (g.transform().inverse() * n.transform() * Point::ZERO).x)
-                    .filter(|d| d.is_finite() && *d > 0.0 && *d < 3000.0)
-                    .unwrap_or(500.0)
-            });
-            let text = match text {
-                Some(hayro::hayro_interpret::hayro_cmap::BfString::Char(c)) => c.to_string(),
-                Some(hayro::hayro_interpret::hayro_cmap::BfString::String(s)) => s,
-                None => String::new(),
-            };
-            let corners = [
-                t * Point::new(0.0, 800.0),
-                t * Point::new(adv, 800.0),
-                t * Point::new(0.0, -200.0),
-                t * Point::new(adv, -200.0),
-            ];
-            let size = ((t * Point::new(0.0, 1000.0)) - (t * Point::ZERO)).hypot();
-            // The width with the spacing: up to the next glyph; for the last one
-            // of the run, its width with the spacing seen between the others.
-            let advance = match to_next[i] {
-                Some(d) => {
-                    spacing = d - adv;
-                    d
-                }
-                None => adv + spacing,
-            };
-            let body_pts = [
-                t * Point::new(0.0, -120.0),
-                t * Point::new(adv, -120.0),
-                t * Point::new(0.0, 700.0),
-                t * Point::new(adv, 700.0),
-            ];
-            let body = [
-                body_pts.iter().map(|p| p.x).fold(f64::MAX, f64::min) as f32,
-                body_pts.iter().map(|p| p.y).fold(f64::MAX, f64::min) as f32,
-                body_pts.iter().map(|p| p.x).fold(f64::MIN, f64::max) as f32,
-                body_pts.iter().map(|p| p.y).fold(f64::MIN, f64::max) as f32,
-            ];
-            // The text layer leaves out glyphs without size; so does the probe,
-            // but they still count among the glyphs of their operation.
-            let quad = [
-                corners[0].x as f32,
-                corners[0].y as f32,
-                corners[1].x as f32,
-                corners[1].y as f32,
-                corners[2].x as f32,
-                corners[2].y as f32,
-                corners[3].x as f32,
-                corners[3].y as f32,
-            ];
-            self.glyphs.push(ProbeGlyph {
-                op,
-                text: if size.is_finite() && size >= 0.01 {
-                    text
-                } else {
-                    String::from('\u{0}')
-                },
-                quad,
-                advance,
-                body,
-            });
-        }
-    }
-    fn draw_image(&mut self, image: Image<'a, '_>, props: ImageDrawProps<'a>) {
-        // The transform places the pixels of the picture.
-        let (w, h) = (image.width() as f64, image.height() as f64);
-        let corners =
-            [(0.0, 0.0), (w, 0.0), (0.0, h), (w, h)].map(|(x, y)| props.transform * Point::new(x, y));
-        self.images.push([
-            corners.iter().map(|p| p.x).fold(f64::MAX, f64::min) as f32,
-            corners.iter().map(|p| p.y).fold(f64::MAX, f64::min) as f32,
-            corners.iter().map(|p| p.x).fold(f64::MIN, f64::max) as f32,
-            corners.iter().map(|p| p.y).fold(f64::MIN, f64::max) as f32,
-        ]);
-    }
-    fn pop_clip(&mut self) {}
-    fn pop_transparency_group(&mut self) {}
-    fn begin_marked_content(&mut self, tag: &[u8], mcid: Option<i32>) {
-        self.stack
-            .push((tag == PROBE).then(|| mcid.map(|m| m as usize)).flatten());
-    }
-    fn end_marked_content(&mut self) {
-        self.stack.pop();
-    }
-}
-
-/// The page content with every text-showing operation wrapped in a probe.
-fn probed(data: &[u8], ops: &[TextOp]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(data.len() + ops.len() * 32);
-    let mut at = 0;
-    for (k, op) in ops.iter().enumerate() {
-        out.extend_from_slice(&data[at..op.start]);
-        out.extend_from_slice(format!("/FoliTx <</MCID {k}>> BDC ").as_bytes());
-        out.extend_from_slice(&data[op.start..op.end]);
-        out.extend_from_slice(b" EMC");
-        at = op.end;
-    }
-    out.extend_from_slice(&data[at..]);
-    out
-}
-
-/// Draw a page with probes; returns the glyphs in drawing order.
-fn probe_glyphs(
-    doc: &lopdf::Document,
-    page: usize,
-    page_id: ObjectId,
-    content: Vec<u8>,
-) -> Result<Vec<ProbeGlyph>> {
-    Ok(probe_page(doc, page, page_id, content)?.glyphs)
-}
-
-/// Draw a page with `content` as its content; returns what was drawn.
-fn probe_page(
-    doc: &lopdf::Document,
-    page: usize,
-    page_id: ObjectId,
-    content: Vec<u8>,
-) -> Result<ProbeDevice> {
-    let mut copy = doc.clone();
-    let sid = copy.add_object(Stream::new(dictionary! {}, content));
-    copy.get_dictionary_mut(page_id)?
-        .set("Contents", Object::Reference(sid));
-    let bytes = Arc::new(crate::document::serialize(&mut copy)?);
-    let pdf = Pdf::new(bytes).map_err(|e| Error::Render(format!("cannot parse document: {e:?}")))?;
-    let pages = pdf.pages();
-    let p = pages.get(page).ok_or(Error::InvalidPage(page))?;
-    let (w, h) = p.render_dimensions();
-    let cache = InterpreterCache::new();
-    let settings = InterpreterSettings {
-        render_annotations: false,
-        ..InterpreterSettings::default()
-    };
-    let mut ctx = Context::new(
-        p.initial_transform(true).to_kurbo(),
-        hayro::kurbo::Rect::new(0.0, 0.0, w as f64, h as f64),
-        &cache,
-        p.xref(),
-        settings,
-    );
-    let mut dev = ProbeDevice::default();
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        interpret_page(p, &mut ctx, &mut dev);
-    }))
-    .map_err(|_| Error::Render(format!("the renderer failed on page {}", page + 1)))?;
-    Ok(dev)
-}
-
-impl Document {
-    /// Bounds of every picture a page draws (display space, like the text
-    /// layer), wherever it comes from: the page content, a drawing it
-    /// reuses, a picture written inside the content.
-    pub(crate) fn drawn_picture_bounds(&self, page: usize) -> Result<Vec<[f32; 4]>> {
-        let page_id = self.page_id(page)?;
-        let j = joined(&self.inner, page_id);
-        Ok(probe_page(&self.inner, page, page_id, j.data.to_vec())?.images)
-    }
 }
 
 fn same_quad(a: &[f32; 8], b: &[f32; 8]) -> bool {
@@ -814,7 +915,7 @@ impl Document {
         if ops.is_empty() {
             return Err(Error::Invalid("this text is not drawn by the page itself".into()));
         }
-        let probe = probe_glyphs(&self.inner, page, page_id, probed(&j.data, &ops))?;
+        let probe = probe_page_glyphs(&self.inner, page)?;
         // Where every glyph of the text layer comes from: operation and index in it.
         let mut index_in_op: Vec<usize> = Vec::with_capacity(probe.len());
         let mut counts: HashMap<usize, usize> = HashMap::new();
@@ -1092,135 +1193,6 @@ impl Document {
         // Only this page changed: its text is extracted again, not every page's.
         self.refresh_text_layer(page, before);
         Ok(report)
-    }
-
-    /// Take out of the content of `page` every glyph whose body meets one of
-    /// `areas` (display space, like the text layer), each one replaced by a
-    /// move of its own width so every other glyph stays where it was; the
-    /// codes of the glyphs are gone from the file. No undo step (the caller
-    /// makes one). Fails, changing nothing, when a glyph under the areas is
-    /// drawn by a drawing the page reuses or with a font this cannot edit.
-    pub(crate) fn remove_text_in(&mut self, page: usize, areas: &[[f32; 4]]) -> Result<usize> {
-        let meets = |b: &[f32; 4]| {
-            areas
-                .iter()
-                .any(|a| b[0] < a[2] && b[2] > a[0] && b[1] < a[3] && b[3] > a[1])
-        };
-        let page_id = self.page_id(page)?;
-        let j = joined(&self.inner, page_id);
-        let ops = text_ops(&j.data);
-        let probe = probe_glyphs(&self.inner, page, page_id, probed(&j.data, &ops))?;
-        let mut counts: HashMap<usize, usize> = HashMap::new();
-        // Glyphs to take out, by operation: their number in it and their advance.
-        let mut removal: HashMap<usize, HashMap<usize, f64>> = HashMap::new();
-        for g in &probe {
-            let n = g.op.map(|o| {
-                let c = counts.entry(o).or_insert(0);
-                *c += 1;
-                *c - 1
-            });
-            if !meets(&g.body) {
-                continue;
-            }
-            match (g.op, n) {
-                (Some(op), Some(n)) => {
-                    removal.entry(op).or_default().insert(n, g.advance);
-                }
-                _ => {
-                    return Err(Error::Invalid(
-                        "text under the areas is drawn by a drawing the page reuses".into(),
-                    ));
-                }
-            }
-        }
-        if removal.is_empty() {
-            return Ok(0);
-        }
-        let fonts = page_fonts(&self.inner, page_id);
-        let unsupported = || Error::Invalid("text under the areas uses a font Folitecta cannot edit".into());
-        let mut keys: Vec<usize> = removal.keys().copied().collect();
-        keys.sort_unstable();
-        let mut splices = Vec::new();
-        let mut removed = 0;
-        for k in keys {
-            let op = &ops[k];
-            // Type 3 glyphs have their own units; the moves would be wrong.
-            let type3 = fonts
-                .get(&op.font)
-                .ok()
-                .map(|f| deref(&self.inner, f))
-                .and_then(|f| f.as_dict().ok())
-                .and_then(|f| f.get(b"Subtype").ok())
-                .and_then(|s| s.as_name().ok())
-                == Some(b"Type3".as_slice());
-            if type3 {
-                return Err(unsupported());
-            }
-            let info = font_info(&self.inner, &fonts, &op.font).ok_or_else(unsupported)?;
-            let p = pieces(&j.data, op, if info.two_byte { 2 } else { 1 }).ok_or_else(unsupported)?;
-            let glyphs = p.iter().filter(|x| matches!(x, Piece::Glyph(_))).count();
-            if glyphs != counts.get(&k).copied().unwrap_or(0) {
-                return Err(Error::Invalid(
-                    "the glyphs under the areas could not be matched to their codes".into(),
-                ));
-            }
-            let gone = &removal[&k];
-            let mut kept: Vec<Piece> = Vec::with_capacity(p.len());
-            let mut n = 0;
-            for x in p {
-                let x = match x {
-                    Piece::Glyph(code) => {
-                        let advance = gone.get(&n).copied();
-                        n += 1;
-                        match advance {
-                            // A move to the right is a negative number in a TJ array.
-                            Some(a) => Piece::Kern(-a),
-                            None => Piece::Glyph(code),
-                        }
-                    }
-                    kern => kern,
-                };
-                // Moves next to each other become one.
-                match (kept.last_mut(), &x) {
-                    (Some(Piece::Kern(prev)), Piece::Kern(v)) => *prev += v,
-                    _ => kept.push(x),
-                }
-            }
-            removed += gone.len();
-            let mut out = String::new();
-            match op.operator.as_slice() {
-                b"'" => out.push_str("T* "),
-                b"\"" if op.operands.len() == 3 => {
-                    let raw = |r: (usize, usize)| String::from_utf8_lossy(&j.data[r.0..r.1]).into_owned();
-                    out.push_str(&format!(
-                        "{} Tw {} Tc T* ",
-                        raw(op.operands[0]),
-                        raw(op.operands[1])
-                    ));
-                }
-                _ => {}
-            }
-            out.push('[');
-            for x in &kept {
-                match x {
-                    Piece::Glyph(c) => out.push_str(&hex_string(c)),
-                    Piece::Kern(v) => {
-                        out.push(' ');
-                        out.push_str(&fmt_kern(*v));
-                        out.push(' ');
-                    }
-                }
-            }
-            out.push_str("] TJ");
-            splices.push(Splice {
-                start: op.start,
-                end: op.end,
-                with: out.into_bytes(),
-            });
-        }
-        check_splices(&j, &splices)?;
-        rewrite(&mut self.inner, page_id, &j, &splices)?;
-        Ok(removed)
     }
 
     /// Replace every occurrence of `query` in the text of `pages` (all when

@@ -394,14 +394,24 @@ impl PrintBackend for Cups {
         let mut s = self.session()?;
         let mut op = s.operation(None);
         op.push(ipp::requested(ipp::PRINTER_LIST_ATTRS));
-        let list = s.simple(
+        let list = s.request(
             "/",
             ipp::CUPS_GET_PRINTERS,
             &[Group {
                 tag: ipp::OPERATION,
                 attrs: op,
             }],
+            None,
+            &|_| {},
+            &AtomicBool::new(false),
         )?;
+        // A server without queues answers "not found" ("No destinations added").
+        if list.code == 0x0406 {
+            return Ok(Vec::new());
+        }
+        if let Some(e) = ipp::status_error(list.code, &list.status_message()) {
+            return Err(e);
+        }
         let server_default = {
             let mut op = s.operation(None);
             op.push(ipp::requested(&["printer-name"]));
@@ -713,6 +723,14 @@ mod tests {
     /// A print server on a socket in a folder of its own, answering every
     /// connection; the requests it received.
     fn unix_server(name: &str, need_auth: bool) -> (Endpoint, Arc<Mutex<Vec<Received>>>) {
+        unix_server_with(name, move |r| respond(r, need_auth))
+    }
+
+    /// A print server on a socket answering with `answer`.
+    fn unix_server_with(
+        name: &str,
+        answer: impl Fn(&Received) -> Vec<u8> + Send + 'static,
+    ) -> (Endpoint, Arc<Mutex<Vec<Received>>>) {
         let dir = std::env::temp_dir().join(format!("folitecta-ipp-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
@@ -723,7 +741,7 @@ mod tests {
         std::thread::spawn(move || {
             for mut s in listener.incoming().flatten() {
                 let Some(r) = read_request(&mut s) else { continue };
-                let reply = respond(&r, need_auth);
+                let reply = answer(&r);
                 seen.lock().unwrap().push(r.clone());
                 if r.complete {
                     let _ = s.write_all(&reply);
@@ -869,6 +887,36 @@ mod tests {
         let log = log.lock().unwrap();
         let job = log.iter().find(|r| r.op == ipp::PRINT_JOB).unwrap();
         assert!(!job.complete && job.doc.len() < 4 * CHUNK);
+    }
+
+    #[test]
+    fn a_server_without_queues_has_no_printers() {
+        // CUPS answers client-error-not-found when no queue was added.
+        let (endpoint, _log) = unix_server_with("empty", |r| match r.op {
+            ipp::CUPS_GET_PRINTERS | ipp::CUPS_GET_DEFAULT => {
+                // The status message of CUPS.
+                let body = encode(
+                    0x0406,
+                    1,
+                    &[Group {
+                        tag: ipp::OPERATION,
+                        attrs: vec![
+                            Attr::text(ipp::CHARSET, "attributes-charset", "utf-8"),
+                            Attr::text(ipp::TEXT, "status-message", "No destinations added."),
+                        ],
+                    }],
+                );
+                let mut a = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/ipp\r\nContent-Length: {}\r\n\r\n",
+                    body.len()
+                )
+                .into_bytes();
+                a.extend_from_slice(&body);
+                a
+            }
+            _ => respond(r, false),
+        });
+        assert_eq!(Cups::at(endpoint).printers(), Ok(Vec::new()));
     }
 
     #[test]

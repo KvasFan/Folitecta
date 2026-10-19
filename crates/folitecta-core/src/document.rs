@@ -259,6 +259,18 @@ fn load_decrypted(bytes: &[u8], password: &[u8]) -> Result<lopdf::Document> {
 }
 
 fn load_inner(bytes: &[u8], password: Option<&str>) -> Result<Loaded> {
+    let mut loaded = load_with(bytes, password)?;
+    // Opened with the owner password (an empty one included), the permissions
+    // of the file do not restrict the document.
+    if let Some(p) = &loaded.protection {
+        if crate::security::is_owner_password(bytes, password.unwrap_or("")) {
+            loaded.protection = Some(p.opened_by_owner());
+        }
+    }
+    Ok(loaded)
+}
+
+fn load_with(bytes: &[u8], password: Option<&str>) -> Result<Loaded> {
     // Revisions 2 to 4: a password the library would make a wrong key of
     // (characters outside ASCII, an owner password) is decrypted here.
     if let Some(key) = password.and_then(|pw| crate::security::r4_key_password(bytes, pw)) {

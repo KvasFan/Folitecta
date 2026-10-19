@@ -296,7 +296,9 @@ pub enum PrintPermission {
 
 impl crate::document::Document {
     /// What the security settings of the file the document was opened from
-    /// allow for printing (everything for files without them).
+    /// allow for printing: everything for files without them and for files
+    /// opened with their owner password; the permissions of the file when
+    /// it was opened with the user password (or without one).
     pub fn print_permission(&self) -> PrintPermission {
         permission_of(self.protection())
     }
@@ -304,7 +306,8 @@ impl crate::document::Document {
 
 pub(crate) fn permission_of(protection: Option<&crate::security::Protection>) -> PrintPermission {
     use lopdf::Permissions;
-    let Some(state) = protection.map(|p| p.state()) else {
+    // Unprotected, or opened with the owner password: everything is allowed.
+    let Some(state) = protection.filter(|p| !p.owner_access()).map(|p| p.state()) else {
         return PrintPermission::Allowed;
     };
     let p = state.permissions();

@@ -581,46 +581,52 @@ fn permissions_of(bytes: &[u8]) -> i64 {
 
 #[test]
 fn print_files_of_protected_documents_stay_protected() {
-    let dir = folder("protected");
-    let original = dir.join("protected.pdf");
-    let mut blank = Document::new_blank(2, 300.0, 300.0).unwrap();
-    blank.add_text_watermark(&[0, 1], &Default::default()).unwrap();
-    blank
-        .save_encrypted(
-            &original,
-            "user-pw",
-            "owner-pw",
-            SecurityPermissions::default(),
-            EncryptionProfile::Aes128,
-        )
-        .unwrap();
-    let doc = Document::open_with_password(&original, "user-pw").unwrap();
-    assert_eq!(doc.print_permission(), PrintPermission::Allowed);
-    let src = source(&doc);
-    assert!(src.is_protected());
-    let plan = plan_of(&src, &[0, 1], &options(Layout::default(), a4()));
-    // The plain file is checked, then encrypted as the last step.
-    let plain = build(&src, &plan, Content::DocumentAndComments);
-    let saved = src.protect(&plain).unwrap();
-    let path = dir.join("print.pdf");
-    folitecta_core::document::write_pdf_file(&path, &saved).unwrap();
-    assert!(matches!(Document::open(&path), Err(Error::PasswordRequired)));
-    assert_eq!(
-        Document::open_with_password(&path, "user-pw")
-            .unwrap()
-            .page_count(),
-        2
-    );
-    assert_eq!(
-        Document::open_with_password(&path, "owner-pw")
-            .unwrap()
-            .page_count(),
-        2
-    );
-    assert_eq!(
-        permissions_of(&saved),
-        permissions_of(&std::fs::read(&original).unwrap())
-    );
+    for profile in [EncryptionProfile::Aes256, EncryptionProfile::Aes128] {
+        let dir = folder(&format!("protected-{profile:?}"));
+        let original = dir.join("protected.pdf");
+        let mut blank = Document::new_blank(2, 300.0, 300.0).unwrap();
+        blank.add_text_watermark(&[0, 1], &Default::default()).unwrap();
+        blank
+            .save_encrypted(
+                &original,
+                "user-pw",
+                "owner-pw",
+                SecurityPermissions::default(),
+                profile,
+            )
+            .unwrap();
+        let doc = Document::open_with_password(&original, "user-pw").unwrap();
+        assert_eq!(doc.print_permission(), PrintPermission::Allowed);
+        let src = source(&doc);
+        assert!(src.is_protected());
+        let plan = plan_of(&src, &[0, 1], &options(Layout::default(), a4()));
+        // The plain file is checked, then encrypted as the last step.
+        let plain = build(&src, &plan, Content::DocumentAndComments);
+        let saved = src.protect(&plain).unwrap();
+        let path = dir.join("print.pdf");
+        folitecta_core::document::write_pdf_file(&path, &saved).unwrap();
+        assert!(
+            matches!(Document::open(&path), Err(Error::PasswordRequired)),
+            "{profile:?}"
+        );
+        let back = Document::open_with_password(&path, "user-pw").unwrap();
+        assert_eq!(back.page_count(), 2);
+        assert_eq!(
+            back.encryption(),
+            doc.encryption(),
+            "{profile:?}: the same encryption"
+        );
+        assert_eq!(
+            Document::open_with_password(&path, "owner-pw")
+                .unwrap()
+                .page_count(),
+            2
+        );
+        assert_eq!(
+            permissions_of(&saved),
+            permissions_of(&std::fs::read(&original).unwrap())
+        );
+    }
     // Unprotected sources are saved as built.
     let free = coloured_doc(1, 200.0, 200.0);
     let free_src = source(&free);
@@ -630,47 +636,138 @@ fn print_files_of_protected_documents_stay_protected() {
     );
 }
 
+/// A blank page protected with `permissions` (passwords "u" and "o"), made
+/// with the PDF library itself (for permissions Folitecta does not write).
+fn protected_with(profile: EncryptionProfile, permissions: lopdf::Permissions) -> Vec<u8> {
+    use lopdf::encryption::crypt_filters::{Aes128CryptFilter, Aes256CryptFilter, CryptFilter};
+    let mut copy = lopdf::Document::load_mem(&Document::new_blank(1, 200.0, 200.0).unwrap().bytes()).unwrap();
+    let id = Object::String(vec![7; 16], lopdf::StringFormat::Hexadecimal);
+    copy.trailer.set("ID", Object::Array(vec![id.clone(), id]));
+    let mut filters: std::collections::BTreeMap<Vec<u8>, Arc<dyn CryptFilter>> = Default::default();
+    let state = match profile {
+        EncryptionProfile::Aes128 => {
+            filters.insert(b"StdCF".to_vec(), Arc::new(Aes128CryptFilter));
+            lopdf::EncryptionState::try_from(lopdf::EncryptionVersion::V4 {
+                document: &copy,
+                encrypt_metadata: true,
+                crypt_filters: filters,
+                stream_filter: b"StdCF".to_vec(),
+                string_filter: b"StdCF".to_vec(),
+                owner_password: "o",
+                user_password: "u",
+                permissions,
+            })
+        }
+        EncryptionProfile::Aes256 => {
+            filters.insert(b"StdCF".to_vec(), Arc::new(Aes256CryptFilter));
+            lopdf::EncryptionState::try_from(lopdf::EncryptionVersion::V5 {
+                encrypt_metadata: true,
+                crypt_filters: filters,
+                file_encryption_key: &[9; 32],
+                stream_filter: b"StdCF".to_vec(),
+                string_filter: b"StdCF".to_vec(),
+                owner_password: "o",
+                user_password: "u",
+                permissions,
+            })
+        }
+    }
+    .unwrap();
+    copy.encrypt(&state).unwrap();
+    let mut out = Vec::new();
+    copy.save_to(&mut out).unwrap();
+    out
+}
+
 #[test]
-fn print_permissions_follow_the_security_settings() {
+fn print_permissions_follow_the_security_settings_for_the_user_only() {
+    use lopdf::Permissions;
     let dir = folder("permissions");
-    let path = dir.join("no-print.pdf");
+    for profile in [EncryptionProfile::Aes256, EncryptionProfile::Aes128] {
+        // Printing not allowed, written by Folitecta.
+        let path = dir.join(format!("no-print-{profile:?}.pdf"));
+        let no_print = SecurityPermissions {
+            print: false,
+            ..SecurityPermissions::default()
+        };
+        Document::new_blank(1, 200.0, 200.0)
+            .unwrap()
+            .save_encrypted(&path, "u", "o", no_print, profile)
+            .unwrap();
+        let as_user = Document::open_with_password(&path, "u").unwrap();
+        assert_eq!(
+            as_user.print_permission(),
+            PrintPermission::Forbidden,
+            "{profile:?}"
+        );
+        assert_eq!(source(&as_user).permission(), PrintPermission::Forbidden);
+        // The owner password lifts the restriction (PDF 32000-1, 7.6.4).
+        let as_owner = Document::open_with_password(&path, "o").unwrap();
+        assert!(as_owner.protection().unwrap().owner_access());
+        assert_eq!(
+            as_owner.print_permission(),
+            PrintPermission::Allowed,
+            "{profile:?}"
+        );
+        assert_eq!(source(&as_owner).permission(), PrintPermission::Allowed);
+        // A copy of the owner's document keeps the owner's rights; the file it
+        // saves asks again.
+        let saved = dir.join(format!("saved-{profile:?}.pdf"));
+        let mut owner_copy = Document::open_with_password(&path, "o").unwrap();
+        owner_copy.save_as(&saved).unwrap();
+        assert_eq!(
+            Document::open_with_password(&saved, "u")
+                .unwrap()
+                .print_permission(),
+            PrintPermission::Forbidden
+        );
+
+        // Printing allowed at low quality only, made by the PDF library.
+        let low = dir.join(format!("low-{profile:?}.pdf"));
+        std::fs::write(&low, protected_with(profile, Permissions::PRINTABLE)).unwrap();
+        let as_user = Document::open_with_password(&low, "u").unwrap();
+        assert_eq!(
+            as_user.print_permission(),
+            PrintPermission::LowQuality,
+            "{profile:?}"
+        );
+        let as_owner = Document::open_with_password(&low, "o").unwrap();
+        assert_eq!(
+            as_owner.print_permission(),
+            PrintPermission::Allowed,
+            "{profile:?}"
+        );
+        // Full quality.
+        let full = dir.join(format!("full-{profile:?}.pdf"));
+        std::fs::write(
+            &full,
+            protected_with(
+                profile,
+                Permissions::PRINTABLE | Permissions::PRINTABLE_IN_HIGH_QUALITY,
+            ),
+        )
+        .unwrap();
+        assert_eq!(
+            Document::open_with_password(&full, "u")
+                .unwrap()
+                .print_permission(),
+            PrintPermission::Allowed
+        );
+    }
+    // A file without a user password opens without one: its permissions apply.
+    let open = dir.join("open-no-print.pdf");
     let no_print = SecurityPermissions {
         print: false,
         ..SecurityPermissions::default()
     };
     Document::new_blank(1, 200.0, 200.0)
         .unwrap()
-        .save_encrypted(&path, "u", "o", no_print, EncryptionProfile::Aes128)
+        .save_encrypted(&open, "", "o", no_print, EncryptionProfile::Aes256)
         .unwrap();
-    let doc = Document::open_with_password(&path, "u").unwrap();
-    assert_eq!(doc.print_permission(), PrintPermission::Forbidden);
-    assert_eq!(source(&doc).permission(), PrintPermission::Forbidden);
-
-    // Printing allowed at low quality only (revision 4).
-    use lopdf::encryption::crypt_filters::{Aes128CryptFilter, CryptFilter};
-    let mut copy = lopdf::Document::load_mem(&Document::new_blank(1, 200.0, 200.0).unwrap().bytes()).unwrap();
-    let id = Object::String(vec![7; 16], lopdf::StringFormat::Hexadecimal);
-    copy.trailer.set("ID", Object::Array(vec![id.clone(), id]));
-    let mut filters: std::collections::BTreeMap<Vec<u8>, Arc<dyn CryptFilter>> = Default::default();
-    filters.insert(b"StdCF".to_vec(), Arc::new(Aes128CryptFilter));
-    let state = lopdf::EncryptionState::try_from(lopdf::EncryptionVersion::V4 {
-        document: &copy,
-        encrypt_metadata: true,
-        crypt_filters: filters,
-        stream_filter: b"StdCF".to_vec(),
-        string_filter: b"StdCF".to_vec(),
-        owner_password: "o",
-        user_password: "u",
-        permissions: lopdf::Permissions::PRINTABLE,
-    })
-    .unwrap();
-    copy.encrypt(&state).unwrap();
-    let low = dir.join("low.pdf");
-    let mut out = Vec::new();
-    copy.save_to(&mut out).unwrap();
-    std::fs::write(&low, out).unwrap();
-    let doc = Document::open_with_password(&low, "u").unwrap();
-    assert_eq!(doc.print_permission(), PrintPermission::LowQuality);
+    assert_eq!(
+        Document::open(&open).unwrap().print_permission(),
+        PrintPermission::Forbidden
+    );
     assert_eq!(
         coloured_doc(1, 100.0, 100.0).print_permission(),
         PrintPermission::Allowed

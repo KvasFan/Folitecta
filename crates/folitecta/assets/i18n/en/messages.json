@@ -182,7 +182,7 @@
   "toast.print_cancelled": "Printing cancelled",
   "toast.print_check_failed": "The print file did not pass its check; nothing was sent or saved.",
   "toast.print_failed": "Printing failed: {reason}",
-  "toast.print_forbidden": "Printing is not allowed by the security settings of this document.",
+  "toast.print_forbidden": "The author of this document does not allow printing it; open it with its owner password to print it.",
   "toast.print_format": "This printer does not accept PDF files: print through the system dialog.",
   "toast.print_ignored": "The printer ignored some settings: {names}",
   "toast.print_images_too_large": "The sheets are too large to print as pictures at this resolution: choose a lower resolution or fewer pages.",

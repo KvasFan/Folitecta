@@ -165,6 +165,28 @@ fn user_of_owner(dict: &lopdf::Dictionary, revision: i64, owner: &[u8]) -> Vec<u
     rc4(&hash[..n], &user)
 }
 
+/// `password` (empty: no password) is the owner password of the encrypted
+/// file `bytes`, whatever its revision: tried as typed, prepared for AES-256
+/// (SASLprep), and in the encodings of older revisions.
+pub(crate) fn is_owner_password(bytes: &[u8], password: &str) -> bool {
+    let Ok(doc) = lopdf::Document::load_mem(bytes) else {
+        return false;
+    };
+    if !doc.is_encrypted() {
+        return false;
+    }
+    if doc.authenticate_owner_password(password).is_ok() {
+        return true;
+    }
+    let mut candidates = vec![pdf_doc_bytes(password), password.as_bytes().to_vec()];
+    if let Ok(prepared) = stringprep::saslprep(password) {
+        candidates.push(prepared.as_bytes().to_vec());
+    }
+    candidates
+        .iter()
+        .any(|c| doc.authenticate_raw_owner_password(c).is_ok())
+}
+
 /// For an encrypted file of revision 2 to 4 opened with `password`: the
 /// password bytes that give its file key, when the PDF library would make
 /// a wrong key of the typed password. The library checks the password in
@@ -313,6 +335,9 @@ pub(crate) struct ProtectionData {
     /// Why files cannot be written with this protection (a feature of the
     /// opened file Folitecta cannot reproduce).
     unsupported: Option<&'static str>,
+    /// The file was opened with its owner password, or protected in this
+    /// session: every permission is granted (PDF 32000-1, 7.6.4).
+    owner: bool,
 }
 
 impl PartialEq for Protection {
@@ -355,7 +380,28 @@ impl Protection {
             dict,
             encrypt_ref,
             unsupported,
+            owner: false,
         }))
+    }
+
+    /// The same protection, opened with the owner password.
+    pub(crate) fn opened_by_owner(&self) -> Self {
+        let d = &self.0;
+        Protection(Arc::new(ProtectionData {
+            state: d.state.clone(),
+            id: d.id.clone(),
+            dict: d.dict.clone(),
+            encrypt_ref: d.encrypt_ref,
+            unsupported: d.unsupported,
+            owner: true,
+        }))
+    }
+
+    /// The document was opened with the owner password of its file, or was
+    /// protected in this session: the permissions do not restrict it. Opened
+    /// with the user password (or none), the permissions of the file apply.
+    pub fn owner_access(&self) -> bool {
+        self.0.owner
     }
 
     /// New protection of `doc` with the passwords, permissions and profile
@@ -449,6 +495,8 @@ impl Protection {
             dict: Some(dict),
             encrypt_ref: None,
             unsupported: None,
+            // The passwords were set here: the owner's is known.
+            owner: true,
         })))
     }
 

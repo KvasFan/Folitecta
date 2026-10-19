@@ -358,7 +358,7 @@
   "dialog.print.warn.busy": "A print job is still running.",
   "dialog.print.warn.cut": "Pages larger than the printable area are cut: {pages}",
   "dialog.print.warn.filtered": "{count} comments hidden by the comment filter are not printed.",
-  "dialog.print.warn.forbidden": "The security settings of this document do not allow printing.",
+  "dialog.print.warn.forbidden": "The author of this document does not allow printing it. Opened with its owner password, it can be printed.",
   "dialog.print.warn.low": "The security settings allow printing at low resolution only: the sheets are printed as images at 150 dpi.",
   "dialog.print.warn.no_duplex": "This printer prints on one side only: print the front sides, put the sheets back in the tray and print the back sides.",
   "dialog.print.warn.paper_by_page": "The printer chooses the paper for each page size.",

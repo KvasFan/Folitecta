@@ -182,7 +182,7 @@
   "toast.print_cancelled": "Stampa annullata",
   "toast.print_check_failed": "Il file di stampa non ha superato il controllo; non è stato inviato né salvato nulla.",
   "toast.print_failed": "Stampa non riuscita: {reason}",
-  "toast.print_forbidden": "La stampa non è consentita dalle impostazioni di sicurezza di questo documento.",
+  "toast.print_forbidden": "L'autore di questo documento non ne consente la stampa; aprilo con la password del proprietario per stamparlo.",
   "toast.print_format": "Questa stampante non accetta file PDF: stampa con la finestra di sistema.",
   "toast.print_ignored": "La stampante ha ignorato alcune impostazioni: {names}",
   "toast.print_images_too_large": "I fogli sono troppo grandi per stamparli come immagini a questa risoluzione: scegli una risoluzione più bassa o meno pagine.",

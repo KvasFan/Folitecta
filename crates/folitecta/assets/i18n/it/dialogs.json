@@ -358,7 +358,7 @@
   "dialog.print.warn.busy": "Un lavoro di stampa è ancora in corso.",
   "dialog.print.warn.cut": "Le pagine più grandi dell'area stampabile vengono tagliate: {pages}",
   "dialog.print.warn.filtered": "{count} commenti nascosti dal filtro dei commenti non vengono stampati.",
-  "dialog.print.warn.forbidden": "Le impostazioni di sicurezza di questo documento non consentono la stampa.",
+  "dialog.print.warn.forbidden": "L'autore di questo documento non ne consente la stampa. Aperto con la password del proprietario, si può stampare.",
   "dialog.print.warn.low": "Le impostazioni di sicurezza consentono solo la stampa a bassa risoluzione: i fogli vengono stampati come immagini a 150 dpi.",
   "dialog.print.warn.no_duplex": "Questa stampante stampa su un solo lato: stampa i fronti, rimetti i fogli nel cassetto e stampa i retri.",
   "dialog.print.warn.paper_by_page": "La stampante sceglie la carta per ogni formato di pagina.",

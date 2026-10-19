@@ -125,37 +125,26 @@ fn rc4(key: &[u8], data: &[u8]) -> Vec<u8> {
     Rc4CryptFilter.decrypt(key, data).unwrap_or_default()
 }
 
-/// For an encrypted file of revision 2 to 4 opened with its owner password
-/// (that is not also its user password): the user password it stands for
-/// (Algorithm 7). The PDF library computes the file key from any password as
-/// if it were the user password, which decrypts such a file into noise; it
-/// is opened with the user password instead. `None` when that is not needed.
-pub(crate) fn user_password_for_owner(bytes: &[u8], password: &str) -> Result<Option<String>> {
-    if password.is_empty() {
-        return Ok(None);
-    }
-    // Without a password the file stays encrypted (when it has a user password).
-    let Ok(doc) = lopdf::Document::load_mem(bytes) else {
-        return Ok(None);
-    };
-    let Ok(dict) = doc.get_encrypted() else {
-        return Ok(None);
-    };
-    let revision = dict.get(b"R").and_then(Object::as_i64).unwrap_or(0);
-    if !(2..=4).contains(&revision)
-        || doc.authenticate_user_password(password).is_ok()
-        || doc.authenticate_owner_password(password).is_err()
-    {
-        return Ok(None);
-    }
-    let owner_value = dict.get(b"O").and_then(Object::as_str).unwrap_or_default();
-    let length = dict.get(b"Length").and_then(Object::as_i64).unwrap_or(40);
-    // The owner password as the library encodes it, padded.
-    let mut padded: Vec<u8> = password
-        .chars()
+/// The bytes of `text` in PDFDocEncoding, as the PDF library encodes
+/// passwords of revisions 2 to 4 (characters without a code are left out).
+fn pdf_doc_bytes(text: &str) -> Vec<u8> {
+    text.chars()
         .filter_map(|c| (1u8..=255).find(|b| pdf_doc_char(*b) == Some(c)))
-        .take(32)
-        .collect();
+        .collect()
+}
+
+/// The user password (32 bytes, padded) an owner password of revisions 2
+/// to 4 stands for (Algorithm 7).
+fn user_of_owner(dict: &lopdf::Dictionary, revision: i64, owner: &[u8]) -> Vec<u8> {
+    let owner_value = dict.get(b"O").and_then(Object::as_str).unwrap_or_default();
+    let version = dict.get(b"V").and_then(Object::as_i64).unwrap_or(0);
+    // Version 4 fixes the key at 128 bits; /Length may be left out.
+    let default_length = if version == 4 { 128 } else { 40 };
+    let length = dict
+        .get(b"Length")
+        .and_then(Object::as_i64)
+        .unwrap_or(default_length);
+    let mut padded: Vec<u8> = owner.iter().copied().take(32).collect();
     padded.extend_from_slice(&PAD[..32 - padded.len()]);
     let mut hash = md5(&padded);
     let n = if revision >= 3 {
@@ -173,19 +162,42 @@ pub(crate) fn user_password_for_owner(bytes: &[u8], password: &str) -> Result<Op
             user = rc4(&key, &user);
         }
     }
-    user = rc4(&hash[..n], &user);
-    // The user password, without its padding.
-    let len = (0..=user.len().min(32))
-        .find(|k| user[*k..] == PAD[..user.len() - k])
-        .unwrap_or(user.len().min(32));
-    let text: Option<String> = user[..len].iter().map(|b| pdf_doc_char(*b)).collect();
-    match text {
-        Some(text) => Ok(Some(text)),
-        None => Err(Error::Invalid(
-            "this file cannot be opened with its owner password here; open it with its password to open"
-                .into(),
-        )),
+    rc4(&hash[..n], &user)
+}
+
+/// For an encrypted file of revision 2 to 4 opened with `password`: the
+/// password bytes that give its file key, when the PDF library would make
+/// a wrong key of the typed password. The library checks the password in
+/// PDFDocEncoding but makes the key from its UTF-8 bytes (wrong for every
+/// character outside ASCII), and makes it from an owner password as if it
+/// were the user password; either way the file would be decrypted into
+/// noise. The password is also tried as UTF-8 bytes, as some producers
+/// write it. `None` when the library's own reading is right.
+pub(crate) fn r4_key_password(bytes: &[u8], password: &str) -> Option<Vec<u8>> {
+    if password.is_empty() {
+        return None;
     }
+    // Without a password the file stays encrypted (when it has a user password).
+    let doc = lopdf::Document::load_mem(bytes).ok()?;
+    let dict = doc.get_encrypted().ok()?;
+    let revision = dict.get(b"R").and_then(Object::as_i64).unwrap_or(0);
+    if !(2..=4).contains(&revision) {
+        return None;
+    }
+    let typed = password.as_bytes().to_vec();
+    let mut candidates = vec![pdf_doc_bytes(password)];
+    if candidates[0] != typed {
+        candidates.push(typed.clone());
+    }
+    for candidate in candidates {
+        if doc.authenticate_raw_user_password(&candidate).is_ok() {
+            return (candidate != typed).then_some(candidate);
+        }
+        if doc.authenticate_raw_owner_password(&candidate).is_ok() {
+            return Some(user_of_owner(dict, revision, &candidate));
+        }
+    }
+    None
 }
 
 impl EncryptionProfile {
@@ -454,13 +466,20 @@ impl Protection {
     }
 
     /// The encryption dictionary to write, or why the protection cannot be
-    /// written.
+    /// written. Its binary strings are written in hexadecimal (in a literal
+    /// string, readers turn the line ends among them into other bytes).
     pub(crate) fn dictionary(&self) -> Result<Dictionary> {
         self.writable()?;
-        self.0
-            .dict
-            .clone()
-            .ok_or_else(|| Error::ProtectionNotKept("its encryption dictionary could not be read".into()))
+        let mut dict =
+            self.0.dict.clone().ok_or_else(|| {
+                Error::ProtectionNotKept("its encryption dictionary could not be read".into())
+            })?;
+        for key in [&b"O"[..], b"U", b"OE", b"UE", b"Perms"] {
+            if let Ok(Object::String(_, format)) = dict.get_mut(key) {
+                *format = StringFormat::Hexadecimal;
+            }
+        }
+        Ok(dict)
     }
 
     /// Files can be written with this protection.

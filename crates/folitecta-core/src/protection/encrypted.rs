@@ -98,8 +98,16 @@ pub(crate) fn encrypt_for_file(state: &EncryptionState, id: ObjectId, obj: &mut 
             }
             Ok(())
         }
-        Object::String(..) | Object::Stream(_) => lopdf::encryption::encrypt_object(state, id, obj)
-            .map_err(|e| Error::ProtectionNotKept(format!("an object cannot be encrypted: {e}"))),
+        Object::String(..) | Object::Stream(_) => {
+            lopdf::encryption::encrypt_object(state, id, obj)
+                .map_err(|e| Error::ProtectionNotKept(format!("an object cannot be encrypted: {e}")))?;
+            // Encrypted bytes are written in hexadecimal: in a literal string,
+            // readers turn the line ends among them into other bytes.
+            if let Object::String(_, format) = obj {
+                *format = StringFormat::Hexadecimal;
+            }
+            Ok(())
+        }
         _ => Ok(()),
     }
 }
@@ -214,63 +222,160 @@ fn is_space(c: u8) -> bool {
     matches!(c, b' ' | b'\t' | b'\r' | b'\n' | b'\x0c' | 0)
 }
 
-/// The object whose header (`N G obj`) is the last one before `pos`, when no
-/// `endobj` comes between them.
-fn enclosing_object(raw: &[u8], pos: usize) -> Option<ObjectId> {
-    let before = &raw[..pos.min(raw.len())];
-    let mut end = before.len();
-    let at = loop {
-        let i = rfind_bytes(&before[..end], b"obj")?;
-        let real_start = i >= 3 && &before[i - 3..i] == b"end";
-        let after_ok = before
-            .get(i + 3)
-            .is_none_or(|c| is_space(*c) || matches!(c, b'<' | b'%' | b'['));
-        if !real_start && i > 0 && is_space(before[i - 1]) && after_ok {
-            break i;
+/// A token of PDF syntax: what it is, where it starts and ends.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Token {
+    DictOpen,
+    DictClose,
+    ArrayOpen,
+    ArrayClose,
+    Name,
+    Hex,
+    /// A literal string, a number, a keyword (`R`, `true`, `endobj`, ...).
+    Other,
+}
+
+fn is_delimiter(c: u8) -> bool {
+    matches!(
+        c,
+        b'(' | b')' | b'<' | b'>' | b'[' | b']' | b'{' | b'}' | b'/' | b'%'
+    )
+}
+
+/// The token at or after `i` (white space and comments skipped).
+fn next_token(raw: &[u8], mut i: usize) -> Option<(Token, usize, usize)> {
+    loop {
+        while i < raw.len() && is_space(raw[i]) {
+            i += 1;
         }
-        if real_start {
-            // An object ended between its header and `pos`.
-            return None;
+        if raw.get(i) == Some(&b'%') {
+            while i < raw.len() && raw[i] != b'\n' && raw[i] != b'\r' {
+                i += 1;
+            }
+            continue;
         }
-        end = i;
+        break;
+    }
+    let start = i;
+    let c = *raw.get(i)?;
+    let two = raw.get(i + 1).copied();
+    let (token, end) = match c {
+        b'<' if two == Some(b'<') => (Token::DictOpen, i + 2),
+        b'>' if two == Some(b'>') => (Token::DictClose, i + 2),
+        b'<' => (
+            Token::Hex,
+            i + 1 + raw[i + 1..].iter().position(|c| *c == b'>')? + 1,
+        ),
+        b'[' => (Token::ArrayOpen, i + 1),
+        b']' => (Token::ArrayClose, i + 1),
+        b'(' => {
+            // A literal string: balanced parentheses, backslash escapes.
+            let mut depth = 0usize;
+            let mut j = i;
+            loop {
+                match *raw.get(j)? {
+                    b'\\' => j += 1,
+                    b'(' => depth += 1,
+                    b')' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+                j += 1;
+            }
+            (Token::Other, j + 1)
+        }
+        b'/' => {
+            let mut j = i + 1;
+            while j < raw.len() && !is_space(raw[j]) && !is_delimiter(raw[j]) {
+                j += 1;
+            }
+            (Token::Name, j)
+        }
+        _ => {
+            let mut j = i + 1;
+            while j < raw.len() && !is_space(raw[j]) && !is_delimiter(raw[j]) {
+                j += 1;
+            }
+            (Token::Other, j)
+        }
     };
-    if find_bytes(&before[at..], b"endobj").is_some() {
+    Some((token, start, end))
+}
+
+/// The top-level `/Contents` hexadecimal string of the dictionary of the
+/// object whose header ends at `from`.
+fn contents_value(raw: &[u8], from: usize) -> Option<(usize, usize)> {
+    let (first, _, mut at) = next_token(raw, from)?;
+    if first != Token::DictOpen {
         return None;
     }
-    // "N G obj": read G then N backwards.
-    let mut k = at;
-    let mut numbers = [0u64; 2];
-    for n in numbers.iter_mut().rev() {
-        while k > 0 && is_space(raw[k - 1]) {
-            k -= 1;
+    let mut depth = 1usize;
+    let mut contents_key = false;
+    // A dictionary of a signature is small; the scan stops well before the end.
+    for _ in 0..100_000 {
+        let (token, start, end) = next_token(raw, at)?;
+        at = end;
+        let key = contents_key;
+        contents_key = false;
+        match token {
+            Token::DictOpen | Token::ArrayOpen => depth += 1,
+            Token::DictClose | Token::ArrayClose => {
+                depth -= 1;
+                if depth == 0 {
+                    return None;
+                }
+            }
+            // A name followed by a hexadecimal string is a key and its value.
+            Token::Name => contents_key = depth == 1 && &raw[start..end] == b"/Contents",
+            Token::Hex if key => return Some((start, end)),
+            Token::Hex => {}
+            Token::Other => {
+                if &raw[start..end] == b"endobj" {
+                    return None;
+                }
+            }
         }
-        let digits_end = k;
-        while k > 0 && raw[k - 1].is_ascii_digit() {
-            k -= 1;
-        }
-        if k == digits_end {
-            return None;
-        }
-        *n = std::str::from_utf8(&raw[k..digits_end]).ok()?.parse().ok()?;
     }
-    Some((u32::try_from(numbers[0]).ok()?, u16::try_from(numbers[1]).ok()?))
+    None
+}
+
+/// Where the headers of object `id` (`N G obj`) end in `raw` before `pos`,
+/// the nearest first.
+fn headers_before(raw: &[u8], pos: usize, id: ObjectId) -> Vec<usize> {
+    let pattern = format!("{} {} obj", id.0, id.1);
+    let mut out = Vec::new();
+    let mut end = pos.min(raw.len());
+    while out.len() < 16 {
+        let Some(at) = rfind_bytes(&raw[..end], pattern.as_bytes()) else {
+            break;
+        };
+        let alone = at == 0 || is_space(raw[at - 1]) || is_delimiter(raw[at - 1]);
+        let after = raw.get(at + pattern.len());
+        if alone && after.is_none_or(|c| is_space(*c) || is_delimiter(*c)) {
+            out.push(at + pattern.len());
+        }
+        end = at;
+    }
+    out
 }
 
 /// The signature value a byte range leaves out of `raw`, when that gap is
-/// exactly the hexadecimal string of the `/Contents` key of object `holder`:
-/// a widened or moved gap (which could hide other bytes, or pass another
-/// value) gives `None`.
+/// exactly the top-level `/Contents` hexadecimal string of the dictionary of
+/// object `holder`: a widened or moved gap (which could hide other bytes, or
+/// pass another value) gives `None`. The dictionary is read token by token
+/// (strings skipped), so text such as "obj" or "endobj" in its other
+/// entries does not matter.
 pub(crate) fn bound_value(raw: &[u8], gap: (usize, usize), holder: ObjectId) -> Option<Vec<u8>> {
     let (start, end) = gap;
     let value = hex_in_gap(raw, start, end)?;
-    let mut k = start;
-    while k > 0 && is_space(raw[k - 1]) {
-        k -= 1;
-    }
-    if !raw[..k].ends_with(b"/Contents") {
-        return None;
-    }
-    (enclosing_object(raw, start)? == holder).then_some(value)
+    headers_before(raw, start, holder)
+        .into_iter()
+        .any(|from| contents_value(raw, from) == Some((start, end)))
+        .then_some(value)
 }
 
 /// A string of object `id` decrypted with the string filter of `state`.

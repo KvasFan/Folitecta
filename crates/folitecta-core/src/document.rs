@@ -176,14 +176,82 @@ fn raw_dictionary(bytes: &[u8], xref: &lopdf::xref::Xref, id: ObjectId) -> Optio
     }
 }
 
-fn load_inner(bytes: &[u8], password: Option<&str>) -> Result<Loaded> {
-    // An owner password of revisions 2 to 4 opens the file through the user
-    // password it stands for (the library would make a wrong key of it).
-    let user = match password {
-        Some(pw) => crate::security::user_password_for_owner(bytes, pw)?,
-        None => None,
+/// Mark object streams so the library's reader of plain files keeps them
+/// as they are (their content is still encrypted).
+fn keep_object_streams(id: ObjectId, obj: &mut Object) -> Option<(ObjectId, Object)> {
+    if let Object::Stream(s) = obj {
+        if s.dict.has_type(b"ObjStm") {
+            s.dict.set("Type", Object::Name(KEPT_OBJECT_STREAM.to_vec()));
+        }
+    }
+    Some((id, Object::Null))
+}
+
+const KEPT_OBJECT_STREAM: &[u8] = b"FolitectaEncryptedObjStm";
+
+/// Read an encrypted file of revision 2 to 4 and decrypt it with `password`
+/// (bytes that give its file key; see `security::r4_key_password`). The
+/// library reads it as a plain file (the `/Encrypt` entries of its trailers
+/// are hidden for that), then every object is decrypted here — an object
+/// that fails stays as the library's reader leaves it — and object streams
+/// are read once decrypted.
+fn load_decrypted(bytes: &[u8], password: &[u8]) -> Result<lopdf::Document> {
+    let mut hidden = bytes.to_vec();
+    let mut from = 0;
+    while let Some(at) = encrypted::find_bytes(&hidden[from..], b"/Encrypt") {
+        let p = from + at;
+        // Not /EncryptMetadata: the key ends at a delimiter.
+        let ends = hidden
+            .get(p + 8)
+            .is_none_or(|c| c.is_ascii_whitespace() || b"/<[(0123456789".contains(c));
+        if ends {
+            hidden[p + 7] = b'x';
+        }
+        from = p + 8;
+    }
+    let options = lopdf::LoadOptions {
+        filter: Some(keep_object_streams),
+        ..Default::default()
     };
-    let password = user.as_deref().or(password);
+    let mut doc = lopdf::Document::load_mem_with_options(&hidden, options)?;
+    let encrypt = doc.trailer.remove(b"Encrypx").ok_or_else(|| {
+        Error::UnsupportedProtection("an encryption whose dictionary could not be read".into())
+    })?;
+    let encrypt_ref = encrypt.as_reference()?;
+    doc.trailer.set("Encrypt", encrypt);
+    let state = lopdf::EncryptionState::decode(&doc, password)?;
+    for (id, obj) in doc.objects.iter_mut() {
+        if *id != encrypt_ref {
+            let _ = lopdf::encryption::decrypt_object(&state, *id, obj);
+        }
+    }
+    let mut inside = Vec::new();
+    for obj in doc.objects.values_mut() {
+        if let Object::Stream(s) = obj {
+            if s.dict.has_type(KEPT_OBJECT_STREAM) {
+                s.dict.set("Type", Object::Name(b"ObjStm".to_vec()));
+                if let Ok(objects) = lopdf::ObjectStream::new(s) {
+                    inside.extend(objects.objects);
+                }
+            }
+        }
+    }
+    for (id, obj) in inside {
+        doc.objects.entry(id).or_insert(obj);
+    }
+    if let Some(&(last, _)) = doc.objects.keys().next_back() {
+        doc.max_id = doc.max_id.max(last);
+    }
+    doc.encryption_state = Some(state);
+    Ok(doc)
+}
+
+fn load_inner(bytes: &[u8], password: Option<&str>) -> Result<Loaded> {
+    // Revisions 2 to 4: a password the library would make a wrong key of
+    // (characters outside ASCII, an owner password) is decrypted here.
+    if let Some(key) = password.and_then(|pw| crate::security::r4_key_password(bytes, pw)) {
+        return finish_load(load_decrypted(bytes, &key)?, bytes);
+    }
     let with =
         |pw: &str| lopdf::Document::load_mem_with_options(bytes, lopdf::LoadOptions::with_password(pw));
     let loaded = match password {
@@ -227,19 +295,25 @@ fn load_inner(bytes: &[u8], password: Option<&str>) -> Result<Loaded> {
             None => Error::PasswordRequired,
         })?;
     }
+    finish_load(doc, bytes)
+}
+
+/// The document read from `bytes`, its encryption kept aside.
+fn finish_load(mut doc: lopdf::Document, bytes: &[u8]) -> Result<Loaded> {
     let encrypted = doc.was_encrypted() || doc.is_encrypted();
     let mut protection = None;
     if encrypted {
         // The objects stay decrypted in memory; the encryption is kept aside and
         // applied again to the files written from the document.
-        if let Ok(id) = doc.trailer.get(b"Encrypt").and_then(Object::as_reference) {
+        let in_trailer = doc.trailer.get(b"Encrypt").and_then(Object::as_reference).ok();
+        if let Some(id) = in_trailer {
             doc.objects.remove(&id);
         }
         doc.trailer.remove(b"Encrypt");
         let state = doc.encryption_state.take().ok_or_else(|| {
             Error::UnsupportedProtection("an encryption whose key could not be read".into())
         })?;
-        let encrypt_ref = state.encrypt_object_id();
+        let encrypt_ref = in_trailer.or(state.encrypt_object_id());
         let dict = encrypt_ref.and_then(|id| raw_dictionary(bytes, &doc.reference_table, id));
         encrypted::restore_signature_values(&mut doc, &state, bytes);
         let id = doc.trailer.get(b"ID").ok().cloned();
@@ -1159,5 +1233,172 @@ impl Document {
     /// Content stream object ids of a page in order.
     pub(crate) fn page_content_ids(&self, page_id: ObjectId) -> Vec<ObjectId> {
         self.inner.get_page_contents(page_id)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use lopdf::encryption::crypt_filters::{Aes256CryptFilter, CryptFilter};
+    use lopdf::{EncryptionState, EncryptionVersion, Permissions};
+
+    use super::*;
+
+    fn hex(data: &[u8]) -> String {
+        data.iter().map(|b| format!("{b:02X}")).collect()
+    }
+
+    /// An AES-256 file whose catalog, page tree, page, font and information
+    /// live in an object stream (encrypted as a whole), written here by hand:
+    /// the PDF library does not write encrypted object streams.
+    fn object_stream_file() -> Vec<u8> {
+        let key = [11u8; 32];
+        let mut filters: BTreeMap<Vec<u8>, Arc<dyn CryptFilter>> = BTreeMap::new();
+        filters.insert(b"StdCF".to_vec(), Arc::new(Aes256CryptFilter));
+        let state = EncryptionState::try_from(EncryptionVersion::V5 {
+            encrypt_metadata: true,
+            crypt_filters: filters,
+            file_encryption_key: &key,
+            stream_filter: b"StdCF".to_vec(),
+            string_filter: b"StdCF".to_vec(),
+            owner_password: "owner",
+            user_password: "pw",
+            permissions: Permissions::default(),
+        })
+        .unwrap();
+        let inside: [(u32, &str); 5] = [
+            (2, "<< /Type /Catalog /Pages 3 0 R >>"),
+            (3, "<< /Type /Pages /Kids [4 0 R] /Count 1 >>"),
+            (
+                4,
+                "<< /Type /Page /Parent 3 0 R /MediaBox [0 0 300 300] /Resources << /Font << /F1 5 0 R >> >> /Contents 7 0 R >>",
+            ),
+            (
+                5,
+                "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+            ),
+            (6, "<< /Producer (MARKER-OBJSTM-INFO) >>"),
+        ];
+        let (mut head, mut body) = (String::new(), String::new());
+        for (n, text) in inside {
+            head.push_str(&format!("{n} {} ", body.len()));
+            body.push_str(text);
+            body.push('\n');
+        }
+        let first = head.len() + 1;
+        let mut objstm = Object::Stream(Stream::new(
+            dictionary! {},
+            format!("{head}\n{body}").into_bytes(),
+        ));
+        lopdf::encryption::encrypt_object(&state, (1, 0), &mut objstm).unwrap();
+        let mut content = Object::Stream(Stream::new(
+            dictionary! {},
+            b"BT /F1 18 Tf 30 150 Td (MARKER-OBJSTM-PAGE) Tj ET".to_vec(),
+        ));
+        lopdf::encryption::encrypt_object(&state, (7, 0), &mut content).unwrap();
+        let mut out = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n".to_vec();
+        let mut offsets = BTreeMap::new();
+        let mut stream = |out: &mut Vec<u8>, n: u32, dict: String, data: &[u8]| {
+            offsets.insert(n, out.len());
+            out.extend(format!("{n} 0 obj\n<< {dict} /Length {} >>\nstream\n", data.len()).bytes());
+            out.extend_from_slice(data);
+            out.extend(b"\nendstream\nendobj\n");
+        };
+        let data = |o: &Object| o.as_stream().unwrap().content.clone();
+        stream(
+            &mut out,
+            1,
+            format!("/Type /ObjStm /N 5 /First {first}"),
+            &data(&objstm),
+        );
+        stream(&mut out, 7, String::new(), &data(&content));
+        offsets.insert(8, out.len());
+        out.extend(
+            format!(
+                "8 0 obj\n<< /Filter /Standard /V 5 /R 6 /Length 256 /P {} /EncryptMetadata true /O <{}> /U <{}> /OE <{}> /UE <{}> /Perms <{}> /CF << /StdCF << /Type /CryptFilter /CFM /AESV3 /AuthEvent /DocOpen /Length 32 >> >> /StmF /StdCF /StrF /StdCF >>\nendobj\n",
+                state.permissions().bits() as i64,
+                hex(state.owner_value()),
+                hex(state.user_value()),
+                hex(state.owner_encrypted()),
+                hex(state.user_encrypted()),
+                hex(state.permission_encrypted()),
+            )
+            .bytes(),
+        );
+        let xref_at = out.len();
+        offsets.insert(9, xref_at);
+        let mut entries = Vec::new();
+        for n in 0u32..10 {
+            let (kind, field, index): (u8, u32, u16) = match n {
+                0 => (0, 0, 0xFFFF),
+                2..=6 => (2, 1, (n - 2) as u16),
+                _ => (1, offsets[&n] as u32, 0),
+            };
+            entries.push(kind);
+            entries.extend(field.to_be_bytes());
+            entries.extend(index.to_be_bytes());
+        }
+        out.extend(
+            format!(
+                "9 0 obj\n<< /Type /XRef /Size 10 /W [1 4 2] /Root 2 0 R /Info 6 0 R /Encrypt 8 0 R /ID [<{0}> <{0}>] /Length {1} >>\nstream\n",
+                hex(&[5u8; 16]),
+                entries.len()
+            )
+            .bytes(),
+        );
+        out.extend(entries);
+        out.extend(format!("\nendstream\nendobj\nstartxref\n{xref_at}\n%%EOF\n").bytes());
+        out
+    }
+
+    #[test]
+    fn updates_follow_files_with_object_streams() {
+        let raw = object_stream_file();
+        let mut doc = Document::from_bytes(raw.clone(), None, Some("pw")).unwrap();
+        assert!(doc.page_text(0).contains("MARKER-OBJSTM-PAGE"));
+        assert!(doc.is_protected());
+        // As if the file were signed: its next file is an encrypted update
+        // over the objects of its object stream.
+        let encrypt_ref = doc.protection().unwrap().encrypt_ref().unwrap();
+        let loaded = load_inner(&raw, Some("pw")).unwrap();
+        let base = encrypted::decrypted_base(&loaded.doc, loaded.doc.xref_start, encrypt_ref);
+        doc.source = Some(Source {
+            bytes: Arc::new(raw.clone()),
+            signed: true,
+            decrypted: Some(Arc::new(base)),
+        });
+        let id = crate::digsig::DigitalId::create_self_signed(
+            &crate::digsig::IdentityInfo {
+                name: "Object Streams".into(),
+                ..Default::default()
+            },
+            crate::digsig::KeyKind::EcP256,
+            1,
+        )
+        .unwrap();
+        let signed = doc.sign(&id, &Default::default()).unwrap();
+        assert!(signed.starts_with(&raw));
+        assert!(!signed.windows(18).any(|w| w == b"MARKER-OBJSTM-PAGE"));
+        let mut back = Document::from_bytes(signed.clone(), None, Some("owner")).unwrap();
+        assert!(back.page_text(0).contains("MARKER-OBJSTM-PAGE"));
+        let v = back.validate_signatures(&[]);
+        assert!(v.len() == 1 && v[0].valid && v[0].covers_document, "{v:?}");
+        // Saved again: another update, the signature still valid.
+        back.add_note(0, 40.0, 40.0, "after", "Ann", [1.0, 1.0, 0.0])
+            .unwrap();
+        let dir = std::env::temp_dir().join(format!("folitecta-objstm-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("saved.pdf");
+        back.save_as(&path).unwrap();
+        let saved = std::fs::read(&path).unwrap();
+        assert!(saved.starts_with(&signed));
+        let again = Document::from_bytes(saved.clone(), None, Some("pw")).unwrap();
+        assert_eq!(again.annotations(0).unwrap().len(), 2);
+        let v = again.validate_signatures(&[]);
+        assert!(v[0].valid && !v[0].covers_document, "{v:?}");
+        let r = crate::render::Renderer::new_with_password(Arc::new(saved), "pw").unwrap();
+        r.render_rgba(0, 1.0, Default::default()).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

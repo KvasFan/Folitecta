@@ -533,7 +533,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
 }
 
 /// The interaction steps in the order of a full run.
-const STEPS: [&str; 26] = [
+const STEPS: &[&str] = &[
     "tools",
     "review",
     "panes",
@@ -582,7 +582,7 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
         failures: 0,
         z,
     };
-    for name in STEPS {
+    for &name in STEPS {
         run_step(&mut cx, name).await;
     }
     let failures = cx.failures;

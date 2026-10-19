@@ -1,8 +1,9 @@
 //! Performance probe: how long the interface takes to show sharp pages and
 //! to follow the pointer, on two documents generated in memory — a typical
 //! one (50 pages of text set in embedded fonts, two comments a page and a
-//! figure every fifth page) and a long one (1000 pages with two comments
-//! each). Run it alone (`FOLITECTA_SELFTEST_ONLY=step:perf`, three runs of
+//! figure every fifth page), a long one (1000 pages with two comments
+//! each) and, for scrolling only, 40 pages of drawings that take long to
+//! draw. Run it alone (`FOLITECTA_SELFTEST_ONLY=step:perf`, three runs of
 //! every scenario, medians reported); a full run does every scenario once.
 //!
 //! What is measured, in the page with `performance.now()`:
@@ -483,11 +484,13 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         format!("{machine:?}"),
     );
 
-    for (doc, pages) in [("typical", 50usize), ("long", 1000usize)] {
-        let bytes = if pages == 50 {
-            folitecta_core::testdocs::report_doc(pages)
-        } else {
-            folitecta_core::testdocs::long_doc(pages)
+    // The drawings: 40 pages that take a long time to draw (2000 curves and
+    // 800 transparent shapes each), scrolled only.
+    for (doc, pages) in [("typical", 50usize), ("long", 1000usize), ("drawings", 40usize)] {
+        let bytes = match doc {
+            "typical" => folitecta_core::testdocs::report_doc(pages),
+            "long" => folitecta_core::testdocs::long_doc(pages),
+            _ => folitecta_core::testdocs::vector_doc(pages),
         };
         document_scenarios(&mut probe, doc, pages, bytes).await;
     }
@@ -520,6 +523,7 @@ fn wanted(group: &str) -> bool {
 async fn document_scenarios(p: &mut Probe<'_, '_>, doc: &str, pages: usize, bytes: Vec<u8>) {
     let st = p.cx.st;
     let reps = p.reps;
+    let scroll_only = doc == "drawings";
     let back_to = st.active_index().unwrap_or(0);
     // The pages in the middle.
     let mid = pages / 2;
@@ -767,7 +771,7 @@ async fn document_scenarios(p: &mut Probe<'_, '_>, doc: &str, pages: usize, byte
             &["move_p50", "move_p95", "move_max", "xhr", "xhr_ms", "page_views"],
         );
     }
-    if wanted("zoom") {
+    if wanted("zoom") && !scroll_only {
         // 5. Zoom: six Ctrl+wheel steps 30 ms apart.
         let mut runs = Vec::new();
         let mut ok = true;
@@ -901,7 +905,7 @@ async fn document_scenarios(p: &mut Probe<'_, '_>, doc: &str, pages: usize, byte
             ],
         );
     }
-    if wanted("tools") {
+    if wanted("tools") && !scroll_only {
         // 8. Text selection: a drag over the lines of a page.
         let mut runs = Vec::new();
         let mut ok = true;

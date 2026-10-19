@@ -458,11 +458,12 @@ pub(crate) async fn follow_canvas_events(st: AppState) {
                 let (Some(top), Some(first), Some(last)) = (num(2), num(3), num(4)) else {
                     continue;
                 };
-                let Some((layout, page, n)) = st.read_active(|t| {
+                let Some((tab, pane, layout, page, n)) = st.read_active(|t| {
                     let n = t.doc.page_count();
+                    let focus = t.split.as_ref().map(|s| s.focus.min(1)).unwrap_or(0) as usize;
                     match t.split.as_ref().filter(|_| !focused) {
-                        Some(s) => (s.other.layout, s.other.page, n),
-                        None => (t.layout, t.page, n),
+                        Some(s) => (t.id, 1 - focus, s.other.layout, s.other.page, n),
+                        None => (t.id, focus, t.layout, t.page, n),
                     }
                 }) else {
                     continue;
@@ -471,11 +472,41 @@ pub(crate) async fn follow_canvas_events(st: AppState) {
                     continue;
                 }
                 let (first, last) = (first as usize, last as usize);
-                // What the render threads draw first.
-                let forward = top < 0 || top as usize >= page;
-                if focused {
-                    st.read_active(|t| t.render.set_focus(Some((first, last)), forward));
+                // The pages the view holds with their content: those shown and
+                // twice as many on each side (at least 4), moved only when the
+                // pages shown come near an end of them.
+                let span = last - first + 1;
+                let margin = (2 * span).max(4);
+                let held = (*st.windows.peek())[pane].filter(|w| w.0 == tab);
+                let inside = held.is_some_and(|(_, a, b)| {
+                    first >= a
+                        && last <= b
+                        && (a == 0 || first >= a + margin / 2)
+                        && (b + 1 == n || last + margin / 2 <= b)
+                });
+                if !inside {
+                    let a = first.saturating_sub(margin);
+                    let b = (last + margin).min(n - 1);
+                    st.windows.write_unchecked()[pane] = Some((tab, a, b));
                 }
+                // What the render threads draw first, and what they no longer need.
+                let forward = top < 0 || top as usize >= page;
+                let windows = *st.windows.peek();
+                let held_all =
+                    windows
+                        .iter()
+                        .flatten()
+                        .filter(|w| w.0 == tab)
+                        .fold(None::<(usize, usize)>, |acc, w| match acc {
+                            Some((a, b)) => Some((a.min(w.1), b.max(w.2))),
+                            None => Some((w.1, w.2)),
+                        });
+                st.read_active(|t| {
+                    if focused {
+                        t.render.set_focus(Some((first, last)), forward);
+                    }
+                    t.render.set_held(held_all);
+                });
                 if top >= 0 && layout != Layout::Single && top as usize != page && (top as usize) < n {
                     let i = top as usize;
                     st.with_active(|t| match t.split.as_mut().filter(|_| !focused) {
@@ -659,6 +690,29 @@ fn Canvas(pane: u8) -> Element {
         });
         current
     };
+    // The pages held with their content: those the view shows and some on
+    // each side (as the view tells); the others are empty boxes of their size.
+    let windows = (st.windows)();
+    let (wa, wb) = match windows[usize::from(pane.min(1))].filter(|w| w.0 == tab_id) {
+        _ if layout == Layout::Single => (0, count.saturating_sub(1)),
+        Some((_, a, b)) if page >= a && page <= b => (a, b),
+        _ => (page.saturating_sub(4), (page + 4).min(count.saturating_sub(1))),
+    };
+    let sizes: Vec<(f32, f32)> = st
+        .read_active(|t| {
+            (0..count)
+                .map(|p| {
+                    let s = t.page_sizes.get(p);
+                    let (w, h) = s.map(|s| (s.width, s.height)).unwrap_or((595.0, 842.0));
+                    if rotation % 180 != 0 {
+                        (h * zoom, w * zoom)
+                    } else {
+                        (w * zoom, h * zoom)
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     let labels = st.read_active(|t| t.doc.page_labels()).unwrap_or_default();
     let gaps = option_on(st, "view.layout.showGaps");
     let r2l = option_on(st, "view.layout.r2l");
@@ -728,7 +782,9 @@ fn Canvas(pane: u8) -> Element {
                 for (ri, row) in rows.into_iter().enumerate() {
                     div { class: "page-row", key: "row-{ri}",
                         for p in row {
-                            if focused {
+                            if p < wa || p > wb {
+                                PagePlaceholder { key: "e{tab_id}-{p}", id: if focused { format!("pg-{p}") } else { format!("spg-{p}") }, page: p, width: sizes.get(p).map(|s| s.0).unwrap_or(0.0), height: sizes.get(p).map(|s| s.1).unwrap_or(0.0), label: labels.get(p).cloned().unwrap_or_default() }
+                            } else if focused {
                                 PageView { key: "{tab_id}-{p}", tab_id, page: p, rev, scale: render_scale, zoom, current: p == page, tool, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default(), stamp: stamps.get(p).copied().unwrap_or_default() }
                             } else {
                                 StillPage { key: "s{tab_id}-{p}", tab_id, page: p, rev, scale: render_scale, zoom, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default() }
@@ -790,7 +846,7 @@ fn StillPage(
     rsx! {
         div { id: "spg-{page}", class: "page", "data-page": "{page}", style: "width:{outer_w}px;height:{outer_h}px",
             div { class: "page-inner", style: "width:{inner_w}px;height:{inner_h}px;transform:{transform}",
-                img { class: "page-img", src: (scale > 0).then(|| format!("/page/{tab_id}/{page}/{rev}/{scale}.png?lane=view")), alt: "", loading: "lazy", decoding: "async", draggable: "false", style: "{img_style}" }
+                img { class: "page-img", src: (scale > 0).then(|| format!("/page/{tab_id}/{page}/{rev}/{scale}.png?lane=view")), alt: "", decoding: "async", draggable: "false", style: "{img_style}" }
             }
             div { class: "page-label", "{number}" }
         }
@@ -801,4 +857,20 @@ fn StillPage(
 /// `dpr`.
 pub(crate) fn render_scale_for(zoom: f32, dpr: f64) -> u32 {
     ((zoom * dpr as f32) * 1000.0).round().clamp(50.0, 6000.0) as u32
+}
+
+/// A page of a view that is not near what the view shows: an empty box of
+/// the page's size, so the pages keep their places, with its number.
+#[component]
+fn PagePlaceholder(id: String, page: usize, width: f32, height: f32, label: String) -> Element {
+    let number = if !label.is_empty() && label != (page + 1).to_string() {
+        format!("{label} ({})", page + 1)
+    } else {
+        (page + 1).to_string()
+    };
+    rsx! {
+        div { id: "{id}", class: "page placeholder", "data-page": "{page}", style: "width:{width}px;height:{height}px",
+            div { class: "page-label", "{number}" }
+        }
+    }
 }

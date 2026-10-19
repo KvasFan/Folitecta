@@ -799,7 +799,7 @@ pub(super) fn PageView(
     };
     let inner_style = format!("width:{inner_w}px;height:{inner_h}px;transform:{transform}");
     let inner_content = rsx! {
-                img { class: "page-img", src, alt: "", loading: "lazy", decoding: "async", draggable: "false", style: if img_filter.is_empty() { String::new() } else { format!("filter:{img_filter}") } }
+                img { class: "page-img", src, alt: "", decoding: "async", draggable: "false", style: if img_filter.is_empty() { String::new() } else { format!("filter:{img_filter}") } }
                 if show_grid {
                     div { class: "grid-overlay", style: "background-size:{grid_px}px {grid_px}px" }
                 }

@@ -634,3 +634,214 @@ impl Document {
         Ok(changes.len())
     }
 }
+
+/// One kid of a structure element, as the pruning of the tree sees it.
+enum PruneKid {
+    /// Marked content (an MCID or a marked-content reference) on a page.
+    Content(Option<ObjectId>),
+    /// An object reference: the page and the annotation.
+    Object(Option<ObjectId>, Option<ObjectId>),
+    /// A structure element.
+    Elem(ObjectId),
+    /// A reference to an object that is not in the file.
+    Missing,
+    Other,
+}
+
+/// What pruning the kids of an element found.
+struct Pruned {
+    kids: Vec<Object>,
+    /// This list of kids changed.
+    changed: bool,
+    /// The kids of an element below changed.
+    deep: bool,
+    /// The kids held content before.
+    had: bool,
+    /// They still hold some.
+    has: bool,
+}
+
+impl Document {
+    fn prune_kid(&self, k: &Object, pg: Option<ObjectId>) -> PruneKid {
+        let dict_kid = |d: &Dictionary| {
+            let page = d.get(b"Pg").ok().and_then(|p| p.as_reference().ok()).or(pg);
+            if d.has_type(b"OBJR") || d.has(b"Obj") {
+                PruneKid::Object(page, d.get(b"Obj").ok().and_then(|o| o.as_reference().ok()))
+            } else if d.has_type(b"MCR") || d.has(b"MCID") {
+                PruneKid::Content(page)
+            } else {
+                PruneKid::Other
+            }
+        };
+        match k {
+            Object::Integer(_) => PruneKid::Content(pg),
+            Object::Reference(r) => match self.inner.get_object(*r) {
+                Ok(Object::Integer(_)) => PruneKid::Content(pg),
+                Ok(Object::Dictionary(d)) => {
+                    if d.has(b"S") && !d.has_type(b"MCR") && !d.has_type(b"OBJR") {
+                        PruneKid::Elem(*r)
+                    } else {
+                        dict_kid(d)
+                    }
+                }
+                Ok(_) => PruneKid::Other,
+                Err(_) => PruneKid::Missing,
+            },
+            Object::Dictionary(d) => dict_kid(d),
+            _ => PruneKid::Other,
+        }
+    }
+
+    /// Every structure element of the subtree of `id` (`id` included).
+    fn struct_subtree(&self, id: ObjectId, out: &mut Vec<ObjectId>, seen: &mut HashSet<ObjectId>) {
+        let mut stack = vec![id];
+        while let Some(e) = stack.pop() {
+            if !seen.insert(e) || seen.len() > MAX_ELEMENTS {
+                continue;
+            }
+            out.push(e);
+            for k in self.kid_list(e) {
+                if let PruneKid::Elem(c) = self.prune_kid(&k, None) {
+                    stack.push(c);
+                }
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn prune_kids(
+        &mut self,
+        kids: Vec<Object>,
+        pg: Option<ObjectId>,
+        gone_pages: &HashSet<ObjectId>,
+        gone_annots: &HashSet<ObjectId>,
+        removed: &mut Vec<ObjectId>,
+        seen: &mut HashSet<ObjectId>,
+        depth: usize,
+    ) -> Pruned {
+        let mut out = Pruned {
+            kids: Vec::with_capacity(kids.len()),
+            changed: false,
+            deep: false,
+            had: false,
+            has: false,
+        };
+        let page_gone = |p: Option<ObjectId>| p.is_some_and(|p| gone_pages.contains(&p));
+        for k in kids {
+            match self.prune_kid(&k, pg) {
+                PruneKid::Content(page) => {
+                    out.had = true;
+                    if page_gone(page) {
+                        out.changed = true;
+                        continue;
+                    }
+                    out.has = true;
+                }
+                PruneKid::Object(page, obj) => {
+                    out.had = true;
+                    let gone = match obj {
+                        Some(o) => gone_annots.contains(&o) || !self.inner.objects.contains_key(&o),
+                        None => true,
+                    };
+                    if gone || page_gone(page) {
+                        out.changed = true;
+                        continue;
+                    }
+                    out.has = true;
+                }
+                PruneKid::Elem(id) => {
+                    if depth > 256 || !seen.insert(id) {
+                        out.kids.push(k);
+                        continue;
+                    }
+                    let own = self
+                        .inner
+                        .get_dictionary(id)
+                        .ok()
+                        .and_then(|d| d.get(b"Pg").ok())
+                        .and_then(|p| p.as_reference().ok())
+                        .or(pg);
+                    let inner = self.kid_list(id);
+                    let p = self.prune_kids(inner, own, gone_pages, gone_annots, removed, seen, depth + 1);
+                    if p.changed {
+                        let _ = self.set_kid_list(id, p.kids);
+                    }
+                    out.deep |= p.changed || p.deep;
+                    out.had |= p.had;
+                    if p.had && !p.has {
+                        // Everything it held went with the pages or annotations.
+                        let mut sub_seen = HashSet::new();
+                        self.struct_subtree(id, removed, &mut sub_seen);
+                        out.changed = true;
+                        continue;
+                    }
+                    out.has |= p.has;
+                }
+                PruneKid::Missing => {
+                    out.changed = true;
+                    continue;
+                }
+                PruneKid::Other => {}
+            }
+            out.kids.push(k);
+        }
+        out
+    }
+
+    /// Take out of the structure tree what belonged to the `gone_pages` and
+    /// to the `gone_annots` (annotations taken off the pages): their marked
+    /// content, marked-content references and object references, then every
+    /// element left without content (an element that never had any stays).
+    /// The removed elements leave the `/IDTree` and the parent tree is made
+    /// again. No undo step: for work copies. Returns the removed elements,
+    /// so the references to them elsewhere (bookmarks) can be dropped.
+    pub(crate) fn prune_structure(
+        &mut self,
+        gone_pages: &HashSet<ObjectId>,
+        gone_annots: &HashSet<ObjectId>,
+    ) -> Result<Vec<ObjectId>> {
+        let Some(root) = self.struct_root_id() else {
+            return Ok(Vec::new());
+        };
+        let mut removed = Vec::new();
+        let mut seen = HashSet::new();
+        let kids = self.kid_list(root);
+        let p = self.prune_kids(kids, None, gone_pages, gone_annots, &mut removed, &mut seen, 0);
+        if !p.changed && !p.deep {
+            return Ok(removed);
+        }
+        if p.changed {
+            self.set_kid_list(root, p.kids)?;
+        }
+        let gone: HashSet<ObjectId> = removed.iter().copied().collect();
+        let tree = self
+            .inner
+            .get_dictionary(root)?
+            .get(b"IDTree")
+            .ok()
+            .map(|t| deref(&self.inner, t).clone());
+        if let Some(Object::Dictionary(tree)) = tree {
+            let mut entries = Vec::new();
+            crate::util::walk_name_tree(&self.inner, &tree, &mut entries, 0);
+            let before = entries.len();
+            entries.retain(|(_, v)| !matches!(v, Object::Reference(r) if gone.contains(r)));
+            if entries.len() != before {
+                if entries.is_empty() {
+                    self.inner.get_dictionary_mut(root)?.remove(b"IDTree");
+                } else {
+                    entries.sort_by(|a, b| a.0.cmp(&b.0));
+                    let names: Vec<Object> = entries
+                        .into_iter()
+                        .flat_map(|(k, v)| [Object::String(k, lopdf::StringFormat::Literal), v])
+                        .collect();
+                    let leaf = self.inner.add_object(dictionary! { "Names" => names });
+                    self.inner
+                        .get_dictionary_mut(root)?
+                        .set("IDTree", Object::Reference(leaf));
+                }
+            }
+        }
+        self.rebuild_parent_tree()?;
+        Ok(removed)
+    }
+}

@@ -38,8 +38,8 @@ pub use markup::{
 };
 pub use navigation::{layers, links, outline};
 pub use organize::{
-    attachments, combine, compare, doctools, email, export, marks, metadata, pages, pagetools, portfolio,
-    textdoc,
+    attachments, combine, compare, delivery, doctools, email, export, marks, metadata, pages, pagetools,
+    portfolio, textdoc,
 };
 pub(crate) use page_text::{content_edit, content_lex};
 pub use page_text::{ocr, search, spelling, text, textedit, textlayer, textops};
@@ -56,6 +56,7 @@ pub use commands::{Command, CommandKind, Registry, Status, registry};
 pub use comment_exchange::CommentFormat;
 pub use comment_review::{CommentInfo, REVIEW_STATES, StateChange};
 pub use comment_summary::{SummaryEntry, SummaryLabels, SummaryLayout, SummaryOptions, SummarySort};
+pub use delivery::{CopyComments, CopyFacts, CopyOptions, CopySignatures, CopySource, LeftOut, PreparedCopy};
 pub use document::{DocInfo, Document, PageSize};
 pub use error::{Error, Result};
 pub use export::ImageFormat;

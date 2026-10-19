@@ -79,6 +79,20 @@ impl Document {
         scope: FlattenScope,
         only: Option<(usize, usize)>,
     ) -> Result<usize> {
+        let count = self.flatten_where(pages, scope, only, &|_| true)?;
+        self.inner.prune_objects();
+        Ok(count)
+    }
+
+    /// Flatten the annotations of `scope` whose subtype `wanted` accepts,
+    /// leaving the objects nothing uses any more for the caller to remove.
+    pub(crate) fn flatten_where(
+        &mut self,
+        pages: &[usize],
+        scope: FlattenScope,
+        only: Option<(usize, usize)>,
+        wanted: &dyn Fn(&[u8]) -> bool,
+    ) -> Result<usize> {
         let ids = self.page_ids();
         let mut flattened = 0;
         let mut removed_widgets = false;
@@ -119,12 +133,13 @@ impl Document {
                     .unwrap_or(b"")
                     .to_vec();
                 let is_widget = subtype == b"Widget";
-                let wanted = match scope {
+                let in_scope = match scope {
                     FlattenScope::Comments => !is_widget,
                     FlattenScope::FormFields => is_widget,
                     FlattenScope::All => true,
-                } && !NEVER.contains(&subtype.as_slice());
-                if !wanted {
+                } && !NEVER.contains(&subtype.as_slice())
+                    && wanted(&subtype);
+                if !in_scope {
                     keep.push(item);
                     continue;
                 }
@@ -205,7 +220,6 @@ impl Document {
         if removed_widgets && matches!(scope, FlattenScope::FormFields | FlattenScope::All) {
             self.inner.catalog_mut()?.remove(b"AcroForm");
         }
-        self.inner.prune_objects();
         Ok(flattened)
     }
 }

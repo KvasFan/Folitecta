@@ -991,11 +991,29 @@ impl Document {
     /// Remove every signature (the fields stay, empty) and the certification
     /// (one undo step). Returns how many signatures were removed.
     pub fn clear_signatures(&mut self) -> Result<usize> {
-        let signed = self.signed_fields();
-        if signed.is_empty() {
+        if self.signed_fields().is_empty() {
             return Ok(0);
         }
         self.begin_edit();
+        let removed = self.clear_signatures_inner();
+        self.commit()?;
+        Ok(removed)
+    }
+
+    /// The number of signed signature fields.
+    pub(crate) fn signed_field_count(&self) -> usize {
+        self.signed_fields().len()
+    }
+
+    /// Remove every signature, the certification and the validation material
+    /// of the signers (`/DSS`), without an undo step: the fields stay, empty,
+    /// and the form no longer says it holds signatures to append to. Returns
+    /// how many signatures were removed.
+    pub(crate) fn clear_signatures_inner(&mut self) -> usize {
+        let signed = self.signed_fields();
+        if signed.is_empty() {
+            return 0;
+        }
         for (field, _, _) in &signed {
             if let Ok(d) = self.inner.get_dictionary_mut(*field) {
                 d.remove(b"V");
@@ -1008,11 +1026,37 @@ impl Document {
         }
         if let Ok(c) = self.inner.catalog_mut() {
             c.remove(b"Perms");
+            c.remove(b"DSS");
+        }
+        // SignaturesExist and AppendOnly (ISO 32000-1, Table 219).
+        let form = self
+            .inner
+            .catalog()
+            .ok()
+            .and_then(|c| c.get(b"AcroForm").ok())
+            .and_then(|f| f.as_reference().ok());
+        let clear = |d: &mut lopdf::Dictionary| {
+            d.remove(b"SigFlags");
+        };
+        match form {
+            Some(id) => {
+                if let Ok(d) = self.inner.get_dictionary_mut(id) {
+                    clear(d);
+                }
+            }
+            None => {
+                if let Ok(Object::Dictionary(d)) = self
+                    .inner
+                    .catalog_mut()
+                    .and_then(|c| c.get_mut(b"AcroForm"))
+                {
+                    clear(d);
+                }
+            }
         }
         // The file no longer needs incremental updates.
         self.source = None;
-        self.commit()?;
-        Ok(signed.len())
+        signed.len()
     }
 }
 

@@ -847,3 +847,118 @@ fn xfdf_imports_keep_the_layer_of_a_comment_updated_in_place() {
     other.import_comments_xfdf(&xfdf).unwrap();
     assert_eq!(other.annotation_layer(0, 0), None);
 }
+
+#[test]
+fn views_cost_nothing_without_layers_and_are_kept_per_revision() {
+    // No layers: the bytes of the document themselves.
+    let mut plain = Document::new_blank(2, 300.0, 300.0).unwrap();
+    plain
+        .add_ink(0, &[vec![(10.0, 10.0), (50.0, 60.0)]], RED, 2.0, "R")
+        .unwrap();
+    let bytes = plain.bytes();
+    assert!(Arc::ptr_eq(&plain.render_bytes().unwrap(), &bytes));
+    assert!(Arc::ptr_eq(
+        &plain.view_bytes(&HashSet::new(), &HashMap::new()).unwrap(),
+        &bytes
+    ));
+    assert!(plain.annotations_in_hidden_layers(&HashMap::new()).is_empty());
+    // Layers but nothing they hide: the same.
+    let (mut doc, ink) = with_layer();
+    doc.set_drawing_layer(Some(ink)).unwrap();
+    doc.add_ink(0, &[vec![(10.0, 10.0), (50.0, 60.0)]], RED, 2.0, "R")
+        .unwrap();
+    assert!(Arc::ptr_eq(&doc.render_bytes().unwrap(), &doc.bytes()));
+    // Something hidden: an update appended to the bytes, kept for the revision.
+    let view = HashMap::from([(ink, false)]);
+    let first = doc.view_bytes(&HashSet::new(), &view).unwrap();
+    assert!(
+        first.starts_with(&doc.bytes()),
+        "the view is not an update of the bytes"
+    );
+    assert!(Arc::ptr_eq(
+        &first,
+        &doc.view_bytes(&HashSet::new(), &view).unwrap()
+    ));
+    doc.set_layer_visible(ink, false).unwrap();
+    let hidden = doc.render_bytes().unwrap();
+    assert!(!Arc::ptr_eq(&first, &hidden));
+    assert!(Arc::ptr_eq(&hidden, &doc.render_bytes().unwrap()));
+    // A view showing the layer again changes its default state in the update.
+    let shown = doc
+        .view_bytes(&HashSet::new(), &HashMap::from([(ink, true)]))
+        .unwrap();
+    assert!(shown.starts_with(&doc.bytes()));
+    let reread = Document::from_bytes(shown.to_vec(), None, None).unwrap();
+    assert!(reread.layers()[0].visible);
+}
+
+/// A document of `pages` pages with 20 square comments each on 20 layers,
+/// the first layer hidden by default.
+fn many_layered_comments(pages: usize) -> Document {
+    use lopdf::Stream;
+    let mut d = lopdf::Document::with_version("1.7");
+    let pages_id = d.new_object_id();
+    let ocgs: Vec<ObjectId> = (0..20)
+        .map(|i| {
+            d.add_object(dictionary! { "Type" => "OCG", "Name" => Object::string_literal(format!("L{i}")) })
+        })
+        .collect();
+    let ap = d.add_object(Stream::new(
+        dictionary! { "Type" => "XObject", "Subtype" => "Form", "BBox" => vec![0.into(), 0.into(), 10.into(), 10.into()] },
+        b"1 0 0 rg 0 0 10 10 re f".to_vec(),
+    ));
+    let mut kids = Vec::new();
+    for _ in 0..pages {
+        let annots: Vec<Object> = (0..20)
+            .map(|k| {
+                let x = (k % 10) as f32 * 30.0 + 10.0;
+                let y = (k / 10) as f32 * 30.0 + 100.0;
+                Object::Reference(d.add_object(dictionary! {
+                    "Type" => "Annot", "Subtype" => "Square", "F" => 4,
+                    "Rect" => vec![x.into(), y.into(), (x + 10.0).into(), (y + 10.0).into()],
+                    "AP" => dictionary! { "N" => ap }, "OC" => ocgs[k % 20],
+                }))
+            })
+            .collect();
+        kids.push(Object::Reference(d.add_object(dictionary! {
+            "Type" => "Page", "Parent" => pages_id, "Annots" => annots,
+            "MediaBox" => vec![0.into(), 0.into(), 300.into(), 300.into()],
+        })));
+    }
+    let count = kids.len() as i64;
+    d.objects.insert(
+        pages_id,
+        Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => kids, "Count" => count }),
+    );
+    let refs: Vec<Object> = ocgs.iter().map(|o| Object::Reference(*o)).collect();
+    let catalog = d.add_object(dictionary! {
+        "Type" => "Catalog", "Pages" => pages_id,
+        "OCProperties" => dictionary! { "OCGs" => refs.clone(), "D" => dictionary! { "Order" => refs, "OFF" => vec![Object::Reference(ocgs[0])] } },
+    });
+    d.trailer.set("Root", catalog);
+    let mut out = Vec::new();
+    d.save_to(&mut out).unwrap();
+    Document::from_bytes(out, None, None).unwrap()
+}
+
+#[test]
+fn views_of_large_layered_documents_stay_quick() {
+    let doc = many_layered_comments(600);
+    let started = std::time::Instant::now();
+    let first = doc.render_bytes().unwrap();
+    let made = started.elapsed();
+    assert_eq!(doc.annotations_in_hidden_layers(&HashMap::new()).len(), 600);
+    let again = std::time::Instant::now();
+    for _ in 0..20 {
+        assert!(Arc::ptr_eq(&first, &doc.render_bytes().unwrap()));
+        doc.annotations_in_hidden_layers(&HashMap::new());
+    }
+    let kept = again.elapsed();
+    // Generous bounds: an update of 600 comments, then views kept.
+    assert!(made.as_millis() < 1500, "first view took {made:?}");
+    assert!(kept.as_millis() < 500, "20 kept views took {kept:?}");
+    assert!(first.len() < doc.bytes().len() * 2);
+    // What the update hides is hidden, the rest is drawn.
+    assert!(is_white(pixel(first.clone(), 15, 105)));
+    assert!(!is_white(pixel(first, 45, 105)));
+}

@@ -90,6 +90,8 @@ pub struct Document {
     pub(crate) drawing_layer: Option<ObjectId>,
     /// The layer something was last put on, until the interface asks.
     pub(crate) layer_drawn: Option<ObjectId>,
+    /// What hidden layers hide and the bytes of views, for one revision.
+    pub(crate) layer_cache: std::sync::Mutex<crate::layer_drawing::LayerCache>,
 }
 
 impl std::fmt::Debug for Document {
@@ -405,6 +407,7 @@ impl Document {
             image_cache: Default::default(),
             drawing_layer: None,
             layer_drawn: None,
+            layer_cache: Default::default(),
         };
         if doc.page_count() == 0 {
             return Err(Error::Invalid("the file contains no pages".into()));
@@ -493,6 +496,7 @@ impl Document {
             image_cache: Default::default(),
             drawing_layer: None,
             layer_drawn: None,
+            layer_cache: Default::default(),
         })
     }
 
@@ -874,6 +878,11 @@ impl Document {
                 })
             }
         }
+    }
+
+    /// An edit is under way: the objects differ from the bytes.
+    pub(crate) fn editing(&self) -> bool {
+        self.edit_backup.is_some()
     }
 
     /// Undo what an operation changed since its `begin_edit` when it failed

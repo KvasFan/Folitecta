@@ -327,6 +327,52 @@ impl Document {
         states
     }
 
+    /// The layer states of `view` that differ from the default ones, in order.
+    pub(crate) fn view_changes(&self, view: &HashMap<ObjectId, bool>) -> Vec<(ObjectId, bool)> {
+        if view.is_empty() {
+            return Vec::new();
+        }
+        let defaults = self.layer_defaults();
+        let mut out: Vec<(ObjectId, bool)> = view
+            .iter()
+            .filter(|(id, v)| defaults.get(id).is_some_and(|d| d != *v))
+            .map(|(id, v)| (*id, *v))
+            .collect();
+        out.sort_unstable();
+        out
+    }
+
+    /// Calls `f` with the index, object and dictionary of every annotation
+    /// of a page that has an `/OC` entry (no copies).
+    fn with_layered_annots(
+        &self,
+        page_id: ObjectId,
+        mut f: impl FnMut(usize, Option<ObjectId>, &Dictionary, &Object),
+    ) {
+        let doc = &self.inner;
+        let Some(arr) = doc
+            .get_dictionary(page_id)
+            .ok()
+            .and_then(|pd| pd.get(b"Annots").ok())
+            .and_then(|a| deref(doc, a).as_array().ok())
+        else {
+            return;
+        };
+        for (i, a) in arr.iter().enumerate() {
+            let (id, d) = match a {
+                Object::Reference(r) => match doc.get_dictionary(*r) {
+                    Ok(d) => (Some(*r), d),
+                    Err(_) => continue,
+                },
+                Object::Dictionary(d) => (None, d),
+                _ => continue,
+            };
+            if let Ok(oc) = d.get(b"OC") {
+                f(i, id, d, oc);
+            }
+        }
+    }
+
     /// Indices of the annotations of a page that hidden layers hide, with the
     /// default visibility changed by `view`.
     pub fn page_annotations_in_hidden_layers(
@@ -337,16 +383,12 @@ impl Document {
         let mut out = HashSet::new();
         if self.ocproperties_present() {
             let states = self.layer_states(view);
-            let pd = self
-                .page_id(page)
-                .ok()
-                .and_then(|p| self.inner.get_dictionary(p).ok());
-            if let Some(pd) = pd {
-                for (i, (_, d)) in annot_refs(&self.inner, pd).into_iter().enumerate() {
-                    if d.get(b"OC").is_ok_and(|oc| !oc_visible(&self.inner, oc, &states)) {
+            if let Ok(pid) = self.page_id(page) {
+                self.with_layered_annots(pid, |i, _, _, oc| {
+                    if !oc_visible(&self.inner, oc, &states) {
                         out.insert(i);
                     }
-                }
+                });
             }
         }
         out
@@ -355,28 +397,66 @@ impl Document {
     /// Annotations of the document that hidden layers hide (with the default
     /// visibility changed by `view`), with the pop-up notes of those comments.
     pub fn annotations_in_hidden_layers(&self, view: &HashMap<ObjectId, bool>) -> HashSet<ObjectId> {
-        let mut out = HashSet::new();
         if !self.ocproperties_present() {
-            return out;
+            return HashSet::new();
         }
-        let states = self.layer_states(view);
+        self.hidden_by_layers(&self.view_changes(view)).as_ref().clone()
+    }
+
+    /// [`Document::annotations_in_hidden_layers`] for the layer states that
+    /// differ from the default ones, kept for the revision.
+    pub(crate) fn hidden_by_layers(&self, changes: &[(ObjectId, bool)]) -> Arc<HashSet<ObjectId>> {
+        if !self.ocproperties_present() {
+            return Arc::default();
+        }
+        let editing = self.editing();
+        if !editing {
+            let mut cache = self.layer_cache.lock().unwrap_or_else(|e| e.into_inner());
+            cache.for_revision(self.revision());
+            if let Some((_, hit)) = cache.hidden.iter().find(|(k, _)| k == changes) {
+                return hit.clone();
+            }
+        }
+        let mut states = self.layer_defaults();
+        states.extend(changes.iter().copied());
+        let mut out = HashSet::new();
         for pid in self.page_ids() {
-            let Ok(pd) = self.inner.get_dictionary(pid) else {
-                continue;
-            };
-            for (id, d) in annot_refs(&self.inner, pd) {
-                let (Some(id), Ok(oc)) = (id, d.get(b"OC")) else {
-                    continue;
-                };
-                if !oc_visible(&self.inner, oc, &states) {
+            self.with_layered_annots(pid, |_, id, d, oc| {
+                if let (Some(id), false) = (id, oc_visible(&self.inner, oc, &states)) {
                     out.insert(id);
                     if let Some(p) = d.get(b"Popup").ok().and_then(|p| p.as_reference().ok()) {
                         out.insert(p);
                     }
                 }
+            });
+        }
+        let out = Arc::new(out);
+        if !editing {
+            let mut cache = self.layer_cache.lock().unwrap_or_else(|e| e.into_inner());
+            cache.for_revision(self.revision());
+            cache.hidden.push((changes.to_vec(), out.clone()));
+            if cache.hidden.len() > CACHE_SLOTS {
+                cache.hidden.remove(0);
             }
         }
         out
+    }
+
+    /// The bytes of a view kept for this revision.
+    pub(crate) fn cached_view(&self, key: &ViewKey) -> Option<Arc<Vec<u8>>> {
+        let mut cache = self.layer_cache.lock().unwrap_or_else(|e| e.into_inner());
+        cache.for_revision(self.revision());
+        cache.bytes.iter().find(|(k, _)| k == key).map(|(_, b)| b.clone())
+    }
+
+    /// Keep the bytes of a view for this revision.
+    pub(crate) fn keep_view(&self, key: ViewKey, bytes: Arc<Vec<u8>>) {
+        let mut cache = self.layer_cache.lock().unwrap_or_else(|e| e.into_inner());
+        cache.for_revision(self.revision());
+        cache.bytes.push((key, bytes));
+        if cache.bytes.len() > CACHE_SLOTS {
+            cache.bytes.remove(0);
+        }
     }
 
     fn ocproperties_present(&self) -> bool {
@@ -389,6 +469,51 @@ impl Document {
     pub fn render_bytes(&self) -> Result<Arc<Vec<u8>>> {
         self.view_bytes(&HashSet::new(), &HashMap::new())
     }
+}
+
+/// A view: the layer states that differ from the default ones and the
+/// annotations hidden.
+pub(crate) type ViewKey = (Vec<(ObjectId, bool)>, Vec<ObjectId>);
+
+/// What hidden layers hide for the layer states that differ from the
+/// default ones.
+type HiddenEntry = (Vec<(ObjectId, bool)>, Arc<HashSet<ObjectId>>);
+
+/// Views kept per revision (a few at a time).
+const CACHE_SLOTS: usize = 4;
+
+/// What hidden layers hide and the bytes of views, for one revision of a
+/// document (never during an edit, whose objects differ from its bytes).
+#[derive(Default)]
+pub(crate) struct LayerCache {
+    revision: u64,
+    hidden: Vec<HiddenEntry>,
+    bytes: Vec<(ViewKey, Arc<Vec<u8>>)>,
+}
+
+impl LayerCache {
+    /// Forget what was kept for another revision.
+    fn for_revision(&mut self, revision: u64) {
+        if self.revision != revision {
+            self.revision = revision;
+            self.hidden.clear();
+            self.bytes.clear();
+        }
+    }
+}
+
+/// Where the last cross-reference section of PDF bytes starts (the number
+/// after the last `startxref`).
+pub(crate) fn last_startxref(bytes: &[u8]) -> Option<usize> {
+    let tail = &bytes[bytes.len().saturating_sub(1024)..];
+    let at = tail.windows(9).rposition(|w| w == b"startxref")?;
+    let digits: String = tail[at + 9..]
+        .iter()
+        .skip_while(|b| b.is_ascii_whitespace())
+        .take_while(|b| b.is_ascii_digit())
+        .map(|b| *b as char)
+        .collect();
+    digits.parse().ok().filter(|n| *n > 0 && *n < bytes.len())
 }
 
 /// `content` inside the marked-content sequence of the property `name`.

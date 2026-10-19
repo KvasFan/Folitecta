@@ -156,8 +156,36 @@ pub type StatusKey = ((u64, u64), u64, u64);
 static STATUS_GEN: AtomicU64 = AtomicU64::new(0);
 
 /// Holds the checks before they start (the self-test looks at the views
-/// while checks are under way).
-pub(crate) static HOLD_CHECKS: AtomicBool = AtomicBool::new(false);
+/// while checks are under way); set only through [`HoldChecks`].
+static HOLD_CHECKS: AtomicBool = AtomicBool::new(false);
+
+/// The longest a check waits for a hold to end.
+const HOLD_LIMIT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Holds the checks while it lives; dropped (also when the code that made
+/// it stops half-way), the checks go on.
+pub(crate) struct HoldChecks;
+
+impl HoldChecks {
+    pub(crate) fn new() -> HoldChecks {
+        HOLD_CHECKS.store(true, Ordering::SeqCst);
+        HoldChecks
+    }
+}
+
+impl Drop for HoldChecks {
+    fn drop(&mut self) {
+        HOLD_CHECKS.store(false, Ordering::SeqCst);
+    }
+}
+
+/// Wait while the checks are held, at most `limit`.
+async fn wait_while_held(limit: std::time::Duration) {
+    let started = std::time::Instant::now();
+    while HOLD_CHECKS.load(Ordering::SeqCst) && started.elapsed() < limit {
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+}
 
 /// Validations under way: (tab, key).
 static CHECKING: Mutex<Vec<(u64, StatusKey)>> = Mutex::new(Vec::new());
@@ -182,9 +210,7 @@ fn with_tab<T>(st: AppState, id: u64, f: impl FnOnce(&mut DocTab) -> T) -> Optio
 /// signatures, revocation data and later revisions take time) and keep the
 /// result for the state it was made for.
 async fn validate_tab(st: AppState, tab: u64) -> Option<Vec<SignatureStatus>> {
-    while HOLD_CHECKS.load(Ordering::SeqCst) {
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-    }
+    wait_while_held(HOLD_LIMIT).await;
     let (key, job, pool) = st
         .docs
         .peek()
@@ -564,4 +590,45 @@ handlers! {
     "pubsec.cert.browse" => |st| st.set_dialog(Dialog::TrustedCerts),
     "pubsec.cert.details" => |st| st.set_dialog(Dialog::TrustedCerts),
     "pubsec.cert.remove" => |st| st.set_dialog(Dialog::TrustedCerts),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn holds_end_with_their_guard_and_after_their_limit() {
+        {
+            let _hold = HoldChecks::new();
+            assert!(HOLD_CHECKS.load(Ordering::SeqCst));
+        }
+        assert!(!HOLD_CHECKS.load(Ordering::SeqCst));
+        // Code that stops half-way (a panic, a dropped future) ends it too.
+        let stopped = std::panic::catch_unwind(|| {
+            let _hold = HoldChecks::new();
+            panic!("stopped");
+        });
+        assert!(stopped.is_err());
+        assert!(!HOLD_CHECKS.load(Ordering::SeqCst));
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_time()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let hold = HoldChecks::new();
+            let held = async move {
+                let _hold = hold;
+                std::future::pending::<()>().await;
+            };
+            // The future holding it is dropped before it ends.
+            let _ = tokio::time::timeout(std::time::Duration::from_millis(50), held).await;
+        });
+        assert!(!HOLD_CHECKS.load(Ordering::SeqCst));
+        // A hold that is never ended gives way after its limit.
+        let hold = HoldChecks::new();
+        let started = std::time::Instant::now();
+        runtime.block_on(wait_while_held(std::time::Duration::from_millis(200)));
+        assert!(started.elapsed() < std::time::Duration::from_secs(2));
+        drop(hold);
+    }
 }

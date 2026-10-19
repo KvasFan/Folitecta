@@ -309,7 +309,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
 
     // While the signatures are checked again (held here), the pane keeps the
     // last results dimmed and says that they are being checked.
-    crate::commands::signatures::HOLD_CHECKS.store(true, std::sync::atomic::Ordering::SeqCst);
+    let hold = crate::commands::signatures::HoldChecks::new();
     crate::commands::signatures::invalidate_status(st);
     let (mut label, mut stale) = (0, 0);
     for _ in 0..20 {
@@ -320,7 +320,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             break;
         }
     }
-    crate::commands::signatures::HOLD_CHECKS.store(false, std::sync::atomic::Ordering::SeqCst);
+    drop(hold);
     let mut cleared = false;
     for _ in 0..40 {
         pause(150).await;

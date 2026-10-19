@@ -222,7 +222,7 @@ pub(crate) fn path_bounds(p: &PathObj) -> Option<Rect> {
     if p.gs.join == 0 && corners {
         reach = reach.max(p.gs.miter);
     }
-    let hw = half_width(&p.gs) * reach;
+    let hw = (half_width_user(&p.gs) * stretches(p.gs.ctm).0 * reach).max(MIN_PEN);
     Some(r.inflate(hw, hw))
 }
 
@@ -235,17 +235,14 @@ fn stretches(m: Affine) -> (f64, f64) {
     (((s1 + s2) / 2.0).sqrt(), ((s1 - s2) / 2.0).max(0.0).sqrt())
 }
 
-/// Half the line width in user space. Lines thinner than a device pixel
-/// are drawn one pixel wide: at least half a point in page space every way.
-pub(crate) fn half_width_user(gs: &Gs) -> f64 {
-    let (_, min) = stretches(gs.ctm);
-    (gs.lw.max(0.0) / 2.0).max(0.5 / min.max(1e-9))
-}
+/// The half width, in page space, under which no line is drawn thinner:
+/// lines thinner than a device pixel are drawn one pixel wide.
+pub(crate) const MIN_PEN: f64 = 0.5;
 
-/// Half the line width in page space, the most the matrix stretches it.
-pub(crate) fn half_width(gs: &Gs) -> f64 {
-    let (max, _) = stretches(gs.ctm);
-    half_width_user(gs) * max
+/// Half the line width in user space (lines thinner than a device pixel
+/// are drawn wider: see [`MIN_PEN`]).
+pub(crate) fn half_width_user(gs: &Gs) -> f64 {
+    gs.lw.max(0.0) / 2.0
 }
 
 /// Follow a content stream drawn with `res` from the state `gs0`.

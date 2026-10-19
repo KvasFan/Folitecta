@@ -774,6 +774,99 @@ fn strokes_under_skewed_and_stretched_matrices_and_miter_joins_leave_no_ink_in_t
     }
 }
 
+/// Pixels that differ between two renders of a 400 × 400 page outside
+/// marks of page space (grown by two pixels).
+fn changed_outside(a: &image::RgbaImage, b: &image::RgbaImage, marks: &[[f32; 4]]) -> usize {
+    let mut n = 0;
+    for y in 0..a.height().min(b.height()) {
+        for x in 0..a.width().min(b.width()) {
+            let (fx, fy) = (x as f32 + 0.5, 400.0 - (y as f32 + 0.5));
+            if marks
+                .iter()
+                .any(|m| fx > m[0] - 2.0 && fx < m[2] + 2.0 && fy > m[1] - 2.0 && fy < m[3] + 2.0)
+            {
+                continue;
+            }
+            let (p, q) = (a.get_pixel(x, y), b.get_pixel(x, y));
+            if (0..3).any(|k| (p[k] as i32 - q[k] as i32).abs() > 40) {
+                n += 1;
+            }
+        }
+    }
+    n
+}
+
+#[test]
+fn hairlines_under_stretched_matrices_lose_only_what_is_under_the_mark() {
+    let square = [150.0, 150.0, 250.0, 250.0];
+    // (name, content, where the line stops before the mark when it crosses
+    // it: half a point for a hairline, its round cap for a thin line)
+    let cases = [
+        // A zero-width line through the mark, under x' = 100 x, y' = 0.01 y.
+        (
+            "hair-x",
+            "0 0 1 RG 0 w 1 J 100 0 0 0.01 0 0 cm 0.5 20000 m 3.5 20000 l S",
+            Some(0.5),
+        ),
+        (
+            "thin-x",
+            "0 0 1 RG 0.3 w 1 J 100 0 0 0.01 0 0 cm 0.5 20000 m 3.5 20000 l S",
+            Some(15.0),
+        ),
+        // Lines near the mark and far from it, under x' = 0.01 x, y' = 100 y.
+        (
+            "thin-near",
+            "0 0 1 RG 0.3 w 0.01 0 0 100 0 0 cm 25300 1.6 m 25300 2.4 l S",
+            None,
+        ),
+        (
+            "far",
+            "0 0 1 RG 0.01 w 0.01 0 0 100 0 0 cm 5000 3.5 m 35000 3.5 l S",
+            None,
+        ),
+    ];
+    for (name, content, crosses) in cases {
+        let mut doc = doc_with(400.0, 400.0, &[content], |_| Dictionary::new());
+        let before = render(&doc.bytes(), 0);
+        mark(&mut doc, 0, square);
+        let report = apply(&mut doc);
+        assert!(report.pages_as_pictures.is_empty(), "{name}: {report:?}");
+        assert_eq!(report.paths, usize::from(crosses.is_some()), "{name}");
+        let prepared = doc.prepare_save().unwrap();
+        let check = check_redacted_bytes(&prepared.bytes, None, &report).unwrap();
+        assert!(check.passed(), "{name}: {check:?}");
+        let bytes = saved(&mut doc, name);
+        let after = render(&without_covers(&bytes), 0);
+        assert_eq!(ink_inside(&after, &[square]), 0, "{name}");
+        assert_eq!(changed_outside(&before, &after, &[square]), 0, "{name}");
+        if let Some(gap) = crosses {
+            // The line stays on both sides, up to its gap from the mark (the
+            // renderer used here draws such thin lines faintly or not at all,
+            // so the geometry is read).
+            let p = painted(&bytes, 0);
+            let xs: Vec<f64> = p
+                .strokes
+                .iter()
+                .flat_map(|(s, _)| s.iter().flatten())
+                .map(|q| q.0)
+                .collect();
+            assert!(
+                xs.iter().any(|x| *x < 51.0) && xs.iter().any(|x| *x > 349.0),
+                "{name}: {xs:?}"
+            );
+            assert!(
+                xs.iter().any(|x| (*x - (150.0 - gap)).abs() < 0.1),
+                "{name}: {xs:?}"
+            );
+            assert!(
+                xs.iter().any(|x| (*x - (250.0 + gap)).abs() < 0.1),
+                "{name}: {xs:?}"
+            );
+            assert!(xs.iter().all(|x| !(150.0..250.0).contains(x)), "{name}: {xs:?}");
+        }
+    }
+}
+
 #[test]
 fn clip_mode_text_that_loses_every_glyph_still_hides_what_it_hid() {
     // Text in clip mode over a picture: only the letters show the picture.

@@ -82,6 +82,11 @@ pub struct Document {
     pub(crate) struct_cache: std::sync::Mutex<crate::structure::StructCache>,
     /// Pictures of the pages already looked at, keyed by revision.
     pub(crate) image_cache: std::sync::Mutex<crate::pictures::ImageCache>,
+    /// The layer new comments and page content go to (a choice of the view,
+    /// not saved; see `layer_drawing`).
+    pub(crate) drawing_layer: Option<ObjectId>,
+    /// The layer something was last put on, until the interface asks.
+    pub(crate) layer_drawn: Option<ObjectId>,
 }
 
 impl std::fmt::Debug for Document {
@@ -391,6 +396,8 @@ impl Document {
             marked_cache: Default::default(),
             struct_cache: Default::default(),
             image_cache: Default::default(),
+            drawing_layer: None,
+            layer_drawn: None,
         };
         if doc.page_count() == 0 {
             return Err(Error::Invalid("the file contains no pages".into()));
@@ -473,6 +480,8 @@ impl Document {
             marked_cache: Default::default(),
             struct_cache: Default::default(),
             image_cache: Default::default(),
+            drawing_layer: None,
+            layer_drawn: None,
         })
     }
 
@@ -879,6 +888,7 @@ impl Document {
         self.inner.max_id = self.inner.max_id.max(max_id);
         self.bytes = backup.snapshot;
         self.helv_font = None;
+        self.layer_drawn = None;
     }
 
     /// Run `f` as one undo step: committed when it succeeds, abandoned (the
@@ -913,6 +923,7 @@ impl Document {
         self.dirty = true;
         self.helv_font = None;
         self.edit_backup = None;
+        self.forget_lost_drawing_layer();
         Ok(())
     }
 
@@ -927,6 +938,7 @@ impl Document {
         self.dirty = true;
         self.helv_font = None;
         self.edit_backup = None;
+        self.forget_lost_drawing_layer();
         Ok(())
     }
 

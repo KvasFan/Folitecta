@@ -120,7 +120,7 @@ fn refs_of(doc: &lopdf::Document, dict: &Dictionary, key: &[u8]) -> Vec<ObjectId
         .unwrap_or_default()
 }
 
-fn is_ocg(doc: &lopdf::Document, id: ObjectId) -> bool {
+pub(crate) fn is_ocg(doc: &lopdf::Document, id: ObjectId) -> bool {
     doc.get_dictionary(id)
         .map(|d| d.has_type(b"OCG"))
         .unwrap_or(false)
@@ -257,7 +257,7 @@ fn prune_config(d: &mut Dictionary, gone: &HashSet<ObjectId>) {
 }
 
 /// Members of an optional content membership dictionary.
-fn ocmd_members(doc: &lopdf::Document, d: &Dictionary) -> Vec<ObjectId> {
+pub(crate) fn ocmd_members(doc: &lopdf::Document, d: &Dictionary) -> Vec<ObjectId> {
     match d.get(b"OCGs") {
         Ok(Object::Reference(r)) if is_ocg(doc, *r) => vec![*r],
         Ok(o) => deref(doc, o)
@@ -562,7 +562,7 @@ impl Document {
         edit_oc_in(&mut self.inner, f)
     }
 
-    fn check_layer(&self, id: ObjectId) -> Result<()> {
+    pub(crate) fn check_layer(&self, id: ObjectId) -> Result<()> {
         if self.layers().iter().any(|l| l.id == id) {
             Ok(())
         } else {
@@ -658,13 +658,23 @@ impl Document {
         if !parent.is_empty() && node_at(&self.layer_tree(), parent).is_none() {
             return Err(Error::Invalid("layer not found".into()));
         }
-        self.begin_edit();
+        self.edit_step(|doc| doc.add_layer_in_edit(name, parent))
+    }
+
+    /// [`Document::add_layer`] inside the edit under way (no undo step of its
+    /// own); `name` and `parent` already checked.
+    pub(crate) fn add_layer_in_edit(
+        &mut self,
+        name: &str,
+        parent: &[usize],
+    ) -> Result<(ObjectId, Vec<usize>)> {
         let id = self.inner.add_object(dictionary! {
             "Type" => "OCG",
             "Name" => lopdf::text_string(name),
         });
         let mut tree = self.layer_tree();
-        let siblings = children_at_mut(&mut tree, parent).expect("checked above");
+        let siblings =
+            children_at_mut(&mut tree, parent).ok_or_else(|| Error::Invalid("layer not found".into()))?;
         siblings.push(LayerNode::Layer {
             id,
             children: Vec::new(),
@@ -685,7 +695,6 @@ impl Document {
                 }
             }
         })?;
-        self.commit()?;
         Ok((id, path))
     }
 
@@ -764,7 +773,8 @@ impl Document {
 
     /// Serialized document with the given layer visibility as the default
     /// state and the given annotations hidden, for displaying a view without
-    /// changing the document.
+    /// changing the document. The comments of hidden layers are hidden too:
+    /// the renderer does not follow the `/OC` entry of annotations.
     pub fn view_bytes(
         &self,
         hidden_annotations: &HashSet<ObjectId>,
@@ -774,6 +784,13 @@ impl Document {
         let layers_differ = layers
             .iter()
             .any(|(id, v)| defaults.get(id).is_some_and(|d| d != v));
+        let mut hidden = self.annotations_in_hidden_layers(layers);
+        let hidden_annotations = if hidden.is_empty() {
+            hidden_annotations
+        } else {
+            hidden.extend(hidden_annotations.iter().copied());
+            &hidden
+        };
         if !layers_differ {
             return self.bytes_hiding(hidden_annotations);
         }

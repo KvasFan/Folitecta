@@ -148,15 +148,19 @@ impl Document {
             },
             rect,
             tag,
+            false,
         )
     }
 
+    /// Draw an image on a page; `drawn`: placed by the user, so on the
+    /// drawing layer when there is one.
     fn place_image_object(
         &mut self,
         page_id: ObjectId,
         image: ImageObject,
         rect: [f32; 4],
         tag: &str,
+        drawn: bool,
     ) -> Result<()> {
         self.inherit_attributes(&[page_id]);
         let size = self.page_size_of(page_id);
@@ -177,7 +181,12 @@ impl Document {
             f(ey),
             name
         );
-        self.append_page_content(page_id, content.into_bytes(), Some(tag))?;
+        let content = if drawn {
+            self.drawn_content(page_id, content.into_bytes())?
+        } else {
+            content.into_bytes()
+        };
+        self.append_page_content(page_id, content, Some(tag))?;
         Ok(())
     }
 
@@ -203,9 +212,7 @@ impl Document {
         if rect[2] - rect[0] < 1.0 || rect[3] - rect[1] < 1.0 {
             return Err(Error::Invalid("image rectangle is empty".into()));
         }
-        self.begin_edit();
-        self.place_image_object(page_id, image, rect, "Image")?;
-        self.commit()?;
+        self.edit_step(|doc| doc.place_image_object(page_id, image, rect, "Image", true))?;
         Ok(rect)
     }
 
@@ -316,7 +323,13 @@ impl Document {
         dpi: f32,
         with_annotations: bool,
     ) -> Result<()> {
-        let renderer = Renderer::new(self.bytes())?;
+        // The comments of hidden layers are not drawn.
+        let bytes = if with_annotations {
+            self.render_bytes()?
+        } else {
+            self.bytes()
+        };
+        let renderer = Renderer::new(bytes)?;
         let ids = self.page_ids();
         let scale = (dpi.max(36.0) / 72.0).min(8.0);
         for &p in pages {

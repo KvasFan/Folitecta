@@ -786,7 +786,7 @@ impl Document {
             Object::Name(format!("FolitectaDesign{clean}").into_bytes()),
         );
         self.add_appearance(&mut annot, r, c, resources);
-        let id = self.push_annotation(page_id, annot)?;
+        let id = self.push_drawn_annotation(page_id, annot)?;
         self.commit()?;
         Ok(id)
     }

@@ -210,7 +210,7 @@ impl Document {
     pub(crate) fn finish_annotation(&mut self, page_id: ObjectId, mut annot: Dictionary) -> Result<ObjectId> {
         let added = self
             .generate_appearance(&mut annot)
-            .and_then(|_| self.push_annotation(page_id, annot))
+            .and_then(|_| self.push_drawn_annotation(page_id, annot))
             .and_then(|id| self.commit().map(|()| id));
         if added.is_err() {
             self.abandon_edit();

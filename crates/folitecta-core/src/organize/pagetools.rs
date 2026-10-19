@@ -112,7 +112,7 @@ impl Document {
 
     /// Groups (size >= 2) of pages that look identical.
     pub fn duplicate_page_groups(&self) -> Result<Vec<Vec<usize>>> {
-        let renderer = Renderer::new(self.bytes())?;
+        let renderer = Renderer::new(self.render_bytes()?)?;
         let texts = self.all_text();
         let mut sigs: Vec<(u64, (u32, u32))> = Vec::new();
         for p in 0..self.page_count() {

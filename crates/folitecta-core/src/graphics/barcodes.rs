@@ -794,7 +794,8 @@ impl Document {
             f(ey),
             name
         );
-        self.append_page_content(page_id, place.into_bytes(), Some("Barcode"))?;
+        let place = self.drawn_content(page_id, place.into_bytes())?;
+        self.append_page_content(page_id, place, Some("Barcode"))?;
         self.commit()
     }
 

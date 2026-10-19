@@ -16,6 +16,10 @@ pub struct AnnotSnapshot {
     objects: BTreeMap<ObjectId, Object>,
     /// Copied from a protected document: refused by documents that are not.
     protected: bool,
+    /// The layer of the comment (object and name). The layer itself is not
+    /// copied: a paste puts the comment on the drawing layer, or on the
+    /// layer of the same object and name, or of the same name, if any.
+    layer: Option<(ObjectId, String)>,
 }
 
 /// Keys that point back into the source page tree or to other annotations.
@@ -101,6 +105,14 @@ impl Document {
         for key in SKIP_KEYS {
             root.remove(key);
         }
+        // Layers are matched when pasting, never copied as new objects.
+        let layer = root
+            .get(b"OC")
+            .ok()
+            .and_then(|oc| crate::layer_drawing::single_layer(&self.inner, oc))
+            .and_then(|id| self.layers().into_iter().find(|l| l.id == id))
+            .map(|l| (l.id, l.name));
+        root.remove(b"OC");
         let mut objects = BTreeMap::new();
         let mut queue = Vec::new();
         collect_refs(&Object::Dictionary(root.clone()), &mut queue);
@@ -126,6 +138,7 @@ impl Document {
             root,
             objects,
             protected: self.is_protected(),
+            layer,
         })
     }
 
@@ -177,7 +190,19 @@ impl Document {
             Object::string_literal(format!("folitecta-{}-{}", self.revision(), self.inner.max_id + 1)),
         );
         root.set("M", Object::string_literal(crate::util::pdf_date_now()));
-        let id = self.push_annotation(page_id, root)?;
+        if self.drawing_layer().is_none() {
+            let layers = self.layers();
+            let same = snap.layer.as_ref().and_then(|(id, name)| {
+                layers
+                    .iter()
+                    .find(|l| l.id == *id && l.name == *name)
+                    .or_else(|| layers.iter().find(|l| l.name == *name))
+            });
+            if let Some(l) = same {
+                root.set("OC", Object::Reference(l.id));
+            }
+        }
+        let id = self.push_drawn_annotation(page_id, root)?;
         self.commit()?;
         Ok(id)
     }

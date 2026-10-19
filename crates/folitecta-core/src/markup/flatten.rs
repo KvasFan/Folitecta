@@ -203,14 +203,23 @@ impl Document {
                     let name = format!("FoliFlat{}", ap_id.0);
                     self.add_page_resource(page_id, "XObject", &name, Object::Reference(ap_id))?;
                     let f = fmt_num;
-                    content.push_str(&format!(
+                    let drawing = format!(
                         "q {} 0 0 {} {} {} cm /{} Do Q\n",
                         f(sx),
                         f(sy),
                         f(tx),
                         f(ty),
                         name
-                    ));
+                    );
+                    // A comment on a layer stays on it (ISO 32000-1, 8.11.3.2).
+                    match dict.get(b"OC").ok().cloned() {
+                        Some(oc) => {
+                            let prop = self.oc_property(page_id, oc)?;
+                            let wrapped = crate::layer_drawing::wrap_marked(&prop, drawing.into_bytes());
+                            content.push_str(&String::from_utf8_lossy(&wrapped));
+                        }
+                        None => content.push_str(&drawing),
+                    }
                 }
                 flattened += 1;
                 if is_widget {

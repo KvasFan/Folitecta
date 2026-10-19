@@ -391,7 +391,7 @@ impl Document {
             Object::Array(quads.iter().flatten().map(|v| (*v).into()).collect()),
         );
         self.generate_appearance(&mut strike)?;
-        let strike_id = self.push_annotation(page_id, strike)?;
+        let strike_id = self.push_drawn_annotation(page_id, strike)?;
         // Upper-right and lower-right corners of the last quad: insert after the text.
         let (ur, lr) = ((last[2], last[3]), (last[6], last[7]));
         let h = ((ur.0 - lr.0).powi(2) + (ur.1 - lr.1).powi(2)).sqrt();
@@ -400,7 +400,7 @@ impl Document {
         caret.set("RT", Object::Name(b"Group".to_vec()));
         caret.set("Subj", lopdf::text_string("Replace Text"));
         self.generate_appearance(&mut caret)?;
-        self.push_annotation(page_id, caret)?;
+        self.push_drawn_annotation(page_id, caret)?;
         self.commit()
     }
 

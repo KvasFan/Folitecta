@@ -379,7 +379,7 @@ impl Document {
         annot.set("Name", Object::Name(b"Speaker".to_vec()));
         let res = self.helv_resources();
         self.add_appearance(&mut annot, r, media_appearance(r, "", false), res);
-        let id = self.push_annotation(page_id, annot)?;
+        let id = self.push_drawn_annotation(page_id, annot)?;
         self.commit()?;
         Ok(id)
     }
@@ -436,7 +436,7 @@ impl Document {
         annot.set("T", lopdf::text_string(name));
         let res = self.helv_resources();
         self.add_appearance(&mut annot, r, media_appearance(r, name, video), res);
-        let id = self.push_annotation(page_id, annot)?;
+        let id = self.push_drawn_annotation(page_id, annot)?;
         // The rendition action names its own comment.
         let action = dictionary! { "S" => "Rendition", "OP" => 0, "R" => rendition, "AN" => id };
         self.inner

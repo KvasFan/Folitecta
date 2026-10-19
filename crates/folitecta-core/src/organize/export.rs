@@ -54,13 +54,13 @@ pub(crate) fn to_jpeg(page: RgbaImage, quality: u8) -> Result<Vec<u8>> {
 impl Document {
     /// Render a page at `scale` (1.0 = 72 dpi) to PNG.
     pub fn render_page_png(&self, page: usize, scale: f32) -> Result<RenderedPage> {
-        Renderer::new(self.bytes())?.render_page(page, scale)
+        Renderer::new(self.render_bytes()?)?.render_page(page, scale)
     }
 
     /// Render a rectangular area of a page (display points, origin top-left,
     /// y down) at `scale` and return it as PNG.
     pub fn render_region_png(&self, page: usize, rect: [f32; 4], scale: f32) -> Result<Vec<u8>> {
-        let img = image::DynamicImage::ImageRgba8(Renderer::new(self.bytes())?.render_rgba(
+        let img = image::DynamicImage::ImageRgba8(Renderer::new(self.render_bytes()?)?.render_rgba(
             page,
             scale,
             RenderOpts::default(),
@@ -88,8 +88,11 @@ impl Document {
         format: ImageFormat,
         path: impl AsRef<Path>,
     ) -> Result<()> {
-        let rendered =
-            Renderer::new(self.bytes())?.render_rgba(page, dpi.max(18.0) / 72.0, RenderOpts::default())?;
+        let rendered = Renderer::new(self.render_bytes()?)?.render_rgba(
+            page,
+            dpi.max(18.0) / 72.0,
+            RenderOpts::default(),
+        )?;
         let data = encode(rendered, format)?;
         std::fs::write(path.as_ref(), data).map_err(|e| Error::io(path.as_ref(), e))
     }
@@ -105,7 +108,7 @@ impl Document {
     ) -> Result<Vec<PathBuf>> {
         let dir = dir.as_ref();
         std::fs::create_dir_all(dir).map_err(|e| Error::io(dir, e))?;
-        let renderer = Renderer::new(self.bytes())?;
+        let renderer = Renderer::new(self.render_bytes()?)?;
         let mut out = Vec::new();
         for &p in pages {
             let rendered = renderer.render_rgba(p, dpi.max(18.0) / 72.0, RenderOpts::default())?;

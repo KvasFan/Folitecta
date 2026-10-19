@@ -37,7 +37,7 @@ pub use markup::{
     annot_copy, annots, appearance, arrange, calculator, comment_exchange, comment_review, comment_summary,
     flatten, grouping, markup_tools, media, signmarks, smooth, stamp_design, stamps, tables,
 };
-pub use navigation::{layers, links, outline};
+pub use navigation::{layer_drawing, layers, links, outline};
 pub use organize::{
     attachments, combine, compare, delivery, doctools, email, export, marks, metadata, pages, pagetools,
     portfolio, textdoc,

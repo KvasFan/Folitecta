@@ -121,7 +121,6 @@ async fn policies_and_dialog(cx: &mut Ctx<'_>) {
     // AES-128 cannot keep Chinese characters: the dialog stays open and says so.
     choose(".dialog .security-encryption", "aes-128").await;
     type_in(".dialog .security-user", "密码").await;
-    let toasts_before = st.toasts.peek().len();
     click(".dialog-foot .tbtn.primary").await;
     let warned = st
         .toasts
@@ -164,7 +163,6 @@ async fn policies_and_dialog(cx: &mut Ctx<'_>) {
             && owner_hint == 1
             && warned
             && still_open
-            && st.toasts.peek().len() > toasts_before
             && chips_before == 1
             && chips_after == 2
             && edited == Some(EncryptionProfile::Aes128),

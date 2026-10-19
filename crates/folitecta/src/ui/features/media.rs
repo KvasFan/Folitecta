@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 use folitecta_core::registry;
 
 use crate::commands::dispatch;
-use crate::commands::media::{PLAYER, close_player, play_item};
+use crate::commands::media::{PLAYER, PLAYER_READS_ADDRESS, close_player, load_player_media, play_item};
 use crate::i18n::{Lang, cmd_label, t};
 use crate::icons::Icon;
 use crate::state::{AppState, Dialog};
@@ -31,6 +31,12 @@ pub fn MediaPlayer() -> Element {
         return rsx! {};
     }
     let src = format!("/media/{}", p.id);
+    // Read by the element itself, or fetched by the page (Linux).
+    let (direct, fetched) = if PLAYER_READS_ADDRESS {
+        (Some(src), None)
+    } else {
+        (None, Some(src))
+    };
     let video = p.kind == "video";
     let class = match (video, p.floating) {
         (_, true) => "media-player floating",
@@ -72,9 +78,11 @@ pub fn MediaPlayer() -> Element {
                 button { class: "ibtn", title: "{t(lang, \"dialog.close\")}", onclick: move |_| close_player(), "×" }
             }
             if video {
-                video { id: "folitecta-media", src: "{src}", controls: true, preload: "auto" }
+                video { id: "folitecta-media", src: direct.clone(), "data-src": fetched.clone(), controls: true, preload: "auto",
+                    onmounted: move |_| load_player_media() }
             } else {
-                audio { id: "folitecta-media", src: "{src}", controls: true, preload: "auto" }
+                audio { id: "folitecta-media", src: direct.clone(), "data-src": fetched.clone(), controls: true, preload: "auto",
+                    onmounted: move |_| load_player_media() }
             }
             div { class: "media-tools",
                 for (id, icon) in tools {

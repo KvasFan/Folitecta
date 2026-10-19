@@ -489,17 +489,17 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let items = st.read_active(|t| t.doc.media_items()).unwrap_or_default();
     let last = items.last().map(|m| (m.page, m.index));
     let mut loaded = 0.0;
+    let mut media_state = serde_json::Value::Null;
     if let Some((p, i)) = last {
         crate::commands::media::play_item(st, p, i);
         for _ in 0..40 {
             pause(150).await;
-            loaded = eval(
-                "const m = document.getElementById('folitecta-media'); return m ? (m.duration || 0) : 0;",
+            media_state = eval(
+                "const m = document.getElementById('folitecta-media'); return m ? { duration: m.duration || 0, ready: m.readyState, network: m.networkState, error: m.error ? m.error.code + ' ' + (m.error.message || '') : null, wav: m.canPlayType('audio/wav') } : null;",
             )
             .await
-            .ok()
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0);
+            .unwrap_or_default();
+            loaded = media_state["duration"].as_f64().unwrap_or(0.0);
             if loaded > 0.0 {
                 break;
             }
@@ -510,7 +510,10 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     cx.record(
         "sound and audio comments, media loaded in the player",
         added && items.len() == before + 2 && (loaded - 1.0).abs() < 0.1,
-        format!("{} items, duration {loaded:.2}", items.len()),
+        format!(
+            "{} items, duration {loaded:.2}, player {media_state}",
+            items.len()
+        ),
     );
     crate::commands::media::close_player();
     crate::commands::dispatch(st, "media.list");

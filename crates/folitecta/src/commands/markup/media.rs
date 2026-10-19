@@ -2,7 +2,10 @@
 //! commands, properties and saving the media.
 //!
 //! The player gets its media from the `/media/{id}` asset path, served from
-//! memory with byte ranges so that it can seek.
+//! memory with byte ranges so that it can seek. The media engine of the Linux
+//! web view does not read the program's own address scheme (the element
+//! fails with "source not supported", while the page can fetch the same
+//! address): there the page fetches the media and plays it from memory.
 
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
@@ -34,6 +37,28 @@ pub struct Player {
 }
 
 pub static PLAYER: GlobalSignal<Option<Player>> = Signal::global(|| None);
+
+/// Whether the media element reads `/media/{id}` itself; otherwise the page
+/// fetches the media and gives the element a `blob:` address.
+pub const PLAYER_READS_ADDRESS: bool = !cfg!(target_os = "linux");
+
+/// JavaScript: `load(m)` gives the player element `m` its media when it is to
+/// be fetched by the page (its `data-src`), once per media; every caller
+/// waits for the same fetch. The previous media leaves memory.
+const LOAD_MEDIA_JS: &str = "const load = async m => { const want = m.dataset.src; if (!want) return; if (m.__foliWant !== want) { m.__foliWant = want; m.__foliLoad = fetch(want).then(r => r.blob()).then(b => { if (m.__foliWant !== want) return; if (window.__foliMediaUrl) URL.revokeObjectURL(window.__foliMediaUrl); window.__foliMediaUrl = URL.createObjectURL(b); m.src = window.__foliMediaUrl; }).catch(() => {}); } await m.__foliLoad; };";
+
+/// Give the player element its media (called when it appears).
+pub fn load_player_media() {
+    if PLAYER_READS_ADDRESS {
+        return;
+    }
+    let js = format!(
+        "{LOAD_MEDIA_JS} const m = document.getElementById('folitecta-media'); if (m) await load(m);"
+    );
+    spawn(async move {
+        let _ = document::eval(&js).await;
+    });
+}
 
 /// Answer a request of the player for `/media/{id}`, with byte ranges.
 pub fn serve(path: &str, range: Option<&str>) -> (u16, Vec<(&'static str, String)>, Vec<u8>) {
@@ -168,7 +193,7 @@ pub fn control(st: AppState, action: &str) {
         _ => "",
     };
     let js = format!(
-        "for (let i = 0; i < 40 && !document.getElementById('folitecta-media'); i++) await new Promise(r => setTimeout(r, 30)); const m = document.getElementById('folitecta-media'); if (m) {{ {body} }}"
+        "{LOAD_MEDIA_JS} for (let i = 0; i < 40 && !document.getElementById('folitecta-media'); i++) await new Promise(r => setTimeout(r, 30)); const m = document.getElementById('folitecta-media'); if (m) {{ await load(m); {body} }}"
     );
     spawn(async move {
         let _ = document::eval(&js).await;
@@ -179,6 +204,14 @@ pub fn close_player() {
     *PLAYER.write() = None;
     if let Ok(mut store) = MEDIA_STORE.lock() {
         store.clear();
+    }
+    if !PLAYER_READS_ADDRESS {
+        spawn(async {
+            let _ = document::eval(
+                "if (window.__foliMediaUrl) { URL.revokeObjectURL(window.__foliMediaUrl); window.__foliMediaUrl = null; }",
+            )
+            .await;
+        });
     }
 }
 

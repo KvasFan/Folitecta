@@ -516,209 +516,280 @@ pub(super) fn PageView(
         (pts, matches!(tool, Tool::Polygon | Tool::Cloud | Tool::Area))
     });
 
-    rsx! {
-        div {
-            id: "pg-{page}",
-            class: "{page_class}",
-            "data-page": "{page}",
-            style: "width:{outer_w}px;height:{outer_h}px",
-            if rulers {
-                Rulers { width: outer_w, height: outer_h, zoom: z, unit_pt, minor, major, unit_name }
+    // Mouse moves are listened to only while something follows them (a
+    // drag on this page, the loupe, the dynamic zoom, the pointer position,
+    // the next point of a shape), by a layer over the page made for that
+    // time: a listener of mouse moves makes every move in the window wait
+    // for the program. During a drag the layer is above everything on the
+    // page, so the moves over comments and fields reach it too.
+    let on_move = move |evt: Event<MouseData>| {
+        if tool == Tool::ZoomDyn {
+            // Up zooms in, down zooms out, while the button is held.
+            let start = *crate::commands::fileops::ZOOM_DRAG.peek();
+            if let Some((y0, z0)) = start {
+                if evt.held_buttons().contains(MouseButton::Primary) {
+                    let dy = evt.client_coordinates().y - y0;
+                    let nz = crate::commands::fileops::dyn_zoom(z0, dy);
+                    st.with_active(|t| t.zoom = Zoom::Fixed(nz));
+                } else {
+                    *crate::commands::fileops::ZOOM_DRAG.write() = None;
+                }
             }
-            div {
-                class: if transparent { "page-inner transparent" } else { "page-inner" },
-                style: "width:{inner_w}px;height:{inner_h}px;transform:{transform}",
-                onmousedown: move |evt| {
-                    if evt.trigger_button() != Some(MouseButton::Primary) {
-                        return;
-                    }
-                    let p = evt.element_coordinates();
-                    let (x, y) = ((p.x as f32) / z, (p.y as f32) / z);
-                    if !current {
-                        st.with_active(|t| t.page = page);
-                    }
-                    if tool == Tool::ZoomDyn {
-                        let c = evt.client_coordinates();
-                        *crate::commands::fileops::ZOOM_DRAG.write() = Some((c.y, current_zoom(st)));
-                        return;
-                    }
-                    if tool.is_text() {
-                        let idx = st.read_active(|t| t.doc.text_layers().get(page).and_then(|l| l.char_at(x, y))).flatten();
-                        match idx {
-                            Some(i) => {
-                                let extend = evt.modifiers().shift();
-                                st.with_active(|t| {
-                                    t.selected_annot = None;
-                                    match (extend, t.text_sel) {
-                                        (true, Some(s)) if s.page == page => t.text_sel = Some(TextSel { head: i, ..s }),
-                                        _ => t.text_sel = Some(TextSel { page, anchor: i, head: i }),
-                                    }
-                                });
-                                sel_drag.set(true);
-                            }
-                            None => {
-                                st.with_active(|t| t.text_sel = None);
+            return;
+        }
+        let p = evt.element_coordinates();
+        let (x, y) = ((p.x as f32) / z, (p.y as f32) / z);
+        if track_pointer {
+            st.set_pointer(Some((page, x, y)));
+        }
+        // Without mouse tracking the loupe stays where it was clicked.
+        if tool == Tool::Loupe
+            && (option_on(st, "tool.loupe.trackMouse")
+                || evt
+                    .held_buttons()
+                    .contains(dioxus::html::input_data::MouseButton::Primary))
+        {
+            let c = evt.client_coordinates();
+            st.set_loupe(Some((page, x, y, c.x, c.y)));
+        }
+        if *sel_drag.peek() {
+            if let Some(i) = st
+                .read_active(|t| t.doc.text_layers().get(page).and_then(|l| l.char_at(x, y)))
+                .flatten()
+            {
+                let changed = st
+                    .read_active(|t| t.text_sel.map(|s| s.head != i).unwrap_or(true))
+                    .unwrap_or(false);
+                if changed {
+                    st.with_active(|t| {
+                        if let Some(s) = t.text_sel.as_mut() {
+                            if s.page == page {
+                                s.head = i;
                             }
                         }
-                        return;
-                    }
-                    if tool.is_multi_click() {
-                        let (sx, sy) = snap(st, page, x, y, z);
-                        let mut pts = st.drawing.peek().clone().filter(|(p, _)| *p == page).map(|(_, v)| v).unwrap_or_default();
-                        pts.push((sx, sy));
-                        st.set_drawing(Some((page, pts)));
-                        return;
-                    }
-                    if tool == Tool::InsertText {
-                        let hit = st
-                            .read_active(|t| {
-                                let layers = t.doc.text_layers();
-                                let l = layers.get(page)?;
-                                let i = l.char_at(x, y)?;
-                                let after = l.char_glyph.get(i).copied().flatten().and_then(|g| l.glyphs.get(g)).map(|g| x > (g.bbox[0] + g.bbox[2]) / 2.0).unwrap_or(false);
-                                Some((i, after))
-                            })
-                            .flatten();
-                        match hit {
-                            Some((index, after)) => st.set_dialog(Dialog::InsertText { page, index, after, note: true }),
-                            None => st.toast(ToastKind::Info, t(st.lang(), "toast.click_on_text"), ""),
-                        }
-                        return;
-                    }
-                    if tool == Tool::EditAnnots || tool == Tool::Hand {
-                        st.with_active(|t| t.selected_annot = None);
-                        return;
-                    }
-                    if tool == Tool::EditImages {
-                        st.with_active(|t| t.image_sel = None);
-                        return;
-                    }
-                    if tool.is_drawing() {
-                        let (sx, sy) = snap(st, page, x, y, z);
-                        let start = ((sx * z) as f64, (sy * z) as f64);
-                        drag.set(Some(Drag { start, current: start }));
-                        ink.set(vec![start]);
-                    }
-                },
-                onmousemove: move |evt| {
-                    if tool == Tool::ZoomDyn {
-                        // Up zooms in, down zooms out, while the button is held.
-                        let start = *crate::commands::fileops::ZOOM_DRAG.peek();
-                        if let Some((y0, z0)) = start {
-                            if evt.held_buttons().contains(MouseButton::Primary) {
-                                let dy = evt.client_coordinates().y - y0;
-                                let nz = crate::commands::fileops::dyn_zoom(z0, dy);
-                                st.with_active(|t| t.zoom = Zoom::Fixed(nz));
-                            } else {
-                                *crate::commands::fileops::ZOOM_DRAG.write() = None;
+                    });
+                }
+            }
+        }
+        if tool.is_multi_click()
+            && st
+                .drawing
+                .peek()
+                .as_ref()
+                .map(|(p, _)| *p == page)
+                .unwrap_or(false)
+        {
+            let (sx, sy) = snap(st, page, x, y, z);
+            hover.set(Some((sx, sy)));
+        }
+        let freehand = matches!(tool, Tool::Ink | Tool::FreeHighlight | Tool::Eraser);
+        let current_drag: Option<Drag> = *drag.peek();
+        if let Some(mut d) = current_drag {
+            let (sx, sy) = if freehand { (x, y) } else { snap(st, page, x, y, z) };
+            d.current = ((sx * z) as f64, (sy * z) as f64);
+            if evt.modifiers().shift() {
+                d.current = constrained(tool, d.start, d.current);
+            }
+            drag.set(Some(d));
+            if freehand {
+                ink.write().push(d.current);
+            }
+        }
+        let current_annot: Option<AnnotDrag> = *annot_drag.peek();
+        if let Some(mut d) = current_annot {
+            let c = evt.client_coordinates();
+            d.cur_client = (c.x, c.y);
+            annot_drag.set(Some(d));
+        }
+    };
+    // With the hand and zoom tools (looking at the pages) nothing follows the
+    // moves unless the pointer position is shown.
+    let follows_moves = track_pointer || !matches!(tool, Tool::Hand | Tool::Zoom);
+
+    // The handlers of the page area.
+    let onmousedown = move |evt: Event<MouseData>| {
+        if evt.trigger_button() != Some(MouseButton::Primary) {
+            return;
+        }
+        let p = evt.element_coordinates();
+        let (x, y) = ((p.x as f32) / z, (p.y as f32) / z);
+        if !current && st.current_page() != page {
+            st.with_active(|t| t.page = page);
+        }
+        if tool == Tool::ZoomDyn {
+            let c = evt.client_coordinates();
+            *crate::commands::fileops::ZOOM_DRAG.write() = Some((c.y, current_zoom(st)));
+            return;
+        }
+        if tool.is_text() {
+            let idx = st
+                .read_active(|t| t.doc.text_layers().get(page).and_then(|l| l.char_at(x, y)))
+                .flatten();
+            match idx {
+                Some(i) => {
+                    let extend = evt.modifiers().shift();
+                    st.with_active(|t| {
+                        t.selected_annot = None;
+                        match (extend, t.text_sel) {
+                            (true, Some(s)) if s.page == page => t.text_sel = Some(TextSel { head: i, ..s }),
+                            _ => {
+                                t.text_sel = Some(TextSel {
+                                    page,
+                                    anchor: i,
+                                    head: i,
+                                })
                             }
                         }
-                        return;
-                    }
-                    let p = evt.element_coordinates();
-                    let (x, y) = ((p.x as f32) / z, (p.y as f32) / z);
-                    if track_pointer {
-                        st.set_pointer(Some((page, x, y)));
-                    }
-                    // Without mouse tracking the loupe stays where it was clicked.
-                    if tool == Tool::Loupe && (option_on(st, "tool.loupe.trackMouse") || evt.held_buttons().contains(dioxus::html::input_data::MouseButton::Primary)) {
-                        let c = evt.client_coordinates();
-                        st.set_loupe(Some((page, x, y, c.x, c.y)));
-                    }
-                    if *sel_drag.peek() {
-                        if let Some(i) = st.read_active(|t| t.doc.text_layers().get(page).and_then(|l| l.char_at(x, y))).flatten() {
-                            let changed = st.read_active(|t| t.text_sel.map(|s| s.head != i).unwrap_or(true)).unwrap_or(false);
-                            if changed {
-                                st.with_active(|t| {
-                                    if let Some(s) = t.text_sel.as_mut() {
-                                        if s.page == page {
-                                            s.head = i;
-                                        }
-                                    }
-                                });
-                            }
-                        }
-                    }
-                    if tool.is_multi_click() && st.drawing.peek().as_ref().map(|(p, _)| *p == page).unwrap_or(false) {
-                        let (sx, sy) = snap(st, page, x, y, z);
-                        hover.set(Some((sx, sy)));
-                    }
-                    let freehand = matches!(tool, Tool::Ink | Tool::FreeHighlight | Tool::Eraser);
-                    let current_drag: Option<Drag> = *drag.peek();
-                    if let Some(mut d) = current_drag {
-                        let (sx, sy) = if freehand { (x, y) } else { snap(st, page, x, y, z) };
-                        d.current = ((sx * z) as f64, (sy * z) as f64);
-                        if evt.modifiers().shift() {
-                            d.current = constrained(tool, d.start, d.current);
-                        }
-                        drag.set(Some(d));
-                        if freehand {
-                            ink.write().push(d.current);
-                        }
-                    }
-                    let current_annot: Option<AnnotDrag> = *annot_drag.peek();
-                    if let Some(mut d) = current_annot {
-                        let c = evt.client_coordinates();
-                        d.cur_client = (c.x, c.y);
-                        annot_drag.set(Some(d));
-                    }
-                },
-                onmouseup: move |_| {
-                    if crate::commands::fileops::ZOOM_DRAG.peek().is_some() {
-                        *crate::commands::fileops::ZOOM_DRAG.write() = None;
-                    }
-                    if *sel_drag.peek() {
-                        finish_text();
-                    }
-                    let current_drag: Option<Drag> = *drag.peek();
-                    if let Some(d) = current_drag {
-                        let points = ink.peek().clone();
-                        drag.set(None);
-                        ink.set(Vec::new());
-                        finish_create(d, points);
-                    }
-                    let current_annot: Option<AnnotDrag> = *annot_drag.peek();
-                    if let Some(d) = current_annot {
-                        annot_drag.set(None);
-                        finish_annot(d);
-                    }
-                },
-                onmouseleave: move |_| {
-                    if *sel_drag.peek() {
-                        finish_text();
-                    }
-                    if drag.peek().is_some() {
-                        drag.set(None);
-                        ink.set(Vec::new());
-                    }
-                    let current_annot: Option<AnnotDrag> = *annot_drag.peek();
-                    if let Some(d) = current_annot {
-                        annot_drag.set(None);
-                        finish_annot(d);
-                    }
-                },
-                ondoubleclick: move |evt| {
-                    if tool.is_multi_click() {
-                        finish_drawing(st);
-                        return;
-                    }
-                    if tool != Tool::Select {
-                        return;
-                    }
-                    let p = evt.element_coordinates();
-                    let (x, y) = ((p.x as f32) / z, (p.y as f32) / z);
-                    let word = st.read_active(|t| t.doc.text_layers().get(page).and_then(|l| l.char_at(x, y).map(|i| l.word_at(i.saturating_sub(0))))).flatten();
-                    if let Some((a, b)) = word {
-                        st.with_active(|t| t.text_sel = Some(TextSel { page, anchor: a, head: b }));
-                    }
-                },
-                onclick: move |evt| {
-                    if tool == Tool::Zoom {
-                        let z = current_zoom(st);
-                        let f = if evt.modifiers().shift() { 0.8 } else { 1.25 };
-                        st.with_active(|t| t.zoom = Zoom::Fixed((z * f).clamp(0.1, 8.0)));
-                    }
-                },
+                    });
+                    sel_drag.set(true);
+                }
+                None => {
+                    st.with_active(|t| t.text_sel = None);
+                }
+            }
+            return;
+        }
+        if tool.is_multi_click() {
+            let (sx, sy) = snap(st, page, x, y, z);
+            let mut pts = st
+                .drawing
+                .peek()
+                .clone()
+                .filter(|(p, _)| *p == page)
+                .map(|(_, v)| v)
+                .unwrap_or_default();
+            pts.push((sx, sy));
+            st.set_drawing(Some((page, pts)));
+            return;
+        }
+        if tool == Tool::InsertText {
+            let hit = st
+                .read_active(|t| {
+                    let layers = t.doc.text_layers();
+                    let l = layers.get(page)?;
+                    let i = l.char_at(x, y)?;
+                    let after = l
+                        .char_glyph
+                        .get(i)
+                        .copied()
+                        .flatten()
+                        .and_then(|g| l.glyphs.get(g))
+                        .map(|g| x > (g.bbox[0] + g.bbox[2]) / 2.0)
+                        .unwrap_or(false);
+                    Some((i, after))
+                })
+                .flatten();
+            match hit {
+                Some((index, after)) => st.set_dialog(Dialog::InsertText {
+                    page,
+                    index,
+                    after,
+                    note: true,
+                }),
+                None => st.toast(ToastKind::Info, t(st.lang(), "toast.click_on_text"), ""),
+            }
+            return;
+        }
+        // Written only when there is something to clear: every write of
+        // the documents draws the whole view again.
+        if tool == Tool::EditAnnots || tool == Tool::Hand {
+            if st.read_active(|t| t.selected_annot.is_some()).unwrap_or(false) {
+                st.with_active(|t| t.selected_annot = None);
+            }
+            return;
+        }
+        if tool == Tool::EditImages {
+            if st.read_active(|t| t.image_sel.is_some()).unwrap_or(false) {
+                st.with_active(|t| t.image_sel = None);
+            }
+            return;
+        }
+        if tool.is_drawing() {
+            let (sx, sy) = snap(st, page, x, y, z);
+            let start = ((sx * z) as f64, (sy * z) as f64);
+            drag.set(Some(Drag {
+                start,
+                current: start,
+            }));
+            ink.set(vec![start]);
+        }
+    };
+    let onmouseup = move |_: Event<MouseData>| {
+        if crate::commands::fileops::ZOOM_DRAG.peek().is_some() {
+            *crate::commands::fileops::ZOOM_DRAG.write() = None;
+        }
+        if *sel_drag.peek() {
+            finish_text();
+        }
+        let current_drag: Option<Drag> = *drag.peek();
+        if let Some(d) = current_drag {
+            let points = ink.peek().clone();
+            drag.set(None);
+            ink.set(Vec::new());
+            finish_create(d, points);
+        }
+        let current_annot: Option<AnnotDrag> = *annot_drag.peek();
+        if let Some(d) = current_annot {
+            annot_drag.set(None);
+            finish_annot(d);
+        }
+    };
+    let onmouseleave = move |_: Event<MouseData>| {
+        if *sel_drag.peek() {
+            finish_text();
+        }
+        if drag.peek().is_some() {
+            drag.set(None);
+            ink.set(Vec::new());
+        }
+        let current_annot: Option<AnnotDrag> = *annot_drag.peek();
+        if let Some(d) = current_annot {
+            annot_drag.set(None);
+            finish_annot(d);
+        }
+    };
+    let ondoubleclick = move |evt: Event<MouseData>| {
+        if tool.is_multi_click() {
+            finish_drawing(st);
+            return;
+        }
+        if tool != Tool::Select {
+            return;
+        }
+        let p = evt.element_coordinates();
+        let (x, y) = ((p.x as f32) / z, (p.y as f32) / z);
+        let word = st
+            .read_active(|t| {
+                t.doc
+                    .text_layers()
+                    .get(page)
+                    .and_then(|l| l.char_at(x, y).map(|i| l.word_at(i.saturating_sub(0))))
+            })
+            .flatten();
+        if let Some((a, b)) = word {
+            st.with_active(|t| {
+                t.text_sel = Some(TextSel {
+                    page,
+                    anchor: a,
+                    head: b,
+                })
+            });
+        }
+    };
+    let onclick = move |evt: Event<MouseData>| {
+        if tool == Tool::Zoom {
+            let z = current_zoom(st);
+            let f = if evt.modifiers().shift() { 0.8 } else { 1.25 };
+            st.with_active(|t| t.zoom = Zoom::Fixed((z * f).clamp(0.1, 8.0)));
+        }
+    };
+    let inner_class = if transparent {
+        "page-inner transparent"
+    } else {
+        "page-inner"
+    };
+    let inner_style = format!("width:{inner_w}px;height:{inner_h}px;transform:{transform}");
+    let inner_content = rsx! {
                 img { class: "page-img", src: "{src}", alt: "", loading: "lazy", draggable: "false", style: if img_filter.is_empty() { String::new() } else { format!("filter:{img_filter}") } }
                 if show_grid {
                     div { class: "grid-overlay", style: "background-size:{grid_px}px {grid_px}px" }
@@ -934,7 +1005,37 @@ pub(super) fn PageView(
                             style: "left:{d.start.0.min(d.current.0)}px;top:{d.start.1.min(d.current.1)}px;width:{(d.start.0 - d.current.0).abs()}px;height:{(d.start.1 - d.current.1).abs()}px" }
                     }
                 }
+    };
+    // The mouse moves are listened to only with the tools that follow them:
+    // a listener of mouse moves makes every move in the window wait for the
+    // program, so with the hand and zoom tools (looking at the pages) there
+    // is none unless the pointer position is shown. Changing between the two
+    // draws the page area again.
+    let page_inner = if follows_moves {
+        rsx! {
+            div { class: inner_class, style: "{inner_style}",
+                onmousedown: onmousedown, onmouseup: onmouseup, onmouseleave: onmouseleave, ondoubleclick: ondoubleclick, onclick: onclick, onmousemove: on_move,
+                {inner_content}
             }
+        }
+    } else {
+        rsx! {
+            div { class: inner_class, style: "{inner_style}",
+                onmousedown: onmousedown, onmouseup: onmouseup, onmouseleave: onmouseleave, ondoubleclick: ondoubleclick, onclick: onclick,
+                {inner_content}
+            }
+        }
+    };
+    rsx! {
+        div {
+            id: "pg-{page}",
+            class: "{page_class}",
+            "data-page": "{page}",
+            style: "width:{outer_w}px;height:{outer_h}px",
+            if rulers {
+                Rulers { width: outer_w, height: outer_h, zoom: z, unit_pt, minor, major, unit_name }
+            }
+            {page_inner}
             div { class: "page-label", "{page_label}" }
             if show_size {
                 div { class: "page-size", "{size_text}" }

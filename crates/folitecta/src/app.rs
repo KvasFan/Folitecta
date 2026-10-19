@@ -149,6 +149,11 @@ pub fn App() -> Element {
         }
     });
 
+    // Scrolling and Ctrl+wheel zoom of the page views, handled in the page.
+    use_future(move || async move {
+        ui::canvas::follow_canvas_events(st).await;
+    });
+
     // Track the window size and pixel ratio (initially and on every resize).
     use_future(move || async move {
         // Changes reach the page also when no frame is drawn; script results are kept.

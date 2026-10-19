@@ -293,52 +293,73 @@ fn bookmark_nodes(
                 let tip = if item.action.is_empty() { title.clone() } else { format!("{title}\n{}", item.action) };
                 let children = item.children.clone();
                 let icon = if item.page.is_none() && !item.action.is_empty() { "link" } else { "bookmark" };
+                // The mouse moves over the rows are listened to only while a
+                // bookmark is dragged: a listener of mouse moves makes every move
+                // in the window wait for the program. (Starting and ending a drag
+                // draws the rows again.)
+                let dragging = drag_src.read().is_some();
+                let on_down = move |e: Event<MouseData>| {
+                    if e.trigger_button() == Some(dioxus::html::input_data::MouseButton::Primary) {
+                        drag_src.set(Some(p_down.clone()));
+                    }
+                };
+                let on_move = move |e: Event<MouseData>| {
+                    let src = drag_src.peek().clone();
+                    let Some(src) = src else { return };
+                    if src == p_move || (p_move.len() > src.len() && p_move[..src.len()] == src[..]) {
+                        drop_at.set(None);
+                        return;
+                    }
+                    let y = e.element_coordinates().y;
+                    let zone = if y < 7.0 { Zone::Before } else if y > 17.0 { Zone::After } else { Zone::Inside };
+                    let next = Some((p_move.clone(), zone));
+                    if *drop_at.peek() != next { drop_at.set(next); }
+                };
+                let on_click = move |_: Event<MouseData>| {
+                    st.with_active(|t| t.selected_bookmark = Some(p_click.clone()));
+                    go_to_item(st, &item_c);
+                };
+                let on_dbl = move |_: Event<MouseData>| st.set_dialog(Dialog::BookmarkRename(p_dbl.clone()));
+                let content = rsx! {
+                    span { class: "twisty",
+                        onmousedown: move |e| e.stop_propagation(),
+                        onclick: move |e| {
+                            e.stop_propagation();
+                            let all = all.clone();
+                            st.with_active(|t| {
+                                if t.expanded_bookmarks.remove("*") {
+                                    t.expanded_bookmarks.extend(all);
+                                }
+                                if !t.expanded_bookmarks.remove(&key_t) {
+                                    t.expanded_bookmarks.insert(key_t.clone());
+                                }
+                            });
+                        },
+                        if has_children { if is_open { "▾" } else { "▸" } } else { "" }
+                    }
+                    if opts.icons { Icon { name: icon } }
+                    span { class: "tree-label", "{title}" }
+                    if invalid { span { class: "chip warn", title: "{t(lang, \"toast.bookmark_invalid\")}", "!" } }
+                    if let Some(pg) = item.page { span { class: "page-ref", "{pg + 1}" } }
+                };
+                let row = if dragging {
+                    rsx! {
+                        div { class: "{class}", style: "{style}", title: "{tip}",
+                            onmousedown: on_down, onmousemove: on_move, onclick: on_click, ondoubleclick: on_dbl,
+                            {content}
+                        }
+                    }
+                } else {
+                    rsx! {
+                        div { class: "{class}", style: "{style}", title: "{tip}",
+                            onmousedown: on_down, onclick: on_click, ondoubleclick: on_dbl,
+                            {content}
+                        }
+                    }
+                };
                 rsx! {
                     div { key: "{key}",
-                        div { class: "{class}", style: "{style}", title: "{tip}",
-                            onmousedown: move |e| {
-                                if e.trigger_button() == Some(dioxus::html::input_data::MouseButton::Primary) {
-                                    drag_src.set(Some(p_down.clone()));
-                                }
-                            },
-                            onmousemove: move |e| {
-                                let src = drag_src.peek().clone();
-                                let Some(src) = src else { return };
-                                if src == p_move || (p_move.len() > src.len() && p_move[..src.len()] == src[..]) {
-                                    drop_at.set(None);
-                                    return;
-                                }
-                                let y = e.element_coordinates().y;
-                                let zone = if y < 7.0 { Zone::Before } else if y > 17.0 { Zone::After } else { Zone::Inside };
-                                let next = Some((p_move.clone(), zone));
-                                if *drop_at.peek() != next { drop_at.set(next); }
-                            },
-                            onclick: move |_| {
-                                st.with_active(|t| t.selected_bookmark = Some(p_click.clone()));
-                                go_to_item(st, &item_c);
-                            },
-                            ondoubleclick: move |_| st.set_dialog(Dialog::BookmarkRename(p_dbl.clone())),
-                            span { class: "twisty",
-                                onmousedown: move |e| e.stop_propagation(),
-                                onclick: move |e| {
-                                    e.stop_propagation();
-                                    let all = all.clone();
-                                    st.with_active(|t| {
-                                        if t.expanded_bookmarks.remove("*") {
-                                            t.expanded_bookmarks.extend(all);
-                                        }
-                                        if !t.expanded_bookmarks.remove(&key_t) {
-                                            t.expanded_bookmarks.insert(key_t.clone());
-                                        }
-                                    });
-                                },
-                                if has_children { if is_open { "▾" } else { "▸" } } else { "" }
-                            }
-                            if opts.icons { Icon { name: icon } }
-                            span { class: "tree-label", "{title}" }
-                            if invalid { span { class: "chip warn", title: "{t(lang, \"toast.bookmark_invalid\")}", "!" } }
-                            if let Some(pg) = item.page { span { class: "page-ref", "{pg + 1}" } }
-                        }
+                        {row}
                         if has_children && is_open {
                             {bookmark_nodes(st, &children, p.clone(), expanded, auto, all_keys, selected, current, opts, drag_src, drop_at)}
                         }

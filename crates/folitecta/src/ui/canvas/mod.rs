@@ -1,6 +1,5 @@
 //! Document tabs and the page canvas: rendering, tools, selections and overlays.
 
-use dioxus::html::geometry::WheelDelta;
 use dioxus::html::input_data::MouseButton;
 use dioxus::html::{InteractionElementOffset, InteractionLocation, ModifiersInteraction, PointerInteraction};
 use dioxus::prelude::*;
@@ -149,17 +148,22 @@ fn PanZoomWindow() -> Element {
                     let p = e.element_coordinates();
                     move_to(p.x / box_w as f64, p.y / box_h as f64);
                 },
-                onmousemove: move |e| {
-                    if dragging() {
-                        let p = e.element_coordinates();
-                        move_to(p.x / box_w as f64, p.y / box_h as f64);
-                    }
-                },
                 onmouseup: move |_| dragging.set(false),
                 onmouseleave: move |_| dragging.set(false),
                 img { src: "/page/{tab}/{page}/{rev}/{scale}.png", alt: "", draggable: "false", width: "{box_w}", height: "{box_h}" }
                 if let Some(style) = rect {
                     div { class: "panzoom-view", style: "{style}" }
+                }
+                // Moves are followed only while the view is dragged, by a layer
+                // over the page: a listener of mouse moves makes every move in
+                // the window wait for the program.
+                if dragging() {
+                    div { class: "panzoom-capture",
+                        onmousemove: move |e| {
+                            let p = e.element_coordinates();
+                            move_to(p.x / box_w as f64, p.y / box_h as f64);
+                        },
+                    }
                 }
             }
             div { class: "panzoom-foot",
@@ -328,6 +332,118 @@ const PAN_SCRIPT: &str = r#"
 })();
 "#;
 
+/// Scrolling and Ctrl+wheel zoom of the page views, handled in the page so
+/// that scrolling never waits for the program: no listener of the program
+/// runs for a wheel or scroll event. Ctrl+wheel steps are added up for a
+/// frame and sent once (a notch of a wheel is a step of ×1.1, the small
+/// steps of a touchpad a part of one); the page at the top of a view (the
+/// one whose top edge is nearest to the top of the view, found by a binary
+/// search) is sent at most every 100 ms while it scrolls.
+pub(crate) const CANVAS_EVENTS_SCRIPT: &str = r#"
+(function(){
+  const send = m => dioxus.send(m);
+  const soon = f => { let done = false; const go = () => { if (!done) { done = true; f(); } }; requestAnimationFrame(go); setTimeout(go, 60); };
+  const zoom = new Map();
+  document.addEventListener('wheel', e => {
+    if (!e.ctrlKey) return;
+    const c = e.target && e.target.closest ? e.target.closest('.canvas') : null;
+    if (!c) return;
+    e.preventDefault();
+    const dy = e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 400 : 1);
+    if (!dy) return;
+    const steps = Math.sign(dy) * Math.min(Math.abs(dy) / 50, 1);
+    if (!zoom.has(c.id)) {
+      zoom.set(c.id, 1);
+      soon(() => { const f = zoom.get(c.id); zoom.delete(c.id); if (f && Math.abs(f - 1) > 1e-6) send(['zoom', c.id, f]); });
+    }
+    zoom.set(c.id, zoom.get(c.id) * Math.pow(1.1, -steps));
+  }, { capture: true, passive: false });
+  const top = c => {
+    const pages = c.getElementsByClassName('page'); const n = pages.length;
+    if (n < 2) return -1;
+    const horizontal = !!c.querySelector('.pages.horizontal');
+    const v = c.getBoundingClientRect(); const target = (horizontal ? v.left : v.top) + 24;
+    const edge = el => { const r = el.getBoundingClientRect(); return horizontal ? r.left : r.top; };
+    let lo = 0, hi = n;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (edge(pages[m]) < target) lo = m + 1; else hi = m; }
+    let best = -1, bd = Infinity;
+    for (let i = Math.max(0, lo - 2); i < Math.min(n, lo + 2); i++) { const d = Math.abs(edge(pages[i]) - target); if (d < bd) { bd = d; best = i; } }
+    if (best < 0) return -1;
+    // The pages of a row share their edge: the first one of the row.
+    while (best > 0 && Math.abs(edge(pages[best - 1]) - edge(pages[best])) < 0.5) best--;
+    const p = parseInt(pages[best].dataset.page);
+    return isNaN(p) ? -1 : p;
+  };
+  const waiting = new Set();
+  document.addEventListener('scroll', e => {
+    const c = e.target;
+    if (!c || !c.classList || !c.classList.contains('canvas') || waiting.has(c)) return;
+    waiting.add(c);
+    setTimeout(() => { waiting.delete(c); const p = top(c); if (p >= 0) send(['page', c.id, p]); }, 100);
+  }, { capture: true, passive: true });
+  return true;
+})();
+"#;
+
+/// Follow the messages of [`CANVAS_EVENTS_SCRIPT`] for as long as the
+/// window lives: Ctrl+wheel zooms the view it happened in (focusing it in a
+/// split window), and the page at the top of a view becomes its current page
+/// (written only when it changes).
+pub(crate) async fn follow_canvas_events(st: AppState) {
+    let mut eval = document::eval(CANVAS_EVENTS_SCRIPT);
+    while let Ok(msg) = eval.recv::<serde_json::Value>().await {
+        let Some(m) = msg.as_array() else { continue };
+        let kind = m.first().and_then(|v| v.as_str()).unwrap_or_default();
+        let focused = m.get(1).and_then(|v| v.as_str()) == Some("canvas");
+        match kind {
+            "zoom" => {
+                let Some(f) = m
+                    .get(2)
+                    .and_then(|v| v.as_f64())
+                    .filter(|f| f.is_finite() && *f > 0.0)
+                else {
+                    continue;
+                };
+                if !focused {
+                    let other = st
+                        .read_active(|t| t.split.as_ref().map(|s| 1 - s.focus.min(1)))
+                        .flatten();
+                    match other {
+                        Some(pane) => st.focus_view(pane),
+                        None => continue,
+                    }
+                }
+                let z = current_zoom(st);
+                let next = (z * f as f32).clamp(0.1, 8.0);
+                if (next - z).abs() > 1e-4 {
+                    st.with_active(|t| t.zoom = Zoom::Fixed(next));
+                }
+            }
+            "page" => {
+                let Some(i) = m.get(2).and_then(|v| v.as_u64()).map(|i| i as usize) else {
+                    continue;
+                };
+                let shown = st.read_active(|t| {
+                    let n = t.doc.page_count();
+                    match t.split.as_ref().filter(|_| !focused) {
+                        Some(s) => (s.other.layout, s.other.page, n),
+                        None => (t.layout, t.page, n),
+                    }
+                });
+                let Some((layout, page, n)) = shown else { continue };
+                if layout == Layout::Single || page == i || i >= n {
+                    continue;
+                }
+                st.with_active(|t| match t.split.as_mut().filter(|_| !focused) {
+                    Some(s) => s.other.page = i,
+                    None => t.page = i,
+                });
+            }
+            _ => {}
+        }
+    }
+}
+
 /// The rows of pages a view shows: its page alone, every page, or the pages
 /// two by two (the first alone when it is a cover); every page in one row
 /// when the pages scroll sideways, from the right when they read right to
@@ -426,7 +542,6 @@ fn Canvas(pane: u8) -> Element {
         Tool::Ink => "tool-pencil",
         _ => "tool-draw",
     };
-    let mut scroll_pending = use_signal(|| false);
     let mut pages_class = String::from("pages");
     if !gaps {
         pages_class.push_str(" nogap");
@@ -467,57 +582,9 @@ fn Canvas(pane: u8) -> Element {
                     st.focus_view(pane);
                 }
             },
-            onwheel: move |evt| {
-                if evt.modifiers().ctrl() {
-                    evt.prevent_default();
-                    if !focused {
-                        st.focus_view(pane);
-                    }
-                    let dy = match evt.delta() {
-                        WheelDelta::Pixels(v) => v.y,
-                        WheelDelta::Lines(v) => v.y * 40.0,
-                        WheelDelta::Pages(v) => v.y * 400.0,
-                    };
-                    let z = current_zoom(st);
-                    let next = if dy < 0.0 { z * 1.1 } else { z / 1.1 };
-                    st.with_active(|t| t.zoom = Zoom::Fixed(next.clamp(0.1, 8.0)));
-                }
-            },
             onmouseleave: move |_| {
                 if st.loupe.peek().is_some() && option_on(st, "tool.loupe.trackMouse") { st.set_loupe(None); }
                 if st.pointer.peek().is_some() { st.set_pointer(None); }
-            },
-            onscroll: move |_| {
-                if layout == Layout::Single || *scroll_pending.peek() {
-                    return;
-                }
-                scroll_pending.set(true);
-                spawn(async move {
-                    tokio::time::sleep(std::time::Duration::from_millis(90)).await;
-                    // The page nearest the top (or the left) of this view.
-                    let edge = if horizontal { "left" } else { "top" };
-                    let js = format!(
-                        "const c=document.getElementById('{canvas_id}'); if(!c) return -1; const r=c.getBoundingClientRect(); let best=-1,bd=1e9; c.querySelectorAll('.page').forEach(el=>{{const d=Math.abs(el.getBoundingClientRect().{edge}-r.{edge}-24); if(d<bd){{bd=d;best=parseInt(el.dataset.page);}}}}); return best;"
-                    );
-                    if let Ok(v) = document::eval(&js).await {
-                        if let Some(i) = v.as_i64().filter(|i| *i >= 0) {
-                            let i = i as usize;
-                            let shown = st
-                                .read_active(|t| match t.split.as_ref().filter(|_| !focused) {
-                                    Some(s) => s.other.page,
-                                    None => t.page,
-                                })
-                                .unwrap_or(0);
-                            if shown != i {
-                                st.with_active(|t| match t.split.as_mut().filter(|_| !focused) {
-                                    Some(s) => s.other.page = i,
-                                    None => t.page = i,
-                                });
-                            }
-                        }
-                    }
-                    scroll_pending.set(false);
-                });
             },
             div { class: "{pages_class}",
                 for (ri, row) in rows.into_iter().enumerate() {

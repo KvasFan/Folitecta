@@ -290,6 +290,26 @@ pub fn winansi_byte(ch: char) -> u8 {
     }
 }
 
+/// The WinAnsiEncoding code of a character when the encoding has exactly
+/// that character (`None` for the characters [`winansi_byte`] writes as `?`,
+/// and for U+2212, which it writes as a hyphen).
+pub fn winansi_code(ch: char) -> Option<u8> {
+    let code = winansi_byte(ch);
+    (ch == '?' || (code != b'?' && ch != '\u{2212}')).then_some(code)
+}
+
+/// Text to store in a comment: control characters other than tabs and line
+/// breaks are left out. They have no glyph, and PDF text strings cannot keep
+/// them (bytes 0x18 to 0x1F read back as accents, others are lost).
+pub fn clean_text(text: &str) -> std::borrow::Cow<'_, str> {
+    let unwanted = |c: char| c.is_control() && !matches!(c, '\t' | '\n' | '\r');
+    if text.chars().any(unwanted) {
+        std::borrow::Cow::Owned(text.chars().filter(|c| !unwanted(*c)).collect())
+    } else {
+        std::borrow::Cow::Borrowed(text)
+    }
+}
+
 /// Helvetica advance widths (1/1000 em) for WinAnsi codes 32..=126.
 const HELV_ASCII: [u16; 95] = [
     278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, // space .. /
@@ -380,5 +400,27 @@ mod tests {
         let mut doc = lopdf::Document::new();
         let id = doc.add_object(s);
         assert_eq!(text_of(&doc, &Object::Reference(id)).unwrap(), "one\ntwo è");
+    }
+
+    #[test]
+    fn winansi_code_is_exact() {
+        assert_eq!(winansi_code('é'), Some(0xE9));
+        assert_eq!(winansi_code('€'), Some(0x80));
+        assert_eq!(winansi_code('?'), Some(0x3F));
+        assert_eq!(winansi_code('\n'), Some(0x0A));
+        assert_eq!(winansi_code('ł'), None);
+        assert_eq!(winansi_code('\u{2212}'), None);
+        assert_eq!(winansi_code('Ω'), None);
+    }
+
+    #[test]
+    fn stored_text_keeps_no_control_characters() {
+        assert_eq!(clean_text("a\tb\r\nc"), "a\tb\r\nc");
+        assert_eq!(clean_text("a\u{18}b\u{1}c\u{7f}d\u{85}e"), "abcde");
+        // What is stored reads back unchanged.
+        let stored = lopdf::text_string(&clean_text("x\u{1b}y\u{1f}z"));
+        let mut doc = lopdf::Document::new();
+        let id = doc.add_object(stored);
+        assert_eq!(text_of(&doc, &Object::Reference(id)).unwrap(), "xyz");
     }
 }

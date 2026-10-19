@@ -7,11 +7,13 @@
 //! elsewhere and imported again without duplicates.
 
 use std::collections::{BTreeMap, HashMap};
+use std::fmt;
 
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
 use crate::document::Document;
 use crate::error::{Error, Result};
+use crate::fonts::GlyphProblem;
 use crate::util::dict_text;
 
 mod fdf;
@@ -69,6 +71,65 @@ impl CommentFormat {
             }
         }
     }
+}
+
+/// A comment of an imported file whose text cannot be drawn (it has no
+/// drawing of its own, and generated text cannot draw it).
+#[derive(Debug, Clone, PartialEq)]
+pub struct UndrawableComment {
+    /// Page of the comment (zero-based).
+    pub page: usize,
+    pub author: String,
+    /// Name of the comment (`/NM`).
+    pub name: String,
+    pub contents: String,
+    pub problem: GlyphProblem,
+}
+
+impl fmt::Display for UndrawableComment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut text: String = self.contents.chars().take(40).collect();
+        if self.contents.chars().count() > 40 {
+            text.push('…');
+        }
+        write!(f, "page {}", self.page + 1)?;
+        if !self.author.is_empty() {
+            write!(f, ", {}", self.author)?;
+        }
+        write!(f, ", \"{text}\" ({}): {}", self.name, self.problem)
+    }
+}
+
+/// The comments that cannot be drawn, for the error of an import.
+pub(crate) fn describe_undrawable(list: &[UndrawableComment]) -> String {
+    let items: Vec<String> = list.iter().map(|c| c.to_string()).collect();
+    format!(
+        "{} comment(s) of the file cannot be drawn, so nothing was imported: {}",
+        list.len(),
+        items.join("; ")
+    )
+}
+
+/// The comment `d` of an import, when its text cannot be drawn and it has no
+/// drawing of its own to keep.
+fn undrawable(
+    doc: &lopdf::Document,
+    page: usize,
+    d: &Dictionary,
+    name: &str,
+    keeps_drawing: bool,
+) -> Option<UndrawableComment> {
+    if keeps_drawing && d.has(b"AP") {
+        return None;
+    }
+    let problem = crate::appearance::text_problem(doc, d)?;
+    Some(UndrawableComment {
+        page,
+        author: dict_text(doc, d, b"T").unwrap_or_default(),
+        name: name.to_string(),
+        contents: dict_text(doc, d, b"Contents").unwrap_or_default(),
+        problem,
+    })
 }
 
 /// Comment subtypes that are exchanged, with their XFDF element names.
@@ -174,11 +235,24 @@ impl Document {
 
     /// Import comments from XFDF, FDF or PDF data (the format is recognised from
     /// the content) as one undo step. Returns the number of comments imported.
+    /// When comments of the file cannot be drawn ([`Error::Undrawable`] names
+    /// them) nothing is imported; [`Document::import_comments_skipping`]
+    /// imports the others.
     pub fn import_comments(&mut self, data: &[u8]) -> Result<usize> {
+        self.import_comments_with(data, false).map(|(n, _)| n)
+    }
+
+    /// Import the comments of XFDF, FDF or PDF data that can be drawn and
+    /// leave out the others: the number imported and the comments left out.
+    pub fn import_comments_skipping(&mut self, data: &[u8]) -> Result<(usize, Vec<UndrawableComment>)> {
+        self.import_comments_with(data, true)
+    }
+
+    fn import_comments_with(&mut self, data: &[u8], skip: bool) -> Result<(usize, Vec<UndrawableComment>)> {
         match CommentFormat::sniff(data) {
-            Some(CommentFormat::Xfdf) => self.import_comments_xfdf(&String::from_utf8_lossy(data)),
-            Some(CommentFormat::Fdf) => self.import_comments_fdf(data),
-            Some(CommentFormat::Pdf) => self.import_comments_pdf(data),
+            Some(CommentFormat::Xfdf) => self.xfdf_import(&String::from_utf8_lossy(data), skip),
+            Some(CommentFormat::Fdf) => self.fdf_import(data, skip),
+            Some(CommentFormat::Pdf) => self.pdf_import(data, skip),
             None => Err(Error::Invalid("the file is not an XFDF, FDF or PDF file".into())),
         }
     }
@@ -186,6 +260,10 @@ impl Document {
     /// Import the comments of another PDF: the comments of each page go to the
     /// page with the same number (one undo step).
     pub fn import_comments_pdf(&mut self, data: &[u8]) -> Result<usize> {
+        self.pdf_import(data, false).map(|(n, _)| n)
+    }
+
+    fn pdf_import(&mut self, data: &[u8], skip: bool) -> Result<(usize, Vec<UndrawableComment>)> {
         let other = Document::from_bytes(data.to_vec(), None, None)?;
         let pages = self.page_count().min(other.page_count());
         let mut entries = Vec::new();
@@ -197,15 +275,19 @@ impl Document {
                 }
             }
         }
-        self.import_from_source(&other.inner, entries)
+        self.import_from_source(&other.inner, entries, skip)
     }
 
     /// Copy comment dictionaries of another object model into the document.
-    fn import_from_source(
+    /// Comments without a drawing of their own are drawn here: the text of
+    /// each is checked first, and those that cannot be drawn refuse the
+    /// import (or are left out when `skip`).
+    pub(super) fn import_from_source(
         &mut self,
         src: &lopdf::Document,
         entries: Vec<(usize, ObjectId, Dictionary)>,
-    ) -> Result<usize> {
+        skip: bool,
+    ) -> Result<(usize, Vec<UndrawableComment>)> {
         let entries: Vec<_> = entries
             .into_iter()
             .filter(|(_, _, d)| {
@@ -219,7 +301,35 @@ impl Document {
                 "the file contains no comments for the pages of this document".into(),
             ));
         }
-        self.begin_edit();
+        let mut skipped = Vec::new();
+        let entries: Vec<_> = entries
+            .into_iter()
+            .filter(
+                |(page, id, d)| match undrawable(src, *page, d, &comment_name(src, d, *id), true) {
+                    Some(c) => {
+                        skipped.push(c);
+                        false
+                    }
+                    None => true,
+                },
+            )
+            .collect();
+        if !skipped.is_empty() && !skip {
+            return Err(Error::Undrawable(skipped));
+        }
+        if entries.is_empty() {
+            return Ok((0, skipped));
+        }
+        let n = self.edit_step(|doc| doc.copy_imported(src, entries))?;
+        Ok((n, skipped))
+    }
+
+    /// The copy of [`Document::import_from_source`], inside its edit.
+    fn copy_imported(
+        &mut self,
+        src: &lopdf::Document,
+        entries: Vec<(usize, ObjectId, Dictionary)>,
+    ) -> Result<usize> {
         let mut map = BTreeMap::new();
         let queue: Vec<ObjectId> = entries.iter().flat_map(|(_, _, d)| content_refs(d)).collect();
         copy_objects(src, &mut self.inner, queue, &mut map);
@@ -266,9 +376,7 @@ impl Document {
                 file: None,
             });
         }
-        let n = self.insert_imported(items)?;
-        self.commit()?;
-        Ok(n)
+        self.insert_imported(items)
     }
 
     fn annots_array(&self, page_id: ObjectId) -> Vec<Object> {

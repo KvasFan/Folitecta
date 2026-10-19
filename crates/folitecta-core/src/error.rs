@@ -31,6 +31,12 @@ pub enum Error {
     NothingToRedo,
     #[error("document has no file path; use Save As")]
     NoPath,
+    /// Generated text that cannot be drawn; nothing was changed.
+    #[error("{0}")]
+    Glyphs(#[from] crate::fonts::GlyphProblem),
+    /// Comments of an imported file whose text cannot be drawn; nothing was imported.
+    #[error("{}", crate::comment_exchange::describe_undrawable(.0))]
+    Undrawable(Vec<crate::comment_exchange::UndrawableComment>),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

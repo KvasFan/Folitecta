@@ -50,9 +50,10 @@ The font is a data file next to the program, never built into it. The portion of
 Folitecta embeds in a document keeps the outlines, the hinting instructions and the advance widths
 of the glyphs the text uses byte for byte, and the `name` (copyright and licence) and `OS/2` tables
 whole. Only the tables that index the glyphs are written again for the smaller set: `loca` (where
-each glyph starts), `head` (the format of `loca` and the checksum), `hhea` and `maxp` (the number of
-glyphs), `post` (version 3, without glyph names) and a small `cmap` for the characters drawn; the
-records of `hmtx` are the original ones. The glyph numbers stay those of FreeSans.
+each glyph starts), `hmtx` (the original advance and side bearing of each glyph kept; the glyphs
+left out have neither outline nor metrics), `head` (the format of `loca` and the checksum), `hhea`
+and `maxp` (the number of glyphs), `post` (version 3, without glyph names) and a small `cmap` for
+the characters drawn. The glyph numbers stay those of FreeSans.
 
 ## Source
 

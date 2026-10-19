@@ -28,8 +28,12 @@ impl Default for TextLayout {
 
 /// Break text into lines no wider than `max_width` points.
 pub fn wrap_text(text: &str, font_size: f32, max_width: f32) -> Vec<String> {
+    wrap_text_by(text, max_width.max(font_size), &|s| helvetica_width(s, font_size))
+}
+
+/// Break text into lines no wider than `max_width` points, measured by `width`.
+pub(crate) fn wrap_text_by(text: &str, max_width: f32, width: &dyn Fn(&str) -> f32) -> Vec<String> {
     let mut out = Vec::new();
-    let max_width = max_width.max(font_size);
     for raw in text.replace("\r\n", "\n").replace('\r', "\n").split('\n') {
         let para = raw.replace('\t', "    ");
         if para.trim().is_empty() {
@@ -45,7 +49,7 @@ pub fn wrap_text(text: &str, font_size: f32, max_width: f32) -> Vec<String> {
             } else {
                 format!("{line}{word}")
             };
-            if helvetica_width(&candidate, font_size) <= max_width {
+            if width(&candidate) <= max_width {
                 line = candidate;
                 line_has_word = true;
                 continue;
@@ -57,7 +61,7 @@ pub fn wrap_text(text: &str, font_size: f32, max_width: f32) -> Vec<String> {
             let mut piece = String::new();
             for ch in word.chars() {
                 piece.push(ch);
-                if helvetica_width(&piece, font_size) > max_width && piece.chars().count() > 1 {
+                if width(&piece) > max_width && piece.chars().count() > 1 {
                     piece.pop();
                     out.push(std::mem::take(&mut piece));
                     piece.push(ch);
@@ -146,5 +150,20 @@ mod tests {
         assert!(lines.contains(&String::new()));
         let broken = wrap_text(&"x".repeat(200), 12.0, 100.0);
         assert!(broken.len() > 1);
+    }
+
+    #[test]
+    fn wrap_text_by_matches_wrap_text() {
+        for text in [
+            "alpha beta gamma delta\n\nepsilon",
+            &"x".repeat(200),
+            "  indented line\twith a tab and a long word: supercalifragilistic",
+            "",
+        ] {
+            assert_eq!(
+                wrap_text_by(text, 80.0, &|s| helvetica_width(s, 12.0)),
+                wrap_text(text, 12.0, 80.0)
+            );
+        }
     }
 }

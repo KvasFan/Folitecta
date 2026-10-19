@@ -9,11 +9,24 @@ use super::shapes::*;
 use super::*;
 use crate::document::Document;
 use crate::error::Result;
-use crate::textdoc::wrap_text;
-use crate::util::{deref, fmt_num, helvetica_width, pdf_literal, rect_of};
+use crate::fonts::{GlyphProblem, TextWriter, appearance_font};
+use crate::util::{deref, fmt_num, helvetica_width, pdf_literal, rect_of, winansi_code};
+
+/// The embedded font of the present appearance of `d`, which a drawing made
+/// again with the same characters uses again (none for the standard font).
+fn previous_font(doc: &lopdf::Document, d: &Dictionary, writer: &TextWriter) -> Option<lopdf::ObjectId> {
+    if writer.is_standard() {
+        return None;
+    }
+    appearance_font(doc, d, writer.resource_name().as_bytes()).and_then(|(id, _)| id)
+}
 
 /// Text box contents: background, border and wrapped text inside `bx`.
-fn free_text_body(style: &AnnotStyle, bx: [f32; 4], text: &str) -> String {
+fn free_text_body(
+    style: &AnnotStyle,
+    bx: [f32; 4],
+    writer: &mut TextWriter,
+) -> std::result::Result<String, GlyphProblem> {
     let f = fmt_num;
     let w = style.width.max(0.0);
     let mut body = String::new();
@@ -58,23 +71,80 @@ fn free_text_body(style: &AnnotStyle, bx: [f32; 4], text: &str) -> String {
         f((bx[2] - bx[0] - 2.0 * w).max(0.0)),
         f((bx[3] - bx[1] - 2.0 * w).max(0.0))
     ));
-    body.push_str(&format!("BT /Helv {} Tf ", f(fs)));
+    body.push_str(&format!("BT /{} {} Tf ", writer.resource_name(), f(fs)));
     body.push_str(&rgb(style.text_color, "rg"));
     let mut y = bx[3] - pad - fs * 0.88;
-    for line in wrap_text(text, fs, inner_w) {
-        let lw = helvetica_width(&line, fs);
+    for line in writer.wrap(fs, inner_w) {
+        let lw = writer.width(&line, fs);
         let x = match style.align {
             1 => bx[0] + pad + (inner_w - lw) / 2.0,
             2 => bx[2] - pad - lw,
             _ => bx[0] + pad,
         };
         body.push_str(&format!("1 0 0 1 {} {} Tm ", f(x), f(y)));
-        body.push_str(&String::from_utf8_lossy(&pdf_literal(&line)));
+        body.push_str(&writer.show(&line)?);
         body.push_str(" Tj ");
         y -= fs * 1.2;
     }
     body.push_str("ET Q ");
-    body
+    Ok(body)
+}
+
+/// The characters of `text` that WinAnsi lacks (once each), for the text
+/// drawn only with the standard Helvetica (text stamps).
+fn beyond_winansi(text: &str) -> Vec<char> {
+    let mut out: Vec<char> = Vec::new();
+    for c in text.chars().filter(|c| winansi_code(*c).is_none()) {
+        if !out.contains(&c) {
+            out.push(c);
+        }
+    }
+    out
+}
+
+/// The text of `d` that its appearance cannot draw, if any: what
+/// [`Document::generate_appearance`] would refuse, found without changing
+/// anything (operations check it before their edit). `doc` resolves the
+/// references of `d`.
+pub(crate) fn text_problem(doc: &lopdf::Document, d: &Dictionary) -> Option<GlyphProblem> {
+    let subtype = name_of(d, b"Subtype")?;
+    match subtype.as_str() {
+        "FreeText" => {
+            crate::fonts::check_text(&crate::util::dict_text(doc, d, b"Contents").unwrap_or_default()).err()
+        }
+        "Line" | "PolyLine" | "Polygon" => {
+            let key: &[u8] = if subtype == "Line" { b"L" } else { b"Vertices" };
+            let pts = pairs(&numbers(doc, d.get(key).ok()));
+            if pts.len() < 2 {
+                return None;
+            }
+            let (label, _) = measure_label(doc, d, &pts)?;
+            crate::fonts::check_text(&label).err()
+        }
+        "Stamp" => {
+            let name = name_of(d, b"Name").unwrap_or_default();
+            let drawing_kept = name == crate::signmarks::SIGNATURE_STAMP
+                || name.starts_with("FolitectaDesign")
+                || name == crate::tables::TABLE_STAMP
+                || name == crate::calculator::CALC_STAMP
+                || name == "FolitectaImage";
+            if drawing_kept || !(name.starts_with("Folitecta") || !d.has(b"AP") || appearance_is_ours(doc, d))
+            {
+                return None;
+            }
+            let text = if name.starts_with("Folitecta") {
+                crate::util::dict_text(doc, d, b"Contents").unwrap_or_default()
+            } else {
+                stamp_label(&name)
+            };
+            let beyond = beyond_winansi(&text);
+            (!beyond.is_empty()).then(|| GlyphProblem::Missing {
+                font: "Helvetica".into(),
+                chars: beyond,
+            })
+        }
+        _ => None,
+    }
 }
 
 impl Document {
@@ -199,10 +269,11 @@ impl Document {
                 }
                 rect = bounds(&pts, pad);
                 if let Some((text, at)) = label {
-                    let font = self.helvetica_font_id();
-                    resources.set("Font", dictionary! { "Helv" => font });
+                    let mut writer = TextWriter::new(&text)?;
+                    let previous = previous_font(doc, d, &writer);
                     let fs = style.font_size.clamp(5.0, 48.0);
-                    let tw = helvetica_width(&text, fs);
+                    let shown = writer.text().to_string();
+                    let tw = writer.width(&shown, fs);
                     let (bx, by) = (at.0 - tw / 2.0 - 3.0, at.1 + fs * 0.35);
                     let c = style.color.unwrap_or([0.0, 0.0, 0.0]);
                     body.push_str("1 1 1 rg ");
@@ -213,11 +284,14 @@ impl Document {
                         f(tw + 6.0),
                         f(fs + 4.0)
                     ));
-                    body.push_str(&format!("BT /Helv {} Tf ", f(fs)));
+                    body.push_str(&format!("BT /{} {} Tf ", writer.resource_name(), f(fs)));
                     body.push_str(&rgb(c, "rg"));
                     body.push_str(&format!("{} {} Td ", f(bx + 3.0), f(by + 2.0 + fs * 0.18)));
-                    body.push_str(&String::from_utf8_lossy(&pdf_literal(&text)));
+                    body.push_str(&writer.show(&shown)?);
                     body.push_str(" Tj ET ");
+                    let name = writer.resource_name();
+                    let font = writer.finish(self, previous)?;
+                    resources.set("Font", dictionary! { name => font });
                     rect = [
                         rect[0].min(bx),
                         rect[1].min(by),
@@ -332,11 +406,12 @@ impl Document {
             }
             "FreeText" => {
                 let text = crate::util::dict_text(doc, d, b"Contents").unwrap_or_default();
+                // The font is chosen (or the text refused) before anything is added.
+                let mut writer = TextWriter::new(&text)?;
+                let previous = previous_font(doc, d, &writer);
                 let callout = name_of(d, b"IT").as_deref() == Some("FreeTextCallout");
                 let cl = pairs(&numbers(doc, d.get(b"CL").ok()));
                 let rd = numbers(doc, d.get(b"RD").ok());
-                let font = self.helvetica_font_id();
-                resources.set("Font", dictionary! { "Helv" => font });
                 let bx = if rd.len() == 4 {
                     [rect[0] + rd[0], rect[1] + rd[1], rect[2] - rd[2], rect[3] - rd[3]]
                 } else {
@@ -359,7 +434,7 @@ impl Document {
                     ));
                     body.push_str("Q ");
                 }
-                body.push_str(&free_text_body(&style, bx, &text));
+                body.push_str(&free_text_body(&style, bx, &mut writer)?);
                 if callout && cl.len() >= 2 {
                     let lead = bounds(&cl, ending_size(w) + w + 1.0);
                     rect = [
@@ -384,6 +459,10 @@ impl Document {
                     "DA",
                     Object::string_literal(format!("/Helv {} Tf {} {} {} rg", f(fs), f(r), f(g), f(b))),
                 );
+                // The standard Helvetica, the same subset as before, or a new one.
+                let name = writer.resource_name();
+                let font = writer.finish(self, previous)?;
+                resources.set("Font", dictionary! { name => font });
             }
             "Caret" => {
                 let c = style.color.unwrap_or([0.1, 0.4, 0.95]);
@@ -500,6 +579,16 @@ impl Document {
                     } else {
                         stamp_label(&name)
                     };
+                    // Text stamps are drawn with Helvetica only, for now: text
+                    // beyond WinAnsi is refused, never drawn as `?`.
+                    let beyond = beyond_winansi(&text);
+                    if !beyond.is_empty() {
+                        return Err(GlyphProblem::Missing {
+                            font: "Helvetica".into(),
+                            chars: beyond,
+                        }
+                        .into());
+                    }
                     let font = self.helvetica_font_id();
                     resources.set("Font", dictionary! { "Helv" => font });
                     let c = style.color.unwrap_or([0.8, 0.1, 0.1]);
@@ -590,5 +679,122 @@ impl Document {
         );
         d.remove(b"AS");
         Ok(true)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::textdoc::wrap_text;
+
+    /// The text box drawing of Folitecta 0.2.0, kept to prove WinAnsi text is
+    /// drawn exactly as before.
+    fn free_text_body_0_2_0(style: &AnnotStyle, bx: [f32; 4], text: &str) -> String {
+        let f = fmt_num;
+        let w = style.width.max(0.0);
+        let mut body = String::new();
+        if let Some(c) = style.fill {
+            body.push_str(&rgb(c, "rg"));
+            body.push_str(&format!(
+                "{} {} {} {} re f ",
+                f(bx[0]),
+                f(bx[1]),
+                f(bx[2] - bx[0]),
+                f(bx[3] - bx[1])
+            ));
+        }
+        if w > 0.0 {
+            if let Some(c) = style.color {
+                body.push_str(&format!("{} w ", f(w)));
+                if style.dashed {
+                    body.push_str(&format!(
+                        "[{} {}] 0 d ",
+                        f((w * 3.0).max(3.0)),
+                        f((w * 2.0).max(2.0))
+                    ));
+                }
+                body.push_str(&rgb(c, "RG"));
+                let h = w / 2.0;
+                body.push_str(&format!(
+                    "{} {} {} {} re S [] 0 d ",
+                    f(bx[0] + h),
+                    f(bx[1] + h),
+                    f(bx[2] - bx[0] - w),
+                    f(bx[3] - bx[1] - w)
+                ));
+            }
+        }
+        let fs = style.font_size.clamp(2.0, 400.0);
+        let pad = 2.0 + w;
+        let inner_w = (bx[2] - bx[0] - 2.0 * pad).max(fs);
+        body.push_str(&format!(
+            "q {} {} {} {} re W n ",
+            f(bx[0] + w),
+            f(bx[1] + w),
+            f((bx[2] - bx[0] - 2.0 * w).max(0.0)),
+            f((bx[3] - bx[1] - 2.0 * w).max(0.0))
+        ));
+        body.push_str(&format!("BT /Helv {} Tf ", f(fs)));
+        body.push_str(&rgb(style.text_color, "rg"));
+        let mut y = bx[3] - pad - fs * 0.88;
+        for line in wrap_text(text, fs, inner_w) {
+            let lw = helvetica_width(&line, fs);
+            let x = match style.align {
+                1 => bx[0] + pad + (inner_w - lw) / 2.0,
+                2 => bx[2] - pad - lw,
+                _ => bx[0] + pad,
+            };
+            body.push_str(&format!("1 0 0 1 {} {} Tm ", f(x), f(y)));
+            body.push_str(&String::from_utf8_lossy(&pdf_literal(&line)));
+            body.push_str(" Tj ");
+            y -= fs * 1.2;
+        }
+        body.push_str("ET Q ");
+        body
+    }
+
+    #[test]
+    fn winansi_text_boxes_are_drawn_as_before() {
+        let paragraph = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor \
+                         incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud \
+                         exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure.";
+        let texts = [
+            "",
+            "Hello",
+            "Città è perché € “ok” … ™",
+            "tab\tand\nline\r\nend",
+            paragraph,
+            "(parentheses) and \\ backslash",
+        ];
+        let mut styles = Vec::new();
+        for align in 0..=2 {
+            for (width, dashed, fill) in [
+                (1.0, false, Some([1.0, 1.0, 0.8])),
+                (0.0, false, None),
+                (2.0, true, None),
+            ] {
+                styles.push(AnnotStyle {
+                    align,
+                    width,
+                    dashed,
+                    fill,
+                    font_size: if align == 1 { 9.5 } else { 12.0 },
+                    text_color: [0.2, 0.1, 0.9],
+                    ..AnnotStyle::default()
+                });
+            }
+        }
+        let bx = [50.0, 600.0, 245.5, 690.0];
+        for text in texts {
+            for style in &styles {
+                let mut writer = TextWriter::new(text).unwrap();
+                assert!(writer.is_standard());
+                assert_eq!(
+                    free_text_body(style, bx, &mut writer).unwrap(),
+                    free_text_body_0_2_0(style, bx, text),
+                    "{text:?} {style:?}"
+                );
+            }
+        }
     }
 }

@@ -152,8 +152,9 @@ impl Document {
         if !author.is_empty() {
             d.set("T", lopdf::text_string(author));
         }
+        let contents = util::clean_text(contents);
         if !contents.is_empty() {
-            d.set("Contents", lopdf::text_string(contents));
+            d.set("Contents", lopdf::text_string(&contents));
         }
         d
     }
@@ -203,12 +204,18 @@ impl Document {
         Ok(annot_id)
     }
 
-    /// Generate the appearance of a new comment and add it to the page (one undo step).
+    /// Generate the appearance of a new comment and add it to the page,
+    /// ending the edit its caller began: committed as one undo step, or
+    /// abandoned (the document as it was) when anything fails.
     pub(crate) fn finish_annotation(&mut self, page_id: ObjectId, mut annot: Dictionary) -> Result<ObjectId> {
-        self.generate_appearance(&mut annot)?;
-        let id = self.push_annotation(page_id, annot)?;
-        self.commit()?;
-        Ok(id)
+        let added = self
+            .generate_appearance(&mut annot)
+            .and_then(|_| self.push_annotation(page_id, annot))
+            .and_then(|id| self.commit().map(|()| id));
+        if added.is_err() {
+            self.abandon_edit();
+        }
+        added
     }
 
     /// Add a sticky note at `(x, y)` (PDF user space, lower-left origin).
@@ -283,6 +290,8 @@ impl Document {
         style: &AnnotStyle,
     ) -> Result<ObjectId> {
         let page_id = self.page_id(page)?;
+        // Text that cannot be drawn is refused before anything changes.
+        crate::fonts::check_text(&util::clean_text(text))?;
         self.begin_edit();
         let mut annot = self.base_annotation(
             page_id,
@@ -631,26 +640,37 @@ impl Document {
         self.commit()?;
         Ok(removed)
     }
-    /// Update the text of an annotation.
+    /// Update the text of an annotation (control characters other than tabs
+    /// and line breaks are left out). Text boxes and text stamps are drawn
+    /// again; text they cannot draw is refused before anything changes.
     pub fn set_annotation_contents(&mut self, page: usize, index: usize, contents: &str) -> Result<()> {
         let id = self
             .annotations(page)?
             .get(index)
             .and_then(|a| a.id)
             .ok_or_else(|| Error::Invalid("annotation is not an indirect object".into()))?;
-        self.begin_edit();
-        let d = self.inner.get_dictionary_mut(id)?;
-        d.set("Contents", lopdf::text_string(contents));
-        d.set("M", Object::string_literal(util::pdf_date_now()));
+        let contents = lopdf::text_string(&util::clean_text(contents));
+        let mut probe = self.inner.get_dictionary(id)?.clone();
         // Text boxes and text stamps show their text: redraw them.
         let shows_text = matches!(
-            d.get(b"Subtype").ok().and_then(|s| s.as_name().ok()),
+            probe.get(b"Subtype").ok().and_then(|s| s.as_name().ok()),
             Some(b"FreeText") | Some(b"Stamp")
         );
         if shows_text {
-            self.refresh_appearance(id)?;
+            probe.set("Contents", contents.clone());
+            if let Some(problem) = crate::appearance::text_problem(&self.inner, &probe) {
+                return Err(problem.into());
+            }
         }
-        self.commit()
+        self.edit_step(|doc| {
+            let d = doc.inner.get_dictionary_mut(id)?;
+            d.set("Contents", contents);
+            d.set("M", Object::string_literal(util::pdf_date_now()));
+            if shows_text {
+                doc.refresh_appearance(id)?;
+            }
+            Ok(())
+        })
     }
 
     /// Set the hidden flag of an annotation.

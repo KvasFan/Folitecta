@@ -54,6 +54,8 @@ pub struct Document {
     dirty: bool,
     undo: Vec<Arc<Vec<u8>>>,
     redo: Vec<Arc<Vec<u8>>>,
+    /// What the edit under way set aside, given back when it is abandoned.
+    edit_backup: Option<EditBackup>,
     /// Object id of the shared Helvetica font resource created by Folitecta, if any.
     pub(crate) helv_font: Option<ObjectId>,
     /// The file was encrypted when it was opened (it is kept decrypted in memory).
@@ -100,6 +102,16 @@ pub fn write_pdf_file(path: &Path, data: &[u8]) -> Result<()> {
         )));
     }
     util::write_atomic(path, data).map_err(|e| Error::io(path, e))
+}
+
+/// What `begin_edit` set aside for `abandon_edit`: the state before the edit,
+/// the redo history it cleared and the oldest undo steps it dropped at the
+/// limit, so an abandoned edit leaves the whole history as it was.
+struct EditBackup {
+    snapshot: Arc<Vec<u8>>,
+    redo: Vec<Arc<Vec<u8>>>,
+    /// Oldest first.
+    dropped: Vec<Arc<Vec<u8>>>,
 }
 
 /// A file read for editing: its objects decrypted, and how it was protected.
@@ -175,6 +187,7 @@ impl Document {
             dirty: false,
             undo: Vec::new(),
             redo: Vec::new(),
+            edit_backup: None,
             helv_font: None,
             source_encrypted,
             protection,
@@ -237,6 +250,7 @@ impl Document {
             dirty: true,
             undo: Vec::new(),
             redo: Vec::new(),
+            edit_backup: None,
             helv_font: None,
             source_encrypted: false,
             protection: None,
@@ -373,6 +387,7 @@ impl Document {
     pub fn clear_history(&mut self) {
         self.undo.clear();
         self.redo.clear();
+        self.edit_backup = None;
     }
 
     /// Mark the current state as saved without writing a file (used by callers
@@ -416,22 +431,68 @@ impl Document {
 
     /// Record the current state before a mutation.
     pub fn begin_edit(&mut self) {
-        self.undo.push(self.bytes.clone());
-        if self.undo.len() > UNDO_LIMIT {
-            self.undo.remove(0);
+        let snapshot = self.bytes.clone();
+        self.undo.push(snapshot.clone());
+        let dropped = (self.undo.len() > UNDO_LIMIT).then(|| self.undo.remove(0));
+        let redo = std::mem::take(&mut self.redo);
+        match &mut self.edit_backup {
+            // Another begin_edit of the same edit (nothing committed since).
+            Some(backup) if Arc::ptr_eq(&backup.snapshot, &snapshot) => {
+                backup.redo.extend(redo);
+                backup.dropped.extend(dropped);
+            }
+            _ => {
+                self.edit_backup = Some(EditBackup {
+                    snapshot,
+                    redo,
+                    dropped: dropped.into_iter().collect(),
+                })
+            }
         }
-        self.redo.clear();
     }
 
     /// Undo what an operation changed since its `begin_edit` when it failed
-    /// half-way, and forget that undo step.
+    /// half-way: the document, its undo steps and its redo history are as
+    /// they were before the edit (revision and dirty flag never changed).
     pub(crate) fn abandon_edit(&mut self) {
-        if let Some(snapshot) = self.undo.pop() {
-            if let Ok(loaded) = load_inner(&snapshot, None) {
-                self.inner = loaded.doc;
+        let Some(backup) = self.edit_backup.take() else {
+            return;
+        };
+        let loaded = load_inner(&backup.snapshot, None);
+        let Ok(loaded) = loaded else {
+            // The state before the edit cannot be read again (it always can:
+            // it was written from the document). Keep what the edit made as a
+            // change of its own, which Undo takes back.
+            if let Ok(bytes) = serialize(&mut self.inner) {
+                self.bytes = Arc::new(bytes);
+                self.revision += 1;
+                self.dirty = true;
             }
-            self.bytes = snapshot;
             self.helv_font = None;
+            return;
+        };
+        while self.undo.last().is_some_and(|s| Arc::ptr_eq(s, &backup.snapshot)) {
+            self.undo.pop();
+        }
+        for step in backup.dropped.into_iter().rev() {
+            self.undo.insert(0, step);
+        }
+        self.redo = backup.redo;
+        self.inner = loaded.doc;
+        self.bytes = backup.snapshot;
+        self.helv_font = None;
+    }
+
+    /// Run `f` as one undo step: committed when it succeeds, abandoned (the
+    /// document and its history as they were) when it fails.
+    pub(crate) fn edit_step<T>(&mut self, f: impl FnOnce(&mut Self) -> Result<T>) -> Result<T> {
+        self.begin_edit();
+        match f(self).and_then(|v| self.commit().map(|()| v)) {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                self.abandon_edit();
+                Err(e)
+            }
         }
     }
 
@@ -453,6 +514,7 @@ impl Document {
         self.revision += 1;
         self.dirty = true;
         self.helv_font = None;
+        self.edit_backup = None;
         Ok(())
     }
 
@@ -463,6 +525,7 @@ impl Document {
         self.revision += 1;
         self.dirty = true;
         self.helv_font = None;
+        self.edit_backup = None;
         Ok(())
     }
 
@@ -858,5 +921,55 @@ impl Document {
     /// Content stream object ids of a page in order.
     pub(crate) fn page_content_ids(&self, page_id: ObjectId) -> Vec<ObjectId> {
         self.inner.get_page_contents(page_id)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn undo_len(doc: &Document) -> usize {
+        doc.undo.len()
+    }
+
+    #[test]
+    fn an_abandoned_edit_keeps_the_redo_history_and_the_oldest_undo_step() {
+        let mut doc = Document::new_blank(1, 200.0, 200.0).unwrap();
+        for i in 0..UNDO_LIMIT + 2 {
+            doc.set_info(&format!("title {i}"), "", "", "").unwrap();
+        }
+        doc.undo().unwrap();
+        let (undo, oldest) = (undo_len(&doc), doc.undo[0].clone());
+        let (revision, bytes, title) = (doc.revision(), doc.bytes(), doc.title());
+        assert!(doc.can_redo());
+        // A failing edit that changed the document, made of two begin_edit calls.
+        let failed: Result<()> = doc.edit_step(|d| {
+            d.begin_edit();
+            d.info_dict_mut()?.set("Title", lopdf::text_string("half done"));
+            Err(Error::Invalid("refused".into()))
+        });
+        assert!(failed.is_err());
+        assert!(doc.can_redo(), "the redo history survives a refused edit");
+        assert_eq!(undo_len(&doc), undo);
+        assert!(Arc::ptr_eq(&doc.undo[0], &oldest), "the oldest undo step is back");
+        assert_eq!(doc.revision(), revision);
+        assert!(Arc::ptr_eq(&doc.bytes(), &bytes));
+        assert_eq!(doc.title(), title);
+        doc.redo().unwrap();
+        assert_eq!(doc.title(), format!("title {}", UNDO_LIMIT + 1));
+    }
+
+    #[test]
+    fn a_successful_edit_step_is_one_undo_step() {
+        let mut doc = Document::new_blank(1, 200.0, 200.0).unwrap();
+        doc.edit_step(|d| {
+            d.info_dict_mut()?.set("Title", lopdf::text_string("one"));
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(doc.title(), "one");
+        assert_eq!(undo_len(&doc), 1);
+        doc.undo().unwrap();
+        assert_eq!(doc.title(), "");
     }
 }

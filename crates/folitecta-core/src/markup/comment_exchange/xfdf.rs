@@ -665,8 +665,17 @@ impl Document {
         )
     }
 
-    /// Import the comments of an XFDF document (one undo step).
+    /// Import the comments of an XFDF document (one undo step). When comments
+    /// cannot be drawn nothing is imported ([`Error::Undrawable`]).
     pub fn import_comments_xfdf(&mut self, xml_text: &str) -> Result<usize> {
+        self.xfdf_import(xml_text, false).map(|(n, _)| n)
+    }
+
+    pub(super) fn xfdf_import(
+        &mut self,
+        xml_text: &str,
+        skip: bool,
+    ) -> Result<(usize, Vec<UndrawableComment>)> {
         let root = xml::parse(xml_text)?;
         if !root.is("xfdf") {
             return Err(Error::Invalid("the file is not an XFDF document".into()));
@@ -695,9 +704,27 @@ impl Document {
                 "the file contains no comments for the pages of this document".into(),
             ));
         }
-        self.begin_edit();
-        let n = self.insert_imported(items)?;
-        self.commit()?;
-        Ok(n)
+        // Every comment of an XFDF file is drawn here: check the text first.
+        let mut skipped = Vec::new();
+        let items: Vec<Imported> = items
+            .into_iter()
+            .filter(
+                |it| match undrawable(&self.inner, it.page, &it.dict, &it.name, it.keep_appearance) {
+                    Some(c) => {
+                        skipped.push(c);
+                        false
+                    }
+                    None => true,
+                },
+            )
+            .collect();
+        if !skipped.is_empty() && !skip {
+            return Err(Error::Undrawable(skipped));
+        }
+        if items.is_empty() {
+            return Ok((0, skipped));
+        }
+        let n = self.edit_step(|doc| doc.insert_imported(items))?;
+        Ok((n, skipped))
     }
 }

@@ -509,6 +509,14 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     pause(500).await;
 }
 
+/// Whether the scenarios of `group` run: every group, or those named in
+/// `FOLITECTA_PERF_GROUPS` (comma separated: open, scroll, zoom, tools).
+fn wanted(group: &str) -> bool {
+    std::env::var("FOLITECTA_PERF_GROUPS")
+        .map(|v| v.split(',').any(|g| g.trim() == group))
+        .unwrap_or(true)
+}
+
 async fn document_scenarios(p: &mut Probe<'_, '_>, doc: &str, pages: usize, bytes: Vec<u8>) {
     let st = p.cx.st;
     let reps = p.reps;
@@ -516,76 +524,77 @@ async fn document_scenarios(p: &mut Probe<'_, '_>, doc: &str, pages: usize, byte
     // The pages in the middle.
     let mid = pages / 2;
 
-    // 1. Opening, with the thumbnails pane hidden and shown.
-    for thumbs in [false, true] {
-        let mut runs = Vec::new();
-        let mut ok = true;
-        for _ in 0..reps {
-            {
-                let mut ui = st.ui_mut();
-                ui.show_left_pane = thumbs;
-                ui.left_pane = "thumbnails".into();
-            }
-            pause(300).await;
-            let before = Snapshot::now();
-            let started = Instant::now();
-            let Some(id) = add_tab(st, bytes.clone()) else {
-                ok = false;
-                break;
-            };
-            let added = started.elapsed().as_secs_f64() * 1000.0;
-            let sharp = wait_sharp(25_000).await;
-            let total = started.elapsed().as_secs_f64() * 1000.0;
-            let mut m = Map::new();
-            m.insert("add_tab_ms".into(), json!(added));
-            m.insert(
-                "open_to_sharp_ms".into(),
-                json!(if sharp < 0.0 { -1.0 } else { total }),
-            );
-            if thumbs {
-                // The thumbnails the pane shows.
-                let first = obj(
-                    "const P = window.__foliPerf; const t0 = performance.now(); const ms = await P.waitFor(t0, 25000, () => { const pane = document.querySelector('.pane-panel'); if (!pane) return false; const pr = pane.getBoundingClientRect(); const imgs = [...document.querySelectorAll('.thumbs .thumb img')].filter(i => { const r = i.getBoundingClientRect(); return r.bottom > pr.top && r.top < pr.bottom; }); return imgs.length > 0 && imgs.every(i => i.complete && i.naturalWidth > 0); }); return { thumbs_after_ms: ms };",
-                )
-                .await;
-                let after = num(&Value::Object(first), "thumbs_after_ms");
+    if wanted("open") {
+        // 1. Opening, with the thumbnails pane hidden and shown.
+        for thumbs in [false, true] {
+            let mut runs = Vec::new();
+            let mut ok = true;
+            for _ in 0..reps {
+                {
+                    let mut ui = st.ui_mut();
+                    ui.show_left_pane = thumbs;
+                    ui.left_pane = "thumbnails".into();
+                }
+                pause(300).await;
+                let before = Snapshot::now();
+                let started = Instant::now();
+                let Some(id) = add_tab(st, bytes.clone()) else {
+                    ok = false;
+                    break;
+                };
+                let added = started.elapsed().as_secs_f64() * 1000.0;
+                let sharp = wait_sharp(25_000).await;
+                let total = started.elapsed().as_secs_f64() * 1000.0;
+                let mut m = Map::new();
+                m.insert("add_tab_ms".into(), json!(added));
                 m.insert(
-                    "thumbs_shown_ms".into(),
-                    json!(if after < 0.0 {
-                        -1.0
-                    } else {
-                        started.elapsed().as_secs_f64() * 1000.0
-                    }),
+                    "open_to_sharp_ms".into(),
+                    json!(if sharp < 0.0 { -1.0 } else { total }),
                 );
+                if thumbs {
+                    // The thumbnails the pane shows.
+                    let first = obj(
+                        "const P = window.__foliPerf; const t0 = performance.now(); const ms = await P.waitFor(t0, 25000, () => { const pane = document.querySelector('.pane-panel'); if (!pane) return false; const pr = pane.getBoundingClientRect(); const imgs = [...document.querySelectorAll('.thumbs .thumb img')].filter(i => { const r = i.getBoundingClientRect(); return r.bottom > pr.top && r.top < pr.bottom; }); return imgs.length > 0 && imgs.every(i => i.complete && i.naturalWidth > 0); }); return { thumbs_after_ms: ms };",
+                    )
+                    .await;
+                    let after = num(&Value::Object(first), "thumbs_after_ms");
+                    m.insert(
+                        "thumbs_shown_ms".into(),
+                        json!(if after < 0.0 {
+                            -1.0
+                        } else {
+                            started.elapsed().as_secs_f64() * 1000.0
+                        }),
+                    );
+                }
+                let ui = Snapshot::now().since(before);
+                m.insert("page_views".into(), json!(ui.page_views));
+                m.insert("pictures_asked".into(), json!(ui.page_requests));
+                ok &= sharp >= 0.0;
+                runs.push(m);
+                close_tab(st, id, back_to);
+                pause(400).await;
             }
-            let ui = Snapshot::now().since(before);
-            m.insert("page_views".into(), json!(ui.page_views));
-            m.insert("pictures_asked".into(), json!(ui.page_requests));
-            ok &= sharp >= 0.0;
-            runs.push(m);
-            close_tab(st, id, back_to);
-            pause(400).await;
+            let name = if thumbs {
+                "open, thumbnails shown"
+            } else {
+                "open, thumbnails hidden"
+            };
+            p.record(
+                doc,
+                name,
+                runs,
+                ok,
+                &[
+                    "open_to_sharp_ms",
+                    "add_tab_ms",
+                    "thumbs_shown_ms",
+                    "page_views",
+                    "pictures_asked",
+                ],
+            );
         }
-        let name = if thumbs {
-            "open, thumbnails shown"
-        } else {
-            "open, thumbnails hidden"
-        };
-        p.record(
-            doc,
-            name,
-            runs,
-            ok,
-            &[
-                "open_to_sharp_ms",
-                "add_tab_ms",
-                "thumbs_shown_ms",
-                "page_views",
-                "pictures_asked",
-            ],
-        );
     }
-
     // The document stays open for the other scenarios, thumbnails hidden.
     st.ui_mut().show_left_pane = false;
     let Some(id) = add_tab(st, bytes.clone()) else {
@@ -600,25 +609,70 @@ async fn document_scenarios(p: &mut Probe<'_, '_>, doc: &str, pages: usize, byte
         .flatten()
         .unwrap_or(595.0);
 
-    // 2a. Smooth scrolling and flings at fit width (what a page shows when a
-    // document opens): frame intervals, blank and blurred pages.
-    for (name, speed, ms) in [
-        ("smooth scroll 2000 px/s for 4 s", 2000, 4000),
-        ("fling 12000 px/s for 1.5 s", 12000, 1500),
-    ] {
+    if wanted("scroll") {
+        // 2a. Smooth scrolling and flings at fit width (what a page shows when a
+        // document opens): frame intervals, blank and blurred pages.
+        for (name, speed, ms) in [
+            ("smooth scroll 2000 px/s for 4 s", 2000, 4000),
+            ("fling 12000 px/s for 1.5 s", 12000, 1500),
+        ] {
+            let mut runs = Vec::new();
+            let mut ok = true;
+            for r in 0..reps {
+                st.with_active(|t| t.zoom = Zoom::FitWidth);
+                pause(200).await;
+                scroll_to_page(if pages > 100 { 100 + 150 * r } else { 2 * r }).await;
+                let _ = wait_sharp(15_000).await;
+                pause(300).await;
+                let page_before = st.current_page();
+                let before = mark(st);
+                let mut m = obj(&format!(
+                    "const P = window.__foliPerf; const r = await P.scrollRun({speed}, {ms}); r.sharp_after_ms = await P.waitSharp(performance.now(), 20000, 0, 0); return r;"
+                ))
+                .await;
+                pause(300).await;
+                m.extend(counted(st, before));
+                m.insert(
+                    "pages_passed".into(),
+                    json!(st.current_page() as i64 - page_before as i64),
+                );
+                ok &= num(&Value::Object(m.clone()), "sharp_after_ms") >= 0.0;
+                runs.push(m);
+            }
+            p.record(
+                doc,
+                name,
+                runs,
+                ok,
+                &[
+                    "on_time_pct",
+                    "frames_over_20",
+                    "frames_over_50",
+                    "longest_stall",
+                    "frame_p95",
+                    "px_per_s",
+                    "blank_ms",
+                    "unsharp_ms",
+                    "sharp_after_ms",
+                    "xhr",
+                    "page_views",
+                    "pages_passed",
+                    "pictures_asked",
+                    "rendered",
+                ],
+            );
+        }
+
+        // 2. Scrolling 120 px a frame for 2 s, then until the pages are sharp.
         let mut runs = Vec::new();
         let mut ok = true;
         for r in 0..reps {
-            st.with_active(|t| t.zoom = Zoom::FitWidth);
-            pause(200).await;
-            scroll_to_page(if pages > 100 { 100 + 150 * r } else { 2 * r }).await;
-            let _ = wait_sharp(15_000).await;
-            pause(300).await;
+            reset_view(st, if pages > 100 { r * 100 } else { 0 }).await;
             let page_before = st.current_page();
             let before = mark(st);
-            let mut m = obj(&format!(
-                "const P = window.__foliPerf; const r = await P.scrollRun({speed}, {ms}); r.sharp_after_ms = await P.waitSharp(performance.now(), 20000, 0, 0); return r;"
-            ))
+            let mut m = obj(
+                "const P = window.__foliPerf, c = document.getElementById('canvas'); P.reset(); P.rec = true; const t0 = performance.now(); let n = 0; await new Promise(res => { const step = () => { c.scrollTop += 120; n++; if (performance.now() - t0 < 2000) requestAnimationFrame(step); else res(); }; requestAnimationFrame(step); }); P.rec = false; const s = P.stats(); const sharp = await P.waitSharp(performance.now(), 20000, 0, 0); return Object.assign(s, { steps: n, sharp_after_ms: sharp });",
+            )
             .await;
             pause(300).await;
             m.extend(counted(st, before));
@@ -631,420 +685,378 @@ async fn document_scenarios(p: &mut Probe<'_, '_>, doc: &str, pages: usize, byte
         }
         p.record(
             doc,
-            name,
+            "scroll 120 px a frame for 2 s",
             runs,
             ok,
             &[
-                "on_time_pct",
-                "frames_over_20",
-                "frames_over_50",
-                "longest_stall",
-                "frame_p95",
-                "px_per_s",
-                "blank_ms",
-                "unsharp_ms",
                 "sharp_after_ms",
+                "frame_p50",
+                "frame_p95",
+                "frame_max",
+                "frames_over_50",
                 "xhr",
+                "xhr_ms",
+                "edits",
+                "edit_apply_ms",
                 "page_views",
                 "pages_passed",
-                "pictures_asked",
                 "rendered",
             ],
         );
-    }
 
-    // 2. Scrolling 120 px a frame for 2 s, then until the pages are sharp.
-    let mut runs = Vec::new();
-    let mut ok = true;
-    for r in 0..reps {
-        reset_view(st, if pages > 100 { r * 100 } else { 0 }).await;
-        let page_before = st.current_page();
-        let before = mark(st);
-        let mut m = obj(
-            "const P = window.__foliPerf, c = document.getElementById('canvas'); P.reset(); P.rec = true; const t0 = performance.now(); let n = 0; await new Promise(res => { const step = () => { c.scrollTop += 120; n++; if (performance.now() - t0 < 2000) requestAnimationFrame(step); else res(); }; requestAnimationFrame(step); }); P.rec = false; const s = P.stats(); const sharp = await P.waitSharp(performance.now(), 20000, 0, 0); return Object.assign(s, { steps: n, sharp_after_ms: sharp });",
-        )
-        .await;
-        pause(300).await;
-        m.extend(counted(st, before));
-        m.insert(
-            "pages_passed".into(),
-            json!(st.current_page() as i64 - page_before as i64),
-        );
-        ok &= num(&Value::Object(m.clone()), "sharp_after_ms") >= 0.0;
-        runs.push(m);
-    }
-    p.record(
-        doc,
-        "scroll 120 px a frame for 2 s",
-        runs,
-        ok,
-        &[
-            "sharp_after_ms",
-            "frame_p50",
-            "frame_p95",
-            "frame_max",
-            "frames_over_50",
-            "xhr",
-            "xhr_ms",
-            "edits",
-            "edit_apply_ms",
-            "page_views",
-            "pages_passed",
-            "rendered",
-        ],
-    );
-
-    // 3. A jump far down (a scroll bar drag or End), then until sharp.
-    let mut runs = Vec::new();
-    let mut ok = true;
-    for r in 0..reps {
-        reset_view(st, 0).await;
-        let target = (mid + r * 7).min(pages - 1);
-        let before = mark(st);
-        let mut m = obj(&format!(
-            "const P = window.__foliPerf, c = document.getElementById('canvas'), pg = document.getElementById('pg-{target}'); P.reset(); const t0 = performance.now(); c.scrollTop = pg.offsetTop - 16; const sharp = await P.waitSharp(t0, 20000, 0, 0); return Object.assign(P.stats(), {{ sharp_after_ms: sharp }});"
-        ))
-        .await;
-        // When the current page follows.
-        let started = Instant::now();
-        while st.current_page() != target && started.elapsed() < Duration::from_secs(5) {
-            pause(20).await;
+        // 3. A jump far down (a scroll bar drag or End), then until sharp.
+        let mut runs = Vec::new();
+        let mut ok = true;
+        for r in 0..reps {
+            reset_view(st, 0).await;
+            let target = (mid + r * 7).min(pages - 1);
+            let before = mark(st);
+            let mut m = obj(&format!(
+                "const P = window.__foliPerf, c = document.getElementById('canvas'), pg = document.getElementById('pg-{target}'); P.reset(); const t0 = performance.now(); c.scrollTop = pg.offsetTop - 16; const sharp = await P.waitSharp(t0, 20000, 0, 0); return Object.assign(P.stats(), {{ sharp_after_ms: sharp }});"
+            ))
+            .await;
+            // When the current page follows.
+            let started = Instant::now();
+            while st.current_page() != target && started.elapsed() < Duration::from_secs(5) {
+                pause(20).await;
+            }
+            m.insert(
+                "page_followed_ms".into(),
+                json!(if st.current_page() == target {
+                    started.elapsed().as_secs_f64() * 1000.0
+                } else {
+                    -1.0
+                }),
+            );
+            m.extend(counted(st, before));
+            ok &= num(&Value::Object(m.clone()), "sharp_after_ms") >= 0.0;
+            runs.push(m);
         }
-        m.insert(
-            "page_followed_ms".into(),
-            json!(if st.current_page() == target {
-                started.elapsed().as_secs_f64() * 1000.0
-            } else {
-                -1.0
-            }),
+        p.record(
+            doc,
+            "jump far down",
+            runs,
+            ok,
+            &[
+                "sharp_after_ms",
+                "page_followed_ms",
+                "xhr",
+                "page_views",
+                "rendered",
+                "pictures_asked",
+            ],
         );
-        m.extend(counted(st, before));
-        ok &= num(&Value::Object(m.clone()), "sharp_after_ms") >= 0.0;
-        runs.push(m);
-    }
-    p.record(
-        doc,
-        "jump far down",
-        runs,
-        ok,
-        &[
-            "sharp_after_ms",
-            "page_followed_ms",
-            "xhr",
-            "page_views",
-            "rendered",
-            "pictures_asked",
-        ],
-    );
 
-    // 4. Wheel events (they do not scroll: the cost of their listeners).
-    let mut runs = Vec::new();
-    for _ in 0..reps {
-        reset_view(st, mid).await;
-        let before = mark(st);
-        let mut m = obj(
-            "const P = window.__foliPerf, c = document.getElementById('canvas'); const r = c.getBoundingClientRect(); const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) || c; P.reset(); const times = []; for (let i = 0; i < 60; i++) { await new Promise(res => setTimeout(res, 16)); const t = performance.now(); el.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 40, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); times.push(performance.now() - t); } return Object.assign(P.stats(), P.moves(times));",
-        )
-        .await;
-        m.extend(counted(st, before));
-        runs.push(m);
+        // 4. Wheel events (they do not scroll: the cost of their listeners).
+        let mut runs = Vec::new();
+        for _ in 0..reps {
+            reset_view(st, mid).await;
+            let before = mark(st);
+            let mut m = obj(
+                "const P = window.__foliPerf, c = document.getElementById('canvas'); const r = c.getBoundingClientRect(); const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) || c; P.reset(); const times = []; for (let i = 0; i < 60; i++) { await new Promise(res => setTimeout(res, 16)); const t = performance.now(); el.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 40, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 })); times.push(performance.now() - t); } return Object.assign(P.stats(), P.moves(times));",
+            )
+            .await;
+            m.extend(counted(st, before));
+            runs.push(m);
+        }
+        p.record(
+            doc,
+            "60 wheel events",
+            runs,
+            true,
+            &["move_p50", "move_p95", "move_max", "xhr", "xhr_ms", "page_views"],
+        );
     }
-    p.record(
-        doc,
-        "60 wheel events",
-        runs,
-        true,
-        &["move_p50", "move_p95", "move_max", "xhr", "xhr_ms", "page_views"],
-    );
+    if wanted("zoom") {
+        // 5. Zoom: six Ctrl+wheel steps 30 ms apart.
+        let mut runs = Vec::new();
+        let mut ok = true;
+        for r in 0..reps {
+            // A different start for every run: no picture of an earlier run is reused.
+            reset_view_at(st, mid + r, 1.0 + 0.07 * r as f32).await;
+            let before = mark(st);
+            let mut m = obj(
+                "const P = window.__foliPerf, c = document.getElementById('canvas'); const r = c.getBoundingClientRect(); const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 3) || c; P.reset(); const times = []; for (let i = 0; i < 6; i++) { if (i) await new Promise(res => setTimeout(res, 30)); const t = performance.now(); el.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, ctrlKey: true, deltaY: -100, deltaMode: 0, clientX: r.left + r.width / 2, clientY: r.top + r.height / 3 })); times.push(performance.now() - t); } P.tLast = performance.now(); return Object.assign(P.moves(times), { xhr: P.xhr });",
+            )
+            .await;
+            let zoom = settled_zoom(st).await;
+            let sharp = obj(&format!(
+                "const P = window.__foliPerf; return {{ sharp_after_ms: await P.waitSharp(P.tLast, 20000, {zoom}, {pagew}) }};"
+            ))
+            .await;
+            m.extend(sharp);
+            pause(200).await;
+            m.extend(counted(st, before));
+            m.insert("zoom".into(), json!(zoom));
+            ok &= num(&Value::Object(m.clone()), "sharp_after_ms") >= 0.0;
+            runs.push(m);
+        }
+        p.record(
+            doc,
+            "zoom: six Ctrl+wheel steps",
+            runs,
+            ok,
+            &[
+                "sharp_after_ms",
+                "zoom",
+                "move_p50",
+                "move_max",
+                "page_views",
+                "pictures_asked",
+                "rendered",
+                "dropped",
+                "render_ms",
+            ],
+        );
 
-    // 5. Zoom: six Ctrl+wheel steps 30 ms apart.
-    let mut runs = Vec::new();
-    let mut ok = true;
-    for r in 0..reps {
-        // A different start for every run: no picture of an earlier run is reused.
-        reset_view_at(st, mid + r, 1.0 + 0.07 * r as f32).await;
-        let before = mark(st);
-        let mut m = obj(
-            "const P = window.__foliPerf, c = document.getElementById('canvas'); const r = c.getBoundingClientRect(); const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 3) || c; P.reset(); const times = []; for (let i = 0; i < 6; i++) { if (i) await new Promise(res => setTimeout(res, 30)); const t = performance.now(); el.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, ctrlKey: true, deltaY: -100, deltaMode: 0, clientX: r.left + r.width / 2, clientY: r.top + r.height / 3 })); times.push(performance.now() - t); } P.tLast = performance.now(); return Object.assign(P.moves(times), { xhr: P.xhr });",
-        )
-        .await;
-        let zoom = settled_zoom(st).await;
-        let sharp = obj(&format!(
-            "const P = window.__foliPerf; return {{ sharp_after_ms: await P.waitSharp(P.tLast, 20000, {zoom}, {pagew}) }};"
-        ))
-        .await;
-        m.extend(sharp);
-        pause(200).await;
-        m.extend(counted(st, before));
-        m.insert("zoom".into(), json!(zoom));
-        ok &= num(&Value::Object(m.clone()), "sharp_after_ms") >= 0.0;
-        runs.push(m);
+        // 6. Dynamic zoom: a drag of 40 moves upwards.
+        let mut runs = Vec::new();
+        let mut ok = true;
+        for r in 0..reps {
+            reset_view_at(st, mid + r, 1.0 + 0.07 * r as f32).await;
+            st.set_tool(Tool::ZoomDyn);
+            pause(300).await;
+            let before = mark(st);
+            let cur = st.current_page();
+            let mut m = obj(&format!(
+                "const P = window.__foliPerf, el = document.querySelector('#pg-{cur} .page-inner'); if (!el) return {{ error: 'no page' }}; const path = []; for (let i = 1; i <= 40; i++) path.push(P.at(el, 200, 300 - i * 2)); return await P.drag(el, el, P.at(el, 200, 300), path);"
+            ))
+            .await;
+            let zoom = settled_zoom(st).await;
+            let sharp = obj(&format!(
+                "const P = window.__foliPerf; return {{ sharp_after_ms: await P.waitSharp(P.tUp, 20000, {zoom}, {pagew}) }};"
+            ))
+            .await;
+            m.extend(sharp);
+            pause(200).await;
+            m.extend(counted(st, before));
+            m.insert("zoom".into(), json!(zoom));
+            ok &= num(&Value::Object(m.clone()), "sharp_after_ms") >= 0.0;
+            runs.push(m);
+            st.set_tool(Tool::Hand);
+        }
+        p.record(
+            doc,
+            "dynamic zoom drag",
+            runs,
+            ok,
+            &[
+                "sharp_after_ms",
+                "zoom",
+                "move_p50",
+                "move_p95",
+                "frame_p95",
+                "page_views",
+                "pictures_asked",
+                "rendered",
+                "dropped",
+            ],
+        );
+
+        // 7. A drag of the left pane's edge at fit-width zoom: 40 frames of 3 px.
+        let mut runs = Vec::new();
+        let mut ok = true;
+        for r in 0..reps {
+            st.ui_mut().show_left_pane = true;
+            st.ui_mut().left_pane = "bookmarks".into();
+            st.with_active(|t| t.zoom = Zoom::FitWidth);
+            pause(400).await;
+            scroll_to_page(mid).await;
+            let _ = wait_sharp(15_000).await;
+            let before = mark(st);
+            // A different path for every run: no picture of an earlier run is reused.
+            let mut m = obj(&format!(
+                "const P = window.__foliPerf, main = document.querySelector('.main'); if (!main) return {{ error: 'no main' }}; const w0 = parseFloat(getComputedStyle(main).getPropertyValue('--pane-w')) || 240; P.reset(); P.rec = true; for (let i = 1; i <= 40; i++) {{ await P.frame(); main.style.setProperty('--pane-w', (w0 + {off} + 3 * i) + 'px'); }} P.tLast = performance.now(); P.rec = false; P.paneW0 = w0; return P.stats();",
+                off = 2 * r
+            ))
+            .await;
+            let zoom = settled_zoom(st).await;
+            let sharp = obj(&format!(
+                "const P = window.__foliPerf; return {{ sharp_after_ms: await P.waitSharp(P.tLast, 20000, {zoom}, {pagew}) }};"
+            ))
+            .await;
+            m.extend(sharp);
+            pause(200).await;
+            m.extend(counted(st, before));
+            ok &= num(&Value::Object(m.clone()), "sharp_after_ms") >= 0.0;
+            runs.push(m);
+            let _ = eval("const P = window.__foliPerf, main = document.querySelector('.main'); if (main && P.paneW0) main.style.setProperty('--pane-w', P.paneW0 + 'px'); return true;").await;
+            st.ui_mut().show_left_pane = false;
+            pause(300).await;
+        }
+        p.record(
+            doc,
+            "pane edge drag at fit width",
+            runs,
+            ok,
+            &[
+                "sharp_after_ms",
+                "frame_p95",
+                "frame_max",
+                "xhr",
+                "page_views",
+                "pictures_asked",
+                "rendered",
+                "dropped",
+            ],
+        );
     }
-    p.record(
-        doc,
-        "zoom: six Ctrl+wheel steps",
-        runs,
-        ok,
-        &[
-            "sharp_after_ms",
-            "zoom",
-            "move_p50",
-            "move_max",
-            "page_views",
-            "pictures_asked",
-            "rendered",
-            "dropped",
-            "render_ms",
-        ],
-    );
+    if wanted("tools") {
+        // 8. Text selection: a drag over the lines of a page.
+        let mut runs = Vec::new();
+        let mut ok = true;
+        let (x0, y0, lh) = if pages == 50 {
+            (52.0f32, 75.0f32, 12.5f32)
+        } else {
+            (62.0, 71.0, 13.0)
+        };
+        for _ in 0..reps {
+            reset_view(st, mid).await;
+            st.set_tool(Tool::Select);
+            pause(300).await;
+            let before = mark(st);
+            let cur = st.current_page();
+            let mut m = obj(&format!(
+                "const P = window.__foliPerf, el = document.querySelector('#pg-{cur} .page-inner'); if (!el) return {{ error: 'no page' }}; const path = []; for (let i = 1; i <= 60; i++) path.push(P.at(el, {x0} + (i % 20) * 22, {y0} + Math.floor(i / 20) * {lh})); const r = await P.drag(el, el, P.at(el, {x0}, {y0}), path); r.shown_after_ms = await P.waitFor(P.tUp, 10000, () => document.querySelectorAll('#pg-{cur} .sel').length > 0); return r;"
+            ))
+            .await;
+            pause(200).await;
+            m.extend(counted(st, before));
+            let selected = st
+                .read_active(|t| t.text_sel.map(|s| s.range().1 - s.range().0))
+                .flatten()
+                .unwrap_or(0);
+            m.insert("chars".into(), json!(selected));
+            ok &= selected > 0;
+            runs.push(m);
+            st.with_active(|t| t.text_sel = None);
+            st.set_tool(Tool::Hand);
+        }
+        p.record(
+            doc,
+            "text selection drag",
+            runs,
+            ok,
+            &[
+                "down_ms",
+                "move_p50",
+                "move_p95",
+                "move_max",
+                "frame_p95",
+                "shown_after_ms",
+                "xhr",
+                "page_views",
+                "edits",
+                "edit_apply_ms",
+                "chars",
+            ],
+        );
 
-    // 6. Dynamic zoom: a drag of 40 moves upwards.
-    let mut runs = Vec::new();
-    let mut ok = true;
-    for r in 0..reps {
-        reset_view_at(st, mid + r, 1.0 + 0.07 * r as f32).await;
-        st.set_tool(Tool::ZoomDyn);
-        pause(300).await;
-        let before = mark(st);
-        let cur = st.current_page();
-        let mut m = obj(&format!(
-            "const P = window.__foliPerf, el = document.querySelector('#pg-{cur} .page-inner'); if (!el) return {{ error: 'no page' }}; const path = []; for (let i = 1; i <= 40; i++) path.push(P.at(el, 200, 300 - i * 2)); return await P.drag(el, el, P.at(el, 200, 300), path);"
-        ))
-        .await;
-        let zoom = settled_zoom(st).await;
-        let sharp = obj(&format!(
-            "const P = window.__foliPerf; return {{ sharp_after_ms: await P.waitSharp(P.tUp, 20000, {zoom}, {pagew}) }};"
-        ))
-        .await;
-        m.extend(sharp);
-        pause(200).await;
-        m.extend(counted(st, before));
-        m.insert("zoom".into(), json!(zoom));
-        ok &= num(&Value::Object(m.clone()), "sharp_after_ms") >= 0.0;
-        runs.push(m);
-        st.set_tool(Tool::Hand);
+        // 9. Hand tool: a drag that scrolls the pages.
+        let mut runs = Vec::new();
+        let mut ok = true;
+        for _ in 0..reps {
+            reset_view(st, mid).await;
+            st.set_tool(Tool::Hand);
+            pause(200).await;
+            let before = mark(st);
+            let cur = st.current_page();
+            let mut m = obj(&format!(
+                "const P = window.__foliPerf, c = document.getElementById('canvas'), el = document.querySelector('#pg-{cur} .page-inner'); if (!el) return {{ error: 'no page' }}; const top0 = c.scrollTop; const path = []; for (let i = 1; i <= 40; i++) path.push(P.at(el, 330, 600 - i * 5)); const r = await P.drag(el, el, P.at(el, 330, 600), path); r.scrolled = c.scrollTop - top0; return r;"
+            ))
+            .await;
+            pause(200).await;
+            m.extend(counted(st, before));
+            ok &= num(&Value::Object(m.clone()), "scrolled") > 50.0;
+            runs.push(m);
+        }
+        p.record(
+            doc,
+            "hand tool drag",
+            runs,
+            ok,
+            &[
+                "down_ms",
+                "move_p50",
+                "move_p95",
+                "frame_p95",
+                "frame_max",
+                "xhr",
+                "page_views",
+                "scrolled",
+            ],
+        );
+
+        // 10. Moving a comment (the rectangle of the page), then until the page
+        // shows its new picture.
+        let mut runs = Vec::new();
+        let mut ok = true;
+        for _ in 0..reps {
+            reset_view(st, mid).await;
+            st.set_tool(Tool::EditAnnots);
+            pause(400).await;
+            let cur = st.current_page();
+            let before = mark(st);
+            let rev_before = st.read_active(|t| t.doc.revision()).unwrap_or(0);
+            let mut m = obj(&format!(
+                "const P = window.__foliPerf, el = document.querySelector('#pg-{cur} .page-inner'); if (!el) return {{ error: 'no page' }}; const img = el.querySelector('.page-img'); const src0 = img ? img.src : ''; const from = P.at(el, 200, 392); const first = document.elementFromPoint(from.clientX, from.clientY) || el; const path = []; for (let i = 1; i <= 30; i++) path.push(P.at(el, 200 + i, 392 + i)); const r = await P.drag(first, el, from, path); r.target = String(first.className); r.new_picture_ms = await P.waitFor(P.tUp, 15000, () => {{ const i = document.querySelector('#pg-{cur} .page-img'); return i && i.src !== src0 && i.complete && i.naturalWidth > 0; }}); return r;"
+            ))
+            .await;
+            pause(300).await;
+            m.extend(counted(st, before));
+            let moved = st.read_active(|t| t.doc.revision()).unwrap_or(0) != rev_before;
+            m.insert("moved".into(), json!(moved));
+            ok &= moved && num(&Value::Object(m.clone()), "new_picture_ms") >= 0.0;
+            runs.push(m);
+            crate::commands::dispatch(st, "undo");
+            st.set_tool(Tool::Hand);
+            pause(400).await;
+        }
+        p.record(
+            doc,
+            "comment drag",
+            runs,
+            ok,
+            &[
+                "down_ms",
+                "move_p50",
+                "move_p95",
+                "move_max",
+                "new_picture_ms",
+                "xhr",
+                "page_views",
+                "thumb_panes",
+                "pictures_asked",
+                "rendered",
+                "moved",
+                "target",
+            ],
+        );
+
+        // 11. The pointer over the ribbon and the thumbnails (nothing to do).
+        let mut runs = Vec::new();
+        for _ in 0..reps {
+            st.ui_mut().show_left_pane = true;
+            st.ui_mut().left_pane = "thumbnails".into();
+            pause(500).await;
+            let before = mark(st);
+            let mut m = obj(
+                "const P = window.__foliPerf; const els = [...document.querySelectorAll('.ribbon-body .rbtn, .thumbs .thumb')].slice(0, 40); P.reset(); const times = []; for (let i = 0; i < 100; i++) { const el = els[i % els.length]; if (!el) break; const r = el.getBoundingClientRect(); await P.frame(); const t = performance.now(); el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left + 3, clientY: r.top + 3 })); times.push(performance.now() - t); } return Object.assign(P.stats(), P.moves(times));",
+            )
+            .await;
+            m.extend(counted(st, before));
+            runs.push(m);
+            st.ui_mut().show_left_pane = false;
+            pause(200).await;
+        }
+        p.record(
+            doc,
+            "pointer over the ribbon and thumbnails",
+            runs,
+            true,
+            &["xhr", "xhr_ms", "move_p50", "move_max", "page_views"],
+        );
     }
-    p.record(
-        doc,
-        "dynamic zoom drag",
-        runs,
-        ok,
-        &[
-            "sharp_after_ms",
-            "zoom",
-            "move_p50",
-            "move_p95",
-            "frame_p95",
-            "page_views",
-            "pictures_asked",
-            "rendered",
-            "dropped",
-        ],
-    );
-
-    // 7. A drag of the left pane's edge at fit-width zoom: 40 frames of 3 px.
-    let mut runs = Vec::new();
-    let mut ok = true;
-    for r in 0..reps {
-        st.ui_mut().show_left_pane = true;
-        st.ui_mut().left_pane = "bookmarks".into();
-        st.with_active(|t| t.zoom = Zoom::FitWidth);
-        pause(400).await;
-        scroll_to_page(mid).await;
-        let _ = wait_sharp(15_000).await;
-        let before = mark(st);
-        // A different path for every run: no picture of an earlier run is reused.
-        let mut m = obj(&format!(
-            "const P = window.__foliPerf, main = document.querySelector('.main'); if (!main) return {{ error: 'no main' }}; const w0 = parseFloat(getComputedStyle(main).getPropertyValue('--pane-w')) || 240; P.reset(); P.rec = true; for (let i = 1; i <= 40; i++) {{ await P.frame(); main.style.setProperty('--pane-w', (w0 + {off} + 3 * i) + 'px'); }} P.tLast = performance.now(); P.rec = false; P.paneW0 = w0; return P.stats();",
-            off = 2 * r
-        ))
-        .await;
-        let zoom = settled_zoom(st).await;
-        let sharp = obj(&format!(
-            "const P = window.__foliPerf; return {{ sharp_after_ms: await P.waitSharp(P.tLast, 20000, {zoom}, {pagew}) }};"
-        ))
-        .await;
-        m.extend(sharp);
-        pause(200).await;
-        m.extend(counted(st, before));
-        ok &= num(&Value::Object(m.clone()), "sharp_after_ms") >= 0.0;
-        runs.push(m);
-        let _ = eval("const P = window.__foliPerf, main = document.querySelector('.main'); if (main && P.paneW0) main.style.setProperty('--pane-w', P.paneW0 + 'px'); return true;").await;
-        st.ui_mut().show_left_pane = false;
-        pause(300).await;
-    }
-    p.record(
-        doc,
-        "pane edge drag at fit width",
-        runs,
-        ok,
-        &[
-            "sharp_after_ms",
-            "frame_p95",
-            "frame_max",
-            "xhr",
-            "page_views",
-            "pictures_asked",
-            "rendered",
-            "dropped",
-        ],
-    );
-
-    // 8. Text selection: a drag over the lines of a page.
-    let mut runs = Vec::new();
-    let mut ok = true;
-    let (x0, y0, lh) = if pages == 50 {
-        (52.0f32, 75.0f32, 12.5f32)
-    } else {
-        (62.0, 71.0, 13.0)
-    };
-    for _ in 0..reps {
-        reset_view(st, mid).await;
-        st.set_tool(Tool::Select);
-        pause(300).await;
-        let before = mark(st);
-        let cur = st.current_page();
-        let mut m = obj(&format!(
-            "const P = window.__foliPerf, el = document.querySelector('#pg-{cur} .page-inner'); if (!el) return {{ error: 'no page' }}; const path = []; for (let i = 1; i <= 60; i++) path.push(P.at(el, {x0} + (i % 20) * 22, {y0} + Math.floor(i / 20) * {lh})); const r = await P.drag(el, el, P.at(el, {x0}, {y0}), path); r.shown_after_ms = await P.waitFor(P.tUp, 10000, () => document.querySelectorAll('#pg-{cur} .sel').length > 0); return r;"
-        ))
-        .await;
-        pause(200).await;
-        m.extend(counted(st, before));
-        let selected = st
-            .read_active(|t| t.text_sel.map(|s| s.range().1 - s.range().0))
-            .flatten()
-            .unwrap_or(0);
-        m.insert("chars".into(), json!(selected));
-        ok &= selected > 0;
-        runs.push(m);
-        st.with_active(|t| t.text_sel = None);
-        st.set_tool(Tool::Hand);
-    }
-    p.record(
-        doc,
-        "text selection drag",
-        runs,
-        ok,
-        &[
-            "down_ms",
-            "move_p50",
-            "move_p95",
-            "move_max",
-            "frame_p95",
-            "shown_after_ms",
-            "xhr",
-            "page_views",
-            "edits",
-            "edit_apply_ms",
-            "chars",
-        ],
-    );
-
-    // 9. Hand tool: a drag that scrolls the pages.
-    let mut runs = Vec::new();
-    let mut ok = true;
-    for _ in 0..reps {
-        reset_view(st, mid).await;
-        st.set_tool(Tool::Hand);
-        pause(200).await;
-        let before = mark(st);
-        let cur = st.current_page();
-        let mut m = obj(&format!(
-            "const P = window.__foliPerf, c = document.getElementById('canvas'), el = document.querySelector('#pg-{cur} .page-inner'); if (!el) return {{ error: 'no page' }}; const top0 = c.scrollTop; const path = []; for (let i = 1; i <= 40; i++) path.push(P.at(el, 330, 600 - i * 5)); const r = await P.drag(el, el, P.at(el, 330, 600), path); r.scrolled = c.scrollTop - top0; return r;"
-        ))
-        .await;
-        pause(200).await;
-        m.extend(counted(st, before));
-        ok &= num(&Value::Object(m.clone()), "scrolled") > 50.0;
-        runs.push(m);
-    }
-    p.record(
-        doc,
-        "hand tool drag",
-        runs,
-        ok,
-        &[
-            "down_ms",
-            "move_p50",
-            "move_p95",
-            "frame_p95",
-            "frame_max",
-            "xhr",
-            "page_views",
-            "scrolled",
-        ],
-    );
-
-    // 10. Moving a comment (the rectangle of the page), then until the page
-    // shows its new picture.
-    let mut runs = Vec::new();
-    let mut ok = true;
-    for _ in 0..reps {
-        reset_view(st, mid).await;
-        st.set_tool(Tool::EditAnnots);
-        pause(400).await;
-        let cur = st.current_page();
-        let before = mark(st);
-        let rev_before = st.read_active(|t| t.doc.revision()).unwrap_or(0);
-        let mut m = obj(&format!(
-            "const P = window.__foliPerf, el = document.querySelector('#pg-{cur} .page-inner'); if (!el) return {{ error: 'no page' }}; const img = el.querySelector('.page-img'); const src0 = img ? img.src : ''; const from = P.at(el, 200, 392); const first = document.elementFromPoint(from.clientX, from.clientY) || el; const path = []; for (let i = 1; i <= 30; i++) path.push(P.at(el, 200 + i, 392 + i)); const r = await P.drag(first, el, from, path); r.target = String(first.className); r.new_picture_ms = await P.waitFor(P.tUp, 15000, () => {{ const i = document.querySelector('#pg-{cur} .page-img'); return i && i.src !== src0 && i.complete && i.naturalWidth > 0; }}); return r;"
-        ))
-        .await;
-        pause(300).await;
-        m.extend(counted(st, before));
-        let moved = st.read_active(|t| t.doc.revision()).unwrap_or(0) != rev_before;
-        m.insert("moved".into(), json!(moved));
-        ok &= moved && num(&Value::Object(m.clone()), "new_picture_ms") >= 0.0;
-        runs.push(m);
-        crate::commands::dispatch(st, "undo");
-        st.set_tool(Tool::Hand);
-        pause(400).await;
-    }
-    p.record(
-        doc,
-        "comment drag",
-        runs,
-        ok,
-        &[
-            "down_ms",
-            "move_p50",
-            "move_p95",
-            "move_max",
-            "new_picture_ms",
-            "xhr",
-            "page_views",
-            "thumb_panes",
-            "pictures_asked",
-            "rendered",
-            "moved",
-            "target",
-        ],
-    );
-
-    // 11. The pointer over the ribbon and the thumbnails (nothing to do).
-    let mut runs = Vec::new();
-    for _ in 0..reps {
-        st.ui_mut().show_left_pane = true;
-        st.ui_mut().left_pane = "thumbnails".into();
-        pause(500).await;
-        let before = mark(st);
-        let mut m = obj(
-            "const P = window.__foliPerf; const els = [...document.querySelectorAll('.ribbon-body .rbtn, .thumbs .thumb')].slice(0, 40); P.reset(); const times = []; for (let i = 0; i < 100; i++) { const el = els[i % els.length]; if (!el) break; const r = el.getBoundingClientRect(); await P.frame(); const t = performance.now(); el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left + 3, clientY: r.top + 3 })); times.push(performance.now() - t); } return Object.assign(P.stats(), P.moves(times));",
-        )
-        .await;
-        m.extend(counted(st, before));
-        runs.push(m);
-        st.ui_mut().show_left_pane = false;
-        pause(200).await;
-    }
-    p.record(
-        doc,
-        "pointer over the ribbon and thumbnails",
-        runs,
-        true,
-        &["xhr", "xhr_ms", "move_p50", "move_max", "page_views"],
-    );
-
     let (own, web) = memory_mb();
     let mut m = Map::new();
     m.insert("ui_process_mb".into(), json!(own));

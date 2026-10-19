@@ -90,9 +90,44 @@ const VIEWPORT_SCRIPT: &str = r#"
 /// already ran") when the page collected the script's channel before the
 /// program read the result: the page tells the program to forget a channel
 /// once it is garbage. The channels of the last scripts are kept a while.
+///
+/// The events the program listens to on some element go to one listener at
+/// the root of the page, which sends every such event to the program and
+/// waits for its answer, even when no element on the event's way listens to
+/// it; and a listener goes on counting after its element is removed, so
+/// once any element had listened to mouse moves, every mouse move of the
+/// window waited for the program. Mouse moves, pointer moves and wheel
+/// events now reach the program only when an element on their way listens
+/// to them (the elements are marked when their listeners are made).
 const PAGE_FIXES_SCRIPT: &str = r#"
 (function(){
   const it = window.interpreter;
+  if (it && !it.__foliFiltered && it.root && ['createListener', 'removeListener'].every(f => typeof it[f] === 'function') && typeof it.handler === 'function') {
+    it.__foliFiltered = true;
+    const FILTERED = new Set(['mousemove', 'mouseover', 'mouseout', 'pointermove', 'pointerover', 'pointerout', 'wheel', 'touchmove', 'drag', 'dragover']);
+    // Kinds already listened to before this point: their elements are not
+    // marked, so they keep reaching the program as before.
+    const before = new Set(Object.keys(it.global || {}));
+    const marks = new WeakMap();
+    const mark = (el, name, by) => { if (!el || !FILTERED.has(name)) return; const m = marks.get(el) || {}; m[name] = Math.max(0, (m[name] || 0) + by); marks.set(el, m); };
+    const create = it.createListener, remove = it.removeListener;
+    it.createListener = function (name, el, bubbles) { if (bubbles) mark(el, name, 1); return create.call(this, name, el, bubbles); };
+    it.removeListener = function (el, name, bubbles) { if (bubbles) mark(el, name, -1); return remove.call(this, el, name, bubbles); };
+    const listened = e => {
+      for (let n = e.target; n; n = n.parentNode) {
+        const m = marks.get(n);
+        if (m && m[e.type] > 0) return true;
+        if (n === it.root) break;
+      }
+      return false;
+    };
+    const original = it.handler;
+    const filtered = function (e) {
+      if (FILTERED.has(e.type) && !before.has(e.type) && !listened(e)) return;
+      return original.call(this, e);
+    };
+    it.handler = filtered;
+  }
   if (it && !it.__foliEdits && ['rafEdits', 'enqueueBytes', 'flushQueuedBytes', 'markEditsFinished'].every(f => typeof it[f] === 'function')) {
     it.__foliEdits = true;
     it.rafEdits = function (bytes) {

@@ -189,9 +189,12 @@ pub(crate) fn r4_key_password(bytes: &[u8], password: &str) -> Option<Vec<u8>> {
     if candidates[0] != typed {
         candidates.push(typed.clone());
     }
+    // The library's own reading is right only for a password whose
+    // PDFDocEncoding is its UTF-8 (ASCII).
+    let library_reads_it = candidates.len() == 1;
     for candidate in candidates {
         if doc.authenticate_raw_user_password(&candidate).is_ok() {
-            return (candidate != typed).then_some(candidate);
+            return (!library_reads_it).then_some(candidate);
         }
         if doc.authenticate_raw_owner_password(&candidate).is_ok() {
             return Some(user_of_owner(dict, revision, &candidate));
@@ -754,5 +757,309 @@ mod tests {
             serde_json::to_string(&EncryptionProfile::Aes128).unwrap(),
             r#""aes-128""#
         );
+    }
+}
+
+/// Files protected by revisions 2 to 4 written here byte by byte, as other
+/// producers write them (the PDF library writes neither encrypted object
+/// streams nor passwords made from UTF-8 bytes).
+#[cfg(test)]
+mod handmade {
+    use std::collections::BTreeMap;
+
+    use lopdf::encryption::crypt_filters::{Aes128CryptFilter, CryptFilter, Rc4CryptFilter};
+
+    use super::*;
+    use crate::document::Document;
+
+    const FILE_ID: [u8; 16] = [5; 16];
+
+    fn padded(pw: &[u8]) -> Vec<u8> {
+        let mut v: Vec<u8> = pw.iter().copied().take(32).collect();
+        v.extend_from_slice(&PAD[..32 - v.len()]);
+        v
+    }
+
+    fn hex(data: &[u8]) -> String {
+        data.iter().map(|b| format!("{b:02X}")).collect()
+    }
+
+    /// The standard security handler of revision `r` (2, 3: RC4; 4: RC4 or
+    /// AES-128) with passwords given as the bytes the producer used.
+    struct Sec {
+        r: i64,
+        aes: bool,
+        key: Vec<u8>,
+        o: Vec<u8>,
+        u: Vec<u8>,
+    }
+
+    impl Sec {
+        fn new(r: i64, user: &[u8], owner: &[u8], aes: bool) -> Sec {
+            let n = if r == 2 { 5 } else { 16 };
+            // Algorithm 3: O.
+            let mut h = md5(&padded(if owner.is_empty() { user } else { owner }));
+            if r >= 3 {
+                for _ in 0..50 {
+                    h = md5(&h);
+                }
+            }
+            let k = h[..n].to_vec();
+            let mut o = rc4(&k, &padded(user));
+            if r >= 3 {
+                for i in 1..=19u8 {
+                    o = rc4(&k.iter().map(|b| b ^ i).collect::<Vec<_>>(), &o);
+                }
+            }
+            // Algorithm 2: the key.
+            let mut m = padded(user);
+            m.extend_from_slice(&o);
+            m.extend_from_slice(&(-4i32 as u32).to_le_bytes());
+            m.extend_from_slice(&FILE_ID);
+            let mut h = md5(&m);
+            if r >= 3 {
+                for _ in 0..50 {
+                    h = md5(&h[..n]);
+                }
+            }
+            let key = h[..n].to_vec();
+            // Algorithms 4 and 5: U.
+            let u = if r == 2 {
+                rc4(&key, &PAD)
+            } else {
+                let mut seed = PAD.to_vec();
+                seed.extend_from_slice(&FILE_ID);
+                let mut u = rc4(&key, &md5(&seed));
+                for i in 1..=19u8 {
+                    u = rc4(&key.iter().map(|b| b ^ i).collect::<Vec<_>>(), &u);
+                }
+                u.extend_from_slice(&[0; 16]);
+                u
+            };
+            Sec { r, aes, key, o, u }
+        }
+
+        fn crypt(&self, id: u32, data: &[u8]) -> Vec<u8> {
+            let filter: &dyn CryptFilter = if self.aes {
+                &Aes128CryptFilter
+            } else {
+                &Rc4CryptFilter
+            };
+            let key = filter.compute_key(&self.key, (id, 0)).unwrap();
+            filter.encrypt(&key, data).unwrap()
+        }
+
+        fn dictionary(&self) -> String {
+            let (o, u) = (hex(&self.o), hex(&self.u));
+            match self.r {
+                4 => format!(
+                    "<< /Filter /Standard /V 4 /R 4 /Length 128 /O <{o}> /U <{u}> /P -4 /CF << /StdCF << /Type /CryptFilter /CFM /{} /AuthEvent /DocOpen /Length 16 >> >> /StmF /StdCF /StrF /StdCF >>",
+                    if self.aes { "AESV2" } else { "V2" }
+                ),
+                r => format!(
+                    "<< /Filter /Standard /V {} /R {r} /Length {} /O <{o}> /U <{u}> /P -4 >>",
+                    if r == 2 { 1 } else { 2 },
+                    if r == 2 { 40 } else { 128 }
+                ),
+            }
+        }
+    }
+
+    struct Out {
+        bytes: Vec<u8>,
+        offsets: BTreeMap<u32, usize>,
+    }
+
+    impl Out {
+        fn obj(&mut self, n: u32, text: &str) {
+            self.offsets.insert(n, self.bytes.len());
+            self.bytes.extend(format!("{n} 0 obj\n{text}\nendobj\n").bytes());
+        }
+
+        fn stream(&mut self, n: u32, dict: &str, data: &[u8]) {
+            self.offsets.insert(n, self.bytes.len());
+            self.bytes
+                .extend(format!("{n} 0 obj\n<< {dict} /Length {} >>\nstream\n", data.len()).bytes());
+            self.bytes.extend_from_slice(data);
+            self.bytes.extend(b"\nendstream\nendobj\n");
+        }
+
+        /// A cross-reference stream `n` of `entries` (number, type, field 2, field 3).
+        fn xref(
+            &mut self,
+            n: u32,
+            mut entries: Vec<(u32, u8, u32, u16)>,
+            trailer: &str,
+            prev: Option<usize>,
+        ) -> usize {
+            let at = self.bytes.len();
+            entries.push((n, 1, at as u32, 0));
+            entries.sort();
+            let size = entries.iter().map(|e| e.0).max().unwrap_or(0) + 1;
+            let mut data = Vec::new();
+            let mut index = String::new();
+            for (num, kind, f2, f3) in &entries {
+                data.push(*kind);
+                data.extend(f2.to_be_bytes());
+                data.extend(f3.to_be_bytes());
+                index.push_str(&format!("{num} 1 "));
+            }
+            let prev = prev.map(|p| format!("/Prev {p}")).unwrap_or_default();
+            self.bytes.extend(
+                format!(
+                    "{n} 0 obj\n<< /Type /XRef /Size {size} /W [1 4 2] /Index [{index}] {trailer} {prev} /Length {} >>\nstream\n",
+                    data.len()
+                )
+                .bytes(),
+            );
+            self.bytes.extend(data);
+            self.bytes
+                .extend(format!("\nendstream\nendobj\nstartxref\n{at}\n%%EOF\n").bytes());
+            at
+        }
+    }
+
+    fn object_stream(members: &[(u32, &str)]) -> (String, Vec<u8>) {
+        let (mut head, mut body) = (String::new(), String::new());
+        for (n, text) in members {
+            head.push_str(&format!("{n} {} ", body.len()));
+            body.push_str(text);
+            body.push('\n');
+        }
+        (
+            format!("/Type /ObjStm /N {} /First {}", members.len(), head.len() + 1),
+            format!("{head}\n{body}").into_bytes(),
+        )
+    }
+
+    /// Two revisions: the page tree and object 6 (`/Val (OLD-VALUE)`) and 7
+    /// live in object stream 10; the second revision puts a new object 6
+    /// (`/Val (NEW-VALUE)`) in object stream 20 and frees object 7, while
+    /// stream 10 stays.
+    fn two_revisions(r: i64, user: &[u8], owner: &[u8], aes: bool) -> Vec<u8> {
+        let sec = Sec::new(r, user, owner, aes);
+        let mut out = Out {
+            bytes: b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n".to_vec(),
+            offsets: BTreeMap::new(),
+        };
+        out.obj(1, "<< /Type /Catalog /Pages 2 0 R /Probe 6 0 R >>");
+        let members = [
+            (2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+            (
+                3,
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+            ),
+            (6, "<< /Val (OLD-VALUE) >>"),
+            (7, "<< /Zombie (ZOMBIE) >>"),
+        ];
+        let (dict, data) = object_stream(&members);
+        out.stream(10, &dict, &sec.crypt(10, &data));
+        out.obj(4, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+        out.stream(
+            5,
+            "",
+            &sec.crypt(5, b"BT /F1 12 Tf 20 100 Td (MARK-OBJSTM) Tj ET"),
+        );
+        out.obj(8, &sec.dictionary());
+        let mut entries = vec![(0, 0, 0, 0xFFFF)];
+        for n in [1, 4, 5, 8, 10] {
+            entries.push((n, 1, out.offsets[&n] as u32, 0));
+        }
+        for (i, (n, _)) in members.iter().enumerate() {
+            entries.push((*n, 2, 10, i as u16));
+        }
+        let trailer = format!("/Root 1 0 R /Encrypt 8 0 R /ID [<{0}> <{0}>]", hex(&FILE_ID));
+        let first = out.xref(9, entries, &trailer, None);
+        let (dict, data) = object_stream(&[(6, "<< /Val (NEW-VALUE) >>")]);
+        out.stream(20, &dict, &sec.crypt(20, &data));
+        let entries = vec![(6, 2, 20, 0), (7, 0, 0, 1), (20, 1, out.offsets[&20] as u32, 0)];
+        out.xref(21, entries, &trailer, Some(first));
+        out.bytes
+    }
+
+    fn val(doc: &Document) -> Vec<u8> {
+        doc.inner
+            .get_dictionary((6, 0))
+            .and_then(|d| d.get(b"Val"))
+            .and_then(Object::as_str)
+            .map(|s| s.to_vec())
+            .unwrap_or_default()
+    }
+
+    /// The objects of a document, comparable whatever the reading.
+    fn objects(doc: &Document) -> BTreeMap<lopdf::ObjectId, Object> {
+        doc.inner
+            .objects
+            .iter()
+            .filter(|(_, o)| !matches!(o.type_name(), Ok(b"XRef")))
+            .map(|(id, o)| {
+                let mut o = o.clone();
+                if let Object::Stream(s) = &mut o {
+                    s.start_position = None;
+                }
+                (*id, o)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn object_streams_of_later_revisions_win_whatever_the_password() {
+        // ASCII user passwords are read by the PDF library; owner passwords
+        // and passwords outside ASCII (PDFDocEncoding or UTF-8 bytes) here.
+        // Every reading gives the same objects, with the newer object 6.
+        let latin = |s: &str| s.chars().map(|c| c as u8).collect::<Vec<u8>>();
+        // Revision, AES, the user and owner passwords as written by the
+        // producer, and as typed.
+        type Case<'a> = (i64, bool, Vec<u8>, Vec<u8>, &'a str, &'a str);
+        let cases: Vec<Case> = vec![
+            (4, true, b"user".to_vec(), b"owner".to_vec(), "user", "owner"),
+            (3, false, b"user".to_vec(), b"owner".to_vec(), "user", "owner"),
+            (2, false, b"user".to_vec(), b"owner".to_vec(), "user", "owner"),
+            (4, true, latin("pässword"), latin("Ownér"), "pässword", "Ownér"),
+            (3, false, latin("pässword"), latin("Ownér"), "pässword", "Ownér"),
+            (
+                4,
+                true,
+                "пароль".as_bytes().to_vec(),
+                "владелец".as_bytes().to_vec(),
+                "пароль",
+                "владелец",
+            ),
+            (
+                3,
+                false,
+                "pässword".as_bytes().to_vec(),
+                "ownér".as_bytes().to_vec(),
+                "pässword",
+                "ownér",
+            ),
+        ];
+        for (r, aes, user, owner, typed_user, typed_owner) in cases {
+            let raw = two_revisions(r, &user, &owner, aes);
+            let mut reference = None;
+            for pw in [typed_user, typed_owner] {
+                let mut doc = Document::from_bytes(raw.clone(), None, Some(pw)).unwrap();
+                let case = format!("R{r} aes {aes}, password {pw:?}");
+                assert_eq!(val(&doc), b"NEW-VALUE", "{case}");
+                assert!(doc.page_text(0).contains("MARK-OBJSTM"), "{case}");
+                let objects = objects(&doc);
+                match &reference {
+                    None => reference = Some(objects),
+                    Some(r) => assert!(*r == objects, "{case}: other objects than with the user password"),
+                }
+                // Saved and opened again: still the newer value.
+                doc.rotate_pages(&[0], 90).unwrap();
+                let file = doc.file_bytes_from().unwrap();
+                for again in [typed_user, typed_owner] {
+                    let back = Document::from_bytes(file.bytes.clone(), None, Some(again)).unwrap();
+                    assert_eq!(val(&back), b"NEW-VALUE", "{case}, saved, opened with {again:?}");
+                    assert!(back.page_text(0).contains("MARK-OBJSTM"), "{case}");
+                }
+            }
+            assert!(matches!(
+                Document::from_bytes(raw, None, Some("wrong")),
+                Err(Error::WrongPassword)
+            ));
+        }
     }
 }

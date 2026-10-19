@@ -1840,6 +1840,7 @@ dependencies = [
  "icondata_core",
  "icondata_tb",
  "image",
+ "libc",
  "native-tls",
  "open",
  "rfd",

@@ -1008,7 +1008,10 @@ mod handmade {
         // and passwords outside ASCII (PDFDocEncoding or UTF-8 bytes) here.
         // Every reading gives the same objects, with the newer object 6.
         let latin = |s: &str| s.chars().map(|c| c as u8).collect::<Vec<u8>>();
-        let cases: Vec<(i64, bool, Vec<u8>, Vec<u8>, &str, &str)> = vec![
+        // Revision, AES, the user and owner passwords as written by the
+        // producer, and as typed.
+        type Case<'a> = (i64, bool, Vec<u8>, Vec<u8>, &'a str, &'a str);
+        let cases: Vec<Case> = vec![
             (4, true, b"user".to_vec(), b"owner".to_vec(), "user", "owner"),
             (3, false, b"user".to_vec(), b"owner".to_vec(), "user", "owner"),
             (2, false, b"user".to_vec(), b"owner".to_vec(), "user", "owner"),

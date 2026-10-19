@@ -139,7 +139,7 @@ pub fn App() -> Element {
     // Copies of the documents with unsaved changes, and the ones left behind.
     use_hook(|| crate::recovery::start(st));
     // Decrypted files left by windows that ended without Exit.
-    use_hook(crate::util::sweep_protected_temp);
+    use_hook(crate::private_files::sweep);
 
     // Open files passed on the command line.
     use_future(move || {

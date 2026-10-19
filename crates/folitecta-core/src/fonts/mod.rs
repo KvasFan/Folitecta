@@ -50,6 +50,9 @@ pub enum GlyphProblem {
     NeedsLayout(Vec<char>),
     /// Characters the font has no glyph for.
     Missing { font: String, chars: Vec<char> },
+    /// Characters beyond WinAnsi in the text of a text stamp, which is
+    /// drawn with the standard Helvetica only for now.
+    StampText(Vec<char>),
 }
 
 impl fmt::Display for GlyphProblem {
@@ -80,6 +83,11 @@ impl fmt::Display for GlyphProblem {
             GlyphProblem::Missing { font, chars } => {
                 write!(f, "the font {font} has no glyphs for {}", describe_chars(chars))
             }
+            GlyphProblem::StampText(chars) => write!(
+                f,
+                "{}: text stamps can draw only Western European characters for now",
+                describe_chars(chars)
+            ),
         }
     }
 }

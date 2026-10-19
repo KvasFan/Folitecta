@@ -821,6 +821,80 @@ fn xfdf_exchange_redraws_unicode_and_refuses_or_skips_what_cannot_be_drawn() {
 }
 
 #[test]
+fn replies_to_a_left_out_comment_are_left_out_with_it() {
+    let mut source = blank();
+    source
+        .add_free_text(
+            0,
+            [50.0, 700.0, 400.0, 740.0],
+            "PLACEHOLDER",
+            "Reviewer",
+            12.0,
+            BLACK,
+            true,
+        )
+        .unwrap();
+    source
+        .add_free_text(
+            0,
+            [50.0, 600.0, 400.0, 640.0],
+            "first",
+            "Reviewer",
+            12.0,
+            BLACK,
+            true,
+        )
+        .unwrap();
+    source.add_reply(0, 0, "agreed", "Second").unwrap();
+    source.add_reply(0, 1, "fine", "Second").unwrap();
+    // A reply to the reply goes with it too.
+    let agreed = source
+        .annotations(0)
+        .unwrap()
+        .iter()
+        .position(|a| a.contents == "agreed")
+        .unwrap();
+    source.add_reply(0, agreed, "me too", "Third").unwrap();
+    let xfdf = String::from_utf8(source.export_comments(CommentFormat::Xfdf, None).unwrap())
+        .unwrap()
+        .replace("PLACEHOLDER", "漢字");
+    let mut doc = blank();
+    match doc.import_comments(xfdf.as_bytes()) {
+        Err(Error::Undrawable(list)) => {
+            assert_eq!(list.len(), 1);
+            let replies: Vec<(&str, &str)> = list[0]
+                .replies
+                .iter()
+                .map(|r| (r.author.as_str(), r.contents.as_str()))
+                .collect();
+            assert_eq!(replies, vec![("Second", "agreed"), ("Third", "me too")]);
+            let message = Error::Undrawable(list).to_string();
+            assert!(
+                message.contains("agreed") && message.contains("me too"),
+                "{message}"
+            );
+        }
+        other => panic!("{other:?}"),
+    }
+    let (n, skipped) = doc.import_comments_skipping(xfdf.as_bytes()).unwrap();
+    assert_eq!((n, skipped.len()), (2, 1));
+    let comments = doc.comments();
+    let texts: Vec<(&str, bool)> = comments
+        .iter()
+        .map(|c| (c.contents.as_str(), c.is_reply))
+        .collect();
+    assert_eq!(texts, vec![("first", false), ("fine", true)]);
+    // No pop-up is left without its comment.
+    let all = doc.annotations(0).unwrap();
+    let ids: Vec<lopdf::ObjectId> = all.iter().filter_map(|a| a.id).collect();
+    for a in all.iter().filter(|a| a.subtype == "Popup") {
+        let popup = doc.inner().get_dictionary(a.id.unwrap()).unwrap();
+        let parent = popup.get(b"Parent").unwrap().as_reference().unwrap();
+        assert!(ids.contains(&parent));
+    }
+}
+
+#[test]
 fn fdf_and_pdf_imports_keep_the_embedded_subset() {
     let mut source = blank();
     add_box(&mut source, MIXED).unwrap();
@@ -1051,8 +1125,23 @@ fn text_stamps_refuse_text_beyond_winansi() {
     let before = Unchanged::of(&doc);
     assert!(matches!(
         doc.add_stamp(0, [100.0, 100.0, 300.0, 160.0], "Łódź", [0.8, 0.1, 0.1], "Reviewer"),
-        Err(Error::Glyphs(GlyphProblem::Missing { font, chars })) if font == "Helvetica" && chars == vec!['Ł', 'ź']
+        Err(Error::Glyphs(GlyphProblem::StampText(chars))) if chars == vec!['Ł', 'ź']
     ));
+    let message = doc
+        .add_stamp(
+            0,
+            [100.0, 100.0, 300.0, 160.0],
+            "Łódź",
+            [0.8, 0.1, 0.1],
+            "Reviewer",
+        )
+        .unwrap_err()
+        .to_string();
+    assert!(
+        message.contains("text stamps can draw only Western European characters"),
+        "{message}"
+    );
+    assert!(!message.contains("Helvetica"), "{message}");
     before.check(&doc);
     doc.add_stamp(
         0,
@@ -1065,7 +1154,7 @@ fn text_stamps_refuse_text_beyond_winansi() {
     let before = Unchanged::of(&doc);
     assert!(matches!(
         doc.set_annotation_contents(0, 0, "Approvato à Łódź"),
-        Err(Error::Glyphs(GlyphProblem::Missing { .. }))
+        Err(Error::Glyphs(GlyphProblem::StampText(_)))
     ));
     before.check(&doc);
     assert_eq!(doc.annotations(0).unwrap()[0].contents, "APPROVED");

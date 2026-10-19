@@ -705,18 +705,23 @@ impl Document {
             ));
         }
         // Every comment of an XFDF file is drawn here: check the text first.
-        let mut skipped = Vec::new();
+        let (keep, skipped) = {
+            let candidates: Vec<Candidate<'_>> = items
+                .iter()
+                .map(|it| Candidate {
+                    page: it.page,
+                    name: it.name.clone(),
+                    in_reply_to: it.in_reply_to.clone(),
+                    dict: &it.dict,
+                    keeps_drawing: it.keep_appearance,
+                })
+                .collect();
+            plan_import(&self.inner, &candidates)
+        };
         let items: Vec<Imported> = items
             .into_iter()
-            .filter(
-                |it| match undrawable(&self.inner, it.page, &it.dict, &it.name, it.keep_appearance) {
-                    Some(c) => {
-                        skipped.push(c);
-                        false
-                    }
-                    None => true,
-                },
-            )
+            .zip(keep)
+            .filter_map(|(it, kept)| kept.then_some(it))
             .collect();
         if !skipped.is_empty() && !skip {
             return Err(Error::Undrawable(skipped));

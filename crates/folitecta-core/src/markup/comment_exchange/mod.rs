@@ -84,19 +84,54 @@ pub struct UndrawableComment {
     pub name: String,
     pub contents: String,
     pub problem: GlyphProblem,
+    /// The replies to it (and the replies to them), left out with it
+    /// together with their pop-ups.
+    pub replies: Vec<LeftOutReply>,
+}
+
+/// A reply left out with the comment it answers.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LeftOutReply {
+    pub author: String,
+    pub contents: String,
+}
+
+/// At most 40 characters of a text, for messages.
+pub(crate) fn excerpt(text: &str) -> String {
+    let mut out: String = text.chars().take(40).collect();
+    if text.chars().count() > 40 {
+        out.push('…');
+    }
+    out
+}
+
+impl fmt::Display for LeftOutReply {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if !self.author.is_empty() {
+            write!(f, "{}: ", self.author)?;
+        }
+        write!(f, "“{}”", excerpt(&self.contents))
+    }
 }
 
 impl fmt::Display for UndrawableComment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut text: String = self.contents.chars().take(40).collect();
-        if self.contents.chars().count() > 40 {
-            text.push('…');
-        }
         write!(f, "page {}", self.page + 1)?;
         if !self.author.is_empty() {
             write!(f, ", {}", self.author)?;
         }
-        write!(f, ", \"{text}\" ({}): {}", self.name, self.problem)
+        write!(
+            f,
+            ", \"{}\" ({}): {}",
+            excerpt(&self.contents),
+            self.name,
+            self.problem
+        )?;
+        if !self.replies.is_empty() {
+            let replies: Vec<String> = self.replies.iter().map(|r| r.to_string()).collect();
+            write!(f, " (replies left out with it: {})", replies.join(", "))?;
+        }
+        Ok(())
     }
 }
 
@@ -129,7 +164,56 @@ fn undrawable(
         name: name.to_string(),
         contents: dict_text(doc, d, b"Contents").unwrap_or_default(),
         problem,
+        replies: Vec::new(),
     })
+}
+
+/// One comment of an import, as the check before the import sees it.
+struct Candidate<'a> {
+    page: usize,
+    name: String,
+    /// Name of the comment it answers or is grouped under.
+    in_reply_to: Option<String>,
+    dict: &'a Dictionary,
+    /// Its own drawing is kept when it has one (PDF and FDF sources).
+    keeps_drawing: bool,
+}
+
+/// Which comments of an import are kept: not those whose text cannot be
+/// drawn, nor the replies to them (a reply alone would become a comment of
+/// its own); comments grouped under a left-out comment stay, on their own.
+/// `doc` resolves the references of the dictionaries.
+fn plan_import(doc: &lopdf::Document, items: &[Candidate<'_>]) -> (Vec<bool>, Vec<UndrawableComment>) {
+    let mut left_out: Vec<UndrawableComment> = Vec::new();
+    let mut root_of: HashMap<String, usize> = HashMap::new();
+    for it in items {
+        if let Some(c) = undrawable(doc, it.page, it.dict, &it.name, it.keeps_drawing) {
+            root_of.insert(it.name.clone(), left_out.len());
+            left_out.push(c);
+        }
+    }
+    loop {
+        let mut more = false;
+        for it in items {
+            let group = name_str(it.dict, b"RT").as_deref() == Some("Group");
+            if group || root_of.contains_key(&it.name) {
+                continue;
+            }
+            if let Some(root) = it.in_reply_to.as_ref().and_then(|p| root_of.get(p)).copied() {
+                left_out[root].replies.push(LeftOutReply {
+                    author: dict_text(doc, it.dict, b"T").unwrap_or_default(),
+                    contents: dict_text(doc, it.dict, b"Contents").unwrap_or_default(),
+                });
+                root_of.insert(it.name.clone(), root);
+                more = true;
+            }
+        }
+        if !more {
+            break;
+        }
+    }
+    let keep = items.iter().map(|it| !root_of.contains_key(&it.name)).collect();
+    (keep, left_out)
 }
 
 /// Comment subtypes that are exchanged, with their XFDF element names.
@@ -301,18 +385,27 @@ impl Document {
                 "the file contains no comments for the pages of this document".into(),
             ));
         }
-        let mut skipped = Vec::new();
+        let (keep, skipped) = {
+            let candidates: Vec<Candidate<'_>> = entries
+                .iter()
+                .map(|(page, id, d)| Candidate {
+                    page: *page,
+                    name: comment_name(src, d, *id),
+                    in_reply_to: d
+                        .get(b"IRT")
+                        .and_then(|o| o.as_reference())
+                        .ok()
+                        .and_then(|t| src.get_dictionary(t).ok().map(|td| comment_name(src, td, t))),
+                    dict: d,
+                    keeps_drawing: true,
+                })
+                .collect();
+            plan_import(src, &candidates)
+        };
         let entries: Vec<_> = entries
             .into_iter()
-            .filter(
-                |(page, id, d)| match undrawable(src, *page, d, &comment_name(src, d, *id), true) {
-                    Some(c) => {
-                        skipped.push(c);
-                        false
-                    }
-                    None => true,
-                },
-            )
+            .zip(keep)
+            .filter_map(|(e, kept)| kept.then_some(e))
             .collect();
         if !skipped.is_empty() && !skip {
             return Err(Error::Undrawable(skipped));

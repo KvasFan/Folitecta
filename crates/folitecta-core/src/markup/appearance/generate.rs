@@ -138,10 +138,7 @@ pub(crate) fn text_problem(doc: &lopdf::Document, d: &Dictionary) -> Option<Glyp
                 stamp_label(&name)
             };
             let beyond = beyond_winansi(&text);
-            (!beyond.is_empty()).then(|| GlyphProblem::Missing {
-                font: "Helvetica".into(),
-                chars: beyond,
-            })
+            (!beyond.is_empty()).then_some(GlyphProblem::StampText(beyond))
         }
         _ => None,
     }
@@ -583,11 +580,7 @@ impl Document {
                     // beyond WinAnsi is refused, never drawn as `?`.
                     let beyond = beyond_winansi(&text);
                     if !beyond.is_empty() {
-                        return Err(GlyphProblem::Missing {
-                            font: "Helvetica".into(),
-                            chars: beyond,
-                        }
-                        .into());
+                        return Err(GlyphProblem::StampText(beyond).into());
                     }
                     let font = self.helvetica_font_id();
                     resources.set("Font", dictionary! { "Helv" => font });

@@ -1255,3 +1255,39 @@ fn turned_and_cropped_pages_print_as_they_are_shown() {
         assert!(differing <= 4, "rotate {rotate}: {differing} pixels differ");
     }
 }
+
+#[test]
+fn shared_visibility_expressions_are_evaluated_once() {
+    // Eight levels, each an "And" of the level below twelve times: without
+    // sharing, 12^8 evaluations.
+    let bytes = pdf_with(vec![(100.0, 100.0, String::new())], |d, pages| {
+        let ocg = d.add_object(dictionary! { "Type" => "OCG", "Name" => Object::string_literal("On") });
+        let mut below = ocg;
+        for _ in 0..8 {
+            let mut level = vec![Object::Name(b"And".to_vec())];
+            level.extend(std::iter::repeat_n(Object::Reference(below), 12));
+            below = d.add_object(Object::Array(level));
+        }
+        let md = d.add_object(dictionary! {
+            "Type" => "OCMD", "OCGs" => vec![Object::Reference(ocg)], "VE" => Object::Reference(below),
+        });
+        let a = annot(d, pages[0], "Square", 4, (25.0, 25.0), RED);
+        d.get_dictionary_mut(a).unwrap().set("OC", md);
+        let root = d.trailer.get(b"Root").unwrap().as_reference().unwrap();
+        d.get_dictionary_mut(root).unwrap().set(
+            "OCProperties",
+            dictionary! { "OCGs" => vec![Object::Reference(ocg)], "D" => dictionary! {} },
+        );
+    });
+    let doc = open(bytes);
+    let src = source(&doc);
+    let plan = plan_of(&src, &[0], &one_to_one());
+    let started = std::time::Instant::now();
+    let out = build(&src, &plan, Content::DocumentAndComments);
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(2),
+        "{:?}",
+        started.elapsed()
+    );
+    assert!(is(pixel(&out, 0, 1.0, 0.5, 0.5), RED), "every layer is on: shown");
+}

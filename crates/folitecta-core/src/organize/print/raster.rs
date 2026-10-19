@@ -17,9 +17,11 @@ fn flate(data: &[u8]) -> Vec<u8> {
     enc.finish().unwrap_or_default()
 }
 
-/// The memory the compressed pictures of a print file may take (the file
-/// is held, then read again by its check).
-pub const PICTURES_BUDGET: usize = 768 << 20;
+/// The memory the compressed pictures of a print file may take. The job
+/// holds them about three times at its peak (in the file being made, in
+/// the file written, then in the check that reads it again), so about
+/// 1.5 GB at most.
+pub const PICTURES_BUDGET: usize = 512 << 20;
 
 /// How drawing the sheets as pictures ended.
 #[derive(Debug, Clone, PartialEq, Eq)]

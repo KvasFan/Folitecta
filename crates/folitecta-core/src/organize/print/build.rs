@@ -226,7 +226,7 @@ fn oc_visible(doc: &lopdf::Document, oc: &Object, states: &HashMap<ObjectId, boo
     if d.has_type(b"OCMD") {
         if let Ok(ve) = d.get(b"VE") {
             // An expression that cannot be read shows the content.
-            return visibility(doc, ve, states, 0).unwrap_or(true);
+            return visibility(doc, ve, states).unwrap_or(true);
         }
         let members = ocmd_members(doc, d);
         if members.is_empty() {
@@ -246,39 +246,63 @@ fn oc_visible(doc: &lopdf::Document, oc: &Object, states: &HashMap<ObjectId, boo
     }
 }
 
-/// The value of a visibility expression (PDF 32000-1, 8.11.2.2):
+/// The value of visibility expressions (PDF 32000-1, 8.11.2.2):
 /// `[/And e ...]`, `[/Or e ...]` or `[/Not e]`, each operand a layer or an
-/// expression. `None` when it cannot be read (an unknown operator, a missing
-/// object, deeper than 16 levels: also a cycle).
-fn visibility(
-    doc: &lopdf::Document,
-    e: &Object,
-    states: &HashMap<ObjectId, bool>,
-    depth: u32,
-) -> Option<bool> {
-    if depth > 16 {
-        return None;
-    }
-    match e {
-        Object::Reference(id) => match doc.get_object(*id).ok()? {
-            array @ Object::Array(_) => visibility(doc, array, states, depth + 1),
-            _ => Some(states.get(id).copied().unwrap_or(true)),
-        },
-        Object::Array(a) => {
-            let op = a.first()?.as_name().ok()?;
-            let values = a[1..]
-                .iter()
-                .map(|x| visibility(doc, x, states, depth + 1))
-                .collect::<Option<Vec<bool>>>()?;
-            match op {
-                b"And" if !values.is_empty() => Some(values.iter().all(|v| *v)),
-                b"Or" if !values.is_empty() => Some(values.iter().any(|v| *v)),
-                b"Not" if values.len() == 1 => Some(!values[0]),
-                _ => None,
-            }
+/// expression. An expression shared by several others is evaluated once;
+/// `None` when it cannot be read (an unknown operator, a missing object,
+/// deeper than 16 levels or a cycle, more than 10,000 parts in all).
+struct Visibility<'a> {
+    doc: &'a lopdf::Document,
+    states: &'a HashMap<ObjectId, bool>,
+    memo: HashMap<ObjectId, Option<bool>>,
+    visits: u32,
+}
+
+impl Visibility<'_> {
+    fn eval(&mut self, e: &Object, depth: u32) -> Option<bool> {
+        self.visits += 1;
+        if depth > 16 || self.visits > 10_000 {
+            return None;
         }
-        _ => None,
+        let doc = self.doc;
+        match e {
+            Object::Reference(id) => {
+                if let Some(v) = self.memo.get(id) {
+                    return *v;
+                }
+                let v = match doc.get_object(*id).ok()? {
+                    array @ Object::Array(_) => self.eval(array, depth + 1),
+                    _ => Some(self.states.get(id).copied().unwrap_or(true)),
+                };
+                self.memo.insert(*id, v);
+                v
+            }
+            Object::Array(a) => {
+                let op = a.first()?.as_name().ok()?;
+                let mut values = Vec::with_capacity(a.len().saturating_sub(1));
+                for x in &a[1..] {
+                    values.push(self.eval(x, depth + 1)?);
+                }
+                match op {
+                    b"And" if !values.is_empty() => Some(values.iter().all(|v| *v)),
+                    b"Or" if !values.is_empty() => Some(values.iter().any(|v| *v)),
+                    b"Not" if values.len() == 1 => Some(!values[0]),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
     }
+}
+
+fn visibility(doc: &lopdf::Document, e: &Object, states: &HashMap<ObjectId, bool>) -> Option<bool> {
+    Visibility {
+        doc,
+        states,
+        memo: HashMap::new(),
+        visits: 0,
+    }
+    .eval(e, 0)
 }
 
 /// The print state of every layer: the state for printing a layer declares
@@ -929,19 +953,18 @@ impl PrintSource {
         let fail = |why: &str| Error::Invalid(format!("the protected print file failed its check: {why}"));
         let mut doc = lopdf::Document::load_mem(plain)?;
         crate::protection::encrypted::encrypt_document(&mut doc, p)?;
+        // The keys of revisions 2 to 4 depend on the file identifier.
+        if p.state().revision() <= 4 && doc.trailer.get(b"ID").ok() != p.id() {
+            return Err(fail("its identifier differs from the document's"));
+        }
         let mut out = Vec::new();
         doc.save_to(&mut out)?;
+        drop(doc);
         if !crate::util::looks_like_whole_pdf(&out) {
             return Err(fail("it is not a complete PDF"));
         }
-        let back = lopdf::Document::load_mem(&out).map_err(|e| fail(&e.to_string()))?;
-        if !(back.is_encrypted() || back.was_encrypted()) {
-            return Err(fail("it is not encrypted"));
-        }
-        // The keys of revisions 2 to 4 depend on the file identifier.
-        if p.state().revision() <= 4 && back.trailer.get(b"ID").ok() != p.id() {
-            return Err(fail("its identifier differs from the document's"));
-        }
+        // Encrypted as written (without reading the whole file again).
+        crate::protection::encrypted::check_written(&out)?;
         Ok(out)
     }
 }

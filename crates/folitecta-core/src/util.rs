@@ -93,6 +93,45 @@ pub fn pdf_date_display(raw: &str) -> String {
     format!("{y}-{m}-{d} {hh}:{mm}")
 }
 
+/// Unix time (UTC) of a PDF date `D:YYYY[MM[DD[HH[mm[SS]]]]][Z|+HH'mm'|-HH'mm']`
+/// (ISO 32000-1 7.9.4): missing fields take their first value, the prefix
+/// and the apostrophes are optional, a date without a time zone is read as
+/// UTC. `None` when the text is not a date.
+pub fn pdf_date_unix(raw: &str) -> Option<i64> {
+    let s = raw.trim();
+    let s = s.strip_prefix("D:").unwrap_or(s);
+    let len = s.bytes().take_while(u8::is_ascii_digit).count();
+    if !(4..=14).contains(&len) || len % 2 != 0 {
+        return None;
+    }
+    let field = |from: usize, default: u32| -> Option<u32> {
+        match s.get(from..from + 2) {
+            Some(v) if from + 2 <= len => v.parse().ok(),
+            _ => Some(default),
+        }
+    };
+    let year: i32 = s[..4].parse().ok()?;
+    let month = time::Month::try_from(field(4, 1)? as u8).ok()?;
+    let date = time::Date::from_calendar_date(year, month, field(6, 1)? as u8).ok()?;
+    let clock = time::Time::from_hms(field(8, 0)? as u8, field(10, 0)? as u8, field(12, 0)? as u8).ok()?;
+    let local = time::PrimitiveDateTime::new(date, clock)
+        .assume_utc()
+        .unix_timestamp();
+    let zone = &s[len..];
+    let offset = match zone.chars().next() {
+        None | Some('Z') => 0,
+        Some(sign @ ('+' | '-')) => {
+            let digits: String = zone[1..].chars().filter(char::is_ascii_digit).take(4).collect();
+            let hours: i64 = digits.get(..2)?.parse().ok()?;
+            let minutes: i64 = digits.get(2..4).map_or(Some(0), |m| m.parse().ok())?;
+            let secs = hours * 3600 + minutes * 60;
+            if sign == '+' { secs } else { -secs }
+        }
+        Some(_) => return None,
+    };
+    Some(local - offset)
+}
+
 /// Follow references until a direct object is reached.
 pub fn deref<'a>(doc: &'a lopdf::Document, obj: &'a Object) -> &'a Object {
     doc.dereference(obj).map(|(_, o)| o).unwrap_or(obj)
@@ -368,6 +407,19 @@ pub fn r(id: ObjectId) -> Object {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn pdf_dates_become_unix_times() {
+        const SIGN: i64 = 1_792_324_800; // 2026-10-18T12:00Z
+        assert_eq!(pdf_date_unix("D:20261018120000Z"), Some(SIGN));
+        assert_eq!(pdf_date_unix("D:20261018140000+02'00'"), Some(SIGN));
+        assert_eq!(pdf_date_unix("D:20261018093000-02'30"), Some(SIGN));
+        assert_eq!(pdf_date_unix("D:2026"), Some(1_767_225_600));
+        assert_eq!(pdf_date_unix("20261018"), pdf_date_unix("D:20261018"));
+        assert_eq!(pdf_date_unix("garbage"), None);
+        assert_eq!(pdf_date_unix("D:20261318"), None);
+    }
+
     use super::*;
 
     #[test]

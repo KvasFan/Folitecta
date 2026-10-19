@@ -90,6 +90,20 @@ writers expect — and is read back from the bytes the byte range leaves out, wh
 in the same folder and renamed over the target only when it is complete
 (`document::write_pdf_file`, `util::write_atomic`), so a failed save never damages the original.
 
+A later revision of a signed file counts as "validation material only" (the signature keeps
+its integrity) by an allow-list, never by what the revision says of itself
+(`digsig::dss::classify`): it must have the regular shape of a careful writer's update —
+objects separated only by white space and comments, then one cross-reference section (a table
+or one stream, never hybrid) whose subsections do not overlap or repeat numbers, whose in-use
+entries point inside the update at headers of the same number and generation, which frees no
+number in use, declares a `/Size` above its numbers, follows the previous section (`/Prev`) and
+is the one `startxref` names, and whose object streams hold only new objects in index order
+without `/Extends`. It may not define or free any object the document reaches (the catalog may
+change only its `/DSS`, `/Version` and `/Extensions /ESIC`, the document information only its
+modification date and producer), every such object must be unchanged, and the renderer's own
+reader (hayro-syntax) must resolve each of them to the same values as the PDF library, before
+and after. Anything else is reported as a change after signing.
+
 ### Rendering
 
 `render::Renderer` rasterizes pages with hayro (CPU only, no GPU dependency) and returns PNG bytes,

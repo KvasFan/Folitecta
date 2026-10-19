@@ -69,6 +69,8 @@
   "dialog.hf.left": "Left",
   "dialog.hf.right": "Right",
   "dialog.hf.title": "Header and footer",
+  "dialog.import_undrawable.body": "Comments that cannot be drawn would be left out ({count}): {list}. Import the other comments?",
+  "dialog.import_undrawable.ok": "Import the others",
   "dialog.insert.after": "After current page",
   "dialog.insert.before": "Before current page",
   "dialog.insert.count": "Number of pages",

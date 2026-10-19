@@ -442,6 +442,7 @@ mod steps_split_view;
 mod steps_text;
 mod steps_timestamp;
 mod steps_tools;
+mod steps_unicode;
 
 /// What the interaction steps share: the app, where the screenshots go,
 /// the report and the zoom of the pages.
@@ -503,6 +504,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "email" => Box::pin(steps_email::run(cx)),
             "timestamp" => Box::pin(steps_timestamp::run(cx)),
             "frames" => Box::pin(steps_frames::run(cx)),
+            "unicode" => Box::pin(steps_unicode::run(cx)),
             _ => Box::pin(async { cx.record("unknown step", false, name.to_string()) }),
         };
         tokio::time::timeout(step_limit(), fut).await.is_ok()
@@ -527,7 +529,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
 }
 
 /// The interaction steps in the order of a full run.
-const STEPS: [&str; 24] = [
+const STEPS: [&str; 25] = [
     "tools",
     "review",
     "panes",
@@ -552,6 +554,7 @@ const STEPS: [&str; 24] = [
     "email",
     "timestamp",
     "frames",
+    "unicode",
 ];
 
 async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_json::Value>) -> usize {
@@ -580,7 +583,7 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
 
     // 58. Undo everything added above.
     st.set_tool(Tool::Hand);
-    for _ in 0..90 {
+    for _ in 0..100 {
         crate::commands::dispatch(st, "undo");
     }
     pause(500).await;

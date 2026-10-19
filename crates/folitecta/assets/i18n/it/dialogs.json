@@ -69,6 +69,8 @@
   "dialog.hf.left": "Sinistra",
   "dialog.hf.right": "Destra",
   "dialog.hf.title": "Intestazione e piè di pagina",
+  "dialog.import_undrawable.body": "I commenti che non si possono disegnare verrebbero lasciati fuori ({count}): {list}. Importare gli altri commenti?",
+  "dialog.import_undrawable.ok": "Importa gli altri",
   "dialog.insert.after": "Dopo la pagina corrente",
   "dialog.insert.before": "Prima della pagina corrente",
   "dialog.insert.count": "Numero di pagine",

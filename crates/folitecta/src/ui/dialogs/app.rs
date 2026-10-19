@@ -163,6 +163,7 @@ pub(super) fn About() -> Element {
                         li { "Rendering: hayro (Apache-2.0 OR MIT)" }
                         li { "Document model: lopdf (MIT)" }
                         li { "User interface: Dioxus (MIT OR Apache-2.0)" }
+                        li { "Text beyond Western European characters: GNU FreeFont FreeSans (GPL-3.0-or-later with the font exception)" }
                         li { a { href: "https://github.com/KvasFan/Folitecta", onclick: move |e| { e.prevent_default(); let _ = crate::util::open_external("https://github.com/KvasFan/Folitecta"); }, "github.com/KvasFan/Folitecta" } }
                     }
                     div { class: "row", style: "gap:8px; margin-top: 8px",
@@ -333,8 +334,11 @@ pub(super) fn NotImplemented(id: String) -> Element {
 pub(super) fn Confirm(title: String, body: String, action: ConfirmAction) -> Element {
     let st = use_context::<AppState>();
     let act = action.clone();
+    // Importing the comments that can be drawn is a choice, not a loss.
+    let choice = matches!(action, ConfirmAction::ImportCommentsSkipping(_));
+    let ok_label = choice.then(|| t(st.lang(), "dialog.import_undrawable.ok"));
     rsx! {
-        Frame { title, danger: true,
+        Frame { title, danger: !choice, ok_label,
             on_ok: move |_| {
                 match act.clone() {
                     ConfirmAction::DeleteAllComments => apply(st, |tab| tab.doc.delete_all_comments(None).map(|_| ())),
@@ -368,6 +372,7 @@ pub(super) fn Confirm(title: String, body: String, action: ConfirmAction) -> Ele
                         st.with_active(|t| t.selected_pages.clear());
                         apply(st, move |tab| tab.doc.delete_pages(&pages));
                     }
+                    ConfirmAction::ImportCommentsSkipping(data) => files::import_drawable_comments(st, &data),
                 }
             },
             p { "{body}" }

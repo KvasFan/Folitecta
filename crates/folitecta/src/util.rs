@@ -1,6 +1,28 @@
 //! Small UI helpers.
 
+use std::path::PathBuf;
+
 use dioxus::prelude::*;
+
+/// The folders searched for the font of text beyond WinAnsi, the preferred
+/// first: the user's own, the program's, the source tree (when run from there).
+pub fn font_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    if let Some(d) = crate::state::app_data_dir() {
+        dirs.push(d.join("fonts"));
+    }
+    if let Some(exe_dir) = std::env::current_exe()
+        .ok()
+        .and_then(|e| e.parent().map(PathBuf::from))
+    {
+        dirs.push(exe_dir.join("fonts"));
+        // The resources of a macOS application bundle, a Linux installation.
+        dirs.push(exe_dir.join("../Resources/fonts"));
+        dirs.push(exe_dir.join("../share/folitecta/fonts"));
+    }
+    dirs.push(PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fonts")));
+    dirs
+}
 
 /// Parse a page range such as `1-3, 5, 8-` (1-based) into zero-based indices.
 /// An empty string selects every page.

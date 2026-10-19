@@ -88,10 +88,7 @@ fn to_unicode(data: &[u8]) -> HashMap<u16, String> {
         } else if line == "endbfchar" {
             inside = false;
         } else if inside {
-            let parts: Vec<&str> = line
-                .split(['<', '>', ' '])
-                .filter(|s| !s.is_empty())
-                .collect();
+            let parts: Vec<&str> = line.split(['<', '>', ' ']).filter(|s| !s.is_empty()).collect();
             let code = u16::from_str_radix(parts[0], 16).unwrap();
             let units: Vec<u16> = parts[1]
                 .as_bytes()

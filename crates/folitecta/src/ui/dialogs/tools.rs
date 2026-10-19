@@ -136,6 +136,7 @@ pub(super) fn TextBoxDialog(page: usize, rect: Vec<f32>, border: bool) -> Elemen
                 tool_done(st);
             },
             Area { label: t(lang, "dialog.note.text"), value: text, autofocus: true }
+            GlyphHint { text }
             div { class: "field-grid",
                 Num { label: t(lang, "dialog.watermark.size"), value: size, min: "4", max: "200" }
                 div { class: "field", label { "{t(lang, \"dialog.watermark.color\")}" } input { r#type: "color", value: "{color}", oninput: move |e| color.set(e.value()) } }
@@ -409,6 +410,23 @@ pub(super) fn CalloutDialog(page: usize, tip_x: f32, tip_y: f32, rect: Vec<f32>)
                 tool_done(st);
             },
             Area { label: t(lang, "dialog.note.text"), value: text, autofocus: true }
+            GlyphHint { text }
+        }
+    }
+}
+
+/// While typing the text of a text box or callout: what generated text
+/// cannot draw (the characters named), before OK is pressed.
+#[component]
+pub(super) fn GlyphHint(text: Signal<String>) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let problem = folitecta_core::fonts::check_text(&folitecta_core::util::clean_text(&text()))
+        .err()
+        .map(|p| crate::i18n::glyph_problem(lang, &p));
+    rsx! {
+        if let Some(p) = problem {
+            p { class: "hint warn glyph-hint", "{p}" }
         }
     }
 }

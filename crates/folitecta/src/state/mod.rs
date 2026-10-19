@@ -344,9 +344,21 @@ impl AppState {
         });
     }
 
-    pub fn error(&self, err: impl std::fmt::Display) {
-        let title = crate::i18n::t(self.lang(), "toast.error");
-        self.toast(ToastKind::Error, title, err.to_string());
+    /// Show an error. The errors of the core about generated text (and
+    /// problems of generated text themselves) are shown in the language of
+    /// the interface.
+    pub fn error<E: std::fmt::Display + 'static>(&self, err: E) {
+        let lang = self.lang();
+        let title = crate::i18n::t(lang, "toast.error");
+        let any = &err as &dyn std::any::Any;
+        let message = if let Some(e) = any.downcast_ref::<folitecta_core::Error>() {
+            crate::i18n::core_error(lang, e)
+        } else if let Some(p) = any.downcast_ref::<folitecta_core::GlyphProblem>() {
+            crate::i18n::glyph_problem(lang, p)
+        } else {
+            err.to_string()
+        };
+        self.toast(ToastKind::Error, title, message);
     }
 
     pub fn close_menus(&self) {

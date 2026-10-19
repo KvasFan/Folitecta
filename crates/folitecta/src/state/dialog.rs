@@ -38,6 +38,8 @@ pub enum ConfirmAction {
     TrashDocument,
     /// Move the files selected in the explorer to the recycle bin.
     TrashFiles,
+    /// Import the comments of this file that can be drawn, leaving out the others.
+    ImportCommentsSkipping(std::sync::Arc<Vec<u8>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]

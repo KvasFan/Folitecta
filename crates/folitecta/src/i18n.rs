@@ -238,6 +238,78 @@ pub fn tf(lang: Lang, key: &str, args: &[(&str, &str)]) -> String {
     s
 }
 
+/// Why generated text cannot be drawn, in the language of the interface.
+pub fn glyph_problem(lang: Lang, problem: &folitecta_core::GlyphProblem) -> String {
+    use folitecta_core::GlyphProblem as P;
+    use folitecta_core::fonts::describe_chars;
+    match problem {
+        P::Missing { font, chars } => tf(
+            lang,
+            "toast.glyphs_missing",
+            &[("font", font), ("chars", &describe_chars(chars))],
+        ),
+        P::NeedsLayout(chars) => tf(lang, "toast.glyphs_layout", &[("chars", &describe_chars(chars))]),
+        P::FontMissing { file, .. } => tf(lang, "toast.font_missing", &[("file", file)]),
+        P::FontUnreadable { path, reason } => tf(
+            lang,
+            "toast.font_unreadable",
+            &[("file", &path.display().to_string()), ("reason", reason)],
+        ),
+        P::NotEmbeddable { font } => tf(lang, "toast.font_not_embeddable", &[("font", font)]),
+    }
+}
+
+/// A comment of an imported file that cannot be drawn: page, author, the
+/// start of its text and why.
+pub fn undrawable_comment(lang: Lang, c: &folitecta_core::UndrawableComment) -> String {
+    let mut text: String = c.contents.chars().take(40).collect();
+    if c.contents.chars().count() > 40 {
+        text.push('…');
+    }
+    let author = if c.author.is_empty() {
+        String::new()
+    } else {
+        format!(", {}", c.author)
+    };
+    tf(
+        lang,
+        "toast.comment_undrawable",
+        &[
+            ("page", &(c.page + 1).to_string()),
+            ("author", &author),
+            ("text", &text),
+            ("problem", glyph_problem(lang, &c.problem).trim_end_matches('.')),
+        ],
+    )
+}
+
+/// The comments of an import that cannot be drawn, one after the other.
+pub fn undrawable_list(lang: Lang, list: &[folitecta_core::UndrawableComment]) -> String {
+    list.iter()
+        .map(|c| undrawable_comment(lang, c))
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+/// The message of an error of the core: the problems of generated text in
+/// the language of the interface, the others as the core words them.
+pub fn core_error(lang: Lang, err: &folitecta_core::Error) -> String {
+    match err {
+        folitecta_core::Error::Glyphs(p) => {
+            format!("{} {}", glyph_problem(lang, p), t(lang, "toast.nothing_changed"))
+        }
+        folitecta_core::Error::Undrawable(list) => tf(
+            lang,
+            "toast.comments_undrawable",
+            &[
+                ("count", &list.len().to_string()),
+                ("list", &undrawable_list(lang, list)),
+            ],
+        ),
+        other => other.to_string(),
+    }
+}
+
 /// Localized label of a registry command (falls back to the registry label).
 pub fn cmd_label(lang: Lang, cmd: &Command) -> String {
     if lang != Lang::En {
@@ -361,6 +433,41 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn problems_of_generated_text_are_translated() {
+        let missing = folitecta_core::Error::Glyphs(folitecta_core::GlyphProblem::Missing {
+            font: "FreeSans".into(),
+            chars: vec!['漢'],
+        });
+        let en = core_error(Lang::En, &missing);
+        let it = core_error(Lang::It, &missing);
+        assert!(
+            en.contains("漢 (U+6F22)") && en.ends_with("The document was not changed."),
+            "{en}"
+        );
+        assert!(
+            it.contains("漢 (U+6F22)") && it.contains("non ha i glifi"),
+            "{it}"
+        );
+        let list = vec![folitecta_core::UndrawableComment {
+            page: 1,
+            author: "Reviewer".into(),
+            name: "c1".into(),
+            contents: "שלום".into(),
+            problem: folitecta_core::GlyphProblem::NeedsLayout(vec!['ש']),
+        }];
+        let it = core_error(Lang::It, &folitecta_core::Error::Undrawable(list));
+        assert!(
+            it.contains("(1)") && it.contains("pagina 2, Reviewer: “שלום”"),
+            "{it}"
+        );
+        assert!(it.ends_with("ancora disegnare nel testo generato."), "{it}");
+        assert_eq!(
+            core_error(Lang::It, &folitecta_core::Error::NoPath),
+            folitecta_core::Error::NoPath.to_string()
+        );
     }
 
     #[test]

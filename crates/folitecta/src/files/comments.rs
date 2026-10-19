@@ -69,17 +69,60 @@ pub fn import_comments(st: AppState) {
             return;
         };
         let data = file.read().await;
-        match st.with_active(|t| t.doc.import_comments(&data)) {
-            Some(Ok(n)) => {
-                set_window_title(st);
-                st.toast(
-                    ToastKind::Ok,
-                    tf(st.lang(), "toast.comments_imported", &[("count", &n.to_string())]),
-                    "",
-                );
-            }
-            Some(Err(e)) => st.error(e),
-            None => {}
-        }
+        import_comment_data(st, data);
     });
+}
+
+/// Import the comments of the data of an XFDF, FDF or PDF file. When some of
+/// them cannot be drawn, nothing is imported and a confirmation names them
+/// and offers to import the others.
+pub fn import_comment_data(st: AppState, data: Vec<u8>) {
+    match st.with_active(|t| t.doc.import_comments(&data)) {
+        Some(Ok(n)) => {
+            set_window_title(st);
+            st.toast(
+                ToastKind::Ok,
+                tf(st.lang(), "toast.comments_imported", &[("count", &n.to_string())]),
+                "",
+            );
+        }
+        Some(Err(CoreError::Undrawable(list))) => {
+            let lang = st.lang();
+            st.set_dialog(Dialog::Confirm {
+                title: t(lang, "cmd.comments.import"),
+                body: tf(
+                    lang,
+                    "dialog.import_undrawable.body",
+                    &[
+                        ("count", &list.len().to_string()),
+                        ("list", &crate::i18n::undrawable_list(lang, &list)),
+                    ],
+                ),
+                action: crate::state::ConfirmAction::ImportCommentsSkipping(std::sync::Arc::new(data)),
+            });
+        }
+        Some(Err(e)) => st.error(e),
+        None => {}
+    }
+}
+
+/// Import the comments of `data` that can be drawn, leaving out the others.
+pub fn import_drawable_comments(st: AppState, data: &[u8]) {
+    match st.with_active(|t| t.doc.import_comments_skipping(data)) {
+        Some(Ok((n, skipped))) => {
+            st.set_dialog(Dialog::None);
+            set_window_title(st);
+            st.toast(
+                ToastKind::Ok,
+                tf(
+                    st.lang(),
+                    "toast.comments_imported_skipped",
+                    &[("count", &n.to_string()), ("skipped", &skipped.len().to_string())],
+                ),
+                "",
+            );
+        }
+        Some(Err(e)) => st.error(e),
+        None => st.set_dialog(Dialog::None),
+    }
 }

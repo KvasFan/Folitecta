@@ -91,7 +91,7 @@ pub(super) fn PopupNote(
     let mut send_key = send_reply;
     let mut send_click = send_reply;
     rsx! {
-        div { class: "popup-note", style: "left:{left}px;top:{top}px;--note:{color}",
+        div { class: "popup-note", "data-annot": "{page}-{index}", style: "left:{left}px;top:{top}px;--note:{color}",
             onmousedown: move |e| e.stop_propagation(),
             onclick: move |e| e.stop_propagation(),
             ondoubleclick: move |e| e.stop_propagation(),
@@ -119,7 +119,17 @@ pub(super) fn PopupNote(
                     let v = e.value();
                     if v != original {
                         match st.with_active(|t| t.doc.set_annotation_contents(page, index, &v)) {
-                            Some(Err(err)) => st.error(err),
+                            Some(Err(err)) => {
+                                st.error(err);
+                                // The change was refused: show the text the comment kept.
+                                let js = format!(
+                                    "var t = document.querySelector('.popup-note[data-annot=\"{page}-{index}\"] .popup-text'); if (t) t.value = {};",
+                                    serde_json::to_string(&original).unwrap_or_default()
+                                );
+                                spawn(async move {
+                                    let _ = document::eval(&js).await;
+                                });
+                            }
                             _ => crate::files::set_window_title(st),
                         }
                     }

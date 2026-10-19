@@ -9,7 +9,8 @@ use folitecta_core::digsig::{
 
 use crate::commands::signatures::{
     add_trusted, create_id, delete_id, import_id, invalidate_status, load_id, open_signed_revision,
-    remove_trusted, signature_status, start_sign, stored_ids, time_stamp_document, trusted_certs,
+    remove_trusted, signature_status, signatures_checking, start_sign, stored_ids, time_stamp_document,
+    trusted_certs,
 };
 use crate::i18n::{Lang, t, tf};
 use crate::icons::Icon;
@@ -20,7 +21,7 @@ fn certify_name(lang: Lang, p: u8) -> String {
 }
 
 /// Status class and text of a signature.
-fn status_of(lang: Lang, s: &SignatureStatus) -> (&'static str, String) {
+pub(crate) fn status_of(lang: Lang, s: &SignatureStatus) -> (&'static str, String) {
     let key = |name: &str| {
         if s.document_time_stamp {
             t(lang, &format!("sig.ts_{name}"))
@@ -30,10 +31,14 @@ fn status_of(lang: Lang, s: &SignatureStatus) -> (&'static str, String) {
     };
     if !s.valid {
         ("bad", key("invalid"))
+    } else if s.checks.revocation == Check::Failed {
+        ("bad", key("revoked"))
     } else if !s.covers_document && s.later_revisions_time_stamped {
         ("warn", key("valid_stamped"))
-    } else if !s.covers_document {
+    } else if !s.covers_document && !s.later_revisions_material {
         ("warn", key("valid_changed"))
+    } else if s.trusted && s.checks.revocation == Check::Warning {
+        ("warn", key("valid_trusted_unchecked"))
     } else if s.trusted {
         ("ok", key("valid_trusted"))
     } else {
@@ -52,7 +57,7 @@ fn check_class(c: Check) -> &'static str {
 }
 
 /// The separate checks of a signature: (label, class, text).
-fn check_rows(lang: Lang, s: &SignatureStatus) -> Vec<(String, &'static str, String)> {
+pub(crate) fn check_rows(lang: Lang, s: &SignatureStatus) -> Vec<(String, &'static str, String)> {
     let state = |c: Check| match c {
         Check::Passed => "passed",
         Check::Warning => "warning",
@@ -71,8 +76,15 @@ fn check_rows(lang: Lang, s: &SignatureStatus) -> Vec<(String, &'static str, Str
     };
     let integrity_text = if c.integrity == Check::Warning && s.later_revisions_time_stamped {
         t(lang, "sig.check_integrity_warning_stamps")
+    } else if c.integrity == Check::Passed && !s.covers_document {
+        t(lang, "sig.check_integrity_passed_material")
     } else {
         t(lang, &format!("sig.check_integrity_{}", state(c.integrity)))
+    };
+    let revocation_text = if c.revocation == Check::NotChecked && s.cert.is_none() {
+        t(lang, "sig.check_revocation_not_checked_unread")
+    } else {
+        t(lang, &format!("sig.check_revocation_{}", state(c.revocation)))
     };
     vec![
         (
@@ -89,7 +101,7 @@ fn check_rows(lang: Lang, s: &SignatureStatus) -> Vec<(String, &'static str, Str
         (
             t(lang, "sig.check_revocation"),
             check_class(c.revocation),
-            t(lang, &format!("sig.check_revocation_{}", state(c.revocation))),
+            revocation_text,
         ),
     ]
 }
@@ -102,6 +114,7 @@ pub fn SignaturesPane() -> Element {
         return rsx! {};
     };
     let status = signature_status(st);
+    let checking = signatures_checking(st);
     let empty = st
         .read_active(|t| t.doc.empty_signature_fields())
         .unwrap_or_default();
@@ -110,11 +123,17 @@ pub fn SignaturesPane() -> Element {
             button { class: "tbtn primary", onclick: move |_| crate::commands::dispatch(st, "document.signatures.sign"), Icon { name: "signature" } "{t(lang, \"sig.sign\")}" }
             button { class: "ibtn", title: "{t(lang, \"cmd.document.signatures.timestamp\")}", onclick: move |_| crate::commands::dispatch(st, "document.signatures.timestamp"), Icon { name: "timestamp" } }
             button { class: "ibtn", title: "{t(lang, \"cmd.document.signatures.validateAll\")}", onclick: move |_| crate::commands::dispatch(st, "document.signatures.validateAll"), Icon { name: "check" } }
+            button { class: "ibtn add-material", title: "{t(lang, \"sig.add_material\")}", onclick: move |_| st.set_dialog(Dialog::ValidationMaterial), Icon { name: "certificate" } }
             button { class: "ibtn", title: "{t(lang, \"cmd.signs.digitalIDs\")}", onclick: move |_| st.set_dialog(Dialog::DigitalIds), Icon { name: "lock" } }
             button { class: "ibtn", title: "{t(lang, \"sig.trusted\")}", onclick: move |_| st.set_dialog(Dialog::TrustedCerts), Icon { name: "shield" } }
         }
         if fields.is_empty() {
             div { class: "pane-empty", "{t(lang, \"label.none\")}" }
+        } else if checking && status.is_empty() {
+            div { class: "pane-empty sig-checking", "{t(lang, \"sig.checking\")}" }
+        } else if checking {
+            // The last results stay in view, dimmed, while the checks run again.
+            div { class: "hint pad sig-checking", "{t(lang, \"sig.checking\")}" }
         }
         for s in status.iter().cloned() {
             {
@@ -124,7 +143,7 @@ pub fn SignaturesPane() -> Element {
                 let page = s.page;
                 let cert_line = s.cert.as_ref().map(|c| c.issuer_common_name.clone()).unwrap_or_default();
                 rsx! {
-                    div { class: "list-item sig-item {class}", key: "{s.field}",
+                    div { class: if checking { "list-item sig-item {class} stale" } else { "list-item sig-item {class}" }, key: "{s.field}",
                         onclick: move |_| { if let Some(p) = page { st.go_to_page(p); } },
                         div { class: "title",
                             span { class: "sig-dot {class}" }
@@ -203,9 +222,13 @@ pub fn SignatureDetailsDialog(field: String) -> Element {
     } else {
         "sig.signer"
     };
+    let checking = signatures_checking(st);
     rsx! {
         crate::ui::dialogs::Frame { title: t(lang, "sig.details_title"), wide: true,
-            div { class: "sig-state big {class}", "{text}" }
+            div { class: if checking { "sig-state big {class} stale" } else { "sig-state big {class}" }, "{text}" }
+            if checking {
+                div { class: "hint sig-checking", "{t(lang, \"sig.checking\")}" }
+            }
             div { class: "prop-head", "{t(lang, \"sig.checks\")}" }
             div { class: "sig-checks",
                 for (i, (label, cls, value)) in checks.into_iter().enumerate() {
@@ -221,6 +244,7 @@ pub fn SignatureDetailsDialog(field: String) -> Element {
                     for (i, p) in s.problems.iter().enumerate() { li { key: "{i}", "{p}" } }
                 }
             }
+            crate::ui::features::revocation::RevocationList { status: s.clone() }
             div { class: "kv-grid",
                 span { class: "k", "{t(lang, signer_label)}" } span { class: "v", "{s.signer}" }
                 span { class: "k", "{t(lang, \"sig.time\")}" } span { class: "v", "{s.time}" }
@@ -253,6 +277,7 @@ pub fn SignatureDetailsDialog(field: String) -> Element {
                     }
                 }
                 button { class: "tbtn", onclick: move |_| open_signed_revision(st, &field_rev), "{t(lang, \"sig.signed_version\")}" }
+                button { class: "tbtn add-material", onclick: move |_| st.set_dialog(Dialog::ValidationMaterial), Icon { name: "certificate" } "{t(lang, \"sig.add_material\")}" }
             }
         }
     }
@@ -706,5 +731,89 @@ pub fn TrustedCertsDialog() -> Element {
             }
             div { class: "row", button { class: "tbtn primary", onclick: add, Icon { name: "insert" } "{t(lang, \"sig.add_trusted\")}" } }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use folitecta_core::digsig::{SignatureChecks, TimeBasis};
+
+    fn status(
+        valid: bool,
+        covers: bool,
+        material: bool,
+        trusted: bool,
+        checks: SignatureChecks,
+    ) -> SignatureStatus {
+        SignatureStatus {
+            field: "Signature1".into(),
+            page: None,
+            signer: "Signer".into(),
+            time: String::new(),
+            reason: String::new(),
+            location: String::new(),
+            contact: String::new(),
+            sub_filter: "adbe.pkcs7.detached".into(),
+            digest_algorithm: "SHA-256".into(),
+            valid,
+            covers_document: covers,
+            certify: None,
+            trusted,
+            cert: None,
+            chain: Vec::new(),
+            problems: Vec::new(),
+            revision_len: 10,
+            later_revisions_time_stamped: false,
+            later_revisions_material: material,
+            document_time_stamp: false,
+            time_stamp: None,
+            checks,
+            revocation: Vec::new(),
+            revocation_at: None,
+            revocation_basis: TimeBasis::Now,
+        }
+    }
+
+    fn checks(integrity: Check, revocation: Check) -> SignatureChecks {
+        SignatureChecks {
+            integrity,
+            identity: Check::Passed,
+            time: Check::Passed,
+            revocation,
+        }
+    }
+
+    #[test]
+    fn statuses_follow_revocation_and_material() {
+        let lang = Lang::En;
+        let revoked = status(true, true, false, true, checks(Check::Passed, Check::Failed));
+        assert_eq!(status_of(lang, &revoked), ("bad", t(lang, "sig.revoked")));
+        let unchecked = status(true, true, false, true, checks(Check::Passed, Check::Warning));
+        assert_eq!(
+            status_of(lang, &unchecked),
+            ("warn", t(lang, "sig.valid_trusted_unchecked"))
+        );
+        let material = status(true, false, true, true, checks(Check::Passed, Check::Passed));
+        assert_eq!(status_of(lang, &material), ("ok", t(lang, "sig.valid_trusted")));
+        let rows = check_rows(lang, &material);
+        assert_eq!(rows[0].2, t(lang, "sig.check_integrity_passed_material"));
+        let changed = status(true, false, false, true, checks(Check::Warning, Check::Passed));
+        assert_eq!(status_of(lang, &changed).0, "warn");
+        // A signature that cannot be read: its revocation is not checked.
+        let unread = status(
+            false,
+            false,
+            false,
+            false,
+            checks(Check::Failed, Check::NotChecked),
+        );
+        assert_eq!(
+            check_rows(lang, &unread)[3].2,
+            t(lang, "sig.check_revocation_not_checked_unread")
+        );
+        let mut stamp = revoked.clone();
+        stamp.document_time_stamp = true;
+        assert_eq!(status_of(lang, &stamp), ("bad", t(lang, "sig.ts_revoked")));
     }
 }

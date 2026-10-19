@@ -341,6 +341,8 @@ pub fn Dialogs() -> Element {
             rsx! { crate::ui::features::signatures::SignatureDetailsDialog { field } }
         }
         Dialog::TimeStamp => rsx! { crate::ui::features::signatures::TimeStampDialog {} },
+        Dialog::SignatureOptions => rsx! { crate::ui::features::revocation::SignatureOptionsDialog {} },
+        Dialog::ValidationMaterial => rsx! { crate::ui::features::revocation::ValidationMaterialDialog {} },
         Dialog::DigitalIds => rsx! { crate::ui::features::signatures::DigitalIdsDialog {} },
         Dialog::TrustedCerts => rsx! { crate::ui::features::signatures::TrustedCertsDialog {} },
         Dialog::SignatureLibrary => rsx! { crate::ui::features::signs::SignatureLibraryDialog {} },

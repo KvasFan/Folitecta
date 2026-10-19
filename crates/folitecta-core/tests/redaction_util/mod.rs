@@ -43,6 +43,34 @@ pub fn doc_with(
     Document::from_bytes(out, None, None).unwrap()
 }
 
+/// A document built with lopdf by `build`, which returns the content of each
+/// page and its resources.
+pub fn built(build: impl FnOnce(&mut lopdf::Document) -> Vec<(String, Dictionary)>) -> Document {
+    let mut d = lopdf::Document::with_version("1.7");
+    let pages_id = d.new_object_id();
+    let pages = build(&mut d);
+    let mut kids = Vec::new();
+    for (content, res) in pages {
+        let cid = d.add_object(Stream::new(dictionary! {}, content.into_bytes()));
+        let pid = d.add_object(dictionary! {
+            "Type" => "Page", "Parent" => pages_id,
+            "MediaBox" => vec![0.into(), 0.into(), 400.into(), 400.into()],
+            "Contents" => cid, "Resources" => res,
+        });
+        kids.push(Object::Reference(pid));
+    }
+    let n = kids.len() as i64;
+    d.objects.insert(
+        pages_id,
+        Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => kids, "Count" => n }),
+    );
+    let cat = d.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+    d.trailer.set("Root", cat);
+    let mut out = Vec::new();
+    d.save_to(&mut out).unwrap();
+    Document::from_bytes(out, None, None).unwrap()
+}
+
 /// A Helvetica font resource (WinAnsi, no widths: a standard font).
 pub fn helvetica(d: &mut lopdf::Document) -> ObjectId {
     d.add_object(dictionary! {

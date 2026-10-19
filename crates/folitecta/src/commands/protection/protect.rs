@@ -153,6 +153,17 @@ fn report_toasts(st: AppState, r: &RedactionReport) {
             "",
         );
     }
+    if r.type3_kept > 0 {
+        st.toast(
+            ToastKind::Warn,
+            tf(
+                lang,
+                "toast.redaction_type3_kept",
+                &[("count", &r.type3_kept.to_string())],
+            ),
+            "",
+        );
+    }
 }
 
 /// Apply the redaction marks of `pages` (all when `None`) as `opts` says, on

@@ -53,6 +53,11 @@ pub struct RedactionReport {
     pub blurred_areas: usize,
     /// Digital signatures removed (a redacted document cannot keep them valid).
     pub signatures: usize,
+    /// Type 3 fonts that lost glyphs under the marks and are still used
+    /// elsewhere in a way that cannot be told glyph by glyph: their glyph
+    /// procedures stay whole in the file, and may draw what the removed
+    /// glyphs drew.
+    pub type3_kept: usize,
     /// What sanitizing removed.
     pub sanitized: SanitizeReport,
     /// Every page edited by content passed the check before its covers

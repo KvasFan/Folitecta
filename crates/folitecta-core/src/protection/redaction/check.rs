@@ -18,7 +18,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use hayro::kurbo::Rect;
 use lopdf::{Object, ObjectId};
 
-use super::holders::drawing_counts;
+use super::counts::drawing_counts;
 use super::paths::{PathEdit, redact_path};
 use super::sanitize::is_struct_elem;
 use super::scan::{Gs, page_state, resource, scan};

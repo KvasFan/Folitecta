@@ -16,6 +16,7 @@ use std::collections::{BTreeMap, HashSet};
 
 mod check;
 mod content;
+mod counts;
 mod holders;
 mod inline;
 mod paths;
@@ -36,7 +37,8 @@ use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 use rand_core::{OsRng, RngCore};
 
 use self::check::{CheckData, CheckMark};
-use self::holders::{Mark, Work, drawing_counts, purge};
+use self::counts::{Listing, drawing_counts, listed_by_page, purge, unlist};
+use self::holders::{Mark, Work};
 use crate::document::Document;
 use crate::error::{Error, Result};
 use crate::marks::pdf_rect_to_display;
@@ -651,13 +653,13 @@ impl Document {
         let counts = drawing_counts(&self.inner);
         // The pictures, forms and patterns the marked pages list in their
         // resources (shared, or inherited from the page tree): those nothing
-        // draws once the redaction is done go too.
-        let listed: HashSet<ObjectId> = {
+        // draws once the redaction is done leave those resources.
+        let listed: Vec<Listing> = {
             let ids = self.page_ids();
             marks
                 .keys()
                 .filter_map(|p| ids.get(*p))
-                .flat_map(|pid| self.listed_by_page(*pid))
+                .flat_map(|pid| listed_by_page(&self.inner, *pid))
                 .collect()
         };
         let markers = probe.as_ref().map(|p| p.ids.draw_markers()).unwrap_or_default();
@@ -673,6 +675,17 @@ impl Document {
             };
             if let Err(reason) = result {
                 as_pictures.insert(p, reason);
+            }
+        }
+        // Patterns of paints removed whole that hold what was under the
+        // marks cannot stay where something else on their page still draws
+        // them.
+        let page_ids = self.page_ids();
+        for (pid, pat, reason) in &work.patterns {
+            if let Some(p) = page_ids.iter().position(|x| x == pid) {
+                if !as_pictures.contains_key(&p) && self.drawn_by_page(*pid).contains(pat) {
+                    as_pictures.insert(p, *reason);
+                }
             }
         }
         // Comments and fields over the marks go either way, with the marks.
@@ -712,13 +725,15 @@ impl Document {
                 self.draw_redaction_covers(p, ms, &cover_tag)?;
             }
         }
-        // Pages drawn as pictures no longer draw what they drew.
-        let page_ids = self.page_ids();
+        // Pages drawn as pictures no longer draw what they drew (Type 3 fonts
+        // included).
+        let mut type3_lost = work.type3_lost.clone();
         let mut replaced: Vec<(ObjectId, usize)> = Vec::new();
         let mut picture_pages: HashSet<ObjectId> = HashSet::new();
         for &p in as_pictures.keys() {
             let Some(&pid) = page_ids.get(p) else { continue };
             picture_pages.insert(pid);
+            type3_lost.extend(self.type3_fonts_of(pid));
             for id in self.drawn_by_page(pid) {
                 replaced.push((id, p));
             }
@@ -773,9 +788,16 @@ impl Document {
             .iter()
             .map(|(id, _)| *id)
             .chain(counts.map.iter().filter(|(_, n)| **n > 0).map(|(id, _)| *id))
-            .chain(listed.iter().copied())
             .filter(|id| !drawn_after(id))
             .collect();
+        // What the marked pages listed and nothing ever drew leaves their
+        // resources only: it goes with them unless something else (the mask
+        // of a picture, say) holds it.
+        for l in &listed {
+            if !gone.contains(&l.id) && !drawn_after(&l.id) {
+                unlist(&mut self.inner, l);
+            }
+        }
         self.tidy_structure(
             &work.copies,
             &work.touched,
@@ -786,6 +808,12 @@ impl Document {
         );
         purge(&mut self.inner, &gone);
         self.inner.prune_objects();
+        // Type 3 fonts that lost glyphs and are still drawn where the codes
+        // shown cannot be told keep all their procedures.
+        report.type3_kept = type3_lost
+            .iter()
+            .filter(|id| self.inner.objects.contains_key(id) && counts_after.type3_unknown.contains(id))
+            .count();
         self.commit()?;
         // The file opened is no base for an incremental update any more: it
         // still holds what was removed.
@@ -834,67 +862,74 @@ impl Document {
         }
     }
 
-    /// The pictures, forms and patterns listed in the resources a page uses
-    /// and in those of the forms and patterns they list.
-    fn listed_by_page(&self, page_id: ObjectId) -> HashSet<ObjectId> {
+    /// The Type 3 fonts a page lists in its resources and in those of the
+    /// forms and patterns it lists.
+    fn type3_fonts_of(&self, page_id: ObjectId) -> Vec<ObjectId> {
         let doc = &self.inner;
-        let mut out = HashSet::new();
-        let mut todo = vec![crate::page_text::probe::page_resources(doc, page_id)];
-        while let Some(res) = todo.pop() {
-            for cat in [b"XObject".as_slice(), b"Pattern"] {
-                let Some(d) = res.get(cat).ok().and_then(|x| deref(doc, x).as_dict().ok()) else {
-                    continue;
-                };
-                for (_, v) in d.iter() {
-                    let Ok(id) = v.as_reference() else { continue };
-                    if !out.insert(id) {
-                        continue;
-                    }
-                    if let Some(r) = doc
-                        .get_object(id)
-                        .and_then(Object::as_stream)
-                        .ok()
-                        .and_then(|s| s.dict.get(b"Resources").ok())
-                        .and_then(|r| deref(doc, r).as_dict().ok())
-                    {
-                        todo.push(r.clone());
-                    }
+        let mut all = vec![crate::page_text::probe::page_resources(doc, page_id)];
+        for l in listed_by_page(doc, page_id) {
+            if let Some(r) = doc
+                .get_object(l.id)
+                .and_then(Object::as_stream)
+                .ok()
+                .and_then(|s| s.dict.get(b"Resources").ok())
+                .and_then(|r| deref(doc, r).as_dict().ok())
+            {
+                all.push(r.clone());
+            }
+        }
+        let mut out = Vec::new();
+        for r in &all {
+            let Some(fonts) = r.get(b"Font").ok().and_then(|f| deref(doc, f).as_dict().ok()) else {
+                continue;
+            };
+            for (k, v) in fonts.iter() {
+                if let (Ok(id), Some(_)) = (v.as_reference(), counts::type3_font(doc, r, k)) {
+                    out.push(id);
                 }
             }
         }
         out
     }
 
-    /// The pictures and forms a page draws (forms followed).
+    /// The pictures, forms and patterns a page draws (forms and the cells of
+    /// patterns followed).
     fn drawn_by_page(&self, page_id: ObjectId) -> Vec<ObjectId> {
+        use crate::page_text::probe::{stream_data, stream_resources};
+        let doc = &self.inner;
         let mut out = Vec::new();
         let mut seen = HashSet::new();
-        let res = crate::page_text::probe::page_resources(&self.inner, page_id);
-        let data = crate::content_edit::joined(&self.inner, page_id).data;
+        let res = crate::page_text::probe::page_resources(doc, page_id);
+        let data = crate::content_edit::joined(doc, page_id).data;
         let mut todo = vec![(data, res)];
         while let Some((data, res)) = todo.pop() {
             for op in crate::content_lex::operations(&data) {
-                if op.operator != b"Do" {
-                    continue;
-                }
-                let Some(n) = op
-                    .operands
-                    .first()
-                    .and_then(|r| crate::content_lex::name_of(&data, *r))
-                else {
-                    continue;
+                let (cat, name): (&[u8], _) = match op.operator {
+                    b"Do" => (b"XObject", op.operands.first()),
+                    b"scn" | b"SCN" => (b"Pattern", op.operands.last()),
+                    _ => continue,
                 };
-                let Some(id) = crate::page_text::probe::xobject_id(&self.inner, &res, &n) else {
+                let Some(id) = name
+                    .and_then(|r| crate::content_lex::name_of(&data, *r))
+                    .and_then(|n| {
+                        res.get(cat)
+                            .ok()
+                            .and_then(|x| deref(doc, x).as_dict().ok())
+                            .and_then(|x| x.get(&n).ok())
+                            .and_then(|v| v.as_reference().ok())
+                    })
+                else {
                     continue;
                 };
                 if !seen.insert(id) {
                     continue;
                 }
                 out.push(id);
-                if let Ok(s) = self.inner.get_object(id).and_then(Object::as_stream) {
-                    if crate::page_text::probe::is_form(&self.inner, id) {
-                        let r = crate::page_text::probe::stream_resources(&self.inner, s, &res);
-                        todo.push((crate::page_text::probe::stream_data(s), r));
+                if let Ok(s) = doc.get_object(id).and_then(Object::as_stream) {
+                    let image = s.dict.get(b"Subtype").ok().and_then(|v| v.as_name().ok())
+                        == Some(b"Image".as_slice());
+                    if !image {
+                        todo.push((stream_data(s), stream_resources(doc, s, &res)));
                     }
                 }
             }

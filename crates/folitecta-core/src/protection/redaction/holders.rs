@@ -14,6 +14,7 @@ use hayro::kurbo::{Affine, Rect};
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
 use super::RedactionLook;
+use super::counts::{Counts, type3_font, type3_glyph_names};
 use super::inline::inline_picture;
 use super::paths::{PathEdit, empty_clip, exclusion_clip, redact_path, shading_shown_elsewhere};
 use super::scan::{Gs, Paint, PathObj, Props, page_state, path_bounds, resource, scan};
@@ -81,6 +82,12 @@ pub(super) struct Work {
     pub replaced: BTreeSet<ObjectId>,
     /// Forms copied for one page: original, copy, page.
     pub copies: Vec<(ObjectId, ObjectId, ObjectId)>,
+    /// Type 3 fonts that lost glyphs.
+    pub type3_lost: BTreeSet<ObjectId>,
+    /// Patterns of paints removed whole that hold what was under the marks
+    /// and are no longer used where the paint was: page, pattern and why the
+    /// page becomes a picture when something still draws the pattern.
+    pub patterns: Vec<(ObjectId, ObjectId, PictureReason)>,
 }
 
 impl Work {
@@ -92,6 +99,8 @@ impl Work {
         self.touched.extend(o.touched);
         self.replaced.extend(o.replaced);
         self.copies.extend(o.copies);
+        self.type3_lost.extend(o.type3_lost);
+        self.patterns.extend(o.patterns);
     }
 }
 
@@ -177,6 +186,37 @@ struct HolderOut {
     res: Dictionary,
     /// Marked-content ids of the holder that held removed content.
     touched: Vec<i64>,
+    /// Type 3 fonts (names of the resources) that lost glyphs.
+    t3_lost: HashSet<Vec<u8>>,
+    /// Patterns of paints removed whole whose cell or shading shows what was
+    /// under the marks: they must not stay in the resources.
+    pending: Vec<Pending>,
+}
+
+/// A pattern of a paint removed whole that holds what was under the marks.
+struct Pending {
+    name: Vec<u8>,
+    id: Option<ObjectId>,
+    reason: PictureReason,
+    /// Where the paint was (page space).
+    area: Rect,
+}
+
+impl Pending {
+    /// The pattern is still listed in `res`.
+    fn listed(&self, doc: &lopdf::Document, res: &Dictionary) -> bool {
+        let Some(pats) = res
+            .get(b"Pattern")
+            .ok()
+            .and_then(|p| deref(doc, p).as_dict().ok())
+        else {
+            return false;
+        };
+        pats.has(&self.name)
+            || self
+                .id
+                .is_some_and(|id| pats.iter().any(|(_, v)| v.as_reference().ok() == Some(id)))
+    }
 }
 
 /// The `/XObject` dictionary of private resources.
@@ -486,39 +526,26 @@ const SHOWN_ANY: &[u8] = b"#shown-any";
 /// Codes of Type 3 fonts still shown: font name, a zero byte, the code.
 const TYPE3_CODES: &[u8] = b"#type3-codes";
 
-/// The glyph names a Type 3 font gives `codes` (None when its encoding is
-/// not only differences: then nothing is left out).
-fn type3_names(doc: &lopdf::Document, font: &Dictionary, codes: &HashSet<u8>) -> Option<HashSet<Vec<u8>>> {
-    let enc = deref(doc, font.get(b"Encoding").ok()?).as_dict().ok()?;
-    if enc.has(b"BaseEncoding") {
-        return None;
-    }
-    let diffs = deref(doc, enc.get(b"Differences").ok()?).as_array().ok()?;
-    let mut names = HashSet::new();
-    let mut code: i64 = 0;
-    for d in diffs {
-        match deref(doc, d) {
-            Object::Integer(i) => code = *i,
-            Object::Name(n) => {
-                if u8::try_from(code).is_ok_and(|c| codes.contains(&c)) {
-                    names.insert(n.clone());
-                }
-                code += 1;
-            }
-            _ => {}
-        }
-    }
-    Some(names)
+/// Drop the names of private resources that `data` does not use. Returns the
+/// Type 3 fonts of `res` whose glyph procedures could not be cut down to the
+/// codes still shown (the names of `res`).
+pub(super) fn drop_unused(doc: &lopdf::Document, data: &[u8], res: &mut Dictionary) -> HashSet<Vec<u8>> {
+    drop_unused_at(doc, data, res, 0)
 }
 
-/// Drop the names of private resources that `data` does not use.
-pub(super) fn drop_unused(doc: &lopdf::Document, data: &[u8], res: &mut Dictionary) {
+fn drop_unused_at(
+    doc: &lopdf::Document,
+    data: &[u8],
+    res: &mut Dictionary,
+    depth: usize,
+) -> HashSet<Vec<u8>> {
     let mut used: HashMap<&'static [u8], HashSet<Vec<u8>>> = HashMap::new();
     used_names(doc, data, res, &mut used, &mut HashSet::new());
+    let any = used.contains_key(SHOWN_ANY);
     // A font that only sizes the moves of removed glyphs: its program and
     // its map of codes (which tell the removed characters) give way to a
     // bare standard font of the same name.
-    if !used.contains_key(SHOWN_ANY) {
+    if !any {
         let shown = used.get(SHOWN).cloned().unwrap_or_default();
         let set = used.get(b"Font".as_slice()).cloned().unwrap_or_default();
         if let Ok(Object::Dictionary(fonts)) = res.get_mut(b"Font") {
@@ -535,50 +562,72 @@ pub(super) fn drop_unused(doc: &lopdf::Document, data: &[u8], res: &mut Dictiona
         }
     }
     // A Type 3 font keeps only the glyph procedures of the codes still shown
-    // (the others may draw what was removed), in a copy for these resources.
-    if !used.contains_key(SHOWN_ANY) {
-        let codes = used.get(TYPE3_CODES).cloned().unwrap_or_default();
-        let fonts: Vec<(Vec<u8>, Dictionary)> = res
-            .get(b"Font")
+    // (the others may draw what was removed), in a copy for these resources,
+    // with the resources those procedures use.
+    let mut untrimmed = HashSet::new();
+    let codes = used.get(TYPE3_CODES).cloned().unwrap_or_default();
+    let names: Vec<Vec<u8>> = res
+        .get(b"Font")
+        .ok()
+        .and_then(|f| f.as_dict().ok())
+        .map(|f| f.iter().map(|(k, _)| k.clone()).collect())
+        .unwrap_or_default();
+    for name in names {
+        let Some((_, font)) = type3_font(doc, res, &name) else {
+            continue;
+        };
+        let mut font = font.clone();
+        if any {
+            untrimmed.insert(name);
+            continue;
+        }
+        let shown: HashSet<u8> = codes
+            .iter()
+            .filter(|k| k.len() == name.len() + 2 && k.starts_with(&name) && k[name.len()] == 0)
+            .map(|k| k[name.len() + 1])
+            .collect();
+        let Some(keep) = type3_glyph_names(doc, &font, &shown) else {
+            untrimmed.insert(name);
+            continue;
+        };
+        let Some(procs) = font
+            .get(b"CharProcs")
             .ok()
-            .and_then(|f| f.as_dict().ok())
-            .map(|f| {
-                f.iter()
-                    .filter_map(|(k, v)| Some((k.clone(), deref(doc, v).as_dict().ok()?.clone())))
-                    .filter(|(_, d)| {
-                        d.get(b"Subtype").ok().and_then(|v| v.as_name().ok()) == Some(b"Type3".as_slice())
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-        for (name, mut font) in fonts {
-            let shown: HashSet<u8> = codes
-                .iter()
-                .filter(|k| k.len() == name.len() + 2 && k.starts_with(&name) && k[name.len()] == 0)
-                .map(|k| k[name.len() + 1])
-                .collect();
-            let Some(keep) = type3_names(doc, &font, &shown) else {
-                continue;
-            };
-            let Some(procs) = font
-                .get(b"CharProcs")
-                .ok()
-                .and_then(|p| deref(doc, p).as_dict().ok())
-                .cloned()
-            else {
-                continue;
-            };
-            if procs.iter().all(|(k, _)| keep.contains(k)) {
-                continue;
+            .and_then(|p| deref(doc, p).as_dict().ok())
+            .cloned()
+        else {
+            continue;
+        };
+        if procs.iter().all(|(k, _)| keep.contains(k)) {
+            continue;
+        }
+        let mut kept = Dictionary::new();
+        let mut kept_data: Vec<u8> = Vec::new();
+        for (k, v) in procs.iter().filter(|(k, _)| keep.contains(*k)) {
+            kept.set(k.clone(), v.clone());
+            if let Ok(s) = v
+                .as_reference()
+                .and_then(|id| doc.get_object(id))
+                .and_then(Object::as_stream)
+            {
+                kept_data.extend(stream_data(s));
+                kept_data.push(b'\n');
             }
-            let mut kept = Dictionary::new();
-            for (k, v) in procs.iter().filter(|(k, _)| keep.contains(*k)) {
-                kept.set(k.clone(), v.clone());
+        }
+        font.set("CharProcs", Object::Dictionary(kept));
+        if let Some(fr) = font
+            .get(b"Resources")
+            .ok()
+            .and_then(|r| deref(doc, r).as_dict().ok())
+        {
+            let mut own = private_resources(doc, fr);
+            if depth < 4 {
+                drop_unused_at(doc, &kept_data, &mut own, depth + 1);
             }
-            font.set("CharProcs", Object::Dictionary(kept));
-            if let Ok(Object::Dictionary(fd)) = res.get_mut(b"Font") {
-                fd.set(name, Object::Dictionary(font));
-            }
+            font.set("Resources", Object::Dictionary(own));
+        }
+        if let Ok(Object::Dictionary(fd)) = res.get_mut(b"Font") {
+            fd.set(name, Object::Dictionary(font));
         }
     }
     for cat in [
@@ -598,10 +647,12 @@ pub(super) fn drop_unused(doc: &lopdf::Document, data: &[u8], res: &mut Dictiona
                 let default = cat == b"ColorSpace" && n.starts_with(b"Default");
                 if !keep.contains(&n) && !default {
                     d.remove(&n);
+                    untrimmed.remove(&n);
                 }
             }
         }
     }
+    untrimmed
 }
 
 /// What a pattern of the resources paints.
@@ -866,7 +917,20 @@ impl Document {
         rewrite(&mut self.inner, page_id, &j, &out.splices).map_err(|_| R::Content)?;
         let mut res = out.res;
         let data = joined(&self.inner, page_id).data;
-        drop_unused(&self.inner, &data, &mut res);
+        let untrimmed = drop_unused(&self.inner, &data, &mut res);
+        // A Type 3 font that lost glyphs keeps the procedures of the codes
+        // still shown only; when those cannot be told, it cannot stay.
+        if out.t3_lost.iter().any(|n| untrimmed.contains(n)) {
+            return Err(R::Font);
+        }
+        for pd in out.pending {
+            if pd.listed(&self.inner, &res) {
+                return Err(pd.reason);
+            }
+            if let Some(id) = pd.id {
+                local.patterns.push((page_id, id, pd.reason));
+            }
+        }
         self.inner
             .get_dictionary_mut(page_id)
             .map_err(|_| R::Content)?
@@ -898,6 +962,7 @@ impl Document {
         let (tops, ends) = text_ops_from(&h.data, &h.gs0.text);
         let mut drawn: HashMap<usize, usize> = HashMap::new();
         let mut removed: BTreeMap<usize, Vec<RemovedGlyph>> = BTreeMap::new();
+        let mut t3_lost: HashSet<Vec<u8>> = HashSet::new();
         for (gi, g) in ctx.page.glyphs.iter().enumerate() {
             if g.covered || g.chain != h.chain {
                 continue;
@@ -938,6 +1003,10 @@ impl Document {
                 .map_err(|_| R::Font)?;
             for k in removed.keys() {
                 let op = &tops[*k];
+                if let Some((fid, _)) = type3_font(&self.inner, &res, &op.font) {
+                    t3_lost.insert(op.font.clone());
+                    work.type3_lost.extend(fid);
+                }
                 changed.push((op.start, op.end));
                 // Text painted under a soft mask that meets a mark.
                 if sc.masked_text.iter().any(|(s, e, (gid, m))| {
@@ -969,11 +1038,35 @@ impl Document {
         }
 
         // ---- Paths ----
+        // Patterns of paints removed whole, and where the paints kept with
+        // each pattern are.
+        let mut pending: Vec<Pending> = Vec::new();
+        let mut kept: HashMap<Vec<u8>, Vec<Rect>> = HashMap::new();
         for p in &sc.paths {
-            let PathEdit::Replace(text) = redact_path(p, &rects) else {
+            let edit = redact_path(p, &rects);
+            let painted = match &edit {
+                PathEdit::Keep => true,
+                PathEdit::Replace(text) => paints(text),
+            };
+            if painted {
+                let area = path_bounds(p)
+                    .map(|b| b.intersect(p.gs.clip))
+                    .unwrap_or(Rect::ZERO);
+                if matches!(p.paint, Paint::Fill(_) | Paint::FillStroke(_)) {
+                    if let Some(n) = &p.gs.fill_pattern {
+                        kept.entry(n.clone()).or_default().push(area);
+                    }
+                }
+                if matches!(p.paint, Paint::Stroke | Paint::FillStroke(_)) {
+                    if let Some(n) = &p.gs.stroke_pattern {
+                        kept.entry(n.clone()).or_default().push(area);
+                    }
+                }
+            }
+            let PathEdit::Replace(text) = edit else {
                 continue;
             };
-            self.check_paint(p, &res, &h.gs0, &rects, paints(&text))?;
+            pending.extend(self.check_paint(p, &res, &h.gs0, &rects, painted)?);
             splices.push(Splice {
                 start: p.start,
                 end: p.end,
@@ -981,6 +1074,21 @@ impl Document {
             });
             changed.push((p.start, p.end));
             work.paths += 1;
+        }
+
+        // A pattern kept for other paints must show elsewhere what the paints
+        // removed had under the marks; one no paint keeps is checked once
+        // the resources lost what nothing uses.
+        let mut unresolved = Vec::new();
+        for pd in pending {
+            match kept.get(&pd.name) {
+                Some(areas) if !areas.is_empty() => {
+                    if !self.shown_by_kept(&pd, areas, &res, &h.gs0, &rects) {
+                        return Err(pd.reason);
+                    }
+                }
+                _ => unresolved.push(pd),
+            }
         }
 
         // ---- Shadings ----
@@ -1202,7 +1310,18 @@ impl Document {
                 data.splice(s.start..s.end, s.with);
             }
             let mut fres = out.res;
-            drop_unused(&self.inner, &data, &mut fres);
+            let untrimmed = drop_unused(&self.inner, &data, &mut fres);
+            if out.t3_lost.iter().any(|n| untrimmed.contains(n)) {
+                return Err(R::Font);
+            }
+            for pd in out.pending {
+                if pd.listed(&self.inner, &fres) {
+                    return Err(pd.reason);
+                }
+                if let Some(id) = pd.id {
+                    work.patterns.push((ctx.page_id, id, pd.reason));
+                }
+            }
             let dict = form_dict(&self.inner, &fs.dict, fres);
             let mut st = Stream::new(dict, data);
             let _ = st.compress();
@@ -1266,31 +1385,22 @@ impl Document {
             splices,
             res,
             touched,
+            t3_lost,
+            pending: unresolved,
         })
     }
 
-    /// A path painted with a pattern or under a soft mask that cannot be
-    /// redacted by cutting its geometry.
-    fn check_paint(
+    /// The patterns a path paints with that keep what is under the marks
+    /// (were the path painted over `area`): name and why.
+    fn pattern_problems(
         &self,
         p: &PathObj,
         res: &Dictionary,
         gs0: &Gs,
         rects: &[Rect],
-        painted: bool,
-    ) -> std::result::Result<(), PictureReason> {
+        area: Rect,
+    ) -> Vec<(Vec<u8>, PictureReason)> {
         use PictureReason as R;
-        if self.mask_meets(&p.gs, rects) {
-            return Err(R::SoftMask);
-        }
-        // A paint the redaction removes whole leaves its patterns unused:
-        // they go with the names nothing uses.
-        if !painted {
-            return Ok(());
-        }
-        let area = path_bounds(p)
-            .map(|b| b.intersect(p.gs.clip))
-            .unwrap_or(Rect::ZERO);
         let mut patterns = Vec::new();
         if matches!(p.paint, Paint::Fill(_) | Paint::FillStroke(_)) {
             patterns.extend(p.gs.fill_pattern.clone());
@@ -1298,79 +1408,162 @@ impl Document {
         if matches!(p.paint, Paint::Stroke | Paint::FillStroke(_)) {
             patterns.extend(p.gs.stroke_pattern.clone());
         }
+        let mut out = Vec::new();
         for name in patterns.into_iter().filter(|n| !n.is_empty()) {
-            match pattern_kind(&self.inner, res, &name) {
-                PatternKind::Tiling { text: true, .. } => return Err(R::Pattern),
-                PatternKind::Tiling { cell: None, .. } => {}
+            let problem = match pattern_kind(&self.inner, res, &name) {
+                PatternKind::Tiling { text: true, .. } => Some(R::Pattern),
+                PatternKind::Tiling { cell: None, .. } => None,
                 PatternKind::Tiling {
                     cell: Some(c),
                     step,
                     matrix,
                     ..
                 } => {
-                    if self.cell_under_marks(c, step, gs0.ctm * matrix, area, rects) {
-                        return Err(R::Pattern);
-                    }
+                    let (under, elsewhere) = cell_tiles(c, step, gs0.ctm * matrix, area, rects);
+                    (under && !elsewhere).then_some(R::Pattern)
                 }
                 PatternKind::Shading(sh, matrix) => {
                     // Pattern space is the default space of the stream.
                     let to_shading = (gs0.ctm * matrix).inverse();
-                    if area.width() > 0.0
+                    (area.width() > 0.0
                         && area.height() > 0.0
-                        && !self.shading_shown(&sh, to_shading, area, rects)
-                    {
-                        return Err(R::Shading);
-                    }
+                        && !self.shading_shown(&sh, to_shading, area, rects))
+                    .then_some(R::Shading)
                 }
-                PatternKind::Unknown => return Err(R::Pattern),
+                PatternKind::Unknown => Some(R::Pattern),
+            };
+            if let Some(r) = problem {
+                out.push((name, r));
             }
         }
-        Ok(())
+        out
+    }
+
+    /// A path painted with a pattern or under a soft mask that cannot be
+    /// redacted by cutting its geometry. A paint the redaction removes whole
+    /// (`painted` false) leaves its patterns unused there: those that hold
+    /// what was under the marks are returned, to be checked once the
+    /// resources lost what nothing uses.
+    fn check_paint(
+        &self,
+        p: &PathObj,
+        res: &Dictionary,
+        gs0: &Gs,
+        rects: &[Rect],
+        painted: bool,
+    ) -> std::result::Result<Vec<Pending>, PictureReason> {
+        use PictureReason as R;
+        if self.mask_meets(&p.gs, rects) {
+            return Err(R::SoftMask);
+        }
+        let area = path_bounds(p)
+            .map(|b| b.intersect(p.gs.clip))
+            .unwrap_or(Rect::ZERO);
+        let problems = self.pattern_problems(p, res, gs0, rects, area);
+        if painted {
+            return match problems.first() {
+                Some((_, r)) => Err(*r),
+                None => Ok(Vec::new()),
+            };
+        }
+        Ok(problems
+            .into_iter()
+            .map(|(name, reason)| Pending {
+                id: res
+                    .get(b"Pattern")
+                    .ok()
+                    .and_then(|x| deref(&self.inner, x).as_dict().ok())
+                    .and_then(|x| x.get(&name).ok())
+                    .and_then(|v| v.as_reference().ok()),
+                name,
+                reason,
+                area,
+            })
+            .collect())
+    }
+
+    /// Whether the paints kept with the pattern of `pd` (their areas, page
+    /// space) show what its cell or shading put under the marks elsewhere.
+    fn shown_by_kept(&self, pd: &Pending, kept: &[Rect], res: &Dictionary, gs0: &Gs, rects: &[Rect]) -> bool {
+        match pattern_kind(&self.inner, res, &pd.name) {
+            PatternKind::Tiling { cell: None, .. } => true,
+            PatternKind::Tiling {
+                text: false,
+                cell: Some(c),
+                step,
+                matrix,
+            } => kept
+                .iter()
+                .any(|a| cell_tiles(c, step, gs0.ctm * matrix, *a, rects).1),
+            PatternKind::Shading(sh, matrix) => {
+                let kind = shading_type(&self.inner, &sh);
+                if kind != 2 && kind != 3 {
+                    return false;
+                }
+                let under: Vec<Rect> = rects
+                    .iter()
+                    .map(|r| r.intersect(pd.area))
+                    .filter(|r| r.width() > 0.0 && r.height() > 0.0)
+                    .collect();
+                let outside: Vec<Vec<hayro::kurbo::Point>> = kept
+                    .iter()
+                    .filter_map(|a| exclusion_clip(*a, rects, Affine::IDENTITY))
+                    .flat_map(|(_, pieces)| pieces)
+                    .collect();
+                !outside.is_empty()
+                    && shading_shown_elsewhere(
+                        &self.inner,
+                        &sh,
+                        (gs0.ctm * matrix).inverse(),
+                        &under,
+                        &outside,
+                    )
+            }
+            _ => false,
+        }
     }
 }
 
-impl Document {
-    /// Whether the cells of a tiling pattern (what they draw: `cell`, in
-    /// pattern space, repeated by `step`, mapped to page space by `m`) put
-    /// something under a mark in the painted `area` that no whole cell
-    /// shows elsewhere in it: then what the cell draws there is unique and
-    /// would stay in the pattern.
-    fn cell_under_marks(&self, cell: Rect, step: (f64, f64), m: Affine, area: Rect, rects: &[Rect]) -> bool {
-        if m.determinant().abs() < 1e-12 || area.width() <= 0.0 || area.height() <= 0.0 {
-            return false;
-        }
-        let a = m.inverse().transform_rect_bbox(area);
-        let (xs, ys) = (step.0.abs(), step.1.abs());
-        let range = |lo: f64, hi: f64, c0: f64, c1: f64, st: f64| -> (i64, i64) {
-            if st < 1e-9 {
-                (0, 0)
-            } else {
-                (((lo - c1) / st).floor() as i64, ((hi - c0) / st).ceil() as i64)
-            }
-        };
-        let (i0, i1) = range(a.x0, a.x1, cell.x0, cell.x1, xs);
-        let (j0, j1) = range(a.y0, a.y1, cell.y0, cell.y1, ys);
-        let tiles = (i1 - i0 + 1).saturating_mul(j1 - j0 + 1);
-        if tiles > 100_000 {
-            // A motif repeated that often shows elsewhere.
-            return false;
-        }
-        let (mut under, mut elsewhere) = (false, false);
-        for i in i0..=i1 {
-            for j in j0..=j1 {
-                let t = m.transform_rect_bbox(cell + hayro::kurbo::Vec2::new(i as f64 * xs, j as f64 * ys));
-                if !overlaps(t, area) {
-                    continue;
-                }
-                if rects.iter().any(|r| overlaps(t, *r)) {
-                    under = true;
-                } else if t.x0 >= area.x0 && t.x1 <= area.x1 && t.y0 >= area.y0 && t.y1 <= area.y1 {
-                    elsewhere = true;
-                }
-            }
-        }
-        under && !elsewhere
+/// How the cells of a tiling pattern (what they draw: `cell`, in pattern
+/// space, repeated by `step`, mapped to page space by `m`) fall in the painted
+/// `area`: whether one puts something under a mark, and whether a whole one
+/// shows outside the marks. A motif repeated very often, or a degenerate
+/// one, counts as shown.
+fn cell_tiles(cell: Rect, step: (f64, f64), m: Affine, area: Rect, rects: &[Rect]) -> (bool, bool) {
+    if m.determinant().abs() < 1e-12 || area.width() <= 0.0 || area.height() <= 0.0 {
+        return (false, true);
     }
+    let a = m.inverse().transform_rect_bbox(area);
+    let (xs, ys) = (step.0.abs(), step.1.abs());
+    let range = |lo: f64, hi: f64, c0: f64, c1: f64, st: f64| -> (i64, i64) {
+        if st < 1e-9 {
+            (0, 0)
+        } else {
+            (((lo - c1) / st).floor() as i64, ((hi - c0) / st).ceil() as i64)
+        }
+    };
+    let (i0, i1) = range(a.x0, a.x1, cell.x0, cell.x1, xs);
+    let (j0, j1) = range(a.y0, a.y1, cell.y0, cell.y1, ys);
+    let tiles = (i1 - i0 + 1).saturating_mul(j1 - j0 + 1);
+    if tiles > 100_000 {
+        // A motif repeated that often shows elsewhere.
+        return (false, true);
+    }
+    let (mut under, mut elsewhere) = (false, false);
+    for i in i0..=i1 {
+        for j in j0..=j1 {
+            let t = m.transform_rect_bbox(cell + hayro::kurbo::Vec2::new(i as f64 * xs, j as f64 * ys));
+            if !overlaps(t, area) {
+                continue;
+            }
+            if rects.iter().any(|r| overlaps(t, *r)) {
+                under = true;
+            } else if t.x0 >= area.x0 && t.x1 <= area.x1 && t.y0 >= area.y0 && t.y1 <= area.y1 {
+                elsewhere = true;
+            }
+        }
+    }
+    (under, elsewhere)
 }
 
 /// A state holding only a soft mask (to test it).
@@ -1378,286 +1571,4 @@ fn mask_gs(gid: ObjectId, m: Affine) -> Gs {
     let mut gs = page_state(Rect::ZERO);
     gs.smask = Some((gid, m));
     gs
-}
-
-/// How many times each picture, form and pattern is drawn in the document.
-pub(super) struct Counts {
-    pub map: HashMap<ObjectId, usize>,
-}
-
-impl Counts {
-    pub fn get(&self, id: &ObjectId) -> Option<&usize> {
-        self.map.get(id)
-    }
-}
-
-/// A content stream in the context of the resources it draws with: the
-/// stream and the object holding those resources (itself, or what it
-/// inherits them from).
-type Node = (ObjectId, ObjectId);
-
-/// One drawing relation: an object drawn `mult` times by a stream, and its
-/// own content when it has some.
-struct Edge {
-    id: ObjectId,
-    node: Option<Node>,
-    mult: u64,
-}
-
-/// The objects a content stream draws (each kind of drawing once, with how
-/// many times). Patterns and soft masks count twice: they repeat.
-fn edges_of(
-    doc: &lopdf::Document,
-    data: &[u8],
-    owner: ObjectId,
-    owners: &mut HashMap<ObjectId, Dictionary>,
-) -> Vec<Edge> {
-    let res = owners.get(&owner).cloned().unwrap_or_default();
-    let mut agg: HashMap<(ObjectId, Option<Node>), u64> = HashMap::new();
-    let mut add = |id: ObjectId, factor: u64, owners: &mut HashMap<ObjectId, Dictionary>| {
-        let node = match doc.get_object(id).and_then(Object::as_stream) {
-            Ok(s)
-                if s.dict.get(b"Subtype").ok().and_then(|v| v.as_name().ok())
-                    != Some(b"Image".as_slice()) =>
-            {
-                // A stream with resources of its own draws with them.
-                let own = s
-                    .dict
-                    .get(b"Resources")
-                    .ok()
-                    .and_then(|r| deref(doc, r).as_dict().ok())
-                    .cloned();
-                Some(match own {
-                    Some(r) => {
-                        owners.entry(id).or_insert(r);
-                        (id, id)
-                    }
-                    None => (id, owner),
-                })
-            }
-            _ => None,
-        };
-        let e = agg.entry((id, node)).or_insert(0);
-        *e = e.saturating_add(factor);
-    };
-    let lookup = |cat: &[u8], name: Option<Vec<u8>>| -> Option<ObjectId> {
-        res.get(cat)
-            .ok()
-            .and_then(|x| deref(doc, x).as_dict().ok())
-            .and_then(|x| x.get(&name?).ok())
-            .and_then(|v| v.as_reference().ok())
-    };
-    for op in operations(data) {
-        match op.operator {
-            b"Do" => {
-                if let Some(id) = lookup(b"XObject", op.operands.first().and_then(|r| name_of(data, *r))) {
-                    add(id, 1, owners);
-                }
-            }
-            b"scn" | b"SCN" => {
-                if let Some(id) = lookup(b"Pattern", op.operands.last().and_then(|r| name_of(data, *r))) {
-                    add(id, 2, owners);
-                }
-            }
-            b"gs" => {
-                let g = op
-                    .operands
-                    .first()
-                    .and_then(|r| name_of(data, *r))
-                    .and_then(|n| resource(doc, &res, b"ExtGState", &n))
-                    .and_then(|d| d.as_dict().ok())
-                    .and_then(|d| d.get(b"SMask").ok())
-                    .map(|m| deref(doc, m))
-                    .and_then(|m| m.as_dict().ok())
-                    .and_then(|m| m.get(b"G").ok())
-                    .and_then(|g| g.as_reference().ok());
-                if let Some(g) = g {
-                    add(g, 2, owners);
-                }
-            }
-            _ => {}
-        }
-    }
-    agg.into_iter()
-        .map(|((id, node), mult)| Edge { id, node, mult })
-        .collect()
-}
-
-/// How many times each picture, form and pattern is drawn in the document:
-/// by the pages, the forms they draw and the appearances of annotations.
-/// Every content stream is read once for each set of resources it is drawn
-/// with, and the counts flow through the drawings (a form drawn twice draws
-/// what it draws twice); what drawings that draw themselves reach counts as
-/// drawn more than once.
-pub(super) fn drawing_counts(doc: &lopdf::Document) -> Counts {
-    let mut owners: HashMap<ObjectId, Dictionary> = HashMap::new();
-    let mut roots: Vec<Edge> = Vec::new();
-    // Resources of appearances that have none of their own.
-    let none = (0, 0);
-    owners.insert(none, Dictionary::new());
-    for (_, pid) in doc.get_pages() {
-        owners.insert(pid, crate::page_text::probe::page_resources(doc, pid));
-        let data = joined(doc, pid).data;
-        roots.extend(edges_of(doc, &data, pid, &mut owners));
-        for (_, ad) in doc
-            .get_dictionary(pid)
-            .map(|pd| crate::annots::annot_refs(doc, pd))
-            .unwrap_or_default()
-        {
-            let Some(ap) = ad.get(b"AP").ok().and_then(|a| deref(doc, a).as_dict().ok()) else {
-                continue;
-            };
-            for (_, v) in ap.iter() {
-                let ids: Vec<ObjectId> = match v {
-                    Object::Reference(r) => match doc.get_object(*r) {
-                        Ok(Object::Dictionary(states)) => {
-                            states.iter().filter_map(|(_, s)| s.as_reference().ok()).collect()
-                        }
-                        _ => vec![*r],
-                    },
-                    Object::Dictionary(states) => {
-                        states.iter().filter_map(|(_, s)| s.as_reference().ok()).collect()
-                    }
-                    _ => Vec::new(),
-                };
-                for id in ids {
-                    let own = doc
-                        .get_object(id)
-                        .and_then(Object::as_stream)
-                        .ok()
-                        .and_then(|s| s.dict.get(b"Resources").ok())
-                        .and_then(|r| deref(doc, r).as_dict().ok())
-                        .cloned();
-                    let owner = match own {
-                        Some(r) => {
-                            owners.insert(id, r);
-                            id
-                        }
-                        None => none,
-                    };
-                    roots.push(Edge {
-                        id,
-                        node: Some((id, owner)),
-                        mult: 1,
-                    });
-                }
-            }
-        }
-    }
-    // Every stream drawn, read once per set of resources.
-    let mut edges: HashMap<Node, Vec<Edge>> = HashMap::new();
-    let mut todo: Vec<Node> = roots.iter().filter_map(|e| e.node).collect();
-    while let Some(n) = todo.pop() {
-        if edges.contains_key(&n) {
-            continue;
-        }
-        let data = doc
-            .get_object(n.0)
-            .and_then(Object::as_stream)
-            .map(stream_data)
-            .unwrap_or_default();
-        let out = edges_of(doc, &data, n.1, &mut owners);
-        todo.extend(out.iter().filter_map(|e| e.node));
-        edges.insert(n, out);
-    }
-    // The counts flow from the pages through the drawings, in order.
-    let mut indeg: HashMap<Node, usize> = edges.keys().map(|k| (*k, 0)).collect();
-    for list in edges.values() {
-        for e in list {
-            if let Some(c) = e.node {
-                *indeg.entry(c).or_default() += 1;
-            }
-        }
-    }
-    let mut counts: HashMap<ObjectId, u64> = HashMap::new();
-    let mut node_count: HashMap<Node, u64> = HashMap::new();
-    for e in &roots {
-        let c = counts.entry(e.id).or_default();
-        *c = c.saturating_add(e.mult);
-        if let Some(n) = e.node {
-            let c = node_count.entry(n).or_default();
-            *c = c.saturating_add(e.mult);
-        }
-    }
-    let mut queue: Vec<Node> = indeg.iter().filter(|(_, d)| **d == 0).map(|(k, _)| *k).collect();
-    while let Some(n) = queue.pop() {
-        let c = node_count.get(&n).copied().unwrap_or(0);
-        for e in edges.get(&n).map(Vec::as_slice).unwrap_or_default() {
-            let add = c.saturating_mul(e.mult);
-            let v = counts.entry(e.id).or_default();
-            *v = v.saturating_add(add);
-            if let Some(ch) = e.node {
-                let v = node_count.entry(ch).or_default();
-                *v = v.saturating_add(add);
-                if let Some(d) = indeg.get_mut(&ch) {
-                    *d -= 1;
-                    if *d == 0 {
-                        queue.push(ch);
-                    }
-                }
-            }
-        }
-    }
-    // Drawings that draw themselves: what they reach is drawn, more than once.
-    let mut stack: Vec<Node> = indeg.iter().filter(|(_, d)| **d > 0).map(|(k, _)| *k).collect();
-    let mut seen: HashSet<Node> = HashSet::new();
-    while let Some(n) = stack.pop() {
-        if !seen.insert(n) {
-            continue;
-        }
-        let v = counts.entry(n.0).or_default();
-        *v = (*v).max(2);
-        for e in edges.get(&n).map(Vec::as_slice).unwrap_or_default() {
-            let v = counts.entry(e.id).or_default();
-            *v = (*v).max(2);
-            stack.extend(e.node);
-        }
-    }
-    Counts {
-        map: counts
-            .into_iter()
-            .map(|(k, v)| (k, usize::try_from(v).unwrap_or(usize::MAX)))
-            .collect(),
-    }
-}
-
-/// Remove `ids` from the document and every reference to them (dictionary
-/// entries and array elements), so nothing keeps them.
-pub(super) fn purge(doc: &mut lopdf::Document, ids: &HashSet<ObjectId>) {
-    fn strip(o: &mut Object, ids: &HashSet<ObjectId>) {
-        match o {
-            Object::Dictionary(d) => strip_dict(d, ids),
-            Object::Stream(s) => strip_dict(&mut s.dict, ids),
-            Object::Array(a) => {
-                a.retain(|x| !matches!(x, Object::Reference(r) if ids.contains(r)));
-                for x in a.iter_mut() {
-                    strip(x, ids);
-                }
-            }
-            _ => {}
-        }
-    }
-    fn strip_dict(d: &mut Dictionary, ids: &HashSet<ObjectId>) {
-        let gone: Vec<Vec<u8>> = d
-            .iter()
-            .filter(|(_, v)| matches!(v, Object::Reference(r) if ids.contains(r)))
-            .map(|(k, _)| k.clone())
-            .collect();
-        for k in gone {
-            d.remove(&k);
-        }
-        for (_, v) in d.iter_mut() {
-            strip(v, ids);
-        }
-    }
-    if ids.is_empty() {
-        return;
-    }
-    for id in ids {
-        doc.objects.remove(id);
-    }
-    for o in doc.objects.values_mut() {
-        strip(o, ids);
-    }
-    strip_dict(&mut doc.trailer, ids);
 }

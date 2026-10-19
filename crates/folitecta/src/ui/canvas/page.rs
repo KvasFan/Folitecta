@@ -339,17 +339,45 @@ pub(super) fn PageView(
         270 => format!("translate(0,{inner_w}px) rotate(270deg)"),
         _ => String::new(),
     };
+    // A page whose picture would have more than 8 million pixels (a high
+    // zoom) is drawn in tiles, only those in the window being asked for, over
+    // a picture of the whole page with 2.5 million pixels.
+    let s = scale as f32 / 1000.0;
+    let (pw, ph) = ((size.width * s) as u32, (size.height * s) as u32);
+    let pixels = pw as u64 * ph as u64;
+    let tiled = scale > 0 && pixels > 8_000_000;
+    let picture_scale = if tiled {
+        ((scale as f64) * (2_500_000.0 / pixels as f64).sqrt()) as u32
+    } else {
+        scale
+    };
+    let bg = if transparent { "bg=0&" } else { "" };
     // No picture is asked for while the scale is not known (0).
-    let src = (scale > 0).then(|| {
-        if transparent {
-            format!("/page/{tab_id}/{page}/{rev}/{scale}.png?bg=0&lane=view")
-        } else {
-            format!("/page/{tab_id}/{page}/{rev}/{scale}.png?lane=view")
-        }
-    });
+    let src = (scale > 0).then(|| format!("/page/{tab_id}/{page}/{rev}/{picture_scale}.png?{bg}lane=view"));
+    let tiles: Vec<(u32, u32, String)> = if tiled {
+        let t = folitecta_core::render_service::TILE;
+        // CSS pixels of the page area for a pixel of the picture.
+        let k = inner_w / pw.max(1) as f32;
+        (0..ph.div_ceil(t))
+            .flat_map(|r| (0..pw.div_ceil(t)).map(move |c| (c, r)))
+            .map(|(c, r)| {
+                let (tw, th) = ((t + 1).min(pw - c * t), (t + 1).min(ph - r * t));
+                let style = format!(
+                    "left:{}px;top:{}px;width:{}px;height:{}px",
+                    (c * t) as f32 * k,
+                    (r * t) as f32 * k,
+                    tw as f32 * k,
+                    th as f32 * k
+                );
+                (c, r, style)
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
     // A small picture under the sharp one, seen until it comes (not over a
     // transparent page, where it would hide the grid).
-    let preview_src = (scale > 0 && preview > 0 && preview < scale && !transparent)
+    let preview_src = (scale > 0 && preview > 0 && preview < picture_scale && !transparent)
         .then(|| format!("/page/{tab_id}/{page}/{rev}/{preview}.png?lane=preview"));
     let mut img_filter = String::new();
     if dark {
@@ -806,6 +834,10 @@ pub(super) fn PageView(
                     img { class: "page-preview", src: "{psrc}", alt: "", decoding: "async", draggable: "false", style: if img_filter.is_empty() { String::new() } else { format!("filter:{img_filter}") } }
                 }
                 img { class: "page-img", src, alt: "", decoding: "async", draggable: "false", style: if img_filter.is_empty() { String::new() } else { format!("filter:{img_filter}") } }
+                for (c, r, style) in tiles {
+                    img { key: "t{c}-{r}", class: "page-tile", src: "/page/{tab_id}/{page}/{rev}/{scale}.png?{bg}lane=view&tile={c},{r}", alt: "", loading: "lazy", decoding: "async", draggable: "false",
+                        style: if img_filter.is_empty() { style } else { format!("{style};filter:{img_filter}") } }
+                }
                 if show_grid {
                     div { class: "grid-overlay", style: "background-size:{grid_px}px {grid_px}px" }
                 }

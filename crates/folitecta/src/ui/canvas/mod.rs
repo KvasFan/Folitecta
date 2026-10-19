@@ -13,6 +13,7 @@ use crate::icons::Icon;
 use crate::state::{AfterUnsaved, AppState, Dialog, Layout, TextSel, ToastKind, Tool, Zoom};
 use crate::ui::chrome::welcome::Welcome;
 use crate::ui::features::form_fill::{FieldInput, fill_field};
+use folitecta_core::render_service::TILE;
 
 mod create;
 mod geometry;
@@ -302,15 +303,41 @@ fn Loupe() -> Element {
         cx + 24.0
     };
     let top = (cy - h / 2.0).clamp(4.0, (vh - h - 4.0).max(4.0));
-    let page_w = st
-        .read_active(|t| t.page_sizes.get(page).map(|s| s.width))
+    let (page_w, page_h) = st
+        .read_active(|t| t.page_sizes.get(page).map(|s| (s.width, s.height)))
         .flatten()
-        .unwrap_or(595.0)
-        * mag;
-    let bx = -(x * mag - w as f32 / 2.0);
-    let by = -(y * mag - h as f32 / 2.0);
+        .unwrap_or((595.0, 842.0));
+    // The loupe shows the tiles of a fixed grid over the page picture at its
+    // scale (the whole page at up to 8x was drawn before): only the tiles
+    // under it are drawn, and moving it reuses the tiles drawn already.
+    let dpr = (st.dpr)() as f32;
+    let s = scale as f32 / 1000.0;
+    let (pw, ph) = ((page_w * s) as u32, (page_h * s) as u32);
+    let (x0, y0) = (x * s - w as f32 * dpr / 2.0, y * s - h as f32 * dpr / 2.0);
+    let (x1, y1) = (x0 + w as f32 * dpr, y0 + h as f32 * dpr);
+    let t = TILE as f32;
+    let cols = (x0.max(0.0) / t) as u32..=((x1.max(0.0) / t) as u32).min(pw.saturating_sub(1) / TILE);
+    let rows = (y0.max(0.0) / t) as u32..=((y1.max(0.0) / t) as u32).min(ph.saturating_sub(1) / TILE);
+    let tiles: Vec<(u32, u32, String)> = rows
+        .flat_map(|r| cols.clone().map(move |c| (c, r)))
+        .map(|(c, r)| {
+            let (tw, th) = ((TILE + 1).min(pw - c * TILE), (TILE + 1).min(ph - r * TILE));
+            let style = format!(
+                "left:{}px;top:{}px;width:{}px;height:{}px",
+                (c as f32 * t - x0) / dpr,
+                (r as f32 * t - y0) / dpr,
+                tw as f32 / dpr,
+                th as f32 / dpr
+            );
+            (c, r, style)
+        })
+        .collect();
     rsx! {
-        div { class: "loupe", style: "left:{left}px;top:{top}px;width:{w}px;height:{h}px;background-image:url(/page/{tab}/{page}/{rev}/{scale}.png);background-size:{page_w}px auto;background-position:{bx}px {by}px" }
+        div { class: "loupe", style: "left:{left}px;top:{top}px;width:{w}px;height:{h}px",
+            for (c, r, style) in tiles {
+                img { key: "{c}-{r}", src: "/page/{tab}/{page}/{rev}/{scale}.png?tile={c},{r}", alt: "", draggable: "false", style: "{style}" }
+            }
+        }
     }
 }
 

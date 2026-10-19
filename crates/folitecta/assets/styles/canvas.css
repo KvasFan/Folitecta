@@ -71,6 +71,8 @@ textarea.field-input { resize: none; padding: 2px 3px; }
 /* The small picture of a page, seen under the sharp one until it comes. */
 .page-preview { display: block; position: absolute; inset: 0; width: 100%; height: 100%; -webkit-user-drag: none; }
 .page-inner[data-sharp] > .page-preview { display: none; }
+/* The tiles of a page drawn in parts at a high zoom, over its picture. */
+.page-tile { display: block; position: absolute; -webkit-user-drag: none; }
 .grid-overlay { position: absolute; inset: 0; background-image: linear-gradient(to right, rgba(79,70,229,.18) 1px, transparent 1px), linear-gradient(to bottom, rgba(79,70,229,.18) 1px, transparent 1px); }
 .guide { position: absolute; background: #06b6d4; opacity: .85; }
 .guide.h { left: 0; right: 0; height: 1px; }
@@ -110,6 +112,8 @@ textarea.field-input { resize: none; padding: 2px 3px; }
 .ruler.rx span { top: 1px; }
 .ruler.ry span { left: 1px; writing-mode: vertical-rl; transform: rotate(180deg); }
 .loupe { position: fixed; border: 2px solid var(--accent); border-radius: 12px; box-shadow: var(--shadow); background-color: white; background-repeat: no-repeat; pointer-events: none; z-index: 400; }
+.loupe { overflow: hidden; }
+.loupe > img { position: absolute; display: block; }
 .canvas .spinner { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); color: var(--muted); }
 
 /* Horizontal scrolling layout */

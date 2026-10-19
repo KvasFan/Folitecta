@@ -233,7 +233,7 @@ pub fn App() -> Element {
         }
     });
 
-    // Serve page renders at /page/{tab}/{page}/{revision}/{scale_milli}.png[?bg=0][&annots=0][&lane=view|preview|thumb].
+    // Serve page renders at /page/{tab}/{page}/{revision}/{scale_milli}.png[?bg=0][&annots=0][&lane=view|preview|thumb][&tile=column,row].
     // A picture is only given for the revision the tab shows (an address of
     // another revision gets 409, never kept), drawn from the document of that
     // revision or refused when it changed meanwhile.
@@ -279,12 +279,19 @@ pub fn App() -> Element {
             responder.respond(no_picture(409, "the document changed"));
             return;
         }
+        // A tile of the picture: `tile=column,row`.
+        let tile = query
+            .split('&')
+            .find_map(|q| q.strip_prefix("tile="))
+            .and_then(|t| t.split_once(','))
+            .and_then(|(c, r)| Some((c.parse().ok()?, r.parse().ok()?)));
         let req = RenderRequest {
             page: path.page,
             scale: path.scale,
             opts,
             lane,
             rev: Some(path.rev),
+            tile,
         };
         service.request(req, move |answer| {
             crate::perf::PAGE_WAIT_US.add(asked.elapsed().as_micros() as u64);

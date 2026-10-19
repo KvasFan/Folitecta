@@ -150,6 +150,21 @@ pub(crate) fn render_pixmap_with<'a>(
     opts: RenderOpts,
     threads: u16,
 ) -> Result<Pixmap> {
+    render_region(pdf, cache, page, scale, opts, None, threads)
+}
+
+/// Rasterize a part of the page picture at `scale` (`x`, `y`, width and
+/// height in its pixels; `None`: the whole picture) with `threads` threads
+/// of the rasterizer besides the calling one.
+pub(crate) fn render_region<'a>(
+    pdf: &'a Pdf,
+    cache: &RenderCache<'a>,
+    page: usize,
+    scale: f32,
+    opts: RenderOpts,
+    region: Option<(u32, u32, u32, u32)>,
+    threads: u16,
+) -> Result<Pixmap> {
     use hayro::hayro_interpret::TransformExt;
     use hayro::vello_cpu::{RasterizerSettings, RenderContext, Resources, TargetInit};
     let annotations = opts.annotations;
@@ -161,6 +176,17 @@ pub(crate) fn render_pixmap_with<'a>(
     let p = pages.get(page).ok_or(Error::InvalidPage(page))?;
     let (w, h) = p.render_dimensions();
     let scale = scale.max(0.05).min(MAX_EDGE / w.max(h).max(1.0));
+    let (full_w, full_h) = ((w * scale) as u16, (h * scale) as u16);
+    let (x, y, rw, rh) = match region {
+        Some((x, y, rw, rh)) => {
+            let (fw, fh) = (u32::from(full_w), u32::from(full_h));
+            if x >= fw || y >= fh || rw == 0 || rh == 0 {
+                return Err(Error::Render(format!("no such part of page {}", page + 1)));
+            }
+            (x, y, rw.min(fw - x) as u16, rh.min(fh - y) as u16)
+        }
+        None => (0, 0, full_w, full_h),
+    };
     let background = if opts.transparent { TRANSPARENT } else { WHITE };
     let result = catch_unwind(AssertUnwindSafe(|| {
         // As `hayro::render` does, with the settings of the rasterizer given.
@@ -168,8 +194,10 @@ pub(crate) fn render_pixmap_with<'a>(
             num_threads: threads,
             ..Default::default()
         };
-        let mut ctx = RenderContext::new_with((w * scale) as u16, (h * scale) as u16, settings);
-        let transform = hayro::kurbo::Affine::scale(scale as f64) * p.initial_transform(true).to_kurbo();
+        let mut ctx = RenderContext::new_with(rw, rh, settings);
+        let transform = hayro::kurbo::Affine::translate((-(x as f64), -(y as f64)))
+            * hayro::kurbo::Affine::scale(scale as f64)
+            * p.initial_transform(true).to_kurbo();
         hayro::render_into(
             p,
             cache,

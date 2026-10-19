@@ -100,6 +100,20 @@ if (!window.__foliPerf) {
   // What a page shows: 0 nothing (blank), 1 a picture with too few pixels
   // (a preview, or the picture of another zoom), 2 a sharp picture.
   P.pageState = (pg, dpr) => {
+    // A page drawn in tiles: sharp when the tiles in the window have come.
+    const tiles = pg.querySelectorAll('.page-tile');
+    if (tiles.length) {
+      const v = document.getElementById('canvas').getBoundingClientRect();
+      let all = true;
+      for (const t of tiles) {
+        const r = t.getBoundingClientRect();
+        if (r.bottom <= v.top || r.top >= v.bottom || r.right <= v.left || r.left >= v.right) continue;
+        if (!(t.complete && t.naturalWidth > 0)) { all = false; break; }
+      }
+      if (all) return 2;
+      const base = pg.querySelector('.page-img');
+      return base && base.naturalWidth > 0 ? 1 : 0;
+    }
     const img = pg.querySelector('.page-img');
     if (img && img.naturalWidth > 0) {
       const w = img.getBoundingClientRect().width;
@@ -810,6 +824,53 @@ async fn document_scenarios(p: &mut Probe<'_, '_>, doc: &str, pages: usize, byte
                 "rendered",
                 "dropped",
                 "render_ms",
+            ],
+        );
+
+        // 5b. A high zoom (400 %): the time until the pages in the window are
+        // sharp (drawn in tiles), from the change of zoom.
+        let mut runs = Vec::new();
+        let mut ok = true;
+        for r in 0..reps {
+            reset_view_at(st, mid + r, 1.0).await;
+            let before = mark(st);
+            let started = Instant::now();
+            st.with_active(|t| t.zoom = Zoom::Fixed(4.0));
+            let sharp = obj(&format!(
+                "const P = window.__foliPerf; return {{ sharp: await P.waitSharp(performance.now(), 20000, 4, {pagew}), tiles: document.querySelectorAll('#canvas .page-tile').length }};"
+            ))
+            .await;
+            let ms = num(&Value::Object(sharp.clone()), "sharp");
+            let mut m = Map::new();
+            m.insert(
+                "sharp_after_ms".into(),
+                json!(if ms < 0.0 {
+                    -1.0
+                } else {
+                    started.elapsed().as_secs_f64() * 1000.0
+                }),
+            );
+            m.insert("tiles".into(), sharp.get("tiles").cloned().unwrap_or(json!(0)));
+            m.extend(counted(st, before));
+            let (own, web) = memory_mb();
+            m.insert("ui_process_mb".into(), json!(own));
+            m.insert("web_processes_mb".into(), json!(web));
+            ok &= ms >= 0.0;
+            runs.push(m);
+        }
+        p.record(
+            doc,
+            "zoom to 400 %",
+            runs,
+            ok,
+            &[
+                "sharp_after_ms",
+                "tiles",
+                "pictures_asked",
+                "rendered",
+                "render_ms",
+                "sent_mb",
+                "web_processes_mb",
             ],
         );
 

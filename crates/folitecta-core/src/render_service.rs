@@ -27,7 +27,13 @@ use hayro::RenderCache;
 use hayro::hayro_syntax::Pdf;
 
 use crate::error::{Error, Result};
-use crate::render::{RenderOpts, RenderedPage, encode_pixels, load_pdf, pixels_of, render_pixmap_with};
+use crate::render::{RenderOpts, RenderedPage, encode_pixels, load_pdf, pixels_of, render_region};
+
+/// The size of a tile, in pixels of the page picture: a page too large to
+/// be drawn whole is drawn in tiles of this size, each one pixel larger on
+/// its right and bottom edges so that neighbouring tiles overlap and no seam
+/// shows between them.
+pub const TILE: u32 = 512;
 
 /// Which part of the window asks for a picture.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -55,6 +61,9 @@ pub struct RenderRequest {
     /// The revision of the document the picture must show (`None`: the
     /// current one).
     pub rev: Option<u64>,
+    /// A tile of the picture (column and row, [`TILE`] pixels a side), not
+    /// the whole picture.
+    pub tile: Option<(u32, u32)>,
 }
 
 /// What a request gets.
@@ -106,6 +115,7 @@ struct Key {
     scale: u32,
     opts: RenderOpts,
     rev: u64,
+    tile: Option<(u32, u32)>,
 }
 
 fn scale_key(scale: f32) -> u32 {
@@ -404,6 +414,7 @@ impl RenderService {
             scale: scale_key(req.scale),
             opts: req.opts,
             rev: req.rev.unwrap_or_else(|| s.rev_of(req.page)),
+            tile: req.tile,
         };
         if matches!(req.lane, Lane::Thumb | Lane::Preview) {
             s.thumb_scale = Some(key.scale);
@@ -463,6 +474,7 @@ impl RenderService {
             opts,
             lane: Lane::Other,
             rev: None,
+            tile: None,
         };
         self.request(req, move |answer| {
             reply(match answer {
@@ -677,7 +689,15 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
     let mut small = None;
     let answer = match pdf {
         Err(e) => RenderAnswer::Failed(e.to_string()),
-        Ok(pdf) => match render_pixmap_with(pdf, cache, key.page, job.scale, key.opts, threads) {
+        Ok(pdf) => match render_region(
+            pdf,
+            cache,
+            key.page,
+            job.scale,
+            key.opts,
+            key.tile.map(|(c, r)| (c * TILE, r * TILE, TILE + 1, TILE + 1)),
+            threads,
+        ) {
             Err(e) => RenderAnswer::Failed(e.to_string()),
             Ok(pixmap) => {
                 let (w, h, color, pixels) = pixels_of(pixmap);
@@ -686,7 +706,8 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
                     Ok(png) => {
                         let channels = if color == png::ColorType::Rgb { 3 } else { 4 };
                         // The small picture of the page, when it is not kept yet.
-                        if let (Some(ts), Lane::View | Lane::Other) = (thumb_scale, job.lane) {
+                        if let (Some(ts), Lane::View | Lane::Other, None) = (thumb_scale, job.lane, key.tile)
+                        {
                             if ts < key.scale {
                                 small = Some((ts, pixels, w, h, color, channels));
                             }
@@ -721,7 +742,11 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
         return;
     };
     let Ok(pdf) = pdf else { return };
-    let small_key = Key { scale: ts, ..key };
+    let small_key = Key {
+        scale: ts,
+        tile: None,
+        ..key
+    };
     if shared.lock().kept.contains_key(&small_key) {
         return;
     }
@@ -763,7 +788,7 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::render::Renderer;
+    use crate::render::{Renderer, render_pixmap_with};
 
     fn doc(pages: usize) -> Arc<Vec<u8>> {
         Arc::new(crate::testdocs::text_doc(pages))
@@ -784,6 +809,7 @@ mod tests {
             opts: RenderOpts::default(),
             lane,
             rev,
+            tile: None,
         }
     }
 
@@ -982,6 +1008,47 @@ mod tests {
             );
             assert!(one.data() == four.data(), "{name}: the pixels differ");
         }
+    }
+
+    #[test]
+    fn tiles_are_the_parts_of_the_whole_picture() {
+        let bytes = doc(1);
+        let svc = RenderService::with_workers(bytes.clone(), 2);
+        let scale = 2.0;
+        let pixels = |png: &[u8]| image::load_from_memory(png).unwrap().to_rgba8();
+        let RenderAnswer::Picture(whole) = ask(&svc, req(0, scale, Lane::View, None)) else {
+            panic!("no picture");
+        };
+        let whole = pixels(&whole.png);
+        let (w, h) = whole.dimensions();
+        for (c, r) in [(0u32, 0u32), (1, 1), ((w - 1) / TILE, (h - 1) / TILE)] {
+            let mut tile_req = req(0, scale, Lane::View, None);
+            tile_req.tile = Some((c, r));
+            let RenderAnswer::Picture(tile) = ask(&svc, tile_req) else {
+                panic!("no tile {c},{r}");
+            };
+            let tile = pixels(&tile.png);
+            let (x0, y0) = (c * TILE, r * TILE);
+            assert_eq!(tile.width(), (TILE + 1).min(w - x0), "tile {c},{r}");
+            assert_eq!(tile.height(), (TILE + 1).min(h - y0), "tile {c},{r}");
+            let mut differ = 0usize;
+            for (x, y, p) in tile.enumerate_pixels() {
+                let q = whole.get_pixel(x0 + x, y0 + y);
+                if p.0.iter().zip(q.0.iter()).any(|(a, b)| a.abs_diff(*b) > 2) {
+                    differ += 1;
+                }
+            }
+            // The rasterizer may round the edges of shapes cut by a tile a
+            // little differently; the pictures are otherwise the same.
+            assert!(
+                differ * 1000 < (tile.width() * tile.height()) as usize,
+                "tile {c},{r}: {differ} pixels differ"
+            );
+        }
+        // Outside the picture: refused, not hung.
+        let mut beyond = req(0, scale, Lane::View, None);
+        beyond.tile = Some((w / TILE + 2, 0));
+        assert!(matches!(ask(&svc, beyond), RenderAnswer::Failed(_)));
     }
 
     #[test]

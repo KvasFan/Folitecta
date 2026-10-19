@@ -1339,3 +1339,56 @@ fn undoing_a_saved_redaction_of_a_signed_protected_document_never_writes_a_broke
         let _ = std::fs::remove_file(p);
     }
 }
+
+/// `bytes` with a document security store (a certificate and an entry for
+/// a signature) and its `/ESIC` declaration added, written whole.
+fn with_security_store(bytes: &[u8]) -> Vec<u8> {
+    let mut lo = lopdf::Document::load_mem(bytes).unwrap();
+    let cert = lo.add_object(Stream::new(
+        dictionary! {},
+        b"DSSCERTMARKER certificate of the signer".to_vec(),
+    ));
+    let vri = dictionary! {
+        "ABCDEF0123456789ABCDEF0123456789ABCDEF01" => dictionary! { "Cert" => vec![Object::Reference(cert)] },
+    };
+    let dss = lo
+        .add_object(dictionary! { "Type" => "DSS", "Certs" => vec![Object::Reference(cert)], "VRI" => vri });
+    let root = lo.trailer.get(b"Root").unwrap().as_reference().unwrap();
+    let cat = lo.get_dictionary_mut(root).unwrap();
+    cat.set("DSS", dss);
+    cat.set(
+        "Extensions",
+        dictionary! { "ESIC" => dictionary! { "BaseVersion" => "1.7", "ExtensionLevel" => 1 } },
+    );
+    let mut out = Vec::new();
+    lo.save_to(&mut out).unwrap();
+    out
+}
+
+#[test]
+fn the_security_store_and_its_declaration_go_with_the_signatures() {
+    let id = DigitalId::create_self_signed(
+        &IdentityInfo {
+            name: "Reviewer".into(),
+            ..IdentityInfo::default()
+        },
+        KeyKind::EcP256,
+        1,
+    )
+    .unwrap();
+    let signed = sample().sign(&id, &SignOptions::default()).unwrap();
+    let plain = sample().bytes().to_vec();
+    for (name, bytes, signatures) in [("dss-signed", signed, 1), ("dss-unsigned", plain, 0)] {
+        let mut doc = Document::from_bytes(with_security_store(&bytes), None, None).unwrap();
+        mark_word(&mut doc, 0, "Secret");
+        let report = doc.apply_redactions_opts(None, &no_sanitizing()).unwrap();
+        assert_eq!(report.signatures, signatures, "{name}");
+        assert!(check_now(&mut doc, &report).passed(), "{name}");
+        let bytes = saved(&mut doc, name);
+        assert!(absent(&bytes, "DSSCERTMARKER"), "{name}");
+        for key in [b"/DSS".as_slice(), b"/VRI", b"/ESIC"] {
+            assert!(!holds(&bytes, key), "{name}: {}", String::from_utf8_lossy(key));
+        }
+        assert!(!Document::from_bytes(bytes, None, None).unwrap().has_signatures());
+    }
+}

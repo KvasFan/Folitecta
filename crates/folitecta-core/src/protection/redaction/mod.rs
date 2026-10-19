@@ -633,6 +633,11 @@ impl Document {
         if report.signatures > 0 {
             self.mark_signature_fields();
         }
+        // The validation material of signatures (the document security
+        // store, its entries per signature and its `/ESIC` declaration) names
+        // the signers and their certificates: it goes too, with or without
+        // signatures left to remove.
+        self.remove_dss();
         let pages: Vec<usize> = marks.keys().copied().collect();
         let probe = probe_pages(
             &self.inner,

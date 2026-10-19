@@ -192,6 +192,117 @@ impl Renderer {
     }
 }
 
+/// Rows of pixels drawn for a printer that receives pixels, one band of a
+/// page at a time.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Band {
+    pub width: u32,
+    pub rows: u32,
+    /// Bytes per row (a multiple of 4).
+    pub stride: usize,
+    /// 24 (blue, green, red) or 8 (grey) bits per pixel.
+    pub bits: u16,
+    /// The rows from the top.
+    pub data: Vec<u8>,
+}
+
+/// How many rows of `width` pixels a band may have so that drawing it stays
+/// within `budget` bytes (about 7 bytes a pixel), from 64 (or the whole
+/// height when it is smaller) to `height`.
+pub fn band_rows(width: u32, height: u32, budget: usize) -> u32 {
+    let height = height.max(1);
+    let per_row = (width.max(1) as usize).saturating_mul(7);
+    let rows = (budget / per_row).clamp(1, u32::MAX as usize) as u32;
+    rows.clamp(64.min(height), height)
+}
+
+impl Renderer {
+    /// `rows` rows of pixels of `page` from row `top`, `width` pixels wide,
+    /// drawn at `dpi` (horizontal, vertical) on white. Pixel (0, 0) of the
+    /// whole page is the point at `origin` pixels from its top left corner
+    /// (the edge a printer cannot print on). Only the band is allocated, so
+    /// a page of any size can be drawn at a high resolution.
+    #[allow(clippy::too_many_arguments)]
+    pub fn render_band(
+        &self,
+        page: usize,
+        dpi: (f32, f32),
+        origin: (f32, f32),
+        width: u32,
+        top: u32,
+        rows: u32,
+        gray: bool,
+    ) -> Result<Band> {
+        use hayro::hayro_interpret::util::TransformExt;
+        use hayro::kurbo::Affine;
+        use hayro::vello_cpu::{RasterizerSettings, RenderContext, TargetInit};
+
+        if width == 0 || rows == 0 || width > u32::from(u16::MAX) || rows > u32::from(u16::MAX) {
+            return Err(Error::Render(format!(
+                "a band of {width} x {rows} pixels cannot be drawn"
+            )));
+        }
+        let pages = self.pdf.pages();
+        let p = pages.get(page).ok_or(Error::InvalidPage(page))?;
+        let cache = RenderCache::new();
+        let interpreter = InterpreterSettings::default();
+        let transform = Affine::translate((-f64::from(origin.0), -(f64::from(origin.1) + f64::from(top))))
+            * Affine::scale_non_uniform(f64::from(dpi.0) / 72.0, f64::from(dpi.1) / 72.0)
+            * p.initial_transform(true).to_kurbo();
+        let drawn = catch_unwind(AssertUnwindSafe(|| {
+            let mut ctx = RenderContext::new(width as u16, rows as u16);
+            hayro::render_into(
+                p,
+                &cache,
+                &interpreter,
+                &RenderSettings::default(),
+                &mut ctx,
+                transform,
+            );
+            ctx.flush();
+            let mut pixmap = Pixmap::new(width as u16, rows as u16);
+            ctx.render_with(
+                &mut pixmap,
+                &mut hayro::vello_cpu::Resources::default(),
+                RasterizerSettings {
+                    target_init: TargetInit::Clear(WHITE),
+                    ..Default::default()
+                },
+            );
+            pixmap
+        }))
+        .map_err(|_| Error::Render(format!("the renderer failed on page {}", page + 1)))?;
+        let rgba = drawn.take_rgba8(ImageAlphaType::Alpha);
+        let bits: u16 = if gray { 8 } else { 24 };
+        let row_bytes = width as usize * usize::from(bits / 8);
+        let stride = row_bytes.div_ceil(4) * 4;
+        let mut data = vec![0u8; stride * rows as usize];
+        for (y, src) in rgba.chunks_exact(width as usize * 4).enumerate() {
+            let dst = &mut data[y * stride..y * stride + row_bytes];
+            if gray {
+                for (d, px) in dst.iter_mut().zip(src.as_chunks::<4>().0) {
+                    let l = (u32::from(px[0]) * 299 + u32::from(px[1]) * 587 + u32::from(px[2]) * 114 + 500)
+                        / 1000;
+                    *d = l as u8;
+                }
+            } else {
+                for (d, px) in dst.as_chunks_mut::<3>().0.iter_mut().zip(src.as_chunks::<4>().0) {
+                    d[0] = px[2];
+                    d[1] = px[1];
+                    d[2] = px[0];
+                }
+            }
+        }
+        Ok(Band {
+            width,
+            rows,
+            stride,
+            bits,
+            data,
+        })
+    }
+}
+
 type Reply<T> = Box<dyn FnOnce(T) + Send + 'static>;
 
 enum Msg {
@@ -421,6 +532,47 @@ mod tests {
             assert_eq!((png.width, png.height), direct.dimensions());
             assert!(decoded == direct, "transparent {transparent}");
         }
+    }
+
+    #[test]
+    fn bands_put_together_are_the_whole_page() {
+        let r = Renderer::new(text_pages(1)).unwrap();
+        let dpi = 100.0;
+        let whole = r.render_rgba(0, dpi / 72.0, RenderOpts::default()).unwrap();
+        let (w, h) = whole.dimensions();
+        let step = band_rows(w, h, w as usize * 7 * 97);
+        assert_eq!(step, 97);
+        let mut top = 0;
+        let mut worst = 0u8;
+        while top < h {
+            let rows = step.min(h - top);
+            let band = r
+                .render_band(0, (dpi, dpi), (0.0, 0.0), w, top, rows, false)
+                .unwrap();
+            assert_eq!(band.stride % 4, 0);
+            for y in 0..rows {
+                for x in 0..w {
+                    let i = y as usize * band.stride + x as usize * 3;
+                    let px = whole.get_pixel(x, top + y).0;
+                    for (c, v) in [(2, px[0]), (1, px[1]), (0, px[2])] {
+                        worst = worst.max(band.data[i + c].abs_diff(v));
+                    }
+                }
+            }
+            top += rows;
+        }
+        assert!(worst <= 2, "largest difference {worst}");
+        let gray = r
+            .render_band(0, (dpi, dpi), (10.0, 20.0), 33, 0, 5, true)
+            .unwrap();
+        assert_eq!((gray.bits, gray.stride, gray.data.len()), (8, 36, 36 * 5));
+        assert!(
+            r.render_band(0, (dpi, dpi), (0.0, 0.0), 70_000, 0, 1, false)
+                .is_err()
+        );
+        assert_eq!(band_rows(1000, 30, 1), 30);
+        assert_eq!(band_rows(1000, 5000, 1), 64);
+        assert_eq!(band_rows(1000, 5000, 7_000_000), 1000);
     }
 
     /// How long the PNG of a full page takes at each level:

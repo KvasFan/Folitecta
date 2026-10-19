@@ -273,6 +273,18 @@ fn load_decrypted(bytes: &[u8], password: &[u8]) -> Result<lopdf::Document> {
 }
 
 fn load_inner(bytes: &[u8], password: Option<&str>) -> Result<Loaded> {
+    let mut loaded = load_with(bytes, password)?;
+    // Opened with the owner password (an empty one included), the permissions
+    // of the file do not restrict the document.
+    if let Some(p) = &loaded.protection {
+        if p.is_owner_password(password.unwrap_or("")) {
+            loaded.protection = Some(p.opened_by_owner());
+        }
+    }
+    Ok(loaded)
+}
+
+fn load_with(bytes: &[u8], password: Option<&str>) -> Result<Loaded> {
     // Revisions 2 to 4: a password the library would make a wrong key of
     // (characters outside ASCII, an owner password) is decrypted here.
     if let Some(key) = password.and_then(|pw| crate::security::r4_key_password(bytes, pw)) {
@@ -431,6 +443,31 @@ impl Document {
         Ok(doc)
     }
 
+    /// A private copy over objects already read (printing): never saved,
+    /// without history or protection.
+    pub(crate) fn detached(inner: lopdf::Document, bytes: Arc<Vec<u8>>) -> Self {
+        Document {
+            inner,
+            path: None,
+            name_hint: None,
+            source: None,
+            bytes,
+            revision: 0,
+            dirty: false,
+            undo: Vec::new(),
+            redo: Vec::new(),
+            helv_font: None,
+            source_encrypted: false,
+            protection: None,
+            edit_backup: None,
+            saves: 0,
+            text_cache: Default::default(),
+            marked_cache: Default::default(),
+            struct_cache: Default::default(),
+            image_cache: Default::default(),
+        }
+    }
+
     /// Create a new document with `pages` blank pages of the given size (points).
     pub fn new_blank(pages: usize, width: f32, height: f32) -> Result<Self> {
         let pages = pages.max(1);
@@ -561,6 +598,22 @@ impl Document {
     /// its saved files keep.
     pub fn is_protected(&self) -> bool {
         self.protection.is_some()
+    }
+
+    /// Give the document the owner's access when `password` is the owner
+    /// password of its protection (the permissions no longer restrict it).
+    /// Whether the document has the owner's access now.
+    pub fn unlock_owner(&mut self, password: &str) -> bool {
+        let Some(p) = &self.protection else {
+            return false;
+        };
+        match p.unlocked(password) {
+            Some(unlocked) => {
+                self.protection = Some(unlocked);
+                true
+            }
+            None => false,
+        }
     }
 
     /// The protection of the document.

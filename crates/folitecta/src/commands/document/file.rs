@@ -3,7 +3,7 @@
 use crate::commands::{confirm, doc_dialog, handlers, no_doc, open_url};
 use crate::files;
 use crate::i18n::t;
-use crate::state::{AfterUnsaved, AppState, ConfirmAction, Dialog, ToastKind};
+use crate::state::{AfterUnsaved, AppState, ConfirmAction, Dialog, PrintTarget, ToastKind};
 use crate::util;
 use dioxus::prelude::ReadableExt;
 
@@ -85,8 +85,8 @@ handlers! {
     "closeTabsToTheRight" => |st| close_where(st, |i, a| i > a),
     "duplicateTab" => duplicate_tab,
     "reopenJustClosedDoc" => |st| files::reopen_closed(st),
-    "print" => |st| doc_dialog(st, Dialog::Print(false)),
-    "printAll" => |st| doc_dialog(st, Dialog::Print(true)),
+    "print" => |st| doc_dialog(st, Dialog::Print(PrintTarget::Active)),
+    "printAll" => |st| doc_dialog(st, Dialog::Print(PrintTarget::AllOpen)),
     "exit" => |st| files::exit_app(st),
     "docProps" => |st| doc_dialog(st, Dialog::DocProps),
     "openSrcFolder" => |st| {

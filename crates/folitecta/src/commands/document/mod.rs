@@ -12,5 +12,6 @@ pub(crate) mod mail_draft;
 pub(crate) mod ocr;
 pub(crate) mod pages;
 pub(crate) mod pictures;
+pub(crate) mod print;
 pub(crate) mod sources;
 pub(crate) mod split;

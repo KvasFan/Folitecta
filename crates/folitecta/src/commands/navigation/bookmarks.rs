@@ -423,10 +423,7 @@ fn pages_action(st: AppState, section: bool, action: &'static str) {
             Some(Err(e)) => st.error(e),
             None => {}
         },
-        "print" => {
-            st.with_active(|t| t.selected_pages = pages.clone());
-            st.set_dialog(Dialog::Print(false));
-        }
+        "print" => st.set_dialog(Dialog::Print(crate::state::PrintTarget::Pages(pages.clone()))),
         _ => {
             let lang = st.lang();
             let body = tf(

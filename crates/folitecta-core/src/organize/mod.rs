@@ -12,4 +12,5 @@ pub mod metadata;
 pub mod pages;
 pub mod pagetools;
 pub mod portfolio;
+pub mod print;
 pub mod textdoc;

@@ -58,13 +58,18 @@ pub struct Document {
     name_hint: Option<String>,
     bytes: Arc<Vec<u8>>,
     revision: u64,
-    /// How many times the document was written to its file.
-    saves: u64,
     dirty: bool,
-    undo: Vec<Arc<Vec<u8>>>,
-    redo: Vec<Arc<Vec<u8>>>,
+    undo: Vec<Snapshot>,
+    redo: Vec<Snapshot>,
     /// What the edit under way set aside, given back when it is abandoned.
     edit_backup: Option<EditBackup>,
+    /// Files written so far (see [`Snapshot::saves`]).
+    saves: u64,
+    /// Set when the state carries signatures that only an update of the
+    /// signed file it came from keeps valid and a later save replaced that
+    /// file on the disk: the state cannot be saved with them. It holds that
+    /// signed file when it is known.
+    signed_base_lost: Option<Option<Source>>,
     /// Object id of the shared Helvetica font resource created by Folitecta, if any.
     pub(crate) helv_font: Option<ObjectId>,
     /// The file was encrypted when it was opened (it is kept decrypted in memory).
@@ -146,10 +151,131 @@ pub fn write_pdf_file(path: &Path, data: &[u8]) -> Result<()> {
 /// the redo history it cleared and the oldest undo steps it dropped at the
 /// limit, so an abandoned edit leaves the whole history as it was.
 struct EditBackup {
-    snapshot: Arc<Vec<u8>>,
-    redo: Vec<Arc<Vec<u8>>>,
+    snapshot: Snapshot,
+    redo: Vec<Snapshot>,
     /// Oldest first.
-    dropped: Vec<Arc<Vec<u8>>>,
+    dropped: Vec<Snapshot>,
+}
+
+/// A state kept for undo and redo: the serialized document and the file it
+/// is saved on (the base of incremental updates), so undoing an edit that
+/// dropped that base (a redaction) brings it back.
+#[derive(Clone)]
+struct Snapshot {
+    bytes: Arc<Vec<u8>>,
+    source: Option<Source>,
+    /// The saves made before the state was kept: the base comes back with
+    /// it only while no file was written since (a save makes the file just
+    /// written the base, whatever is undone).
+    saves: u64,
+    /// Whether the state lost the signed file it needs as its base, and that
+    /// file (see `Document::signed_base_lost`).
+    lost_base: Option<Option<Source>>,
+}
+
+/// The key of the encryption of a protected document, to read the files it
+/// writes (for example to check them before they are written).
+#[derive(Clone)]
+pub struct ProtectionKey(pub(crate) Protection);
+
+impl std::fmt::Debug for ProtectionKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("ProtectionKey(..)")
+    }
+}
+
+/// The bytes of a file ready to be written by a save (see
+/// [`Document::prepare_save`]).
+#[derive(Clone)] // no Debug: the base of a protected file holds decrypted objects
+pub struct PreparedSave {
+    pub bytes: Arc<Vec<u8>>,
+    /// The key the bytes are encrypted with (None for plain files).
+    pub key: Option<ProtectionKey>,
+    revision: u64,
+    /// For a protected signed document: the base of the next update.
+    next: Option<Arc<DecryptedBase>>,
+}
+
+impl std::fmt::Debug for PreparedSave {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PreparedSave")
+            .field("bytes", &self.bytes.len())
+            .field("revision", &self.revision)
+            .finish()
+    }
+}
+
+impl PreparedSave {
+    /// The revision of the document the bytes were made from.
+    pub fn revision(&self) -> u64 {
+        self.revision
+    }
+}
+
+/// The state of a document taken to work on elsewhere: the serialized
+/// objects, how its files are protected and the base of incremental updates.
+#[derive(Clone)]
+pub struct DocSnapshot {
+    bytes: Arc<Vec<u8>>,
+    protection: Option<Protection>,
+    source: Option<Source>,
+    source_encrypted: bool,
+    path: Option<PathBuf>,
+    revision: u64,
+    max_id: u32,
+}
+
+impl std::fmt::Debug for DocSnapshot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DocSnapshot")
+            .field("revision", &self.revision)
+            .field("bytes", &self.bytes.len())
+            .finish()
+    }
+}
+
+impl DocSnapshot {
+    /// The revision of the document when the snapshot was taken.
+    pub fn revision(&self) -> u64 {
+        self.revision
+    }
+
+    /// A document with this state, protected like the original and saved
+    /// incrementally on the same base (the parse can be long: call it on a
+    /// worker thread).
+    pub fn open(&self) -> Result<Document> {
+        let mut doc = Document::from_bytes(self.bytes.to_vec(), self.path.clone(), None)?;
+        doc.protection = self.protection.clone();
+        doc.source_encrypted = self.source_encrypted;
+        doc.source = self.source.clone();
+        doc.revision = self.revision;
+        // Object numbers never go back (a saved file may use the higher ones).
+        doc.inner.max_id = doc.inner.max_id.max(self.max_id);
+        Ok(doc)
+    }
+}
+
+/// A copy of a resource dictionary whose categories are direct dictionaries
+/// (their entries still refer to the same fonts, pictures and drawings).
+pub(crate) fn private_resources(doc: &lopdf::Document, res: &Dictionary) -> Dictionary {
+    const CATEGORIES: [&[u8]; 7] = [
+        b"XObject",
+        b"Properties",
+        b"ExtGState",
+        b"Font",
+        b"Pattern",
+        b"Shading",
+        b"ColorSpace",
+    ];
+    let mut own = Dictionary::new();
+    for (k, v) in res.iter() {
+        let value = match deref(doc, v) {
+            Object::Dictionary(d) if CATEGORIES.contains(&k.as_slice()) => Object::Dictionary(d.clone()),
+            _ => v.clone(),
+        };
+        own.set(k.clone(), value);
+    }
+    own
 }
 
 /// A file read for editing: its objects decrypted, and how it was protected.
@@ -207,13 +333,10 @@ fn keep_object_streams(id: ObjectId, obj: &mut Object) -> Option<(ObjectId, Obje
 
 const KEPT_OBJECT_STREAM: &[u8] = b"FolitectaEncryptedObjStm";
 
-/// Read an encrypted file of revision 2 to 4 and decrypt it with `password`
-/// (bytes that give its file key; see `security::r4_key_password`). The
-/// library reads it as a plain file (the `/Encrypt` entries of its trailers
-/// are hidden for that), then every object is decrypted here — an object
-/// that fails stays as the library's reader leaves it — and object streams
-/// are read once decrypted.
-fn load_decrypted(bytes: &[u8], password: &[u8]) -> Result<lopdf::Document> {
+/// An encrypted file read as a plain one (the `/Encrypt` entries of its
+/// trailers hidden for the library's reader), its objects still encrypted;
+/// with where its encryption dictionary is.
+fn load_hidden(bytes: &[u8]) -> Result<(lopdf::Document, Object)> {
     let mut hidden = bytes.to_vec();
     let mut from = 0;
     while let Some(at) = encrypted::find_bytes(&hidden[from..], b"/Encrypt") {
@@ -235,12 +358,15 @@ fn load_decrypted(bytes: &[u8], password: &[u8]) -> Result<lopdf::Document> {
     let encrypt = doc.trailer.remove(b"Encrypx").ok_or_else(|| {
         Error::UnsupportedProtection("an encryption whose dictionary could not be read".into())
     })?;
-    let encrypt_ref = encrypt.as_reference()?;
-    doc.trailer.set("Encrypt", encrypt);
-    let state = lopdf::EncryptionState::decode(&doc, password)?;
+    Ok((doc, encrypt))
+}
+
+/// Decrypt every object of a document read by [`load_hidden`] (an object
+/// that fails stays as the reader left it) and read its object streams.
+fn decrypt_loaded(doc: &mut lopdf::Document, state: &lopdf::EncryptionState, encrypt_ref: ObjectId) {
     for (id, obj) in doc.objects.iter_mut() {
         if *id != encrypt_ref {
-            let _ = lopdf::encryption::decrypt_object(&state, *id, obj);
+            let _ = lopdf::encryption::decrypt_object(state, *id, obj);
         }
     }
     // The objects of object streams, each from the stream the
@@ -268,7 +394,50 @@ fn load_decrypted(bytes: &[u8], password: &[u8]) -> Result<lopdf::Document> {
     if let Some(&(last, _)) = doc.objects.keys().next_back() {
         doc.max_id = doc.max_id.max(last);
     }
+}
+
+/// Read an encrypted file of revision 2 to 4 and decrypt it with `password`
+/// (bytes that give its file key; see `security::r4_key_password`). The
+/// library reads it as a plain file (the `/Encrypt` entries of its trailers
+/// are hidden for that), then every object is decrypted here — an object
+/// that fails stays as the library's reader leaves it — and object streams
+/// are read once decrypted.
+fn load_decrypted(bytes: &[u8], password: &[u8]) -> Result<lopdf::Document> {
+    let (mut doc, encrypt) = load_hidden(bytes)?;
+    let encrypt_ref = encrypt.as_reference()?;
+    doc.trailer.set("Encrypt", encrypt);
+    let state = lopdf::EncryptionState::decode(&doc, password)?;
+    decrypt_loaded(&mut doc, &state, encrypt_ref);
     doc.encryption_state = Some(state);
+    Ok(doc)
+}
+
+/// The objects of a file protected with `key` (any revision, whole or with
+/// incremental updates), decrypted and without the encryption, read the way
+/// a reader with the key does. Refused when the file was not encrypted with
+/// that key.
+pub(crate) fn load_with_key(bytes: &[u8], key: &ProtectionKey) -> Result<lopdf::Document> {
+    let (mut doc, encrypt) = load_hidden(bytes)?;
+    let encrypt_ref = encrypt.as_reference()?;
+    let written_u = doc
+        .get_dictionary(encrypt_ref)
+        .ok()
+        .and_then(|d| d.get(b"U").ok())
+        .and_then(|u| u.as_str().ok())
+        .map(<[u8]>::to_vec);
+    let expected_u = key
+        .0
+        .dictionary()
+        .ok()
+        .and_then(|d| d.get(b"U").ok().and_then(|u| u.as_str().ok()).map(<[u8]>::to_vec))
+        .unwrap_or_else(|| key.0.state().user_value().to_vec());
+    if written_u.as_deref() != Some(expected_u.as_slice()) {
+        return Err(Error::Invalid(
+            "the file is not protected with the document's key".into(),
+        ));
+    }
+    decrypt_loaded(&mut doc, key.0.state(), encrypt_ref);
+    doc.objects.remove(&encrypt_ref);
     Ok(doc)
 }
 
@@ -398,11 +567,12 @@ impl Document {
             source: None,
             bytes: bytes.clone(),
             revision: 0,
-            saves: 0,
             dirty: false,
             undo: Vec::new(),
             redo: Vec::new(),
             edit_backup: None,
+            saves: 0,
+            signed_base_lost: None,
             helv_font: None,
             source_encrypted,
             protection,
@@ -461,6 +631,7 @@ impl Document {
             protection: None,
             edit_backup: None,
             saves: 0,
+            signed_base_lost: None,
             text_cache: Default::default(),
             marked_cache: Default::default(),
             struct_cache: Default::default(),
@@ -509,11 +680,12 @@ impl Document {
             source: None,
             bytes: Arc::new(bytes),
             revision: 0,
-            saves: 0,
             dirty: true,
             undo: Vec::new(),
             redo: Vec::new(),
             edit_backup: None,
+            saves: 0,
+            signed_base_lost: None,
             helv_font: None,
             source_encrypted: false,
             protection: None,
@@ -535,22 +707,44 @@ impl Document {
     /// signed one as an incremental update that keeps its signatures valid.
     pub fn save_as(&mut self, path: impl AsRef<Path>) -> Result<()> {
         let path = path.as_ref();
-        self.touch_mod_date();
-        self.bytes = Arc::new(serialize(&mut self.inner)?);
-        let file = self.file_bytes_from()?;
-        write_pdf_file(path, &file.bytes)?;
-        self.written(file);
-        self.path = Some(path.to_path_buf());
-        self.dirty = false;
+        let prepared = self.prepare_save()?;
+        write_pdf_file(path, prepared.bytes.as_slice())?;
+        self.finish_save(path, &prepared);
         Ok(())
     }
 
+    /// The bytes of the file a save writes now (modification date and
+    /// producer updated, protected like the document, an incremental update
+    /// of a signed file), to check or write them before
+    /// [`Document::finish_save`].
+    pub fn prepare_save(&mut self) -> Result<PreparedSave> {
+        self.touch_mod_date();
+        self.bytes = Arc::new(serialize(&mut self.inner)?);
+        let file = self.file_bytes_from()?;
+        Ok(PreparedSave {
+            bytes: Arc::new(file.bytes),
+            key: self.protection_key(),
+            revision: self.revision,
+            next: file.next.map(Arc::new),
+        })
+    }
+
+    /// The bytes of `saved` were written to `path`: it becomes the document
+    /// path and the base of the next updates, and the document is clean when
+    /// it did not change meanwhile.
+    pub fn finish_save(&mut self, path: &Path, saved: &PreparedSave) {
+        self.path = Some(path.to_path_buf());
+        self.written(saved.bytes.clone(), saved.next.clone());
+        if saved.revision == self.revision {
+            self.dirty = false;
+        }
+    }
+
     /// The file just written becomes the base of the next updates.
-    fn written(&mut self, file: FileBytes) {
-        let bytes = Arc::new(file.bytes);
+    fn written(&mut self, bytes: Arc<Vec<u8>>, next: Option<Arc<DecryptedBase>>) {
         let analysis = Arc::new(SourceAnalysis::of(&self.inner));
         self.saves += 1;
-        self.source = match (&self.protection, file.next) {
+        self.source = match (&self.protection, next) {
             (None, _) => Some(Source {
                 bytes,
                 signed: self.has_signatures(),
@@ -563,7 +757,7 @@ impl Document {
                 Some(Source {
                     bytes,
                     signed: true,
-                    decrypted: Some(Arc::new(next)),
+                    decrypted: Some(next),
                     analysis,
                 })
             }
@@ -575,6 +769,51 @@ impl Document {
     /// and how many times it was saved (the file it is checked against).
     pub fn validation_stamp(&self) -> (u64, u64) {
         (self.revision, self.saves)
+    }
+
+    /// The key of the encryption the saved files get (None for plain files).
+    pub fn protection_key(&self) -> Option<ProtectionKey> {
+        self.protection.clone().map(ProtectionKey)
+    }
+
+    /// The current state, cheap to take, to work on away from the document
+    /// (on another thread): see [`DocSnapshot::open`].
+    pub fn snapshot(&self) -> DocSnapshot {
+        DocSnapshot {
+            bytes: self.bytes.clone(),
+            protection: self.protection.clone(),
+            source: self.source.clone(),
+            source_encrypted: self.source_encrypted,
+            path: self.path.clone(),
+            revision: self.revision,
+            max_id: self.inner.max_id,
+        }
+    }
+
+    /// Take the state of `worked` (a document opened from
+    /// [`Document::snapshot`] and changed) as one undo step. The protection
+    /// of this document stays, and so does its file identifier when it is
+    /// protected (the key of older revisions depends on it).
+    pub fn adopt_state(&mut self, mut worked: Document) -> Result<()> {
+        self.begin_edit();
+        if self.protection.is_some() {
+            let id = self.inner.trailer.get(b"ID").ok().cloned();
+            let changed = id.as_ref() != worked.inner.trailer.get(b"ID").ok();
+            if let (Some(id), true) = (id, changed) {
+                worked.inner.trailer.set("ID", id);
+                worked.bytes = Arc::new(serialize(&mut worked.inner)?);
+            }
+        }
+        let max_id = self.inner.max_id;
+        self.inner = worked.inner;
+        self.inner.max_id = self.inner.max_id.max(max_id);
+        self.bytes = worked.bytes;
+        self.source = worked.source;
+        self.revision += 1;
+        self.dirty = true;
+        self.helv_font = None;
+        self.edit_backup = None;
+        Ok(())
     }
 
     /// Write a copy to `path` without changing the document path or dirty
@@ -714,6 +953,9 @@ impl Document {
     /// file or the whole document. A protected file is checked to carry its
     /// encryption, else nothing is written.
     pub(crate) fn file_bytes_from(&mut self) -> Result<FileBytes> {
+        if self.signed_base_lost.is_some() && self.has_signatures() {
+            return Err(Error::SignaturesNotKept);
+        }
         let Some(p) = self.protection.clone() else {
             if self.source.as_ref().is_some_and(|s| s.decrypted.is_some()) {
                 return Err(Error::ProtectionNotKept(
@@ -898,15 +1140,24 @@ impl Document {
     // Undo / redo
     // ------------------------------------------------------------------
 
+    fn snapshot_now(&self) -> Snapshot {
+        Snapshot {
+            bytes: self.bytes.clone(),
+            source: self.source.clone(),
+            saves: self.saves,
+            lost_base: self.signed_base_lost.clone(),
+        }
+    }
+
     /// Record the current state before a mutation.
     pub fn begin_edit(&mut self) {
-        let snapshot = self.bytes.clone();
+        let snapshot = self.snapshot_now();
         self.undo.push(snapshot.clone());
         let dropped = (self.undo.len() > UNDO_LIMIT).then(|| self.undo.remove(0));
         let redo = std::mem::take(&mut self.redo);
         match &mut self.edit_backup {
             // Another begin_edit of the same edit (nothing committed since).
-            Some(backup) if Arc::ptr_eq(&backup.snapshot, &snapshot) => {
+            Some(backup) if Arc::ptr_eq(&backup.snapshot.bytes, &snapshot.bytes) => {
                 backup.redo.extend(redo);
                 backup.dropped.extend(dropped);
             }
@@ -927,7 +1178,7 @@ impl Document {
         let Some(backup) = self.edit_backup.take() else {
             return;
         };
-        let loaded = load_inner(&backup.snapshot, None);
+        let loaded = load_inner(&backup.snapshot.bytes, None);
         let Ok(loaded) = loaded else {
             // The state before the edit cannot be read again (it always can:
             // it was written from the document). Keep what the edit made as a
@@ -940,7 +1191,11 @@ impl Document {
             self.helv_font = None;
             return;
         };
-        while self.undo.last().is_some_and(|s| Arc::ptr_eq(s, &backup.snapshot)) {
+        while self
+            .undo
+            .last()
+            .is_some_and(|s| Arc::ptr_eq(&s.bytes, &backup.snapshot.bytes))
+        {
             self.undo.pop();
         }
         for step in backup.dropped.into_iter().rev() {
@@ -952,7 +1207,11 @@ impl Document {
         let max_id = self.inner.max_id;
         self.inner = loaded.doc;
         self.inner.max_id = self.inner.max_id.max(max_id);
-        self.bytes = backup.snapshot;
+        self.bytes = backup.snapshot.bytes;
+        if backup.snapshot.saves == self.saves {
+            self.source = backup.snapshot.source;
+            self.signed_base_lost = backup.snapshot.lost_base;
+        }
         self.helv_font = None;
     }
 
@@ -976,7 +1235,7 @@ impl Document {
 
     /// Join every edit made since `undo_mark` returned `mark` into one undo step.
     pub(crate) fn squash_undo(&mut self, mark: &Arc<Vec<u8>>) {
-        if let Some(pos) = self.undo.iter().rposition(|s| Arc::ptr_eq(s, mark)) {
+        if let Some(pos) = self.undo.iter().rposition(|s| Arc::ptr_eq(&s.bytes, mark)) {
             self.undo.truncate(pos + 1);
         }
     }
@@ -991,13 +1250,39 @@ impl Document {
         Ok(())
     }
 
-    fn restore(&mut self, bytes: Arc<Vec<u8>>) -> Result<()> {
+    fn restore(&mut self, snapshot: Snapshot) -> Result<()> {
         // Snapshots are plain; the protection of the document stays as it is.
         // Object numbers never go back (a saved file may use the higher ones).
         let max_id = self.inner.max_id;
-        self.inner = load_inner(&bytes, None)?.doc;
+        self.inner = load_inner(&snapshot.bytes, None)?.doc;
         self.inner.max_id = self.inner.max_id.max(max_id);
-        self.bytes = bytes;
+        self.bytes = snapshot.bytes;
+        // The base of incremental updates goes back with the state (a signed
+        // file whose redaction is undone is saved without breaking its
+        // signatures), unless a file was written since: then the file just
+        // written stays the base.
+        if snapshot.saves == self.saves {
+            self.source = snapshot.source;
+            self.signed_base_lost = snapshot.lost_base;
+        } else {
+            self.signed_base_lost = None;
+            if self.has_signatures() && !self.source.as_ref().is_some_and(|s| s.signed) {
+                // The state needs the signed file it came from as its base,
+                // and the file written since is not: the base comes back only
+                // while the file on the disk is still that one.
+                let on_disk = |b: &[u8]| {
+                    self.path
+                        .as_ref()
+                        .and_then(|p| std::fs::read(p).ok())
+                        .is_some_and(|d| d == b)
+                };
+                let base = snapshot.lost_base.unwrap_or(snapshot.source).filter(|s| s.signed);
+                match base {
+                    Some(src) if on_disk(&src.bytes) => self.source = Some(src),
+                    lost => self.signed_base_lost = Some(lost),
+                }
+            }
+        }
         self.revision += 1;
         self.dirty = true;
         self.helv_font = None;
@@ -1007,13 +1292,13 @@ impl Document {
 
     pub fn undo(&mut self) -> Result<()> {
         let prev = self.undo.pop().ok_or(Error::NothingToUndo)?;
-        self.redo.push(self.bytes.clone());
+        self.redo.push(self.snapshot_now());
         self.restore(prev)
     }
 
     pub fn redo(&mut self) -> Result<()> {
         let next = self.redo.pop().ok_or(Error::NothingToRedo)?;
-        self.undo.push(self.bytes.clone());
+        self.undo.push(self.snapshot_now());
         self.restore(next)
     }
 
@@ -1294,6 +1579,21 @@ impl Document {
                 Ok(out)
             }
         }
+    }
+
+    /// Give a page a `/Resources` dictionary of its own (a copy of the one it
+    /// inherits or shares), with its categories as direct dictionaries, so
+    /// names can be changed or dropped for this page only.
+    pub(crate) fn own_page_resources(&mut self, page_id: ObjectId) -> Result<()> {
+        let res = self
+            .inherited_attr(page_id, b"Resources")
+            .and_then(|r| r.as_dict().ok().cloned())
+            .unwrap_or_default();
+        let own = private_resources(&self.inner, &res);
+        self.inner
+            .get_dictionary_mut(page_id)?
+            .set("Resources", Object::Dictionary(own));
+        Ok(())
     }
 
     /// Register a named resource (font, ExtGState, XObject) on a page.
@@ -1598,7 +1898,10 @@ mod tests {
         assert!(failed.is_err());
         assert!(doc.can_redo(), "the redo history survives a refused edit");
         assert_eq!(undo_len(&doc), undo);
-        assert!(Arc::ptr_eq(&doc.undo[0], &oldest), "the oldest undo step is back");
+        assert!(
+            Arc::ptr_eq(&doc.undo[0].bytes, &oldest.bytes),
+            "the oldest undo step is back"
+        );
         assert_eq!(doc.revision(), revision);
         assert!(Arc::ptr_eq(&doc.bytes(), &bytes));
         assert_eq!(doc.title(), title);

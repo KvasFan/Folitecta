@@ -1,0 +1,1652 @@
+//! Taking the content under the marks out of a page and of the drawings it
+//! reuses. Each content stream — the page's, or a form's for one drawing of
+//! it — is a *holder*: its glyphs under the marks leave their text
+//! operations, its paths lose their geometry there, its pictures and inline
+//! pictures get their pixels covered, and the forms it draws under the marks
+//! are holders in turn. A form or picture drawn elsewhere too is copied for
+//! this drawing (the original stays for the others); one drawn only here is
+//! changed in place. What the probe saw under a mark and no holder explains
+//! sends the page to the picture method.
+
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+
+use hayro::kurbo::{Affine, Rect};
+use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
+
+use super::RedactionLook;
+use super::counts::{Counts, font_of_state, type3_font, type3_glyph_names};
+use super::inline::inline_picture;
+use super::paths::{PathEdit, empty_clip, exclusion_clip, redact_path, shading_shown_elsewhere};
+use super::scan::{Gs, Paint, PathObj, Props, exact_region, page_state, path_bounds, resource, scan};
+use crate::content_edit::{Splice, check_splices, joined, name_token, rewrite};
+use crate::content_lex::{name_of, operations};
+use crate::document::{Document, private_resources};
+use crate::page_text::probe::{Marker, PageProbe, Probe, StreamKey, stream_data, stream_resources};
+use crate::pictures::{decode_image, picture_colors, pixel_area};
+use crate::textedit::{RemovedGlyph, glyph_removal_splices, shown_bytes, shows_glyphs, text_ops_from};
+use crate::util::deref;
+
+/// Why a page was drawn as a picture instead of keeping its text and drawings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PictureReason {
+    /// The picture method was chosen.
+    Chosen,
+    /// A font under a mark cannot be edited.
+    Font,
+    /// A colour gradient that can hold a picture is under a mark.
+    Shading,
+    /// A pattern that draws text or pictures is under a mark.
+    Pattern,
+    /// A transparency mask that draws content is under a mark.
+    SoftMask,
+    /// Reused drawings are nested too deeply or draw themselves.
+    Nesting,
+    /// The page content could not be read or changed.
+    Content,
+    /// A picture under a mark could not be edited.
+    Picture,
+    /// The check found content under a mark after the edit.
+    Check,
+}
+
+/// A redaction mark on a page.
+#[derive(Debug, Clone)]
+pub(super) struct Mark {
+    /// Default space of the page.
+    pub pdf: Rect,
+    /// Display space (as the page is shown, y down), like the probe.
+    pub shown: [f32; 4],
+    pub look: RedactionLook,
+}
+
+/// A content stream holding content of marked marked-content sequences.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(super) enum TouchKey {
+    /// The content of a page (its object id).
+    Page(ObjectId),
+    /// A form.
+    Stream(ObjectId),
+}
+
+/// What the edit of the pages did.
+#[derive(Debug, Default)]
+pub(super) struct Work {
+    pub glyphs: usize,
+    pub pictures: usize,
+    pub paths: usize,
+    pub forms: usize,
+    /// Marked-content sequences that held removed content.
+    pub touched: BTreeSet<(TouchKey, i64)>,
+    /// Pictures and forms replaced by copies on the redacted pages: they go
+    /// when nothing draws them any more.
+    pub replaced: BTreeSet<ObjectId>,
+    /// Forms copied for one page: original, copy, page.
+    pub copies: Vec<(ObjectId, ObjectId, ObjectId)>,
+    /// Type 3 fonts that lost glyphs.
+    pub type3_lost: BTreeSet<ObjectId>,
+    /// Patterns of paints removed whole that hold what was under the marks
+    /// and are no longer used where the paint was: page, pattern and why the
+    /// page becomes a picture when something still draws the pattern.
+    pub patterns: Vec<(ObjectId, ObjectId, PictureReason)>,
+}
+
+impl Work {
+    fn merge(&mut self, o: Work) {
+        self.glyphs += o.glyphs;
+        self.pictures += o.pictures;
+        self.paths += o.paths;
+        self.forms += o.forms;
+        self.touched.extend(o.touched);
+        self.replaced.extend(o.replaced);
+        self.copies.extend(o.copies);
+        self.type3_lost.extend(o.type3_lost);
+        self.patterns.extend(o.patterns);
+    }
+}
+
+fn meets(a: &[f32; 4], b: &[f32; 4]) -> bool {
+    a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1]
+}
+
+fn overlaps(a: Rect, b: Rect) -> bool {
+    a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0
+}
+
+struct Ctx<'a> {
+    marks: &'a [Mark],
+    probe: &'a Probe,
+    page: &'a PageProbe,
+    page_id: ObjectId,
+    markers: &'a HashMap<(StreamKey, usize), usize>,
+    counts: &'a Counts,
+    used_glyphs: HashSet<usize>,
+    used_images: HashSet<usize>,
+    next_name: usize,
+}
+
+impl Ctx<'_> {
+    fn under(&self, shown: &[f32; 4]) -> bool {
+        self.marks.iter().any(|m| meets(shown, &m.shown))
+    }
+
+    fn rects(&self) -> Vec<Rect> {
+        self.marks.iter().map(|m| m.pdf).collect()
+    }
+
+    /// A drawing is the only one of its object in the document.
+    fn alone(&self, id: ObjectId) -> bool {
+        self.counts.get(&id) == Some(&1)
+    }
+
+    /// The probe saw something under a mark inside the drawing `chain`.
+    fn drawn_under(&self, chain: &[usize]) -> bool {
+        self.page
+            .glyphs
+            .iter()
+            .any(|g| !g.covered && g.chain.starts_with(chain) && self.under(&g.body))
+            || self
+                .page
+                .images
+                .iter()
+                .any(|i| !i.covered && i.chain.starts_with(chain) && self.under(&i.bounds))
+    }
+
+    /// A resource name of `res` that is not used yet.
+    fn fresh(&mut self, res: &Dictionary, prefix: &str) -> Vec<u8> {
+        loop {
+            self.next_name += 1;
+            let name = format!("{prefix}{}", self.next_name).into_bytes();
+            let taken = res
+                .get(b"XObject")
+                .ok()
+                .and_then(|x| x.as_dict().ok())
+                .is_some_and(|x| x.has(&name));
+            if !taken {
+                return name;
+            }
+        }
+    }
+}
+
+/// A content stream to redact.
+struct Holder {
+    key: StreamKey,
+    data: Vec<u8>,
+    /// Its resources (a private copy).
+    res: Dictionary,
+    gs0: Gs,
+    /// The `Do` markers of the drawing, outermost first.
+    chain: Vec<usize>,
+}
+
+/// What redacting a holder gives.
+struct HolderOut {
+    splices: Vec<Splice>,
+    changed: bool,
+    res: Dictionary,
+    /// Marked-content ids of the holder that held removed content.
+    touched: Vec<i64>,
+    /// Type 3 fonts (names of the resources) that lost glyphs.
+    t3_lost: HashSet<Vec<u8>>,
+    /// Patterns of paints removed whole whose cell or shading shows what was
+    /// under the marks: they must not stay in the resources.
+    pending: Vec<Pending>,
+}
+
+/// A pattern of a paint removed whole that holds what was under the marks.
+struct Pending {
+    name: Vec<u8>,
+    id: Option<ObjectId>,
+    reason: PictureReason,
+    /// Where the paint was (page space).
+    area: Rect,
+}
+
+impl Pending {
+    /// The pattern is still listed in `res`.
+    fn listed(&self, doc: &lopdf::Document, res: &Dictionary) -> bool {
+        let Some(pats) = res
+            .get(b"Pattern")
+            .ok()
+            .and_then(|p| deref(doc, p).as_dict().ok())
+        else {
+            return false;
+        };
+        pats.has(&self.name)
+            || self
+                .id
+                .is_some_and(|id| pats.iter().any(|(_, v)| v.as_reference().ok() == Some(id)))
+    }
+}
+
+/// The `/XObject` dictionary of private resources.
+fn xobjects_mut(res: &mut Dictionary) -> &mut Dictionary {
+    if !matches!(res.get(b"XObject"), Ok(Object::Dictionary(_))) {
+        res.set("XObject", Object::Dictionary(Dictionary::new()));
+    }
+    match res.get_mut(b"XObject") {
+        Ok(Object::Dictionary(d)) => d,
+        _ => unreachable!("set just above"),
+    }
+}
+
+/// Keys a copy of a form keeps (ISO 32000-1 Table 95, without private,
+/// metadata and reference data).
+const FORM_KEYS: [&[u8]; 7] = [
+    b"Type",
+    b"Subtype",
+    b"FormType",
+    b"BBox",
+    b"Matrix",
+    b"Group",
+    b"StructParents",
+];
+
+/// The dictionary of a redacted form: the standard keys of the original and
+/// `res` as its resources.
+fn form_dict(doc: &lopdf::Document, orig: &Dictionary, res: Dictionary) -> Dictionary {
+    let mut d = Dictionary::new();
+    for k in FORM_KEYS {
+        if let Ok(v) = orig.get(k) {
+            d.set(k.to_vec(), deref(doc, v).clone());
+        }
+    }
+    if let Ok(v) = orig.get(b"OC") {
+        d.set("OC", v.clone());
+    }
+    d.set("Resources", Object::Dictionary(res));
+    d
+}
+
+pub(super) fn affine_of(doc: &lopdf::Document, o: Option<&Object>) -> Affine {
+    let v: Vec<f64> = o
+        .and_then(|o| deref(doc, o).as_array().ok())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| match deref(doc, x) {
+                    Object::Integer(i) => Some(*i as f64),
+                    Object::Real(r) => Some(*r as f64),
+                    _ => None,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    if v.len() == 6 {
+        Affine::new([v[0], v[1], v[2], v[3], v[4], v[5]])
+    } else {
+        Affine::IDENTITY
+    }
+}
+
+pub(super) fn rect_value(doc: &lopdf::Document, o: Option<&Object>) -> Option<Rect> {
+    let r = crate::util::rect_of(doc, deref(doc, o?))?;
+    Some(Rect::new(r[0] as f64, r[1] as f64, r[2] as f64, r[3] as f64))
+}
+
+/// The marked-content property list of a `BDC` operation without the
+/// alternate descriptions and replacement text (None when it has none).
+fn strip_alternates(op: &[u8], named: Option<&Dictionary>) -> Option<Vec<u8>> {
+    const KEYS: [&[u8]; 3] = [b"ActualText", b"Alt", b"E"];
+    let content = lopdf::content::Content::decode(op).ok()?;
+    let mut operation = content.operations.into_iter().next()?;
+    if operation.operator != "BDC" || operation.operands.len() != 2 {
+        return None;
+    }
+    let mut dict = match (&operation.operands[1], named) {
+        (Object::Dictionary(d), _) => d.clone(),
+        (Object::Name(_), Some(d)) => d.clone(),
+        _ => return None,
+    };
+    if !KEYS.iter().any(|k| dict.has(k)) {
+        return None;
+    }
+    for k in KEYS {
+        dict.remove(k);
+    }
+    operation.operands[1] = Object::Dictionary(dict);
+    lopdf::content::Content {
+        operations: vec![operation],
+    }
+    .encode()
+    .ok()
+}
+
+/// Names a content stream uses, by resource category; forms, soft masks,
+/// patterns and Type 3 fonts without resources of their own add theirs.
+pub(super) fn used_names(
+    doc: &lopdf::Document,
+    data: &[u8],
+    res: &Dictionary,
+    out: &mut HashMap<&'static [u8], HashSet<Vec<u8>>>,
+    seen: &mut HashSet<ObjectId>,
+) {
+    let mut add = |cat: &'static [u8], n: Vec<u8>| {
+        out.entry(cat).or_default().insert(n);
+    };
+    // A stream that uses the resources of its caller.
+    let follow = |id: ObjectId, seen: &mut HashSet<ObjectId>, out_names: &mut Vec<ObjectId>| {
+        let inherits = doc
+            .get_object(id)
+            .and_then(Object::as_stream)
+            .is_ok_and(|s| !s.dict.has(b"Resources"));
+        if inherits && seen.insert(id) {
+            out_names.push(id);
+        }
+    };
+    let mut nested: Vec<ObjectId> = Vec::new();
+    // A pattern counts as used where something is painted with it.
+    type Patterns = (Option<Vec<u8>>, Option<Vec<u8>>);
+    let (mut fill_pat, mut stroke_pat): Patterns = (None, None);
+    let mut pat_stack: Vec<Patterns> = Vec::new();
+    for op in operations(data) {
+        let first = || op.operands.first().and_then(|r| name_of(data, *r));
+        let (fills, strokes) = match op.operator {
+            b"q" => {
+                pat_stack.push((fill_pat.clone(), stroke_pat.clone()));
+                (false, false)
+            }
+            b"Q" => {
+                if let Some((f, s)) = pat_stack.pop() {
+                    fill_pat = f;
+                    stroke_pat = s;
+                }
+                (false, false)
+            }
+            b"cs" | b"sc" | b"rg" | b"g" | b"k" => {
+                fill_pat = None;
+                (false, false)
+            }
+            b"CS" | b"SC" | b"RG" | b"G" | b"K" => {
+                stroke_pat = None;
+                (false, false)
+            }
+            b"scn" => {
+                fill_pat = op.operands.last().and_then(|r| name_of(data, *r));
+                (false, false)
+            }
+            b"SCN" => {
+                stroke_pat = op.operands.last().and_then(|r| name_of(data, *r));
+                (false, false)
+            }
+            b"f" | b"F" | b"f*" => (true, false),
+            b"S" | b"s" => (false, true),
+            b"B" | b"B*" | b"b" | b"b*" | b"Tj" | b"TJ" | b"'" | b"\"" | b"Do" | b"BI" => (true, true),
+            _ => (false, false),
+        };
+        if fills {
+            if let Some(n) = &fill_pat {
+                add(b"Pattern", n.clone());
+            }
+        }
+        if strokes {
+            if let Some(n) = &stroke_pat {
+                add(b"Pattern", n.clone());
+            }
+        }
+        match op.operator {
+            b"Tf" => {
+                if let Some(n) = first() {
+                    // Type 3 glyphs without resources draw with these.
+                    if let Some(font) = resource(doc, res, b"Font", &n).and_then(|f| f.as_dict().ok()) {
+                        if !font.has(b"Resources") {
+                            if let Ok(procs) = font.get(b"CharProcs").map(|c| deref(doc, c)) {
+                                if let Ok(procs) = procs.as_dict() {
+                                    for (_, p) in procs.iter() {
+                                        if let Ok(pid) = p.as_reference() {
+                                            if seen.insert(pid) {
+                                                nested.push(pid);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    add(b"Font", n);
+                }
+            }
+            b"Do" => {
+                if let Some(n) = first() {
+                    if let Some(id) = res
+                        .get(b"XObject")
+                        .ok()
+                        .and_then(|x| deref(doc, x).as_dict().ok())
+                        .and_then(|x| x.get(&n).ok())
+                        .and_then(|v| v.as_reference().ok())
+                    {
+                        follow(id, seen, &mut nested);
+                    }
+                    add(b"XObject", n);
+                }
+            }
+            b"gs" => {
+                if let Some(n) = first() {
+                    let state = resource(doc, res, b"ExtGState", &n).and_then(|d| d.as_dict().ok());
+                    // A state setting the font: the text after it shows with
+                    // a font no name tells.
+                    if state.is_some_and(|d| d.has(b"Font")) {
+                        add(SHOWN_ANY, Vec::new());
+                        if let Some((_, font)) = state.and_then(|d| font_of_state(doc, d)) {
+                            if !font.has(b"Resources") {
+                                if let Some(procs) = font
+                                    .get(b"CharProcs")
+                                    .ok()
+                                    .and_then(|c| deref(doc, c).as_dict().ok())
+                                {
+                                    for (_, p) in procs.iter() {
+                                        if let Ok(pid) = p.as_reference() {
+                                            if seen.insert(pid) {
+                                                nested.push(pid);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if let Some(g) = state
+                        .and_then(|d| d.get(b"SMask").ok())
+                        .map(|m| deref(doc, m))
+                        .and_then(|m| m.as_dict().ok())
+                        .and_then(|m| m.get(b"G").ok())
+                        .and_then(|g| g.as_reference().ok())
+                    {
+                        follow(g, seen, &mut nested);
+                    }
+                    add(b"ExtGState", n);
+                }
+            }
+            b"cs" | b"CS" => {
+                if let Some(n) = first() {
+                    add(b"ColorSpace", n);
+                }
+            }
+            b"scn" | b"SCN" => {
+                if let Some(n) = op.operands.last().and_then(|r| name_of(data, *r)) {
+                    if let Some(pid) = res
+                        .get(b"Pattern")
+                        .ok()
+                        .and_then(|p| deref(doc, p).as_dict().ok())
+                        .and_then(|p| p.get(&n).ok())
+                        .and_then(|v| v.as_reference().ok())
+                    {
+                        follow(pid, seen, &mut nested);
+                    }
+                }
+            }
+            b"sh" => {
+                if let Some(n) = first() {
+                    add(b"Shading", n);
+                }
+            }
+            b"BDC" | b"DP" => {
+                if let Some(n) = op.operands.get(1).and_then(|r| name_of(data, *r)) {
+                    add(b"Properties", n);
+                }
+            }
+            b"BI" => {
+                // A named colour space of an inline picture.
+                let raw = &data[op.start..op.end];
+                for key in [b"/CS".as_slice(), b"/ColorSpace"] {
+                    if let Some(at) = raw.windows(key.len()).position(|w| w == key) {
+                        let rest = &raw[at + key.len()..];
+                        let rest: Vec<u8> = rest
+                            .iter()
+                            .skip_while(|c| c.is_ascii_whitespace())
+                            .copied()
+                            .collect();
+                        if rest.first() == Some(&b'/') {
+                            let name: Vec<u8> = rest[1..]
+                                .iter()
+                                .take_while(|c| !c.is_ascii_whitespace() && !b"/[]<>()".contains(c))
+                                .copied()
+                                .collect();
+                            add(b"ColorSpace", name);
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    // Fonts that still show glyphs (not just size the moves of removed
+    // ones), and the codes Type 3 fonts still show.
+    for op in text_ops_from(data, &crate::textedit::TextState::default()).0 {
+        if shows_glyphs(data, &op) {
+            if op.font.is_empty() {
+                out.entry(SHOWN_ANY).or_default().insert(Vec::new());
+            } else {
+                out.entry(SHOWN).or_default().insert(op.font.clone());
+                let type3 = resource(doc, res, b"Font", &op.font)
+                    .and_then(|f| f.as_dict().ok())
+                    .and_then(|f| f.get(b"Subtype").ok())
+                    .and_then(|v| v.as_name().ok())
+                    == Some(b"Type3".as_slice());
+                if type3 {
+                    for code in shown_bytes(data, &op) {
+                        let mut key = op.font.clone();
+                        key.push(0);
+                        key.push(code);
+                        out.entry(TYPE3_CODES).or_default().insert(key);
+                    }
+                }
+            }
+        }
+    }
+    for id in nested {
+        if let Ok(s) = doc.get_object(id).and_then(Object::as_stream) {
+            let data = stream_data(s);
+            used_names(doc, &data, res, out, seen);
+        }
+    }
+}
+
+/// A matrix keeps rectangles of its space rectangles of page space.
+pub(super) fn axis_aligned(m: Affine) -> bool {
+    let c = m.as_coeffs();
+    (c[1].abs() < 1e-12 && c[2].abs() < 1e-12) || (c[0].abs() < 1e-12 && c[3].abs() < 1e-12)
+}
+
+/// A content stream sets the font through a graphics state (`/Font` of an
+/// ExtGState it uses).
+fn sets_font_by_state(doc: &lopdf::Document, data: &[u8], res: &Dictionary) -> bool {
+    operations(data).iter().any(|op| {
+        op.operator == b"gs"
+            && op
+                .operands
+                .first()
+                .and_then(|r| name_of(data, *r))
+                .and_then(|n| resource(doc, res, b"ExtGState", &n))
+                .and_then(|d| d.as_dict().ok())
+                .is_some_and(|d| d.has(b"Font"))
+    })
+}
+
+/// Pseudo-categories of [`used_names`]: fonts showing glyphs, and glyphs
+/// shown with a font set elsewhere.
+const SHOWN: &[u8] = b"#shown";
+const SHOWN_ANY: &[u8] = b"#shown-any";
+/// Codes of Type 3 fonts still shown: font name, a zero byte, the code.
+const TYPE3_CODES: &[u8] = b"#type3-codes";
+
+/// Drop the names of private resources that `data` does not use. Returns the
+/// Type 3 fonts of `res` whose glyph procedures could not be cut down to the
+/// codes still shown (the names of `res`).
+pub(super) fn drop_unused(doc: &lopdf::Document, data: &[u8], res: &mut Dictionary) -> HashSet<Vec<u8>> {
+    drop_unused_at(doc, data, res, 0)
+}
+
+fn drop_unused_at(
+    doc: &lopdf::Document,
+    data: &[u8],
+    res: &mut Dictionary,
+    depth: usize,
+) -> HashSet<Vec<u8>> {
+    let mut used: HashMap<&'static [u8], HashSet<Vec<u8>>> = HashMap::new();
+    used_names(doc, data, res, &mut used, &mut HashSet::new());
+    let any = used.contains_key(SHOWN_ANY);
+    // A font that only sizes the moves of removed glyphs: its program and
+    // its map of codes (which tell the removed characters) give way to a
+    // bare standard font of the same name.
+    if !any {
+        let shown = used.get(SHOWN).cloned().unwrap_or_default();
+        let set = used.get(b"Font".as_slice()).cloned().unwrap_or_default();
+        if let Ok(Object::Dictionary(fonts)) = res.get_mut(b"Font") {
+            for name in set.iter().filter(|n| !shown.contains(*n)) {
+                if fonts.has(name) {
+                    fonts.set(
+                        name.clone(),
+                        Object::Dictionary(dictionary! {
+                            "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica", "Encoding" => "WinAnsiEncoding",
+                        }),
+                    );
+                }
+            }
+        }
+    }
+    // A Type 3 font keeps only the glyph procedures of the codes still shown
+    // (the others may draw what was removed), in a copy for these resources,
+    // with the resources those procedures use.
+    let mut untrimmed = HashSet::new();
+    let codes = used.get(TYPE3_CODES).cloned().unwrap_or_default();
+    let names: Vec<Vec<u8>> = res
+        .get(b"Font")
+        .ok()
+        .and_then(|f| f.as_dict().ok())
+        .map(|f| f.iter().map(|(k, _)| k.clone()).collect())
+        .unwrap_or_default();
+    for name in names {
+        let Some((_, font)) = type3_font(doc, res, &name) else {
+            continue;
+        };
+        let mut font = font.clone();
+        if any {
+            untrimmed.insert(name);
+            continue;
+        }
+        let shown: HashSet<u8> = codes
+            .iter()
+            .filter(|k| k.len() == name.len() + 2 && k.starts_with(&name) && k[name.len()] == 0)
+            .map(|k| k[name.len() + 1])
+            .collect();
+        let Some(keep) = type3_glyph_names(doc, &font, &shown) else {
+            untrimmed.insert(name);
+            continue;
+        };
+        let Some(procs) = font
+            .get(b"CharProcs")
+            .ok()
+            .and_then(|p| deref(doc, p).as_dict().ok())
+            .cloned()
+        else {
+            continue;
+        };
+        if procs.iter().all(|(k, _)| keep.contains(k)) {
+            continue;
+        }
+        let mut kept = Dictionary::new();
+        let mut kept_data: Vec<u8> = Vec::new();
+        for (k, v) in procs.iter().filter(|(k, _)| keep.contains(*k)) {
+            kept.set(k.clone(), v.clone());
+            if let Ok(s) = v
+                .as_reference()
+                .and_then(|id| doc.get_object(id))
+                .and_then(Object::as_stream)
+            {
+                kept_data.extend(stream_data(s));
+                kept_data.push(b'\n');
+            }
+        }
+        font.set("CharProcs", Object::Dictionary(kept));
+        if let Some(fr) = font
+            .get(b"Resources")
+            .ok()
+            .and_then(|r| deref(doc, r).as_dict().ok())
+        {
+            let mut own = private_resources(doc, fr);
+            if depth < 4 {
+                drop_unused_at(doc, &kept_data, &mut own, depth + 1);
+            }
+            font.set("Resources", Object::Dictionary(own));
+        }
+        if let Ok(Object::Dictionary(fd)) = res.get_mut(b"Font") {
+            fd.set(name, Object::Dictionary(font));
+        }
+    }
+    for cat in [
+        b"Font".as_slice(),
+        b"XObject",
+        b"ExtGState",
+        b"ColorSpace",
+        b"Pattern",
+        b"Shading",
+        b"Properties",
+    ] {
+        let keep = used.remove(cat).unwrap_or_default();
+        if let Ok(Object::Dictionary(d)) = res.get_mut(cat) {
+            let names: Vec<Vec<u8>> = d.iter().map(|(k, _)| k.clone()).collect();
+            for n in names {
+                // Default colour spaces are used by device colours.
+                let default = cat == b"ColorSpace" && n.starts_with(b"Default");
+                if !keep.contains(&n) && !default {
+                    d.remove(&n);
+                    untrimmed.remove(&n);
+                }
+            }
+        }
+    }
+    untrimmed
+}
+
+/// What a pattern of the resources paints.
+pub(super) enum PatternKind {
+    /// A tiling pattern: whether its cell draws text or pictures, the bounds
+    /// of what the cell draws (pattern space; None when nothing), the steps
+    /// between cells and the pattern matrix.
+    Tiling {
+        text: bool,
+        cell: Option<Rect>,
+        step: (f64, f64),
+        matrix: Affine,
+    },
+    /// A shading pattern: the shading and the pattern matrix.
+    Shading(Dictionary, Affine),
+    Unknown,
+}
+
+/// A content stream draws text or pictures (forms and patterns followed).
+fn draws_text_or_pictures(
+    doc: &lopdf::Document,
+    data: &[u8],
+    res: &Dictionary,
+    seen: &mut HashSet<ObjectId>,
+) -> bool {
+    for op in operations(data) {
+        match op.operator {
+            b"BT" | b"Tj" | b"TJ" | b"'" | b"\"" | b"BI" => return true,
+            b"Do" | b"scn" | b"SCN" => {
+                let (cat, n): (&[u8], _) = if op.operator == b"Do" {
+                    (b"XObject", op.operands.first().and_then(|r| name_of(data, *r)))
+                } else {
+                    (b"Pattern", op.operands.last().and_then(|r| name_of(data, *r)))
+                };
+                let Some(id) = n.and_then(|n| {
+                    res.get(cat)
+                        .ok()
+                        .and_then(|x| deref(doc, x).as_dict().ok())
+                        .and_then(|x| x.get(&n).ok())
+                        .and_then(|v| v.as_reference().ok())
+                }) else {
+                    continue;
+                };
+                let Ok(s) = doc.get_object(id).and_then(Object::as_stream) else {
+                    continue;
+                };
+                if s.dict.get(b"Subtype").ok().and_then(|v| v.as_name().ok()) == Some(b"Image") {
+                    return true;
+                }
+                if seen.insert(id) {
+                    let r = stream_resources(doc, s, res);
+                    if draws_text_or_pictures(doc, &stream_data(s), &r, seen) {
+                        return true;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+/// The bounds of what the cell of a tiling pattern draws (its space), clipped
+/// to its box; None when it draws nothing.
+fn cell_bounds(doc: &lopdf::Document, data: &[u8], res: &Dictionary, bbox: Option<Rect>) -> Option<Rect> {
+    let all = Rect::new(-1e9, -1e9, 1e9, 1e9);
+    let sc = scan(doc, data, res, &page_state(all));
+    let unit = Rect::new(0.0, 0.0, 1.0, 1.0);
+    let mut parts: Vec<Rect> = Vec::new();
+    parts.extend(
+        sc.paths
+            .iter()
+            .filter(|p| p.paint != Paint::None)
+            .filter_map(path_bounds),
+    );
+    parts.extend(sc.images.iter().map(|d| d.gs.ctm.transform_rect_bbox(unit)));
+    parts.extend(
+        sc.inline
+            .iter()
+            .map(|(_, _, _, gs)| gs.ctm.transform_rect_bbox(unit)),
+    );
+    for d in &sc.forms {
+        let f = doc.get_object(d.id).and_then(Object::as_stream).ok();
+        let b = f
+            .and_then(|f| rect_value(doc, f.dict.get(b"BBox").ok()))
+            .unwrap_or(all);
+        parts.push(d.gs.ctm.transform_rect_bbox(b));
+    }
+    if !sc.shadings.is_empty() || !sc.text_ends.is_empty() {
+        parts.push(bbox.unwrap_or(all));
+    }
+    let b = parts.into_iter().reduce(|a, b| a.union(b))?;
+    Some(match bbox {
+        Some(x) => b.intersect(x),
+        None => b,
+    })
+}
+
+/// A path written by the redaction still paints (it is not only a clip).
+fn paints(text: &str) -> bool {
+    text.split_whitespace().any(|t| matches!(t, "f" | "f*" | "S"))
+}
+
+fn pattern_kind(doc: &lopdf::Document, res: &Dictionary, name: &[u8]) -> PatternKind {
+    match resource(doc, res, b"Pattern", name) {
+        Some(p) => pattern_kind_of(doc, p, res),
+        None => PatternKind::Unknown,
+    }
+}
+
+/// What pattern `p` paints (drawn with the resources `res` when it has none).
+pub(super) fn pattern_kind_of(doc: &lopdf::Document, p: &Object, res: &Dictionary) -> PatternKind {
+    let (dict, stream) = match p {
+        Object::Dictionary(d) => (d, None),
+        Object::Stream(s) => (&s.dict, Some(s)),
+        _ => return PatternKind::Unknown,
+    };
+    match dict.get(b"PatternType").ok().and_then(|t| t.as_i64().ok()) {
+        Some(1) => {
+            let Some(s) = stream else {
+                return PatternKind::Unknown;
+            };
+            let r = stream_resources(doc, s, res);
+            let data = stream_data(s);
+            let num = |k: &[u8]| {
+                dict.get(k)
+                    .ok()
+                    .map(|v| deref(doc, v))
+                    .and_then(|v| match v {
+                        Object::Integer(i) => Some(*i as f64),
+                        Object::Real(r) => Some(*r as f64),
+                        _ => None,
+                    })
+                    .unwrap_or(0.0)
+            };
+            PatternKind::Tiling {
+                text: draws_text_or_pictures(doc, &data, &r, &mut HashSet::new()),
+                cell: cell_bounds(doc, &data, &r, rect_value(doc, dict.get(b"BBox").ok())),
+                step: (num(b"XStep"), num(b"YStep")),
+                matrix: affine_of(doc, dict.get(b"Matrix").ok()),
+            }
+        }
+        Some(2) => {
+            let sh = dict
+                .get(b"Shading")
+                .ok()
+                .map(|s| deref(doc, s))
+                .and_then(|s| match s {
+                    Object::Dictionary(d) => Some(d.clone()),
+                    Object::Stream(s) => Some(s.dict.clone()),
+                    _ => None,
+                });
+            match sh {
+                Some(sh) => PatternKind::Shading(sh, affine_of(doc, dict.get(b"Matrix").ok())),
+                None => PatternKind::Unknown,
+            }
+        }
+        _ => PatternKind::Unknown,
+    }
+}
+
+pub(super) fn shading_type(doc: &lopdf::Document, d: &Dictionary) -> i64 {
+    d.get(b"ShadingType")
+        .ok()
+        .map(|t| deref(doc, t))
+        .and_then(|t| t.as_i64().ok())
+        .unwrap_or(0)
+}
+
+impl Document {
+    /// The soft mask in effect meets a mark (in page space).
+    fn mask_meets(&self, gs: &Gs, rects: &[Rect]) -> bool {
+        let Some((gid, m)) = gs.smask else {
+            return false;
+        };
+        let Ok(g) = self.inner.get_object(gid).and_then(Object::as_stream) else {
+            return true;
+        };
+        let bbox =
+            rect_value(&self.inner, g.dict.get(b"BBox").ok()).unwrap_or(Rect::new(-1e6, -1e6, 1e6, 1e6));
+        let matrix = affine_of(&self.inner, g.dict.get(b"Matrix").ok());
+        let area = (m * matrix).transform_rect_bbox(bbox);
+        rects.iter().any(|r| overlaps(area, *r))
+    }
+
+    /// Whether the colours a shading paints over `area` (page space) under
+    /// the marks are painted outside them too, so a clip around the marks
+    /// hides nothing that cannot be seen elsewhere; `to_shading` maps page
+    /// space to the shading's space. What is painted outside is known only
+    /// when the painted region is exactly a rectangle (`exact`): else nothing
+    /// counts as shown.
+    fn shading_shown(
+        &self,
+        sh: &Dictionary,
+        to_shading: Affine,
+        area: Rect,
+        exact: Option<Rect>,
+        rects: &[Rect],
+    ) -> bool {
+        let kind = shading_type(&self.inner, sh);
+        if kind != 2 && kind != 3 {
+            return false;
+        }
+        let under: Vec<Rect> = rects
+            .iter()
+            .map(|r| r.intersect(area))
+            .filter(|r| r.width() > 0.0 && r.height() > 0.0)
+            .collect();
+        let Some((_, pieces)) = exact.and_then(|e| exclusion_clip(e, rects, Affine::IDENTITY)) else {
+            return false;
+        };
+        shading_shown_elsewhere(&self.inner, sh, to_shading, &under, &pieces)
+    }
+
+    /// Take the content under `marks` out of `page`, using the probe of the
+    /// page. Fails, sending the page to the picture method, when something
+    /// under the marks cannot be taken out (the page may be half edited then:
+    /// it is drawn as a picture from that state).
+    pub(super) fn redact_page(
+        &mut self,
+        page: usize,
+        marks: &[Mark],
+        probe: &Probe,
+        markers: &HashMap<(StreamKey, usize), usize>,
+        counts: &Counts,
+        work: &mut Work,
+    ) -> std::result::Result<(), PictureReason> {
+        use PictureReason as R;
+        let page_id = self.page_id(page).map_err(|_| R::Content)?;
+        let pp = probe.pages.get(&page).ok_or(R::Content)?;
+        let size = self.page_size_of(page_id);
+        self.own_page_resources(page_id).map_err(|_| R::Content)?;
+        let res = self
+            .inner
+            .get_dictionary(page_id)
+            .ok()
+            .and_then(|d| d.get(b"Resources").ok())
+            .and_then(|r| r.as_dict().ok())
+            .cloned()
+            .unwrap_or_default();
+        let j = joined(&self.inner, page_id);
+        let c = size.crop_box;
+        let gs0 = page_state(Rect::new(c[0] as f64, c[1] as f64, c[2] as f64, c[3] as f64));
+        let mut ctx = Ctx {
+            marks,
+            probe,
+            page: pp,
+            page_id,
+            markers,
+            counts,
+            used_glyphs: HashSet::new(),
+            used_images: HashSet::new(),
+            next_name: 0,
+        };
+        let holder = Holder {
+            key: StreamKey::Page(page),
+            data: j.data.clone(),
+            res,
+            gs0,
+            chain: Vec::new(),
+        };
+        let mut local = Work::default();
+        let out = self.redact_holder(&holder, &mut ctx, 0, &mut Vec::new(), &mut local)?;
+        // What the probe saw under a mark must have been taken out.
+        for (i, g) in pp.glyphs.iter().enumerate() {
+            if !g.covered && ctx.under(&g.body) && !ctx.used_glyphs.contains(&i) {
+                return Err(if g.op.is_none() { R::Pattern } else { R::Content });
+            }
+        }
+        for (i, im) in pp.images.iter().enumerate() {
+            if !im.covered && ctx.under(&im.bounds) && !ctx.used_images.contains(&i) {
+                return Err(R::Picture);
+            }
+        }
+        check_splices(&j, &out.splices).map_err(|_| R::Content)?;
+        rewrite(&mut self.inner, page_id, &j, &out.splices).map_err(|_| R::Content)?;
+        let mut res = out.res;
+        let data = joined(&self.inner, page_id).data;
+        let untrimmed = drop_unused(&self.inner, &data, &mut res);
+        // A Type 3 font that lost glyphs keeps the procedures of the codes
+        // still shown only; when those cannot be told, it cannot stay.
+        if out.t3_lost.iter().any(|n| untrimmed.contains(n)) {
+            return Err(R::Font);
+        }
+        for pd in out.pending {
+            if pd.listed(&self.inner, &res) {
+                return Err(pd.reason);
+            }
+            if let Some(id) = pd.id {
+                local.patterns.push((page_id, id, pd.reason));
+            }
+        }
+        self.inner
+            .get_dictionary_mut(page_id)
+            .map_err(|_| R::Content)?
+            .set("Resources", Object::Dictionary(res));
+        for m in out.touched {
+            local.touched.insert((TouchKey::Page(page_id), m));
+        }
+        work.merge(local);
+        Ok(())
+    }
+
+    fn redact_holder(
+        &mut self,
+        h: &Holder,
+        ctx: &mut Ctx<'_>,
+        depth: usize,
+        stack: &mut Vec<ObjectId>,
+        work: &mut Work,
+    ) -> std::result::Result<HolderOut, PictureReason> {
+        use PictureReason as R;
+        let sc = scan(&self.inner, &h.data, &h.res, &h.gs0);
+        let rects = ctx.rects();
+        let mut res = h.res.clone();
+        let mut splices: Vec<Splice> = Vec::new();
+        // Byte ranges of the operations whose drawing changed.
+        let mut changed: Vec<(usize, usize)> = Vec::new();
+
+        // ---- Text ----
+        let (tops, ends) = text_ops_from(&h.data, &h.gs0.text);
+        let mut drawn: HashMap<usize, usize> = HashMap::new();
+        let mut removed: BTreeMap<usize, Vec<RemovedGlyph>> = BTreeMap::new();
+        let mut t3_lost: HashSet<Vec<u8>> = HashSet::new();
+        for (gi, g) in ctx.page.glyphs.iter().enumerate() {
+            if g.covered || g.chain != h.chain {
+                continue;
+            }
+            let Some(&(key, k)) = g.op.and_then(|m| ctx.probe.ids.text.get(m)) else {
+                continue;
+            };
+            if key != h.key {
+                continue;
+            }
+            let c = drawn.entry(k).or_insert(0);
+            let index = *c;
+            *c += 1;
+            if ctx.under(&g.body) {
+                removed.entry(k).or_default().push(RemovedGlyph {
+                    index,
+                    to_next: g.to_next,
+                    own_advance: g.own_advance,
+                });
+                ctx.used_glyphs.insert(gi);
+            }
+        }
+        // Text the probe did not see (a font it cannot read): where it is
+        // drawn is unknown.
+        for (k, op) in tops.iter().enumerate() {
+            if !drawn.contains_key(&k) && shows_glyphs(&h.data, op) {
+                return Err(R::Font);
+            }
+        }
+        if !removed.is_empty() && sets_font_by_state(&self.inner, &h.data, &res) {
+            // Which font the removed glyphs used is not told by their
+            // operations (a graphics state set it).
+            return Err(R::Font);
+        }
+        if !removed.is_empty() {
+            let fonts = res
+                .get(b"Font")
+                .ok()
+                .and_then(|f| deref(&self.inner, f).as_dict().ok())
+                .cloned()
+                .unwrap_or_default();
+            let out = glyph_removal_splices(&self.inner, &h.data, &tops, &fonts, &removed, &drawn)
+                .map_err(|_| R::Font)?;
+            for k in removed.keys() {
+                let op = &tops[*k];
+                if let Some((fid, _)) = type3_font(&self.inner, &res, &op.font) {
+                    t3_lost.insert(op.font.clone());
+                    work.type3_lost.extend(fid);
+                }
+                changed.push((op.start, op.end));
+                // Text painted under a soft mask that meets a mark.
+                if sc.masked_text.iter().any(|(s, e, (gid, m))| {
+                    *s == op.start && *e == op.end && self.mask_meets(&mask_gs(*gid, *m), &rects)
+                }) {
+                    return Err(R::SoftMask);
+                }
+            }
+            work.glyphs += out.removed;
+            splices.extend(out.splices);
+            // Clipping text that lost every glyph would stop clipping.
+            for obj in out.emptied_clips {
+                let end = ends.get(obj).copied().flatten().ok_or(R::Content)?;
+                let ctm = sc
+                    .text_ends
+                    .iter()
+                    .find(|(e, _)| *e == end)
+                    .map(|(_, m)| *m)
+                    .ok_or(R::Content)?;
+                if ctm.determinant().abs() < 1e-12 {
+                    continue;
+                }
+                splices.push(Splice {
+                    start: end - 2,
+                    end,
+                    with: format!("ET {}", empty_clip(ctm.inverse())).into_bytes(),
+                });
+            }
+        }
+
+        // ---- Paths ----
+        // Patterns of paints removed whole, and where the paints kept with
+        // each pattern are.
+        let mut pending: Vec<Pending> = Vec::new();
+        let mut kept: HashMap<Vec<u8>, Vec<Rect>> = HashMap::new();
+        for p in &sc.paths {
+            let edit = redact_path(p, &rects);
+            let painted = match &edit {
+                PathEdit::Keep => true,
+                PathEdit::Replace(text) => paints(text),
+            };
+            if painted {
+                // Only a filled rectangle under rectangular clips tells what
+                // it shows; other paints keep the pattern without showing it.
+                let exact = exact_region(p);
+                if matches!(p.paint, Paint::Fill(_) | Paint::FillStroke(_)) {
+                    if let Some(n) = &p.gs.fill_pattern {
+                        kept.entry(n.clone()).or_default().extend(exact);
+                    }
+                }
+                if matches!(p.paint, Paint::Stroke | Paint::FillStroke(_)) {
+                    if let Some(n) = &p.gs.stroke_pattern {
+                        kept.entry(n.clone()).or_default();
+                    }
+                }
+            }
+            let PathEdit::Replace(text) = edit else {
+                continue;
+            };
+            pending.extend(self.check_paint(p, &res, &h.gs0, &rects, painted)?);
+            splices.push(Splice {
+                start: p.start,
+                end: p.end,
+                with: text.into_bytes(),
+            });
+            changed.push((p.start, p.end));
+            work.paths += 1;
+        }
+
+        // A pattern kept for other paints must show elsewhere what the paints
+        // removed had under the marks; one no paint keeps is checked once
+        // the resources lost what nothing uses.
+        let mut unresolved = Vec::new();
+        for pd in pending {
+            match kept.get(&pd.name) {
+                Some(areas) if !areas.is_empty() => {
+                    if !self.shown_by_kept(&pd, areas, &res, &h.gs0, &rects) {
+                        return Err(pd.reason);
+                    }
+                }
+                _ => unresolved.push(pd),
+            }
+        }
+
+        // ---- Shadings ----
+        for (s, e, name, gs) in &sc.shadings {
+            let Some(sh) = resource(&self.inner, &res, b"Shading", name).and_then(|o| match o {
+                Object::Dictionary(d) => Some(d.clone()),
+                Object::Stream(s) => Some(s.dict.clone()),
+                _ => None,
+            }) else {
+                continue;
+            };
+            let mut area = gs.clip;
+            // The region painted is exactly a rectangle under rectangular
+            // clips, unless a box of the shading turned by the matrix cuts it.
+            let mut exact = gs.clip_exact;
+            if let Some(b) = rect_value(&self.inner, sh.get(b"BBox").ok()) {
+                area = area.intersect(gs.ctm.transform_rect_bbox(b));
+                exact &= axis_aligned(gs.ctm);
+            }
+            if area.width() <= 0.0 || area.height() <= 0.0 || !rects.iter().any(|r| overlaps(area, *r)) {
+                continue;
+            }
+            if self.mask_meets(gs, &rects) {
+                return Err(R::SoftMask);
+            }
+            if gs.ctm.determinant().abs() < 1e-12 {
+                continue;
+            }
+            let with = match exclusion_clip(area, &rects, gs.ctm.inverse()) {
+                // Painted under the marks only: it goes.
+                None => String::new(),
+                Some((clip, _)) => {
+                    if !self.shading_shown(&sh, gs.ctm.inverse(), area, exact.then_some(area), &rects) {
+                        return Err(R::Shading);
+                    }
+                    format!("q {clip} {} sh Q", name_token(name))
+                }
+            };
+            splices.push(Splice {
+                start: *s,
+                end: *e,
+                with: with.into_bytes(),
+            });
+            changed.push((*s, *e));
+            work.paths += 1;
+        }
+
+        // ---- Pictures ----
+        for d in &sc.images {
+            let b = d.gs.ctm.transform_rect_bbox(Rect::new(0.0, 0.0, 1.0, 1.0));
+            let hit: Vec<&Mark> = ctx.marks.iter().filter(|m| overlaps(b, m.pdf)).collect();
+            if hit.is_empty() {
+                continue;
+            }
+            if let Some(mk) = ctx.markers.get(&(h.key, d.op)) {
+                for (i, im) in ctx.page.images.iter().enumerate() {
+                    if im.marker == Some(Marker::Do(*mk)) && im.chain == h.chain {
+                        ctx.used_images.insert(i);
+                    }
+                }
+            }
+            if self.mask_meets(&d.gs, &rects) {
+                return Err(R::SoftMask);
+            }
+            let Ok(s) = self.inner.get_object(d.id).and_then(Object::as_stream) else {
+                return Err(R::Picture);
+            };
+            let dim = |k: &[u8]| {
+                s.dict
+                    .get(k)
+                    .ok()
+                    .and_then(|v| v.as_i64().ok())
+                    .unwrap_or(0)
+                    .max(0) as u32
+            };
+            let (w, hh) = (dim(b"Width"), dim(b"Height"));
+            let areas: Vec<([u32; 4], &RedactionLook)> = hit
+                .iter()
+                .filter_map(|m| {
+                    pixel_area(d.gs.ctm, w, hh, [m.pdf.x0, m.pdf.y0, m.pdf.x1, m.pdf.y1])
+                        .map(|a| (a, &m.look))
+                })
+                .collect();
+            if areas.is_empty() {
+                continue;
+            }
+            let mut px = decode_image(&self.inner, d.id).map_err(|_| R::Picture)?;
+            for (a, look) in &areas {
+                super::cover(&mut px, *a, look);
+            }
+            let colors = picture_colors(&self.inner, d.id);
+            let (mut stream, smask, old_mask) =
+                self.new_picture(d.id, &px, colors).map_err(|_| R::Picture)?;
+            // Metadata describes the picture as it was.
+            stream.dict.remove(b"Metadata");
+            if ctx.alone(d.id) {
+                self.put_picture(d.id, stream, smask, old_mask);
+            } else {
+                // The structure tree knows the original only.
+                stream.dict.remove(b"StructParent");
+                if let Some(m) = smask {
+                    let mid = self.inner.add_object(m);
+                    stream.dict.set("SMask", Object::Reference(mid));
+                }
+                let nid = self.inner.add_object(stream);
+                let name = ctx.fresh(&res, "FoliRdI");
+                xobjects_mut(&mut res).set(name.clone(), Object::Reference(nid));
+                splices.push(Splice {
+                    start: d.start,
+                    end: d.end,
+                    with: format!("{} Do", name_token(&name)).into_bytes(),
+                });
+                work.replaced.insert(d.id);
+            }
+            changed.push((d.start, d.end));
+            work.pictures += 1;
+        }
+
+        // ---- Inline pictures ----
+        for (opi, s, e, gs) in &sc.inline {
+            let b = gs.ctm.transform_rect_bbox(Rect::new(0.0, 0.0, 1.0, 1.0));
+            let hit: Vec<&Mark> = ctx.marks.iter().filter(|m| overlaps(b, m.pdf)).collect();
+            if hit.is_empty() {
+                continue;
+            }
+            for (i, im) in ctx.page.images.iter().enumerate() {
+                if let Some(Marker::Inline(mk)) = im.marker {
+                    if ctx.probe.ids.inline.get(mk) == Some(&(h.key, *opi)) && im.chain == h.chain {
+                        ctx.used_images.insert(i);
+                    }
+                }
+            }
+            if self.mask_meets(gs, &rects) {
+                return Err(R::SoftMask);
+            }
+            let stream = inline_picture(&self.inner, &h.data[*s..*e], &res).ok_or(R::Picture)?;
+            let dim = |k: &[u8]| {
+                stream
+                    .dict
+                    .get(k)
+                    .ok()
+                    .and_then(|v| v.as_i64().ok())
+                    .unwrap_or(0)
+                    .max(0) as u32
+            };
+            let (w, hh) = (dim(b"Width"), dim(b"Height"));
+            let tmp = self.inner.add_object(stream);
+            let mut px = decode_image(&self.inner, tmp).map_err(|_| R::Picture)?;
+            for m in &hit {
+                if let Some(a) = pixel_area(gs.ctm, w, hh, [m.pdf.x0, m.pdf.y0, m.pdf.x1, m.pdf.y1]) {
+                    super::cover(&mut px, a, &m.look);
+                }
+            }
+            let colors = picture_colors(&self.inner, tmp);
+            let (st, sm, om) = self.new_picture(tmp, &px, colors).map_err(|_| R::Picture)?;
+            self.put_picture(tmp, st, sm, om);
+            let name = ctx.fresh(&res, "FoliRdN");
+            xobjects_mut(&mut res).set(name.clone(), Object::Reference(tmp));
+            splices.push(Splice {
+                start: *s,
+                end: *e,
+                with: format!("{} Do", name_token(&name)).into_bytes(),
+            });
+            changed.push((*s, *e));
+            work.pictures += 1;
+        }
+
+        // ---- Forms ----
+        for d in &sc.forms {
+            let Ok(fs) = self.inner.get_object(d.id).and_then(Object::as_stream).cloned() else {
+                continue;
+            };
+            let bbox =
+                rect_value(&self.inner, fs.dict.get(b"BBox").ok()).unwrap_or(Rect::new(-1e6, -1e6, 1e6, 1e6));
+            let m = d.gs.ctm * affine_of(&self.inner, fs.dict.get(b"Matrix").ok());
+            let area = m.transform_rect_bbox(bbox);
+            let marker = ctx.markers.get(&(h.key, d.op)).copied();
+            let mut chain = h.chain.clone();
+            chain.extend(marker);
+            let under =
+                rects.iter().any(|r| overlaps(area, *r)) || (marker.is_some() && ctx.drawn_under(&chain));
+            if !under {
+                continue;
+            }
+            if marker.is_none() {
+                // Drawn, but the probe does not know the drawing.
+                return Err(R::Content);
+            }
+            if depth >= 12 || stack.contains(&d.id) {
+                return Err(R::Nesting);
+            }
+            if self.mask_meets(&d.gs, &rects) {
+                return Err(R::SoftMask);
+            }
+            let own = fs
+                .dict
+                .get(b"Resources")
+                .ok()
+                .and_then(|r| deref(&self.inner, r).as_dict().ok())
+                .cloned();
+            let sub_res = private_resources(&self.inner, own.as_ref().unwrap_or(&res));
+            let mut gs1 = d.gs.clone();
+            gs1.ctm = m;
+            gs1.clip = d.gs.clip.intersect(area);
+            gs1.clip_exact &= axis_aligned(m);
+            let sub = Holder {
+                key: StreamKey::Form(d.id),
+                data: stream_data(&fs),
+                res: sub_res,
+                gs0: gs1,
+                chain,
+            };
+            stack.push(d.id);
+            let out = self.redact_holder(&sub, ctx, depth + 1, stack, work);
+            stack.pop();
+            let out = out?;
+            if !out.changed {
+                continue;
+            }
+            let mut data = sub.data.clone();
+            let mut list = out.splices;
+            list.sort_by_key(|s| std::cmp::Reverse(s.start));
+            for s in list {
+                data.splice(s.start..s.end, s.with);
+            }
+            let mut fres = out.res;
+            let untrimmed = drop_unused(&self.inner, &data, &mut fres);
+            if out.t3_lost.iter().any(|n| untrimmed.contains(n)) {
+                return Err(R::Font);
+            }
+            for pd in out.pending {
+                if pd.listed(&self.inner, &fres) {
+                    return Err(pd.reason);
+                }
+                if let Some(id) = pd.id {
+                    work.patterns.push((ctx.page_id, id, pd.reason));
+                }
+            }
+            let dict = form_dict(&self.inner, &fs.dict, fres);
+            let mut st = Stream::new(dict, data);
+            let _ = st.compress();
+            let target = if ctx.alone(d.id) {
+                self.inner.objects.insert(d.id, Object::Stream(st));
+                d.id
+            } else {
+                let nid = self.inner.add_object(st);
+                let name = ctx.fresh(&res, "FoliRdF");
+                xobjects_mut(&mut res).set(name.clone(), Object::Reference(nid));
+                splices.push(Splice {
+                    start: d.start,
+                    end: d.end,
+                    with: format!("{} Do", name_token(&name)).into_bytes(),
+                });
+                work.replaced.insert(d.id);
+                work.copies.push((d.id, nid, ctx.page_id));
+                nid
+            };
+            for mcid in out.touched {
+                work.touched.insert((TouchKey::Stream(target), mcid));
+            }
+            changed.push((d.start, d.end));
+            work.forms += 1;
+        }
+
+        // ---- Marked content around what changed ----
+        let mut touched = Vec::new();
+        for mk in &sc.marked {
+            if !changed.iter().any(|(a, b)| mk.holds(*a, *b)) {
+                continue;
+            }
+            touched.extend(mk.mcid);
+            if mk.tag == b"OC" {
+                continue;
+            }
+            let op = &h.data[mk.begin.0..mk.begin.1];
+            let new = match &mk.props {
+                Props::Inline(_) => strip_alternates(op, None),
+                Props::Named(n) => {
+                    let named = resource(&self.inner, &res, b"Properties", n).and_then(|d| d.as_dict().ok());
+                    strip_alternates(op, named)
+                }
+                Props::None => None,
+            };
+            if let Some(new) = new {
+                splices.push(Splice {
+                    start: mk.begin.0,
+                    end: mk.begin.1,
+                    with: new,
+                });
+            }
+        }
+
+        splices.sort_by_key(|s| (s.start, s.end));
+        if splices.windows(2).any(|w| w[0].end > w[1].start) {
+            return Err(R::Content);
+        }
+        Ok(HolderOut {
+            changed: !changed.is_empty() || !splices.is_empty(),
+            splices,
+            res,
+            touched,
+            t3_lost,
+            pending: unresolved,
+        })
+    }
+
+    /// The patterns a path paints with that keep what is under the marks
+    /// (were the path painted over `area`): name and why.
+    fn pattern_problems(
+        &self,
+        p: &PathObj,
+        res: &Dictionary,
+        gs0: &Gs,
+        rects: &[Rect],
+        area: Rect,
+    ) -> Vec<(Vec<u8>, PictureReason)> {
+        // What the paint shows outside the marks is known only for a filled
+        // rectangle under rectangular clips.
+        let exact = exact_region(p);
+        use PictureReason as R;
+        let mut patterns = Vec::new();
+        if matches!(p.paint, Paint::Fill(_) | Paint::FillStroke(_)) {
+            patterns.extend(p.gs.fill_pattern.clone());
+        }
+        if matches!(p.paint, Paint::Stroke | Paint::FillStroke(_)) {
+            patterns.extend(p.gs.stroke_pattern.clone());
+        }
+        let mut out = Vec::new();
+        for name in patterns.into_iter().filter(|n| !n.is_empty()) {
+            let problem = match pattern_kind(&self.inner, res, &name) {
+                PatternKind::Tiling { text: true, .. } => Some(R::Pattern),
+                PatternKind::Tiling { cell: None, .. } => None,
+                PatternKind::Tiling {
+                    cell: Some(c),
+                    step,
+                    matrix,
+                    ..
+                } => {
+                    let m = gs0.ctm * matrix;
+                    let (under, _) = cell_tiles(c, step, m, area, rects);
+                    let elsewhere = exact.is_some_and(|e| cell_tiles(c, step, m, e, rects).1);
+                    (under && !elsewhere).then_some(R::Pattern)
+                }
+                PatternKind::Shading(sh, matrix) => {
+                    // Pattern space is the default space of the stream.
+                    let to_shading = (gs0.ctm * matrix).inverse();
+                    (area.width() > 0.0
+                        && area.height() > 0.0
+                        && !self.shading_shown(&sh, to_shading, area, exact, rects))
+                    .then_some(R::Shading)
+                }
+                PatternKind::Unknown => Some(R::Pattern),
+            };
+            if let Some(r) = problem {
+                out.push((name, r));
+            }
+        }
+        out
+    }
+
+    /// A path painted with a pattern or under a soft mask that cannot be
+    /// redacted by cutting its geometry. A paint the redaction removes whole
+    /// (`painted` false) leaves its patterns unused there: those that hold
+    /// what was under the marks are returned, to be checked once the
+    /// resources lost what nothing uses.
+    fn check_paint(
+        &self,
+        p: &PathObj,
+        res: &Dictionary,
+        gs0: &Gs,
+        rects: &[Rect],
+        painted: bool,
+    ) -> std::result::Result<Vec<Pending>, PictureReason> {
+        use PictureReason as R;
+        if self.mask_meets(&p.gs, rects) {
+            return Err(R::SoftMask);
+        }
+        let area = path_bounds(p)
+            .map(|b| b.intersect(p.gs.clip))
+            .unwrap_or(Rect::ZERO);
+        let problems = self.pattern_problems(p, res, gs0, rects, area);
+        if painted {
+            return match problems.first() {
+                Some((_, r)) => Err(*r),
+                None => Ok(Vec::new()),
+            };
+        }
+        Ok(problems
+            .into_iter()
+            .map(|(name, reason)| Pending {
+                id: res
+                    .get(b"Pattern")
+                    .ok()
+                    .and_then(|x| deref(&self.inner, x).as_dict().ok())
+                    .and_then(|x| x.get(&name).ok())
+                    .and_then(|v| v.as_reference().ok()),
+                name,
+                reason,
+                area,
+            })
+            .collect())
+    }
+
+    /// Whether the paints kept with the pattern of `pd` (their areas, page
+    /// space) show what its cell or shading put under the marks elsewhere.
+    fn shown_by_kept(&self, pd: &Pending, kept: &[Rect], res: &Dictionary, gs0: &Gs, rects: &[Rect]) -> bool {
+        match pattern_kind(&self.inner, res, &pd.name) {
+            PatternKind::Tiling { cell: None, .. } => true,
+            PatternKind::Tiling {
+                text: false,
+                cell: Some(c),
+                step,
+                matrix,
+            } => kept
+                .iter()
+                .any(|a| cell_tiles(c, step, gs0.ctm * matrix, *a, rects).1),
+            PatternKind::Shading(sh, matrix) => {
+                let kind = shading_type(&self.inner, &sh);
+                if kind != 2 && kind != 3 {
+                    return false;
+                }
+                let under: Vec<Rect> = rects
+                    .iter()
+                    .map(|r| r.intersect(pd.area))
+                    .filter(|r| r.width() > 0.0 && r.height() > 0.0)
+                    .collect();
+                let outside: Vec<Vec<hayro::kurbo::Point>> = kept
+                    .iter()
+                    .filter_map(|a| exclusion_clip(*a, rects, Affine::IDENTITY))
+                    .flat_map(|(_, pieces)| pieces)
+                    .collect();
+                !outside.is_empty()
+                    && shading_shown_elsewhere(
+                        &self.inner,
+                        &sh,
+                        (gs0.ctm * matrix).inverse(),
+                        &under,
+                        &outside,
+                    )
+            }
+            _ => false,
+        }
+    }
+}
+
+/// How the cells of a tiling pattern (what they draw: `cell`, in pattern
+/// space, repeated by `step`, mapped to page space by `m`) fall in the painted
+/// `area`: whether one puts something under a mark, and whether a whole one
+/// shows outside the marks. A motif repeated very often, or a degenerate
+/// one, counts as shown.
+pub(super) fn cell_tiles(
+    cell: Rect,
+    step: (f64, f64),
+    m: Affine,
+    area: Rect,
+    rects: &[Rect],
+) -> (bool, bool) {
+    if m.determinant().abs() < 1e-12 || area.width() <= 0.0 || area.height() <= 0.0 {
+        return (false, true);
+    }
+    let a = m.inverse().transform_rect_bbox(area);
+    let (xs, ys) = (step.0.abs(), step.1.abs());
+    let range = |lo: f64, hi: f64, c0: f64, c1: f64, st: f64| -> (i64, i64) {
+        if st < 1e-9 {
+            (0, 0)
+        } else {
+            (((lo - c1) / st).floor() as i64, ((hi - c0) / st).ceil() as i64)
+        }
+    };
+    let (i0, i1) = range(a.x0, a.x1, cell.x0, cell.x1, xs);
+    let (j0, j1) = range(a.y0, a.y1, cell.y0, cell.y1, ys);
+    let tiles = (i1 - i0 + 1).saturating_mul(j1 - j0 + 1);
+    if tiles > 100_000 {
+        // A motif repeated that often shows elsewhere.
+        return (false, true);
+    }
+    let (mut under, mut elsewhere) = (false, false);
+    for i in i0..=i1 {
+        for j in j0..=j1 {
+            let t = m.transform_rect_bbox(cell + hayro::kurbo::Vec2::new(i as f64 * xs, j as f64 * ys));
+            if !overlaps(t, area) {
+                continue;
+            }
+            if rects.iter().any(|r| overlaps(t, *r)) {
+                under = true;
+            } else if t.x0 >= area.x0 && t.x1 <= area.x1 && t.y0 >= area.y0 && t.y1 <= area.y1 {
+                elsewhere = true;
+            }
+        }
+    }
+    (under, elsewhere)
+}
+
+/// A state holding only a soft mask (to test it).
+fn mask_gs(gid: ObjectId, m: Affine) -> Gs {
+    let mut gs = page_state(Rect::ZERO);
+    gs.smask = Some((gid, m));
+    gs
+}

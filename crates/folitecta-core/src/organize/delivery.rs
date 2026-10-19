@@ -1030,7 +1030,7 @@ impl Document {
 
     /// Remove the XFA form data (and the need to render it) from the form.
     /// Returns whether there was any.
-    fn remove_xfa(&mut self) -> Result<bool> {
+    pub(crate) fn remove_xfa(&mut self) -> Result<bool> {
         let form = self.inner.catalog()?.get(b"AcroForm").ok().cloned();
         let had = match form {
             Some(Object::Reference(id)) => self

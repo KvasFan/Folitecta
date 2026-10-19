@@ -419,6 +419,9 @@ pub fn Dialogs() -> Element {
         Dialog::StyleName(index) => rsx! { crate::ui::panes::comment_styles::StyleNameDialog { index } },
         Dialog::RedactionLook => rsx! { crate::ui::features::redaction::RedactionLookDialog {} },
         Dialog::RedactionCode { set } => rsx! { crate::ui::features::redaction::RedactionCodeDialog { set } },
+        Dialog::ApplyRedactions { page } => {
+            rsx! { crate::ui::features::redaction::ApplyRedactionsDialog { page } }
+        }
         Dialog::FindReplace { find } => {
             rsx! { crate::ui::features::find_replace::FindReplaceDialog { find } }
         }

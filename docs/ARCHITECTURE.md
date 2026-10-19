@@ -56,10 +56,24 @@ responder and list issuer for the tests; `revocation` decides the state of each 
 chain for the time a signature is proven or claimed to exist; `dss` reads and extends the
 document security store and tells later revisions that only add validation material from the
 others by their structure; the validation reports integrity, signer, time and revocation as
-separate checks, and the interface runs it off its thread through a `ValidationJob`), `redaction` (the glyphs under the marks leave their text operations, each
-replaced by a move of its width found by the text probe, the pixels of pictures under the marks
-are covered, comments and fields over them go; pages that cannot be edited that way are drawn as
-pictures), `compare`, `combine` (documents made from several files), `delivery` (copies prepared to be
+separate checks, and the interface runs it off its thread through a `ValidationJob`), `redaction` (a
+probe draws a copy of the marked pages with every text operation, `Do` and inline picture
+wrapped in numbered marked content and optional content neutralized, so it tells which operation
+of which stream — page or form, through the chain of drawings — drew each glyph and picture;
+glyphs under the marks leave their text operations, each replaced by a move of its width, paths
+lose their geometry there (fills and clips cut to the four bands around each mark, strokes cut
+in their own space where their ink — caps and joins included — would enter it), pictures and
+inline pictures get their pixels covered, forms drawn under a mark are redacted in place when
+drawn once and copied otherwise, Type 3 fonts keep the glyph procedures of the codes still shown
+(with the resources those use), and a pattern of a paint removed whole that holds what was under
+a mark may not stay for another paint of the page; drawings are counted through the document
+once per set of resources (the masks of pictures and the procedures of shown Type 3 glyphs
+with them), and what nothing draws any more leaves the file with every reference to it, while
+what the marked pages list and nothing ever drew only leaves their resources; comments and fields over the marks go with
+their replies, signatures go, covers are tagged per redaction, and the document is sanitized as
+chosen; every edited page is checked before its covers are drawn and the exact bytes of a save
+can be checked — read again, decrypted with the kept key — before they are written; pages that
+cannot be edited that way are drawn as pictures), `compare`, `combine` (documents made from several files), `delivery` (copies prepared to be
 sent, made from a snapshot of the document: chosen pages that keep nothing of the others — the
 resources of the kept pages are cut to what their content names, and the bookmarks, links, named
 destinations, form fields, tags, opening view and article threads of the others go and are counted —,
@@ -266,4 +280,22 @@ Mouse coordinates on a page image are converted to PDF user space with
   store, but no long-term validation profile is claimed. Later revisions after a signature are
   recognised when they only add validation material or end with document time stamps; other
   changes are reported, not analysed. There is no conversion to PDF/A.
+- Redaction applies rectangles only (no quadrilateral marks) and does not remove content
+  outside the crop box. The moves that replace removed glyphs keep their widths, so the length
+  of a removed word can be measured; shapes of removed glyphs stay in embedded font programs
+  that other text still uses, and the procedures of a Type 3 font stay whole where the codes
+  another page or form shows with it cannot be told (a font set by a graphics state included).
+  Patterns and forms that other pages still draw stay for them; Type 3 fonts and patterns that
+  keep what was under the marks for other pages are reported (after the redaction and in the
+  apply dialog), not removed. Something counts as shown elsewhere only in a filled rectangle
+  under rectangular clips. Comments, form values and page text elsewhere that quote the removed
+  words are reported, not changed; in documents of more than 100 pages only the redacted pages
+  and the first others are searched for them (the check says how many were not). Gradients
+  (radial ones with stitched functions, and any whose colours under a mark are not shown in
+  such a rectangle) and transparency masks that could keep content under a mark, tiling
+  patterns whose cell would keep content under a mark that no whole cell shows, vertical
+  writing and drawings nested more than 12 deep make the page a picture. Strokes lose a little
+  ink outside the marks where their ends are slanted or a corner is split, and cut pieces
+  restart their dash pattern. A signed version brought back by Undo after a later save cannot
+  be saved with its signatures unless its signed file is on the disk again.
 - Commands marked *planned* in [FEATURES.md](FEATURES.md) open a roadmap notice.

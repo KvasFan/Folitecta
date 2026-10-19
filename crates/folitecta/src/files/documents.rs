@@ -101,6 +101,23 @@ pub fn save(st: AppState) {
         save_as(st);
         return;
     }
+    // A redaction not checked yet: the bytes are checked before they are written.
+    if let Some(tab) = crate::commands::protect::unchecked_redaction(st) {
+        if let Some(path) = st
+            .read_active(|t| t.doc.path().map(|p| p.to_path_buf()))
+            .flatten()
+        {
+            st.toast(
+                ToastKind::Info,
+                t(st.lang(), "toast.redaction_unchecked_save"),
+                "",
+            );
+            dioxus::core::spawn_forever(async move {
+                let _ = crate::commands::protect::save_redacted_copy_to(st, tab, path).await;
+            });
+            return;
+        }
+    }
     let result = st.with_active(|t| t.doc.save());
     match result {
         Some(Ok(())) => {
@@ -148,6 +165,10 @@ pub fn save_as(st: AppState) {
             return;
         };
         let path = file.path().to_path_buf();
+        if let Some(tab) = crate::commands::protect::unchecked_redaction(st) {
+            let _ = crate::commands::protect::save_redacted_copy_to(st, tab, path).await;
+            return;
+        }
         match st.with_active(|t| t.doc.save_as(&path)) {
             Some(Ok(())) => {
                 st.ui_mut().push_recent(&path);

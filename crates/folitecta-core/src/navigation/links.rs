@@ -344,8 +344,18 @@ impl Document {
                 "a destination named '{new}' already exists"
             )));
         }
-        let (old_k, new_k) = (old.as_bytes().to_vec(), new.as_bytes().to_vec());
         self.begin_edit();
+        if let Err(e) = self.rename_named_destination_in(old.as_bytes(), new.as_bytes()) {
+            self.abandon_edit();
+            return Err(e);
+        }
+        self.commit()
+    }
+
+    /// Rename a named destination and the references to it, without an
+    /// undo step of its own (the caller makes one).
+    pub(crate) fn rename_named_destination_in(&mut self, old: &[u8], new: &[u8]) -> Result<()> {
+        let (old_k, new_k) = (old.to_vec(), new.to_vec());
         let moved = self.dests_dict_mut().and_then(|d| d.remove(&old_k));
         if let Some(v) = moved {
             if let Some(d) = self.dests_dict_mut() {
@@ -384,7 +394,7 @@ impl Document {
                 }
             }
         }
-        self.commit()
+        Ok(())
     }
 
     fn link_target(&self, d: &Dictionary) -> LinkTarget {

@@ -169,7 +169,7 @@ fn dims(d: &Dictionary) -> (u32, u32) {
     (side(b"Width"), side(b"Height"))
 }
 
-fn filters(d: &Dictionary) -> Vec<Vec<u8>> {
+pub(crate) fn filters(d: &Dictionary) -> Vec<Vec<u8>> {
     match d.get(b"Filter") {
         Ok(Object::Name(n)) => vec![n.clone()],
         Ok(Object::Array(a)) => a
@@ -180,25 +180,62 @@ fn filters(d: &Dictionary) -> Vec<Vec<u8>> {
     }
 }
 
-fn info(doc: &lopdf::Document, index: usize, d: &Draw) -> Option<PageImage> {
-    let s = doc.get_object(d.id).ok()?.as_stream().ok()?;
-    let (width, height) = dims(&s.dict);
-    let mask = flag(&s.dict, b"ImageMask");
+/// How the colours of a picture dictionary are kept, and its bits per component.
+fn colors_of(doc: &lopdf::Document, d: &Dictionary) -> (Colors, u8) {
+    let mask = flag(d, b"ImageMask");
     // JPEG 2000 pictures may leave the bits out: they are not one-bit pictures.
-    let bits = int(&s.dict, b"BitsPerComponent")
+    let bits = int(d, b"BitsPerComponent")
         .unwrap_or(if mask { 1 } else { 8 })
         .clamp(1, 16) as u8;
-    let jpx = filters(&s.dict).last().is_some_and(|f| f == b"JPXDecode");
+    let jpx = filters(d).last().is_some_and(|f| f == b"JPXDecode");
     let colors = if mask {
         Colors::BlackWhite
     } else {
-        match colour_space(doc, s.dict.get(b"ColorSpace").ok()) {
+        match colour_space(doc, d.get(b"ColorSpace").ok()) {
             Some(Cs::Gray) if bits == 1 && !jpx => Colors::BlackWhite,
             Some(Cs::Gray) => Colors::Gray,
             Some(Cs::Indexed { .. }) => Colors::Indexed,
             _ => Colors::Color,
         }
     };
+    (colors, bits)
+}
+
+/// How the colours of the picture object `id` are kept.
+pub(crate) fn picture_colors(doc: &lopdf::Document, id: ObjectId) -> Colors {
+    doc.get_object(id)
+        .and_then(Object::as_stream)
+        .map(|s| colors_of(doc, &s.dict).0)
+        .unwrap_or_default()
+}
+
+/// The pixels `[x0, y0, x1, y1)` of a picture `w` × `h` drawn with matrix
+/// `m` (its unit square to page space) that lie under the rectangle `r`
+/// (page space), top row first; None when none does.
+pub(crate) fn pixel_area(m: Affine, w: u32, h: u32, r: [f64; 4]) -> Option<[u32; 4]> {
+    if m.determinant().abs() < 1e-12 || w == 0 || h == 0 {
+        return None;
+    }
+    let inv = m.inverse();
+    let (wf, hf) = (w as f64, h as f64);
+    let pts = [(r[0], r[1]), (r[2], r[1]), (r[0], r[3]), (r[2], r[3])]
+        .map(|(x, y)| inv * Point::new(x, y))
+        .map(|p| (p.x * wf, (1.0 - p.y) * hf));
+    let lo = |f: fn(&(f64, f64)) -> f64, max: f64| {
+        pts.iter().map(f).fold(f64::MAX, f64::min).floor().clamp(0.0, max) as u32
+    };
+    let hi = |f: fn(&(f64, f64)) -> f64, max: f64| {
+        pts.iter().map(f).fold(f64::MIN, f64::max).ceil().clamp(0.0, max) as u32
+    };
+    let (x0, x1) = (lo(|p| p.0, wf), hi(|p| p.0, wf));
+    let (y0, y1) = (lo(|p| p.1, hf), hi(|p| p.1, hf));
+    (x1 > x0 && y1 > y0).then_some([x0, y0, x1, y1])
+}
+
+fn info(doc: &lopdf::Document, index: usize, d: &Draw) -> Option<PageImage> {
+    let s = doc.get_object(d.id).ok()?.as_stream().ok()?;
+    let (width, height) = dims(&s.dict);
+    let (colors, bits) = colors_of(doc, &s.dict);
     let b = d.ctm.transform_rect_bbox(Rect::new(0.0, 0.0, 1.0, 1.0));
     Some(PageImage {
         index,
@@ -852,7 +889,7 @@ impl Document {
     }
 
     /// The new picture object made from `pixels` for the old one `id`.
-    fn new_picture(
+    pub(crate) fn new_picture(
         &self,
         id: ObjectId,
         pixels: &RgbaImage,
@@ -890,7 +927,7 @@ impl Document {
     }
 
     /// Replace the picture object `id` itself (its soft mask too).
-    fn put_picture(
+    pub(crate) fn put_picture(
         &mut self,
         id: ObjectId,
         mut stream: Stream,

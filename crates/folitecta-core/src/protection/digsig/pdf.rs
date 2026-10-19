@@ -1095,6 +1095,8 @@ impl Document {
         for (field, _, _) in &signed {
             if let Ok(d) = self.inner.get_dictionary_mut(*field) {
                 d.remove(b"V");
+                d.remove(b"Lock");
+                d.remove(b"SV");
             }
             for w in self.field_widgets(*field) {
                 if let Ok(d) = self.inner.get_dictionary_mut(w) {

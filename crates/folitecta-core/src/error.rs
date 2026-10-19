@@ -27,6 +27,13 @@ pub enum Error {
         "the content comes from a protected file and this document is not protected: it is not copied (save an unrestricted copy of that file first)"
     )]
     ProtectedSource,
+    /// The signatures of the state can only be kept valid by an update of the
+    /// signed file it came from, which a later save replaced; nothing was
+    /// written.
+    #[error(
+        "the signatures of this version can only be kept by an update of the signed file it came from, which a later save replaced; nothing was written (remove the signatures, or redo, to save it)"
+    )]
+    SignaturesNotKept,
     /// The file is protected in a way Folitecta cannot open (what, in words).
     #[error("the file is protected with {0}, which Folitecta cannot open yet")]
     UnsupportedProtection(String),

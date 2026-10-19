@@ -437,6 +437,7 @@ mod steps_print;
 mod steps_protection;
 mod steps_qat;
 mod steps_recovery;
+mod steps_redaction;
 mod steps_review;
 mod steps_revocation;
 mod steps_spelling;
@@ -506,6 +507,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "qat" => Box::pin(steps_qat::run(cx)),
             "email" => Box::pin(steps_email::run(cx)),
             "timestamp" => Box::pin(steps_timestamp::run(cx)),
+            "redaction" => Box::pin(steps_redaction::run(cx)),
             "revocation" => Box::pin(steps_revocation::run(cx)),
             "protection" => Box::pin(steps_protection::run(cx)),
             "frames" => Box::pin(steps_frames::run(cx)),
@@ -559,6 +561,7 @@ const STEPS: &[&str] = &[
     "qat",
     "email",
     "timestamp",
+    "redaction",
     "revocation",
     "protection",
     "print",
@@ -1062,6 +1065,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("split-pages", Dialog::SplitPages),
         ("redaction-look", Dialog::RedactionLook),
         ("redaction-code", Dialog::RedactionCode { set: true }),
+        ("apply-redactions", Dialog::ApplyRedactions { page: None }),
         (
             "find-replace",
             Dialog::FindReplace {

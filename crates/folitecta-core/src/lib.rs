@@ -58,7 +58,7 @@ pub use comment_exchange::{CommentFormat, LeftOutReply, UndrawableComment};
 pub use comment_review::{CommentInfo, REVIEW_STATES, StateChange};
 pub use comment_summary::{SummaryEntry, SummaryLabels, SummaryLayout, SummaryOptions, SummarySort};
 pub use delivery::{CopyComments, CopyFacts, CopyOptions, CopySignatures, CopySource, LeftOut, PreparedCopy};
-pub use document::{DocInfo, Document, PageSize};
+pub use document::{DocInfo, DocSnapshot, Document, PageSize, PreparedSave, ProtectionKey};
 pub use error::{Error, Result};
 pub use export::ImageFormat;
 pub use flatten::FlattenScope;

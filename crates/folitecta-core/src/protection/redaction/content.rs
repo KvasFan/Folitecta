@@ -1,25 +1,26 @@
-//! Redaction by content: the text and the pictures under the marks are taken
-//! out of the page itself, so the rest of the page keeps its text and
-//! drawings; the comments and form fields over the marks go too, and the
-//! marked areas are covered as their marks say. A page whose content cannot
-//! be edited that way is drawn as a picture instead (see [`super`]).
+//! What redaction reports, the covers drawn over the marks, and the comments
+//! and form fields over the marks, which go with their replies.
 
-use hayro::kurbo::{Affine, Point};
+use std::collections::HashSet;
+
 use lopdf::{Object, ObjectId, dictionary};
 
-use super::{RedactionLook, cover, overlay_text};
+use super::check::CheckData;
+use super::holders::{Mark, PictureReason};
+use super::overlay_text;
+use super::sanitize::SanitizeReport;
 use crate::document::{Document, PageSize};
-use crate::error::{Error, Result};
-use crate::marks::pdf_rect_to_display;
-use crate::util::{deref, fmt_num, rect_of};
+use crate::error::Result;
+use crate::util::{fmt_num, rect_of};
 
 /// How marked areas are removed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum RedactionMethod {
-    /// The text and the pictures under the marks are taken out of the page;
-    /// the rest keeps its text and drawings. A page where that is not
-    /// possible (text or pictures of a reused drawing, a picture written in
-    /// the content, a font Folitecta cannot edit) is drawn as a picture.
+    /// The text, pictures and drawings under the marks are taken out of the
+    /// page and of the drawings it reuses; the rest keeps its text and
+    /// drawings. A page where that is not possible (a font Folitecta cannot
+    /// edit, a gradient, pattern or mask that draws content under a mark,
+    /// drawings nested too deeply) is drawn as a picture.
     #[default]
     Content,
     /// Every page with marks is drawn as a picture with the areas covered:
@@ -42,6 +43,39 @@ pub struct RedactionReport {
     pub fields: usize,
     /// Pages drawn as pictures, by choice or because their content could not be edited.
     pub pages_as_pictures: Vec<usize>,
+    /// Path objects and gradients whose geometry under the marks went.
+    pub paths: usize,
+    /// Reused drawings (forms) changed or copied for the redacted pages.
+    pub forms: usize,
+    /// Why each page in [`RedactionReport::pages_as_pictures`] is a picture.
+    pub reasons: Vec<(usize, PictureReason)>,
+    /// Areas blurred or pixelated: their pictures are only hidden from view.
+    pub blurred_areas: usize,
+    /// Digital signatures removed (a redacted document cannot keep them valid).
+    pub signatures: usize,
+    /// Type 3 fonts that lost glyphs under the marks and are still used
+    /// elsewhere in a way that cannot be told glyph by glyph: their glyph
+    /// procedures stay whole in the file, and may draw what the removed
+    /// glyphs drew.
+    pub type3_kept: usize,
+    /// Patterns painted under the marks that other pages still paint with
+    /// without showing what they hold: they stay in the file for those
+    /// pages, with what was under the marks.
+    pub patterns_kept: usize,
+    /// What sanitizing removed.
+    pub sanitized: SanitizeReport,
+    /// Every page edited by content passed the check before its covers
+    /// were drawn (pages that failed became pictures).
+    pub verified: bool,
+    /// What the check of the saved file needs.
+    pub(crate) check: CheckData,
+}
+
+impl RedactionReport {
+    /// The terms of the removed text the check looks for (as written on the pages).
+    pub fn terms(&self) -> Vec<String> {
+        self.check.terms.iter().map(|t| t.shown().to_string()).collect()
+    }
 }
 
 /// Two rectangles `[x0, y0, x1, y1]` overlap.
@@ -63,106 +97,10 @@ fn upright_matrix(size: &PageSize) -> [f32; 6] {
 }
 
 impl Document {
-    /// Take the text and pictures under `marks` (PDF space) out of `page`.
-    /// Fails before changing anything when a picture under the marks is not
-    /// one the page draws itself, or when the text cannot be edited.
-    pub(super) fn redact_page_content(
-        &mut self,
-        page: usize,
-        marks: &[([f32; 4], RedactionLook)],
-        report: &mut RedactionReport,
-    ) -> Result<()> {
-        let id = self.page_id(page)?;
-        let size = self.page_size_of(id);
-        let shown: Vec<[f32; 4]> = marks
-            .iter()
-            .map(|(r, _)| pdf_rect_to_display(&size, *r))
-            .collect();
-        // Every picture drawn under a mark must be one of the page's own,
-        // whose pixels can be changed.
-        let images = self.page_images(page)?;
-        let own: Vec<[f32; 4]> = images
-            .iter()
-            .map(|im| pdf_rect_to_display(&size, im.rect))
-            .collect();
-        for b in self.drawn_picture_bounds(page)? {
-            if !shown.iter().any(|m| overlap(&b, m)) {
-                continue;
-            }
-            let known = own.iter().any(|o| (0..4).all(|k| (o[k] - b[k]).abs() < 1.0));
-            if !known {
-                return Err(Error::Invalid(
-                    "a picture under the marks is written in the content or inside a reused drawing".into(),
-                ));
-            }
-        }
-        report.glyphs += self.remove_text_in(page, &shown)?;
-        for im in images.iter() {
-            let m = Affine::new(im.matrix);
-            if m.determinant().abs() < 1e-9 {
-                continue;
-            }
-            let inv = m.inverse();
-            let (w, h) = (im.width as f64, im.height as f64);
-            let mut areas = Vec::new();
-            for (r, look) in marks {
-                if !overlap(r, &im.rect) {
-                    continue;
-                }
-                // The corners of the mark in the pixels of the picture (top row first).
-                let pts = [(r[0], r[1]), (r[2], r[1]), (r[0], r[3]), (r[2], r[3])]
-                    .map(|(x, y)| inv * Point::new(x as f64, y as f64))
-                    .map(|p| (p.x * w, (1.0 - p.y) * h));
-                let x0 = pts
-                    .iter()
-                    .map(|p| p.0)
-                    .fold(f64::MAX, f64::min)
-                    .floor()
-                    .clamp(0.0, w) as u32;
-                let x1 = pts
-                    .iter()
-                    .map(|p| p.0)
-                    .fold(f64::MIN, f64::max)
-                    .ceil()
-                    .clamp(0.0, w) as u32;
-                let y0 = pts
-                    .iter()
-                    .map(|p| p.1)
-                    .fold(f64::MAX, f64::min)
-                    .floor()
-                    .clamp(0.0, h) as u32;
-                let y1 = pts
-                    .iter()
-                    .map(|p| p.1)
-                    .fold(f64::MIN, f64::max)
-                    .ceil()
-                    .clamp(0.0, h) as u32;
-                if x1 > x0 && y1 > y0 {
-                    areas.push(([x0, y0, x1, y1], look.clone()));
-                }
-            }
-            if areas.is_empty() {
-                continue;
-            }
-            let mut pixels = self.image_pixels(page, im.index)?;
-            for (r, look) in &areas {
-                // Filled, or blurred and pixelated when the mark says so (the
-                // look the user chose: it hides less than a filled area).
-                cover(&mut pixels, *r, look);
-            }
-            self.put_page_image(page, im.index, &pixels, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0], im.colors)?;
-            report.pictures += 1;
-        }
-        Ok(())
-    }
-
-    /// Draw the covers of `marks` (PDF space) over `page`: the filled areas
-    /// and their overlay texts, upright on rotated pages too.
-    pub(super) fn draw_redaction_covers(
-        &mut self,
-        page: usize,
-        marks: &[([f32; 4], RedactionLook)],
-    ) -> Result<()> {
+    /// Draw the covers of `marks` over `page`: the filled areas and their
+    /// overlay texts, upright on rotated pages too, in a stream tagged `tag`
+    /// (`/FolitectaMark`), which the check knows is not content.
+    pub(super) fn draw_redaction_covers(&mut self, page: usize, marks: &[Mark], tag: &str) -> Result<()> {
         let id = self.page_id(page)?;
         let size = self.page_size_of(id);
         let m = upright_matrix(&size);
@@ -177,8 +115,8 @@ impl Document {
             f(m[5])
         );
         let mut font = None;
-        for (r, look) in marks {
-            let d = pdf_rect_to_display(&size, *r);
+        for m in marks {
+            let (d, look) = (m.shown, &m.look);
             // Upright, origin at the bottom-left corner of the page as shown.
             let u = [d[0], size.height - d[3], d[2], size.height - d[1]];
             // A blurred or pixelated mark shows its pictures blurred, not a box.
@@ -210,13 +148,14 @@ impl Document {
             });
             self.add_page_resource(id, "Font", "FoliRed", Object::Reference(fid))?;
         }
-        self.append_page_content(id, body.into_bytes(), None)?;
+        self.append_page_content(id, body.into_bytes(), Some(tag))?;
         Ok(())
     }
 
-    /// Remove the comments of `page` over `marks` (PDF space) and the form
-    /// fields with a widget over them, values included; the redaction marks
-    /// themselves go too.
+    /// Remove the comments of `page` over `marks` (PDF space) with their
+    /// pop-up notes and replies, and the form fields with a widget over them,
+    /// values included; the redaction marks themselves go too. Members of a
+    /// group whose head goes stay, out of the group.
     pub(super) fn remove_annotations_over(
         &mut self,
         page: usize,
@@ -224,19 +163,10 @@ impl Document {
         report: &mut RedactionReport,
     ) -> Result<()> {
         let id = self.page_id(page)?;
-        let annots: Vec<Object> = match self.inner.get_dictionary(id)?.get(b"Annots").ok() {
-            Some(a) => deref(&self.inner, a).as_array().cloned().unwrap_or_default(),
-            None => Vec::new(),
-        };
-        let mut keep = Vec::new();
-        let mut gone: Vec<ObjectId> = Vec::new();
+        let items = crate::annots::annot_refs(&self.inner, self.inner.get_dictionary(id)?);
+        let mut roots: HashSet<ObjectId> = HashSet::new();
         let mut fields: Vec<ObjectId> = Vec::new();
-        for a in annots {
-            let aid = a.as_reference().ok();
-            let Some(d) = deref(&self.inner, &a).as_dict().ok() else {
-                keep.push(a);
-                continue;
-            };
+        for (aid, d) in &items {
             let subtype = d
                 .get(b"Subtype")
                 .ok()
@@ -245,12 +175,11 @@ impl Document {
             let rect = d.get(b"Rect").ok().and_then(|r| rect_of(&self.inner, r));
             let over = rect.is_some_and(|r| marks.iter().any(|m| overlap(&crate::geom::normalize(r), m)));
             if subtype == b"Redact" {
-                gone.extend(aid);
+                roots.extend(*aid);
                 continue;
             }
-            // A pop-up note goes with its comment (below).
+            // A pop-up note goes with its comment.
             if !over || subtype == b"Popup" {
-                keep.push(a);
                 continue;
             }
             if subtype == b"Widget" {
@@ -260,30 +189,32 @@ impl Document {
                     d.get(b"Parent").ok().and_then(|p| p.as_reference().ok()),
                 ) {
                     (false, Some(p)) => Some(p),
-                    _ => aid,
+                    _ => *aid,
                 };
                 if let Some(f) = field {
                     if !fields.contains(&f) {
                         fields.push(f);
                     }
                 }
-                keep.push(a);
                 continue;
             }
             report.comments += 1;
-            gone.extend(aid);
-            if let Ok(p) = d.get(b"Popup").and_then(|p| p.as_reference()) {
-                gone.push(p);
+            roots.extend(*aid);
+        }
+        // Group members (replies of type Group) stay, without their head.
+        for (aid, d) in &items {
+            let Some(aid) = aid else { continue };
+            let head = d.get(b"IRT").ok().and_then(|o| o.as_reference().ok());
+            let group = d.get(b"RT").ok().and_then(|o| o.as_name().ok()) == Some(b"Group".as_slice());
+            if group && head.is_some_and(|h| roots.contains(&h)) && !roots.contains(aid) {
+                if let Ok(m) = self.inner.get_dictionary_mut(*aid) {
+                    m.remove(b"IRT");
+                    m.remove(b"RT");
+                }
             }
         }
-        // Pop-up notes of the comments that go.
-        keep.retain(|a| a.as_reference().map(|r| !gone.contains(&r)).unwrap_or(true));
-        self.inner
-            .get_dictionary_mut(id)?
-            .set("Annots", Object::Array(keep));
-        for g in gone {
-            self.inner.delete_object(g);
-        }
+        // Replies and pop-ups of what goes go too.
+        self.remove_annotations(id, &roots);
         for f in fields {
             self.remove_form_field(f)?;
             report.fields += 1;

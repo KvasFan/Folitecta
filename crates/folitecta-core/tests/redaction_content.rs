@@ -5,6 +5,9 @@ use folitecta_core::form_design::{FieldProps, NewField};
 use folitecta_core::marks::display_to_pdf;
 use folitecta_core::redaction::{RedactionLook, RedactionMethod};
 use folitecta_core::{Document, PageText, TextLayout};
+use lopdf::dictionary;
+
+mod redaction_util;
 
 fn sample() -> Document {
     Document::from_text(
@@ -215,4 +218,27 @@ fn a_signed_document_is_rewritten_whole_after_redaction() {
         assert!(!holds(&s, b"Secret") && !holds(&s, &hex("Secret")));
     }
     let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn a_kern_after_a_removed_word_keeps_the_next_word_in_place() {
+    let mut doc = redaction_util::doc_with(
+        400.0,
+        400.0,
+        &["BT /F1 12 Tf 50 300 Td [(Secret) -250 (plan)] TJ ET"],
+        |d| {
+            let f = redaction_util::helvetica(d);
+            dictionary! { "Font" => dictionary! { "F1" => f } }
+        },
+    );
+    let before = doc.text_layer(0).unwrap();
+    let r = pdf_rect(&doc, 0, word_box(&before, "Secret"));
+    doc.add_redaction(0, r, "Reviewer").unwrap();
+    let report = doc.apply_redactions_with(None, RedactionMethod::Content).unwrap();
+    assert_eq!(report.glyphs, 6, "{report:?}");
+    assert!(report.pages_as_pictures.is_empty(), "{report:?}");
+    let after = doc.text_layer(0).unwrap();
+    assert!(!after.text.contains("Secret"), "{:?}", after.text);
+    let (b, a) = (word_box(&before, "plan"), word_box(&after, "plan"));
+    assert!((b[0] - a[0]).abs() < 0.3, "{b:?} -> {a:?}");
 }

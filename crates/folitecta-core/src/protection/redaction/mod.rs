@@ -1,25 +1,49 @@
-//! Redaction: mark areas, then apply them. By default the text and the
-//! pictures under the marks are taken out of the page content (see
-//! [`content`]), the rest of the page staying text and drawings; a page that
-//! cannot be edited that way — or every page, when chosen — is drawn as a
-//! picture with the marked areas covered (filled with a colour, blurred or
-//! pixelated). Comments and form fields over the marks go, an overlay text
-//! (a redaction code, for example) is written over the areas, and the next
-//! save rewrites the whole file, so nothing of the removed content stays in
-//! it.
+//! Redaction: mark areas, then apply them. By default the content under the
+//! marks is taken out of the pages and of the drawings they reuse — glyphs
+//! leave their text operations, paths lose their geometry there, pictures and
+//! inline pictures get their pixels covered (see [`holders`]) — and the rest
+//! stays text and drawings; a page that cannot be edited that way — or every
+//! page, when chosen — is drawn as a picture with the marked areas covered
+//! (filled with a colour, blurred or pixelated). Comments and form fields
+//! over the marks go with their replies, signatures are removed, an overlay
+//! text (a redaction code, for example) is written over the areas, and the
+//! document is sanitized as chosen ([`sanitize`]). The result is checked in
+//! memory (a page that fails becomes a picture) and the bytes of a save can
+//! be checked before they are written ([`check`]); the next save rewrites the
+//! whole file, so nothing of the removed content stays in an earlier revision.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
+mod check;
 mod content;
+mod counts;
+mod holders;
+mod inline;
+mod paths;
+mod sanitize;
+mod scan;
+mod shared;
+mod terms;
+mod tidy;
 
+pub use check::{CheckProblem, QuotePlace, RedactionCheck, check_redacted_bytes};
 pub use content::{RedactionMethod, RedactionReport};
+pub use holders::PictureReason;
+pub use sanitize::{SANITIZE_BY_DEFAULT, SanitizeOptions, SanitizePart, SanitizeReport};
+pub use terms::Term;
 
+use hayro::kurbo::Rect;
 use image::RgbaImage;
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
+use rand_core::{OsRng, RngCore};
 
+use self::check::{CheckData, CheckMark};
+use self::counts::{Listing, drawing_counts, listed_by_page, purge, unlist};
+use self::holders::{Mark, Work};
 use crate::document::Document;
 use crate::error::{Error, Result};
 use crate::marks::pdf_rect_to_display;
+use crate::page_text::probe::{ProbeOptions, probe_pages};
 use crate::render::{RenderOpts, Renderer};
 use crate::util::{deref, fmt_num, helvetica_width, rect_of, winansi_byte};
 
@@ -317,6 +341,33 @@ fn cover(img: &mut RgbaImage, r: [u32; 4], look: &RedactionLook) {
     }
 }
 
+/// How redaction marks are applied.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RedactionOptions {
+    pub method: RedactionMethod,
+    pub sanitize: SanitizeOptions,
+}
+
+impl Default for RedactionOptions {
+    fn default() -> Self {
+        RedactionOptions {
+            method: RedactionMethod::Content,
+            sanitize: SanitizeOptions::default(),
+        }
+    }
+}
+
+/// What applying redaction marks involves (shown before applying them).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct RedactionSummary {
+    pub areas: usize,
+    pub pages: usize,
+    /// Areas blurred or pixelated instead of filled.
+    pub blurred: usize,
+    /// Digital signatures the redaction removes.
+    pub signatures: usize,
+}
+
 impl Document {
     /// Mark a rectangle for redaction (a `Redact` annotation with a red outline).
     pub fn add_redaction(&mut self, page: usize, rect: [f32; 4], author: &str) -> Result<ObjectId> {
@@ -385,69 +436,534 @@ impl Document {
     }
 
     /// Apply the pending redaction marks of the given pages (all pages when
-    /// `None`) with `method`, as one undo step: the content under the marks
-    /// is removed, the comments and form fields over them go, the areas are
-    /// covered as their marks say and the marks go. The next save writes the
-    /// whole file again, so no earlier revision keeps the removed content;
-    /// signatures of the document stop being valid.
+    /// `None`) with `method`, as one undo step, without sanitizing (see
+    /// [`Document::apply_redactions_opts`]).
     pub fn apply_redactions_with(
         &mut self,
         pages: Option<&[usize]>,
         method: RedactionMethod,
     ) -> Result<RedactionReport> {
-        let mut by_page: BTreeMap<usize, Vec<([f32; 4], RedactionLook)>> = BTreeMap::new();
-        for p in 0..self.page_count() {
+        self.apply_redactions_opts(
+            pages,
+            &RedactionOptions {
+                method,
+                sanitize: SanitizeOptions::none(),
+            },
+        )
+    }
+
+    /// The pending redaction marks of the given pages (all when `None`): page,
+    /// rectangle and look.
+    pub fn pending_redaction_marks(&self, pages: Option<&[usize]>) -> Vec<(usize, [f32; 4], RedactionLook)> {
+        let doc = &self.inner;
+        let mut out = Vec::new();
+        for (p, pid) in self.page_ids().into_iter().enumerate() {
             if pages.is_some_and(|sel| !sel.contains(&p)) {
                 continue;
             }
-            for a in self.annotations(p).unwrap_or_default() {
-                if a.subtype != "Redact" {
+            let Ok(pd) = doc.get_dictionary(pid) else { continue };
+            for (_, d) in crate::annots::annot_refs(doc, pd) {
+                if d.get(b"Subtype").ok().and_then(|s| s.as_name().ok()) != Some(b"Redact".as_slice()) {
                     continue;
                 }
-                let look = self.redaction_look(p, a.index).unwrap_or_default();
-                by_page.entry(p).or_default().push((a.rect, look));
+                let rect = d
+                    .get(b"Rect")
+                    .ok()
+                    .and_then(|r| crate::util::rect_of(doc, r))
+                    .unwrap_or([0.0; 4]);
+                out.push((p, crate::geom::normalize(rect), read_look(doc, &d)));
             }
         }
-        if by_page.is_empty() {
+        out
+    }
+
+    /// What applying the marks of `pages` (all when `None`) would involve.
+    pub fn redaction_summary(&self, pages: Option<&[usize]>) -> RedactionSummary {
+        let marks = self.pending_redaction_marks(pages);
+        let mut on: Vec<usize> = marks.iter().map(|(p, _, _)| *p).collect();
+        on.dedup();
+        RedactionSummary {
+            areas: marks.len(),
+            pages: on.len(),
+            blurred: marks
+                .iter()
+                .filter(|(_, _, l)| l.overlay != Overlay::Standard)
+                .count(),
+            signatures: self.signed_field_count(),
+        }
+    }
+
+    /// The words of the text under the marks of `pages` (all when `None`),
+    /// as sanitizing and the check look for them.
+    pub fn redaction_terms(&self, pages: Option<&[usize]>, placeholder: &str) -> Vec<Term> {
+        let marks = self.marks_by_page(pages);
+        self.terms_of(&marks, None, placeholder)
+    }
+
+    /// What applying the marks of `pages` would remove besides their content,
+    /// with the terms found under the marks (a preview: nothing changes; it
+    /// draws the marked pages, so call it away from the interface thread).
+    pub fn redaction_preview(
+        &self,
+        pages: Option<&[usize]>,
+        opts: &SanitizeOptions,
+    ) -> (Vec<Term>, SanitizeReport) {
+        let terms = self.redaction_terms(pages, &opts.placeholder);
+        let report = self.sanitize_preview(opts, &terms);
+        (terms, report)
+    }
+
+    fn marks_by_page(&self, pages: Option<&[usize]>) -> BTreeMap<usize, Vec<Mark>> {
+        let mut by_page: BTreeMap<usize, Vec<Mark>> = BTreeMap::new();
+        for (p, r, look) in self.pending_redaction_marks(pages) {
+            let Ok(size) = self.page_size(p) else { continue };
+            by_page.entry(p).or_default().push(Mark {
+                pdf: Rect::new(r[0] as f64, r[1] as f64, r[2] as f64, r[3] as f64),
+                shown: pdf_rect_to_display(&size, r),
+                look,
+            });
+        }
+        by_page
+    }
+
+    /// The terms of the glyphs under the marks (from `probe` when given).
+    fn terms_of(
+        &self,
+        marks: &BTreeMap<usize, Vec<Mark>>,
+        probe: Option<&crate::page_text::probe::Probe>,
+        placeholder: &str,
+    ) -> Vec<Term> {
+        let pages: Vec<usize> = marks.keys().copied().collect();
+        let own;
+        let probe = match probe {
+            Some(p) => Some(p),
+            None => {
+                own = probe_pages(
+                    &self.inner,
+                    &pages,
+                    ProbeOptions {
+                        reveal: true,
+                        forms: true,
+                    },
+                    None,
+                )
+                .ok();
+                own.as_ref()
+            }
+        };
+        let mut out: Vec<Term> = Vec::new();
+        for (p, ms) in marks {
+            let Some(pp) = probe.and_then(|pr| pr.pages.get(p)) else {
+                continue;
+            };
+            let rects: Vec<([f32; 4], String)> = ms
+                .iter()
+                .map(|m| {
+                    let code = m.look.text.trim();
+                    (
+                        m.shown,
+                        if code.is_empty() {
+                            placeholder.to_string()
+                        } else {
+                            code.to_string()
+                        },
+                    )
+                })
+                .collect();
+            for t in terms::terms_of_page(&pp.glyphs, &rects) {
+                if !out.iter().any(|o| o.text == t.text) {
+                    out.push(t);
+                }
+            }
+        }
+        out
+    }
+
+    /// Apply the pending redaction marks of the given pages (all pages when
+    /// `None`) as one undo step: the content under the marks is removed
+    /// ([`RedactionOptions::method`]), the comments and form fields over them
+    /// go with their replies, signatures are removed, the areas are covered
+    /// as their marks say, the marks go and the document is sanitized as
+    /// [`RedactionOptions::sanitize`] says. Pages are checked before their
+    /// covers are drawn; a page that fails is drawn as a picture. The next
+    /// save writes the whole file again, so no earlier revision keeps the
+    /// removed content.
+    pub fn apply_redactions_opts(
+        &mut self,
+        pages: Option<&[usize]>,
+        opts: &RedactionOptions,
+    ) -> Result<RedactionReport> {
+        let marks = self.marks_by_page(pages);
+        if marks.is_empty() {
             return Ok(RedactionReport::default());
         }
+        self.begin_edit();
+        match self.apply_marks(marks, opts) {
+            Ok(r) => Ok(r),
+            Err(e) => {
+                self.abandon_edit();
+                Err(e)
+            }
+        }
+    }
+
+    fn apply_marks(
+        &mut self,
+        marks: BTreeMap<usize, Vec<Mark>>,
+        opts: &RedactionOptions,
+    ) -> Result<RedactionReport> {
         let mut report = RedactionReport {
-            areas: by_page.values().map(Vec::len).sum(),
+            areas: marks.values().map(Vec::len).sum(),
+            blurred_areas: marks
+                .values()
+                .flatten()
+                .filter(|m| m.look.overlay != Overlay::Standard)
+                .count(),
+            verified: true,
             ..RedactionReport::default()
         };
-        self.begin_edit();
-        let mut as_pictures: BTreeMap<usize, Vec<([f32; 4], RedactionLook)>> = BTreeMap::new();
-        for (p, marks) in by_page {
-            let rects: Vec<[f32; 4]> = marks.iter().map(|(r, _)| crate::geom::normalize(*r)).collect();
-            let edited = method == RedactionMethod::Content
-                && self.redact_page_content(p, &marks, &mut report).is_ok();
-            // Comments and fields over the marks go either way, with the marks.
+        // The covers of this redaction, told apart from content by a tag of their own.
+        let mut nonce = [0u8; 8];
+        OsRng.fill_bytes(&mut nonce);
+        let cover_tag = format!(
+            "Redaction{}",
+            nonce.iter().map(|b| format!("{b:02x}")).collect::<String>()
+        );
+        report.signatures = self.clear_signatures_inner();
+        if report.signatures > 0 {
+            self.mark_signature_fields();
+        }
+        // The validation material of signatures (the document security
+        // store, its entries per signature and its `/ESIC` declaration) names
+        // the signers and their certificates: it goes too, with or without
+        // signatures left to remove.
+        self.remove_dss();
+        let pages: Vec<usize> = marks.keys().copied().collect();
+        let probe = probe_pages(
+            &self.inner,
+            &pages,
+            ProbeOptions {
+                reveal: true,
+                forms: true,
+            },
+            None,
+        )
+        .ok();
+        // Every word under the marks is looked for by the check; the ones the
+        // person chose to leave are not replaced where they are quoted.
+        let all_terms = self.terms_of(&marks, probe.as_ref(), &opts.sanitize.placeholder);
+        let terms: Vec<Term> = all_terms
+            .iter()
+            .filter(|t| {
+                !opts
+                    .sanitize
+                    .skip_terms
+                    .contains(&t.text.iter().collect::<String>())
+            })
+            .cloned()
+            .collect();
+        let counts = drawing_counts(&self.inner);
+        // The pictures, forms and patterns the marked pages list in their
+        // resources (shared, or inherited from the page tree): those nothing
+        // draws once the redaction is done leave those resources.
+        let listed: Vec<Listing> = {
+            let ids = self.page_ids();
+            marks
+                .keys()
+                .filter_map(|p| ids.get(*p))
+                .flat_map(|pid| listed_by_page(&self.inner, *pid))
+                .collect()
+        };
+        // Patterns painted under the marks: another page still painting
+        // with one may keep what it held.
+        let mark_rects: Vec<(ObjectId, Vec<Rect>)> = {
+            let ids = self.page_ids();
+            marks
+                .iter()
+                .filter_map(|(p, ms)| Some((*ids.get(*p)?, ms.iter().map(|m| m.pdf).collect())))
+                .collect()
+        };
+        let under_patterns = self.patterns_under_marks(&mark_rects);
+        let markers = probe.as_ref().map(|p| p.ids.draw_markers()).unwrap_or_default();
+        let mut work = Work::default();
+        let mut as_pictures: BTreeMap<usize, PictureReason> = BTreeMap::new();
+        for (&p, ms) in &marks {
+            let result = match (&probe, opts.method) {
+                (_, RedactionMethod::Picture) => Err(PictureReason::Chosen),
+                (None, _) => Err(PictureReason::Content),
+                (Some(pr), RedactionMethod::Content) => {
+                    self.redact_page(p, ms, pr, &markers, &counts, &mut work)
+                }
+            };
+            if let Err(reason) = result {
+                as_pictures.insert(p, reason);
+            }
+        }
+        // Patterns of paints removed whole that hold what was under the
+        // marks cannot stay where something else on their page still draws
+        // them.
+        let page_ids = self.page_ids();
+        for (pid, pat, reason) in &work.patterns {
+            if let Some(p) = page_ids.iter().position(|x| x == pid) {
+                if !as_pictures.contains_key(&p) && self.drawn_by_page(*pid).contains(pat) {
+                    as_pictures.insert(p, *reason);
+                }
+            }
+        }
+        // Comments and fields over the marks go either way, with the marks.
+        for (&p, ms) in &marks {
+            let rects: Vec<[f32; 4]> = ms
+                .iter()
+                .map(|m| [m.pdf.x0 as f32, m.pdf.y0 as f32, m.pdf.x1 as f32, m.pdf.y1 as f32])
+                .collect();
             self.remove_annotations_over(p, &rects, &mut report)?;
-            if edited {
-                self.draw_redaction_covers(p, &marks)?;
-            } else {
-                as_pictures.insert(p, marks);
+        }
+        let check_marks: BTreeMap<usize, Vec<CheckMark>> = marks
+            .iter()
+            .map(|(p, ms)| {
+                (
+                    *p,
+                    ms.iter()
+                        .map(|m| CheckMark::new(m.shown, m.look.overlay, m.look.fill))
+                        .collect(),
+                )
+            })
+            .collect();
+        // Pages edited are checked before their covers are drawn.
+        let edited: BTreeMap<usize, Vec<CheckMark>> = check_marks
+            .iter()
+            .filter(|(p, _)| !as_pictures.contains_key(p))
+            .map(|(p, m)| (*p, m.clone()))
+            .collect();
+        if !edited.is_empty() {
+            let (problems, _) = self.check_redacted_pages(&edited, None);
+            for (p, _) in problems {
+                as_pictures.entry(p).or_insert(PictureReason::Check);
+                report.verified = false;
+            }
+        }
+        for (&p, ms) in &marks {
+            if !as_pictures.contains_key(&p) {
+                self.draw_redaction_covers(p, ms, &cover_tag)?;
+            }
+        }
+        // Pages drawn as pictures no longer draw what they drew (Type 3 fonts
+        // included).
+        let mut type3_lost = work.type3_lost.clone();
+        let mut replaced: Vec<(ObjectId, usize)> = Vec::new();
+        let mut picture_pages: HashSet<ObjectId> = HashSet::new();
+        for &p in as_pictures.keys() {
+            let Some(&pid) = page_ids.get(p) else { continue };
+            picture_pages.insert(pid);
+            type3_lost.extend(self.type3_fonts_of(pid));
+            for id in self.drawn_by_page(pid) {
+                replaced.push((id, p));
             }
         }
         if !as_pictures.is_empty() {
-            report.pages_as_pictures = as_pictures.keys().copied().collect();
             self.commit()?;
-            self.draw_pages_as_pictures(as_pictures)?;
+            let by_page: BTreeMap<usize, Vec<Mark>> = marks
+                .iter()
+                .filter(|(p, _)| as_pictures.contains_key(p))
+                .map(|(p, m)| (*p, m.clone()))
+                .collect();
+            self.draw_pages_as_pictures(by_page, &cover_tag)?;
         }
+        report.pages_as_pictures = as_pictures.keys().copied().collect();
+        report.reasons = as_pictures.iter().map(|(p, r)| (*p, *r)).collect();
+        // Originals replaced on the pages: they go when nothing draws them.
+        for id in &work.replaced {
+            let page = work
+                .copies
+                .iter()
+                .find(|(o, _, _)| o == id)
+                .and_then(|(_, _, pg)| page_ids.iter().position(|x| x == pg))
+                .unwrap_or_else(|| marks.keys().next().copied().unwrap_or(0));
+            replaced.push((*id, page));
+        }
+        // Page thumbnails, metadata and the private data of other programs
+        // describe the old page.
+        for &p in marks.keys() {
+            if let Some(&pid) = page_ids.get(p) {
+                if let Ok(d) = self.inner.get_dictionary_mut(pid) {
+                    d.remove(b"Thumb");
+                    d.remove(b"PieceInfo");
+                    d.remove(b"LastModified");
+                    d.remove(b"Metadata");
+                }
+            }
+        }
+        // An XFA form repeats the page text and the field values.
+        self.remove_xfa()?;
+        report.glyphs = work.glyphs;
+        report.pictures = work.pictures;
+        report.paths = work.paths;
+        report.forms = work.forms;
+        report.sanitized = self.sanitize_in(&opts.sanitize, &terms);
+        // What nothing draws any more goes with every reference to it — in
+        // resources shared with other pages or inherited from the page tree,
+        // in the structure tree: originals replaced by copies, drawings of
+        // removed layers and comments.
+        let counts_after = drawing_counts(&self.inner);
+        let drawn_after = |id: &ObjectId| counts_after.get(id).copied().unwrap_or(0) > 0;
+        let gone: HashSet<ObjectId> = replaced
+            .iter()
+            .map(|(id, _)| *id)
+            .chain(counts.map.iter().filter(|(_, n)| **n > 0).map(|(id, _)| *id))
+            .filter(|id| !drawn_after(id))
+            .collect();
+        // What the marked pages listed and nothing ever drew leaves their
+        // resources only: it goes with them unless something else (the mask
+        // of a picture, say) holds it.
+        for l in &listed {
+            if !gone.contains(&l.id) && !drawn_after(&l.id) {
+                unlist(&mut self.inner, l);
+            }
+        }
+        self.tidy_structure(
+            &work.copies,
+            &work.touched,
+            &picture_pages,
+            &gone,
+            &terms,
+            &opts.sanitize.placeholder,
+        );
+        purge(&mut self.inner, &gone);
         self.inner.prune_objects();
+        // Type 3 fonts that lost glyphs and are still drawn where the codes
+        // shown cannot be told keep all their procedures.
+        report.patterns_kept = self.patterns_kept_for_others(&under_patterns, &mark_rects, &counts_after);
+        report.type3_kept = type3_lost
+            .iter()
+            .filter(|id| self.inner.objects.contains_key(id) && counts_after.type3_unknown.contains(id))
+            .count();
         self.commit()?;
         // The file opened is no base for an incremental update any more: it
         // still holds what was removed.
         self.source = None;
+        report.check = CheckData {
+            marks: check_marks,
+            terms: all_terms,
+            skipped: opts.sanitize.skip_terms.clone(),
+            quoting: opts.sanitize.quoting,
+            cover_tag: cover_tag.into_bytes(),
+            replaced,
+        };
         Ok(report)
     }
 
+    /// The form says signature fields exist (ISO 32000-1 §12.7.2, Table 219:
+    /// bit 1) when empty ones remain after the signatures went.
+    fn mark_signature_fields(&mut self) {
+        let any_field = self
+            .form_fields()
+            .iter()
+            .any(|f| f.kind == crate::forms::FieldKind::Signature);
+        if !any_field {
+            return;
+        }
+        let af = self
+            .inner
+            .catalog()
+            .ok()
+            .and_then(|c| c.get(b"AcroForm").ok())
+            .cloned();
+        match af {
+            Some(Object::Reference(r)) => {
+                if let Ok(d) = self.inner.get_dictionary_mut(r) {
+                    d.set("SigFlags", 1i64);
+                }
+            }
+            Some(Object::Dictionary(_)) => {
+                if let Ok(Object::Dictionary(d)) =
+                    self.inner.catalog_mut().and_then(|c| c.get_mut(b"AcroForm"))
+                {
+                    d.set("SigFlags", 1i64);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// The Type 3 fonts a page lists in its resources and in those of the
+    /// forms and patterns it lists.
+    fn type3_fonts_of(&self, page_id: ObjectId) -> Vec<ObjectId> {
+        let doc = &self.inner;
+        let mut all = vec![crate::page_text::probe::page_resources(doc, page_id)];
+        for l in listed_by_page(doc, page_id) {
+            if let Some(r) = doc
+                .get_object(l.id)
+                .and_then(Object::as_stream)
+                .ok()
+                .and_then(|s| s.dict.get(b"Resources").ok())
+                .and_then(|r| deref(doc, r).as_dict().ok())
+            {
+                all.push(r.clone());
+            }
+        }
+        let mut out = Vec::new();
+        for r in &all {
+            let Some(fonts) = r.get(b"Font").ok().and_then(|f| deref(doc, f).as_dict().ok()) else {
+                continue;
+            };
+            for (k, v) in fonts.iter() {
+                if let (Ok(id), Some(_)) = (v.as_reference(), counts::type3_font(doc, r, k)) {
+                    out.push(id);
+                }
+            }
+        }
+        out
+    }
+
+    /// The pictures, forms and patterns a page draws (forms and the cells of
+    /// patterns followed).
+    fn drawn_by_page(&self, page_id: ObjectId) -> Vec<ObjectId> {
+        use crate::page_text::probe::{stream_data, stream_resources};
+        let doc = &self.inner;
+        let mut out = Vec::new();
+        let mut seen = HashSet::new();
+        let res = crate::page_text::probe::page_resources(doc, page_id);
+        let data = crate::content_edit::joined(doc, page_id).data;
+        let mut todo = vec![(data, res)];
+        while let Some((data, res)) = todo.pop() {
+            for op in crate::content_lex::operations(&data) {
+                let (cat, name): (&[u8], _) = match op.operator {
+                    b"Do" => (b"XObject", op.operands.first()),
+                    b"scn" | b"SCN" => (b"Pattern", op.operands.last()),
+                    _ => continue,
+                };
+                let Some(id) = name
+                    .and_then(|r| crate::content_lex::name_of(&data, *r))
+                    .and_then(|n| {
+                        res.get(cat)
+                            .ok()
+                            .and_then(|x| deref(doc, x).as_dict().ok())
+                            .and_then(|x| x.get(&n).ok())
+                            .and_then(|v| v.as_reference().ok())
+                    })
+                else {
+                    continue;
+                };
+                if !seen.insert(id) {
+                    continue;
+                }
+                out.push(id);
+                if let Ok(s) = doc.get_object(id).and_then(Object::as_stream) {
+                    let image = s.dict.get(b"Subtype").ok().and_then(|v| v.as_name().ok())
+                        == Some(b"Image".as_slice());
+                    if !image {
+                        todo.push((stream_data(s), stream_resources(doc, s, &res)));
+                    }
+                }
+            }
+        }
+        out
+    }
+
     /// Draw every page of `by_page` as a picture at 200 dpi, with the marked
-    /// areas covered as their marks say and their overlay texts over them.
-    fn draw_pages_as_pictures(
-        &mut self,
-        by_page: BTreeMap<usize, Vec<([f32; 4], RedactionLook)>>,
-    ) -> Result<()> {
+    /// areas covered as their marks say and their overlay texts over them (in
+    /// a stream tagged `cover_tag`, which is not content).
+    fn draw_pages_as_pictures(&mut self, by_page: BTreeMap<usize, Vec<Mark>>, cover_tag: &str) -> Result<()> {
         let renderer = Renderer::new(self.bytes())?;
         let scale = 200.0 / 72.0;
         for (p, marks) in by_page {
@@ -461,19 +977,19 @@ impl Document {
             let (iw, ih) = img.dimensions();
             let (sx, sy) = (iw as f32 / size.width, ih as f32 / size.height);
             let mut texts = String::new();
-            for (rect, look) in &marks {
+            for m in &marks {
                 // Display space (y down) is the space of the drawn page.
-                let d = pdf_rect_to_display(&size, *rect);
+                let d = m.shown;
                 let px = [
                     ((d[0] * sx).floor().max(0.0) as u32).min(iw),
                     ((d[1] * sy).floor().max(0.0) as u32).min(ih),
                     ((d[2] * sx).ceil().max(0.0) as u32).min(iw),
                     ((d[3] * sy).ceil().max(0.0) as u32).min(ih),
                 ];
-                cover(&mut img, px, look);
+                cover(&mut img, px, &m.look);
                 // The page becomes upright and starts at the origin.
                 let r = [d[0], size.height - d[3], d[2], size.height - d[1]];
-                texts.push_str(&overlay_text(look, r));
+                texts.push_str(&overlay_text(&m.look, r));
             }
             let rgb = image::DynamicImage::ImageRgba8(img).to_rgb8();
             let mut jpeg = std::io::Cursor::new(Vec::new());
@@ -494,25 +1010,11 @@ impl Document {
             ));
             let f = fmt_num;
             let content = format!(
-                "q {} 0 0 {} 0 0 cm /FoliRaster Do Q\n{texts}",
+                "q {} 0 0 {} 0 0 cm /FoliRaster Do Q\n",
                 f(size.width),
                 f(size.height)
             );
-            let mut resources = dictionary! { "XObject" => dictionary! { "FoliRaster" => xid } };
-            if !texts.is_empty() {
-                let font = marks
-                    .iter()
-                    .find(|(_, l)| !l.text.trim().is_empty())
-                    .map(|(_, l)| l.font.clone())
-                    .unwrap_or_else(|| "Helvetica".into());
-                let fid = self.inner.add_object(dictionary! {
-                    "Type" => "Font",
-                    "Subtype" => "Type1",
-                    "BaseFont" => Object::Name(font.into_bytes()),
-                    "Encoding" => "WinAnsiEncoding",
-                });
-                resources.set("Font", dictionary! { "FoliRed" => fid });
-            }
+            let resources = dictionary! { "XObject" => dictionary! { "FoliRaster" => xid } };
             {
                 let page = self.inner.get_dictionary_mut(id)?;
                 page.set(
@@ -527,6 +1029,21 @@ impl Document {
                 }
             }
             self.inner.change_page_content(id, content.into_bytes())?;
+            if !texts.is_empty() {
+                let font = marks
+                    .iter()
+                    .find(|m| !m.look.text.trim().is_empty())
+                    .map(|m| m.look.font.clone())
+                    .unwrap_or_else(|| "Helvetica".into());
+                let fid = self.inner.add_object(dictionary! {
+                    "Type" => "Font",
+                    "Subtype" => "Type1",
+                    "BaseFont" => Object::Name(font.into_bytes()),
+                    "Encoding" => "WinAnsiEncoding",
+                });
+                self.add_page_resource(id, "Font", "FoliRed", Object::Reference(fid))?;
+                self.append_page_content(id, texts.into_bytes(), Some(cover_tag))?;
+            }
         }
         Ok(())
     }

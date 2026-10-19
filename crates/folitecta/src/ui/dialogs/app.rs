@@ -303,9 +303,6 @@ pub(super) fn Confirm(title: String, body: String, action: ConfirmAction) -> Ele
                     ConfirmAction::RemoveLinks => apply(st, |tab| tab.doc.remove_links(None).map(|_| ())),
                     ConfirmAction::ResetForm => apply(st, |tab| tab.doc.reset_form().map(|_| ())),
                     ConfirmAction::Revert => { st.set_dialog(Dialog::None); files::revert(st); }
-                    ConfirmAction::ApplyRedactions(page) => {
-                        crate::commands::protect::apply_redactions_now(st, page.map(|p| vec![p]));
-                    }
                     ConfirmAction::RemoveScripts => apply_count(st, "toast.scripts_removed", |tab| tab.doc.remove_scripts()),
                     ConfirmAction::ClearSignatures => {
                         apply_count(st, "toast.signatures_cleared", |tab| tab.doc.clear_signatures());

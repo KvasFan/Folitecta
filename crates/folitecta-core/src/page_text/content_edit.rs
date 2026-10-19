@@ -33,6 +33,7 @@ pub(crate) fn joined(doc: &lopdf::Document, page_id: ObjectId) -> Joined {
 }
 
 /// A change of the joined content: bytes `start..end` become `with`.
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Splice {
     pub(crate) start: usize,
     pub(crate) end: usize,

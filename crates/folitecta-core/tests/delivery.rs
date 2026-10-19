@@ -696,6 +696,14 @@ fn signatures_stay_only_on_the_unchanged_signed_file() {
         .get_dictionary_mut(catalog_id)
         .unwrap()
         .set("DSS", dictionary! { "Certs" => vec![Object::Reference(cert)] });
+    with_dss
+        .inner_mut()
+        .get_dictionary_mut(catalog_id)
+        .unwrap()
+        .set(
+            "Extensions",
+            dictionary! { "ESIC" => dictionary! { "BaseVersion" => Object::Name(b"1.7".to_vec()), "ExtensionLevel" => 1 } },
+        );
     with_dss.commit().unwrap();
     let cut = with_dss
         .prepare_copy(&some_pages(&[1], CopyComments::Keep))
@@ -714,6 +722,11 @@ fn signatures_stay_only_on_the_unchanged_signed_file() {
             o => o.as_dict().unwrap().clone(),
         });
     assert!(form.is_none_or(|f| !f.has(b"SigFlags")));
+    let catalog = back.inner().catalog().unwrap();
+    assert!(
+        !catalog.has(b"DSS") && !catalog.has(b"Extensions"),
+        "the validation material goes"
+    );
 
     // Protected and signed: an encrypted update of the file, so the signature
     // stays (checked once the copy is opened with its password).

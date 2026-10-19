@@ -218,6 +218,10 @@ pub enum Dialog {
     SignatureDetails(String),
     /// Add a document time stamp from a time stamp server.
     TimeStamp,
+    /// Options of signature validation (online revocation checks).
+    SignatureOptions,
+    /// Add validation material (certificates, revocation data) to the document.
+    ValidationMaterial,
     /// Digital IDs: import, create, export, delete.
     DigitalIds,
     /// Trusted certificates.

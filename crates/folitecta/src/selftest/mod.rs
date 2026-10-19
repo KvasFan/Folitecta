@@ -437,6 +437,7 @@ mod steps_protection;
 mod steps_qat;
 mod steps_recovery;
 mod steps_review;
+mod steps_revocation;
 mod steps_spelling;
 mod steps_split;
 mod steps_split_view;
@@ -504,6 +505,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "qat" => Box::pin(steps_qat::run(cx)),
             "email" => Box::pin(steps_email::run(cx)),
             "timestamp" => Box::pin(steps_timestamp::run(cx)),
+            "revocation" => Box::pin(steps_revocation::run(cx)),
             "protection" => Box::pin(steps_protection::run(cx)),
             "frames" => Box::pin(steps_frames::run(cx)),
             "unicode" => Box::pin(steps_unicode::run(cx)),
@@ -555,6 +557,7 @@ const STEPS: [&str; 26] = [
     "qat",
     "email",
     "timestamp",
+    "revocation",
     "protection",
     "frames",
     "unicode",
@@ -932,6 +935,8 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
             },
         ),
         ("timestamp", Dialog::TimeStamp),
+        ("signature-options", Dialog::SignatureOptions),
+        ("validation-material", Dialog::ValidationMaterial),
         (
             "password",
             Dialog::Password {

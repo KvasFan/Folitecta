@@ -21,6 +21,7 @@ pub mod policies;
 pub mod portfolio;
 pub mod recovery;
 pub mod redaction;
+pub mod revocation;
 pub mod signatures;
 pub mod signs;
 pub mod sources;

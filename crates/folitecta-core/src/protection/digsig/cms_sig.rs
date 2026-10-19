@@ -14,10 +14,12 @@ use spki::AlgorithmIdentifierOwned;
 use x509_cert::Certificate;
 use x509_cert::attr::Attribute;
 
+use super::der_walk::{elements, expect, push_len, tlv};
 use super::id::{
     CURVE_P256, CURVE_P384, DigitalId, EC_PUBLIC_KEY, ID_DATA, ID_SIGNED_DATA, RSA_ENCRYPTION, SHA1_OID,
     SHA256_OID, SHA384_OID, SHA512_OID, alg_null,
 };
+use super::revocation::{ATTR_REVOCATION_ARCHIVE, RevocationArchive};
 use super::timestamp::{self, ATTR_TIME_STAMP_TOKEN, TimeStampCheck, Transport};
 use crate::error::{Error, Result};
 
@@ -80,32 +82,26 @@ fn signing_certificate_v2(cert_der: &[u8]) -> Result<Any> {
     Any::from_der(&out).map_err(bad)
 }
 
-fn push_len(out: &mut Vec<u8>, len: usize) {
-    if len < 0x80 {
-        out.push(len as u8);
-    } else {
-        let bytes: Vec<u8> = len
-            .to_be_bytes()
-            .iter()
-            .copied()
-            .skip_while(|b| *b == 0)
-            .collect();
-        out.push(0x80 | bytes.len() as u8);
-        out.extend(bytes);
-    }
-}
-
 /// Detached CMS signature of `content_parts` (concatenated) by `id`.
 pub fn sign_detached(id: &DigitalId, content_parts: &[&[u8]], signing_time_unix: u64) -> Result<Vec<u8>> {
-    sign_detached_stamped(id, content_parts, signing_time_unix, None)
+    sign_detached_stamped(
+        id,
+        content_parts,
+        signing_time_unix,
+        &RevocationArchive::default(),
+        None,
+    )
 }
 
-/// Detached CMS signature of `content_parts` (concatenated) by `id`; with
-/// `tsa`, the signature value gets a time stamp of the authority it reaches.
+/// Detached CMS signature of `content_parts` (concatenated) by `id`, with
+/// the revocation data `revocation` in its signed attributes (when there are
+/// some); with `tsa`, the signature value gets a time stamp of the authority
+/// it reaches.
 pub fn sign_detached_stamped(
     id: &DigitalId,
     content_parts: &[&[u8]],
     signing_time_unix: u64,
+    revocation: &RevocationArchive,
     tsa: Option<&mut Transport<'_>>,
 ) -> Result<Vec<u8>> {
     sign_content(
@@ -116,6 +112,8 @@ pub fn sign_detached_stamped(
             embed: false,
             signing_time: Some(signing_time_unix),
             certificates: true,
+            revocation: (!revocation.is_empty()).then_some(revocation),
+            crls: &[],
         },
         tsa,
     )
@@ -133,6 +131,11 @@ pub(crate) struct SignedContent<'a> {
     pub signing_time: Option<u64>,
     /// The signer's certificates are carried in the signature.
     pub certificates: bool,
+    /// Revocation data written as a signed attribute (ISO 32000-1
+    /// 12.8.3.3.2).
+    pub revocation: Option<&'a RevocationArchive>,
+    /// Revocation lists (DER) carried in the `crls` field of the structure.
+    pub crls: &'a [Vec<u8>],
 }
 
 /// CMS signature of `content` by `id`, with a time stamp of its value from
@@ -164,6 +167,12 @@ pub(crate) fn sign_content(
         ATTR_SIGNING_CERT_V2,
         signing_certificate_v2(&cert_der)?,
     )?);
+    if let Some(archive) = content.revocation {
+        attrs.push(attribute(
+            ATTR_REVOCATION_ARCHIVE,
+            Any::from_der(&archive.attribute_value()).map_err(bad)?,
+        )?);
+    }
     let signed_attrs = SetOfVec::try_from(attrs).map_err(bad)?;
     // The signature covers the DER of the attributes as a SET OF.
     let to_sign = signed_attrs.to_der().map_err(bad)?;
@@ -219,11 +228,66 @@ pub(crate) fn sign_content(
         crls: None,
         signer_infos: SignerInfos(SetOfVec::try_from(vec![signer]).map_err(bad)?),
     };
+    let sd_der = with_crls(&sd.to_der().map_err(bad)?, content.crls).ok_or_else(|| bad("structure"))?;
     let ci = ContentInfo {
         content_type: ID_SIGNED_DATA,
-        content: Any::encode_from(&sd).map_err(bad)?,
+        content: Any::from_der(&sd_der).map_err(bad)?,
     };
     ci.to_der().map_err(bad)
+}
+
+/// A signed-data structure with the revocation lists `crls` (DER, sorted as
+/// a SET OF) put into its `crls` field, before its signer infos.
+fn with_crls(sd: &[u8], crls: &[Vec<u8>]) -> Option<Vec<u8>> {
+    if crls.is_empty() {
+        return Some(sd.to_vec());
+    }
+    let outer = expect(sd, 0x30)?;
+    let parts = elements(outer.value)?;
+    let (last, first) = parts.split_last()?;
+    let mut sorted: Vec<&[u8]> = crls.iter().map(Vec::as_slice).collect();
+    sorted.sort();
+    let field = tlv(0xA1, &sorted);
+    let mut items: Vec<&[u8]> = first.iter().map(|e| e.whole).collect();
+    items.push(&field);
+    items.push(last.whole);
+    Some(tlv(0x30, &items))
+}
+
+/// The signed-data structure of a content info, and the revocation data of
+/// its `crls` field as received: the field is cut out before decoding (the
+/// CMS library cannot read every kind of revocation information, and a
+/// re-encoding would break the signatures of the lists).
+pub(crate) fn signed_data_of(ci: &ContentInfo) -> Result<(SignedData, RevocationArchive)> {
+    let der = ci.content.to_der().map_err(bad)?;
+    let outer = expect(&der, 0x30).ok_or_else(|| bad("not a structure"))?;
+    let parts = elements(outer.value).ok_or_else(|| bad("structure"))?;
+    let mut archive = RevocationArchive::default();
+    let mut kept: Vec<&[u8]> = Vec::new();
+    for p in &parts {
+        if p.tag == 0xA1 {
+            archive = RevocationArchive::from_signed_data_field(p.value);
+        } else {
+            kept.push(p.whole);
+        }
+    }
+    let sd = SignedData::from_der(&tlv(0x30, &kept)).map_err(bad)?;
+    Ok((sd, archive))
+}
+
+/// The revocation data of the signed attributes of a signer.
+pub(crate) fn attribute_archive(info: &SignerInfo) -> RevocationArchive {
+    info.signed_attrs
+        .iter()
+        .flat_map(|attrs| attrs.iter())
+        .filter(|a| a.oid == ATTR_REVOCATION_ARCHIVE)
+        .filter_map(|a| a.values.iter().next())
+        .filter_map(|v| v.to_der().ok())
+        .map(|der| RevocationArchive::from_attribute(&der))
+        .fold(RevocationArchive::default(), |mut all, a| {
+            all.extend(&a);
+            all
+        })
 }
 
 /// Result of checking a CMS signature against its content.
@@ -245,6 +309,9 @@ pub struct CmsCheck {
     pub digest_algorithm: String,
     /// The time stamp of the signature value, when the signature carries one.
     pub time_stamp: Option<TimeStampCheck>,
+    /// Revocation data carried by the signature: its signed revocation
+    /// information attribute and the lists of the CMS structure.
+    pub revocation: RevocationArchive,
 }
 
 /// Every certificate carried by a signed-data structure.
@@ -414,7 +481,7 @@ pub fn verify_detached(signature: &[u8], content_parts: &[&[u8]]) -> Result<CmsC
     if ci.content_type != ID_SIGNED_DATA {
         return Err(bad("not a signed-data structure"));
     }
-    let sd = ci.content.decode_as::<SignedData>().map_err(bad)?;
+    let (sd, field) = signed_data_of(&ci)?;
     let info = sd
         .signer_infos
         .0
@@ -424,6 +491,8 @@ pub fn verify_detached(signature: &[u8], content_parts: &[&[u8]]) -> Result<CmsC
         .clone();
     let certificates = certificates_of(&sd);
     let signer = find_signer(&sd, &info);
+    let mut revocation = attribute_archive(&info);
+    revocation.extend(&field);
     let digest_oid = info.digest_alg.oid;
     let mut problems = Vec::new();
     let Some(content_digest) = digest_with(digest_oid, content_parts) else {
@@ -527,6 +596,7 @@ pub fn verify_detached(signature: &[u8], content_parts: &[&[u8]]) -> Result<CmsC
         problems,
         digest_algorithm: name_of(digest_oid),
         time_stamp,
+        revocation,
     })
 }
 

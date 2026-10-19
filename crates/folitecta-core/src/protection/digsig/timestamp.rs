@@ -7,7 +7,6 @@
 //! returns the DER answer (an HTTP POST of `application/timestamp-query`).
 
 use cms::content_info::ContentInfo;
-use cms::signed_data::SignedData;
 use const_oid::ObjectIdentifier;
 use der::asn1::{Any, BitString, GeneralizedTime, Int, OctetString};
 use der::{Decode, Encode, Sequence};
@@ -17,10 +16,14 @@ use x509_cert::Certificate;
 use x509_cert::ext::Extensions;
 
 use super::cms_sig::{
-    SignedContent, certificates_of, digest_with, find_signer, name_of, sign_content, trim_der,
-    verify_with_cert,
+    SignedContent, attribute_archive, certificates_of, digest_with, find_signer, name_of, sign_content,
+    signed_data_of, trim_der, verify_with_cert,
 };
-use super::id::{DigitalId, ID_SIGNED_DATA, SHA256_OID, alg_null, cert_info};
+use super::der_walk::{element, expect, generalized_time};
+use super::id::{
+    DigitalId, ID_SIGNED_DATA, KP_TIME_STAMPING, SHA256_OID, alg_null, cert_info, has_extended_usage,
+};
+use super::revocation::RevocationArchive;
 use crate::error::{Error, Result};
 
 /// Content type of the time stamp information signed by an authority.
@@ -29,9 +32,6 @@ pub(crate) const ID_CT_TST_INFO: ObjectIdentifier = ObjectIdentifier::new_unwrap
 pub(crate) const ATTR_TIME_STAMP_TOKEN: ObjectIdentifier =
     ObjectIdentifier::new_unwrap("1.2.840.113549.1.9.16.2.14");
 const ATTR_MESSAGE_DIGEST: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.113549.1.9.4");
-const EXTENDED_KEY_USAGE: ObjectIdentifier = ObjectIdentifier::new_unwrap("2.5.29.37");
-/// Extended key usage of the certificates of time stamp authorities.
-pub(crate) const KP_TIME_STAMPING: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.6.1.5.5.7.3.8");
 /// Policy of the stamps of the local authority, under the enterprise number
 /// kept for documentation (RFC 5612).
 const LOCAL_POLICY: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.3.6.1.4.1.32473.1");
@@ -100,66 +100,6 @@ struct TstInfo {
     nonce: Option<Vec<u8>>,
 }
 
-/// One DER element at the start of some bytes.
-struct Element<'a> {
-    tag: u8,
-    /// The element with its tag and length.
-    whole: &'a [u8],
-    value: &'a [u8],
-    /// The bytes after the element.
-    rest: &'a [u8],
-}
-
-fn element(data: &[u8]) -> Option<Element<'_>> {
-    let tag = *data.first()?;
-    if tag & 0x1F == 0x1F {
-        return None;
-    }
-    let first = *data.get(1)?;
-    let (len, header) = if first < 0x80 {
-        (first as usize, 2)
-    } else {
-        let n = (first & 0x7F) as usize;
-        if n == 0 || n > 4 {
-            return None;
-        }
-        let bytes = data.get(2..2 + n)?;
-        (bytes.iter().fold(0usize, |a, b| (a << 8) | *b as usize), 2 + n)
-    };
-    let end = header.checked_add(len)?;
-    Some(Element {
-        tag,
-        whole: &data[..end.min(data.len())],
-        value: data.get(header..end)?,
-        rest: &data[end..],
-    })
-}
-
-/// The element at the start of `data` when its tag is `tag`.
-fn expect(data: &[u8], tag: u8) -> Option<Element<'_>> {
-    element(data).filter(|e| e.tag == tag)
-}
-
-/// Unix time of a GeneralizedTime value `YYYYMMDDHHMMSS[.fff]Z` (the
-/// fraction of a second is allowed and dropped).
-fn generalized_time(value: &[u8]) -> Option<i64> {
-    let text = std::str::from_utf8(value).ok()?;
-    let text = text.strip_suffix('Z')?;
-    let whole = text.split('.').next()?;
-    if whole.len() != 14 || !whole.bytes().all(|b| b.is_ascii_digit()) {
-        return None;
-    }
-    let n = |r: std::ops::Range<usize>| whole[r].parse::<u32>().ok();
-    let month = time::Month::try_from(n(4..6)? as u8).ok()?;
-    let date = time::Date::from_calendar_date(n(0..4)? as i32, month, n(6..8)? as u8).ok()?;
-    let clock = time::Time::from_hms(n(8..10)? as u8, n(10..12)? as u8, n(12..14)? as u8).ok()?;
-    Some(
-        time::PrimitiveDateTime::new(date, clock)
-            .assume_utc()
-            .unix_timestamp(),
-    )
-}
-
 /// Read a time stamp information, accepting fields Folitecta does not check.
 fn parse_tst_info(data: &[u8]) -> Option<TstInfo> {
     let body = expect(data, 0x30)?.value;
@@ -196,16 +136,7 @@ fn hex(data: &[u8]) -> String {
 /// Whether `cert` is meant for time stamps (its extended key usage lists
 /// time stamping).
 pub fn allows_time_stamping(cert: &Certificate) -> bool {
-    cert.tbs_certificate
-        .extensions
-        .iter()
-        .flatten()
-        .filter(|e| e.extn_id == EXTENDED_KEY_USAGE)
-        .any(|e| {
-            Vec::<ObjectIdentifier>::from_der(e.extn_value.as_bytes())
-                .map(|usages| usages.contains(&KP_TIME_STAMPING))
-                .unwrap_or(false)
-        })
+    has_extended_usage(cert, KP_TIME_STAMPING)
 }
 
 /// Result of checking a time stamp token.
@@ -231,6 +162,9 @@ pub struct TimeStampCheck {
     pub digest_algorithm: String,
     /// Problems found while checking.
     pub problems: Vec<String>,
+    /// Revocation data carried by the token (the lists of its CMS structure
+    /// and the revocation information attribute of its signer).
+    pub revocation: RevocationArchive,
     nonce: Option<Vec<u8>>,
 }
 
@@ -248,6 +182,7 @@ impl TimeStampCheck {
             serial: String::new(),
             digest_algorithm: String::new(),
             problems: vec![problem],
+            revocation: RevocationArchive::default(),
             nonce: None,
         }
     }
@@ -272,7 +207,7 @@ fn check_with(
     if ci.content_type != ID_SIGNED_DATA {
         return Err(bad("the time stamp is not a signed-data structure"));
     }
-    let sd = ci.content.decode_as::<SignedData>().map_err(bad)?;
+    let (sd, field) = signed_data_of(&ci).map_err(bad)?;
     if sd.encap_content_info.econtent_type != ID_CT_TST_INFO {
         return Err(bad("the signature does not hold a time stamp"));
     }
@@ -293,6 +228,8 @@ fn check_with(
         .clone();
     let certificates = certificates_of(&sd);
     let authority = find_signer(&sd, &info);
+    let mut revocation = attribute_archive(&info);
+    revocation.extend(&field);
     let mut problems = Vec::new();
     let imprint_ok = digest_of(tst.imprint.hash_algorithm.oid)
         .map(|d| d == tst.imprint.hashed_message.as_bytes())
@@ -359,6 +296,7 @@ fn check_with(
         serial: hex(&tst.serial),
         digest_algorithm: name_of(tst.imprint.hash_algorithm.oid),
         problems,
+        revocation,
         nonce: tst.nonce,
     })
 }
@@ -470,6 +408,19 @@ fn rejection(text: &str) -> Result<Vec<u8>> {
 /// `authority` to `request`: a stamp of time `time` (Unix seconds) with
 /// serial number `serial`, or a refusal for requests it cannot read.
 pub fn respond(authority: &DigitalId, request: &[u8], time: u64, serial: u64) -> Result<Vec<u8>> {
+    respond_with(authority, request, time, serial, &RevocationArchive::default())
+}
+
+/// [`respond`] with revocation data in the token: the lists in its CMS
+/// structure, the OCSP answers in the revocation information attribute of
+/// its signer.
+pub fn respond_with(
+    authority: &DigitalId,
+    request: &[u8],
+    time: u64,
+    serial: u64,
+    revocation: &RevocationArchive,
+) -> Result<Vec<u8>> {
     let Ok(req) = TimeStampReq::from_der(request) else {
         return rejection("the request cannot be read");
     };
@@ -489,6 +440,10 @@ pub fn respond(authority: &DigitalId, request: &[u8], time: u64, serial: u64) ->
     }
     .to_der()
     .map_err(bad)?;
+    let answers = RevocationArchive {
+        crls: Vec::new(),
+        ocsps: revocation.ocsps.clone(),
+    };
     let token = sign_content(
         authority,
         SignedContent {
@@ -497,6 +452,8 @@ pub fn respond(authority: &DigitalId, request: &[u8], time: u64, serial: u64) ->
             embed: true,
             signing_time: None,
             certificates: req.cert_req,
+            revocation: (!answers.is_empty()).then_some(&answers),
+            crls: &revocation.crls,
         },
         None,
     )?;
@@ -510,30 +467,4 @@ pub fn respond(authority: &DigitalId, request: &[u8], time: u64, serial: u64) ->
     }
     .to_der()
     .map_err(bad)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn generalized_time_with_fraction() {
-        assert_eq!(generalized_time(b"19700101000001Z"), Some(1));
-        assert_eq!(generalized_time(b"20261018120000.123Z"), Some(1_792_324_800));
-        assert_eq!(generalized_time(b"20261018120000"), None);
-        assert_eq!(generalized_time(b"2026101812000Z"), None);
-    }
-
-    #[test]
-    fn elements_are_split() {
-        let data = [0x30, 0x03, 0x02, 0x01, 0x07, 0x05, 0x00];
-        let e = element(&data).unwrap();
-        assert_eq!(
-            (e.tag, e.whole.len(), e.value, e.rest),
-            (0x30, 5, &data[2..5], &data[5..])
-        );
-        assert!(expect(&data, 0x31).is_none());
-        assert_eq!(expect(e.value, 0x02).unwrap().value, [0x07]);
-        assert!(element(&[0x30, 0x05, 0x00]).is_none());
-    }
 }

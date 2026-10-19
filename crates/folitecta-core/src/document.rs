@@ -6,6 +6,7 @@ use std::sync::Arc;
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
 use crate::error::{Error, Result};
+use crate::protection::digsig::dss::SourceAnalysis;
 use crate::protection::encrypted::{self, DecryptedBase};
 use crate::security::{EncryptionInfo, Protection};
 use crate::util::{self, deref, dict_text, num, rect_of};
@@ -57,6 +58,8 @@ pub struct Document {
     name_hint: Option<String>,
     bytes: Arc<Vec<u8>>,
     revision: u64,
+    /// How many times the document was written to its file.
+    saves: u64,
     dirty: bool,
     undo: Vec<Arc<Vec<u8>>>,
     redo: Vec<Arc<Vec<u8>>>,
@@ -105,6 +108,9 @@ pub(crate) struct Source {
     /// For an encrypted file: its decrypted objects and last revision, the
     /// base of encrypted incremental updates.
     pub(crate) decrypted: Option<Arc<DecryptedBase>>,
+    /// The document security store of the file and the kinds of its
+    /// revisions (what validation reads, worked out once per file).
+    pub(crate) analysis: Arc<SourceAnalysis>,
 }
 
 /// The bytes of a file to write for a document.
@@ -380,6 +386,7 @@ impl Document {
             source: None,
             bytes: bytes.clone(),
             revision: 0,
+            saves: 0,
             dirty: false,
             undo: Vec::new(),
             redo: Vec::new(),
@@ -397,11 +404,13 @@ impl Document {
         }
         let signed = doc.has_signatures();
         let encrypt_ref = doc.protection.as_ref().and_then(Protection::encrypt_ref);
+        let analysis = Arc::new(SourceAnalysis::of(&doc.inner));
         doc.source = if !source_encrypted {
             Some(Source {
                 bytes,
                 signed,
                 decrypted: None,
+                analysis,
             })
         } else if let (true, Some(encrypt_ref)) = (signed, encrypt_ref) {
             // Taken before serializing, which changes the trailer.
@@ -410,6 +419,7 @@ impl Document {
                 bytes,
                 signed,
                 decrypted: Some(Arc::new(base)),
+                analysis,
             })
         } else {
             None
@@ -462,6 +472,7 @@ impl Document {
             source: None,
             bytes: Arc::new(bytes),
             revision: 0,
+            saves: 0,
             dirty: true,
             undo: Vec::new(),
             redo: Vec::new(),
@@ -500,11 +511,14 @@ impl Document {
     /// The file just written becomes the base of the next updates.
     fn written(&mut self, file: FileBytes) {
         let bytes = Arc::new(file.bytes);
+        let analysis = Arc::new(SourceAnalysis::of(&self.inner));
+        self.saves += 1;
         self.source = match (&self.protection, file.next) {
             (None, _) => Some(Source {
                 bytes,
                 signed: self.has_signatures(),
                 decrypted: None,
+                analysis,
             }),
             (Some(_), Some(next)) => {
                 // Numbers used by the file (its cross-reference streams) are not reused.
@@ -513,10 +527,17 @@ impl Document {
                     bytes,
                     signed: true,
                     decrypted: Some(Arc::new(next)),
+                    analysis,
                 })
             }
             (Some(_), None) => None,
         };
+    }
+
+    /// The state signatures are validated in: the revision of the document
+    /// and how many times it was saved (the file it is checked against).
+    pub fn validation_stamp(&self) -> (u64, u64) {
+        (self.revision, self.saves)
     }
 
     /// Write a copy to `path` without changing the document path or dirty
@@ -665,6 +686,7 @@ impl Document {
             bytes,
             signed: true,
             decrypted: Some(base),
+            ..
         }) = &self.source
         {
             if signed {
@@ -1464,6 +1486,7 @@ mod tests {
             bytes: Arc::new(raw.clone()),
             signed: true,
             decrypted: Some(Arc::new(base)),
+            analysis: Arc::new(SourceAnalysis::of(&loaded.doc)),
         });
         let id = crate::digsig::DigitalId::create_self_signed(
             &crate::digsig::IdentityInfo {

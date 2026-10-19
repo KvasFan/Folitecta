@@ -153,8 +153,17 @@ pub struct DocTab {
     pub selected_link: Option<(usize, usize)>,
     /// Briefly highlighted area of a page (display points), e.g. a destination.
     pub flash: Option<(usize, [f32; 4])>,
-    /// Signature validation results for a revision.
-    pub sig_status: Option<(u64, Vec<folitecta_core::digsig::SignatureStatus>)>,
+    /// Signature validation results, and the state they are for (see
+    /// `commands::signatures::status_key`).
+    pub sig_status: Option<(
+        crate::commands::signatures::StatusKey,
+        Vec<folitecta_core::digsig::SignatureStatus>,
+    )>,
+    /// Revocation data fetched online for the document (only when the user
+    /// turned online checks on), kept for the tab.
+    pub revocation: folitecta_core::digsig::RevocationPool,
+    /// Bumped when `revocation` changes.
+    pub revocation_gen: u64,
     /// Layer visibility of the view where it differs from the document's default.
     pub layer_view: HashMap<(u32, u16), bool>,
     /// Selected entries of the layers pane (tree paths).
@@ -302,6 +311,8 @@ impl DocTab {
             selected_dest: None,
             flash: None,
             sig_status: None,
+            revocation: Default::default(),
+            revocation_gen: 0,
             layer_view: HashMap::new(),
             selected_layers: Vec::new(),
             collapsed_layers: HashSet::new(),

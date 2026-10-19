@@ -12,11 +12,37 @@ static FOLDERS: Mutex<()> = Mutex::new(());
 
 const BOX: [f32; 4] = [50.0, 600.0, 545.0, 640.0];
 
-fn folder(name: &str) -> PathBuf {
+/// A folder of this test program, removed with what it holds when the test
+/// ends, passed or failed.
+struct Folder(PathBuf);
+
+impl Drop for Folder {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+impl Folder {
+    fn path(&self) -> PathBuf {
+        self.0.clone()
+    }
+}
+
+fn folder(name: &str) -> Folder {
     let dir = std::env::temp_dir().join(format!("folitecta-fonts-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    dir
+    Folder(dir)
+}
+
+#[test]
+fn the_folders_of_these_tests_are_removed_when_they_end() {
+    let path = {
+        let dir = folder("cleanup");
+        std::fs::write(dir.path().join(UNICODE_FONT_FILE), b"copy").unwrap();
+        dir.path()
+    };
+    assert!(!path.exists());
 }
 
 fn bundled() -> PathBuf {
@@ -62,7 +88,7 @@ fn with_fs_type(fs_type: u16) -> Vec<u8> {
 fn without_the_font_file_unicode_text_is_refused_and_winansi_text_still_works() {
     let _guard = FOLDERS.lock().unwrap_or_else(|e| e.into_inner());
     let empty = folder("empty");
-    set_font_dirs(vec![empty.clone()]);
+    set_font_dirs(vec![empty.path()]);
     let mut doc = Document::new_blank(1, 595.0, 842.0).unwrap();
     doc.add_note(0, 20.0, 820.0, "note", "Reviewer", [1.0, 0.8, 0.2])
         .unwrap();
@@ -71,7 +97,7 @@ fn without_the_font_file_unicode_text_is_refused_and_winansi_text_still_works() 
     match add_box(&mut doc, "Łódź") {
         Err(Error::Glyphs(GlyphProblem::FontMissing { file, searched })) => {
             assert_eq!(file, UNICODE_FONT_FILE);
-            assert_eq!(searched, vec![empty.clone()]);
+            assert_eq!(searched, vec![empty.path()]);
         }
         other => panic!("{other:?}"),
     }
@@ -98,7 +124,8 @@ fn a_moved_text_box_keeps_its_drawing_and_a_resize_is_refused() {
     let mut doc = Document::new_blank(1, 595.0, 842.0).unwrap();
     add_box(&mut doc, "Łódź").unwrap();
     assert_eq!(font_subtype(&doc), "Type0");
-    set_font_dirs(vec![folder("gone")]);
+    let gone = folder("gone");
+    set_font_dirs(vec![gone.path()]);
     let ap = appearance_of(&doc);
     doc.move_annotation(0, 0, 20.0, -30.0).unwrap();
     assert_eq!(
@@ -129,16 +156,16 @@ fn a_moved_text_box_keeps_its_drawing_and_a_resize_is_refused() {
 #[test]
 fn unusable_font_files_are_reported_and_the_next_folder_is_used() {
     let _guard = FOLDERS.lock().unwrap_or_else(|e| e.into_inner());
-    let unusable = |name: &str, data: &[u8]| -> (PathBuf, GlyphProblem) {
+    let unusable = |name: &str, data: &[u8]| -> (Folder, GlyphProblem) {
         let dir = folder(name);
-        std::fs::write(dir.join(UNICODE_FONT_FILE), data).unwrap();
-        set_font_dirs(vec![dir.clone()]);
+        std::fs::write(dir.path().join(UNICODE_FONT_FILE), data).unwrap();
+        set_font_dirs(vec![dir.path()]);
         let problem = folitecta_core::fonts::check_text("Łódź").unwrap_err();
         (dir, problem)
     };
     let (truncated, problem) = unusable("truncated", &freesans()[..2000]);
     assert!(
-        matches!(&problem, GlyphProblem::FontUnreadable { path, .. } if *path == truncated.join(UNICODE_FONT_FILE)),
+        matches!(&problem, GlyphProblem::FontUnreadable { path, .. } if *path == truncated.path().join(UNICODE_FONT_FILE)),
         "{problem:?}"
     );
     let (_, problem) = unusable("text", b"this is not a font");
@@ -160,11 +187,11 @@ fn unusable_font_files_are_reported_and_the_next_folder_is_used() {
     );
     // Preview & Print allows embedding.
     let print = folder("print");
-    std::fs::write(print.join(UNICODE_FONT_FILE), with_fs_type(0x0004)).unwrap();
-    set_font_dirs(vec![print]);
+    std::fs::write(print.path().join(UNICODE_FONT_FILE), with_fs_type(0x0004)).unwrap();
+    set_font_dirs(vec![print.path()]);
     assert!(folitecta_core::fonts::check_text("Łódź").is_ok());
     // A damaged file in the first folder: the next folder's font is used.
-    set_font_dirs(vec![truncated, bundled()]);
+    set_font_dirs(vec![truncated.path(), bundled()]);
     let mut doc = Document::new_blank(1, 595.0, 842.0).unwrap();
     add_box(&mut doc, "Łódź").unwrap();
     assert_eq!(font_subtype(&doc), "Type0");

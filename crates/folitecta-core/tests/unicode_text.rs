@@ -3,7 +3,7 @@
 //! exchanged, protected, signed and redacted.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -27,10 +27,45 @@ fn blank() -> Document {
     Document::new_blank(1, 595.0, 842.0).unwrap()
 }
 
-fn temp(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("folitecta-unicode-{}", std::process::id()));
+/// A file in a folder of its own, removed with the folder when the test
+/// ends, passed or failed (tests run side by side: no folder is shared).
+struct Temp(PathBuf);
+
+impl Drop for Temp {
+    fn drop(&mut self) {
+        if let Some(dir) = self.0.parent() {
+            let _ = std::fs::remove_dir_all(dir);
+        }
+    }
+}
+
+impl std::ops::Deref for Temp {
+    type Target = Path;
+    fn deref(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl AsRef<Path> for Temp {
+    fn as_ref(&self) -> &Path {
+        &self.0
+    }
+}
+
+fn temp(name: &str) -> Temp {
+    let dir = std::env::temp_dir().join(format!("folitecta-unicode-{}-{name}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    dir.join(format!("{name}.pdf"))
+    Temp(dir.join(format!("{name}.pdf")))
+}
+
+#[test]
+fn the_files_of_these_tests_are_removed_when_they_end() {
+    let path = {
+        let t = temp("cleanup");
+        std::fs::write(&*t, b"%PDF-").unwrap();
+        t.0.clone()
+    };
+    assert!(!path.exists() && !path.parent().unwrap().exists());
 }
 
 fn add_box(doc: &mut Document, text: &str) -> folitecta_core::Result<lopdf::ObjectId> {
@@ -145,7 +180,7 @@ fn is_helvetica(doc: &Document, page: usize, index: usize) -> bool {
     fonts.len() == 1 && fonts[0].base_font == "Helvetica" && !fonts[0].embedded
 }
 
-fn reopen(path: &PathBuf) -> Document {
+fn reopen(path: &Path) -> Document {
     Document::open(path).unwrap()
 }
 
@@ -331,7 +366,7 @@ fn appearance_id(doc: &lopdf::Document, annot: lopdf::ObjectId) -> lopdf::Object
 
 /// Draw page 0 of a saved file with the renderer and count how often it asked
 /// for a font of its own (a standard font, or a fallback for a font it could not load).
-fn fonts_asked_for(path: &PathBuf) -> usize {
+fn fonts_asked_for(path: &Path) -> usize {
     use hayro::hayro_interpret::InterpreterSettings;
     let calls = Arc::new(AtomicUsize::new(0));
     let counter = calls.clone();
@@ -936,7 +971,7 @@ fn copies_carry_their_own_font() {
 }
 
 /// A blank document saved with the encryption of `version`.
-fn encrypted_file(name: &str, version: &str) -> PathBuf {
+fn encrypted_file(name: &str, version: &str) -> Temp {
     let path = temp(name);
     let plain = blank().bytes();
     let mut doc = lopdf::Document::load_mem(&plain).unwrap();

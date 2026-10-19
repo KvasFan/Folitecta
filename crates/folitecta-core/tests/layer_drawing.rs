@@ -1048,3 +1048,56 @@ fn content_of_page(doc: &Document, page: usize) -> String {
     let pid = doc.page_id(page).unwrap();
     String::from_utf8_lossy(&doc.inner().get_page_content(pid)).to_string()
 }
+
+#[test]
+fn rasterized_pages_keep_the_comments_of_hidden_layers() {
+    let (mut doc, ink) = with_layer();
+    doc.set_layer_visible(ink, false).unwrap();
+    doc.set_drawing_layer(Some(ink)).unwrap();
+    doc.add_shape(
+        0,
+        Shape::Square,
+        [10.0, 10.0, 90.0, 90.0],
+        RED,
+        Some(RED),
+        2.0,
+        "R",
+        "hidden",
+    )
+    .unwrap();
+    doc.set_drawing_layer(None).unwrap();
+    doc.add_shape(
+        0,
+        Shape::Square,
+        [110.0, 10.0, 190.0, 90.0],
+        RED,
+        Some(RED),
+        2.0,
+        "R",
+        "shown",
+    )
+    .unwrap();
+    // The default visibility: the visible comment goes into the picture, the
+    // other stays a comment on its layer.
+    let mut plain = Document::from_bytes(doc.bytes().to_vec(), None, None).unwrap();
+    plain.rasterize_pages(&[0], 72.0, true).unwrap();
+    let back = reopen(&mut plain, "raster-default");
+    let left = back.annotations(0).unwrap();
+    assert_eq!(left.len(), 1);
+    assert_eq!(left[0].contents, "hidden");
+    assert_eq!(back.annotation_layer(0, 0), Some(layer_named(&back, "Ink")));
+    let bytes = back.render_bytes().unwrap();
+    assert!(!is_white(pixel(bytes.clone(), 150, 50)));
+    assert!(is_white(pixel(bytes, 50, 50)));
+    // As a view showing the layer: both go into the picture.
+    doc.rasterize_pages_with_view(&[0], 72.0, true, &HashMap::from([(ink, true)]))
+        .unwrap();
+    let back = reopen(&mut doc, "raster-view");
+    assert!(back.annotations(0).unwrap().is_empty());
+    let bytes = back.bytes();
+    assert!(!is_white(pixel(bytes.clone(), 150, 50)));
+    assert!(!is_white(pixel(bytes, 50, 50)));
+    // One undo step.
+    doc.undo().unwrap();
+    assert_eq!(doc.annotations(0).unwrap().len(), 2);
+}

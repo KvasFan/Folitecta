@@ -396,7 +396,7 @@ pub(super) fn Rasterize() -> Element {
     rsx! {
         Frame { title: cmd_label(lang, registry().get("document.rasterizePages").unwrap()),
             on_ok: move |_| match scope_pages(st, mode(), &range()) {
-                Ok(pages) => { let d = num_or(&dpi, 150.0).clamp(36.0, 600.0); let a = annots(); apply(st, |tab| tab.doc.rasterize_pages(&pages, d, a)); }
+                Ok(pages) => { let d = num_or(&dpi, 150.0).clamp(36.0, 600.0); let a = annots(); apply(st, |tab| { let view = tab.view_layer_states(); tab.doc.rasterize_pages_with_view(&pages, d, a, &view) }); }
                 Err(e) => st.error(e),
             },
             div { class: "callout warn", "{t(lang, \"dialog.rasterize.hint\")}" }

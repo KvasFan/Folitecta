@@ -33,6 +33,7 @@ pub fn run(st: AppState, old: u64, new: u64, ignore_case: bool) {
     };
     let (ba, bb) = (a.doc.bytes(), b.doc.bytes());
     let (na, nb) = (a.doc.display_name(), b.doc.display_name());
+    let protection = a.doc.protection().or(b.doc.protection()).cloned();
     drop(docs);
     st.set_busy(true);
     spawn(async move {
@@ -55,6 +56,7 @@ pub fn run(st: AppState, old: u64, new: u64, ignore_case: bool) {
                     current: 0,
                     filter: "all".into(),
                     rows: false,
+                    protection,
                 });
                 crate::commands::show_pane(st, Pane::Comparison);
                 if let Some(i) = tab_index(st, new) {
@@ -212,6 +214,10 @@ fn summary(st: AppState) {
     match Document::from_text(&text, Default::default()) {
         Ok(mut doc) => {
             doc.set_name_hint(&format!("{}.pdf", t(lang, "compare.report_title")));
+            // It quotes the documents: protected like them.
+            if let Some(p) = &c.protection {
+                doc.inherit_protection(p);
+            }
             crate::files::open_document_tab(st, doc);
         }
         Err(e) => st.error(e),

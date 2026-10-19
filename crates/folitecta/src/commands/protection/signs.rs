@@ -134,7 +134,7 @@ pub fn place_at(st: AppState, page: usize, rect: [f32; 4], tiny: bool) {
             st.with_active(|t| t.doc.add_signature_mark(page, rect, &mark, &author).map(|_| ()))
         }
         Some(Pending::Text(text)) => {
-            let w = folitecta_core::util::helvetica_width(&text, 12.0) + 12.0;
+            let w = folitecta_core::fonts::text_width(&text, 12.0) + 12.0;
             let r = [rect[0], rect[3] - 18.0, rect[0] + w, rect[3]];
             st.with_active(|t| {
                 t.doc

@@ -136,6 +136,7 @@ pub(super) fn TextBoxDialog(page: usize, rect: Vec<f32>, border: bool) -> Elemen
                 tool_done(st);
             },
             Area { label: t(lang, "dialog.note.text"), value: text, autofocus: true }
+            GlyphHint { text }
             div { class: "field-grid",
                 Num { label: t(lang, "dialog.watermark.size"), value: size, min: "4", max: "200" }
                 div { class: "field", label { "{t(lang, \"dialog.watermark.color\")}" } input { r#type: "color", value: "{color}", oninput: move |e| color.set(e.value()) } }
@@ -270,6 +271,8 @@ pub(super) type PermRow = (&'static str, bool, fn(&mut SecurityPermissions));
 #[component]
 pub(super) fn Security() -> Element {
     use crate::commands::policies::{self as pol, PRESET};
+    use crate::ui::features::policies::profile_label;
+    use folitecta_core::{EncryptionProfile, PasswordIssue};
     let st = use_context::<AppState>();
     let lang = st.lang();
     let mut user = use_signal(String::new);
@@ -284,10 +287,21 @@ pub(super) fn Security() -> Element {
         let preset = preset.clone();
         move || preset.map(|p| p.permissions).unwrap_or_default()
     });
+    let mut profile = use_signal({
+        let preset = preset.clone();
+        move || preset.map(|p| p.encryption).unwrap_or_default()
+    });
     let mut wants_open = use_signal(move || preset.is_some_and(|p| p.open_password));
     let mut new_name = use_signal(String::new);
+    // A signed document (its signatures do not hold in the copy), and the
+    // protection the document has already.
+    let (signed, current) = use_hook(|| {
+        st.read_active(|t| (t.doc.has_signatures(), t.doc.encryption().map(|e| e.method)))
+            .unwrap_or((false, None))
+    });
     let policies = pol::policies(st);
     let p = perms();
+    let restricted = p != SecurityPermissions::default();
     let rows: [PermRow; 6] = [
         ("dialog.security.print", p.print, |p| p.print = !p.print),
         ("dialog.security.modify", p.modify, |p| p.modify = !p.modify),
@@ -310,10 +324,26 @@ pub(super) fn Security() -> Element {
                     st.toast(ToastKind::Warn, t(st.lang(), "dialog.security.need_password"), "");
                     return;
                 }
+                // Passwords the encryption cannot keep whole: the dialog stays open.
+                let chosen = profile();
+                if let Err(issue) = chosen.check_password(&u).and(chosen.check_password(&o)) {
+                    let key = match issue {
+                        PasswordIssue::Characters => "dialog.security.password_chars",
+                        PasswordIssue::TooLong => "dialog.security.password_long",
+                    };
+                    st.toast(ToastKind::Warn, t(st.lang(), key), "");
+                    return;
+                }
                 st.set_dialog(Dialog::None);
-                files::save_encrypted(st, u, o, perms());
+                files::save_encrypted(st, u, o, perms(), chosen);
             },
             div { class: "callout", "{t(lang, \"dialog.security.hint\")}" }
+            if let Some(method) = current.clone() {
+                p { class: "hint security-current", "{tf(lang, \"dialog.security.current\", &[(\"method\", &method)])}" }
+            }
+            if signed {
+                p { class: "hint warn security-signed-warning", "{t(lang, \"dialog.security.signed_warning\")}" }
+            }
             div { class: "field",
                 label { "{t(lang, \"policy.policy\")}" }
                 select { class: "security-policy",
@@ -324,6 +354,7 @@ pub(super) fn Security() -> Element {
                             if let Some(p) = policies.iter().find(|p| p.name == e.value()) {
                                 perms.set(p.permissions);
                                 wants_open.set(p.open_password);
+                                profile.set(p.encryption);
                             }
                         }
                     },
@@ -333,12 +364,29 @@ pub(super) fn Security() -> Element {
                     }
                 }
             }
+            div { class: "field",
+                label { "{t(lang, \"dialog.security.encryption\")}" }
+                select { class: "security-encryption",
+                    onchange: move |e: Event<FormData>| {
+                        profile.set(EncryptionProfile::from_key(&e.value()));
+                        policy.set(String::new());
+                    },
+                    for choice in EncryptionProfile::ALL {
+                        option { key: "{choice.key()}", value: "{choice.key()}", selected: profile() == choice, "{t(lang, profile_label(choice))}" }
+                    }
+                }
+            }
             div { class: "field-grid",
-                div { class: "field", label { "{t(lang, \"dialog.security.user\")}" } input { r#type: "password", autofocus: true, value: "{user}", oninput: move |e| user.set(e.value()) } }
-                div { class: "field", label { "{t(lang, \"dialog.security.owner\")}" } input { r#type: "password", value: "{owner}", oninput: move |e| owner.set(e.value()) } }
+                div { class: "field", label { "{t(lang, \"dialog.security.user\")}" } input { r#type: "password", class: "security-user", autofocus: true, value: "{user}", oninput: move |e| user.set(e.value()) } }
+                div { class: "field", label { "{t(lang, \"dialog.security.owner\")}" } input { r#type: "password", class: "security-owner", value: "{owner}", oninput: move |e| owner.set(e.value()) } }
             }
             if wants_open() && user().is_empty() {
                 p { class: "hint warn", "{t(lang, \"policy.needs_open_password\")}" }
+            }
+            // Without an owner password the password to open is the owner's:
+            // whoever opens the file can lift its restrictions.
+            if restricted && owner().is_empty() {
+                p { class: "hint warn security-owner-hint", "{t(lang, \"dialog.security.owner_empty\")}" }
             }
             b { "{t(lang, \"dialog.security.permissions\")}" }
             div { class: "check-grid",
@@ -354,7 +402,7 @@ pub(super) fn Security() -> Element {
                     oninput: move |e| new_name.set(e.value()) }
                 button { class: "tbtn security-save-policy",
                     onclick: move |_| {
-                        pol::save_permissions(st, &new_name(), perms(), !user().is_empty());
+                        pol::save_permissions(st, &new_name(), perms(), !user().is_empty(), profile());
                         new_name.set(String::new());
                     },
                     "{t(lang, \"policy.save_as\")}"
@@ -409,6 +457,23 @@ pub(super) fn CalloutDialog(page: usize, tip_x: f32, tip_y: f32, rect: Vec<f32>)
                 tool_done(st);
             },
             Area { label: t(lang, "dialog.note.text"), value: text, autofocus: true }
+            GlyphHint { text }
+        }
+    }
+}
+
+/// While typing the text of a text box or callout: what generated text
+/// cannot draw (the characters named), before OK is pressed.
+#[component]
+pub(super) fn GlyphHint(text: Signal<String>) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let problem = folitecta_core::fonts::check_text(&folitecta_core::util::clean_text(&text()))
+        .err()
+        .map(|p| crate::i18n::glyph_problem(lang, &p));
+    rsx! {
+        if let Some(p) = problem {
+            p { class: "hint warn glyph-hint", "{p}" }
         }
     }
 }

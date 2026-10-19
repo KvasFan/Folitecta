@@ -40,6 +40,10 @@ jobs:
           Copy-Item -Recurse docs "dist/$name/docs"
           Copy-Item -Recurse dictionaries "dist/$name/dictionaries"
           Copy-Item -Recurse ocr "dist/$name/ocr"
+          # The font for text beyond WinAnsi, without its source (it stays in the source archive).
+          Copy-Item -Recurse fonts "dist/$name/fonts"
+          Remove-Item -Recurse -Force "dist/$name/fonts/source"
+          if (-not (Test-Path "dist/$name/fonts/FreeSans.ttf") -or (Test-Path "dist/$name/fonts/source")) { throw "the fonts folder of the package is wrong" }
           Compress-Archive -Path "dist/$name" -DestinationPath "dist/$name.zip"
           $hash = (Get-FileHash "dist/$name.zip" -Algorithm SHA256).Hash.ToLower()
           "$hash  $name.zip" | Out-File -Encoding ascii "dist/$name.zip.sha256"
@@ -77,6 +81,10 @@ jobs:
           cp -r docs "dist/${NAME}/docs"
           cp -r dictionaries "dist/${NAME}/dictionaries"
           cp -r ocr "dist/${NAME}/ocr"
+          # The font for text beyond WinAnsi, without its source (it stays in the source archive).
+          cp -r fonts "dist/${NAME}/fonts"
+          rm -rf "dist/${NAME}/fonts/source"
+          test -f "dist/${NAME}/fonts/FreeSans.ttf" && test ! -e "dist/${NAME}/fonts/source"
           cp crates/folitecta/assets/icon-256.png "dist/${NAME}/folitecta.png"
           cat > "dist/${NAME}/folitecta.desktop" <<'EOF'
           [Desktop Entry]
@@ -128,6 +136,9 @@ jobs:
           cp dist/folitecta "$APP/Contents/MacOS/folitecta"
           cp -r dictionaries "$APP/Contents/Resources/dictionaries"
           cp -r ocr "$APP/Contents/Resources/ocr"
+          cp -r fonts "$APP/Contents/Resources/fonts"
+          rm -rf "$APP/Contents/Resources/fonts/source"
+          test -f "$APP/Contents/Resources/fonts/FreeSans.ttf" && test ! -e "$APP/Contents/Resources/fonts/source"
           ICONSET=dist/folitecta.iconset
           mkdir -p "$ICONSET"
           for size in 16 32 64 128 256; do
@@ -166,6 +177,10 @@ jobs:
           cp -r docs "dist/${NAME}/docs"
           cp -r dictionaries "dist/${NAME}/dictionaries"
           cp -r ocr "dist/${NAME}/ocr"
+          # The font for text beyond WinAnsi, without its source (it stays in the source archive).
+          cp -r fonts "dist/${NAME}/fonts"
+          rm -rf "dist/${NAME}/fonts/source"
+          test -f "dist/${NAME}/fonts/FreeSans.ttf" && test ! -e "dist/${NAME}/fonts/source"
           tar -C dist -czf "dist/${NAME}.tar.gz" "${NAME}"
           (cd dist && shasum -a 256 "${NAME}.zip" > "${NAME}.zip.sha256" && shasum -a 256 "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256")
       - uses: actions/upload-artifact@v4

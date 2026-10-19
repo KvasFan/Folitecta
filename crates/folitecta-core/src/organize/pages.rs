@@ -186,13 +186,14 @@ impl Document {
         self.commit()
     }
 
-    /// Build a new document that contains only the given pages (in the given order).
+    /// Build a new document that contains only the given pages (in the given
+    /// order), protected like this document when it is.
     pub fn extract_pages(&self, pages: &[usize]) -> Result<Document> {
         self.check_pages(pages)?;
         if pages.is_empty() {
             return Err(Error::LastPage);
         }
-        let mut copy = Document::from_bytes(self.bytes().as_ref().clone(), None, None)?;
+        let mut copy = self.derived()?;
         let ids = copy.page_ids();
         let order: Vec<ObjectId> = pages.iter().map(|&p| ids[p]).collect();
         copy.set_page_order(order)?;
@@ -217,8 +218,10 @@ impl Document {
     }
 
     /// Insert pages from another document before index `at`. `pages` selects
-    /// zero-based pages of `other`; `None` imports every page.
+    /// zero-based pages of `other`; `None` imports every page. Pages of a
+    /// protected document are refused by a document that is not protected.
     pub fn insert_document(&mut self, at: usize, other: &Document, pages: Option<&[usize]>) -> Result<()> {
+        self.check_import_from(other)?;
         let n = self.page_count();
         if at > n {
             return Err(Error::InvalidPage(at));

@@ -14,7 +14,7 @@ use crate::commands::{implemented_ids, is_implemented, is_partial, option_on, pa
 use crate::files;
 use crate::i18n::{Lang, cmd_label, t, tf};
 use crate::icons::Icon;
-use crate::state::{AppState, ConfirmAction, Dialog, Guide, Theme, ToastKind, Tool, Zoom};
+use crate::state::{AppState, ConfirmAction, Dialog, Guide, PasswordTarget, Theme, ToastKind, Tool, Zoom};
 use crate::util::{format_pages, parse_color, parse_page_range};
 
 mod app;
@@ -43,12 +43,16 @@ pub fn Frame(
     /// it stays in view (the dialog works on what the page shows).
     #[props(default = false)]
     side: bool,
+    /// The OK button cannot be pressed (and Enter does not run it).
+    #[props(default = false)]
+    ok_disabled: bool,
+    /// Enter runs the OK button only from a single-line text field (not from
+    /// check boxes, choices or lists), for an OK that starts another program.
+    #[props(default = false)]
+    enter_from_text: bool,
     /// The largest window (the print window).
     #[props(default = false)]
     xl: bool,
-    /// The OK button is shown but can be pressed neither with the mouse nor with Enter.
-    #[props(default = false)]
-    ok_disabled: bool,
 ) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
@@ -90,9 +94,14 @@ pub fn Frame(
                         // button is that button's click (the browser makes it one):
                         // the dialog's OK must not run as well.
                         if let Some(h) = ok2.filter(|_| !ok_disabled) {
+                            let skip = if enter_from_text {
+                                "const a = document.activeElement; return !(a && a.tagName === 'INPUT' && ['text', 'search', 'email', 'url'].includes(a.type));"
+                            } else {
+                                "return document.activeElement?.tagName === 'BUTTON';"
+                            };
                             spawn(async move {
                                 tokio::time::sleep(std::time::Duration::from_millis(30)).await;
-                                let on_button = document::eval("return document.activeElement?.tagName === 'BUTTON';")
+                                let on_button = document::eval(skip)
                                     .await
                                     .ok()
                                     .and_then(|v| v.as_bool())
@@ -226,7 +235,7 @@ fn apply(st: AppState, f: impl FnOnce(&mut crate::state::DocTab) -> folitecta_co
             files::set_window_title(st);
             st.set_dialog(Dialog::None);
         }
-        Some(Err(e)) => st.error(e),
+        Some(Err(e)) => st.core_error(&e),
         None => st.set_dialog(Dialog::None),
     }
 }
@@ -264,7 +273,7 @@ pub fn Dialogs() -> Element {
         Dialog::NotImplemented(id) => rsx! { NotImplemented { id } },
         Dialog::Confirm { title, body, action } => rsx! { Confirm { title, body, action } },
         Dialog::Unsaved { tab, then } => rsx! { Unsaved { tab, then } },
-        Dialog::Password(path) => rsx! { Password { path: path.display().to_string() } },
+        Dialog::Password { target, retry } => rsx! { Password { target, retry } },
         Dialog::Note { page, x, y } => rsx! { NoteDialog { page, x, y } },
         Dialog::TextBox { page, rect, border } => {
             rsx! { TextBoxDialog { page, rect: rect.to_vec(), border } }
@@ -424,6 +433,7 @@ pub fn Dialogs() -> Element {
         Dialog::FieldItems => rsx! { crate::ui::features::field_editor::FieldItemsDialog {} },
         Dialog::SecurityPolicies => rsx! { crate::ui::features::policies::SecurityPoliciesDialog {} },
         Dialog::CustomizeQat => rsx! { crate::ui::chrome::qat::CustomizeQatDialog {} },
+        Dialog::Mail => rsx! { crate::ui::features::mail::MailDialog {} },
     }
 }
 
@@ -443,7 +453,7 @@ fn apply_count(
                 "",
             );
         }
-        Some(Err(e)) => st.error(e),
+        Some(Err(e)) => st.core_error(&e),
         None => st.set_dialog(Dialog::None),
     }
 }

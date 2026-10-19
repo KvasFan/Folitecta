@@ -1,4 +1,5 @@
 {
+  "policy.aes128": "AES-128",
   "policy.apply": "Apply…",
   "policy.default_no_print": "No printing or copying",
   "policy.default_read_only": "Read only (printing allowed)",
@@ -82,6 +83,7 @@
   "sig.place_field": "Field “{name}”",
   "sig.place_invisible": "Invisible signature",
   "sig.placement": "Place",
+  "sig.protected_note": "The document is protected: the signed file is encrypted like it and opens with the same passwords. The signature itself (the signer's certificate and the time) stays readable without the password, as the PDF format requires.",
   "sig.reason": "Reason",
   "sig.save_signed": "Save the signed document",
   "sig.self_signed": "Self-signed",

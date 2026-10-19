@@ -14,6 +14,8 @@ use crate::util::{deref, fmt_num, num};
 
 mod generate;
 mod measure;
+
+pub(crate) use generate::text_problem;
 mod note_icons;
 mod shapes;
 
@@ -247,12 +249,17 @@ impl Document {
                 "the style of {subtype} comments cannot be changed"
             )));
         }
-        self.begin_edit();
         apply_style(&mut d, &subtype, style);
-        self.generate_appearance(&mut d)?;
-        d.set("M", Object::string_literal(crate::util::pdf_date_now()));
-        *self.inner.get_dictionary_mut(id)? = d;
-        self.commit()
+        // Text the new style cannot draw is refused before the edit.
+        if let Some(problem) = text_problem(&self.inner, &d) {
+            return Err(problem.into());
+        }
+        self.edit_step(|doc| {
+            doc.generate_appearance(&mut d)?;
+            d.set("M", Object::string_literal(crate::util::pdf_date_now()));
+            *doc.inner.get_dictionary_mut(id)? = d;
+            Ok(())
+        })
     }
 
     /// The icon of a note (`/Name` of a `Text` annotation), `None` for other comments.
@@ -272,12 +279,13 @@ impl Document {
         if name_of(&d, b"Subtype").as_deref() != Some("Text") {
             return Err(Error::Invalid("only notes have an icon".into()));
         }
-        self.begin_edit();
         d.set("Name", Object::Name(icon.as_bytes().to_vec()));
-        self.generate_appearance(&mut d)?;
-        d.set("M", Object::string_literal(crate::util::pdf_date_now()));
-        *self.inner.get_dictionary_mut(id)? = d;
-        self.commit()
+        self.edit_step(|doc| {
+            doc.generate_appearance(&mut d)?;
+            d.set("M", Object::string_literal(crate::util::pdf_date_now()));
+            *doc.inner.get_dictionary_mut(id)? = d;
+            Ok(())
+        })
     }
 
     /// Regenerate the appearance of an annotation object in place (no undo step).

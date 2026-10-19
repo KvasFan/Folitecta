@@ -121,6 +121,7 @@ pub(super) fn About() -> Element {
                         li { "Rendering: hayro (Apache-2.0 OR MIT)" }
                         li { "Document model: lopdf (MIT)" }
                         li { "User interface: Dioxus (MIT OR Apache-2.0)" }
+                        li { "Text beyond Western European characters: GNU FreeFont FreeSans (GPL-3.0-or-later with the font exception)" }
                         li { a { href: "https://github.com/KvasFan/Folitecta", onclick: move |e| { e.prevent_default(); let _ = crate::util::open_external("https://github.com/KvasFan/Folitecta"); }, "github.com/KvasFan/Folitecta" } }
                     }
                     div { class: "row", style: "gap:8px; margin-top: 8px",
@@ -291,8 +292,11 @@ pub(super) fn NotImplemented(id: String) -> Element {
 pub(super) fn Confirm(title: String, body: String, action: ConfirmAction) -> Element {
     let st = use_context::<AppState>();
     let act = action.clone();
+    // Importing the comments that can be drawn is a choice, not a loss.
+    let choice = matches!(action, ConfirmAction::ImportCommentsSkipping(_));
+    let ok_label = choice.then(|| t(st.lang(), "dialog.import_undrawable.ok"));
     rsx! {
-        Frame { title, danger: true,
+        Frame { title, danger: !choice, ok_label,
             on_ok: move |_| {
                 match act.clone() {
                     ConfirmAction::DeleteAllComments => apply(st, |tab| tab.doc.delete_all_comments(None).map(|_| ())),
@@ -326,6 +330,7 @@ pub(super) fn Confirm(title: String, body: String, action: ConfirmAction) -> Ele
                         st.with_active(|t| t.selected_pages.clear());
                         apply(st, move |tab| tab.doc.delete_pages(&pages));
                     }
+                    ConfirmAction::ImportCommentsSkipping(data) => files::import_drawable_comments(st, &data),
                 }
             },
             p { "{body}" }
@@ -362,17 +367,40 @@ pub(super) fn Unsaved(tab: u64, then: crate::state::AfterUnsaved) -> Element {
 }
 
 #[component]
-pub(super) fn Password(path: String) -> Element {
+pub(super) fn Password(target: PasswordTarget, retry: bool) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
     let pw = use_signal(String::new);
-    let p = std::path::PathBuf::from(path.clone());
+    let (body, label, value) = match &target {
+        PasswordTarget::File(path) => ("dialog.password.body", "dialog.file", path.display().to_string()),
+        PasswordTarget::Replace { path, .. } => (
+            "dialog.password.body_revert",
+            "dialog.file",
+            path.display().to_string(),
+        ),
+        PasswordTarget::Revision { field, .. } => {
+            ("dialog.password.body_revision", "sig.field", field.clone())
+        }
+    };
     rsx! {
         Frame { title: t(lang, "dialog.password.title"),
-            on_ok: move |_| { let password = pw(); st.set_dialog(Dialog::None); files::open_path(st, p.clone(), Some(&password)); },
-            p { "{t(lang, \"dialog.password.body\")}" }
-            div { class: "kv", span { class: "k", "{t(lang, \"dialog.file\")}" } span { class: "v", "{path}" } }
-            div { class: "field", label { "{t(lang, \"dialog.password.field\")}" } input { r#type: "password", autofocus: true, value: "{pw}", oninput: move |e| { let mut s = pw; s.set(e.value()); } } }
+            on_ok: move |_| {
+                let password = pw();
+                st.set_dialog(Dialog::None);
+                match target.clone() {
+                    PasswordTarget::File(path) => files::open_path(st, path, Some(&password)),
+                    PasswordTarget::Replace { path, tab } => files::open_in_place_of(st, tab, path, Some(&password)),
+                    PasswordTarget::Revision { tab, field } => {
+                        crate::commands::signatures::open_signed_revision_with(st, tab, &field, Some(&password))
+                    }
+                }
+            },
+            p { "{t(lang, body)}" }
+            if retry {
+                p { class: "hint warn password-wrong", "{t(lang, \"dialog.password.wrong\")}" }
+            }
+            div { class: "kv", span { class: "k", "{t(lang, label)}" } span { class: "v", "{value}" } }
+            div { class: "field", label { "{t(lang, \"dialog.password.field\")}" } input { class: "password-input", r#type: "password", autofocus: true, value: "{pw}", oninput: move |e| { let mut s = pw; s.set(e.value()); } } }
         }
     }
 }

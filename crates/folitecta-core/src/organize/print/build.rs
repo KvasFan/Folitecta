@@ -29,8 +29,8 @@ use crate::util::{deref, num, rect_of};
 pub struct PrintSeed {
     /// The current state of the document, unencrypted.
     pub bytes: Arc<Vec<u8>>,
-    /// The encryption of the file the document came from.
-    pub protection: Option<lopdf::EncryptionState>,
+    /// The protection of the document (its saved print files keep it).
+    pub protection: Option<crate::security::Protection>,
     /// The `/ID` of the document (the keys of its encryption depend on it).
     pub id: Option<Object>,
     pub title: String,
@@ -88,7 +88,7 @@ pub struct PrintSource {
     /// The print state of every layer.
     oc_print: HashMap<ObjectId, bool>,
     hidden: HashSet<ObjectId>,
-    protection: Option<lopdf::EncryptionState>,
+    protection: Option<crate::security::Protection>,
     id: Option<Object>,
     title: String,
 }
@@ -923,15 +923,12 @@ impl PrintSource {
     /// permissions), for saving: compressed, then encrypted, then written.
     /// Unprotected sources give the bytes as they are.
     pub fn protect(&self, plain: &[u8]) -> Result<Vec<u8>> {
-        let Some(state) = &self.protection else {
+        let Some(p) = &self.protection else {
             return Ok(plain.to_vec());
         };
         let fail = |why: &str| Error::Invalid(format!("the protected print file failed its check: {why}"));
         let mut doc = lopdf::Document::load_mem(plain)?;
-        if let Some(id) = &self.id {
-            doc.trailer.set("ID", id.clone());
-        }
-        doc.encrypt(state)?;
+        crate::protection::encrypted::encrypt_document(&mut doc, p)?;
         let mut out = Vec::new();
         doc.save_to(&mut out)?;
         if !crate::util::looks_like_whole_pdf(&out) {
@@ -941,7 +938,8 @@ impl PrintSource {
         if !(back.is_encrypted() || back.was_encrypted()) {
             return Err(fail("it is not encrypted"));
         }
-        if back.trailer.get(b"ID").ok() != self.id.as_ref() {
+        // The keys of revisions 2 to 4 depend on the file identifier.
+        if p.state().revision() <= 4 && back.trailer.get(b"ID").ok() != p.id() {
             return Err(fail("its identifier differs from the document's"));
         }
         Ok(out)

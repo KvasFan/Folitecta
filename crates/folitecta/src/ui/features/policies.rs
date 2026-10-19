@@ -1,9 +1,9 @@
-//! The list of security policies: each with the permissions it allows,
-//! edited in place, cloned, renamed, deleted, imported and exported, and
-//! applied to the Password Security dialog.
+//! The list of security policies: each with the permissions it allows and
+//! its encryption, edited in place, cloned, renamed, deleted, imported and
+//! exported, and applied to the Password Security dialog.
 
 use dioxus::prelude::*;
-use folitecta_core::{SecurityPermissions, registry};
+use folitecta_core::{EncryptionProfile, SecurityPermissions, registry};
 
 use crate::commands::policies::{self as pol, VIEW};
 use crate::i18n::{Lang, cmd_label, t};
@@ -38,6 +38,14 @@ pub const PERMISSIONS: [Permission; 6] = [
         |p| p.assemble = !p.assemble,
     ),
 ];
+
+/// The label key of an encryption profile.
+pub fn profile_label(profile: EncryptionProfile) -> &'static str {
+    match profile {
+        EncryptionProfile::Aes256 => "dialog.security.aes256",
+        EncryptionProfile::Aes128 => "dialog.security.aes128",
+    }
+}
 
 /// What a set of permissions allows, in a few words.
 pub fn summary(lang: Lang, p: &SecurityPermissions) -> String {
@@ -78,6 +86,9 @@ pub fn SecurityPoliciesDialog() -> Element {
                         if p.open_password {
                             span { class: "chip", "{t(lang, \"policy.open_password\")}" }
                         }
+                        if p.encryption == EncryptionProfile::Aes128 {
+                            span { class: "chip policy-aes128", "{t(lang, \"policy.aes128\")}" }
+                        }
                     }
                 }
             }
@@ -111,6 +122,20 @@ pub fn SecurityPoliciesDialog() -> Element {
                         input { r#type: "checkbox", checked: editing.open_password,
                             onchange: move |_| { if let Some((_, p)) = VIEW.write().editing.as_mut() { p.open_password = !p.open_password; } } }
                         span { "{t(lang, \"policy.open_password_long\")}" }
+                    }
+                    div { class: "field",
+                        label { "{t(lang, \"dialog.security.encryption\")}" }
+                        select { class: "policy-encryption",
+                            onchange: move |e: Event<FormData>| {
+                                if let Some((_, p)) = VIEW.write().editing.as_mut() {
+                                    p.encryption = EncryptionProfile::from_key(&e.value());
+                                }
+                            },
+                            for profile in EncryptionProfile::ALL {
+                                option { key: "{profile.key()}", value: "{profile.key()}", selected: editing.encryption == profile,
+                                    "{t(lang, profile_label(profile))}" }
+                            }
+                        }
                     }
                     div { class: "row",
                         button { class: "tbtn primary policy-save", onclick: move |_| pol::save_edit(st), "{t(lang, \"policy.save\")}" }

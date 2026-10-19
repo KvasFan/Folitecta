@@ -10,7 +10,7 @@ use folitecta_core::print::{
     self, Binding, BookletSides, BuildOptions, Content, Layout, NupOrder, Paper, PrintOptions,
     PrintPermission, PrintPlan, PrintSource, Sizing,
 };
-use folitecta_core::{Document, Error, RenderOpts, Renderer, SecurityPermissions};
+use folitecta_core::{Document, EncryptionProfile, Error, RenderOpts, Renderer, SecurityPermissions};
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
 const A4: (f32, f32) = (595.28, 841.89);
@@ -586,7 +586,13 @@ fn print_files_of_protected_documents_stay_protected() {
     let mut blank = Document::new_blank(2, 300.0, 300.0).unwrap();
     blank.add_text_watermark(&[0, 1], &Default::default()).unwrap();
     blank
-        .save_encrypted(&original, "user-pw", "owner-pw", SecurityPermissions::default())
+        .save_encrypted(
+            &original,
+            "user-pw",
+            "owner-pw",
+            SecurityPermissions::default(),
+            EncryptionProfile::Aes128,
+        )
         .unwrap();
     let doc = Document::open_with_password(&original, "user-pw").unwrap();
     assert_eq!(doc.print_permission(), PrintPermission::Allowed);
@@ -634,7 +640,7 @@ fn print_permissions_follow_the_security_settings() {
     };
     Document::new_blank(1, 200.0, 200.0)
         .unwrap()
-        .save_encrypted(&path, "u", "o", no_print)
+        .save_encrypted(&path, "u", "o", no_print, EncryptionProfile::Aes128)
         .unwrap();
     let doc = Document::open_with_password(&path, "u").unwrap();
     assert_eq!(doc.print_permission(), PrintPermission::Forbidden);

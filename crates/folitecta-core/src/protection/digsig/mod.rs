@@ -8,7 +8,8 @@ pub mod timestamp;
 
 pub use id::{CertInfo, DigitalId, IdentityInfo, KeyKind, cert_info, parse_certificates};
 pub use pdf::{
-    Check, SigAppearance, SignOptions, SignPlacement, SignatureChecks, SignatureStatus, TimeStampStatus,
+    Check, SigAppearance, SignOptions, SignPlacement, SignatureChecks, SignatureStatus, SignedFile,
+    TimeStampStatus,
 };
 pub use timestamp::Transport;
 /// A certificate (re-exported for callers that store or compare certificates).

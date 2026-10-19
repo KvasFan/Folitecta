@@ -302,9 +302,9 @@ impl crate::document::Document {
     }
 }
 
-pub(crate) fn permission_of(state: Option<&lopdf::EncryptionState>) -> PrintPermission {
+pub(crate) fn permission_of(protection: Option<&crate::security::Protection>) -> PrintPermission {
     use lopdf::Permissions;
-    let Some(state) = state else {
+    let Some(state) = protection.map(|p| p.state()) else {
         return PrintPermission::Allowed;
     };
     let p = state.permissions();

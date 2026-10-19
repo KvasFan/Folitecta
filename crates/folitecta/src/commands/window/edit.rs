@@ -154,7 +154,7 @@ fn paste_text(st: AppState) {
         let lines = text.lines().count().max(1) as f32;
         let longest = text
             .lines()
-            .map(|l| folitecta_core::util::helvetica_width(l, 12.0))
+            .map(|l| folitecta_core::fonts::text_width(l, 12.0))
             .fold(40.0, f32::max);
         let w = (longest + 16.0).clamp(80.0, s.width * 0.8);
         let h = (lines * 14.5 + 10.0).clamp(24.0, s.height * 0.8);

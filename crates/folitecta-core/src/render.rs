@@ -146,6 +146,15 @@ impl Renderer {
         })
     }
 
+    /// A renderer of an encrypted file, opened with `password` (an
+    /// independent check of protected files: the renderer decrypts them by
+    /// itself).
+    pub fn new_with_password(bytes: Arc<Vec<u8>>, password: &str) -> Result<Self> {
+        let pdf = Pdf::new_with_password(bytes, password)
+            .map_err(|e| Error::Render(format!("cannot parse document for rendering: {e:?}")))?;
+        Ok(Renderer { pdf })
+    }
+
     pub fn page_count(&self) -> usize {
         self.pdf.pages().len()
     }

@@ -75,7 +75,9 @@ pub fn source_pages(path: &Path) -> Result<usize> {
 
 impl Document {
     /// A new document with the pages of the sources in order. Sources that
-    /// cannot be read are left out and reported (file and reason).
+    /// cannot be read are left out and reported (file and reason), and so are
+    /// protected files: the combined document is not protected, so their
+    /// pages would be written plain.
     pub fn combine(sources: &[Source]) -> Result<(Document, Vec<(PathBuf, String)>)> {
         if sources.is_empty() {
             return Err(Error::Invalid("no files to combine".into()));

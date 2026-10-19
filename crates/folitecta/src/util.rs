@@ -1,10 +1,55 @@
 //! Small UI helpers.
 
+use std::path::PathBuf;
+
 use dioxus::prelude::*;
+
+/// The folders searched for the font of text beyond WinAnsi, the preferred
+/// first: the user's own, the program's, the source tree (when run from there).
+pub fn font_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    if let Some(d) = crate::state::app_data_dir() {
+        dirs.push(d.join("fonts"));
+    }
+    if let Some(exe_dir) = std::env::current_exe()
+        .ok()
+        .and_then(|e| e.parent().map(PathBuf::from))
+    {
+        dirs.push(exe_dir.join("fonts"));
+        // The resources of a macOS application bundle, a Linux installation.
+        dirs.push(exe_dir.join("../Resources/fonts"));
+        dirs.push(exe_dir.join("../share/folitecta/fonts"));
+    }
+    dirs.push(PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fonts")));
+    dirs
+}
+
+/// Why a page range could not be read.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RangeError {
+    /// This part is not a page number or a range.
+    NotARange(String),
+    /// A page number outside 1 to the number of pages.
+    OutOfBounds(usize),
+}
+
+impl std::fmt::Display for RangeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RangeError::NotARange(part) => write!(f, "'{part}' is not a page range"),
+            RangeError::OutOfBounds(n) => write!(f, "page numbers must be between 1 and {n}"),
+        }
+    }
+}
 
 /// Parse a page range such as `1-3, 5, 8-` (1-based) into zero-based indices.
 /// An empty string selects every page.
 pub fn parse_page_range(input: &str, page_count: usize) -> Result<Vec<usize>, String> {
+    parse_pages(input, page_count).map_err(|e| e.to_string())
+}
+
+/// [`parse_page_range`] with the reason of a failure kept apart.
+pub fn parse_pages(input: &str, page_count: usize) -> Result<Vec<usize>, RangeError> {
     let s = input.trim();
     if page_count == 0 {
         return Ok(Vec::new());
@@ -25,15 +70,15 @@ pub fn parse_page_range(input: &str, page_count: usize) -> Result<Vec<usize>, St
         let start: usize = if a.is_empty() {
             1
         } else {
-            a.parse().map_err(|_| format!("'{part}' is not a page range"))?
+            a.parse().map_err(|_| RangeError::NotARange(part.to_string()))?
         };
         let end: usize = if b.is_empty() {
             page_count
         } else {
-            b.parse().map_err(|_| format!("'{part}' is not a page range"))?
+            b.parse().map_err(|_| RangeError::NotARange(part.to_string()))?
         };
         if start == 0 || end == 0 || start > page_count || end > page_count {
-            return Err(format!("page numbers must be between 1 and {page_count}"));
+            return Err(RangeError::OutOfBounds(page_count));
         }
         let (lo, hi) = if start <= end { (start, end) } else { (end, start) };
         for p in lo..=hi {
@@ -43,15 +88,6 @@ pub fn parse_page_range(input: &str, page_count: usize) -> Result<Vec<usize>, St
         }
     }
     Ok(out)
-}
-
-/// Why a print range cannot be read.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RangeError {
-    /// This part is not a page or a range of pages.
-    Bad(String),
-    /// A page number past the last page (or 0).
-    OutOfRange(usize),
 }
 
 /// Split `s` at the characters of `seps` outside double quotes.
@@ -95,9 +131,9 @@ pub fn parse_print_range(
         }
         let n: usize = unquoted
             .parse()
-            .map_err(|_| RangeError::Bad(part.trim().to_string()))?;
+            .map_err(|_| RangeError::NotARange(part.trim().to_string()))?;
         if n == 0 || n > count {
-            return Err(RangeError::OutOfRange(count));
+            return Err(RangeError::OutOfBounds(count));
         }
         Ok(n - 1)
     };
@@ -120,10 +156,10 @@ pub fn parse_print_range(
                     page(b, part)?
                 },
             ),
-            _ => return Err(RangeError::Bad(part.trim().to_string())),
+            _ => return Err(RangeError::NotARange(part.trim().to_string())),
         };
         if count == 0 {
-            return Err(RangeError::OutOfRange(0));
+            return Err(RangeError::OutOfBounds(0));
         }
         if a <= b {
             out.extend(a..=b);
@@ -202,6 +238,78 @@ pub fn copy_to_clipboard(text: &str) {
     spawn(async move {
         let _ = document::eval(&js).await;
     });
+}
+
+/// Where decrypted content of protected documents is handed to other
+/// programs (attachments, pictures to edit): a folder of this window that
+/// only the user can read, removed when no protected document is open any
+/// more, on Exit, and — left by a window that ended otherwise — at the next
+/// start.
+pub fn protected_temp_dir() -> std::io::Result<std::path::PathBuf> {
+    let dir = protected_temp_root().join(format!("protected-{}", std::process::id()));
+    std::fs::create_dir_all(&dir)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))?;
+    }
+    Ok(dir)
+}
+
+fn protected_temp_root() -> std::path::PathBuf {
+    std::env::temp_dir().join("Folitecta")
+}
+
+/// Make a file of [`protected_temp_dir`] readable by the user only.
+pub fn make_private(path: &std::path::Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    }
+    #[cfg(not(unix))]
+    let _ = path;
+    Ok(())
+}
+
+/// Remove this window's folder of decrypted content.
+pub fn forget_protected_temp() {
+    let _ = std::fs::remove_dir_all(protected_temp_root().join(format!("protected-{}", std::process::id())));
+}
+
+/// Remove the folders of decrypted content left by windows that ended
+/// without Exit: their process is gone (Linux), or they are older than half
+/// a day.
+pub fn sweep_protected_temp() {
+    let half_day = std::time::Duration::from_secs(12 * 3600);
+    let me = std::process::id();
+    for e in std::fs::read_dir(protected_temp_root())
+        .into_iter()
+        .flatten()
+        .flatten()
+    {
+        let name = e.file_name().to_string_lossy().to_string();
+        let Some(pid) = name
+            .strip_prefix("protected-")
+            .and_then(|p| p.parse::<u32>().ok())
+        else {
+            continue;
+        };
+        if pid == me {
+            continue;
+        }
+        let gone =
+            std::path::Path::new("/proc").is_dir() && !std::path::Path::new(&format!("/proc/{pid}")).exists();
+        let old = e
+            .metadata()
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|m| m.elapsed().ok())
+            .is_some_and(|age| age > half_day);
+        if gone || old {
+            let _ = std::fs::remove_dir_all(e.path());
+        }
+    }
 }
 
 /// Open a URL or file with the system default application.
@@ -332,19 +440,19 @@ mod tests {
         assert_eq!(parse_print_range("9", n, &labels, true), Ok(vec![8]));
         assert_eq!(
             parse_print_range("x", n, &labels, false),
-            Err(RangeError::Bad("x".into()))
+            Err(RangeError::NotARange("x".into()))
         );
         assert_eq!(
             parse_print_range("1-2-3", n, &labels, false),
-            Err(RangeError::Bad("1-2-3".into()))
+            Err(RangeError::NotARange("1-2-3".into()))
         );
         assert_eq!(
             parse_print_range("0", n, &labels, false),
-            Err(RangeError::OutOfRange(n))
+            Err(RangeError::OutOfBounds(n))
         );
         assert_eq!(
             parse_print_range("12", n, &labels, false),
-            Err(RangeError::OutOfRange(n))
+            Err(RangeError::OutOfBounds(n))
         );
     }
 

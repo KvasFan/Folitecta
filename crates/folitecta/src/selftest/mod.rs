@@ -434,6 +434,7 @@ mod steps_panes;
 mod steps_pictures;
 mod steps_policies;
 mod steps_print;
+mod steps_protection;
 mod steps_qat;
 mod steps_recovery;
 mod steps_review;
@@ -443,6 +444,7 @@ mod steps_split_view;
 mod steps_text;
 mod steps_timestamp;
 mod steps_tools;
+mod steps_unicode;
 
 /// What the interaction steps share: the app, where the screenshots go,
 /// the report and the zoom of the pages.
@@ -503,8 +505,10 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "qat" => Box::pin(steps_qat::run(cx)),
             "email" => Box::pin(steps_email::run(cx)),
             "timestamp" => Box::pin(steps_timestamp::run(cx)),
+            "protection" => Box::pin(steps_protection::run(cx)),
             "frames" => Box::pin(steps_frames::run(cx)),
             "print" => Box::pin(steps_print::run(cx)),
+            "unicode" => Box::pin(steps_unicode::run(cx)),
             _ => Box::pin(async { cx.record("unknown step", false, name.to_string()) }),
         };
         tokio::time::timeout(step_limit(), fut).await.is_ok()
@@ -529,7 +533,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
 }
 
 /// The interaction steps in the order of a full run.
-const STEPS: [&str; 25] = [
+const STEPS: [&str; 27] = [
     "tools",
     "review",
     "panes",
@@ -553,8 +557,10 @@ const STEPS: [&str; 25] = [
     "qat",
     "email",
     "timestamp",
+    "protection",
     "print",
     "frames",
+    "unicode",
 ];
 
 async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_json::Value>) -> usize {
@@ -583,7 +589,7 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
 
     // 58. Undo everything added above.
     st.set_tool(Tool::Hand);
-    for _ in 0..90 {
+    for _ in 0..100 {
         crate::commands::dispatch(st, "undo");
     }
     pause(500).await;
@@ -791,6 +797,51 @@ async fn print_layout(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     usize::from(!pass)
 }
 
+/// The e-mail dialog with its first file prepared (pages, what was left
+/// out, the first pages shown) and, with `failed`, a mail program that did
+/// not take the files. Returns the number of problems.
+async fn mail_dialog(
+    st: AppState,
+    dir: &std::path::Path,
+    tag: &str,
+    failed: bool,
+    log: &mut Vec<serde_json::Value>,
+) -> usize {
+    use crate::commands::mail::{self, MAIL, Pages, Phase, Prep, Start};
+    mail::start(
+        st,
+        Start::Documents {
+            all: false,
+            zip: false,
+        },
+    );
+    mail::edit_row(st, 0, |it| {
+        it.pages = Pages::Range;
+        it.range = "1".into();
+        it.comments = folitecta_core::CopyComments::Flatten;
+    });
+    for _ in 0..100 {
+        pause(200).await;
+        let ready = MAIL.peek().as_ref().is_some_and(|d| {
+            d.items
+                .first()
+                .is_some_and(|i| !matches!(i.prep, Prep::Pending | Prep::Running(_)))
+        });
+        if ready {
+            break;
+        }
+    }
+    let mut total = check(st, dir, &format!("960x620-{tag}-dialog-mail"), log).await;
+    if failed {
+        mail::edit_text(|d| {
+            d.phase = Phase::Failed(crate::mail::HandOverError::NoProgram("self-test".into()))
+        });
+        total += check(st, dir, &format!("960x620-{tag}-dialog-mail-failed"), log).await;
+    }
+    st.set_dialog(Dialog::None);
+    total
+}
+
 /// Every layout state and interaction check; returns the number of problems.
 async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_json::Value>) -> usize {
     let dir = dir.to_path_buf();
@@ -932,6 +983,16 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
             },
         ),
         ("timestamp", Dialog::TimeStamp),
+        (
+            "password",
+            Dialog::Password {
+                target: crate::state::PasswordTarget::Replace {
+                    path: "signed.pdf".into(),
+                    tab: 0,
+                },
+                retry: true,
+            },
+        ),
         ("digital-ids", Dialog::DigitalIds),
         ("trusted-certs", Dialog::TrustedCerts),
         ("signature-library", Dialog::SignatureLibrary),
@@ -1076,6 +1137,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
             total += check(st, &dir, &format!("960x620-{code}-dialog-{name}"), log).await;
         }
         st.set_dialog(Dialog::None);
+        total += mail_dialog(st, &dir, code, true, log).await;
     }
     *crate::commands::tables::TABLE_EDIT.write() = None;
     *crate::commands::sources::SOURCES.write() = Default::default();
@@ -1085,6 +1147,9 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         st.set_open_menu(Some("edit".into()));
         total += check(st, &dir, &format!("960x620-{}", theme.attr()), log).await;
         st.set_open_menu(None);
+        if theme == Theme::Dark {
+            total += mail_dialog(st, &dir, theme.attr(), false, log).await;
+        }
     }
     st.ui_mut().theme = Theme::Light;
     st.ui_mut().ribbon = false;

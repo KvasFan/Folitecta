@@ -148,17 +148,123 @@ pub fn read_email(data: &[u8]) -> Result<EmailMessage> {
     })
 }
 
-/// A header value: plain ASCII as it is, anything else as an RFC 2047 encoded word.
-fn header_text(s: &str) -> String {
-    let clean: String = s.chars().map(|c| if c.is_control() { ' ' } else { c }).collect();
-    if clean.is_ascii() {
-        clean
-    } else {
+/// Control characters of a header value become spaces.
+fn header_clean(s: &str) -> String {
+    s.chars().map(|c| if c.is_control() { ' ' } else { c }).collect()
+}
+
+/// RFC 2047 encoded words for `s`, each at most 75 characters long and cut
+/// between characters (45 bytes of UTF-8 make 60 characters of base64).
+fn encoded_words(s: &str) -> Vec<String> {
+    let enc = |t: &str| {
         format!(
             "=?UTF-8?B?{}?=",
-            base64::engine::general_purpose::STANDARD.encode(clean.as_bytes())
+            base64::engine::general_purpose::STANDARD.encode(t.as_bytes())
         )
+    };
+    let mut words = Vec::new();
+    let mut chunk = String::new();
+    for c in s.chars() {
+        if chunk.len() + c.len_utf8() > 45 {
+            words.push(enc(&chunk));
+            chunk.clear();
+        }
+        chunk.push(c);
     }
+    if !chunk.is_empty() || words.is_empty() {
+        words.push(enc(&chunk));
+    }
+    words
+}
+
+/// A header value after `Name: ` (`used` characters): plain ASCII folded at
+/// its spaces, anything else as RFC 2047 encoded words, one per line, so no
+/// line grows past 78 characters (RFC 5322, 2.1.1) unless one word does.
+fn header_text(s: &str, used: usize) -> String {
+    let clean = header_clean(s);
+    if clean.is_ascii() && clean.split(' ').all(|w| w.len() <= 900) {
+        let mut out = String::new();
+        let mut line = used;
+        for (i, word) in clean.split(' ').enumerate() {
+            if i > 0 {
+                if line + 1 + word.len() > 78 && line > 1 {
+                    out.push_str("\r\n ");
+                    line = 1;
+                } else {
+                    out.push(' ');
+                    line += 1;
+                }
+            }
+            out.push_str(word);
+            line += word.len();
+        }
+        out
+    } else {
+        encoded_words(&clean).join("\r\n ")
+    }
+}
+
+/// A quoted-string (RFC 5322, 3.2.4).
+fn quoted(s: &str) -> String {
+    format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
+}
+
+/// The `name` parameter of the content type: plain when it is ASCII, encoded
+/// words otherwise (read by older mail programs).
+fn name_param(name: &str) -> String {
+    let clean = header_clean(name);
+    if clean.is_ascii() {
+        format!("name={}", quoted(&clean))
+    } else {
+        format!("name=\"{}\"", encoded_words(&clean).join(" "))
+    }
+}
+
+/// The `filename` parameter of the content disposition: plain when it is
+/// short ASCII, otherwise the RFC 2231 form (`filename*=UTF-8''...`) cut in
+/// numbered parts of at most 60 characters, never inside a character (some
+/// readers decode each part on its own).
+fn filename_param(name: &str) -> String {
+    let clean = header_clean(name);
+    if clean.is_ascii() && clean.len() <= 200 {
+        return format!("filename={}", quoted(&clean));
+    }
+    let mut parts: Vec<String> = vec![String::new()];
+    for c in clean.chars() {
+        let mut buf = [0u8; 4];
+        let token: String = c
+            .encode_utf8(&mut buf)
+            .bytes()
+            .map(|b| {
+                if b.is_ascii_alphanumeric() || b"!#$&+-.^_`|~".contains(&b) {
+                    (b as char).to_string()
+                } else {
+                    format!("%{b:02X}")
+                }
+            })
+            .collect();
+        if parts.last().is_some_and(|p| p.len() + token.len() > 60) {
+            parts.push(String::new());
+        }
+        if let Some(p) = parts.last_mut() {
+            p.push_str(&token);
+        }
+    }
+    if parts.len() == 1 {
+        return format!("filename*=UTF-8''{}", parts[0]);
+    }
+    parts
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            if i == 0 {
+                format!("filename*0*=UTF-8''{p}")
+            } else {
+                format!("filename*{i}*={p}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(";\r\n ")
 }
 
 /// Base64 in lines of 76 characters.
@@ -190,19 +296,19 @@ fn content_type(name: &str) -> &'static str {
 /// An unsent e-mail draft (`X-Unsent: 1`) with `files` attached, as an
 /// `.eml` file: mail programs open it as a new message ready to be sent.
 /// Nothing is sent by writing it.
-pub fn write_eml_draft(subject: &str, body: &str, files: &[(String, Vec<u8>)]) -> Vec<u8> {
+pub fn write_eml_draft<D: AsRef<[u8]>>(subject: &str, body: &str, files: &[(String, D)]) -> Vec<u8> {
     let boundary = format!(
         "=_folitecta_{:016x}",
         files.iter().fold(subject.len() as u64, |h, (n, d)| h
             .wrapping_mul(31)
-            .wrapping_add((n.len() + d.len()) as u64))
+            .wrapping_add((n.len() + d.as_ref().len()) as u64))
     );
     let date = time::OffsetDateTime::now_utc()
         .format(&time::format_description::well_known::Rfc2822)
         .unwrap_or_default();
     let mut out = String::new();
     out.push_str("X-Unsent: 1\r\n");
-    out.push_str(&format!("Subject: {}\r\n", header_text(subject)));
+    out.push_str(&format!("Subject: {}\r\n", header_text(subject, 9)));
     if !date.is_empty() {
         out.push_str(&format!("Date: {date}\r\n"));
     }
@@ -215,13 +321,14 @@ pub fn write_eml_draft(subject: &str, body: &str, files: &[(String, Vec<u8>)]) -
     out.push_str("Content-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n");
     out.push_str(&base64_lines(body.as_bytes()));
     for (name, data) in files {
-        let shown = header_text(name).replace('"', "'");
         out.push_str(&format!("--{boundary}\r\n"));
         out.push_str(&format!(
-            "Content-Type: {}; name=\"{shown}\"\r\nContent-Disposition: attachment; filename=\"{shown}\"\r\nContent-Transfer-Encoding: base64\r\n\r\n",
-            content_type(name)
+            "Content-Type: {};\r\n {}\r\nContent-Disposition: attachment;\r\n {}\r\nContent-Transfer-Encoding: base64\r\n\r\n",
+            content_type(name),
+            name_param(name),
+            filename_param(name)
         ));
-        out.push_str(&base64_lines(data));
+        out.push_str(&base64_lines(data.as_ref()));
     }
     out.push_str(&format!("--{boundary}--\r\n"));
     out.into_bytes()

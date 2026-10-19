@@ -368,8 +368,8 @@ fn plan_error(lang: Lang, e: PlanError) -> String {
 
 fn range_error(lang: Lang, e: &RangeError) -> String {
     match e {
-        RangeError::Bad(part) => tf(lang, "dialog.print.err.range", &[("part", part)]),
-        RangeError::OutOfRange(n) => tf(lang, "dialog.print.err.range_count", &[("count", &n.to_string())]),
+        RangeError::NotARange(part) => tf(lang, "dialog.print.err.range", &[("part", part)]),
+        RangeError::OutOfBounds(n) => tf(lang, "dialog.print.err.range_count", &[("count", &n.to_string())]),
     }
 }
 

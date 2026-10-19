@@ -314,6 +314,8 @@ impl Document {
         } else {
             ((cx, bx[3]), (cx, bx[3] + 12.0))
         };
+        // Text that cannot be drawn is refused before anything changes.
+        crate::fonts::check_text(&crate::util::clean_text(text))?;
         self.begin_edit();
         let mut annot = self.base_annotation(
             page_id,

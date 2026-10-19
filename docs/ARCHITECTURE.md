@@ -271,11 +271,18 @@ Mouse coordinates on a page image are converted to PDF user space with
   outside the crop box. The moves that replace removed glyphs keep their widths, so the length
   of a removed word can be measured; shapes of removed glyphs stay in embedded font programs
   that other text still uses, and the procedures of a Type 3 font stay whole where the codes
-  another page or form shows with it cannot be told (the report says so). Patterns and forms
-  that other pages still draw stay for them. Comments, form values and page text elsewhere that
-  quote the removed words are reported, not changed; in documents of more than 100 pages only
-  the redacted pages and the first others are searched for them (the check says how many were
-  not). Gradients and transparency masks that could keep content under a mark, tiling patterns
-  whose cell would keep content under a mark that no other cell shows, vertical writing and
-  drawings nested more than 12 deep make the page a picture.
+  another page or form shows with it cannot be told (a font set by a graphics state included).
+  Patterns and forms that other pages still draw stay for them; Type 3 fonts and patterns that
+  keep what was under the marks for other pages are reported (after the redaction and in the
+  apply dialog), not removed. Something counts as shown elsewhere only in a filled rectangle
+  under rectangular clips. Comments, form values and page text elsewhere that quote the removed
+  words are reported, not changed; in documents of more than 100 pages only the redacted pages
+  and the first others are searched for them (the check says how many were not). Gradients
+  (radial ones with stitched functions, and any whose colours under a mark are not shown in
+  such a rectangle) and transparency masks that could keep content under a mark, tiling
+  patterns whose cell would keep content under a mark that no whole cell shows, vertical
+  writing and drawings nested more than 12 deep make the page a picture. Strokes lose a little
+  ink outside the marks where their ends are slanted or a corner is split, and cut pieces
+  restart their dash pattern. A signed version brought back by Undo after a later save cannot
+  be saved with its signatures unless its signed file is on the disk again.
 - Commands marked *planned* in [FEATURES.md](FEATURES.md) open a roadmap notice.

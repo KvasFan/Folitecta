@@ -231,6 +231,7 @@
   "toast.redaction_reason.softmask": "a transparency mask that draws content is under a mark",
   "toast.redaction_sanitized": "Also removed: {list}.",
   "toast.redaction_unchecked": "{count} small area(s) of compressed pictures could not be checked.",
+  "toast.redaction_quotes_partial": "{count} page(s) of this long document were not searched for other quotes of the removed words.",
   "toast.redaction_unchecked_save": "The redaction applied to this document has not been checked yet: it is checked now, before the file is written.",
   "toast.redaction_visual": "{count} blurred or pixelated area(s) were not checked: they are not a secure redaction.",
   "toast.redaction_working": "Applying the redaction…",

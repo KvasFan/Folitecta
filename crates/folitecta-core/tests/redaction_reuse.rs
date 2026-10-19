@@ -1,10 +1,14 @@
 //! Redaction of what drawings share: patterns and Type 3 fonts used by
-//! other paints, pages and forms, and the masks of pictures and the pictures
-//! of glyphs listed in the resources. Every test saves the result and reads
-//! the saved bytes again.
+//! other paints, pages and forms, the masks of pictures and the pictures of
+//! glyphs listed in the resources, and a long document. Every test saves the
+//! result and reads the saved bytes again.
+
+use std::time::{Duration, Instant};
 
 use folitecta_core::Document;
-use folitecta_core::redaction::{PictureReason, RedactionMethod, RedactionReport, check_redacted_bytes};
+use folitecta_core::redaction::{
+    PictureReason, RedactionMethod, RedactionOptions, RedactionReport, SanitizeOptions, check_redacted_bytes,
+};
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
 mod redaction_util;
@@ -475,4 +479,88 @@ fn masks_and_glyph_pictures_listed_in_the_resources_stay_with_what_draws_them() 
         changed_outside(&before, &render(&without_covers(&bytes), 0), &[shown(WORD_MARK)]),
         0
     );
+}
+
+// ---- A long document ------------------------------------------------------------------------
+
+#[test]
+fn a_long_document_sharing_its_drawings_is_redacted_and_checked_in_time() {
+    let pages = 2000;
+    let mut d = lopdf::Document::with_version("1.7");
+    let f = helvetica(&mut d);
+    let mut logo = String::new();
+    for i in 0..2500 {
+        logo.push_str(&format!(
+            "{} 760 m {} 770 l {} 760 l h f\n",
+            20 + i % 50,
+            21 + i % 50,
+            22 + i % 50
+        ));
+    }
+    // A logo without resources of its own, drawn twice by a form that has
+    // none either: both draw with the resources the pages share.
+    let lg = d.add_object(Stream::new(
+        dictionary! { "Type" => "XObject", "Subtype" => "Form", "BBox" => vec![0.into(), 750.into(), 600.into(), 800.into()] },
+        logo.into_bytes(),
+    ));
+    let wrap = d.add_object(Stream::new(
+        dictionary! { "Type" => "XObject", "Subtype" => "Form", "BBox" => vec![0.into(), 0.into(), 600.into(), 800.into()] },
+        b"/Logo Do q 1 0 0 1 0 -20 cm /Logo Do Q".to_vec(),
+    ));
+    let shared = d.add_object(dictionary! {
+        "Font" => dictionary! { "F1" => f }, "XObject" => dictionary! { "Logo" => lg, "Wrap" => wrap },
+    });
+    let pages_id = d.new_object_id();
+    let mut kids = Vec::new();
+    for i in 0..pages {
+        let c = d.add_object(Stream::new(
+            dictionary! {},
+            format!("/Wrap Do BT /F1 12 Tf 100 600 Td (page {i} LONGSECRET) Tj ET").into_bytes(),
+        ));
+        kids.push(Object::Reference(d.add_object(dictionary! {
+            "Type" => "Page", "Parent" => pages_id, "Contents" => c, "Resources" => shared,
+            "MediaBox" => vec![0.into(), 0.into(), 600.into(), 800.into()],
+        })));
+    }
+    d.objects.insert(
+        pages_id,
+        Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => kids, "Count" => pages as i64 }),
+    );
+    let cat = d.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+    d.trailer.set("Root", cat);
+    let mut bytes = Vec::new();
+    d.save_to(&mut bytes).unwrap();
+    let mut doc = Document::from_bytes(bytes, None, None).unwrap();
+    mark(&mut doc, 0, [95.0, 590.0, 400.0, 615.0]);
+    let t = Instant::now();
+    let report = doc
+        .apply_redactions_opts(
+            None,
+            &RedactionOptions {
+                method: RedactionMethod::Content,
+                sanitize: SanitizeOptions::none(),
+            },
+        )
+        .unwrap();
+    let applied = t.elapsed();
+    assert!(report.pages_as_pictures.is_empty(), "{report:?}");
+    let t = Instant::now();
+    let prepared = doc.prepare_save().unwrap();
+    let check = check_redacted_bytes(&prepared.bytes, prepared.key.as_ref(), &report).unwrap();
+    let checked_in = t.elapsed();
+    assert!(check.passed(), "{check:?}");
+    // The text of the redacted page and of the first others is searched for
+    // quotes; the rest is reported as not searched.
+    assert_eq!(check.quote_pages_skipped, pages - 100);
+    let page0 = lopdf::Document::load_mem(&prepared.bytes).unwrap();
+    let first = page0.get_pages()[&1];
+    let content = page0.get_page_content(first);
+    assert!(!holds(&content, b"LONGSECRET"));
+    if !cfg!(debug_assertions) {
+        assert!(applied < Duration::from_secs(10), "apply took {applied:?}");
+        assert!(
+            checked_in < Duration::from_secs(20),
+            "the check took {checked_in:?}"
+        );
+    }
 }

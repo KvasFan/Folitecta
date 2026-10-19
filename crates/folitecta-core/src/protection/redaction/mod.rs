@@ -454,17 +454,23 @@ impl Document {
     /// The pending redaction marks of the given pages (all when `None`): page,
     /// rectangle and look.
     pub fn pending_redaction_marks(&self, pages: Option<&[usize]>) -> Vec<(usize, [f32; 4], RedactionLook)> {
+        let doc = &self.inner;
         let mut out = Vec::new();
-        for p in 0..self.page_count() {
+        for (p, pid) in self.page_ids().into_iter().enumerate() {
             if pages.is_some_and(|sel| !sel.contains(&p)) {
                 continue;
             }
-            for a in self.annotations(p).unwrap_or_default() {
-                if a.subtype != "Redact" {
+            let Ok(pd) = doc.get_dictionary(pid) else { continue };
+            for (_, d) in crate::annots::annot_refs(doc, pd) {
+                if d.get(b"Subtype").ok().and_then(|s| s.as_name().ok()) != Some(b"Redact".as_slice()) {
                     continue;
                 }
-                let look = self.redaction_look(p, a.index).unwrap_or_default();
-                out.push((p, crate::geom::normalize(a.rect), look));
+                let rect = d
+                    .get(b"Rect")
+                    .ok()
+                    .and_then(|r| crate::util::rect_of(doc, r))
+                    .unwrap_or([0.0; 4]);
+                out.push((p, crate::geom::normalize(rect), read_look(doc, &d)));
             }
         }
         out

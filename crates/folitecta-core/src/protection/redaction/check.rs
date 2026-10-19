@@ -33,6 +33,7 @@ use crate::page_text::probe::{
 };
 use crate::pictures::{Colors, decode_image, filters, picture_colors, pixel_area};
 use crate::textedit::{shows_glyphs, text_ops_from};
+use crate::textlayer::PageText;
 use crate::util::{deref, text_of};
 
 /// Where the removed text is still quoted.
@@ -77,6 +78,9 @@ pub struct RedactionCheck {
     pub quoted_elsewhere: usize,
     /// Areas of pictures too small to check (lossy pictures).
     pub unchecked_pictures: usize,
+    /// Pages whose text was not searched for the removed words (a long
+    /// document: the redacted pages and the first others are searched).
+    pub quote_pages_skipped: usize,
 }
 
 impl RedactionCheck {
@@ -773,10 +777,15 @@ pub fn check_redacted_bytes(
         // The removed words in objects only a redacted page uses, unless the
         // page still shows them outside the marks.
         let page_ids = doc.page_ids();
+        let marked: Vec<usize> = data.marks.keys().copied().collect();
+        let layers: HashMap<usize, PageText> = crate::textlayer::extract_some(doc.bytes(), &marked)
+            .unwrap_or_default()
+            .into_iter()
+            .collect();
         for (&p, marks) in &data.marks {
             let Some(&pid) = page_ids.get(p) else { continue };
             let shown: Vec<[f32; 4]> = marks.iter().map(|m| m.shown).collect();
-            let visible = doc.visible_text(p, &shown);
+            let visible = doc.visible_text(p, &shown, layers.get(&p));
             let page_terms: Vec<Term> = terms
                 .iter()
                 .filter(|t| count_terms(&visible, std::slice::from_ref(t)) == 0)
@@ -839,15 +848,17 @@ pub fn check_redacted_bytes(
         if !left.is_empty() {
             out.quoted_elsewhere += doc.quote_places(&left).iter().map(|(_, n)| n).sum::<usize>();
         }
-        out.quoted_elsewhere += doc.quoted_in_pages_and_fields(terms);
+        let (quoted, skipped) = doc.quoted_in_pages_and_fields(terms, &marked, &layers);
+        out.quoted_elsewhere += quoted;
+        out.quote_pages_skipped = skipped;
     }
     Ok(out)
 }
 
 impl Document {
     /// The text a page shows outside the marks (`shown`, display space): the
-    /// glyphs the probe draws (hidden ones too) and the text layer.
-    fn visible_text(&self, page: usize, shown: &[[f32; 4]]) -> String {
+    /// glyphs the probe draws (hidden ones too) and the text layer (`layer`).
+    fn visible_text(&self, page: usize, shown: &[[f32; 4]], layer: Option<&PageText>) -> String {
         let mut s = String::new();
         if let Ok(pr) = probe_pages(
             &self.inner,
@@ -869,7 +880,7 @@ impl Document {
         s.push('\n');
         // The text layer joins words its own way; its characters under the
         // marks are left out.
-        if let Some(layer) = self.text_layer(page) {
+        if let Some(layer) = layer {
             for (i, c) in layer.text.chars().enumerate() {
                 let under = layer
                     .char_glyph
@@ -948,25 +959,56 @@ impl Document {
         ]
     }
 
-    /// Quotes in the page text, the comments and the form values (reported only).
-    fn quoted_in_pages_and_fields(&self, terms: &[Term]) -> usize {
+    /// Quotes in the page text, the comments and the form values (reported
+    /// only), and how many pages were not searched: a long document has the
+    /// text of its marked pages (`layers`) and of its first pages searched.
+    fn quoted_in_pages_and_fields(
+        &self,
+        terms: &[Term],
+        marked: &[usize],
+        layers: &HashMap<usize, PageText>,
+    ) -> (usize, usize) {
+        let count = self.page_count();
         let mut n = 0;
-        for p in 0..self.page_count() {
-            if let Some(layer) = self.text_layer(p) {
+        let mut skipped = 0;
+        if count <= QUOTE_PAGES {
+            for layer in self.text_layers().iter() {
                 n += count_terms(&layer.text, terms);
             }
-            for a in self.annotations(p).unwrap_or_default() {
-                if a.subtype != "Link" {
-                    n += count_terms(&a.contents, terms);
+        } else {
+            let first: Vec<usize> = (0..count)
+                .filter(|p| !marked.contains(p))
+                .take(QUOTE_PAGES.saturating_sub(marked.len()))
+                .collect();
+            let more = crate::textlayer::extract_some(self.bytes(), &first).unwrap_or_default();
+            let read = layers.len() + more.len();
+            for layer in layers.values().chain(more.iter().map(|(_, l)| l)) {
+                n += count_terms(&layer.text, terms);
+            }
+            skipped = count.saturating_sub(read);
+        }
+        let doc = &self.inner;
+        for pid in self.page_ids() {
+            let Ok(pd) = doc.get_dictionary(pid) else { continue };
+            for (_, a) in crate::annots::annot_refs(doc, pd) {
+                if a.get(b"Subtype").ok().and_then(|s| s.as_name().ok()) == Some(b"Link".as_slice()) {
+                    continue;
+                }
+                if let Some(t) = a.get(b"Contents").ok().and_then(|c| text_of(doc, c)) {
+                    n += count_terms(&t, terms);
                 }
             }
         }
         for f in self.form_fields() {
             n += count_terms(&f.value, terms);
         }
-        n
+        (n, skipped)
     }
 }
+
+/// Pages of a long document whose text is searched for quotes of the
+/// removed words.
+const QUOTE_PAGES: usize = 100;
 
 #[cfg(test)]
 mod tests {

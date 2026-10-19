@@ -57,9 +57,14 @@ wrapped in numbered marked content and optional content neutralized, so it tells
 of which stream — page or form, through the chain of drawings — drew each glyph and picture;
 glyphs under the marks leave their text operations, each replaced by a move of its width, paths
 lose their geometry there (fills and clips cut to the four bands around each mark, strokes cut
-where their ink would enter it), pictures and inline pictures get their pixels covered, forms
-drawn under a mark are redacted in place when drawn once and copied otherwise; what nothing draws
-any more leaves the file with every reference to it; comments and fields over the marks go with
+in their own space where their ink — caps and joins included — would enter it), pictures and
+inline pictures get their pixels covered, forms drawn under a mark are redacted in place when
+drawn once and copied otherwise, Type 3 fonts keep the glyph procedures of the codes still shown
+(with the resources those use), and a pattern of a paint removed whole that holds what was under
+a mark may not stay for another paint of the page; drawings are counted through the document
+once per set of resources (the masks of pictures and the procedures of shown Type 3 glyphs
+with them), and what nothing draws any more leaves the file with every reference to it, while
+what the marked pages list and nothing ever drew only leaves their resources; comments and fields over the marks go with
 their replies, signatures go, covers are tagged per redaction, and the document is sanitized as
 chosen; every edited page is checked before its covers are drawn and the exact bytes of a save
 can be checked — read again, decrypted with the kept key — before they are written; pages that
@@ -243,9 +248,12 @@ Mouse coordinates on a page image are converted to PDF user space with
 - Redaction applies rectangles only (no quadrilateral marks) and does not remove content
   outside the crop box. The moves that replace removed glyphs keep their widths, so the length
   of a removed word can be measured; shapes of removed glyphs stay in embedded font programs
-  that other text still uses, and in Type 3 fonts other pages share. Comments, form values and
-  page text elsewhere that quote the removed words are reported, not changed. Gradients and
-  transparency masks that could keep content under a mark, tiling patterns whose cell would
-  keep content under a mark that no other cell shows, vertical writing and drawings nested
-  more than 12 deep make the page a picture.
+  that other text still uses, and the procedures of a Type 3 font stay whole where the codes
+  another page or form shows with it cannot be told (the report says so). Patterns and forms
+  that other pages still draw stay for them. Comments, form values and page text elsewhere that
+  quote the removed words are reported, not changed; in documents of more than 100 pages only
+  the redacted pages and the first others are searched for them (the check says how many were
+  not). Gradients and transparency masks that could keep content under a mark, tiling patterns
+  whose cell would keep content under a mark that no other cell shows, vertical writing and
+  drawings nested more than 12 deep make the page a picture.
 - Commands marked *planned* in [FEATURES.md](FEATURES.md) open a roadmap notice.

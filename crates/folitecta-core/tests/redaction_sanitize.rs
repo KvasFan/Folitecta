@@ -991,7 +991,9 @@ fn a_large_document_sharing_its_resources_keeps_no_original_and_the_check_says_w
 
 /// A page whose picture carries metadata quoting the word, named by the
 /// document's open action and a bookmark.
-fn targeted_page() -> Document {
+/// A page whose picture and page metadata quote the word under the mark,
+/// named by a bookmark and the opening action when `named`.
+fn targeted_page(named: bool) -> Document {
     let mut d = lopdf::Document::with_version("1.7");
     let f = helvetica(&mut d);
     let imd = d.add_object(Stream::new(
@@ -1020,27 +1022,31 @@ fn targeted_page() -> Document {
         pages_id,
         Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => vec![p0.into()], "Count" => 1 }),
     );
-    let outlines = d.new_object_id();
-    let item = d.add_object(dictionary! { "Title" => lopdf::text_string("Start"), "Parent" => outlines, "Dest" => vec![p0.into(), Object::Name(b"Fit".to_vec())] });
-    d.objects.insert(
-        outlines,
-        Object::Dictionary(
-            dictionary! { "Type" => "Outlines", "First" => item, "Last" => item, "Count" => 1 },
-        ),
-    );
-    let cat = d.add_object(dictionary! {
-        "Type" => "Catalog", "Pages" => pages_id, "Outlines" => outlines,
-        "OpenAction" => vec![p0.into(), Object::Name(b"Fit".to_vec())],
-    });
+    let mut cat = dictionary! { "Type" => "Catalog", "Pages" => pages_id };
+    if named {
+        let outlines = d.new_object_id();
+        let item = d.add_object(dictionary! { "Title" => lopdf::text_string("Start"), "Parent" => outlines, "Dest" => vec![p0.into(), Object::Name(b"Fit".to_vec())] });
+        d.objects.insert(
+            outlines,
+            Object::Dictionary(
+                dictionary! { "Type" => "Outlines", "First" => item, "Last" => item, "Count" => 1 },
+            ),
+        );
+        cat.set("Outlines", outlines);
+        cat.set("OpenAction", vec![p0.into(), Object::Name(b"Fit".to_vec())]);
+    }
+    let cat = d.add_object(cat);
     d.trailer.set("Root", cat);
     let mut out = Vec::new();
     d.save_to(&mut out).unwrap();
     Document::from_bytes(out, None, None).unwrap()
 }
 
-#[test]
-fn a_page_named_by_destinations_is_still_checked_and_its_metadata_goes() {
-    let mut doc = targeted_page();
+/// The redacted page passes the check and loses the metadata quoting the
+/// word; the original file is caught: the word stays in what only the page
+/// uses, and the text layer under the mark does not count as shown.
+fn page_checked_and_its_metadata_gone(named: bool) {
+    let mut doc = targeted_page(named);
     let original = doc.bytes().to_vec();
     doc.add_redaction(0, [95.0, 690.0, 335.0, 725.0], "Reviewer")
         .unwrap();
@@ -1065,6 +1071,16 @@ fn a_page_named_by_destinations_is_still_checked_and_its_metadata_goes() {
         check.problems.contains(&CheckProblem::Residual { page: Some(0) }),
         "{check:?}"
     );
+}
+
+#[test]
+fn a_page_named_by_destinations_is_still_checked_and_its_metadata_goes() {
+    page_checked_and_its_metadata_gone(true);
+}
+
+#[test]
+fn a_page_no_destination_names_is_checked_without_the_text_under_its_marks() {
+    page_checked_and_its_metadata_gone(false);
 }
 
 #[test]

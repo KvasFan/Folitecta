@@ -231,6 +231,7 @@
   "toast.redaction_reason.softmask": "sotto un segno c'è una maschera di trasparenza che disegna contenuto",
   "toast.redaction_sanitized": "Rimossi anche: {list}.",
   "toast.redaction_unchecked": "{count} piccole aree di immagini compresse non hanno potuto essere controllate.",
+  "toast.redaction_quotes_partial": "{count} pagine di questo documento lungo non sono state cercate per altre citazioni delle parole rimosse.",
   "toast.redaction_unchecked_save": "La redazione applicata a questo documento non è ancora stata controllata: viene controllata ora, prima di scrivere il file.",
   "toast.redaction_visual": "{count} aree sfocate o pixelate non sono state controllate: non sono una redazione sicura.",
   "toast.redaction_working": "Applicazione della redazione…",

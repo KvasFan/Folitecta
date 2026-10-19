@@ -366,6 +366,13 @@ pub async fn save_redacted_copy_to(st: AppState, tab: u64, path: PathBuf) -> Res
             &[("count", &check.unchecked_pictures.to_string())],
         ));
     }
+    if check.quote_pages_skipped > 0 {
+        detail.push(tf(
+            lang,
+            "toast.redaction_quotes_partial",
+            &[("count", &check.quote_pages_skipped.to_string())],
+        ));
+    }
     st.toast(
         ToastKind::Ok,
         tf(lang, "toast.redaction_checked", &[("name", &name)]),

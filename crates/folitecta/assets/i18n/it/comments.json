@@ -85,6 +85,7 @@
   "measure.sep.space": "Spazio",
   "redact.apply": "Applica",
   "redact.apply_blurred": "{count} aree sono sfocate o pixelate: le loro immagini restano riconoscibili, quindi non sono una redazione sicura.",
+  "redact.apply_kept": "Altre pagine usano {type3} font Type 3 e {patterns} motivi che disegnano ciò che è sotto i segni: restano nel file per quelle pagine, con ciò che contengono.",
   "redact.apply_signatures": "Il documento ha {count} firme digitali. Un documento redatto non può mantenerle valide: vengono rimosse e i campi firma restano vuoti.",
   "redact.apply_summary": "{areas} aree marcate su {pages} pagine.",
   "redact.as_pictures": "Trasforma in immagini le pagine marcate (nulla di quelle pagine resta testo o disegno)",

@@ -350,9 +350,45 @@ fn gradients_shown_elsewhere_are_proven_or_send_the_page_to_pictures() {
 }
 
 #[test]
-fn a_pattern_another_page_paints_with_stays_for_that_page() {
-    // As with forms drawn on other pages, the pattern stays for the page that
-    // still paints with it; the redacted page no longer lists it.
+fn a_pattern_another_page_paints_with_stays_for_it_and_is_reported_unless_shown_there() {
+    // Page 1 paints over art B only: the pattern stays for it with art A,
+    // and the report says so. Page 1 painting the whole cell shows art A:
+    // nothing to report.
+    for (kept, other) in [
+        (1, "/Pattern cs /P1 scn 290 290 40 70 re f"),
+        (0, "/Pattern cs /P1 scn 0 0 400 400 re f"),
+    ] {
+        let mut doc = built(|d| {
+            let pat = big_cell(d);
+            let res = dictionary! { "Pattern" => dictionary! { "P1" => pat } };
+            vec![
+                ("/Pattern cs /P1 scn 140 290 40 70 re f".into(), res.clone()),
+                (other.into(), res),
+            ]
+        });
+        let before = render(&doc.bytes(), 1);
+        mark(&mut doc, 0, ART_MARK);
+        let report = apply(&mut doc);
+        assert!(report.pages_as_pictures.is_empty(), "{report:?}");
+        assert_eq!(report.patterns_kept, kept, "{other}: {report:?}");
+        let bytes = checked(&mut doc, &report, &format!("pattern-other-page-{kept}"));
+        assert_eq!(changed_outside(&before, &render(&bytes, 1), &[]), 0);
+        // The redacted page no longer lists the pattern.
+        let lo = lopdf::Document::load_mem(&bytes).unwrap();
+        let first = lo.get_pages()[&1];
+        let res = lo.get_dictionary(first).unwrap().get(b"Resources").unwrap();
+        let res = match res {
+            Object::Reference(r) => lo.get_dictionary(*r).unwrap(),
+            o => o.as_dict().unwrap(),
+        };
+        assert!(
+            res.get(b"Pattern")
+                .ok()
+                .and_then(|p| p.as_dict().ok())
+                .is_none_or(|p| !p.has(b"P1"))
+        );
+    }
+    // Drawn as a picture, the page leaves the pattern to page 1 the same way.
     let mut doc = built(|d| {
         let pat = big_cell(d);
         let res = dictionary! { "Pattern" => dictionary! { "P1" => pat } };
@@ -361,25 +397,17 @@ fn a_pattern_another_page_paints_with_stays_for_that_page() {
             ("/Pattern cs /P1 scn 290 290 40 70 re f".into(), res),
         ]
     });
-    let before = render(&doc.bytes(), 1);
     mark(&mut doc, 0, ART_MARK);
-    let report = apply(&mut doc);
-    assert!(report.pages_as_pictures.is_empty(), "{report:?}");
-    let bytes = checked(&mut doc, &report, "pattern-other-page");
-    assert_eq!(changed_outside(&before, &render(&bytes, 1), &[]), 0);
-    let lo = lopdf::Document::load_mem(&bytes).unwrap();
-    let first = lo.get_pages()[&1];
-    let res = lo.get_dictionary(first).unwrap().get(b"Resources").unwrap();
-    let res = match res {
-        Object::Reference(r) => lo.get_dictionary(*r).unwrap(),
-        o => o.as_dict().unwrap(),
-    };
-    assert!(
-        res.get(b"Pattern")
-            .ok()
-            .and_then(|p| p.as_dict().ok())
-            .is_none_or(|p| !p.has(b"P1"))
-    );
+    let report = doc
+        .apply_redactions_opts(
+            None,
+            &RedactionOptions {
+                method: RedactionMethod::Picture,
+                sanitize: SanitizeOptions::none(),
+            },
+        )
+        .unwrap();
+    assert_eq!(report.patterns_kept, 1, "{report:?}");
 }
 
 // ---- Type 3 fonts ----------------------------------------------------------------------
@@ -553,6 +581,53 @@ fn a_type3_font_whose_codes_cannot_be_told_is_reported_or_sends_its_page_to_pict
     assert_eq!(report.reasons, vec![(0, PictureReason::Font)], "{report:?}");
     assert_eq!(report.type3_kept, 0);
     let bytes = checked(&mut doc, &report, "t3-unknown-here");
+    assert!(absent(&bytes, "T3INNERSECRET"));
+}
+
+#[test]
+fn a_type3_font_a_graphics_state_sets_keeps_its_procedures_and_is_reported() {
+    let font = |d: &mut lopdf::Document| {
+        let f1 = helvetica(d);
+        let f = type3(d, f1, differences(), dictionary! {}, PROC_A);
+        let gs = d.add_object(
+            dictionary! { "Type" => "ExtGState", "Font" => vec![Object::Reference(f), 20.into()] },
+        );
+        (f, f1, gs)
+    };
+    // Page 1 shows `a` with the font its graphics state sets.
+    let mut doc = built(|d| {
+        let (f, f1, gs) = font(d);
+        vec![
+            (
+                format!("{LINE1}{LINE2}"),
+                dictionary! { "Font" => dictionary! { "T3" => f, "F1" => f1 } },
+            ),
+            (
+                "/G1 gs BT 100 100 Td (aaa) Tj ET".into(),
+                dictionary! { "ExtGState" => dictionary! { "G1" => gs }, "Font" => dictionary! { "F1" => f1 } },
+            ),
+        ]
+    });
+    let before = render(&doc.bytes(), 1);
+    mark(&mut doc, 0, LINE1_MARK);
+    let report = apply(&mut doc);
+    assert!(report.pages_as_pictures.is_empty(), "{report:?}");
+    assert_eq!(report.type3_kept, 1, "{report:?}");
+    let bytes = checked(&mut doc, &report, "t3-state-elsewhere");
+    assert_eq!(changed_outside(&before, &render(&bytes, 1), &[]), 0);
+    // The removed glyphs themselves were shown with it: which font they used
+    // is not told by their operations, so the page becomes a picture.
+    let mut doc = built(|d| {
+        let (_, f1, gs) = font(d);
+        vec![(
+            "/G1 gs BT 100 300 Td (abab) Tj ET".into(),
+            dictionary! { "ExtGState" => dictionary! { "G1" => gs }, "Font" => dictionary! { "F1" => f1 } },
+        )]
+    });
+    mark(&mut doc, 0, LINE1_MARK);
+    let report = apply(&mut doc);
+    assert_eq!(report.reasons, vec![(0, PictureReason::Font)], "{report:?}");
+    let bytes = checked(&mut doc, &report, "t3-state-here");
     assert!(absent(&bytes, "T3INNERSECRET"));
 }
 

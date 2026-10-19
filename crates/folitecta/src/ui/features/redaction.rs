@@ -214,6 +214,9 @@ fn SanitizeChecks(opts: Signal<SanitizeOptions>, counts: Option<SanitizeReport>,
 struct Preview {
     terms: Vec<String>,
     counts: SanitizeReport,
+    /// Type 3 fonts and patterns that other pages use and that would keep
+    /// what is under the marks (found by applying the marks to a copy).
+    kept: Option<(usize, usize)>,
 }
 
 /// The latest preview, with the request it answers (kept on the root, so a
@@ -233,19 +236,43 @@ fn start_preview(st: AppState, page: Option<usize>) -> u64 {
         placeholder: t(st.lang(), "redact.placeholder"),
         ..SanitizeOptions::default()
     };
+    let method = redaction_method(st);
     dioxus::core::spawn_forever(async move {
+        let pages = page.map(|p| vec![p]);
         let found = tokio::task::spawn_blocking(move || {
             let doc = snapshot.open().ok()?;
-            let pages = page.map(|p| vec![p]);
             let (terms, counts) = doc.redaction_preview(pages.as_deref(), &opts);
-            Some(Preview {
-                terms: terms.iter().map(|t| t.shown().to_string()).collect(),
-                counts,
-            })
+            Some((
+                doc,
+                pages,
+                Preview {
+                    terms: terms.iter().map(|t| t.shown().to_string()).collect(),
+                    counts,
+                    kept: None,
+                },
+            ))
         })
         .await;
-        if let Ok(Some(p)) = found {
-            *PREVIEW.write() = Some((request, p));
+        let Ok(Some((mut doc, pages, preview))) = found else {
+            return;
+        };
+        *PREVIEW.write() = Some((request, preview.clone()));
+        // What would stay for other pages: the marks applied to the copy.
+        let kept = tokio::task::spawn_blocking(move || {
+            let opts = RedactionOptions {
+                method,
+                sanitize: SanitizeOptions::none(),
+            };
+            doc.apply_redactions_opts(pages.as_deref(), &opts)
+                .ok()
+                .map(|r| (r.type3_kept, r.patterns_kept))
+        })
+        .await;
+        if let Ok(kept) = kept {
+            let still = PREVIEW.peek().as_ref().is_some_and(|(id, _)| *id == request);
+            if still {
+                *PREVIEW.write() = Some((request, Preview { kept, ..preview }));
+            }
         }
     });
     request
@@ -274,6 +301,7 @@ pub fn ApplyRedactionsDialog(page: Option<usize>) -> Element {
     let counting = preview.is_none();
     let counts = preview.as_ref().map(|p| p.counts.clone());
     let terms = preview.as_ref().map(|p| p.terms.clone()).unwrap_or_default();
+    let kept = preview.as_ref().and_then(|p| p.kept);
     let summary_text = tf(
         lang,
         "redact.apply_summary",
@@ -309,6 +337,9 @@ pub fn ApplyRedactionsDialog(page: Option<usize>) -> Element {
             }
             if summary.signatures > 0 {
                 div { class: "callout warn", "{tf(lang, \"redact.apply_signatures\", &[(\"count\", &summary.signatures.to_string())])}" }
+            }
+            if let Some((type3, patterns)) = kept.filter(|(a, b)| a + b > 0) {
+                div { class: "callout warn", "{tf(lang, \"redact.apply_kept\", &[(\"type3\", &type3.to_string()), (\"patterns\", &patterns.to_string())])}" }
             }
             h4 { "{t(lang, \"redact.sanitize_scope\")}" }
             SanitizeChecks { opts, counts, counting }

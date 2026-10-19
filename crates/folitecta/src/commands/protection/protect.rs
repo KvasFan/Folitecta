@@ -153,17 +153,64 @@ fn report_toasts(st: AppState, r: &RedactionReport) {
             "",
         );
     }
-    if r.type3_kept > 0 {
-        st.toast(
-            ToastKind::Warn,
-            tf(
-                lang,
-                "toast.redaction_type3_kept",
-                &[("count", &r.type3_kept.to_string())],
-            ),
-            "",
-        );
+    for notice in kept_notices(lang, r) {
+        st.toast(ToastKind::Warn, notice, "");
     }
+}
+
+/// What the redaction left in the file for other pages that still use it:
+/// Type 3 fonts and patterns that may still draw what was under the marks.
+pub fn kept_notices(lang: Lang, r: &RedactionReport) -> Vec<String> {
+    let mut out = Vec::new();
+    if r.type3_kept > 0 {
+        out.push(tf(
+            lang,
+            "toast.redaction_type3_kept",
+            &[("count", &r.type3_kept.to_string())],
+        ));
+    }
+    if r.patterns_kept > 0 {
+        out.push(tf(
+            lang,
+            "toast.redaction_patterns_kept",
+            &[("count", &r.patterns_kept.to_string())],
+        ));
+    }
+    out
+}
+
+/// What the check of a saved redaction reports besides its problems.
+pub fn check_details(lang: Lang, check: &RedactionCheck) -> Vec<String> {
+    let mut detail = Vec::new();
+    if check.quoted_elsewhere > 0 {
+        detail.push(tf(
+            lang,
+            "toast.redaction_quoted",
+            &[("count", &check.quoted_elsewhere.to_string())],
+        ));
+    }
+    if check.visual_only > 0 {
+        detail.push(tf(
+            lang,
+            "toast.redaction_visual",
+            &[("count", &check.visual_only.to_string())],
+        ));
+    }
+    if check.unchecked_pictures > 0 {
+        detail.push(tf(
+            lang,
+            "toast.redaction_unchecked",
+            &[("count", &check.unchecked_pictures.to_string())],
+        ));
+    }
+    if check.quote_pages_skipped > 0 {
+        detail.push(tf(
+            lang,
+            "toast.redaction_quotes_partial",
+            &[("count", &check.quote_pages_skipped.to_string())],
+        ));
+    }
+    detail
 }
 
 /// Apply the redaction marks of `pages` (all when `None`) as `opts` says, on
@@ -344,35 +391,7 @@ pub async fn save_redacted_copy_to(st: AppState, tab: u64, path: PathBuf) -> Res
     st.save_prefs();
     files::set_window_title(st);
     crate::recovery::checkpoint(st);
-    let mut detail = Vec::new();
-    if check.quoted_elsewhere > 0 {
-        detail.push(tf(
-            lang,
-            "toast.redaction_quoted",
-            &[("count", &check.quoted_elsewhere.to_string())],
-        ));
-    }
-    if check.visual_only > 0 {
-        detail.push(tf(
-            lang,
-            "toast.redaction_visual",
-            &[("count", &check.visual_only.to_string())],
-        ));
-    }
-    if check.unchecked_pictures > 0 {
-        detail.push(tf(
-            lang,
-            "toast.redaction_unchecked",
-            &[("count", &check.unchecked_pictures.to_string())],
-        ));
-    }
-    if check.quote_pages_skipped > 0 {
-        detail.push(tf(
-            lang,
-            "toast.redaction_quotes_partial",
-            &[("count", &check.quote_pages_skipped.to_string())],
-        ));
-    }
+    let detail = check_details(lang, &check);
     st.toast(
         ToastKind::Ok,
         tf(lang, "toast.redaction_checked", &[("name", &name)]),
@@ -424,4 +443,35 @@ handlers! {
     "document.security" => |st| doc_dialog(st, Dialog::Security),
     "standardSecPolicy" => |st| doc_dialog(st, Dialog::Security),
     "saveUnrestricted" => |st| files::save_unprotected_copy(st),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn what_stays_for_other_pages_and_pages_not_searched_reach_the_toasts() {
+        for lang in [Lang::En, Lang::It] {
+            let mut r = RedactionReport::default();
+            assert!(kept_notices(lang, &r).is_empty());
+            r.type3_kept = 2;
+            r.patterns_kept = 3;
+            let notices = kept_notices(lang, &r);
+            assert_eq!(notices.len(), 2);
+            assert!(
+                notices[0].contains('2') && notices[1].contains('3'),
+                "{notices:?}"
+            );
+            assert!(notices.iter().all(|n| !n.contains("toast.")), "{notices:?}");
+            let mut check = RedactionCheck::default();
+            assert!(check_details(lang, &check).is_empty());
+            check.quote_pages_skipped = 1900;
+            let detail = check_details(lang, &check);
+            assert_eq!(detail.len(), 1);
+            assert!(
+                detail[0].contains("1900") && !detail[0].contains("toast."),
+                "{detail:?}"
+            );
+        }
+    }
 }

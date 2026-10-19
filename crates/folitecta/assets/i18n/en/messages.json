@@ -192,6 +192,7 @@
   "toast.redaction_as_pictures": "Pages drawn as pictures: {pages}.",
   "toast.redaction_blurred": "{count} blurred or pixelated area(s) only hide their pictures from view: not a secure redaction.",
   "toast.redaction_type3_kept": "{count} Type 3 font(s) that lost glyphs under the marks are still used elsewhere in a way that cannot be told glyph by glyph: their glyph drawings stay whole in the file and may still draw what was removed.",
+  "toast.redaction_patterns_kept": "{count} pattern(s) painted under the marks are still used by other pages that do not show what they hold: they stay in the file for those pages and still contain what was under the marks.",
   "toast.redaction_busy": "A redaction of this document is being applied.",
   "toast.redaction_changed": "The document changed while the redaction was being applied, so nothing was changed. Apply it again.",
   "toast.redaction_check_failed": "{name} was not written: the check found {count} problem(s).",

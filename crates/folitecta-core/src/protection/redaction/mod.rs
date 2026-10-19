@@ -22,6 +22,7 @@ mod inline;
 mod paths;
 mod sanitize;
 mod scan;
+mod shared;
 mod terms;
 mod tidy;
 
@@ -668,6 +669,16 @@ impl Document {
                 .flat_map(|pid| listed_by_page(&self.inner, *pid))
                 .collect()
         };
+        // Patterns painted under the marks: another page still painting
+        // with one may keep what it held.
+        let mark_rects: Vec<(ObjectId, Vec<Rect>)> = {
+            let ids = self.page_ids();
+            marks
+                .iter()
+                .filter_map(|(p, ms)| Some((*ids.get(*p)?, ms.iter().map(|m| m.pdf).collect())))
+                .collect()
+        };
+        let under_patterns = self.patterns_under_marks(&mark_rects);
         let markers = probe.as_ref().map(|p| p.ids.draw_markers()).unwrap_or_default();
         let mut work = Work::default();
         let mut as_pictures: BTreeMap<usize, PictureReason> = BTreeMap::new();
@@ -816,6 +827,7 @@ impl Document {
         self.inner.prune_objects();
         // Type 3 fonts that lost glyphs and are still drawn where the codes
         // shown cannot be told keep all their procedures.
+        report.patterns_kept = self.patterns_kept_for_others(&under_patterns, &mark_rects, &counts_after);
         report.type3_kept = type3_lost
             .iter()
             .filter(|id| self.inner.objects.contains_key(id) && counts_after.type3_unknown.contains(id))

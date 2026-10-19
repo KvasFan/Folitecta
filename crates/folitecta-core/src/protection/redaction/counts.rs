@@ -142,6 +142,18 @@ pub(super) fn type3_font<'a>(
     type3.then_some((entry.as_reference().ok(), font))
 }
 
+/// The Type 3 font an ExtGState sets (its `/Font` entry): its object (when
+/// indirect) and dictionary.
+pub(super) fn font_of_state<'a>(
+    doc: &'a lopdf::Document,
+    state: &'a Dictionary,
+) -> Option<(Option<ObjectId>, &'a Dictionary)> {
+    let entry = deref(doc, state.get(b"Font").ok()?).as_array().ok()?.first()?;
+    let font = deref(doc, entry).as_dict().ok()?;
+    let type3 = font.get(b"Subtype").ok().and_then(|v| v.as_name().ok()) == Some(b"Type3".as_slice());
+    type3.then_some((entry.as_reference().ok(), font))
+}
+
 /// A content stream in the context of the resources it draws with: the
 /// stream and the key of those resources.
 type Node = (ObjectId, ObjectId);
@@ -208,10 +220,22 @@ impl Graph<'_> {
         codes: Option<&HashSet<u8>>,
         agg: &mut Agg,
     ) {
+        if let Some((fid, font)) = type3_font(self.doc, res, name) {
+            self.type3_font_edges(fid, font, owner, codes, agg);
+        }
+    }
+
+    /// The glyph procedures Type 3 font `font` (object `fid`) draws for
+    /// `codes` (all of them when the codes are not known or cannot be told).
+    fn type3_font_edges(
+        &mut self,
+        fid: Option<ObjectId>,
+        font: &Dictionary,
+        owner: ObjectId,
+        codes: Option<&HashSet<u8>>,
+        agg: &mut Agg,
+    ) {
         let doc = self.doc;
-        let Some((fid, font)) = type3_font(doc, res, name) else {
-            return;
-        };
         let Some(procs) = font
             .get(b"CharProcs")
             .ok()
@@ -343,12 +367,18 @@ impl Graph<'_> {
                     }
                 }
                 b"gs" => {
-                    let g = op
+                    let gd = op
                         .operands
                         .first()
                         .and_then(|r| name_of(data, *r))
                         .and_then(|n| resource(doc, &res, b"ExtGState", &n))
-                        .and_then(|d| d.as_dict().ok())
+                        .and_then(|d| d.as_dict().ok());
+                    // A font set by the state: which glyphs it shows is not
+                    // read here, so all of them count.
+                    if let Some((fid, f)) = gd.and_then(|d| font_of_state(doc, d)) {
+                        self.type3_font_edges(fid, f, owner, None, &mut agg);
+                    }
+                    let g = gd
                         .and_then(|d| d.get(b"SMask").ok())
                         .map(|m| deref(doc, m))
                         .and_then(|m| m.as_dict().ok())

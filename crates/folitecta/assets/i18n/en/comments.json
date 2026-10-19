@@ -85,6 +85,7 @@
   "measure.sep.space": "Space",
   "redact.apply": "Apply",
   "redact.apply_blurred": "{count} area(s) are blurred or pixelated: their pictures stay recognisable, so they are not a secure redaction.",
+  "redact.apply_kept": "Other pages use {type3} Type 3 font(s) and {patterns} pattern(s) that draw what is under the marks: they stay in the file for those pages, with what they hold.",
   "redact.apply_signatures": "The document has {count} digital signature(s). A redacted document cannot keep them valid: they are removed and the signature fields stay empty.",
   "redact.apply_summary": "{areas} marked area(s) on {pages} page(s).",
   "redact.as_pictures": "Draw the marked pages as pictures (nothing of those pages stays text or drawing)",

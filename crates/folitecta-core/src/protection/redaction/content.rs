@@ -58,6 +58,10 @@ pub struct RedactionReport {
     /// procedures stay whole in the file, and may draw what the removed
     /// glyphs drew.
     pub type3_kept: usize,
+    /// Patterns painted under the marks that other pages still paint with
+    /// without showing what they hold: they stay in the file for those
+    /// pages, with what was under the marks.
+    pub patterns_kept: usize,
     /// What sanitizing removed.
     pub sanitized: SanitizeReport,
     /// Every page edited by content passed the check before its covers

@@ -14,7 +14,7 @@ use hayro::kurbo::{Affine, Rect};
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
 use super::RedactionLook;
-use super::counts::{Counts, type3_font, type3_glyph_names};
+use super::counts::{Counts, font_of_state, type3_font, type3_glyph_names};
 use super::inline::inline_picture;
 use super::paths::{PathEdit, empty_clip, exclusion_clip, redact_path, shading_shown_elsewhere};
 use super::scan::{Gs, Paint, PathObj, Props, exact_region, page_state, path_bounds, resource, scan};
@@ -258,7 +258,7 @@ fn form_dict(doc: &lopdf::Document, orig: &Dictionary, res: Dictionary) -> Dicti
     d
 }
 
-fn affine_of(doc: &lopdf::Document, o: Option<&Object>) -> Affine {
+pub(super) fn affine_of(doc: &lopdf::Document, o: Option<&Object>) -> Affine {
     let v: Vec<f64> = o
         .and_then(|o| deref(doc, o).as_array().ok())
         .map(|a| {
@@ -278,7 +278,7 @@ fn affine_of(doc: &lopdf::Document, o: Option<&Object>) -> Affine {
     }
 }
 
-fn rect_value(doc: &lopdf::Document, o: Option<&Object>) -> Option<Rect> {
+pub(super) fn rect_value(doc: &lopdf::Document, o: Option<&Object>) -> Option<Rect> {
     let r = crate::util::rect_of(doc, deref(doc, o?))?;
     Some(Rect::new(r[0] as f64, r[1] as f64, r[2] as f64, r[3] as f64))
 }
@@ -421,8 +421,30 @@ pub(super) fn used_names(
             }
             b"gs" => {
                 if let Some(n) = first() {
-                    if let Some(g) = resource(doc, res, b"ExtGState", &n)
-                        .and_then(|d| d.as_dict().ok())
+                    let state = resource(doc, res, b"ExtGState", &n).and_then(|d| d.as_dict().ok());
+                    // A state setting the font: the text after it shows with
+                    // a font no name tells.
+                    if state.is_some_and(|d| d.has(b"Font")) {
+                        add(SHOWN_ANY, Vec::new());
+                        if let Some((_, font)) = state.and_then(|d| font_of_state(doc, d)) {
+                            if !font.has(b"Resources") {
+                                if let Some(procs) = font
+                                    .get(b"CharProcs")
+                                    .ok()
+                                    .and_then(|c| deref(doc, c).as_dict().ok())
+                                {
+                                    for (_, p) in procs.iter() {
+                                        if let Ok(pid) = p.as_reference() {
+                                            if seen.insert(pid) {
+                                                nested.push(pid);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if let Some(g) = state
                         .and_then(|d| d.get(b"SMask").ok())
                         .map(|m| deref(doc, m))
                         .and_then(|m| m.as_dict().ok())
@@ -517,6 +539,27 @@ pub(super) fn used_names(
             used_names(doc, &data, res, out, seen);
         }
     }
+}
+
+/// A matrix keeps rectangles of its space rectangles of page space.
+pub(super) fn axis_aligned(m: Affine) -> bool {
+    let c = m.as_coeffs();
+    (c[1].abs() < 1e-12 && c[2].abs() < 1e-12) || (c[0].abs() < 1e-12 && c[3].abs() < 1e-12)
+}
+
+/// A content stream sets the font through a graphics state (`/Font` of an
+/// ExtGState it uses).
+fn sets_font_by_state(doc: &lopdf::Document, data: &[u8], res: &Dictionary) -> bool {
+    operations(data).iter().any(|op| {
+        op.operator == b"gs"
+            && op
+                .operands
+                .first()
+                .and_then(|r| name_of(data, *r))
+                .and_then(|n| resource(doc, res, b"ExtGState", &n))
+                .and_then(|d| d.as_dict().ok())
+                .is_some_and(|d| d.has(b"Font"))
+    })
 }
 
 /// Pseudo-categories of [`used_names`]: fonts showing glyphs, and glyphs
@@ -656,7 +699,7 @@ fn drop_unused_at(
 }
 
 /// What a pattern of the resources paints.
-enum PatternKind {
+pub(super) enum PatternKind {
     /// A tiling pattern: whether its cell draws text or pictures, the bounds
     /// of what the cell draws (pattern space; None when nothing), the steps
     /// between cells and the pattern matrix.
@@ -757,9 +800,14 @@ fn paints(text: &str) -> bool {
 }
 
 fn pattern_kind(doc: &lopdf::Document, res: &Dictionary, name: &[u8]) -> PatternKind {
-    let Some(p) = resource(doc, res, b"Pattern", name) else {
-        return PatternKind::Unknown;
-    };
+    match resource(doc, res, b"Pattern", name) {
+        Some(p) => pattern_kind_of(doc, p, res),
+        None => PatternKind::Unknown,
+    }
+}
+
+/// What pattern `p` paints (drawn with the resources `res` when it has none).
+pub(super) fn pattern_kind_of(doc: &lopdf::Document, p: &Object, res: &Dictionary) -> PatternKind {
     let (dict, stream) = match p {
         Object::Dictionary(d) => (d, None),
         Object::Stream(s) => (&s.dict, Some(s)),
@@ -809,7 +857,7 @@ fn pattern_kind(doc: &lopdf::Document, res: &Dictionary, name: &[u8]) -> Pattern
     }
 }
 
-fn shading_type(doc: &lopdf::Document, d: &Dictionary) -> i64 {
+pub(super) fn shading_type(doc: &lopdf::Document, d: &Dictionary) -> i64 {
     d.get(b"ShadingType")
         .ok()
         .map(|t| deref(doc, t))
@@ -1001,6 +1049,11 @@ impl Document {
                 return Err(R::Font);
             }
         }
+        if !removed.is_empty() && sets_font_by_state(&self.inner, &h.data, &res) {
+            // Which font the removed glyphs used is not told by their
+            // operations (a graphics state set it).
+            return Err(R::Font);
+        }
         if !removed.is_empty() {
             let fonts = res
                 .get(b"Font")
@@ -1115,9 +1168,7 @@ impl Document {
             let mut exact = gs.clip_exact;
             if let Some(b) = rect_value(&self.inner, sh.get(b"BBox").ok()) {
                 area = area.intersect(gs.ctm.transform_rect_bbox(b));
-                let c = gs.ctm.as_coeffs();
-                exact &=
-                    (c[1].abs() < 1e-12 && c[2].abs() < 1e-12) || (c[0].abs() < 1e-12 && c[3].abs() < 1e-12);
+                exact &= axis_aligned(gs.ctm);
             }
             if area.width() <= 0.0 || area.height() <= 0.0 || !rects.iter().any(|r| overlaps(area, *r)) {
                 continue;
@@ -1304,6 +1355,7 @@ impl Document {
             let mut gs1 = d.gs.clone();
             gs1.ctm = m;
             gs1.clip = d.gs.clip.intersect(area);
+            gs1.clip_exact &= axis_aligned(m);
             let sub = Holder {
                 key: StreamKey::Form(d.id),
                 data: stream_data(&fs),
@@ -1549,7 +1601,13 @@ impl Document {
 /// `area`: whether one puts something under a mark, and whether a whole one
 /// shows outside the marks. A motif repeated very often, or a degenerate
 /// one, counts as shown.
-fn cell_tiles(cell: Rect, step: (f64, f64), m: Affine, area: Rect, rects: &[Rect]) -> (bool, bool) {
+pub(super) fn cell_tiles(
+    cell: Rect,
+    step: (f64, f64),
+    m: Affine,
+    area: Rect,
+    rects: &[Rect],
+) -> (bool, bool) {
     if m.determinant().abs() < 1e-12 || area.width() <= 0.0 || area.height() <= 0.0 {
         return (false, true);
     }

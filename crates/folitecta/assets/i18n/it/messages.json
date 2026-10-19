@@ -192,6 +192,7 @@
   "toast.redaction_as_pictures": "Pagine trasformate in immagini: {pages}.",
   "toast.redaction_blurred": "{count} aree sfocate o pixelate nascondono le immagini solo alla vista: non è una redazione sicura.",
   "toast.redaction_type3_kept": "{count} font Type 3 che hanno perso glifi sotto i segni sono ancora usati altrove in un modo che non si può verificare glifo per glifo: i loro disegni dei glifi restano interi nel file e possono ancora disegnare ciò che è stato rimosso.",
+  "toast.redaction_patterns_kept": "{count} motivi dipinti sotto i segni sono ancora usati da altre pagine che non mostrano ciò che contengono: restano nel file per quelle pagine e contengono ancora ciò che era sotto i segni.",
   "toast.redaction_busy": "È in corso l'applicazione di una redazione di questo documento.",
   "toast.redaction_changed": "Il documento è cambiato mentre si applicava la redazione, quindi non è stato modificato nulla. Applicala di nuovo.",
   "toast.redaction_check_failed": "{name} non è stato scritto: il controllo ha trovato {count} problemi.",

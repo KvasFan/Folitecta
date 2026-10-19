@@ -1060,7 +1060,14 @@ fn page_checked_and_its_metadata_gone(named: bool) {
     let report = doc.apply_redactions_opts(None, &quoting_only).unwrap();
     let check = check_now(&mut doc, &report);
     assert!(check.passed(), "{check:?}");
-    let bytes = saved(&mut doc, "targeted");
+    let bytes = saved(
+        &mut doc,
+        if named {
+            "targeted-named"
+        } else {
+            "targeted-unnamed"
+        },
+    );
     // The metadata of the covered picture and of the page went (metadata
     // sanitizing off), with the word they quoted.
     assert!(absent(&bytes, "RESIDUALWORD"));

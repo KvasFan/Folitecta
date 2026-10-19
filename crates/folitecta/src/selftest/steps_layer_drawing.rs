@@ -74,6 +74,30 @@ fn saved_layers(path: &std::path::Path) -> Result<Vec<(String, Option<String>)>,
         .collect())
 }
 
+/// The comments listed by the comments pane.
+async fn items() -> u64 {
+    eval("return document.querySelectorAll('.comment-item').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0)
+}
+
+/// Choose `value` in the list `selector`; whether the list was there.
+async fn choose_in_dialog(selector: &str, value: &str) -> bool {
+    let found = eval(&format!(
+        "const s = document.querySelector({}); if (s) {{ s.value = {}; s.dispatchEvent(new Event('change', {{ bubbles: true }})); }} return !!s;",
+        serde_json::to_string(selector).unwrap_or_default(),
+        serde_json::to_string(value).unwrap_or_default()
+    ))
+    .await
+    .ok()
+    .and_then(|v| v.as_bool())
+    .unwrap_or(false);
+    pause(300).await;
+    found
+}
+
 fn last_annot(st: AppState) -> Option<folitecta_core::Annotation> {
     annots_on(st, 0).pop()
 }
@@ -273,6 +297,122 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         "with no drawing layer a stroke belongs to no layer",
         cleared && none && chip_gone,
         format!("cleared {cleared}, no layer {none}, chip gone {chip_gone}"),
+    );
+    let Some(free) = last.map(|a| a.index) else {
+        return;
+    };
+    st.set_tool(Tool::Hand);
+    let value = format!("{}-{}", layer.0, layer.1);
+
+    // The comments pane leaves out the comments of hidden layers unless its
+    // option is on.
+    {
+        let mut ui = st.ui_mut();
+        ui.left_pane = "comments".into();
+        ui.show_left_pane = true;
+    }
+    // Every comment listed: no filter, no collapsed groups.
+    st.set_value("comments.collapsed", "");
+    st.with_active(|t| t.set_comment_filter(Default::default()));
+    st.with_active(|t| t.set_layer_view(std::collections::HashMap::from([(layer, false)])));
+    pause(700).await;
+    let hidden_items = items().await;
+    st.set_option("commentsView.showCommentsFromHiddenLayers", true);
+    pause(700).await;
+    let all_items = items().await;
+    st.set_option("commentsView.showCommentsFromHiddenLayers", false);
+    st.with_active(|t| t.set_layer_view(std::collections::HashMap::new()));
+    pause(500).await;
+    cx.record(
+        "the comments pane lists hidden layers' comments only with its option",
+        all_items == hidden_items + 3,
+        format!("{hidden_items} listed with the layer hidden, {all_items} with the option on"),
+    );
+
+    // Choose Layer with a comment selected: the comment goes to the layer
+    // (the dialog checked at the smallest size).
+    st.with_active(|t| t.set_chosen(0, &[free]));
+    crate::commands::dispatch(st, "chooseLayer");
+    pause(500).await;
+    let radios = eval("return document.querySelectorAll('.dialog input[name=choose-layer-for]').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    set_size(960.0, 620.0);
+    pause(700).await;
+    cx.failures += check(st, dir, "960x620-choose-layer-comments", cx.log).await;
+    set_size(1280.0, 800.0);
+    pause(500).await;
+    choose_in_dialog("select.choose-layer", &value).await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(700).await;
+    let moved = st.read_active(|t| t.doc.annotation_layer(0, free)).flatten();
+    cx.record(
+        "Choose Layer puts the selected comment on the layer",
+        radios == 2 && moved == Some(layer),
+        format!("{radios} choices of what to apply to; comment on {moved:?}"),
+    );
+
+    // Choose Layer with nothing selected: the drawing layer.
+    st.with_active(|t| t.selected_annot = None);
+    crate::commands::dispatch(st, "chooseLayer");
+    pause(500).await;
+    choose_in_dialog("select.choose-layer", &value).await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(500).await;
+    let chosen = st.read_active(|t| t.doc.drawing_layer()).flatten();
+    crate::commands::dispatch(st, "defaultLayer");
+    pause(300).await;
+    let cleared = st
+        .read_active(|t| t.doc.drawing_layer().is_none())
+        .unwrap_or(false);
+    cx.record(
+        "Choose Layer chooses the drawing layer, Default Layer clears it",
+        chosen == Some(layer) && cleared,
+        format!("chosen {chosen:?}, cleared {cleared}"),
+    );
+
+    // The Layer field of the properties takes the comment off the layer.
+    st.ui_mut().show_right_pane = true;
+    st.with_active(|t| t.set_chosen(0, &[free]));
+    pause(600).await;
+    let field = choose_in_dialog(".right-pane select.comment-layer", "none").await;
+    pause(600).await;
+    let off = st.read_active(|t| t.doc.annotation_layer(0, free)).flatten();
+    st.ui_mut().show_right_pane = false;
+    cx.record(
+        "the Layer field of the properties changes the layer of a comment",
+        field && off.is_none(),
+        format!("field found {field}, comment on {off:?}"),
+    );
+
+    // Move to New Layer through its dialog.
+    st.with_active(|t| t.set_chosen(0, &[free]));
+    crate::commands::dispatch(st, "moveToNewLayer");
+    pause(500).await;
+    let _ = eval(
+        "const i = document.querySelector('.dialog input'); if (i) { i.value = 'Moved here'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
+    )
+    .await;
+    pause(300).await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(700).await;
+    let (new_layer, on) = st
+        .read_active(|t| {
+            let id = t
+                .doc
+                .layers()
+                .into_iter()
+                .find(|l| l.name == "Moved here")
+                .map(|l| l.id);
+            (id, t.doc.annotation_layer(0, free))
+        })
+        .unwrap_or((None, None));
+    cx.record(
+        "Move to New Layer puts the selected comment on a new layer",
+        new_layer.is_some() && on == new_layer,
+        format!("layer {new_layer:?}, comment on {on:?}"),
     );
 
     st.set_tool(Tool::Hand);

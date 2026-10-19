@@ -300,6 +300,23 @@ pub(crate) fn text_ops_from(data: &[u8], init: &TextState) -> (Vec<TextOp>, Vec<
     (out, ends)
 }
 
+/// The operation shows at least one byte of text.
+pub(crate) fn shows_glyphs(data: &[u8], op: &TextOp) -> bool {
+    let Some(last) = op.operands.last() else {
+        return false;
+    };
+    let tok = &data[last.0..last.1];
+    if op.operator == b"TJ" {
+        array_items(tok).is_some_and(|items| {
+            items
+                .iter()
+                .any(|i| matches!(i, ArrayItem::Str(b) if !b.is_empty()))
+        })
+    } else {
+        string_bytes(tok).is_some_and(|b| !b.is_empty())
+    }
+}
+
 /// A glyph or a position adjustment of a text-showing operation.
 #[derive(Debug, Clone, PartialEq)]
 enum Piece {

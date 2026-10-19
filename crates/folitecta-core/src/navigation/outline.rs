@@ -393,7 +393,7 @@ impl Document {
     }
 
     /// Ids of the outline root and every outline item reachable from it.
-    fn outline_objects(&self) -> Vec<ObjectId> {
+    pub(crate) fn outline_objects(&self) -> Vec<ObjectId> {
         let doc = &self.inner;
         let mut out = Vec::new();
         let Some(root) = doc

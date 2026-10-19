@@ -1010,6 +1010,28 @@ impl Document {
         Ok(())
     }
 
+    /// Remove the layers that are hidden by default with their content
+    /// (pages, forms, annotations), without an undo step of its own.
+    /// Returns how many layers went.
+    pub(crate) fn remove_hidden_layers_in(&mut self) -> Result<usize> {
+        let hidden: HashSet<ObjectId> = self
+            .layer_defaults()
+            .into_iter()
+            .filter(|(_, visible)| !visible)
+            .map(|(id, _)| id)
+            .collect();
+        if hidden.is_empty() {
+            return Ok(0);
+        }
+        let plan = Plan {
+            affected: Some(hidden.clone()),
+            keep: HashSet::new(),
+        };
+        self.apply_plan(&plan, false)?;
+        self.drop_layers(&hidden)?;
+        Ok(hidden.len())
+    }
+
     /// Make layer content permanent: content of visible layers stays, content
     /// of hidden layers is removed, and the layers go away. `ids` limits the
     /// layers (all when `None`); `visible` gives their visibility (the

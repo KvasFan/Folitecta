@@ -991,14 +991,34 @@ impl Document {
     /// Remove every signature (the fields stay, empty) and the certification
     /// (one undo step). Returns how many signatures were removed.
     pub fn clear_signatures(&mut self) -> Result<usize> {
-        let signed = self.signed_fields();
-        if signed.is_empty() {
+        if self.signed_fields().is_empty() {
             return Ok(0);
         }
         self.begin_edit();
+        let n = self.clear_signatures_in();
+        self.commit()?;
+        Ok(n)
+    }
+
+    /// How many digital signatures the document carries.
+    pub fn signed_count(&self) -> usize {
+        self.signed_fields().len()
+    }
+
+    /// [`Document::clear_signatures`] without an undo step of its own: the
+    /// signatures, their appearances, the certification and the validation
+    /// material go; the fields stay, empty, and the form says signature
+    /// fields exist but no longer that it is only appended to.
+    pub(crate) fn clear_signatures_in(&mut self) -> usize {
+        let signed = self.signed_fields();
+        if signed.is_empty() {
+            return 0;
+        }
         for (field, _, _) in &signed {
             if let Ok(d) = self.inner.get_dictionary_mut(*field) {
                 d.remove(b"V");
+                d.remove(b"Lock");
+                d.remove(b"SV");
             }
             for w in self.field_widgets(*field) {
                 if let Ok(d) = self.inner.get_dictionary_mut(w) {
@@ -1008,11 +1028,45 @@ impl Document {
         }
         if let Ok(c) = self.inner.catalog_mut() {
             c.remove(b"Perms");
+            c.remove(b"DSS");
+        }
+        // ISO 32000-1 §12.7.2: bit 1, signature fields exist; bit 2 (append
+        // only) no longer applies.
+        let any_field = self
+            .form_fields()
+            .iter()
+            .any(|f| f.kind == crate::forms::FieldKind::Signature);
+        let af = self
+            .inner
+            .catalog()
+            .ok()
+            .and_then(|c| c.get(b"AcroForm").ok())
+            .cloned();
+        let set = |d: &mut lopdf::Dictionary| {
+            if any_field {
+                d.set("SigFlags", 1i64);
+            } else {
+                d.remove(b"SigFlags");
+            }
+        };
+        match af {
+            Some(Object::Reference(r)) => {
+                if let Ok(d) = self.inner.get_dictionary_mut(r) {
+                    set(d);
+                }
+            }
+            Some(Object::Dictionary(_)) => {
+                if let Ok(Object::Dictionary(d)) =
+                    self.inner.catalog_mut().and_then(|c| c.get_mut(b"AcroForm"))
+                {
+                    set(d);
+                }
+            }
+            _ => {}
         }
         // The file no longer needs incremental updates.
         self.source = None;
-        self.commit()?;
-        Ok(signed.len())
+        signed.len()
     }
 }
 

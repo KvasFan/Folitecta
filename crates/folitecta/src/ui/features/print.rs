@@ -299,7 +299,7 @@ fn tab_doc(t: &DocTab) -> Doc {
 }
 
 /// A document of a file not open in a tab.
-fn file_doc(name: &str, bytes: &[u8]) -> Doc {
+fn file_doc(name: &str, bytes: &[u8], lang: Lang) -> Doc {
     match folitecta_core::Document::from_bytes(bytes.to_vec(), None, None) {
         Ok(mut doc) => {
             doc.set_name_hint(name);
@@ -331,7 +331,7 @@ fn file_doc(name: &str, bytes: &[u8]) -> Doc {
             selected: Vec::new(),
             permission: PrintPermission::Allowed,
             source: None,
-            failed: Some(e.to_string()),
+            failed: Some(crate::i18n::core_error(lang, &e)),
             filtered: 0,
         },
     }
@@ -459,7 +459,7 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
         spawn(async move {
             if let PrintTarget::Files(files) = target_load {
                 for (i, (name, bytes)) in files.into_iter().enumerate() {
-                    let made = tokio::task::spawn_blocking(move || file_doc(&name, &bytes)).await;
+                    let made = tokio::task::spawn_blocking(move || file_doc(&name, &bytes, lang)).await;
                     if let Ok(d) = made {
                         if let Some(slot) = docs.write().get_mut(i) {
                             *slot = d;
@@ -482,7 +482,7 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
                         d.count = src.page_count();
                         d.source = Some(Arc::new(src));
                     }
-                    Ok(Err(e)) => d.failed = Some(e.to_string()),
+                    Ok(Err(e)) => d.failed = Some(crate::i18n::core_error(lang, &e)),
                     Err(e) => d.failed = Some(e.to_string()),
                 }
             }

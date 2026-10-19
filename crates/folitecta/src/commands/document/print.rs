@@ -157,11 +157,12 @@ enum Done {
 
 /// Why one document's job failed.
 enum Failed {
+    /// An error of the core (shown in the interface's words).
+    Core(folitecta_core::Error),
     Check(String),
     /// The sheets as pictures would not fit in memory.
     TooLarge,
     Print(PrintError),
-    Other(String),
 }
 
 /// Build, check and deliver one document (on a worker thread).
@@ -184,7 +185,7 @@ fn run_one(
             set(JobProgress::Building { done, total });
             !stopped()
         })
-        .map_err(|e| Failed::Other(e.to_string()))?;
+        .map_err(Failed::Core)?;
     let Some(bytes) = built else {
         return Ok(Done::Cancelled);
     };
@@ -205,7 +206,7 @@ fn run_one(
                 !stopped()
             },
         )
-        .map_err(|e| Failed::Other(e.to_string()))?;
+        .map_err(Failed::Core)?;
         let images = match images {
             print::Pictures::Done(images) => images,
             print::Pictures::Cancelled => return Ok(Done::Cancelled),
@@ -234,12 +235,8 @@ fn run_one(
             } else {
                 path.clone()
             };
-            let out = item
-                .source
-                .protect(&pdf)
-                .map_err(|e| Failed::Check(e.to_string()))?;
-            folitecta_core::document::write_pdf_file(&file, &out)
-                .map_err(|e| Failed::Other(e.to_string()))?;
+            let out = item.source.protect(&pdf).map_err(Failed::Core)?;
+            folitecta_core::document::write_pdf_file(&file, &out).map_err(Failed::Core)?;
             Ok(Done::Saved)
         }
         Destination::System => Ok(Done::Sheets(pdf)),
@@ -251,7 +248,11 @@ fn failure_text(st: AppState, f: &Failed, printer: &str) -> String {
     let lang = st.lang();
     match f {
         Failed::Check(e) => format!("{} ({e})", t(lang, "toast.print_check_failed")),
-        Failed::Other(e) => tf(lang, "toast.print_failed", &[("reason", e)]),
+        Failed::Core(e) => tf(
+            lang,
+            "toast.print_failed",
+            &[("reason", &crate::i18n::core_error(lang, e))],
+        ),
         Failed::TooLarge => t(lang, "toast.print_images_too_large"),
         Failed::Print(e) => match e {
             PrintError::Auth => t(lang, "toast.print_auth"),

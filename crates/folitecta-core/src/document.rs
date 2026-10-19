@@ -71,6 +71,21 @@ pub struct Document {
     pub(crate) struct_cache: std::sync::Mutex<crate::structure::StructCache>,
     /// Pictures of the pages already looked at, keyed by revision.
     pub(crate) image_cache: std::sync::Mutex<crate::pictures::ImageCache>,
+    /// The object ids of the pages of a revision, kept while no edit is under way.
+    page_cache: std::sync::Mutex<PageCache>,
+    /// An edit is under way (from `begin_edit`, `inner_mut` or a change of the
+    /// page tree until `commit`, an undo or a redo): the pages are looked up
+    /// in the page tree itself, never in `page_cache`.
+    editing: bool,
+}
+
+/// The pages of one revision: their object ids in order and, once asked
+/// for, the index of each id.
+#[derive(Default)]
+struct PageCache {
+    revision: u64,
+    ids: Option<Arc<Vec<ObjectId>>>,
+    index: Option<Arc<std::collections::HashMap<ObjectId, usize>>>,
 }
 
 impl std::fmt::Debug for Document {
@@ -182,6 +197,8 @@ impl Document {
             marked_cache: Default::default(),
             struct_cache: Default::default(),
             image_cache: Default::default(),
+            page_cache: Default::default(),
+            editing: false,
         };
         if doc.page_count() == 0 {
             return Err(Error::Invalid("the file contains no pages".into()));
@@ -244,6 +261,8 @@ impl Document {
             marked_cache: Default::default(),
             struct_cache: Default::default(),
             image_cache: Default::default(),
+            page_cache: Default::default(),
+            editing: false,
         })
     }
 
@@ -407,7 +426,26 @@ impl Document {
     /// Mutable access to the underlying object model. Call [`Document::commit`]
     /// afterwards so the serialized snapshot and revision stay in sync.
     pub fn inner_mut(&mut self) -> &mut lopdf::Document {
+        self.start_changes();
         &mut self.inner
+    }
+
+    /// The object model is about to change: the pages are looked up in the
+    /// page tree until the next commit, undo or redo.
+    fn start_changes(&mut self) {
+        self.editing = true;
+        self.forget_kept();
+    }
+
+    /// Drop the lists kept for the current revision.
+    fn forget_kept(&self) {
+        *self.page_cache.lock().unwrap_or_else(|e| e.into_inner()) = PageCache::default();
+    }
+
+    /// The object model matches `bytes` and `revision` again.
+    fn end_changes(&mut self) {
+        self.editing = false;
+        self.forget_kept();
     }
 
     // ------------------------------------------------------------------
@@ -416,6 +454,7 @@ impl Document {
 
     /// Record the current state before a mutation.
     pub fn begin_edit(&mut self) {
+        self.start_changes();
         self.undo.push(self.bytes.clone());
         if self.undo.len() > UNDO_LIMIT {
             self.undo.remove(0);
@@ -432,6 +471,7 @@ impl Document {
             }
             self.bytes = snapshot;
             self.helv_font = None;
+            self.end_changes();
         }
     }
 
@@ -453,16 +493,19 @@ impl Document {
         self.revision += 1;
         self.dirty = true;
         self.helv_font = None;
+        self.end_changes();
         Ok(())
     }
 
     fn restore(&mut self, bytes: Arc<Vec<u8>>) -> Result<()> {
         // Snapshots are plain; the protection of the document stays as it is.
+        self.start_changes();
         self.inner = load_inner(&bytes, None)?.doc;
         self.bytes = bytes;
         self.revision += 1;
         self.dirty = true;
         self.helv_font = None;
+        self.end_changes();
         Ok(())
     }
 
@@ -483,25 +526,84 @@ impl Document {
     // ------------------------------------------------------------------
 
     pub fn page_count(&self) -> usize {
-        self.inner.get_pages().len()
+        match self.cached_pages() {
+            Some(ids) => ids.len(),
+            None => self.inner.get_pages().len(),
+        }
+    }
+
+    /// The number of pages the root of the page tree declares.
+    fn declared_page_count(&self) -> Option<usize> {
+        let catalog = self.inner.catalog().ok()?;
+        let pages = deref(&self.inner, catalog.get(b"Pages").ok()?).as_dict().ok()?;
+        usize::try_from(pages.get(b"Count").ok()?.as_i64().ok()?).ok()
+    }
+
+    /// The object ids of the pages, walked once per revision while no edit is
+    /// under way (`None` during an edit: the page tree may be changing). A
+    /// list whose length no longer matches the count of the page tree is
+    /// walked again.
+    fn cached_pages(&self) -> Option<Arc<Vec<ObjectId>>> {
+        if self.editing {
+            return None;
+        }
+        let mut cache = self.page_cache.lock().unwrap_or_else(|e| e.into_inner());
+        if cache.revision == self.revision {
+            if let Some(ids) = &cache.ids {
+                if self.declared_page_count().is_none_or(|n| n == ids.len()) {
+                    return Some(ids.clone());
+                }
+            }
+        }
+        let ids = Arc::new(self.inner.get_pages().into_values().collect::<Vec<_>>());
+        *cache = PageCache {
+            revision: self.revision,
+            ids: Some(ids.clone()),
+            index: None,
+        };
+        Some(ids)
     }
 
     /// Object ids of all pages in document order.
     pub fn page_ids(&self) -> Vec<ObjectId> {
-        self.inner.get_pages().into_values().collect()
+        match self.cached_pages() {
+            Some(ids) => ids.as_ref().clone(),
+            None => self.inner.get_pages().into_values().collect(),
+        }
     }
 
     /// Object id of a zero-based page index.
     pub fn page_id(&self, index: usize) -> Result<ObjectId> {
-        self.page_ids()
-            .get(index)
-            .copied()
-            .ok_or(Error::InvalidPage(index))
+        let id = match self.cached_pages() {
+            Some(ids) => ids.get(index).copied(),
+            None => self.inner.get_pages().into_values().nth(index),
+        };
+        id.ok_or(Error::InvalidPage(index))
     }
 
     /// Zero-based index of a page object id.
     pub fn page_index(&self, id: ObjectId) -> Option<usize> {
-        self.page_ids().iter().position(|p| *p == id)
+        match self.page_index_map() {
+            Some(map) => map.get(&id).copied(),
+            None => self.page_ids().iter().position(|p| *p == id),
+        }
+    }
+
+    /// The index of every page object id, kept with the page ids (`None`
+    /// during an edit).
+    pub(crate) fn page_index_map(&self) -> Option<Arc<std::collections::HashMap<ObjectId, usize>>> {
+        let ids = self.cached_pages()?;
+        let mut cache = self.page_cache.lock().unwrap_or_else(|e| e.into_inner());
+        if cache.revision == self.revision && cache.ids.as_ref().is_some_and(|c| Arc::ptr_eq(c, &ids)) {
+            if let Some(map) = &cache.index {
+                return Some(map.clone());
+            }
+            let map: Arc<std::collections::HashMap<ObjectId, usize>> =
+                Arc::new(ids.iter().enumerate().map(|(i, id)| (*id, i)).collect());
+            cache.index = Some(map.clone());
+            return Some(map);
+        }
+        Some(Arc::new(ids.iter().enumerate().map(|(i, id)| (*id, i)).collect()))
     }
 
     /// Look up a page attribute, following the `/Parent` chain for inheritable keys.
@@ -596,6 +698,8 @@ impl Document {
         if ids.is_empty() {
             return Err(Error::LastPage);
         }
+        // The page tree changes: no list of pages kept until the commit.
+        self.start_changes();
         self.inherit_attributes(&ids);
         let pages_ref = {
             let catalog = self.inner.catalog()?;

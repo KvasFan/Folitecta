@@ -49,12 +49,17 @@ pub struct NamedDestination {
 }
 
 impl Document {
-    fn page_index_map(&self) -> HashMap<ObjectId, usize> {
-        self.page_ids()
-            .into_iter()
-            .enumerate()
-            .map(|(i, id)| (id, i))
-            .collect()
+    /// The index of every page object id.
+    fn page_indices(&self) -> std::sync::Arc<HashMap<ObjectId, usize>> {
+        self.page_index_map().unwrap_or_else(|| {
+            std::sync::Arc::new(
+                self.page_ids()
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, id)| (id, i))
+                    .collect(),
+            )
+        })
     }
 
     /// Raw named destination table (name -> destination object).
@@ -105,7 +110,7 @@ impl Document {
             Object::Array(arr) => {
                 let first = arr.first()?;
                 match first {
-                    Object::Reference(r) => self.page_index_map().get(r).copied(),
+                    Object::Reference(r) => self.page_indices().get(r).copied(),
                     Object::Integer(i) if *i >= 0 => Some(*i as usize),
                     _ => None,
                 }

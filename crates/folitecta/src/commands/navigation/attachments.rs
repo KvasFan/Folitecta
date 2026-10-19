@@ -80,17 +80,27 @@ pub fn open_attachment(st: AppState, att: Attachment) {
     };
     let (data, protected) = data;
     // An attachment of a protected document goes to a folder only the user
-    // can read, removed when Folitecta is left with Exit.
+    // can read (see `util::protected_temp_dir`).
     let dir = if protected {
-        protected_attachments_dir()
+        match crate::util::protected_temp_dir() {
+            Ok(dir) => dir,
+            Err(e) => return st.error(e),
+        }
     } else {
         std::env::temp_dir()
             .join("Folitecta")
             .join(format!("attachments-{}", std::process::id()))
     };
     let path = dir.join(safe_file_name(&att.name));
-    let r = private_dir(&dir, protected)
-        .and_then(|_| write_private(&path, &data, protected))
+    let r = std::fs::create_dir_all(&dir)
+        .and_then(|_| std::fs::write(&path, &data))
+        .and_then(|_| {
+            if protected {
+                crate::util::make_private(&path)
+            } else {
+                Ok(())
+            }
+        })
         .map_err(|e| e.to_string())
         .and_then(|_| crate::util::open_external(&path.display().to_string()));
     match r {
@@ -98,44 +108,6 @@ pub fn open_attachment(st: AppState, att: Attachment) {
         Ok(()) if protected => st.toast(ToastKind::Info, t(st.lang(), "toast.protected_attachment"), ""),
         Ok(()) => {}
     }
-}
-
-/// Where attachments of protected documents are opened from.
-fn protected_attachments_dir() -> std::path::PathBuf {
-    std::env::temp_dir()
-        .join("Folitecta")
-        .join(format!("protected-{}", std::process::id()))
-}
-
-/// Remove the attachments of protected documents opened by this window.
-pub fn forget_protected_attachments() {
-    let _ = std::fs::remove_dir_all(protected_attachments_dir());
-}
-
-/// Create `dir`; `private`: readable by the user only.
-fn private_dir(dir: &std::path::Path, private: bool) -> std::io::Result<()> {
-    std::fs::create_dir_all(dir)?;
-    #[cfg(unix)]
-    if private {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
-    }
-    #[cfg(not(unix))]
-    let _ = private;
-    Ok(())
-}
-
-/// Write `data` to `path`; `private`: readable by the user only.
-fn write_private(path: &std::path::Path, data: &[u8], private: bool) -> std::io::Result<()> {
-    std::fs::write(path, data)?;
-    #[cfg(unix)]
-    if private {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
-    }
-    #[cfg(not(unix))]
-    let _ = private;
-    Ok(())
 }
 
 /// Show the attachments pane for a document that has attachments (when the option is on).

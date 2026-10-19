@@ -199,7 +199,13 @@ impl AppState {
 
     // Setters usable through a shared copy of the state (signals are handles).
     pub fn set_dialog(&self, v: Dialog) {
+        let leaves_mail = *self.dialog.peek() == Dialog::Mail && v != Dialog::Mail;
         *self.dialog.write_unchecked() = v;
+        if leaves_mail {
+            // The message of the e-mail dialog goes with it (its prepared files
+            // are released, its work stopped).
+            crate::commands::mail::forget();
+        }
     }
     pub fn set_palette(&self, v: Option<String>) {
         *self.palette.write_unchecked() = v;

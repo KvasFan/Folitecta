@@ -386,6 +386,126 @@ pub fn r(id: ObjectId) -> Object {
     Object::Reference(id)
 }
 
+/// Dictionary keys whose arrays are plain lists (annotations, kids of page,
+/// field, name and structure trees, the fields of a form and their
+/// calculation order, the beads of a page): an item that goes is taken out
+/// of them. In any other array it becomes `null`, so the place of the other
+/// items keeps its meaning (a destination, the pairs of a name tree).
+const LIST_KEYS: &[&[u8]] = &[b"Annots", b"Kids", b"Fields", b"CO", b"K", b"B"];
+
+/// Take every reference to the `gone` objects out of the document: out of
+/// list arrays (see [`LIST_KEYS`]), `null` in any other array, and the entry
+/// removed from dictionaries (ISO 32000-1, 7.3.9: a `null` value is the same
+/// as an absent entry). The gone objects themselves are left for the caller to
+/// remove. Returns how many references were dropped.
+pub(crate) fn drop_references(
+    doc: &mut lopdf::Document,
+    gone: &std::collections::HashSet<ObjectId>,
+) -> usize {
+    use std::collections::HashSet;
+    fn is_gone(o: &Object, gone: &HashSet<ObjectId>) -> bool {
+        matches!(o, Object::Reference(r) if gone.contains(r))
+    }
+    fn in_object(o: &mut Object, gone: &HashSet<ObjectId>, list: bool, count: &mut usize) {
+        match o {
+            Object::Array(items) => {
+                if list {
+                    let before = items.len();
+                    items.retain(|i| !is_gone(i, gone));
+                    *count += before - items.len();
+                }
+                for item in items.iter_mut() {
+                    if is_gone(item, gone) {
+                        *item = Object::Null;
+                        *count += 1;
+                    } else {
+                        in_object(item, gone, false, count);
+                    }
+                }
+            }
+            Object::Dictionary(d) => in_dict(d, gone, count),
+            Object::Stream(s) => in_dict(&mut s.dict, gone, count),
+            _ => {}
+        }
+    }
+    fn in_dict(d: &mut Dictionary, gone: &HashSet<ObjectId>, count: &mut usize) {
+        let keys: Vec<Vec<u8>> = d
+            .iter()
+            .filter(|(_, v)| is_gone(v, gone))
+            .map(|(k, _)| k.clone())
+            .collect();
+        for k in keys {
+            d.remove(&k);
+            *count += 1;
+        }
+        for (k, v) in d.iter_mut() {
+            in_object(v, gone, LIST_KEYS.contains(&k.as_slice()), count);
+        }
+    }
+    // Arrays written as objects of their own and used as lists.
+    let mut list_arrays: HashSet<ObjectId> = HashSet::new();
+    let mut note_lists = |d: &Dictionary| {
+        for (k, v) in d.iter() {
+            if let Object::Reference(r) = v {
+                if LIST_KEYS.contains(&k.as_slice()) {
+                    list_arrays.insert(*r);
+                }
+            }
+        }
+    };
+    for o in doc.objects.values() {
+        match o {
+            Object::Dictionary(d) => note_lists(d),
+            Object::Stream(s) => note_lists(&s.dict),
+            _ => {}
+        }
+    }
+    let mut count = 0;
+    let ids: Vec<ObjectId> = doc
+        .objects
+        .keys()
+        .copied()
+        .filter(|id| !gone.contains(id))
+        .collect();
+    for id in ids {
+        let list = list_arrays.contains(&id) && matches!(doc.objects.get(&id), Some(Object::Array(_)));
+        if let Some(o) = doc.objects.get_mut(&id) {
+            in_object(o, gone, list, &mut count);
+        }
+    }
+    in_dict(&mut doc.trailer, gone, &mut count);
+    count
+}
+
+/// Remove every object the trailer does not reach (one walk with a set, for
+/// large files). Returns how many objects were removed.
+pub(crate) fn prune_unreachable(doc: &mut lopdf::Document) -> usize {
+    fn refs(o: &Object, out: &mut Vec<ObjectId>) {
+        match o {
+            Object::Reference(r) => out.push(*r),
+            Object::Array(a) => a.iter().for_each(|i| refs(i, out)),
+            Object::Dictionary(d) => d.iter().for_each(|(_, v)| refs(v, out)),
+            Object::Stream(s) => s.dict.iter().for_each(|(_, v)| refs(v, out)),
+            _ => {}
+        }
+    }
+    let mut stack = Vec::new();
+    for (_, v) in doc.trailer.iter() {
+        refs(v, &mut stack);
+    }
+    let mut seen = std::collections::HashSet::new();
+    while let Some(id) = stack.pop() {
+        if seen.insert(id) {
+            if let Some(o) = doc.objects.get(&id) {
+                refs(o, &mut stack);
+            }
+        }
+    }
+    let before = doc.objects.len();
+    doc.objects.retain(|id, _| seen.contains(id));
+    before - doc.objects.len()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -422,5 +542,45 @@ mod tests {
         let mut doc = lopdf::Document::new();
         let id = doc.add_object(stored);
         assert_eq!(text_of(&doc, &Object::Reference(id)).unwrap(), "xyz");
+    }
+
+    #[test]
+    fn references_to_gone_objects_are_dropped() {
+        let mut doc = lopdf::Document::new();
+        let gone = doc.add_object(Object::Integer(1));
+        let kept = doc.add_object(Object::Integer(2));
+        let dest = doc.add_object(Object::Array(vec![r(gone), Object::Name(b"Fit".to_vec())]));
+        let mut d = Dictionary::new();
+        d.set("P", r(gone));
+        d.set("Q", r(kept));
+        d.set("Annots", Object::Array(vec![r(kept), r(gone)]));
+        let dict = doc.add_object(d);
+        let mut sd = Dictionary::new();
+        sd.set("Pg", r(gone));
+        let stream = doc.add_object(lopdf::Stream::new(sd, Vec::new()));
+        let list = doc.add_object(Object::Array(vec![r(gone), r(kept)]));
+        let mut holder = Dictionary::new();
+        holder.set("Kids", r(list));
+        doc.add_object(holder);
+        let set = std::collections::HashSet::from([gone]);
+        assert_eq!(drop_references(&mut doc, &set), 5);
+        // An array item becomes null; a list item goes.
+        assert_eq!(doc.get_object(dest).unwrap().as_array().unwrap()[0], Object::Null);
+        let d = doc.get_dictionary(dict).unwrap();
+        assert!(!d.has(b"P") && d.has(b"Q"));
+        assert_eq!(d.get(b"Annots").unwrap().as_array().unwrap(), &vec![r(kept)]);
+        assert!(
+            !doc.get_object(stream)
+                .unwrap()
+                .as_stream()
+                .unwrap()
+                .dict
+                .has(b"Pg")
+        );
+        assert_eq!(doc.get_object(list).unwrap().as_array().unwrap(), &vec![r(kept)]);
+        // What the trailer does not reach goes.
+        doc.trailer.set("Root", r(dict));
+        assert_eq!(prune_unreachable(&mut doc), 5);
+        assert!(doc.objects.contains_key(&dict) && doc.objects.contains_key(&kept));
     }
 }

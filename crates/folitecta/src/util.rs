@@ -24,9 +24,32 @@ pub fn font_dirs() -> Vec<PathBuf> {
     dirs
 }
 
+/// Why a page range could not be read.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RangeError {
+    /// This part is not a page number or a range.
+    NotARange(String),
+    /// A page number outside 1 to the number of pages.
+    OutOfBounds(usize),
+}
+
+impl std::fmt::Display for RangeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RangeError::NotARange(part) => write!(f, "'{part}' is not a page range"),
+            RangeError::OutOfBounds(n) => write!(f, "page numbers must be between 1 and {n}"),
+        }
+    }
+}
+
 /// Parse a page range such as `1-3, 5, 8-` (1-based) into zero-based indices.
 /// An empty string selects every page.
 pub fn parse_page_range(input: &str, page_count: usize) -> Result<Vec<usize>, String> {
+    parse_pages(input, page_count).map_err(|e| e.to_string())
+}
+
+/// [`parse_page_range`] with the reason of a failure kept apart.
+pub fn parse_pages(input: &str, page_count: usize) -> Result<Vec<usize>, RangeError> {
     let s = input.trim();
     if page_count == 0 {
         return Ok(Vec::new());
@@ -47,15 +70,15 @@ pub fn parse_page_range(input: &str, page_count: usize) -> Result<Vec<usize>, St
         let start: usize = if a.is_empty() {
             1
         } else {
-            a.parse().map_err(|_| format!("'{part}' is not a page range"))?
+            a.parse().map_err(|_| RangeError::NotARange(part.to_string()))?
         };
         let end: usize = if b.is_empty() {
             page_count
         } else {
-            b.parse().map_err(|_| format!("'{part}' is not a page range"))?
+            b.parse().map_err(|_| RangeError::NotARange(part.to_string()))?
         };
         if start == 0 || end == 0 || start > page_count || end > page_count {
-            return Err(format!("page numbers must be between 1 and {page_count}"));
+            return Err(RangeError::OutOfBounds(page_count));
         }
         let (lo, hi) = if start <= end { (start, end) } else { (end, start) };
         for p in lo..=hi {

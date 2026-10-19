@@ -43,6 +43,13 @@ pub fn Frame(
     /// it stays in view (the dialog works on what the page shows).
     #[props(default = false)]
     side: bool,
+    /// The OK button cannot be pressed (and Enter does not run it).
+    #[props(default = false)]
+    ok_disabled: bool,
+    /// Enter runs the OK button only from a single-line text field (not from
+    /// check boxes, choices or lists), for an OK that starts another program.
+    #[props(default = false)]
+    enter_from_text: bool,
 ) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
@@ -82,10 +89,15 @@ pub fn Frame(
                         // After the field being typed in takes its value. Enter on a
                         // button is that button's click (the browser makes it one):
                         // the dialog's OK must not run as well.
-                        if let Some(h) = ok2 {
+                        if let Some(h) = ok2.filter(|_| !ok_disabled) {
+                            let skip = if enter_from_text {
+                                "const a = document.activeElement; return !(a && a.tagName === 'INPUT' && ['text', 'search', 'email', 'url'].includes(a.type));"
+                            } else {
+                                "return document.activeElement?.tagName === 'BUTTON';"
+                            };
                             spawn(async move {
                                 tokio::time::sleep(std::time::Duration::from_millis(30)).await;
-                                let on_button = document::eval("return document.activeElement?.tagName === 'BUTTON';")
+                                let on_button = document::eval(skip)
                                     .await
                                     .ok()
                                     .and_then(|v| v.as_bool())
@@ -104,7 +116,7 @@ pub fn Frame(
                 div { class: "dialog-foot",
                     button { class: "tbtn", onclick: move |_| st.set_dialog(Dialog::None), "{cancel_text}" }
                     if let Some(h) = on_ok {
-                        button { class: if danger { "tbtn danger" } else { "tbtn primary" }, onclick: move |_| h.call(()), "{ok_text}" }
+                        button { class: if danger { "tbtn danger" } else { "tbtn primary" }, disabled: ok_disabled, onclick: move |_| h.call(()), "{ok_text}" }
                     }
                 }
             }
@@ -416,6 +428,7 @@ pub fn Dialogs() -> Element {
         Dialog::FieldItems => rsx! { crate::ui::features::field_editor::FieldItemsDialog {} },
         Dialog::SecurityPolicies => rsx! { crate::ui::features::policies::SecurityPoliciesDialog {} },
         Dialog::CustomizeQat => rsx! { crate::ui::chrome::qat::CustomizeQatDialog {} },
+        Dialog::Mail => rsx! { crate::ui::features::mail::MailDialog {} },
     }
 }
 

@@ -95,3 +95,31 @@ fn drafts_carry_their_files() {
     assert_eq!(back.body, "Ecco i file.");
     assert_eq!(back.attachments, files);
 }
+
+#[test]
+fn long_subjects_and_names_stay_within_the_line_limits() {
+    let subject = "Relazione dell'ufficio tecnico — verifiche di ottobre, città e università ".repeat(12);
+    let long_name = format!("{}.pdf", "Città dell'àrea — perché sì ".repeat(6).trim());
+    let files = vec![
+        (long_name.clone(), b"%PDF-1.7 a".to_vec()),
+        ("plain \"quoted\" name.pdf".to_string(), b"%PDF-1.7 b".to_vec()),
+    ];
+    let eml = write_eml_draft(&subject, "Ecco i file.", &files);
+    let text = String::from_utf8(eml.clone()).unwrap();
+    // RFC 5322: no line over 998 characters; RFC 2047: encoded words of at most 75.
+    for line in text.split("\r\n") {
+        assert!(line.len() <= 998, "line of {} characters", line.len());
+        for word in line.split(' ').filter(|w| w.starts_with("=?")) {
+            assert!(
+                word.trim_matches('"').len() <= 75,
+                "encoded word of {} characters",
+                word.len()
+            );
+        }
+    }
+    // RFC 2231 for the file name of a disposition.
+    assert!(text.contains("filename*0*=UTF-8''"));
+    let back = read_email(&eml).unwrap();
+    assert_eq!(back.subject, subject.trim());
+    assert_eq!(back.attachments, files);
+}

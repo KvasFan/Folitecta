@@ -1,6 +1,8 @@
 //! Flattening: merge annotation appearances into the page content as vector
 //! form XObjects, then remove the annotations (comments, form widgets or both).
 
+use std::collections::HashSet;
+
 use lopdf::{Dictionary, Object, ObjectId};
 
 use crate::document::Document;
@@ -79,6 +81,36 @@ impl Document {
         scope: FlattenScope,
         only: Option<(usize, usize)>,
     ) -> Result<usize> {
+        let mut removed = HashSet::new();
+        let count = self.flatten_where(pages, scope, only, &|_| true, &mut removed)?;
+        self.forget_objects(&removed);
+        Ok(count)
+    }
+
+    /// Remove `gone` objects and every reference to them in one pass, then
+    /// the objects nothing reaches any more.
+    pub(crate) fn forget_objects(&mut self, gone: &HashSet<ObjectId>) {
+        if !gone.is_empty() {
+            crate::util::drop_references(&mut self.inner, gone);
+            for id in gone {
+                self.inner.objects.remove(id);
+            }
+        }
+        crate::util::prune_unreachable(&mut self.inner);
+    }
+
+    /// Flatten the annotations of `scope` whose subtype `wanted` accepts. The
+    /// annotations merged (and their pop-ups) leave the pages and are added
+    /// to `removed`, for the caller to take out of the file in one pass
+    /// ([`Document::forget_objects`]).
+    pub(crate) fn flatten_where(
+        &mut self,
+        pages: &[usize],
+        scope: FlattenScope,
+        only: Option<(usize, usize)>,
+        wanted: &dyn Fn(&[u8]) -> bool,
+        removed: &mut HashSet<ObjectId>,
+    ) -> Result<usize> {
         let ids = self.page_ids();
         let mut flattened = 0;
         let mut removed_widgets = false;
@@ -119,12 +151,13 @@ impl Document {
                     .unwrap_or(b"")
                     .to_vec();
                 let is_widget = subtype == b"Widget";
-                let wanted = match scope {
+                let in_scope = match scope {
                     FlattenScope::Comments => !is_widget,
                     FlattenScope::FormFields => is_widget,
                     FlattenScope::All => true,
-                } && !NEVER.contains(&subtype.as_slice());
-                if !wanted {
+                } && !NEVER.contains(&subtype.as_slice())
+                    && wanted(&subtype);
+                if !in_scope {
                     keep.push(item);
                     continue;
                 }
@@ -185,14 +218,14 @@ impl Document {
                 }
                 if let Some(id) = aid {
                     if let Some(popup) = dict.get(b"Popup").ok().and_then(|p| p.as_reference().ok()) {
-                        self.inner.delete_object(popup);
+                        removed.insert(popup);
                     }
-                    self.inner.delete_object(id);
+                    removed.insert(id);
                 }
             }
-            // Popups of removed annotations are dangling now; drop them from the list.
+            // The pop-ups of the merged annotations go with them.
             keep.retain(|o| match o {
-                Object::Reference(r) => self.inner.objects.contains_key(r),
+                Object::Reference(r) => !removed.contains(r),
                 _ => true,
             });
             self.inner
@@ -205,7 +238,6 @@ impl Document {
         if removed_widgets && matches!(scope, FlattenScope::FormFields | FlattenScope::All) {
             self.inner.catalog_mut()?.remove(b"AcroForm");
         }
-        self.inner.prune_objects();
         Ok(flattened)
     }
 }

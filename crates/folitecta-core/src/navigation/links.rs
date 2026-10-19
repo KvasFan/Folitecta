@@ -58,7 +58,7 @@ impl Document {
     }
 
     /// Raw named destination table (name -> destination object).
-    fn named_dest_map(&self) -> Vec<(Vec<u8>, Object)> {
+    pub(crate) fn named_dest_map(&self) -> Vec<(Vec<u8>, Object)> {
         let doc = &self.inner;
         let mut out = Vec::new();
         let Ok(catalog) = doc.catalog() else { return out };
@@ -284,10 +284,25 @@ impl Document {
     /// Delete named destinations (one undo step). Returns how many were removed.
     pub fn delete_named_destinations(&mut self, names: &[String]) -> Result<usize> {
         let keys: Vec<Vec<u8>> = names.iter().map(|n| n.as_bytes().to_vec()).collect();
-        let before = self.named_dest_map().len();
         self.begin_edit();
+        match self.delete_named_destination_keys(&keys) {
+            Ok(n) => {
+                self.commit()?;
+                Ok(n)
+            }
+            Err(e) => {
+                self.abandon_edit();
+                Err(e)
+            }
+        }
+    }
+
+    /// Delete the named destinations whose names are these bytes, without an
+    /// undo step. Returns how many were removed.
+    pub(crate) fn delete_named_destination_keys(&mut self, keys: &[Vec<u8>]) -> Result<usize> {
+        let before = self.named_dest_map().len();
         if let Some(d) = self.dests_dict_mut() {
-            for k in &keys {
+            for k in keys {
                 d.remove(k);
             }
         }
@@ -297,7 +312,6 @@ impl Document {
             .filter(|(k, _)| !keys.contains(k))
             .collect();
         self.write_names_tree(entries)?;
-        self.commit()?;
         Ok(before.saturating_sub(self.named_dest_map().len()))
     }
 

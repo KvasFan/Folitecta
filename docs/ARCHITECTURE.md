@@ -54,7 +54,12 @@ small authority for the tests, while the interface's `http` module carries the r
 validation reports integrity, signer, time and revocation as separate checks), `redaction` (the glyphs under the marks leave their text operations, each
 replaced by a move of its width found by the text probe, the pixels of pictures under the marks
 are covered, comments and fields over them go; pages that cannot be edited that way are drawn as
-pictures), `compare`, `combine` (documents made from several files), `pictures` (the pictures
+pictures), `compare`, `combine` (documents made from several files), `delivery` (copies prepared to be
+sent, made from a snapshot of the document: chosen pages that keep nothing of the others — the
+resources of the kept pages are cut to what their content names, and the bookmarks, links, named
+destinations, form fields, tags, opening view and article threads of the others go and are counted —,
+comments kept, flattened or removed, the protection of the document kept or the copy refused,
+signatures kept only by the unchanged signed file or an incremental update of it), `pictures` (the pictures
 a page draws: where they are, their pixels, an edited picture put back), `imaging` (turning,
 cropping, straightening, filters and pixel formats) and `barcodes` (barcodes written by rxing and
 drawn as vector shapes; read from rendered pages one at a time, each painted out before the next
@@ -163,6 +168,13 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
   offered. Copies are written through a temporary file, one checkpoint at a time, off the
   interface thread; documents opened from encrypted files are not copied, signed ones are copied
   as an incremental update.
+- `mail.rs` — the files of an e-mail message written into a new private folder (one per message,
+  open to the user only) and handed to the system's mail program (Simple MAPI on Windows, Mail on
+  macOS, `xdg-email` on Linux), or saved with the message as an unsent draft (`.eml`); a mail
+  program that is missing or cannot take the files is reported, nothing else is opened in its
+  place. The e-mail dialog (`commands/document/mail.rs`, its model `mail_draft.rs`, drawn by
+  `ui/features/mail.rs`) prepares every file away from the interface thread, two at a time, and
+  shows its size, facts and first pages. Tests and the self-test use a stand-in mail program.
 - `dictionaries/`, `ocr/` and `fonts/` (at the root of the repository) — the Hunspell
   dictionaries, the text recognition models and the font of generated text beyond WinAnsi
   (FreeSans) shipped with the program, as data files next to it in the release packages (the

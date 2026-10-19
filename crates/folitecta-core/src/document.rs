@@ -305,9 +305,28 @@ impl Document {
         self.protection.is_some()
     }
 
+    /// The encryption kept from the opened file, applied again to the files
+    /// written from the document.
+    pub(crate) fn protection_state(&self) -> Option<&lopdf::EncryptionState> {
+        self.protection.as_ref()
+    }
+
+    /// Give a work copy the encryption of the document it was made from, so
+    /// its files are protected the same way.
+    pub(crate) fn set_protection(&mut self, state: Option<lopdf::EncryptionState>) {
+        self.protection = state;
+    }
+
+    /// Whether [`Document::file_bytes`] writes the document as an incremental
+    /// update of the file it was opened from (which keeps the signatures of a
+    /// signed file valid): plain files with that file kept, today.
+    pub(crate) fn updates_incrementally(&self) -> bool {
+        self.protection.is_none() && self.source.is_some()
+    }
+
     /// The bytes of the file to write: encrypted like the opened file when it
     /// was, an incremental update of a signed file, or the whole document.
-    fn file_bytes(&mut self) -> Result<Vec<u8>> {
+    pub(crate) fn file_bytes(&mut self) -> Result<Vec<u8>> {
         if let Some(state) = &self.protection {
             let mut copy = self.inner.clone();
             copy.encrypt(state)?;
@@ -656,10 +675,18 @@ impl Document {
 
     /// Rewrite the page tree as a flat `/Pages` node with the given order.
     pub(crate) fn set_page_order(&mut self, ids: Vec<ObjectId>) -> Result<()> {
+        self.write_page_tree(&ids)?;
+        self.inner.prune_objects();
+        Ok(())
+    }
+
+    /// Rewrite the page tree as a flat `/Pages` node with the given order,
+    /// leaving the objects nothing points at any more for the caller to remove.
+    pub(crate) fn write_page_tree(&mut self, ids: &[ObjectId]) -> Result<()> {
         if ids.is_empty() {
             return Err(Error::LastPage);
         }
-        self.inherit_attributes(&ids);
+        self.inherit_attributes(ids);
         let pages_ref = {
             let catalog = self.inner.catalog()?;
             catalog.get(b"Pages")?.as_reference()?
@@ -670,11 +697,10 @@ impl Document {
         root.set("Kids", Object::Array(kids));
         root.set("Count", Object::Integer(ids.len() as i64));
         self.inner.objects.insert(pages_ref, Object::Dictionary(root));
-        for id in &ids {
+        for id in ids {
             let dict = self.inner.get_dictionary_mut(*id)?;
             dict.set("Parent", Object::Reference(pages_ref));
         }
-        self.inner.prune_objects();
         Ok(())
     }
 

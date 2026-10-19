@@ -587,8 +587,22 @@ impl Document {
             None => (0..self.page_count()).collect(),
         };
         self.begin_edit();
+        let removed = match self.delete_comments_inner(&pages) {
+            Ok(n) => n,
+            Err(e) => {
+                self.abandon_edit();
+                return Err(e);
+            }
+        };
+        self.commit()?;
+        Ok(removed)
+    }
+
+    /// Delete every comment of `pages` with their popups and replies, without
+    /// an undo step. Returns how many comments were removed.
+    pub(crate) fn delete_comments_inner(&mut self, pages: &[usize]) -> Result<usize> {
         let mut removed = 0;
-        for p in pages {
+        for &p in pages {
             let page_id = self.page_id(p)?;
             let items = annot_refs(&self.inner, self.inner.get_dictionary(page_id)?);
             let mut roots = HashSet::new();
@@ -637,7 +651,6 @@ impl Document {
                     .set("Annots", Object::Array(keep));
             }
         }
-        self.commit()?;
         Ok(removed)
     }
     /// Update the text of an annotation (control characters other than tabs

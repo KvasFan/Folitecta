@@ -1,5 +1,5 @@
 //! The windows and editors of the features: pictures, stamps, signatures, forms, tables, media,
-//! the calculator, scripts and the other tools.
+//! the calculator, scripts, the e-mail attachments and the other tools.
 
 pub mod acc_dialogs;
 pub mod barcodes;
@@ -13,6 +13,7 @@ pub mod form_calc;
 pub mod form_fill;
 pub mod javascript;
 pub mod macros;
+pub mod mail;
 pub mod media;
 pub mod ocr;
 pub mod pictures;

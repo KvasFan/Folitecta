@@ -93,6 +93,33 @@ pub struct AppState {
     pub radio_group: Signal<Option<String>>,
 }
 
+/// Where state was written while the interface was rendering a component.
+/// Such a write marks every reader of that state to render again: a
+/// component that writes state it reads renders over and over, and then
+/// the effects of every component wait forever (they run only when nothing
+/// is left to render). The self-test reports these places.
+static RENDER_WRITES: std::sync::Mutex<BTreeSet<String>> = std::sync::Mutex::new(BTreeSet::new());
+
+/// Note a write of the state at the caller's place when it happens while a
+/// component renders.
+#[track_caller]
+fn note_write() {
+    if dioxus::core::Runtime::try_current().is_some_and(|r| r.vdom_is_rendering()) {
+        let at = std::panic::Location::caller();
+        if let Ok(mut places) = RENDER_WRITES.lock() {
+            places.insert(format!("{}:{}", at.file(), at.line()));
+        }
+    }
+}
+
+/// The places where state was written while a component rendered.
+pub fn render_writes() -> Vec<String> {
+    RENDER_WRITES
+        .lock()
+        .map(|p| p.iter().cloned().collect())
+        .unwrap_or_default()
+}
+
 impl AppState {
     /// Create the state; must be called from a component (uses hooks).
     pub fn init() -> Self {
@@ -132,48 +159,72 @@ impl AppState {
         }
     }
 
+    #[track_caller]
     pub fn set_editing_field(&self, v: Option<(usize, usize)>) {
+        note_write();
         *self.editing_field.write_unchecked() = v;
     }
 
+    #[track_caller]
     pub fn set_radio_group(&self, v: Option<String>) {
+        note_write();
         *self.radio_group.write_unchecked() = v;
     }
 
+    #[track_caller]
     pub fn set_drawing(&self, v: Option<Drawing>) {
+        note_write();
         *self.drawing.write_unchecked() = v;
     }
 
+    #[track_caller]
     pub fn set_style_clip(&self, v: Option<folitecta_core::AnnotStyle>) {
+        note_write();
         *self.style_clip.write_unchecked() = v;
     }
 
+    #[track_caller]
     pub fn set_print_job(&self, v: Option<PrintJob>) {
+        note_write();
         *self.print_job.write_unchecked() = v;
     }
 
+    #[track_caller]
     pub fn set_clip(&self, v: Option<Clip>) {
+        note_write();
         *self.clip.write_unchecked() = v;
     }
+    #[track_caller]
     pub fn set_pending_image(&self, v: Option<Vec<u8>>) {
+        note_write();
         *self.pending_image.write_unchecked() = v;
     }
+    #[track_caller]
     pub fn set_loupe(&self, v: Option<LoupePos>) {
+        note_write();
         *self.loupe.write_unchecked() = v;
     }
+    #[track_caller]
     pub fn set_pointer(&self, v: Option<(usize, f32, f32)>) {
+        note_write();
         *self.pointer.write_unchecked() = v;
     }
 
+    #[track_caller]
     pub fn set_viewport(&self, v: (f64, f64)) {
+        note_write();
         *self.viewport.write_unchecked() = v;
     }
 
+    #[track_caller]
     pub fn set_dropdown_pos(&self, v: (f64, f64)) {
+        note_write();
         *self.dropdown_pos.write_unchecked() = v;
     }
 
+    #[track_caller]
     pub fn submenus_mut(&self) -> impl std::ops::DerefMut<Target = Vec<(String, f64, f64)>> + 'static {
+        note_write();
         self.submenus.write_unchecked()
     }
 
@@ -185,6 +236,7 @@ impl AppState {
         (left, top)
     }
 
+    #[track_caller]
     pub fn set_option(&self, id: &str, on: bool) {
         self.ui_mut().options.insert(id.to_string(), on);
         self.save_prefs();
@@ -195,14 +247,17 @@ impl AppState {
         self.ui.read().value(key).unwrap_or_default().to_string()
     }
 
+    #[track_caller]
     pub fn set_value(&self, key: &str, value: impl Into<String>) {
         self.ui_mut().values.insert(key.to_string(), value.into());
         self.save_prefs();
     }
 
     // Setters usable through a shared copy of the state (signals are handles).
+    #[track_caller]
     pub fn set_dialog(&self, v: Dialog) {
         let leaves_mail = *self.dialog.peek() == Dialog::Mail && v != Dialog::Mail;
+        note_write();
         *self.dialog.write_unchecked() = v;
         if leaves_mail {
             // The message of the e-mail dialog goes with it (its prepared files
@@ -210,19 +265,28 @@ impl AppState {
             crate::commands::mail::forget();
         }
     }
+    #[track_caller]
     pub fn set_palette(&self, v: Option<String>) {
+        note_write();
         *self.palette.write_unchecked() = v;
     }
+    #[track_caller]
     pub fn set_tool(&self, v: Tool) {
+        note_write();
         *self.tool.write_unchecked() = v;
     }
+    #[track_caller]
     pub fn set_active(&self, v: usize) {
+        note_write();
         *self.active.write_unchecked() = v;
     }
+    #[track_caller]
     pub fn set_fullscreen(&self, v: bool) {
+        note_write();
         *self.fullscreen.write_unchecked() = v;
     }
     /// Open a menu of the menu bar (or none); the submenus of another menu close.
+    #[track_caller]
     pub fn set_open_menu(&self, v: Option<String>) {
         if *self.open_menu.peek() != v {
             crate::ui::keep_submenus();
@@ -230,18 +294,25 @@ impl AppState {
                 self.submenus_mut().clear();
             }
         }
+        note_write();
         *self.open_menu.write_unchecked() = v;
     }
+    #[track_caller]
     pub fn set_open_dropdown(&self, v: Option<String>) {
         if *self.open_dropdown.peek() != v {
             crate::ui::keep_submenus();
         }
+        note_write();
         *self.open_dropdown.write_unchecked() = v;
     }
+    #[track_caller]
     pub fn set_ribbon_tab(&self, v: String) {
+        note_write();
         *self.ribbon_tab.write_unchecked() = v;
     }
+    #[track_caller]
     pub fn set_canvas_size(&self, v: (f64, f64)) {
+        note_write();
         *self.canvas_size.write_unchecked() = v;
     }
 
@@ -265,22 +336,33 @@ impl AppState {
             self.set_canvas_size(size);
         }
     }
+    #[track_caller]
     pub fn set_dpr(&self, v: f64) {
+        note_write();
         *self.dpr.write_unchecked() = v;
     }
+    #[track_caller]
     pub fn set_busy(&self, v: bool) {
+        note_write();
         *self.busy.write_unchecked() = v;
     }
+    #[track_caller]
     pub fn docs_mut(&self) -> impl std::ops::DerefMut<Target = Vec<DocTab>> + 'static {
+        note_write();
         self.docs.write_unchecked()
     }
+    #[track_caller]
     pub fn ui_mut(&self) -> impl std::ops::DerefMut<Target = UiPrefs> + 'static {
+        note_write();
         self.ui.write_unchecked()
     }
+    #[track_caller]
     pub fn toasts_mut(&self) -> impl std::ops::DerefMut<Target = Vec<Toast>> + 'static {
         self.toasts.write_unchecked()
     }
+    #[track_caller]
     pub fn closed_mut(&self) -> impl std::ops::DerefMut<Target = Vec<PathBuf>> + 'static {
+        note_write();
         self.closed_recently.write_unchecked()
     }
 
@@ -302,6 +384,7 @@ impl AppState {
     }
 
     /// Run `f` on the active tab (mutably). Returns `None` without a document.
+    #[track_caller]
     pub fn with_active<T>(&self, f: impl FnOnce(&mut DocTab) -> T) -> Option<T> {
         let idx = self.active_index()?;
         let mut docs = self.docs_mut();
@@ -318,13 +401,16 @@ impl AppState {
         docs.get(idx).map(f)
     }
 
+    #[track_caller]
     pub fn alloc_id(&self) -> u64 {
+        note_write();
         let mut n = self.next_id.write_unchecked();
         let id = *n;
         *n += 1;
         id
     }
 
+    #[track_caller]
     pub fn toast(&self, kind: ToastKind, title: impl Into<String>, message: impl Into<String>) {
         let id = self.alloc_id();
         {
@@ -356,6 +442,7 @@ impl AppState {
     /// Show an error. The errors of the core about generated text (and
     /// problems of generated text themselves) are shown in the language of
     /// the interface.
+    #[track_caller]
     pub fn error<E: std::fmt::Display + 'static>(&self, err: E) {
         let lang = self.lang();
         let title = crate::i18n::t(lang, "toast.error");
@@ -381,6 +468,7 @@ impl AppState {
         self.error(self.core_error_text(e));
     }
 
+    #[track_caller]
     pub fn close_menus(&self) {
         // A submenu waiting to open must not open in a closed menu.
         crate::ui::keep_submenus();
@@ -415,6 +503,7 @@ impl AppState {
 
     /// Show a destination: apply its zoom, scroll its top to the top of the
     /// window and briefly highlight the target area.
+    #[track_caller]
     pub fn go_to_dest(&self, page: usize, view: Option<folitecta_core::DestView>) {
         use folitecta_core::DestView;
         let Some(size) = self.read_active(|t| t.page_sizes.get(page).copied()).flatten() else {
@@ -474,6 +563,7 @@ impl AppState {
     }
 
     /// Show `page`; `record` adds the jump to the previous/next view history.
+    #[track_caller]
     pub fn navigate(&self, page: usize, record: bool) {
         let n = self.page_count();
         if n == 0 {

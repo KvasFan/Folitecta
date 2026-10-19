@@ -421,6 +421,7 @@ mod progress;
 mod steps_arrange;
 mod steps_barcodes;
 mod steps_calc;
+mod steps_effects;
 mod steps_email;
 mod steps_features;
 mod steps_field_items;
@@ -508,6 +509,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "revocation" => Box::pin(steps_revocation::run(cx)),
             "protection" => Box::pin(steps_protection::run(cx)),
             "frames" => Box::pin(steps_frames::run(cx)),
+            "effects" => Box::pin(steps_effects::run(cx)),
             "unicode" => Box::pin(steps_unicode::run(cx)),
             _ => Box::pin(async { cx.record("unknown step", false, name.to_string()) }),
         };
@@ -561,6 +563,7 @@ const STEPS: &[&str] = &[
     "protection",
     "frames",
     "unicode",
+    "effects",
 ];
 
 async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_json::Value>) -> usize {
@@ -643,7 +646,8 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
     } else if only.as_deref() == Some("interactions") {
         total += interactions(st, &dir, &mut log).await;
     } else if let Some(step) = only.as_deref().and_then(|o| o.strip_prefix("step:")) {
-        // FOLITECTA_SELFTEST_ONLY=step:<name> runs one interaction step (for debugging).
+        // FOLITECTA_SELFTEST_ONLY=step:<name> runs one interaction step (for
+        // debugging); step:<a>,<b> runs several, in that order.
         set_size(1280.0, 800.0);
         st.with_active(|t| t.zoom = crate::state::Zoom::Fixed(1.0));
         pause(800).await;
@@ -654,7 +658,9 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
             failures: 0,
             z: 1.0,
         };
-        run_step(&mut cx, step).await;
+        for name in step.split(',').map(str::trim).filter(|n| !n.is_empty()) {
+            run_step(&mut cx, name).await;
+        }
         total += cx.failures;
     }
     total += print_layout(st, &dir, &mut log).await;

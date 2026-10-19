@@ -556,6 +556,55 @@ fn drawing_again_with_the_same_characters_uses_the_same_font() {
     assert_ne!(unicode_font(doc.inner(), id).0, font);
 }
 
+#[test]
+fn a_font_changed_behind_its_key_is_not_used_again() {
+    let mut doc = blank();
+    add_box(&mut doc, "łabba").unwrap();
+    let id = doc.annotations(0).unwrap()[0].id.unwrap();
+    let (font, type0) = unicode_font(doc.inner(), id);
+    let raw = doc.inner();
+    let tu_ref = type0.get(b"ToUnicode").unwrap().as_reference().unwrap();
+    let cid = dict(
+        raw,
+        &get(raw, type0.get(b"DescendantFonts").unwrap())
+            .as_array()
+            .unwrap()[0],
+    );
+    let map_ref = cid.get(b"CIDToGIDMap").unwrap().as_reference().unwrap();
+    // Code 1 (ł) made to show and read as the glyph of code 2 (a); the key stays.
+    let mut map = stream_data(raw, &Object::Reference(map_ref));
+    let a_glyph = [map[4], map[5]];
+    map[2..4].copy_from_slice(&a_glyph);
+    let tu = String::from_utf8(stream_data(raw, &Object::Reference(tu_ref)))
+        .unwrap()
+        .replace("<0001> <0142>", "<0001> <0061>");
+    doc.begin_edit();
+    let objects = &mut doc.inner_mut().objects;
+    objects.insert(
+        map_ref,
+        Object::Stream(lopdf::Stream::new(Dictionary::new(), map)),
+    );
+    objects.insert(
+        tu_ref,
+        Object::Stream(lopdf::Stream::new(Dictionary::new(), tu.into_bytes())),
+    );
+    doc.commit().unwrap();
+    let flattened = |doc: &Document| {
+        let mut copy = Document::from_bytes(doc.bytes().to_vec(), None, None).unwrap();
+        copy.flatten(&[0], FlattenScope::Comments).unwrap();
+        copy.page_text(0)
+    };
+    assert_eq!(flattened(&doc), "aabba", "the changed font reads as other text");
+    // Drawn again: the changed objects are not taken for the subset of the text.
+    doc.move_annotation(0, 0, 5.0, 0.0).unwrap();
+    assert_ne!(unicode_font(doc.inner(), id).0, font);
+    assert_eq!(flattened(&doc), "łabba");
+    // An unchanged subset is still used again.
+    let (again, _) = unicode_font(doc.inner(), id);
+    doc.move_annotation(0, 0, 5.0, 0.0).unwrap();
+    assert_eq!(unicode_font(doc.inner(), id).0, again);
+}
+
 /// A text box made by another program: its text (with characters FreeSans
 /// lacks) and a drawing of its own.
 fn foreign_box(text: &str) -> Document {

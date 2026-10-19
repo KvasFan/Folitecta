@@ -11,7 +11,6 @@ use sha2::{Digest, Sha256};
 use super::GlyphProblem;
 use super::source::SourceFont;
 use crate::document::Document;
-use crate::error::Result;
 
 /// Private key of the Type 0 fonts Folitecta embeds: the hexadecimal SHA-256 of
 /// the font file, its name and the characters with their glyphs, so a drawing
@@ -79,33 +78,74 @@ fn compressed(dict: Dictionary, content: Vec<u8>) -> Stream {
     stream
 }
 
+/// The parts of a subset, made before anything is added to a document.
+pub(crate) struct SubsetParts {
+    key: String,
+    base: String,
+    /// The font program (`/FontFile2`).
+    program: Vec<u8>,
+    /// `/CIDToGIDMap`: two bytes per code, from code 0.
+    map: Vec<u8>,
+    to_unicode: Vec<u8>,
+    widths: Vec<i64>,
+}
+
+/// The subset of `font` drawing `chars` (codes 1, 2, ... in this order, with
+/// their glyphs).
+pub(crate) fn build_subset(
+    font: &SourceFont,
+    chars: &[(char, u16)],
+) -> std::result::Result<SubsetParts, GlyphProblem> {
+    let key = subset_key(font, chars);
+    let glyphs: BTreeSet<u16> = chars.iter().map(|(_, g)| *g).collect();
+    let program = super::subset::subset(font.data(), &glyphs, chars).map_err(|reason| {
+        GlyphProblem::FontUnreadable {
+            path: font.path.clone(),
+            reason,
+        }
+    })?;
+    let mut map = vec![0u8, 0];
+    for (_, g) in chars {
+        map.extend(g.to_be_bytes());
+    }
+    let letters: Vec<char> = chars.iter().map(|(c, _)| *c).collect();
+    Ok(SubsetParts {
+        base: format!("{}+{}", subset_tag(&key), font.name),
+        key,
+        program,
+        map,
+        to_unicode: to_unicode_cmap(&letters),
+        widths: chars.iter().map(|(_, g)| font.advance(*g) as i64).collect(),
+    })
+}
+
+fn decoded(doc: &lopdf::Document, obj: &Object) -> Option<Vec<u8>> {
+    let stream = doc.get_object(obj.as_reference().ok()?).ok()?.as_stream().ok()?;
+    Some(
+        stream
+            .decompressed_content()
+            .unwrap_or_else(|_| stream.content.clone()),
+    )
+}
+
 impl Document {
-    /// A Type 0 font drawing `chars` (codes 1, 2, ... in this order, with
-    /// their glyphs) from `font`. The subset is made first; the objects are
-    /// added only when it succeeded.
-    pub(crate) fn add_unicode_font(&mut self, font: &SourceFont, chars: &[(char, u16)]) -> Result<ObjectId> {
-        let key = subset_key(font, chars);
-        let glyphs: BTreeSet<u16> = chars.iter().map(|(_, g)| *g).collect();
-        let program = super::subset::subset(font.data(), &glyphs, chars).map_err(|reason| {
-            GlyphProblem::FontUnreadable {
-                path: font.path.clone(),
-                reason,
-            }
-        })?;
-        let base = format!("{}+{}", subset_tag(&key), font.name);
+    /// Add the objects of a subset of `font` (made by [`build_subset`]):
+    /// the Type 0 font, its CIDFont, descriptor, program, glyph map and
+    /// ToUnicode map.
+    pub(crate) fn add_unicode_font(&mut self, font: &SourceFont, parts: SubsetParts) -> ObjectId {
+        let SubsetParts {
+            key,
+            base,
+            program,
+            map,
+            to_unicode,
+            widths,
+        } = parts;
         let program_len = program.len() as i64;
         let file = compressed(dictionary! { "Length1" => program_len }, program);
-        let mut map = vec![0u8, 0];
-        for (_, g) in chars {
-            map.extend(g.to_be_bytes());
-        }
         let map = compressed(Dictionary::new(), map);
-        let letters: Vec<char> = chars.iter().map(|(c, _)| *c).collect();
-        let to_unicode = compressed(Dictionary::new(), to_unicode_cmap(&letters));
-        let widths: Vec<Object> = chars
-            .iter()
-            .map(|(_, g)| Object::Integer(font.advance(*g) as i64))
-            .collect();
+        let to_unicode = compressed(Dictionary::new(), to_unicode);
+        let widths: Vec<Object> = widths.into_iter().map(Object::Integer).collect();
         let d = &font.descriptor;
 
         let file_id = self.inner.add_object(file);
@@ -137,7 +177,7 @@ impl Document {
             "W" => vec![Object::Integer(1), Object::Array(widths)],
             "CIDToGIDMap" => map_id,
         });
-        Ok(self.inner.add_object(dictionary! {
+        self.inner.add_object(dictionary! {
             "Type" => "Font",
             "Subtype" => "Type0",
             "BaseFont" => Object::Name(base.into_bytes()),
@@ -145,32 +185,52 @@ impl Document {
             "DescendantFonts" => vec![Object::Reference(cid_font)],
             "ToUnicode" => to_unicode_id,
             FONT_KEY => Object::String(key.into_bytes(), StringFormat::Literal),
-        }))
+        })
     }
 
-    /// Whether `id` is a font this module embedded with the key `key`, whole
-    /// (descendant, descriptor and program present).
-    pub(crate) fn is_embedded_subset(&self, id: ObjectId, key: &str) -> bool {
+    /// Whether `id` is the subset `parts` as this module writes it: the key
+    /// alone is not trusted (a file can change the objects behind it), the
+    /// glyph map, the ToUnicode map, the widths and the font program are
+    /// compared with the ones just made.
+    pub(crate) fn same_subset(&self, id: ObjectId, parts: &SubsetParts) -> bool {
         let doc = &self.inner;
-        let Ok(font) = doc.get_dictionary(id) else {
-            return false;
+        let check = || -> Option<bool> {
+            let font = doc.get_dictionary(id).ok()?;
+            let name =
+                |d: &Dictionary, k: &[u8]| d.get(k).ok().and_then(|n| n.as_name().ok()).map(<[u8]>::to_vec);
+            let same_key = matches!(font.get(FONT_KEY.as_bytes()), Ok(Object::String(k, _)) if *k == parts.key.as_bytes());
+            let type0 = name(font, b"Subtype")? == b"Type0"
+                && name(font, b"Encoding")? == b"Identity-H"
+                && name(font, b"BaseFont")? == parts.base.as_bytes();
+            let cid_id = font
+                .get(b"DescendantFonts")
+                .ok()?
+                .as_array()
+                .ok()?
+                .first()?
+                .as_reference()
+                .ok()?;
+            let cid = doc.get_dictionary(cid_id).ok()?;
+            let widths: Vec<Object> = parts.widths.iter().map(|w| Object::Integer(*w)).collect();
+            let same_widths =
+                cid.get(b"W").ok()?.as_array().ok()? == &vec![Object::Integer(1), Object::Array(widths)];
+            let descriptor = doc
+                .get_dictionary(cid.get(b"FontDescriptor").ok()?.as_reference().ok()?)
+                .ok()?;
+            let same_program = decoded(doc, descriptor.get(b"FontFile2").ok()?)? == parts.program;
+            let same_map = decoded(doc, cid.get(b"CIDToGIDMap").ok()?)? == parts.map;
+            let same_to_unicode = decoded(doc, font.get(b"ToUnicode").ok()?)? == parts.to_unicode;
+            Some(
+                same_key
+                    && type0
+                    && name(cid, b"Subtype")? == b"CIDFontType2"
+                    && same_widths
+                    && same_program
+                    && same_map
+                    && same_to_unicode,
+            )
         };
-        let same_key =
-            matches!(font.get(FONT_KEY.as_bytes()), Ok(Object::String(k, _)) if k == key.as_bytes());
-        let whole = font
-            .get(b"DescendantFonts")
-            .ok()
-            .and_then(|a| a.as_array().ok())
-            .and_then(|a| a.first())
-            .and_then(|c| c.as_reference().ok())
-            .and_then(|c| doc.get_dictionary(c).ok())
-            .and_then(|c| c.get(b"FontDescriptor").ok())
-            .and_then(|d| d.as_reference().ok())
-            .and_then(|d| doc.get_dictionary(d).ok())
-            .and_then(|d| d.get(b"FontFile2").ok())
-            .and_then(|f| f.as_reference().ok())
-            .is_some_and(|f| doc.get_object(f).is_ok_and(|o| o.as_stream().is_ok()));
-        same_key && whole && font.has(b"ToUnicode")
+        check().unwrap_or(false)
     }
 }
 

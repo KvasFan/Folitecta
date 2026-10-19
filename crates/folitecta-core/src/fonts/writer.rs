@@ -9,7 +9,7 @@ use unicode_bidi::BidiClass;
 use unicode_normalization::UnicodeNormalization;
 
 use super::GlyphProblem;
-use super::embed::subset_key;
+use super::embed::build_subset;
 use super::source::{SourceFont, unicode_font};
 use crate::document::Document;
 use crate::error::Result;
@@ -215,11 +215,11 @@ impl TextWriter {
         match self.face {
             Face::Standard => Ok(doc.helvetica_font_id()),
             Face::Unicode { font, chars, .. } => {
-                let key = subset_key(&font, &chars);
-                if let Some(id) = reuse.filter(|id| doc.is_embedded_subset(*id, &key)) {
+                let parts = build_subset(&font, &chars)?;
+                if let Some(id) = reuse.filter(|id| doc.same_subset(*id, &parts)) {
                     return Ok(id);
                 }
-                doc.add_unicode_font(&font, &chars)
+                Ok(doc.add_unicode_font(&font, parts))
             }
         }
     }

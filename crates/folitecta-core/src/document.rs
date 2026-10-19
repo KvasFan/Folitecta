@@ -271,7 +271,7 @@ fn load_inner(bytes: &[u8], password: Option<&str>) -> Result<Loaded> {
     // Opened with the owner password (an empty one included), the permissions
     // of the file do not restrict the document.
     if let Some(p) = &loaded.protection {
-        if crate::security::is_owner_password(bytes, password.unwrap_or("")) {
+        if p.is_owner_password(password.unwrap_or("")) {
             loaded.protection = Some(p.opened_by_owner());
         }
     }
@@ -576,6 +576,22 @@ impl Document {
     /// its saved files keep.
     pub fn is_protected(&self) -> bool {
         self.protection.is_some()
+    }
+
+    /// Give the document the owner's access when `password` is the owner
+    /// password of its protection (the permissions no longer restrict it).
+    /// Whether the document has the owner's access now.
+    pub fn unlock_owner(&mut self, password: &str) -> bool {
+        let Some(p) = &self.protection else {
+            return false;
+        };
+        match p.unlocked(password) {
+            Some(unlocked) => {
+                self.protection = Some(unlocked);
+                true
+            }
+            None => false,
+        }
     }
 
     /// The protection of the document.

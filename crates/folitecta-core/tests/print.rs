@@ -636,16 +636,32 @@ fn print_files_of_protected_documents_stay_protected() {
     );
 }
 
+/// The encryption of a test file made with the PDF library itself.
+#[derive(Debug, Clone, Copy)]
+enum Kind {
+    Aes256,
+    Aes128,
+    Rc4,
+}
+
 /// A blank page protected with `permissions` (passwords "u" and "o"), made
 /// with the PDF library itself (for permissions Folitecta does not write).
 fn protected_with(profile: EncryptionProfile, permissions: lopdf::Permissions) -> Vec<u8> {
+    let kind = match profile {
+        EncryptionProfile::Aes256 => Kind::Aes256,
+        EncryptionProfile::Aes128 => Kind::Aes128,
+    };
+    encrypted_by_library(kind, "u", "o", permissions)
+}
+
+fn encrypted_by_library(kind: Kind, user: &str, owner: &str, permissions: lopdf::Permissions) -> Vec<u8> {
     use lopdf::encryption::crypt_filters::{Aes128CryptFilter, Aes256CryptFilter, CryptFilter};
     let mut copy = lopdf::Document::load_mem(&Document::new_blank(1, 200.0, 200.0).unwrap().bytes()).unwrap();
     let id = Object::String(vec![7; 16], lopdf::StringFormat::Hexadecimal);
     copy.trailer.set("ID", Object::Array(vec![id.clone(), id]));
     let mut filters: std::collections::BTreeMap<Vec<u8>, Arc<dyn CryptFilter>> = Default::default();
-    let state = match profile {
-        EncryptionProfile::Aes128 => {
+    let state = match kind {
+        Kind::Aes128 => {
             filters.insert(b"StdCF".to_vec(), Arc::new(Aes128CryptFilter));
             lopdf::EncryptionState::try_from(lopdf::EncryptionVersion::V4 {
                 document: &copy,
@@ -653,12 +669,12 @@ fn protected_with(profile: EncryptionProfile, permissions: lopdf::Permissions) -
                 crypt_filters: filters,
                 stream_filter: b"StdCF".to_vec(),
                 string_filter: b"StdCF".to_vec(),
-                owner_password: "o",
-                user_password: "u",
+                owner_password: owner,
+                user_password: user,
                 permissions,
             })
         }
-        EncryptionProfile::Aes256 => {
+        Kind::Aes256 => {
             filters.insert(b"StdCF".to_vec(), Arc::new(Aes256CryptFilter));
             lopdf::EncryptionState::try_from(lopdf::EncryptionVersion::V5 {
                 encrypt_metadata: true,
@@ -666,17 +682,92 @@ fn protected_with(profile: EncryptionProfile, permissions: lopdf::Permissions) -
                 file_encryption_key: &[9; 32],
                 stream_filter: b"StdCF".to_vec(),
                 string_filter: b"StdCF".to_vec(),
-                owner_password: "o",
-                user_password: "u",
+                owner_password: owner,
+                user_password: user,
                 permissions,
             })
         }
+        Kind::Rc4 => lopdf::EncryptionState::try_from(lopdf::EncryptionVersion::V2 {
+            document: &copy,
+            owner_password: owner,
+            user_password: user,
+            key_length: 128,
+            permissions,
+        }),
     }
     .unwrap();
     copy.encrypt(&state).unwrap();
     let mut out = Vec::new();
     copy.save_to(&mut out).unwrap();
     out
+}
+
+#[test]
+fn the_owner_password_of_files_without_a_user_password() {
+    let dir = folder("owner-of-open-files");
+    let no_print = SecurityPermissions {
+        print: false,
+        ..SecurityPermissions::default()
+    };
+    // Written by Folitecta (AES-256, AES-128) and by the library (RC4): no
+    // user password, owner password "o", printing not allowed.
+    let mut files = Vec::new();
+    for profile in [EncryptionProfile::Aes256, EncryptionProfile::Aes128] {
+        let path = dir.join(format!("open-{profile:?}.pdf"));
+        Document::new_blank(1, 200.0, 200.0)
+            .unwrap()
+            .save_encrypted(&path, "", "o", no_print, profile)
+            .unwrap();
+        files.push((format!("{profile:?}"), path));
+    }
+    let rc4 = dir.join("open-rc4.pdf");
+    std::fs::write(
+        &rc4,
+        encrypted_by_library(Kind::Rc4, "", "o", lopdf::Permissions::empty()),
+    )
+    .unwrap();
+    files.push(("RC4".into(), rc4));
+    for (name, path) in files {
+        // Opened without a password: the permissions apply...
+        let mut doc = Document::open(&path).unwrap();
+        assert_eq!(doc.print_permission(), PrintPermission::Forbidden, "{name}");
+        // ...until the owner password is given (a wrong one changes nothing).
+        assert!(!doc.unlock_owner("x"), "{name}");
+        assert_eq!(doc.print_permission(), PrintPermission::Forbidden, "{name}");
+        assert!(doc.unlock_owner("o"), "{name}");
+        assert_eq!(doc.print_permission(), PrintPermission::Allowed, "{name}");
+        // Opened with the owner password, from the start.
+        let owner = Document::open_with_password(&path, "o").unwrap();
+        assert!(owner.protection().unwrap().owner_access(), "{name}");
+        assert_eq!(owner.print_permission(), PrintPermission::Allowed, "{name}");
+    }
+}
+
+#[test]
+fn a_user_password_never_passes_for_an_owner_password_it_contains() {
+    // Owner "a", user "a中": the character outside PDFDocEncoding must not be
+    // dropped on the way (AES-256 and the revisions before it).
+    let dir = folder("lossy-owner");
+    let mut checked = Vec::new();
+    for kind in [Kind::Aes256, Kind::Aes128, Kind::Rc4] {
+        let path = dir.join(format!("lossy-{kind:?}.pdf"));
+        std::fs::write(
+            &path,
+            encrypted_by_library(kind, "a中", "a", lopdf::Permissions::empty()),
+        )
+        .unwrap();
+        let Ok(as_user) = Document::open_with_password(&path, "a中") else {
+            // A revision that cannot carry the user password at all.
+            continue;
+        };
+        assert!(!as_user.protection().unwrap().owner_access(), "{kind:?}");
+        assert_eq!(as_user.print_permission(), PrintPermission::Forbidden, "{kind:?}");
+        let as_owner = Document::open_with_password(&path, "a").unwrap();
+        assert!(as_owner.protection().unwrap().owner_access(), "{kind:?}");
+        checked.push(format!("{kind:?}"));
+    }
+    eprintln!("checked: {checked:?}");
+    assert!(checked.contains(&"Aes256".to_string()));
 }
 
 #[test]

@@ -332,7 +332,13 @@ impl Renderer {
             * Affine::scale_non_uniform(f64::from(dpi.0) / 72.0, f64::from(dpi.1) / 72.0)
             * p.initial_transform(true).to_kurbo();
         let drawn = catch_unwind(AssertUnwindSafe(|| {
-            let mut ctx = RenderContext::new(width as u16, rows as u16);
+            // Explicit settings: with the threads of the rasterizer built
+            // in, a context made without them would start its own pool.
+            let settings = hayro::vello_cpu::RenderSettings {
+                num_threads: 0,
+                ..Default::default()
+            };
+            let mut ctx = RenderContext::new_with(width as u16, rows as u16, settings);
             hayro::render_into(
                 p,
                 &cache,

@@ -404,7 +404,7 @@ async fn revert_revision_and_traces(cx: &mut Ctx<'_>, tab: u64) {
             .add_note(0, 20.0, 20.0, "embedded note", "Reviewer", [1.0, 0.9, 0.2])
     });
     // The private folder of decrypted files (user only).
-    let private = crate::util::protected_temp_dir().ok();
+    let private = crate::private_files::private_dir(crate::private_files::PROTECTED).ok();
     #[cfg(unix)]
     let private_mode = private.as_deref().and_then(|d| {
         use std::os::unix::fs::PermissionsExt;

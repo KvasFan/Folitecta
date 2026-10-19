@@ -11,6 +11,7 @@ mod i18n;
 mod icons;
 mod mail;
 mod printing;
+mod private_files;
 mod recovery;
 mod selftest;
 mod state;

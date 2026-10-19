@@ -95,11 +95,13 @@ pub fn CommentsPane() -> Element {
     let lang = st.lang();
     let mut query = use_signal(String::new);
     let mut toggled_groups: Signal<HashSet<String>> = use_signal(HashSet::new);
-    let Some((infos, selected, filter_active)) = st.read_active(|t| {
+    let Some((infos, selected, filter_active, layer_hidden)) = st.read_active(|t| {
         (
             t.doc.comment_infos(),
             t.selected_annot,
             !t.comment_filter.is_empty(),
+            // Comments of the layers the view hides.
+            t.layer_hidden_annots(),
         )
     }) else {
         return rsx! {};
@@ -139,7 +141,7 @@ pub fn CommentsPane() -> Element {
         .iter()
         .filter(|c| c.reply_to.is_none() && !c.is_state)
         .filter(|c| show_hidden || !c.hidden)
-        .filter(|c| show_layer_hidden || !c.in_hidden_layer)
+        .filter(|c| show_layer_hidden || !layer_hidden.contains(&c.id))
         .filter(|c| filter.shows(c))
         .map(|c| (c.clone(), replies_of(c)))
         .filter(|(c, replies)| {

@@ -350,6 +350,8 @@ pub fn Dialogs() -> Element {
             rsx! { crate::ui::panes::layers::ImportLayerDialog { path: path.display().to_string() } }
         }
         Dialog::LayerOptions => rsx! { crate::ui::panes::layers::LayerOptionsDialog {} },
+        Dialog::ChooseLayer => rsx! { crate::ui::panes::layers::ChooseLayerDialog {} },
+        Dialog::MoveToNewLayer => rsx! { crate::ui::panes::layers::MoveToNewLayerDialog {} },
         Dialog::AttachmentEdit(index) => {
             rsx! { crate::ui::panes::attachments::AttachmentEditDialog { index } }
         }

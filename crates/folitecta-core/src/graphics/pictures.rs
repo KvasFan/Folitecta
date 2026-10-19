@@ -12,7 +12,7 @@ use image::RgbaImage;
 use image::imageops::FilterType;
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
-use crate::content_edit::{Joined, Splice, count_refs, joined, rewrite, stream_span};
+use crate::content_edit::{Joined, Splice, count_refs, joined, name_token, rewrite, stream_span};
 use crate::content_lex::{name_of, operations};
 use crate::document::Document;
 use crate::error::{Error, Result};
@@ -837,10 +837,10 @@ impl Document {
             Some((a, b)) => Splice {
                 start: a,
                 end: b,
-                with: format!("/{name}").into_bytes(),
+                with: name_token(&name).into_bytes(),
             },
             None => {
-                let mut with = format!("/OC /{name} BDC ").into_bytes();
+                let mut with = format!("/OC {} BDC ", name_token(&name)).into_bytes();
                 with.extend_from_slice(&j.data[d.start..d.end]);
                 with.extend_from_slice(b" EMC");
                 Splice {

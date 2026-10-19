@@ -85,23 +85,26 @@ pub fn LayersPane() -> Element {
     let lang = st.lang();
     let visible_only = pages_mode(st) == "visible";
     let inherit = LAYER_INHERIT.load(Ordering::Relaxed);
-    let Some((tree, layers, view, selected, collapsed, usage, on_page, differs)) = st.read_active(|t| {
-        let layers = t.doc.layers();
-        let view: HashMap<Id, bool> = layers
-            .iter()
-            .map(|l| (l.id, t.layer_visible(l.id, l.visible)))
-            .collect();
-        (
-            t.doc.layer_tree(),
-            layers,
-            view,
-            t.selected_layers.clone(),
-            t.collapsed_layers.clone(),
-            t.doc.layer_pages(),
-            visible_only.then(|| t.doc.layers_on_page(t.page)),
-            !t.layer_view.is_empty(),
-        )
-    }) else {
+    let Some((tree, layers, view, selected, collapsed, usage, on_page, differs, drawing)) =
+        st.read_active(|t| {
+            let layers = t.doc.layers();
+            let view: HashMap<Id, bool> = layers
+                .iter()
+                .map(|l| (l.id, t.layer_visible(l.id, l.visible)))
+                .collect();
+            (
+                t.doc.layer_tree(),
+                layers,
+                view,
+                t.selected_layers.clone(),
+                t.collapsed_layers.clone(),
+                t.doc.layer_pages(),
+                visible_only.then(|| t.doc.layers_on_page(t.page)),
+                !t.layer_view.is_empty(),
+                t.doc.drawing_layer(),
+            )
+        })
+    else {
         return rsx! {};
     };
     let mut shown = view.clone();
@@ -177,6 +180,8 @@ pub fn LayersPane() -> Element {
                     if is_sel { class.push_str(" selected"); }
                     if !effective { class.push_str(" hidden-layer"); }
                     if row.id.is_none() { class.push_str(" layer-group"); }
+                    let is_drawing = row.id.is_some() && row.id == drawing;
+                    if is_drawing { class.push_str(" drawing"); }
                     let style = format!("padding-left:{}px", 6 + row.depth * 14);
                     let count = row.id.and_then(|id| usage.get(&id)).map(|p| p.len()).unwrap_or(0);
                     let p_click = row.path.clone();
@@ -204,7 +209,13 @@ pub fn LayersPane() -> Element {
                                             t.selected_layers.push(p);
                                         }
                                     } else {
-                                        t.selected_layers = vec![p];
+                                        t.selected_layers = vec![p.clone()];
+                                        // A click on a layer makes it the drawing layer again,
+                                        // even when it was already the selected entry.
+                                        let id = node_at(&t.doc.layer_tree(), &p).and_then(|n| n.layer_id());
+                                        if let Some(id) = id {
+                                            let _ = t.doc.set_drawing_layer(Some(id));
+                                        }
                                     }
                                 });
                             },
@@ -226,6 +237,12 @@ pub fn LayersPane() -> Element {
                                 span { class: "layer-group-icon", Icon { name: "folder" } }
                             }
                             span { class: "tree-label", "{row.label}" }
+                            if is_drawing {
+                                button { class: "ibtn drawing-mark", title: "{t(lang, \"layers.drawing_here\")}",
+                                    onclick: move |e| { e.stop_propagation(); dispatch(st, "defaultLayer"); },
+                                    Icon { name: "pencil" }
+                                }
+                            }
                             if let Some(id) = row.id {
                                 button { class: "{lock_class}", title: "{lock_title}",
                                     onclick: move |e| {
@@ -513,6 +530,146 @@ pub fn LayerOptionsDialog() -> Element {
                 span { "{label(\"layersView.overrideByParent\")}" }
             }
             div { class: "hint", "{t(lang, \"layers.options.hint\")}" }
+        }
+    }
+}
+
+/// The value of a layer in a choice list ("none": no layer).
+fn layer_value(id: Option<Id>) -> String {
+    match id {
+        Some((a, b)) => format!("{a}-{b}"),
+        None => "none".into(),
+    }
+}
+
+/// Choose the layer new drawings and text go to, or (when comments are
+/// selected) the layer of the selected comments.
+#[component]
+pub fn ChooseLayerDialog() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let (layers, drawing, chosen) = st
+        .read_active(|t| {
+            let chosen = t.chosen_annots().map(|(p, list)| {
+                (
+                    p,
+                    list.clone(),
+                    list.first().and_then(|i| t.doc.annotation_layer(p, *i)),
+                )
+            });
+            (t.doc.layers(), t.doc.drawing_layer(), chosen)
+        })
+        .unwrap_or_default();
+    let has_comments = chosen.is_some();
+    let comment_layer = chosen.as_ref().and_then(|c| c.2);
+    let mut for_comments = use_signal(|| has_comments);
+    let mut choice = use_signal(|| layer_value(if has_comments { comment_layer } else { drawing }));
+    let reg = registry();
+    let title = reg
+        .get("chooseLayer")
+        .map(|c| cmd_label(lang, c))
+        .unwrap_or_default();
+    let hint = if for_comments() {
+        t(lang, "layers.choose.comments_hint")
+    } else {
+        t(lang, "layers.choose.drawing_hint")
+    };
+    rsx! {
+        Frame { title,
+            on_ok: move |_| {
+                let layer = layers_lookup(&choice());
+                st.set_dialog(Dialog::None);
+                if for_comments() {
+                    crate::commands::layers::set_comments_layer(st, layer);
+                } else {
+                    crate::commands::layers::set_drawing_layer(st, layer);
+                }
+            },
+            if has_comments {
+                div { class: "field",
+                    label { "{t(lang, \"layers.choose.for\")}" }
+                    div { class: "radio-col",
+                        label { class: "check",
+                            input { r#type: "radio", name: "choose-layer-for", checked: for_comments(),
+                                onchange: move |_| { for_comments.set(true); choice.set(layer_value(comment_layer)); } }
+                            span { "{t(lang, \"layers.choose.comments\")}" }
+                        }
+                        label { class: "check",
+                            input { r#type: "radio", name: "choose-layer-for", checked: !for_comments(),
+                                onchange: move |_| { for_comments.set(false); choice.set(layer_value(drawing)); } }
+                            span { "{t(lang, \"layers.choose.drawing\")}" }
+                        }
+                    }
+                }
+            }
+            div { class: "field",
+                label { "{t(lang, \"layers.choose.layer\")}" }
+                select { class: "choose-layer",
+                    onchange: move |e| choice.set(e.value()),
+                    option { value: "none", selected: choice() == "none", "{t(lang, \"layers.no_layer\")}" }
+                    for l in layers.iter() {
+                        option { key: "{l.id.0}-{l.id.1}", value: "{layer_value(Some(l.id))}", selected: choice() == layer_value(Some(l.id)), "{l.name}" }
+                    }
+                }
+            }
+            div { class: "hint", "{hint}" }
+        }
+    }
+}
+
+/// Name of the new layer the selected comments, or the selected picture,
+/// move to.
+#[component]
+pub fn MoveToNewLayerDialog() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let (count, picture, n) = st
+        .read_active(|t| {
+            (
+                t.chosen_annots().map(|(_, l)| l.len()).unwrap_or(0),
+                t.image_sel,
+                t.doc.layers().len(),
+            )
+        })
+        .unwrap_or_default();
+    let mut name = use_signal(|| tf(lang, "layers.default_name", &[("n", &(n + 1).to_string())]));
+    let reg = registry();
+    let title = reg
+        .get("moveToNewLayer")
+        .map(|c| cmd_label(lang, c))
+        .unwrap_or_default();
+    let what = if count > 0 {
+        tf(lang, "layers.move.comments", &[("count", &count.to_string())])
+    } else {
+        t(lang, "layers.move.picture")
+    };
+    rsx! {
+        Frame { title,
+            on_ok: move |_| {
+                let n = name();
+                let r = st.with_active(|t| match (t.chosen_annots(), t.image_sel) {
+                    (Some((page, list)), _) => t.doc.move_annotations_to_new_layer(page, &list, &n),
+                    (None, Some((page, index))) => t.doc.move_picture_to_new_layer(page, index, &n),
+                    (None, None) => Err(folitecta_core::Error::Invalid("nothing is selected".into())),
+                });
+                match r {
+                    Some(Ok(_)) => {
+                        crate::files::set_window_title(st);
+                        st.set_dialog(Dialog::None);
+                        st.toast(crate::state::ToastKind::Ok, tf(lang, "toast.moved_to_layer", &[("name", n.trim())]), "");
+                    }
+                    Some(Err(e)) => st.core_error(&e),
+                    None => {}
+                }
+            },
+            div { class: "field",
+                label { "{t(lang, \"layers.name\")}" }
+                input { value: "{name}", autofocus: true, oninput: move |e| name.set(e.value()) }
+            }
+            div { class: "hint", "{what}" }
+            if picture.is_some() && count == 0 {
+                div { class: "hint", "{t(lang, \"layers.move.picture_hint\")}" }
+            }
         }
     }
 }

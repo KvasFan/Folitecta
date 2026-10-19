@@ -11,3 +11,7 @@
 .statusbar .seg button.active { background: var(--active-bg); color: var(--active-fg); }
 .statusbar .zoom-pct { min-width: 46px; text-align: center; color: var(--text); font-variant-numeric: tabular-nums; }
 .statusbar .mono { font-variant-numeric: tabular-nums; }
+.statusbar .layer-chip { max-width: 220px; flex: 0 1 auto; min-width: 0; background: var(--accent-soft); color: var(--accent); padding-right: 2px; }
+.statusbar .layer-chip .chip-x { border: none; background: transparent; color: inherit; display: grid; place-items: center; padding: 0 2px; border-radius: 999px; flex: none; }
+.statusbar .layer-chip .chip-x:hover { background: var(--surface-3); }
+.statusbar .layer-chip .chip-x .ic { width: 12px; height: 12px; }

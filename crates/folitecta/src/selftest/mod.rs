@@ -426,6 +426,7 @@ mod steps_features;
 mod steps_field_items;
 mod steps_files;
 mod steps_frames;
+mod steps_layer_drawing;
 mod steps_layout;
 mod steps_links;
 mod steps_note_icon;
@@ -507,6 +508,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "protection" => Box::pin(steps_protection::run(cx)),
             "frames" => Box::pin(steps_frames::run(cx)),
             "unicode" => Box::pin(steps_unicode::run(cx)),
+            "layer_drawing" => Box::pin(steps_layer_drawing::run(cx)),
             _ => Box::pin(async { cx.record("unknown step", false, name.to_string()) }),
         };
         tokio::time::timeout(step_limit(), fut).await.is_ok()
@@ -531,7 +533,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
 }
 
 /// The interaction steps in the order of a full run.
-const STEPS: [&str; 26] = [
+const STEPS: [&str; 27] = [
     "tools",
     "review",
     "panes",
@@ -558,6 +560,7 @@ const STEPS: [&str; 26] = [
     "protection",
     "frames",
     "unicode",
+    "layer_drawing",
 ];
 
 async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_json::Value>) -> usize {
@@ -957,6 +960,8 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ),
         ("layer-overrides", Dialog::LayerOverrides),
         ("layer-options", Dialog::LayerOptions),
+        ("choose-layer", Dialog::ChooseLayer),
+        ("move-to-new-layer", Dialog::MoveToNewLayer),
         ("attachment-options", Dialog::AttachmentOptions),
         ("fields-options", Dialog::FieldsOptions),
         ("space-audit", Dialog::SpaceAudit),

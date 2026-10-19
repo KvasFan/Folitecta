@@ -70,6 +70,10 @@ const BY_ID: &[(&str, &str)] = &[
     ("pageText.replace", "text-replace"),
     ("pageText.delete", "text-delete"),
     ("tool.addText", "text"),
+    // Layers.
+    ("chooseLayer", "layer-choose"),
+    ("defaultLayer", "layer-off"),
+    ("moveToNewLayer", "layer-move"),
     ("document.addImage", "image-add"),
     ("tool.selBarcodePlace", "barcode"),
     ("document.detectImageBarcode", "barcode-read"),

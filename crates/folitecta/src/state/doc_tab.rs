@@ -159,6 +159,12 @@ pub struct DocTab {
     pub layer_view: HashMap<(u32, u16), bool>,
     /// Selected entries of the layers pane (tree paths).
     pub selected_layers: Vec<Vec<usize>>,
+    /// The selection of the layers pane the drawing layer was last chosen
+    /// from: a single layer selected becomes the drawing layer.
+    pub layer_sel_seen: Vec<Vec<usize>>,
+    /// The name of a hidden layer the view showed because something was
+    /// drawn on it, for a message.
+    pub layer_shown: Option<String>,
     /// Collapsed entries of the layers pane.
     pub collapsed_layers: HashSet<String>,
     /// Selected attachment (index in the attachments list).
@@ -304,6 +310,8 @@ impl DocTab {
             sig_status: None,
             layer_view: HashMap::new(),
             selected_layers: Vec::new(),
+            layer_sel_seen: Vec::new(),
+            layer_shown: None,
             collapsed_layers: HashSet::new(),
             selected_attachment: None,
             selected_fields: Vec::new(),
@@ -317,10 +325,70 @@ impl DocTab {
         if let Some(key) = tab.doc.portfolio().and_then(|p| p.initial) {
             tab.portfolio.selected = vec![key];
         }
-        if LAYER_INHERIT.load(std::sync::atomic::Ordering::Relaxed) && !tab.doc.layers().is_empty() {
+        // Comments of hidden layers, and the view option of parent layers.
+        if !tab.doc.layers().is_empty() {
             tab.update_render();
         }
         tab
+    }
+
+    /// Annotations the hidden layers of the view hide.
+    pub fn layer_hidden_annots(&self) -> HashSet<(u32, u16)> {
+        self.doc.annotations_in_hidden_layers(&self.view_layer_states())
+    }
+
+    /// Indices of the annotations of a page the hidden layers of the view hide.
+    pub fn layer_hidden_on_page(&self, page: usize) -> HashSet<usize> {
+        self.doc
+            .page_annotations_in_hidden_layers(page, &self.view_layer_states())
+    }
+
+    /// A single layer selected in the layers pane becomes the layer new
+    /// drawings and text go to (other selections leave it as it is).
+    fn follow_layer_selection(&mut self) {
+        if self.selected_layers == self.layer_sel_seen {
+            return;
+        }
+        self.layer_sel_seen = self.selected_layers.clone();
+        if let [path] = self.selected_layers.as_slice() {
+            let tree = self.doc.layer_tree();
+            if let Some(id) = folitecta_core::layers::node_at(&tree, path).and_then(|n| n.layer_id()) {
+                let _ = self.doc.set_drawing_layer(Some(id));
+            }
+        }
+    }
+
+    /// Show in the view a hidden layer something was just drawn on, so
+    /// the user sees it (the document keeps its default visibility).
+    fn show_layer_drawn(&mut self) {
+        let Some(id) = self.doc.take_layer_drawn() else {
+            return;
+        };
+        let mut states = self.doc.layer_defaults();
+        states.extend(self.layer_view.iter().map(|(k, v)| (*k, *v)));
+        let inherit = LAYER_INHERIT.load(std::sync::atomic::Ordering::Relaxed);
+        let mut shown = states.clone();
+        if inherit {
+            folitecta_core::layers::inherit_visibility(&self.doc.layer_tree(), &mut shown);
+        }
+        if shown.get(&id).copied().unwrap_or(true) {
+            return;
+        }
+        states.insert(id, true);
+        if inherit {
+            // The layers above it too, as hidden parents hide their children.
+            for p in layer_ancestors(&self.doc.layer_tree(), id) {
+                states.insert(p, true);
+            }
+        }
+        self.layer_shown = self.doc.layers().into_iter().find(|l| l.id == id).map(|l| l.name);
+        // Drawn again by the refresh under way.
+        let defaults = self.doc.layer_defaults();
+        self.layer_view = states
+            .into_iter()
+            .filter(|(id, v)| defaults.get(id).is_some_and(|d| d != v))
+            .collect();
+        self.view_gen += 1;
     }
 
     /// Layer visibility shown by the view (empty when it is the default one).
@@ -369,7 +437,9 @@ impl DocTab {
 
     /// Call after any mutation of `doc`: refreshes caches and the renderer.
     pub fn refresh(&mut self) {
+        self.follow_layer_selection();
         if self.doc.revision() != self.revision {
+            self.show_layer_drawn();
             self.page_sizes = self.doc.page_sizes();
             self.revision = self.doc.revision();
             self.update_render();
@@ -411,13 +481,12 @@ impl DocTab {
             self.filtered_out()
         };
         let layers = self.view_layer_states();
-        let bytes = if hidden.is_empty() && layers.is_empty() {
-            self.doc.bytes()
-        } else {
-            self.doc
-                .view_bytes(&hidden, &layers)
-                .unwrap_or_else(|_| self.doc.bytes())
-        };
+        // The comments of hidden layers are hidden too (by the default
+        // visibility when the view does not change it).
+        let bytes = self
+            .doc
+            .view_bytes(&hidden, &layers)
+            .unwrap_or_else(|_| self.doc.bytes());
         self.render.replace(bytes);
     }
 
@@ -506,5 +575,33 @@ impl DocTab {
         self.zoom = view.zoom;
         self.layout = view.layout;
         self.view_rotation = view.rotation;
+    }
+}
+
+/// The layers above layer `id` in the layer tree.
+fn layer_ancestors(nodes: &[folitecta_core::LayerNode], id: (u32, u16)) -> Vec<(u32, u16)> {
+    fn walk(nodes: &[folitecta_core::LayerNode], id: (u32, u16), above: &mut Vec<(u32, u16)>) -> bool {
+        for n in nodes {
+            if n.layer_id() == Some(id) {
+                return true;
+            }
+            let own = n.layer_id();
+            if let Some(o) = own {
+                above.push(o);
+            }
+            if walk(n.children(), id, above) {
+                return true;
+            }
+            if own.is_some() {
+                above.pop();
+            }
+        }
+        false
+    }
+    let mut above = Vec::new();
+    if walk(nodes, id, &mut above) {
+        above
+    } else {
+        Vec::new()
     }
 }

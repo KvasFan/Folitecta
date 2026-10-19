@@ -14,6 +14,7 @@ use std::sync::Arc;
 use lopdf::{Dictionary, Object, ObjectId};
 
 use crate::annots::annot_refs;
+use crate::content_edit::name_token;
 use crate::document::Document;
 use crate::error::{Error, Result};
 use crate::layers::{is_ocg, ocmd_members};
@@ -157,7 +158,7 @@ impl Document {
     /// resources of a page, added when the page does not name it yet. A
     /// direct membership dictionary becomes an object of its own first, as
     /// renderers look marked-content properties up by reference.
-    pub(crate) fn oc_property(&mut self, page_id: ObjectId, oc: Object) -> Result<String> {
+    pub(crate) fn oc_property(&mut self, page_id: ObjectId, oc: Object) -> Result<Vec<u8>> {
         let oc = match oc {
             Object::Dictionary(d) => Object::Reference(self.inner.add_object(d)),
             other => other,
@@ -168,7 +169,7 @@ impl Document {
             .map(|p| deref(&self.inner, &p).as_dict().cloned().unwrap_or_default())
             .unwrap_or_default();
         if let Some((name, _)) = props.iter().find(|(_, v)| **v == oc) {
-            return Ok(String::from_utf8_lossy(name).to_string());
+            return Ok(name.clone());
         }
         let base = match oc.as_reference() {
             Ok(id) => format!("FoliOC{}", id.0),
@@ -181,7 +182,7 @@ impl Document {
             name = format!("{base}_{n}");
         }
         self.add_page_resource(page_id, "Properties", &name, oc)?;
-        Ok(name)
+        Ok(name.into_bytes())
     }
 
     // ---- The layer of comments ---------------------------------------------
@@ -391,8 +392,8 @@ impl Document {
 }
 
 /// `content` inside the marked-content sequence of the property `name`.
-pub(crate) fn wrap_marked(name: &str, content: Vec<u8>) -> Vec<u8> {
-    let mut out = format!("/OC /{name} BDC\n").into_bytes();
+pub(crate) fn wrap_marked(name: &[u8], content: Vec<u8>) -> Vec<u8> {
+    let mut out = format!("/OC {} BDC\n", name_token(name)).into_bytes();
     let newline = content.last().is_some_and(|b| *b == b'\n');
     out.extend(content);
     if !newline {

@@ -289,7 +289,6 @@ pub const DEFAULT_ON: &[&str] = &[
     "commentsView.show.text",
     "commentsView.show.dynamicIcons",
     "commentsView.showHiddenComments",
-    "commentsView.showCommentsFromHiddenLayers",
     "commentsView.show.authors",
     "commentsView.show.dates",
     "commentsView.show.colors",

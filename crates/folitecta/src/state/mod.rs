@@ -304,10 +304,21 @@ impl AppState {
     /// Run `f` on the active tab (mutably). Returns `None` without a document.
     pub fn with_active<T>(&self, f: impl FnOnce(&mut DocTab) -> T) -> Option<T> {
         let idx = self.active_index()?;
-        let mut docs = self.docs_mut();
-        let tab = docs.get_mut(idx)?;
-        let out = f(tab);
-        tab.refresh();
+        let (out, shown) = {
+            let mut docs = self.docs_mut();
+            let tab = docs.get_mut(idx)?;
+            let out = f(tab);
+            tab.refresh();
+            (out, tab.layer_shown.take())
+        };
+        if let Some(name) = shown {
+            let lang = self.lang();
+            self.toast(
+                ToastKind::Info,
+                crate::i18n::tf(lang, "toast.layer_shown", &[("name", &name)]),
+                crate::i18n::t(lang, "toast.layer_shown_detail"),
+            );
+        }
         Some(out)
     }
 

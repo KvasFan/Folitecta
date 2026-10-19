@@ -10,6 +10,9 @@ mod http;
 mod i18n;
 mod icons;
 mod mail;
+// Used by the print window (next step).
+#[allow(dead_code)]
+mod printing;
 mod recovery;
 mod selftest;
 mod state;

@@ -123,15 +123,15 @@ fn connect(url: &Url) -> Result<Box<dyn Stream>, String> {
 
 /// An answer of the server.
 #[derive(Debug, Clone, PartialEq)]
-struct Answer {
-    status: u16,
-    reason: String,
-    headers: Vec<(String, String)>,
-    body: Vec<u8>,
+pub(crate) struct Answer {
+    pub status: u16,
+    pub reason: String,
+    pub headers: Vec<(String, String)>,
+    pub body: Vec<u8>,
 }
 
 impl Answer {
-    fn header(&self, name: &str) -> Option<&str> {
+    pub(crate) fn header(&self, name: &str) -> Option<&str> {
         self.headers
             .iter()
             .find(|(n, _)| n.eq_ignore_ascii_case(name))
@@ -164,7 +164,7 @@ fn dechunk(mut data: &[u8]) -> Option<Vec<u8>> {
 
 /// The answer in `data`, when it is complete (`closed`: the server closed the
 /// connection, so an answer without a length ends here).
-fn parse_answer(data: &[u8], closed: bool) -> Result<Option<Answer>, String> {
+pub(crate) fn parse_answer(data: &[u8], closed: bool) -> Result<Option<Answer>, String> {
     let Some(head_end) = find(data, b"\r\n\r\n") else {
         return if closed {
             Err("the server closed the connection without answering".into())
@@ -254,6 +254,12 @@ fn send_once(url: &Url, content_type: &str, accept: &str, body: &[u8]) -> Result
     request.extend_from_slice(body);
     stream.write_all(&request).map_err(|e| e.to_string())?;
     stream.flush().map_err(|e| e.to_string())?;
+    read_answer(&mut stream)
+}
+
+/// Read the answer to a request sent on `stream` (any connection: TCP, TLS,
+/// a local socket).
+pub(crate) fn read_answer(stream: &mut dyn Read) -> Result<Answer, String> {
     let mut data = Vec::new();
     let mut buf = [0u8; 16 * 1024];
     loop {

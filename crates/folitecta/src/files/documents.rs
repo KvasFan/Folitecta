@@ -401,6 +401,7 @@ pub fn replace_tab_document(st: AppState, tab: u64, doc: Document, opened: bool)
             // The layers of the file opened again (no drawing layer).
             t.selected_layers.clear();
             t.layer_sel_seen.clear();
+            crate::commands::revocation::forget(t);
             i
         }
         None => {

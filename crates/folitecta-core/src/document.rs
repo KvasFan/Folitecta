@@ -1264,6 +1264,67 @@ impl Document {
         }
     }
 
+    /// The `/Resources` of a page as written (a reference or a dictionary),
+    /// its own or inherited from the page tree.
+    fn written_resources(&self, page_id: ObjectId) -> Option<Object> {
+        let mut current = Some(page_id);
+        for _ in 0..64 {
+            let dict = self.inner.get_dictionary(current?).ok()?;
+            if let Ok(v) = dict.get(b"Resources") {
+                return Some(v.clone());
+            }
+            current = dict.get(b"Parent").ok().and_then(|p| p.as_reference().ok());
+        }
+        None
+    }
+
+    /// Give a page resources of its own before something is added to them:
+    /// a `/Resources` object, or a `category` sub-dictionary, that other
+    /// pages use as well is copied into the page, so what is added does not
+    /// appear on them too (as a shared content stream is copied before it
+    /// changes).
+    fn own_page_resources(&mut self, page_id: ObjectId, category: &[u8]) -> Result<()> {
+        self.inherit_attributes(&[page_id]);
+        let others: Vec<ObjectId> = self.page_ids().into_iter().filter(|p| *p != page_id).collect();
+        let own = self
+            .inner
+            .get_dictionary(page_id)?
+            .get(b"Resources")
+            .ok()
+            .cloned();
+        if let Some(Object::Reference(rid)) = own {
+            let shared = others
+                .iter()
+                .any(|p| matches!(self.written_resources(*p), Some(Object::Reference(r)) if r == rid));
+            if shared {
+                let copy = self.inner.get_dictionary(rid)?.clone();
+                self.inner
+                    .get_dictionary_mut(page_id)?
+                    .set("Resources", Object::Dictionary(copy));
+            }
+        }
+        let sub = self.with_page_resources(page_id, |res| {
+            res.get(category).ok().and_then(|o| o.as_reference().ok())
+        })?;
+        if let Some(sid) = sub {
+            let shared = others.iter().any(|p| {
+                self.written_resources(*p).and_then(|r| {
+                    deref(&self.inner, &r)
+                        .as_dict()
+                        .ok()
+                        .and_then(|d| d.get(category).ok())
+                        .and_then(|o| o.as_reference().ok())
+                }) == Some(sid)
+            });
+            if shared {
+                if let Ok(copy) = self.inner.get_dictionary(sid).cloned() {
+                    self.with_page_resources(page_id, |res| res.set(category, Object::Dictionary(copy)))?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Register a named resource (font, ExtGState, XObject) on a page.
     pub(crate) fn add_page_resource(
         &mut self,
@@ -1272,6 +1333,7 @@ impl Document {
         name: &str,
         value: Object,
     ) -> Result<()> {
+        self.own_page_resources(page_id, category.as_bytes())?;
         // Resolve an indirect sub-dictionary first so we can mutate it in place.
         let sub_ref = self.with_page_resources(page_id, |res| {
             res.get(category.as_bytes())

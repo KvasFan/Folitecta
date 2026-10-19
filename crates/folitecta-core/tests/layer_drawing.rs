@@ -962,3 +962,89 @@ fn views_of_large_layered_documents_stay_quick() {
     assert!(is_white(pixel(first.clone(), 15, 105)));
     assert!(!is_white(pixel(first, 45, 105)));
 }
+
+/// Two pages drawing one picture with the same content stream; their
+/// resources are one object, or inherited from the page tree with one
+/// `/Properties` object.
+fn shared_pages(inherited: bool) -> Document {
+    use lopdf::Stream;
+    let mut d = lopdf::Document::with_version("1.7");
+    let pages_id = d.new_object_id();
+    let img = d.add_object(Stream::new(
+        dictionary! { "Type" => "XObject", "Subtype" => "Image", "Width" => 1, "Height" => 1, "ColorSpace" => "DeviceRGB", "BitsPerComponent" => 8 },
+        vec![0, 0, 255],
+    ));
+    let other = d.add_object(dictionary! { "Type" => "OCG", "Name" => Object::string_literal("Other") });
+    let props = d.add_object(dictionary! { "Old" => other });
+    let res = d.add_object(dictionary! { "XObject" => dictionary! { "Im0" => img }, "Properties" => props });
+    let content = d.add_object(Stream::new(
+        dictionary! {},
+        b"q 100 0 0 100 50 50 cm /Im0 Do Q".to_vec(),
+    ));
+    let kids: Vec<Object> = (0..2)
+        .map(|_| {
+            let mut page = dictionary! { "Type" => "Page", "Parent" => pages_id, "Contents" => content };
+            if !inherited {
+                page.set("Resources", res);
+            }
+            Object::Reference(d.add_object(page))
+        })
+        .collect();
+    let mut pages = dictionary! {
+        "Type" => "Pages", "Kids" => kids, "Count" => 2,
+        "MediaBox" => vec![0.into(), 0.into(), 300.into(), 300.into()],
+    };
+    if inherited {
+        pages.set("Resources", res);
+    }
+    d.objects.insert(pages_id, Object::Dictionary(pages));
+    let catalog = d.add_object(dictionary! {
+        "Type" => "Catalog", "Pages" => pages_id,
+        "OCProperties" => dictionary! { "OCGs" => vec![Object::Reference(other)], "D" => dictionary! { "Order" => vec![Object::Reference(other)] } },
+    });
+    d.trailer.set("Root", catalog);
+    let mut out = Vec::new();
+    d.save_to(&mut out).unwrap();
+    Document::from_bytes(out, None, None).unwrap()
+}
+
+fn page_pixel(bytes: Arc<Vec<u8>>, page: usize, x: u32, y: u32) -> [u8; 4] {
+    let img = Renderer::new(bytes)
+        .unwrap()
+        .render_rgba(page, 1.0, RenderOpts::default())
+        .unwrap();
+    img.get_pixel(x, 300 - y).0
+}
+
+#[test]
+fn shared_resources_and_content_stay_with_the_page_drawn_on() {
+    for inherited in [false, true] {
+        let mut doc = shared_pages(inherited);
+        let (ink, _) = doc.add_layer("Ink", &[]).unwrap();
+        doc.set_drawing_layer(Some(ink)).unwrap();
+        doc.add_image(0, png([255, 0, 0]), Some([200.0, 200.0, 250.0, 250.0]))
+            .unwrap();
+        let back = reopen(&mut doc, if inherited { "inherited" } else { "shared" });
+        let ink = layer_named(&back, "Ink");
+        assert!(back.layers_on_page(0).contains(&ink), "inherited {inherited}");
+        assert!(!back.layers_on_page(1).contains(&ink), "inherited {inherited}");
+        assert_eq!(back.layer_pages().get(&ink), Some(&vec![0]));
+        assert!(!content_of_page(&back, 1).contains("BDC"));
+        // The picture both pages draw, put on a new layer on page 0 only.
+        let mut doc = shared_pages(inherited);
+        let moved = doc.move_picture_to_new_layer(0, 0, "Moved").unwrap();
+        assert!(content_of_page(&doc, 0).contains("BDC"));
+        assert!(!content_of_page(&doc, 1).contains("BDC"));
+        assert!(!doc.layers_on_page(1).contains(&moved));
+        let view = doc
+            .view_bytes(&HashSet::new(), &HashMap::from([(moved, false)]))
+            .unwrap();
+        assert!(is_white(page_pixel(view.clone(), 0, 100, 100)));
+        assert!(!is_white(page_pixel(view, 1, 100, 100)));
+    }
+}
+
+fn content_of_page(doc: &Document, page: usize) -> String {
+    let pid = doc.page_id(page).unwrap();
+    String::from_utf8_lossy(&doc.inner().get_page_content(pid)).to_string()
+}

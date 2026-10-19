@@ -302,6 +302,19 @@ impl AppState {
         Some(out)
     }
 
+    /// Read-only access to the active tab without following it: a component
+    /// reading it this way is not drawn again when the documents change, so
+    /// what it shows must come through its properties.
+    pub fn peek_active<T>(&self, f: impl FnOnce(&DocTab) -> T) -> Option<T> {
+        let docs = self.docs.peek();
+        let n = docs.len();
+        if n == 0 {
+            return None;
+        }
+        let idx = (*self.active.peek()).min(n - 1);
+        docs.get(idx).map(f)
+    }
+
     /// Read-only access to the active tab.
     pub fn read_active<T>(&self, f: impl FnOnce(&DocTab) -> T) -> Option<T> {
         let idx = self.active_index()?;

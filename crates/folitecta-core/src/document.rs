@@ -73,10 +73,20 @@ pub struct Document {
     pub(crate) image_cache: std::sync::Mutex<crate::pictures::ImageCache>,
     /// The object ids of the pages of a revision, kept while no edit is under way.
     page_cache: std::sync::Mutex<PageCache>,
+    /// What the views read from a revision (comments, bookmarks, links, form
+    /// fields), kept while no edit is under way.
+    derived: std::sync::Mutex<Derived>,
     /// An edit is under way (from `begin_edit`, `inner_mut` or a change of the
     /// page tree until `commit`, an undo or a redo): the pages are looked up
     /// in the page tree itself, never in `page_cache`.
     editing: bool,
+}
+
+/// Values read from one revision, by name.
+#[derive(Default)]
+struct Derived {
+    revision: u64,
+    slots: std::collections::HashMap<&'static str, Arc<dyn std::any::Any + Send + Sync>>,
 }
 
 /// The pages of one revision: their object ids in order and, once asked
@@ -198,6 +208,7 @@ impl Document {
             struct_cache: Default::default(),
             image_cache: Default::default(),
             page_cache: Default::default(),
+            derived: Default::default(),
             editing: false,
         };
         if doc.page_count() == 0 {
@@ -262,6 +273,7 @@ impl Document {
             struct_cache: Default::default(),
             image_cache: Default::default(),
             page_cache: Default::default(),
+            derived: Default::default(),
             editing: false,
         })
     }
@@ -440,6 +452,43 @@ impl Document {
     /// Drop the lists kept for the current revision.
     fn forget_kept(&self) {
         *self.page_cache.lock().unwrap_or_else(|e| e.into_inner()) = PageCache::default();
+        *self.derived.lock().unwrap_or_else(|e| e.into_inner()) = Derived::default();
+    }
+
+    /// A value read from the document (`make`), kept for the revision while
+    /// no edit is under way and made again otherwise.
+    pub(crate) fn kept<T: std::any::Any + Send + Sync>(
+        &self,
+        name: &'static str,
+        make: impl FnOnce() -> T,
+    ) -> Arc<T> {
+        if self.editing {
+            return Arc::new(make());
+        }
+        {
+            let cache = self.derived.lock().unwrap_or_else(|e| e.into_inner());
+            if cache.revision == self.revision {
+                if let Some(v) = cache
+                    .slots
+                    .get(name)
+                    .cloned()
+                    .and_then(|v| v.downcast::<T>().ok())
+                {
+                    return v;
+                }
+            }
+        }
+        // Made without the lock: making it may read other kept values.
+        let value = Arc::new(make());
+        let mut cache = self.derived.lock().unwrap_or_else(|e| e.into_inner());
+        if cache.revision != self.revision {
+            *cache = Derived {
+                revision: self.revision,
+                slots: Default::default(),
+            };
+        }
+        cache.slots.insert(name, value.clone());
+        value
     }
 
     /// The object model matches `bytes` and `revision` again.

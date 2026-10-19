@@ -67,7 +67,9 @@ fn flags_of(d: &Dictionary) -> i64 {
 impl Document {
     /// Every comment with review information, in page order.
     pub fn comment_infos(&self) -> Vec<CommentInfo> {
-        self.infos_of(self.comments())
+        self.kept("comment_infos", || self.infos_of(self.comments()))
+            .as_ref()
+            .clone()
     }
 
     /// Comments of one page with review information (replies and states on

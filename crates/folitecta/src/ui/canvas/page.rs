@@ -13,8 +13,13 @@ pub(super) fn PageView(
     tool: Tool,
     view_rotation: i32,
     label: String,
+    // What the page shows besides its picture (see `page_stamps`): the page is
+    // drawn again when it changes. The documents are read without following
+    // them (`peek_active`), so a change elsewhere does not draw every page.
+    stamp: u64,
 ) -> Element {
     crate::perf::PAGE_VIEWS.bump();
+    let _ = stamp;
     let st = use_context::<AppState>();
     let mut drag = use_signal(|| None::<Drag>);
     let mut ink: Signal<Vec<(f64, f64)>> = use_signal(Vec::new);
@@ -82,8 +87,8 @@ pub(super) fn PageView(
         (ui.show_left_pane && ui.left_pane == "order").then(|| crate::commands::accessibility::order_mode(st))
     }
     .filter(|m| m != "none");
-    let order_sel = (st.current_page() == page)
-        .then(|| st.read_active(|t| t.acc.order).flatten())
+    let order_sel = current
+        .then(|| st.peek_active(|t| t.acc.order).flatten())
         .flatten();
     let order_cells = st.value("order.cells") == "1";
     let order_only = st.value("order.tf") == "1";
@@ -91,7 +96,7 @@ pub(super) fn PageView(
     let show_calc = option_on(st, "tool.editFields.showCalcOrdIdx");
     let designing = edit_fields || tool.new_field().is_some();
     let Some(view) = st
-        .read_active(|t| {
+        .peek_active(|t| {
             let size = t.page_sizes.get(page).copied()?;
             let infos = t.doc.page_comment_infos(page);
             let filtered: std::collections::HashSet<usize> = infos

@@ -444,6 +444,60 @@ pub(crate) async fn follow_canvas_events(st: AppState) {
     }
 }
 
+/// What each page of the view shows besides its picture, as one number a
+/// page: the state of the document and of the view that its comments,
+/// links, fields, selections, search results, guides and marks depend on.
+/// A page is drawn again only when its number changes (or its other
+/// properties), not at every change of the documents.
+fn page_stamps(t: &crate::state::DocTab, count: usize) -> Vec<u64> {
+    use std::hash::{Hash, Hasher};
+    let mut common = std::collections::hash_map::DefaultHasher::new();
+    (t.revision, t.view_gen, t.highlight_fields, t.highlight_required).hash(&mut common);
+    t.highlight_kinds.hash(&mut common);
+    for g in &t.guides {
+        (g.page, g.horizontal, g.pos.to_bits()).hash(&mut common);
+    }
+    if let Some(run) = &t.spell {
+        (run.list.len(), run.current, run.anchor, run.passed.len()).hash(&mut common);
+        run.made_for.map(|m| (m.0, m.1, m.2)).hash(&mut common);
+    }
+    (t.acc.order, t.search.current).hash(&mut common);
+    let common = common.finish();
+    let mut pages: Vec<std::collections::hash_map::DefaultHasher> = (0..count)
+        .map(|_| {
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            common.hash(&mut h);
+            h
+        })
+        .collect();
+    let mut on = |page: usize, f: &dyn Fn(&mut std::collections::hash_map::DefaultHasher)| {
+        if let Some(h) = pages.get_mut(page) {
+            f(h);
+        }
+    };
+    if let Some(s) = t.text_sel {
+        on(s.page, &|h| (1u8, s.anchor, s.head).hash(h));
+    }
+    if let Some((page, list)) = t.chosen_annots() {
+        on(page, &|h| (2u8, &list).hash(h));
+    }
+    if let Some((page, i)) = t.image_sel {
+        on(page, &|h| (3u8, i).hash(h));
+    }
+    if let Some((page, r)) = t.flash {
+        on(page, &|h| (4u8, r.map(f32::to_bits)).hash(h));
+    }
+    for (i, hit) in t.search.hits.iter().enumerate() {
+        on(hit.page, &|h| {
+            (5u8, i, hit.start, hit.end, hit.word).hash(h);
+            for r in &hit.rects {
+                r.map(f32::to_bits).hash(h);
+            }
+        });
+    }
+    pages.into_iter().map(|h| h.finish()).collect()
+}
+
 /// The rows of pages a view shows: its page alone, every page, or the pages
 /// two by two (the first alone when it is a cover); every page in one row
 /// when the pages scroll sideways, from the right when they read right to
@@ -505,9 +559,10 @@ fn Canvas(pane: u8) -> Element {
     let dpr = (st.dpr)();
     let tool = (st.tool)();
     let rulers = option_on(st, "view.showRulers");
-    let Some((tab_id, rev, count, split)) =
-        st.read_active(|t| (t.id, t.view_rev(), t.doc.page_count(), t.split.clone()))
-    else {
+    let Some((tab_id, rev, count, split, stamps)) = st.read_active(|t| {
+        let count = t.doc.page_count();
+        (t.id, t.view_rev(), count, t.split.clone(), page_stamps(t, count))
+    }) else {
         return rsx! {};
     };
     let split_on = split.is_some();
@@ -591,7 +646,7 @@ fn Canvas(pane: u8) -> Element {
                     div { class: "page-row", key: "row-{ri}",
                         for p in row {
                             if focused {
-                                PageView { key: "{tab_id}-{p}", tab_id, page: p, rev, scale: render_scale, zoom, current: p == page, tool, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default() }
+                                PageView { key: "{tab_id}-{p}", tab_id, page: p, rev, scale: render_scale, zoom, current: p == page, tool, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default(), stamp: stamps.get(p).copied().unwrap_or_default() }
                             } else {
                                 StillPage { key: "s{tab_id}-{p}", tab_id, page: p, rev, scale: render_scale, zoom, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default() }
                             }

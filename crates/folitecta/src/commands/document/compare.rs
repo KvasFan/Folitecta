@@ -137,7 +137,7 @@ fn set_filter(st: AppState, f: &str) {
 /// Redraw the pages of the compared documents.
 fn bump(st: AppState) {
     for t in st.docs_mut().iter_mut() {
-        t.view_gen += 1;
+        t.bump_view();
     }
 }
 

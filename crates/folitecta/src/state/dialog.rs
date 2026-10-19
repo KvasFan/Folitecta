@@ -378,7 +378,7 @@ pub type LoupePos = (usize, f32, f32, f64, f64);
 /// Points placed so far by a multi-click tool: page and display points.
 pub type Drawing = (usize, Vec<(f32, f32)>);
 
-/// One printed page: tab id, page index, document revision.
+/// One printed page: tab id, page index, revision of the view (`DocTab::view_rev`).
 pub type PrintPage = (u64, usize, u64);
 
 /// Pages being printed through the hidden print view.

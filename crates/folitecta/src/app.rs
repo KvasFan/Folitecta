@@ -5,7 +5,7 @@ use dioxus::desktop::use_asset_handler;
 use dioxus::desktop::wry::http::Response;
 use dioxus::html::ModifiersInteraction;
 use dioxus::prelude::*;
-use folitecta_core::RenderOpts;
+use folitecta_core::{Lane, RenderAnswer, RenderOpts, RenderRequest};
 
 use crate::commands;
 use crate::files;
@@ -22,16 +22,41 @@ pub fn icon_data_url() -> String {
     )
 }
 
-/// Parse `/page/{tab}/{page}/{revision}/{scale_milli}.png`.
-fn parse_page_path(path: &str) -> Option<(u64, usize, f32)> {
+/// A page picture asked for: `/page/{tab}/{page}/{revision}/{scale_milli}.png`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct PagePath {
+    tab: u64,
+    page: usize,
+    rev: u64,
+    scale: f32,
+}
+
+fn parse_page_path(path: &str) -> Option<PagePath> {
     let parts: Vec<&str> = path.trim_start_matches('/').split('/').collect();
     if parts.len() < 5 {
         return None;
     }
-    let id: u64 = parts[1].parse().ok()?;
+    let tab: u64 = parts[1].parse().ok()?;
     let page: usize = parts[2].parse().ok()?;
+    let rev: u64 = parts[3].parse().ok()?;
     let scale_m: u32 = parts[4].trim_end_matches(".png").parse().ok()?;
-    Some((id, page, (scale_m as f32 / 1000.0).clamp(0.05, 8.0)))
+    Some(PagePath {
+        tab,
+        page,
+        rev,
+        scale: (scale_m as f32 / 1000.0).clamp(0.05, 8.0),
+    })
+}
+
+/// An answer without a picture: never kept by the page, so the same address
+/// asked again is asked again.
+fn no_picture(status: u16, text: &str) -> Response<Vec<u8>> {
+    Response::builder()
+        .status(status)
+        .header("Content-Type", "text/plain")
+        .header("Cache-Control", "no-store")
+        .body(text.as_bytes().to_vec())
+        .unwrap_or_else(|_| Response::new(Vec::new()))
 }
 
 /// Move the chosen comments (the selected one, its group and those added
@@ -208,53 +233,83 @@ pub fn App() -> Element {
         }
     });
 
-    // Serve page renders at /page/{tab}/{page}/{revision}/{scale_milli}.png[?bg=0][&annots=0]
+    // Serve page renders at /page/{tab}/{page}/{revision}/{scale_milli}.png[?bg=0][&annots=0][&lane=view|preview|thumb].
+    // A picture is only given for the revision the tab shows (an address of
+    // another revision gets 409, never kept), drawn from the document of that
+    // revision or refused when it changed meanwhile.
     let docs = st.docs;
     use_asset_handler("page", move |request, responder| {
         crate::perf::PAGE_REQUESTS.bump();
         let asked = std::time::Instant::now();
         let uri = request.uri();
         let query = uri.query().unwrap_or("");
+        let has = |kv: &str| query.split('&').any(|q| q == kv);
         let opts = RenderOpts {
-            annotations: !query.split('&').any(|kv| kv == "annots=0"),
-            transparent: query.split('&').any(|kv| kv == "bg=0"),
+            annotations: !has("annots=0"),
+            transparent: has("bg=0"),
         };
-        let Some((id, page, scale)) = parse_page_path(uri.path()) else {
+        // The pages of the views say so; their pictures are dropped once
+        // the views no longer hold them.
+        let lane = if has("lane=view") {
+            Lane::View
+        } else if has("lane=thumb") {
+            Lane::Thumb
+        } else if has("lane=preview") {
+            Lane::Preview
+        } else {
+            Lane::Other
+        };
+        let Some(path) = parse_page_path(uri.path()) else {
             crate::perf::PAGE_OTHER.bump();
-            responder.respond(Response::builder().status(404).body(Vec::new()).unwrap());
+            responder.respond(no_picture(404, "no such page picture"));
             return;
         };
-        let service = docs.peek().iter().find(|t| t.id == id).map(|t| t.render.clone());
-        match service {
-            Some(svc) => svc.render_ext(page, scale, opts, move |res| {
-                match &res {
-                    Ok(r) => {
-                        crate::perf::PAGE_PICTURES.bump();
-                        crate::perf::PAGE_BYTES.add(r.png.len() as u64);
-                    }
-                    Err(_) => crate::perf::PAGE_OTHER.bump(),
-                }
-                crate::perf::PAGE_WAIT_US.add(asked.elapsed().as_micros() as u64);
-                let resp = match res {
-                    Ok(r) => Response::builder()
+        let found = docs
+            .peek()
+            .iter()
+            .find(|t| t.id == path.tab)
+            .map(|t| (t.render.clone(), t.view_rev(), t.render_rev));
+        let Some((service, shown, render_rev)) = found else {
+            crate::perf::PAGE_OTHER.bump();
+            responder.respond(no_picture(404, "the document is closed"));
+            return;
+        };
+        if path.rev != shown {
+            crate::perf::PAGE_OTHER.bump();
+            responder.respond(no_picture(409, "the document changed"));
+            return;
+        }
+        let req = RenderRequest {
+            page: path.page,
+            scale: path.scale,
+            opts,
+            lane,
+            rev: Some(render_rev),
+        };
+        service.request(req, move |answer| {
+            crate::perf::PAGE_WAIT_US.add(asked.elapsed().as_micros() as u64);
+            let resp = match answer {
+                RenderAnswer::Picture(r) => {
+                    crate::perf::PAGE_PICTURES.bump();
+                    crate::perf::PAGE_BYTES.add(r.png.len() as u64);
+                    Response::builder()
                         .status(200)
                         .header("Content-Type", "image/png")
                         .header("Cache-Control", "max-age=31536000, immutable")
-                        .body(r.png)
-                        .unwrap(),
-                    Err(e) => Response::builder()
-                        .status(500)
-                        .header("Content-Type", "text/plain")
-                        .body(e.to_string().into_bytes())
-                        .unwrap(),
-                };
-                responder.respond(resp);
-            }),
-            None => {
-                crate::perf::PAGE_OTHER.bump();
-                responder.respond(Response::builder().status(404).body(Vec::new()).unwrap())
-            }
-        }
+                        .body(r.png.clone())
+                        .unwrap_or_else(|_| Response::new(Vec::new()))
+                }
+                RenderAnswer::Stale => {
+                    crate::perf::PAGE_OTHER.bump();
+                    no_picture(409, "no longer shown")
+                }
+                RenderAnswer::Failed(e) => {
+                    crate::perf::PAGE_OTHER.bump();
+                    no_picture(500, &e)
+                }
+            };
+            responder.respond(resp);
+        });
     });
 
     // Serve the media of the player at /media/{id}, with byte ranges for seeking.
@@ -537,7 +592,15 @@ mod tests {
 
     #[test]
     fn page_paths_parse() {
-        assert_eq!(parse_page_path("/page/3/7/12/1500.png"), Some((3, 7, 1.5)));
+        assert_eq!(
+            parse_page_path("/page/3/7/12/1500.png"),
+            Some(super::PagePath {
+                tab: 3,
+                page: 7,
+                rev: 12,
+                scale: 1.5
+            })
+        );
         assert_eq!(parse_page_path("/page/3/7"), None);
         assert_eq!(parse_page_path("/page/x/7/1/1000.png"), None);
     }

@@ -114,7 +114,7 @@ pub(super) fn ThumbnailsPane() -> Element {
                         if is_sel { " selected" } else { "" },
                         if is_target { if drag_src().map(|s| s < p).unwrap_or(false) { " drop-after" } else { " drop-before" } } else { "" }
                     );
-                    let src = format!("/page/{tab_id}/{p}/{rev}/{render_scale}.png");
+                    let src = format!("/page/{tab_id}/{p}/{rev}/{render_scale}.png?lane=thumb");
                     let label = if logical { labels.get(p).cloned().unwrap_or_else(|| (p + 1).to_string()) } else { (p + 1).to_string() };
                     let img_style = if rotation != 0 { format!("width:{wpx}px;height:{hpx}px;transform:rotate({rotation}deg)") } else { format!("width:{wpx}px;height:{hpx}px") };
                     let (iw, ih) = if rotation % 180 != 0 { (hpx, wpx) } else { (wpx, hpx) };
@@ -181,7 +181,7 @@ fn Thumb(
             },
             ondoubleclick: move |_| st.go_to_page(p),
             div { class: "thumb-img", style: "width:{wpx.max(iw)}px;height:{hpx.max(ih)}px",
-                img { src: "{src}", alt: "", loading: "lazy", draggable: "false", width: "{wpx}", height: "{hpx}", style: "{img_style}" }
+                img { src: "{src}", alt: "", loading: "lazy", decoding: "async", draggable: "false", width: "{wpx}", height: "{hpx}", style: "{img_style}" }
                 if let Some(style) = shown {
                     div { class: "thumb-visible", style: "{style}" }
                 }

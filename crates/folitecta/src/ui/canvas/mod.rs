@@ -336,9 +336,10 @@ const PAN_SCRIPT: &str = r#"
 /// that scrolling never waits for the program: no listener of the program
 /// runs for a wheel or scroll event. Ctrl+wheel steps are added up for a
 /// frame and sent once (a notch of a wheel is a step of ×1.1, the small
-/// steps of a touchpad a part of one); the page at the top of a view (the
-/// one whose top edge is nearest to the top of the view, found by a binary
-/// search) is sent at most every 100 ms while it scrolls.
+/// steps of a touchpad a part of one). While a view scrolls, at most every
+/// 100 ms, the page at its top (the one whose top edge is nearest to the top
+/// of the view) and the first and last pages in it are sent, found by binary
+/// searches over the pages.
 pub(crate) const CANVAS_EVENTS_SCRIPT: &str = r#"
 (function(){
   const send = m => dioxus.send(m);
@@ -358,29 +359,62 @@ pub(crate) const CANVAS_EVENTS_SCRIPT: &str = r#"
     }
     zoom.set(c.id, zoom.get(c.id) * Math.pow(1.1, -steps));
   }, { capture: true, passive: false });
-  const top = c => {
+  const num = el => { const p = parseInt(el.dataset.page); return isNaN(p) ? -1 : p; };
+  // The page at the top and the first and last pages in the view.
+  const shown = c => {
     const pages = c.getElementsByClassName('page'); const n = pages.length;
-    if (n < 2) return -1;
+    if (!n) return null;
     const horizontal = !!c.querySelector('.pages.horizontal');
-    const v = c.getBoundingClientRect(); const target = (horizontal ? v.left : v.top) + 24;
-    const edge = el => { const r = el.getBoundingClientRect(); return horizontal ? r.left : r.top; };
+    const v = c.getBoundingClientRect();
+    const start = horizontal ? v.left : v.top, end = horizontal ? v.right : v.bottom;
+    const rect = el => el.getBoundingClientRect();
+    const lead = el => horizontal ? rect(el).left : rect(el).top;
+    const tail = el => horizontal ? rect(el).right : rect(el).bottom;
+    // The first page with its edge at or after the top (plus 24 px).
+    const target = start + 24;
     let lo = 0, hi = n;
-    while (lo < hi) { const m = (lo + hi) >> 1; if (edge(pages[m]) < target) lo = m + 1; else hi = m; }
+    while (lo < hi) { const m = (lo + hi) >> 1; if (lead(pages[m]) < target) lo = m + 1; else hi = m; }
     let best = -1, bd = Infinity;
-    for (let i = Math.max(0, lo - 2); i < Math.min(n, lo + 2); i++) { const d = Math.abs(edge(pages[i]) - target); if (d < bd) { bd = d; best = i; } }
-    if (best < 0) return -1;
+    for (let i = Math.max(0, lo - 2); i < Math.min(n, lo + 2); i++) { const d = Math.abs(lead(pages[i]) - target); if (d < bd) { bd = d; best = i; } }
     // The pages of a row share their edge: the first one of the row.
-    while (best > 0 && Math.abs(edge(pages[best - 1]) - edge(pages[best])) < 0.5) best--;
-    const p = parseInt(pages[best].dataset.page);
-    return isNaN(p) ? -1 : p;
+    while (best > 0 && Math.abs(lead(pages[best - 1]) - lead(pages[best])) < 0.5) best--;
+    // The first page ending after the top, the last starting before the end.
+    lo = 0; hi = n;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (tail(pages[m]) <= start) lo = m + 1; else hi = m; }
+    const first = Math.min(lo, n - 1);
+    lo = first; hi = n;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (lead(pages[m]) < end) lo = m + 1; else hi = m; }
+    const last = Math.max(first, lo - 1);
+    // In a row read from the right the numbers go down: take the extremes.
+    const a = num(pages[first]), b = num(pages[last]);
+    return [best >= 0 && n > 1 ? num(pages[best]) : -1, Math.min(a, b), Math.max(a, b)];
   };
-  const waiting = new Set();
+  const report = c => { const s = shown(c); if (s) send(['view', c.id].concat(s)); };
+  // At the first scroll event, then at most every 100 ms and once after the last.
+  const waiting = new Map();
   document.addEventListener('scroll', e => {
     const c = e.target;
-    if (!c || !c.classList || !c.classList.contains('canvas') || waiting.has(c)) return;
-    waiting.add(c);
-    setTimeout(() => { waiting.delete(c); const p = top(c); if (p >= 0) send(['page', c.id, p]); }, 100);
+    if (!c || !c.classList || !c.classList.contains('canvas')) return;
+    if (waiting.has(c)) { waiting.set(c, true); return; }
+    report(c);
+    waiting.set(c, false);
+    const later = () => { if (waiting.get(c)) { waiting.set(c, false); report(c); setTimeout(later, 100); } else waiting.delete(c); };
+    setTimeout(later, 100);
   }, { capture: true, passive: true });
+  // A view that is resized, or whose pages change size (zoom), reports too.
+  const sized = new ResizeObserver(entries => {
+    const views = new Set(entries.map(en => en.target.closest('.canvas')).filter(Boolean));
+    for (const c of views) report(c);
+  });
+  const watch = () => {
+    for (const c of document.querySelectorAll('.canvas')) {
+      if (!c.__foliWatched) { c.__foliWatched = true; sized.observe(c); report(c); }
+      const pages = c.querySelector(':scope > .pages');
+      if (pages && c.__foliPages !== pages) { c.__foliPages = pages; sized.observe(pages); }
+    }
+  };
+  new MutationObserver(watch).observe(document.body, { childList: true, subtree: true });
+  watch();
   return true;
 })();
 "#;
@@ -419,25 +453,36 @@ pub(crate) async fn follow_canvas_events(st: AppState) {
                     st.with_active(|t| t.zoom = Zoom::Fixed(next));
                 }
             }
-            "page" => {
-                let Some(i) = m.get(2).and_then(|v| v.as_u64()).map(|i| i as usize) else {
+            "view" => {
+                let num = |k: usize| m.get(k).and_then(|v| v.as_i64());
+                let (Some(top), Some(first), Some(last)) = (num(2), num(3), num(4)) else {
                     continue;
                 };
-                let shown = st.read_active(|t| {
+                let Some((layout, page, n)) = st.read_active(|t| {
                     let n = t.doc.page_count();
                     match t.split.as_ref().filter(|_| !focused) {
                         Some(s) => (s.other.layout, s.other.page, n),
                         None => (t.layout, t.page, n),
                     }
-                });
-                let Some((layout, page, n)) = shown else { continue };
-                if layout == Layout::Single || page == i || i >= n {
+                }) else {
+                    continue;
+                };
+                if first < 0 || last < first || last as usize >= n {
                     continue;
                 }
-                st.with_active(|t| match t.split.as_mut().filter(|_| !focused) {
-                    Some(s) => s.other.page = i,
-                    None => t.page = i,
-                });
+                let (first, last) = (first as usize, last as usize);
+                // What the render threads draw first.
+                let forward = top < 0 || top as usize >= page;
+                if focused {
+                    st.read_active(|t| t.render.set_focus(Some((first, last)), forward));
+                }
+                if top >= 0 && layout != Layout::Single && top as usize != page && (top as usize) < n {
+                    let i = top as usize;
+                    st.with_active(|t| match t.split.as_mut().filter(|_| !focused) {
+                        Some(s) => s.other.page = i,
+                        None => t.page = i,
+                    });
+                }
             }
             _ => {}
         }
@@ -579,7 +624,41 @@ fn Canvas(pane: u8) -> Element {
         },
     };
     let (page, layout, rotation) = (view.page, view.layout, view.rotation);
-    let render_scale = ((zoom * dpr as f32) * 1000.0).round().clamp(50.0, 6000.0) as u32;
+    // The scale the pictures are drawn at. After a change of zoom the pages
+    // take their new size at once and keep their pictures, scaled, until the
+    // zoom has stayed the same for a moment: then the pictures of the new
+    // scale are asked for, once (not at every step of a wheel or a drag).
+    // Pictures with up to a quarter more pixels than needed are kept.
+    let wanted = render_scale_for(zoom, dpr);
+    let measured = use_signal(|| false);
+    let shown_scale = use_hook(|| std::rc::Rc::new(std::cell::Cell::new(0u32)));
+    let settle_gen = use_hook(|| std::rc::Rc::new(std::cell::Cell::new(0u64)));
+    let mut settled = use_signal(|| 0u64);
+    let _ = settled();
+    let current = shown_scale.get();
+    let render_scale = if !measured() {
+        // The size of the view is not known yet: no picture is asked for.
+        0
+    } else if current == 0 || (current >= wanted && current * 4 <= wanted * 5) {
+        if current == 0 {
+            shown_scale.set(wanted);
+            wanted
+        } else {
+            current
+        }
+    } else {
+        let g = settle_gen.get() + 1;
+        settle_gen.set(g);
+        let (shown_scale, settle_gen) = (shown_scale.clone(), settle_gen.clone());
+        spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(160)).await;
+            if settle_gen.get() == g {
+                shown_scale.set(wanted);
+                settled += 1;
+            }
+        });
+        current
+    };
     let labels = st.read_active(|t| t.doc.page_labels()).unwrap_or_default();
     let gaps = option_on(st, "view.layout.showGaps");
     let r2l = option_on(st, "view.layout.r2l");
@@ -620,6 +699,10 @@ fn Canvas(pane: u8) -> Element {
             onresize: move |evt| {
                 if let Ok(size) = evt.data().get_content_box_size() {
                     let size = (size.width, size.height);
+                    if !*measured.peek() {
+                        let mut measured = measured;
+                        measured.set(true);
+                    }
                     if focused {
                         st.set_canvas_size(size);
                     } else if st.read_active(|t| t.split.as_ref().map(|s| s.other_size)).flatten() != Some(size) {
@@ -671,7 +754,8 @@ fn StillPage(
     label: String,
 ) -> Element {
     let st = use_context::<AppState>();
-    let Some(size) = st.read_active(|t| t.page_sizes.get(page).copied()).flatten() else {
+    // Read without following the documents: the page changes with its properties.
+    let Some(size) = st.peek_active(|t| t.page_sizes.get(page).copied()).flatten() else {
         return rsx! {};
     };
     let mut filter = String::new();
@@ -706,9 +790,15 @@ fn StillPage(
     rsx! {
         div { id: "spg-{page}", class: "page", "data-page": "{page}", style: "width:{outer_w}px;height:{outer_h}px",
             div { class: "page-inner", style: "width:{inner_w}px;height:{inner_h}px;transform:{transform}",
-                img { class: "page-img", src: "/page/{tab_id}/{page}/{rev}/{scale}.png", alt: "", loading: "lazy", draggable: "false", style: "{img_style}" }
+                img { class: "page-img", src: (scale > 0).then(|| format!("/page/{tab_id}/{page}/{rev}/{scale}.png?lane=view")), alt: "", loading: "lazy", decoding: "async", draggable: "false", style: "{img_style}" }
             }
             div { class: "page-label", "{number}" }
         }
     }
+}
+
+/// The scale (milli) of the pictures of a view at `zoom` on a pixel ratio of
+/// `dpr`.
+pub(crate) fn render_scale_for(zoom: f32, dpr: f64) -> u32 {
+    ((zoom * dpr as f32) * 1000.0).round().clamp(50.0, 6000.0) as u32
 }

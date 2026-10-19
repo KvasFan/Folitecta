@@ -146,7 +146,7 @@ fn toggle_inherit(st: AppState) {
     st.set_option("layersView.overrideByParent", on);
     LAYER_INHERIT.store(on, Ordering::Relaxed);
     for t in st.docs_mut().iter_mut() {
-        t.view_gen += 1;
+        t.bump_view();
         t.update_render();
     }
 }

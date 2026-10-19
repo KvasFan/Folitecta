@@ -692,7 +692,7 @@ async fn print_layout(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
     let pages: Vec<crate::state::PrintPage> = st
         .read_active(|t| {
             (0..3.min(t.doc.page_count()))
-                .map(|p| (t.id, p, t.revision))
+                .map(|p| (t.id, p, t.view_rev()))
                 .collect()
         })
         .unwrap_or_default();

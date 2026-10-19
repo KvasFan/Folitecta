@@ -337,11 +337,15 @@ pub(super) fn PageView(
         270 => format!("translate(0,{inner_w}px) rotate(270deg)"),
         _ => String::new(),
     };
-    let src = if transparent {
-        format!("/page/{tab_id}/{page}/{rev}/{scale}.png?bg=0")
-    } else {
-        format!("/page/{tab_id}/{page}/{rev}/{scale}.png")
-    };
+    // No picture is asked for while the scale is not known (0).
+    let src = (scale > 0).then(|| {
+        if transparent {
+            format!("/page/{tab_id}/{page}/{rev}/{scale}.png?bg=0&lane=view")
+        } else {
+            format!("/page/{tab_id}/{page}/{rev}/{scale}.png?lane=view")
+        }
+    });
+
     let mut img_filter = String::new();
     if dark {
         img_filter.push_str("invert(1) hue-rotate(180deg) ");
@@ -795,7 +799,7 @@ pub(super) fn PageView(
     };
     let inner_style = format!("width:{inner_w}px;height:{inner_h}px;transform:{transform}");
     let inner_content = rsx! {
-                img { class: "page-img", src: "{src}", alt: "", loading: "lazy", draggable: "false", style: if img_filter.is_empty() { String::new() } else { format!("filter:{img_filter}") } }
+                img { class: "page-img", src, alt: "", loading: "lazy", decoding: "async", draggable: "false", style: if img_filter.is_empty() { String::new() } else { format!("filter:{img_filter}") } }
                 if show_grid {
                     div { class: "grid-overlay", style: "background-size:{grid_px}px {grid_px}px" }
                 }

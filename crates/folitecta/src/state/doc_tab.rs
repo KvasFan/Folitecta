@@ -145,6 +145,13 @@ pub struct DocTab {
     pub comment_filter: CommentFilter,
     /// Bumped when the displayed pages change without a new revision (filters).
     pub view_gen: u64,
+    /// Bumped whenever the pages shown change (a new revision of the
+    /// document or of the view): the revision in the addresses of the page
+    /// pictures. It only grows, so an address is never used for two
+    /// different pictures.
+    pub view_serial: u64,
+    /// The `view_serial` of the document the render threads have.
+    pub render_rev: u64,
     /// Selected bookmark in the bookmarks pane.
     pub selected_bookmark: Option<Vec<usize>>,
     /// Selected named destination.
@@ -297,6 +304,8 @@ impl DocTab {
             history_pos: 0,
             comment_filter: CommentFilter::default(),
             view_gen: 0,
+            view_serial: 0,
+            render_rev: 0,
             selected_bookmark: None,
             selected_link: None,
             selected_dest: None,
@@ -350,8 +359,14 @@ impl DocTab {
             .into_iter()
             .filter(|(id, v)| defaults.get(id).is_some_and(|d| d != v))
             .collect();
-        self.view_gen += 1;
+        self.bump_view();
         self.update_render();
+    }
+
+    /// The pages shown change without a new revision of the document.
+    pub fn bump_view(&mut self) {
+        self.view_gen += 1;
+        self.view_serial += 1;
     }
 
     /// Record a navigation to `page` in the view history.
@@ -372,6 +387,7 @@ impl DocTab {
         if self.doc.revision() != self.revision {
             self.page_sizes = self.doc.page_sizes();
             self.revision = self.doc.revision();
+            self.view_serial += 1;
             self.update_render();
             let n = self.doc.page_count();
             if self.page >= n {
@@ -418,23 +434,22 @@ impl DocTab {
                 .view_bytes(&hidden, &layers)
                 .unwrap_or_else(|_| self.doc.bytes())
         };
-        self.render.replace(bytes);
+        self.render_rev = self.view_serial;
+        self.render.replace_rev(bytes, self.render_rev);
     }
 
     /// Change the comment filter and redraw the pages.
     pub fn set_comment_filter(&mut self, filter: CommentFilter) {
         if filter != self.comment_filter {
             self.comment_filter = filter;
-            self.view_gen += 1;
+            self.bump_view();
             self.update_render();
         }
     }
 
     /// Revision of the displayed pages, for page image addresses.
     pub fn view_rev(&self) -> u64 {
-        self.revision
-            .wrapping_mul(1000)
-            .wrapping_add(self.view_gen % 1000)
+        self.view_serial
     }
 
     pub fn title(&self) -> String {

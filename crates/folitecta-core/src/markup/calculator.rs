@@ -351,7 +351,7 @@ impl Document {
         annot.set("FolitectaCalc", Object::string_literal(json));
         let res = self.table_resources();
         self.add_appearance(&mut annot, r, tape.content(r), res);
-        let id = self.push_annotation(page_id, annot)?;
+        let id = self.push_drawn_annotation(page_id, annot)?;
         self.commit()?;
         Ok(id)
     }

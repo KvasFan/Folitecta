@@ -93,11 +93,13 @@ pub(super) fn PageView(
         .read_active(|t| {
             let size = t.page_sizes.get(page).copied()?;
             let infos = t.doc.page_comment_infos(page);
-            let filtered: std::collections::HashSet<usize> = infos
+            // Comments the filter hides, and those of the layers the view hides.
+            let mut filtered: std::collections::HashSet<usize> = infos
                 .iter()
                 .filter(|c| c.reply_to.is_none() && !c.is_state && !t.comment_filter.shows(c))
                 .map(|c| c.index)
                 .collect();
+            filtered.extend(t.layer_hidden_on_page(page));
             let popups = popup_views(&infos, &filtered, &size);
             let annots = if show_hits || edit_fields || t.selected_annot.map(|(p, _)| p) == Some(page) {
                 t.doc

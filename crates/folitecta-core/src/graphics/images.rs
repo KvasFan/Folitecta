@@ -1,5 +1,7 @@
 //! Raster images: placing pictures on pages, image pages, rasterizing and flattening.
 
+use std::collections::{HashMap, HashSet};
+
 use lopdf::xobject::image_from;
 use lopdf::{Object, ObjectId, Stream, dictionary};
 
@@ -148,15 +150,19 @@ impl Document {
             },
             rect,
             tag,
+            false,
         )
     }
 
+    /// Draw an image on a page; `drawn`: placed by the user, so on the
+    /// drawing layer when there is one.
     fn place_image_object(
         &mut self,
         page_id: ObjectId,
         image: ImageObject,
         rect: [f32; 4],
         tag: &str,
+        drawn: bool,
     ) -> Result<()> {
         self.inherit_attributes(&[page_id]);
         let size = self.page_size_of(page_id);
@@ -177,7 +183,12 @@ impl Document {
             f(ey),
             name
         );
-        self.append_page_content(page_id, content.into_bytes(), Some(tag))?;
+        let content = if drawn {
+            self.drawn_content(page_id, content.into_bytes())?
+        } else {
+            content.into_bytes()
+        };
+        self.append_page_content(page_id, content, Some(tag))?;
         Ok(())
     }
 
@@ -203,9 +214,7 @@ impl Document {
         if rect[2] - rect[0] < 1.0 || rect[3] - rect[1] < 1.0 {
             return Err(Error::Invalid("image rectangle is empty".into()));
         }
-        self.begin_edit();
-        self.place_image_object(page_id, image, rect, "Image")?;
-        self.commit()?;
+        self.edit_step(|doc| doc.place_image_object(page_id, image, rect, "Image", true))?;
         Ok(rect)
     }
 
@@ -296,6 +305,20 @@ impl Document {
     /// Replace page content with a raster image of the page rendered at `dpi`.
     /// With `with_annotations` the comments are baked into the picture and removed.
     pub fn rasterize_pages(&mut self, pages: &[usize], dpi: f32, with_annotations: bool) -> Result<()> {
+        self.rasterize_pages_with_view(pages, dpi, with_annotations, &HashMap::new())
+    }
+
+    /// [`Document::rasterize_pages`] as a view shows the pages: the default
+    /// visibility of the layers changed by `view`. What hidden layers hide is
+    /// not drawn, and the comments of hidden layers stay comments (on their
+    /// layer) instead of going with the others.
+    pub fn rasterize_pages_with_view(
+        &mut self,
+        pages: &[usize],
+        dpi: f32,
+        with_annotations: bool,
+        view: &HashMap<ObjectId, bool>,
+    ) -> Result<()> {
         let n = self.page_count();
         for &p in pages {
             if p >= n {
@@ -305,18 +328,22 @@ impl Document {
         if pages.is_empty() {
             return Ok(());
         }
-        self.begin_edit();
-        self.rasterize_internal(pages, dpi, with_annotations)?;
-        self.commit()
+        let bytes = self.view_bytes(&HashSet::new(), view)?;
+        let kept = self.annotations_in_hidden_layers(view);
+        self.edit_step(|doc| doc.rasterize_from(bytes, pages, dpi, with_annotations, &kept))
     }
 
-    pub(crate) fn rasterize_internal(
+    /// Draw the pages of `bytes` as pictures; `kept`: comments not drawn
+    /// (their layer is hidden) that stay on their page.
+    fn rasterize_from(
         &mut self,
+        bytes: std::sync::Arc<Vec<u8>>,
         pages: &[usize],
         dpi: f32,
         with_annotations: bool,
+        kept: &HashSet<ObjectId>,
     ) -> Result<()> {
-        let renderer = Renderer::new(self.bytes())?;
+        let renderer = Renderer::new(bytes)?;
         let ids = self.page_ids();
         let scale = (dpi.max(36.0) / 72.0).min(8.0);
         for &p in pages {
@@ -335,6 +362,20 @@ impl Document {
                 f(size.width),
                 f(size.height)
             );
+            // The comments of hidden layers on this page, which stay.
+            let left: Vec<Object> = self
+                .inner
+                .get_dictionary(id)
+                .ok()
+                .and_then(|d| d.get(b"Annots").ok())
+                .and_then(|a| crate::util::deref(&self.inner, a).as_array().ok())
+                .map(|a| {
+                    a.iter()
+                        .filter(|o| o.as_reference().is_ok_and(|r| kept.contains(&r)))
+                        .cloned()
+                        .collect()
+                })
+                .unwrap_or_default();
             {
                 let page = self.inner.get_dictionary_mut(id)?;
                 page.set(
@@ -347,8 +388,15 @@ impl Document {
                     "Resources",
                     Object::Dictionary(dictionary! { "XObject" => dictionary! { "FoliRaster" => xid } }),
                 );
-                if with_annotations || size.rotation != 0 {
+                if size.rotation != 0 {
                     page.remove(b"Annots");
+                } else if with_annotations {
+                    // Those drawn go; those of hidden layers stay.
+                    if left.is_empty() {
+                        page.remove(b"Annots");
+                    } else {
+                        page.set("Annots", Object::Array(left));
+                    }
                 }
             }
             self.inner.change_page_content(id, content.into_bytes())?;

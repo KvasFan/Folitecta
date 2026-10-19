@@ -427,6 +427,7 @@ mod steps_features;
 mod steps_field_items;
 mod steps_files;
 mod steps_frames;
+mod steps_layer_drawing;
 mod steps_layout;
 mod steps_links;
 mod steps_note_icon;
@@ -515,6 +516,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "print" => Box::pin(steps_print::run(cx)),
             "effects" => Box::pin(steps_effects::run(cx)),
             "unicode" => Box::pin(steps_unicode::run(cx)),
+            "layer_drawing" => Box::pin(steps_layer_drawing::run(cx)),
             _ => Box::pin(async { cx.record("unknown step", false, name.to_string()) }),
         };
         tokio::time::timeout(step_limit(), fut).await.is_ok()
@@ -569,6 +571,7 @@ const STEPS: &[&str] = &[
     "print",
     "frames",
     "unicode",
+    "layer_drawing",
     "effects",
 ];
 
@@ -1022,6 +1025,8 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ),
         ("layer-overrides", Dialog::LayerOverrides),
         ("layer-options", Dialog::LayerOptions),
+        ("choose-layer", Dialog::ChooseLayer),
+        ("move-to-new-layer", Dialog::MoveToNewLayer),
         ("attachment-options", Dialog::AttachmentOptions),
         ("fields-options", Dialog::FieldsOptions),
         ("space-audit", Dialog::SpaceAudit),

@@ -420,6 +420,9 @@ pub(super) fn SummarizeCommentsDialog() -> Element {
                     sort: match sort().as_str() { "author" => SummarySort::Author, "date" => SummarySort::Date, "type" => SummarySort::Type, _ => SummarySort::Page },
                     font_size: size().parse().unwrap_or(10.0),
                     include_hidden: hidden(),
+                    // Like the comments pane: comments of hidden layers only with its option.
+                    include_hidden_layers: crate::commands::option_on(st, "commentsView.showCommentsFromHiddenLayers"),
+                    layer_view: st.read_active(|t| t.view_layer_states()).unwrap_or_default(),
                     paper: (pw, ph),
                     labels: SummaryLabels {
                         title: t(lang, "dialog.summary.doc_title"),

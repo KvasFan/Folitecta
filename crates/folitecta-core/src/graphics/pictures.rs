@@ -12,7 +12,7 @@ use image::RgbaImage;
 use image::imageops::FilterType;
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
-use crate::content_edit::{Joined, Splice, count_refs, joined, rewrite, stream_span};
+use crate::content_edit::{Joined, Splice, count_refs, joined, name_token, rewrite, stream_span};
 use crate::content_lex::{name_of, operations};
 use crate::document::Document;
 use crate::error::{Error, Result};
@@ -816,7 +816,98 @@ fn drawing(name: &[u8], place: Affine) -> Vec<u8> {
     op
 }
 
+/// The range of the layer name of the `/OC /name BDC … EMC` sequence that
+/// holds the drawing starting at `at` and nothing else that paints (a
+/// picture already put on a layer that way).
+fn layer_wrapping(data: &[u8], at: usize) -> Option<(usize, usize)> {
+    // Operators that only set the graphics state.
+    const QUIET: &[&[u8]] = &[
+        b"q", b"Q", b"cm", b"gs", b"w", b"J", b"j", b"M", b"d", b"ri", b"i",
+    ];
+    let ops = operations(data);
+    let k = ops.iter().position(|op| op.start == at)?;
+    // The marked-content sequences open at the drawing: where they start and
+    // the name of the layer of those that are layers.
+    let mut open: Vec<(usize, Option<(usize, usize)>)> = Vec::new();
+    for (i, op) in ops.iter().enumerate().take(k) {
+        match op.operator {
+            b"BDC" => {
+                let oc = op.operands.first().and_then(|r| name_of(data, *r)).as_deref() == Some(b"OC");
+                open.push((i, oc.then(|| op.operands.get(1).copied()).flatten()));
+            }
+            b"BMC" => open.push((i, None)),
+            b"EMC" => {
+                open.pop();
+            }
+            _ => {}
+        }
+    }
+    let (first, name) = open.last().copied()?;
+    let name = name?;
+    // Nothing else painted inside the sequence, before or after the drawing.
+    let mut depth = 0usize;
+    for (i, op) in ops.iter().enumerate().skip(first + 1) {
+        match op.operator {
+            b"BDC" | b"BMC" => depth += 1,
+            b"EMC" if depth == 0 => return Some(name),
+            b"EMC" => depth -= 1,
+            o if i != k && !QUIET.contains(&o) => return None,
+            _ => {}
+        }
+    }
+    None
+}
+
 impl Document {
+    /// Put the `index`-th picture of a page on a layer, as part of the edit
+    /// under way: its drawing goes inside `/OC /name BDC … EMC`, or changes
+    /// layer when it is already alone inside such a sequence.
+    pub(crate) fn put_picture_on_layer(&mut self, page: usize, index: usize, layer: ObjectId) -> Result<()> {
+        let pid = self.page_id(page)?;
+        let name = self.oc_property(pid, Object::Reference(layer))?;
+        let j = joined(&self.inner, pid);
+        let all = draws(&self.inner, pid, &j.data);
+        let d = all
+            .get(index)
+            .ok_or_else(|| Error::Invalid("the picture is not on the page".into()))?;
+        let splice = match layer_wrapping(&j.data, d.start) {
+            Some((a, b)) => Splice {
+                start: a,
+                end: b,
+                with: name_token(&name).into_bytes(),
+            },
+            None => {
+                let mut with = format!("/OC {} BDC ", name_token(&name)).into_bytes();
+                with.extend_from_slice(&j.data[d.start..d.end]);
+                with.extend_from_slice(b" EMC");
+                Splice {
+                    start: d.start,
+                    end: d.end,
+                    with,
+                }
+            }
+        };
+        stream_span(&j, splice.start, splice.end)?;
+        rewrite(&mut self.inner, pid, &j, &[splice])
+    }
+
+    /// Put the `index`-th picture of a page on a new layer named `name`
+    /// (one undo step). Returns the layer.
+    pub fn move_picture_to_new_layer(&mut self, page: usize, index: usize, name: &str) -> Result<ObjectId> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(Error::Invalid("the layer needs a name".into()));
+        }
+        if index >= self.page_images(page)?.len() {
+            return Err(Error::Invalid("the picture is not on the page".into()));
+        }
+        self.edit_step(|doc| {
+            let (id, _) = doc.add_layer_in_edit(name, &[])?;
+            doc.put_picture_on_layer(page, index, id)?;
+            Ok(id)
+        })
+    }
+
     /// The pictures drawn by the content of a page (cached per revision).
     pub fn page_images(&self, page: usize) -> Result<Arc<Vec<PageImage>>> {
         let pid = self.page_id(page)?;

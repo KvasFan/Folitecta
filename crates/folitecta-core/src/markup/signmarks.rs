@@ -171,7 +171,7 @@ impl Document {
         annot.set("Name", Object::Name(SIGNATURE_STAMP.as_bytes().to_vec()));
         annot.set("Subj", lopdf::text_string("Signature"));
         self.add_appearance(&mut annot, r, content, resources);
-        let id = self.push_annotation(page_id, annot)?;
+        let id = self.push_drawn_annotation(page_id, annot)?;
         self.commit()?;
         Ok(id)
     }

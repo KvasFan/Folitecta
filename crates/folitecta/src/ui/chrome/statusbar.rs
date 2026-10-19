@@ -27,10 +27,16 @@ pub fn StatusBar() -> Element {
     let count = st.page_count();
     let zoom_pct = (current_zoom(st) * 100.0).round() as i32;
     let tool = (st.tool)();
-    let (layout, size, selected, zoom_mode, page_size, sel_chars, label) = st
+    let (layout, size, selected, zoom_mode, page_size, sel_chars, label, drawing) = st
         .read_active(|t| {
             let sel_chars = t.text_sel.map(|s| s.range()).map(|(a, b)| b - a).unwrap_or(0);
             let label = t.doc.page_labels().get(t.page).cloned().unwrap_or_default();
+            // The layer new drawings and text go to.
+            let drawing = t
+                .doc
+                .drawing_layer()
+                .and_then(|id| t.doc.layers().into_iter().find(|l| l.id == id))
+                .map(|l| l.name);
             (
                 t.layout,
                 t.doc.bytes().len() as u64,
@@ -39,6 +45,7 @@ pub fn StatusBar() -> Element {
                 t.display_size(t.page),
                 sel_chars,
                 label,
+                drawing,
             )
         })
         .unwrap_or((
@@ -49,6 +56,7 @@ pub fn StatusBar() -> Element {
             (0.0, 0.0),
             0,
             String::new(),
+            None,
         ));
     let mut page_input = use_signal(String::new);
     let tool_label = t(lang, tool.label_key());
@@ -92,6 +100,16 @@ pub fn StatusBar() -> Element {
     rsx! {
         div { class: "statusbar",
             span { class: "chip tool-chip", title: "{tool_label}", Icon { name: tool_icon } span { class: "ellipsis", "{tool_label}" } }
+            if let Some(name) = drawing {
+                span { class: "chip layer-chip", title: "{t(lang, \"layers.drawing_here\")}",
+                    Icon { name: "layers" }
+                    span { class: "ellipsis", "{tf(lang, \"status.drawing_layer\", &[(\"name\", &name)])}" }
+                    button { class: "chip-x", title: "{t(lang, \"status.drawing_layer_clear\")}",
+                        onclick: move |_| dispatch(st, "defaultLayer"),
+                        Icon { name: "close" }
+                    }
+                }
+            }
             if selected > 0 {
                 span { class: "chip sb-opt", "{selected} {t(lang, \"status.pages_selected\")}" }
             }

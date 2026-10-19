@@ -263,8 +263,25 @@ const BORDER_STYLES: &[(&str, &str)] = &[
 /// Measurement number formats and their XFDF element names.
 const MEASURE_AXES: &[(&str, &str)] = &[("X", "axis"), ("D", "distance"), ("A", "area")];
 
-/// Keys a comment keeps only inside its own document.
-const LOCAL_KEYS: &[&[u8]] = &[b"P", b"Popup", b"IRT", b"Parent", b"Page", b"StructParent"];
+/// Keys a comment keeps only inside its own document. Its layer (`/OC`)
+/// travels by name ([`LAYER_KEY`]): the layer object is never copied, as a
+/// layer not listed in the optional content properties of the document is
+/// not a layer of it (ISO 32000-1, 8.11.4.2).
+const LOCAL_KEYS: &[&[u8]] = &[b"P", b"Popup", b"IRT", b"Parent", b"Page", b"StructParent", b"OC"];
+
+/// The name of the layer of an exported comment.
+pub(super) const LAYER_KEY: &[u8] = b"FolitectaLayer";
+
+/// The name of the layer of a comment of `src`: the name written by an
+/// export, or the name of the layer its `/OC` names directly.
+pub(super) fn layer_name_in(src: &lopdf::Document, d: &Dictionary) -> Option<String> {
+    if let Some(name) = dict_text(src, d, LAYER_KEY).filter(|n| !n.trim().is_empty()) {
+        return Some(name);
+    }
+    let oc = d.get(b"OC").ok()?;
+    let id = crate::layer_drawing::single_layer(src, oc)?;
+    dict_text(src, src.get_dictionary(id).ok()?, b"Name").filter(|n| !n.trim().is_empty())
+}
 
 /// A comment ready to be added to the document.
 pub(super) struct Imported {
@@ -277,6 +294,9 @@ pub(super) struct Imported {
     pub(super) keep_appearance: bool,
     /// File of a file attachment comment: name, data, data is Flate-compressed.
     pub(super) file: Option<(String, Vec<u8>, bool)>,
+    /// The name of the layer of the comment (`None`: the file does not say;
+    /// a comment updated in place keeps its layer).
+    pub(super) layer: Option<String>,
 }
 
 impl Document {
@@ -453,10 +473,12 @@ impl Document {
                         _ => Dictionary::new(),
                     }
                 });
+            let layer = layer_name_in(src, &d);
             let mut dict = d.clone();
             for k in LOCAL_KEYS {
                 dict.remove(k);
             }
+            dict.remove(LAYER_KEY);
             dict.set("NM", lopdf::text_string(&name));
             let mut o = Object::Dictionary(dict);
             remap_strict(&mut o, &map);
@@ -469,6 +491,7 @@ impl Document {
                 in_reply_to,
                 keep_appearance: true,
                 file: None,
+                layer,
             });
         }
         self.insert_imported(items)
@@ -517,11 +540,33 @@ impl Document {
         }
         let mut replies = Vec::new();
         let mut count = 0;
+        // Layers by name; a layer the document does not have is added, so the
+        // comment stays on a layer of that name.
+        let mut layers: HashMap<String, ObjectId> = HashMap::new();
+        for l in self.layers() {
+            layers.entry(l.name).or_insert(l.id);
+        }
         for it in items {
             let Some(&page_id) = page_ids.get(it.page) else {
                 continue;
             };
+            let layer = match &it.layer {
+                Some(name) => match layers.get(name) {
+                    Some(id) => Some(*id),
+                    // PDF/A-1 has no layers: the comment comes on none.
+                    None if !self.layers_allowed() => None,
+                    None => {
+                        let (id, _) = self.add_layer_in_edit(name.trim(), &[])?;
+                        layers.insert(name.clone(), id);
+                        Some(id)
+                    }
+                },
+                None => None,
+            };
             let mut d = it.dict;
+            if let Some(l) = layer {
+                d.set("OC", Object::Reference(l));
+            }
             d.set("P", page_id);
             d.set("NM", lopdf::text_string(&it.name));
             if let Some((file_name, data, flate)) = it.file {
@@ -564,6 +609,12 @@ impl Document {
                     if let Some(p) = old_popup {
                         self.inner.objects.remove(&p);
                     }
+                    // A file that does not name a layer leaves the comment on its own.
+                    if it.layer.is_none() {
+                        if let Ok(oc) = self.inner.get_dictionary(old_id).and_then(|o| o.get(b"OC")) {
+                            d.set("OC", oc.clone());
+                        }
+                    }
                     self.inner.objects.insert(old_id, Object::Dictionary(d));
                     if old_page != page_id {
                         let mut arr = self.annots_array(page_id);
@@ -577,6 +628,10 @@ impl Document {
             if let Some(mut popup) = it.popup {
                 popup.set("P", page_id);
                 popup.set("Parent", id);
+                popup.remove(b"OC");
+                if let Ok(oc) = self.inner.get_dictionary(id).and_then(|o| o.get(b"OC")) {
+                    popup.set("OC", oc.clone());
+                }
                 let pid = self.push_annotation(page_id, popup)?;
                 self.inner.get_dictionary_mut(id)?.set("Popup", pid);
             }

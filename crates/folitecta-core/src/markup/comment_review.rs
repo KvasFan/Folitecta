@@ -8,6 +8,7 @@ use lopdf::{Dictionary, Object, ObjectId, dictionary};
 
 use crate::document::Document;
 use crate::error::{Error, Result};
+use crate::layer_drawing::{oc_visible, single_layer};
 use crate::util::{self, color_of, dict_text, rect_of};
 
 /// Review states of the "Review" state model.
@@ -47,8 +48,10 @@ pub struct CommentInfo {
     pub marked: bool,
     /// Pop-up note: object, open, rectangle.
     pub popup: Option<(ObjectId, bool, [f32; 4])>,
-    /// Belongs to a layer that is hidden.
+    /// Belongs to a layer that is hidden by default.
     pub in_hidden_layer: bool,
+    /// The layer it belongs to, when it names one directly.
+    pub layer: Option<ObjectId>,
 }
 
 /// One state change of a comment.
@@ -78,12 +81,7 @@ impl Document {
 
     fn infos_of(&self, comments: Vec<crate::annots::Annotation>) -> Vec<CommentInfo> {
         let doc = &self.inner;
-        let hidden_layers: HashSet<ObjectId> = self
-            .layers()
-            .into_iter()
-            .filter(|l| !l.visible)
-            .map(|l| l.id)
-            .collect();
+        let layer_states = self.layer_defaults();
         let mut out = Vec::new();
         let mut states: Vec<(ObjectId, String, String, String)> = Vec::new();
         for a in comments {
@@ -121,12 +119,9 @@ impl Document {
                     let rect = pd.get(b"Rect").ok().and_then(|r| rect_of(doc, r))?;
                     Some((p, open, rect))
                 });
-            let in_hidden_layer = d
-                .get(b"OC")
-                .ok()
-                .and_then(|o| o.as_reference().ok())
-                .map(|oc| hidden_layers.contains(&oc))
-                .unwrap_or(false);
+            let oc = d.get(b"OC").ok();
+            let in_hidden_layer = oc.is_some_and(|oc| !oc_visible(doc, oc, &layer_states));
+            let layer = oc.and_then(|oc| single_layer(doc, oc));
             out.push(CommentInfo {
                 page: a.page,
                 index: a.index,
@@ -153,6 +148,7 @@ impl Document {
                 marked: false,
                 popup,
                 in_hidden_layer,
+                layer,
             });
         }
         // The latest state of each model wins.
@@ -192,6 +188,14 @@ impl Document {
         Ok((rect, color))
     }
 
+    /// Put a reply, review state or pop-up note on the layer of the comment
+    /// it belongs to.
+    fn follow_layer_of(&self, parent: ObjectId, d: &mut Dictionary) {
+        if let Ok(oc) = self.inner.get_dictionary(parent).and_then(|p| p.get(b"OC")) {
+            d.set("OC", oc.clone());
+        }
+    }
+
     /// Reply to a comment (one undo step). Replies are shown with their comment.
     pub fn add_reply(&mut self, page: usize, index: usize, text: &str, author: &str) -> Result<ObjectId> {
         if text.trim().is_empty() {
@@ -207,6 +211,7 @@ impl Document {
         d.set("Name", "Comment");
         d.set("F", FLAG_PRINT | 8 | 16);
         d.set("Subj", lopdf::text_string("Reply"));
+        self.follow_layer_of(parent, &mut d);
         let id = self.push_annotation(page_id, d)?;
         self.commit()?;
         Ok(id)
@@ -242,6 +247,7 @@ impl Document {
         d.set("StateModel", lopdf::text_string(model));
         // State changes are not drawn: only the review history lists them.
         d.set("F", FLAG_HIDDEN | FLAG_PRINT | 8 | 16);
+        self.follow_layer_of(parent, &mut d);
         self.push_annotation(page_id, d)?;
         self.commit()
     }
@@ -321,7 +327,7 @@ impl Document {
                 let popup_rect = self.default_popup_rect(page, rect);
                 let page_id = self.page_id(page)?;
                 self.begin_edit();
-                let popup = dictionary! {
+                let mut popup = dictionary! {
                     "Type" => "Annot",
                     "Subtype" => "Popup",
                     "Rect" => popup_rect.iter().map(|v| Object::Real(*v)).collect::<Vec<_>>(),
@@ -329,6 +335,7 @@ impl Document {
                     "Open" => true,
                     "F" => FLAG_PRINT | 8 | 16,
                 };
+                self.follow_layer_of(id, &mut popup);
                 let pid = self.push_annotation(page_id, popup)?;
                 self.inner.get_dictionary_mut(id)?.set("Popup", pid);
                 self.commit()
@@ -360,7 +367,7 @@ impl Document {
                 }
                 None => {
                     let popup_rect = self.default_popup_rect(c.page, c.rect);
-                    let popup = dictionary! {
+                    let mut popup = dictionary! {
                         "Type" => "Annot",
                         "Subtype" => "Popup",
                         "Rect" => popup_rect.iter().map(|v| Object::Real(*v)).collect::<Vec<_>>(),
@@ -368,6 +375,7 @@ impl Document {
                         "Open" => true,
                         "F" => FLAG_PRINT | 8 | 16,
                     };
+                    self.follow_layer_of(c.id, &mut popup);
                     let pid = self.push_annotation(ids[c.page], popup)?;
                     self.inner.get_dictionary_mut(c.id)?.set("Popup", pid);
                 }

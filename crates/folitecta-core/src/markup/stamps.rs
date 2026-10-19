@@ -46,7 +46,7 @@ impl Document {
         );
         let resources = dictionary! { "XObject" => dictionary! { "Img" => img_id } };
         self.add_appearance(&mut annot, rect, content, resources);
-        let id = self.push_annotation(page_id, annot)?;
+        let id = self.push_drawn_annotation(page_id, annot)?;
         self.commit()?;
         Ok(id)
     }

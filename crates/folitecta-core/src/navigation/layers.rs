@@ -120,7 +120,7 @@ fn refs_of(doc: &lopdf::Document, dict: &Dictionary, key: &[u8]) -> Vec<ObjectId
         .unwrap_or_default()
 }
 
-fn is_ocg(doc: &lopdf::Document, id: ObjectId) -> bool {
+pub(crate) fn is_ocg(doc: &lopdf::Document, id: ObjectId) -> bool {
     doc.get_dictionary(id)
         .map(|d| d.has_type(b"OCG"))
         .unwrap_or(false)
@@ -257,7 +257,7 @@ fn prune_config(d: &mut Dictionary, gone: &HashSet<ObjectId>) {
 }
 
 /// Members of an optional content membership dictionary.
-fn ocmd_members(doc: &lopdf::Document, d: &Dictionary) -> Vec<ObjectId> {
+pub(crate) fn ocmd_members(doc: &lopdf::Document, d: &Dictionary) -> Vec<ObjectId> {
     match d.get(b"OCGs") {
         Ok(Object::Reference(r)) if is_ocg(doc, *r) => vec![*r],
         Ok(o) => deref(doc, o)
@@ -340,6 +340,10 @@ fn edit_oc_in<R>(
         (oc_ref, d_ref, oc, d)
     };
     let r = f(&mut oc, &mut d);
+    // PDF/A-2 and later ask every configuration for a name.
+    if !d.has(b"Name") {
+        d.set("Name", lopdf::text_string("Default"));
+    }
     match d_ref {
         Some(id) => {
             doc.objects.insert(id, Object::Dictionary(d));
@@ -562,7 +566,23 @@ impl Document {
         edit_oc_in(&mut self.inner, f)
     }
 
-    fn check_layer(&self, id: ObjectId) -> Result<()> {
+    /// Layers can be added: a document that says it follows PDF/A-1 may not
+    /// have optional content (ISO 19005-1); its claim must go first.
+    pub fn layers_allowed(&self) -> bool {
+        self.pdfa_part() != Some(1)
+    }
+
+    fn check_layers_allowed(&self) -> Result<()> {
+        if self.layers_allowed() {
+            Ok(())
+        } else {
+            Err(Error::Invalid(
+                "PDF/A-1 does not allow layers: discard the PDF/A identification first".into(),
+            ))
+        }
+    }
+
+    pub(crate) fn check_layer(&self, id: ObjectId) -> Result<()> {
         if self.layers().iter().any(|l| l.id == id) {
             Ok(())
         } else {
@@ -658,13 +678,25 @@ impl Document {
         if !parent.is_empty() && node_at(&self.layer_tree(), parent).is_none() {
             return Err(Error::Invalid("layer not found".into()));
         }
-        self.begin_edit();
+        self.check_layers_allowed()?;
+        self.edit_step(|doc| doc.add_layer_in_edit(name, parent))
+    }
+
+    /// [`Document::add_layer`] inside the edit under way (no undo step of its
+    /// own); `name` and `parent` already checked.
+    pub(crate) fn add_layer_in_edit(
+        &mut self,
+        name: &str,
+        parent: &[usize],
+    ) -> Result<(ObjectId, Vec<usize>)> {
+        self.check_layers_allowed()?;
         let id = self.inner.add_object(dictionary! {
             "Type" => "OCG",
             "Name" => lopdf::text_string(name),
         });
         let mut tree = self.layer_tree();
-        let siblings = children_at_mut(&mut tree, parent).expect("checked above");
+        let siblings =
+            children_at_mut(&mut tree, parent).ok_or_else(|| Error::Invalid("layer not found".into()))?;
         siblings.push(LayerNode::Layer {
             id,
             children: Vec::new(),
@@ -685,7 +717,6 @@ impl Document {
                 }
             }
         })?;
-        self.commit()?;
         Ok((id, path))
     }
 
@@ -695,6 +726,7 @@ impl Document {
         if label.is_empty() {
             return Err(Error::Invalid("the group needs a name".into()));
         }
+        self.check_layers_allowed()?;
         if self.ocproperties().is_none() {
             // A group alone still needs the layer properties.
             self.begin_edit();
@@ -764,32 +796,115 @@ impl Document {
 
     /// Serialized document with the given layer visibility as the default
     /// state and the given annotations hidden, for displaying a view without
-    /// changing the document.
+    /// changing the document. The comments of hidden layers are hidden too:
+    /// the renderer does not follow the `/OC` entry of annotations. The
+    /// result is kept for the revision (a few views at a time), and made as
+    /// an update appended to the bytes of the document rather than a whole
+    /// new file; without anything to hide it is [`Document::bytes`] itself.
     pub fn view_bytes(
         &self,
         hidden_annotations: &HashSet<ObjectId>,
         layers: &HashMap<ObjectId, bool>,
     ) -> Result<Arc<Vec<u8>>> {
-        let defaults = self.layer_defaults();
-        let layers_differ = layers
-            .iter()
-            .any(|(id, v)| defaults.get(id).is_some_and(|d| d != v));
-        if !layers_differ {
-            return self.bytes_hiding(hidden_annotations);
+        let changes = self.view_changes(layers);
+        let mut hidden: Vec<ObjectId> = self.hidden_by_layers(&changes).iter().copied().collect();
+        hidden.extend(hidden_annotations.iter().copied());
+        hidden.sort_unstable();
+        hidden.dedup();
+        if changes.is_empty() && hidden.is_empty() {
+            return Ok(self.bytes());
         }
-        let mut all = defaults;
-        for (id, v) in layers {
-            if let Some(cur) = all.get_mut(id) {
-                *cur = *v;
+        let editing = self.editing();
+        let key = (changes, hidden);
+        if !editing {
+            if let Some(hit) = self.cached_view(&key) {
+                return Ok(hit);
             }
         }
-        let order: Vec<ObjectId> = self.layers().iter().map(|l| l.id).collect();
-        let mut copy = self.inner.clone();
-        edit_oc_in(&mut copy, |_, d| write_states(d, &order, &all))?;
-        crate::comment_review::hide_annotations_in(&mut copy, hidden_annotations);
-        let mut out = Vec::new();
-        copy.save_to(&mut out)?;
-        Ok(Arc::new(out))
+        let (changes, hidden) = &key;
+        let out = match (editing, self.view_update(changes, hidden)?) {
+            (false, Some(bytes)) => Arc::new(bytes),
+            _ => {
+                // During an edit the bytes are those of the state before it:
+                // the view is written whole from the objects.
+                let mut all = self.layer_defaults();
+                all.extend(changes.iter().copied());
+                let order: Vec<ObjectId> = self.layers().iter().map(|l| l.id).collect();
+                let mut copy = self.inner.clone();
+                if !changes.is_empty() {
+                    edit_oc_in(&mut copy, |_, d| write_states(d, &order, &all))?;
+                }
+                crate::comment_review::hide_annotations_in(&mut copy, &hidden.iter().copied().collect());
+                let mut out = Vec::new();
+                copy.save_to(&mut out)?;
+                Arc::new(out)
+            }
+        };
+        if !editing {
+            self.keep_view(key, out.clone());
+        }
+        Ok(out)
+    }
+
+    /// The bytes of the document followed by an update that changes the
+    /// default visibility of `changes` and hides the annotations `hidden`
+    /// (`None` when the end of the bytes cannot be read).
+    fn view_update(&self, changes: &[(ObjectId, bool)], hidden: &[ObjectId]) -> Result<Option<Vec<u8>>> {
+        let base = self.bytes();
+        let Some(xref_start) = crate::layer_drawing::last_startxref(&base) else {
+            return Ok(None);
+        };
+        let mut changed: std::collections::BTreeMap<ObjectId, Object> = Default::default();
+        if !changes.is_empty() {
+            // The catalog and the optional content objects, changed in a
+            // small document of their own.
+            let root = self.inner.trailer.get(b"Root")?.as_reference()?;
+            let mut mini = lopdf::Document::new();
+            mini.trailer.set("Root", root);
+            mini.objects.insert(root, self.inner.get_object(root)?.clone());
+            if let Ok(Object::Reference(oc)) = self.inner.catalog()?.get(b"OCProperties") {
+                mini.objects.insert(*oc, self.inner.get_object(*oc)?.clone());
+                if let Ok(Object::Reference(d)) = self.inner.get_dictionary(*oc)?.get(b"D") {
+                    mini.objects.insert(*d, self.inner.get_object(*d)?.clone());
+                }
+            }
+            let mut all = self.layer_defaults();
+            all.extend(changes.iter().copied());
+            let order: Vec<ObjectId> = self.layers().iter().map(|l| l.id).collect();
+            edit_oc_in(&mut mini, |_, d| write_states(d, &order, &all))?;
+            changed.extend(mini.objects);
+        }
+        for id in hidden {
+            let Ok(d) = self.inner.get_dictionary(*id) else {
+                continue;
+            };
+            let mut d = d.clone();
+            let flags = d.get(b"F").ok().and_then(|f| f.as_i64().ok()).unwrap_or(0);
+            d.set("F", flags | crate::comment_review::FLAG_HIDDEN);
+            // Pop-up notes of hidden comments close as well.
+            if let Ok(p) = d.get(b"Popup").and_then(|p| p.as_reference()) {
+                if let Ok(pd) = self.inner.get_dictionary(p) {
+                    let mut pd = pd.clone();
+                    pd.set("Open", false);
+                    changed.insert(p, Object::Dictionary(pd));
+                }
+            }
+            changed.insert(*id, Object::Dictionary(d));
+        }
+        let mut prev = lopdf::Document::new();
+        prev.xref_start = xref_start;
+        prev.max_id = self.inner.max_id;
+        prev.reference_table.cross_reference_type = self.inner.reference_table.cross_reference_type;
+        for key in [&b"Root"[..], b"Info", b"ID"] {
+            if let Ok(v) = self.inner.trailer.get(key) {
+                prev.trailer.set(key, v.clone());
+            }
+        }
+        let mut inc = lopdf::IncrementalDocument::create_from(base.to_vec(), prev);
+        inc.new_document.objects.extend(changed);
+        let mut out = Vec::with_capacity(base.len() + 4096);
+        inc.save_to(&mut out)?;
+        Ok(Some(out))
     }
 
     /// Layers referenced by a page: its marked content properties, its

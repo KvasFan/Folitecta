@@ -90,6 +90,13 @@ pub struct Document {
     pub(crate) struct_cache: std::sync::Mutex<crate::structure::StructCache>,
     /// Pictures of the pages already looked at, keyed by revision.
     pub(crate) image_cache: std::sync::Mutex<crate::pictures::ImageCache>,
+    /// The layer new comments and page content go to (a choice of the view,
+    /// not saved; see `layer_drawing`).
+    pub(crate) drawing_layer: Option<ObjectId>,
+    /// The layer something was last put on, until the interface asks.
+    pub(crate) layer_drawn: Option<ObjectId>,
+    /// What hidden layers hide and the bytes of views, for one revision.
+    pub(crate) layer_cache: std::sync::Mutex<crate::layer_drawing::LayerCache>,
 }
 
 impl std::fmt::Debug for Document {
@@ -599,6 +606,9 @@ impl Document {
             marked_cache: Default::default(),
             struct_cache: Default::default(),
             image_cache: Default::default(),
+            drawing_layer: None,
+            layer_drawn: None,
+            layer_cache: Default::default(),
         };
         if doc.page_count() == 0 {
             return Err(Error::Invalid("the file contains no pages".into()));
@@ -655,6 +665,9 @@ impl Document {
             marked_cache: Default::default(),
             struct_cache: Default::default(),
             image_cache: Default::default(),
+            drawing_layer: None,
+            layer_drawn: None,
+            layer_cache: Default::default(),
         }
     }
 
@@ -712,6 +725,9 @@ impl Document {
             marked_cache: Default::default(),
             struct_cache: Default::default(),
             image_cache: Default::default(),
+            drawing_layer: None,
+            layer_drawn: None,
+            layer_cache: Default::default(),
         })
     }
 
@@ -1190,6 +1206,11 @@ impl Document {
         }
     }
 
+    /// An edit is under way: the objects differ from the bytes.
+    pub(crate) fn editing(&self) -> bool {
+        self.edit_backup.is_some()
+    }
+
     /// Undo what an operation changed since its `begin_edit` when it failed
     /// half-way: the document, its undo steps and its redo history are as
     /// they were before the edit (revision and dirty flag never changed).
@@ -1232,6 +1253,7 @@ impl Document {
             self.signed_base_lost = backup.snapshot.lost_base;
         }
         self.helv_font = None;
+        self.layer_drawn = None;
     }
 
     /// Run `f` as one undo step: committed when it succeeds, abandoned (the
@@ -1266,6 +1288,7 @@ impl Document {
         self.dirty = true;
         self.helv_font = None;
         self.edit_backup = None;
+        self.forget_lost_drawing_layer();
         Ok(())
     }
 
@@ -1306,6 +1329,7 @@ impl Document {
         self.dirty = true;
         self.helv_font = None;
         self.edit_backup = None;
+        self.forget_lost_drawing_layer();
         Ok(())
     }
 
@@ -1615,6 +1639,67 @@ impl Document {
         Ok(())
     }
 
+    /// The `/Resources` of a page as written (a reference or a dictionary),
+    /// its own or inherited from the page tree.
+    fn written_resources(&self, page_id: ObjectId) -> Option<Object> {
+        let mut current = Some(page_id);
+        for _ in 0..64 {
+            let dict = self.inner.get_dictionary(current?).ok()?;
+            if let Ok(v) = dict.get(b"Resources") {
+                return Some(v.clone());
+            }
+            current = dict.get(b"Parent").ok().and_then(|p| p.as_reference().ok());
+        }
+        None
+    }
+
+    /// Give a page resources of its own before something is added to them:
+    /// a `/Resources` object, or a `category` sub-dictionary, that other
+    /// pages use as well is copied into the page, so what is added does not
+    /// appear on them too (as a shared content stream is copied before it
+    /// changes).
+    fn unshare_page_resources(&mut self, page_id: ObjectId, category: &[u8]) -> Result<()> {
+        self.inherit_attributes(&[page_id]);
+        let others: Vec<ObjectId> = self.page_ids().into_iter().filter(|p| *p != page_id).collect();
+        let own = self
+            .inner
+            .get_dictionary(page_id)?
+            .get(b"Resources")
+            .ok()
+            .cloned();
+        if let Some(Object::Reference(rid)) = own {
+            let shared = others
+                .iter()
+                .any(|p| matches!(self.written_resources(*p), Some(Object::Reference(r)) if r == rid));
+            if shared {
+                let copy = self.inner.get_dictionary(rid)?.clone();
+                self.inner
+                    .get_dictionary_mut(page_id)?
+                    .set("Resources", Object::Dictionary(copy));
+            }
+        }
+        let sub = self.with_page_resources(page_id, |res| {
+            res.get(category).ok().and_then(|o| o.as_reference().ok())
+        })?;
+        if let Some(sid) = sub {
+            let shared = others.iter().any(|p| {
+                self.written_resources(*p).and_then(|r| {
+                    deref(&self.inner, &r)
+                        .as_dict()
+                        .ok()
+                        .and_then(|d| d.get(category).ok())
+                        .and_then(|o| o.as_reference().ok())
+                }) == Some(sid)
+            });
+            if shared {
+                if let Ok(copy) = self.inner.get_dictionary(sid).cloned() {
+                    self.with_page_resources(page_id, |res| res.set(category, Object::Dictionary(copy)))?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Register a named resource (font, ExtGState, XObject) on a page.
     pub(crate) fn add_page_resource(
         &mut self,
@@ -1623,6 +1708,7 @@ impl Document {
         name: &str,
         value: Object,
     ) -> Result<()> {
+        self.unshare_page_resources(page_id, category.as_bytes())?;
         // Resolve an indirect sub-dictionary first so we can mutate it in place.
         let sub_ref = self.with_page_resources(page_id, |res| {
             res.get(category.as_bytes())

@@ -164,6 +164,10 @@
 .layer-row.hidden-layer .tree-label { color: var(--muted); }
 .layer-row.layer-group .tree-label { font-weight: 600; }
 .layer-group-icon { display: inline-flex; width: 22px; justify-content: center; color: var(--muted); flex: none; }
+.layer-row.drawing .tree-label { color: var(--accent); font-weight: 600; }
+.layer-row .ibtn.drawing-mark { width: 22px; height: 22px; padding: 0; flex: none; color: var(--accent); }
+.layer-row .ibtn.drawing-mark .ic { width: 14px; height: 14px; }
+.props .prop-select select { margin-left: auto; max-width: 100%; min-width: 0; }
 .layer-group-icon .ic { width: 14px; height: 14px; }
 .layer-row .page-ref { margin-left: 4px; }
 .layer-foot { border-top: 1px solid var(--border); padding: 8px; display: flex; flex-direction: column; gap: 6px; }

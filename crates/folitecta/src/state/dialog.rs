@@ -244,6 +244,10 @@ pub enum Dialog {
     ImportLayer(PathBuf),
     /// Options of the layers pane.
     LayerOptions,
+    /// The layer new drawings and text go to, or the layer of the selected comments.
+    ChooseLayer,
+    /// Name of the new layer the selected comments or picture move to.
+    MoveToNewLayer,
     /// Name, description, relationship and contents of an attachment.
     AttachmentEdit(usize),
     /// Columns of the attachments pane.

@@ -33,6 +33,11 @@ impl Document {
             let mut a = d.clone();
             a.remove(b"P");
             a.remove(b"StructParent");
+            // The layer goes by name, never as a copy of the layer object.
+            if let Some(name) = layer_name_in(src, &a) {
+                a.set(LAYER_KEY.to_vec(), lopdf::text_string(&name));
+            }
+            a.remove(b"OC");
             a.set("Page", *page as i64);
             if let Ok(t) = a.get(b"IRT").and_then(|t| t.as_reference()) {
                 if !exported.contains(&t) {
@@ -47,6 +52,7 @@ impl Document {
             if let Some(p) = popups.get(id) {
                 let mut pd = src.get_dictionary(*p)?.clone();
                 pd.remove(b"P");
+                pd.remove(b"OC");
                 pd.set("Page", *page as i64);
                 pd.set("Parent", Object::Reference(*id));
                 let mut pobj = Object::Dictionary(pd);

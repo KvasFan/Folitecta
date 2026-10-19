@@ -78,6 +78,23 @@ fn no_layers(st: AppState) -> bool {
     false
 }
 
+/// New layers are refused in a document that says it follows PDF/A-1 (it
+/// may have none), with a message.
+fn layers_refused(st: AppState) -> bool {
+    if no_doc(st) {
+        return true;
+    }
+    if st.read_active(|t| t.doc.layers_allowed()).unwrap_or(true) {
+        return false;
+    }
+    st.toast(
+        ToastKind::Warn,
+        t(st.lang(), "toast.pdfa1_layers"),
+        t(st.lang(), "toast.pdfa1_layers_detail"),
+    );
+    true
+}
+
 /// Show (`Some(true)`), hide or toggle (`None`) the targeted layers in the view.
 pub fn set_visibility(st: AppState, ids: &[Id], visible: Option<bool>) {
     let mut states = view_states(st);
@@ -376,7 +393,7 @@ fn merge_dialog(st: AppState) {
 }
 
 fn import_as_layer(st: AppState) {
-    if no_doc(st) {
+    if layers_refused(st) {
         return;
     }
     dioxus::prelude::spawn(async move {
@@ -390,6 +407,80 @@ fn import_as_layer(st: AppState) {
     });
 }
 
+/// Choose the layer new drawings and text go to, or the layer of the
+/// selected comments.
+fn choose_layer(st: AppState) {
+    if !no_layers(st) {
+        st.set_dialog(Dialog::ChooseLayer);
+    }
+}
+
+/// New drawings and text go to no layer.
+fn default_layer(st: AppState) {
+    if no_doc(st) {
+        return;
+    }
+    set_drawing_layer(st, None);
+}
+
+/// Make `layer` the layer new drawings and text go to (`None`: no layer).
+pub fn set_drawing_layer(st: AppState, layer: Option<Id>) {
+    let r = st.with_active(|t| {
+        t.doc.set_drawing_layer(layer)?;
+        Ok::<_, folitecta_core::Error>(
+            layer.and_then(|id| t.doc.layers().into_iter().find(|l| l.id == id).map(|l| l.name)),
+        )
+    });
+    match r {
+        Some(Ok(Some(name))) => st.toast(
+            ToastKind::Info,
+            tf(st.lang(), "toast.drawing_layer", &[("name", &name)]),
+            "",
+        ),
+        Some(Ok(None)) => st.toast(ToastKind::Info, t(st.lang(), "toast.drawing_layer_none"), ""),
+        Some(Err(e)) => st.error(e),
+        None => {}
+    }
+}
+
+/// Put the comments chosen on the page on a layer (`None`: on no layer).
+pub fn set_comments_layer(st: AppState, layer: Option<Id>) {
+    let Some((page, list)) = st.read_active(|t| t.chosen_annots()).flatten() else {
+        st.toast(ToastKind::Info, t(st.lang(), "toast.select_comment_first"), "");
+        return;
+    };
+    let r = st.with_active(|t| t.doc.set_annotations_layer(page, &list, layer));
+    match r {
+        Some(Ok(n)) => {
+            // The comments stay chosen.
+            st.with_active(|t| t.set_chosen(page, &list));
+            crate::files::set_window_title(st);
+            st.toast(
+                ToastKind::Ok,
+                tf(st.lang(), "toast.comments_layer", &[("count", &n.to_string())]),
+                "",
+            );
+        }
+        Some(Err(e)) => st.error(e),
+        None => {}
+    }
+}
+
+/// Move the chosen comments, or the selected picture, to a new layer.
+fn move_to_new_layer(st: AppState) {
+    if layers_refused(st) {
+        return;
+    }
+    let chosen = st
+        .read_active(|t| t.chosen_annots().is_some() || t.image_sel.is_some())
+        .unwrap_or(false);
+    if chosen {
+        st.set_dialog(Dialog::MoveToNewLayer);
+    } else {
+        st.toast(ToastKind::Info, t(st.lang(), "toast.select_for_layer"), "");
+    }
+}
+
 /// Check states of the layers pane options.
 pub fn layers_state(st: AppState, id: &str) -> Option<bool> {
     match id {
@@ -401,8 +492,8 @@ pub fn layers_state(st: AppState, id: &str) -> Option<bool> {
 }
 
 handlers! {
-    "layersView.addNewLayer" => |st| doc_dialog(st, Dialog::LayerName { group: false, rename: None }),
-    "layersView.addNewGroup" => |st| doc_dialog(st, Dialog::LayerName { group: true, rename: None }),
+    "layersView.addNewLayer" => |st| { if !layers_refused(st) { doc_dialog(st, Dialog::LayerName { group: false, rename: None }) } },
+    "layersView.addNewGroup" => |st| { if !layers_refused(st) { doc_dialog(st, Dialog::LayerName { group: true, rename: None }) } },
     "layersView.showSelected" => |st| show_targets(st, Some(true)),
     "layersView.hideSelected" => |st| show_targets(st, Some(false)),
     "layersView.toggleSelected" => |st| show_targets(st, None),
@@ -433,4 +524,7 @@ handlers! {
     "layersView.mergeSelectedWithChildren" => |st| merge_selected(st, true),
     "layersView.importAsLayer" => import_as_layer,
     "layersView.options" => |st| doc_dialog(st, Dialog::LayerOptions),
+    "chooseLayer" => choose_layer,
+    "defaultLayer" => default_layer,
+    "moveToNewLayer" => move_to_new_layer,
 }

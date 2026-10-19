@@ -42,6 +42,13 @@ pub fn RightPane() -> Element {
                 .ok()
                 .and_then(|a| a.into_iter().find(|x| x.index == i))
         });
+        // The layers, and the layer of the selected comment: one layer,
+        // several (a membership dictionary) or none.
+        let layers = tab.doc.layers();
+        let sel_layer = tab.selected_annot.map(|(p, i)| {
+            let all = tab.doc.annotation_layers(p, i);
+            (tab.doc.annotation_layer(p, i), all.len() > 1)
+        });
         (
             info,
             tab.page,
@@ -53,6 +60,7 @@ pub fn RightPane() -> Element {
             selected,
             tab.doc.is_dirty(),
             label,
+            (layers, sel_layer),
         )
     });
     rsx! {
@@ -61,7 +69,7 @@ pub fn RightPane() -> Element {
                 button { class: "ibtn", title: "{t(lang, \"dialog.close\")}", onclick: move |_| { st.ui_mut().show_right_pane = false; st.save_prefs(); }, "×" }
             }
             div { class: "pane-body props",
-                if let Some((info, page, size, annots, links, images, marks, selected, dirty, label)) = data {
+                if let Some((info, page, size, annots, links, images, marks, selected, dirty, label, (layers, sel_layer))) = data {
                     div { class: "prop-head", "{t(lang, \"props.document\")}" }
                     {prop(t(lang, "dialog.props.title_field"), if info.title.is_empty() { "—".into() } else { info.title.clone() })}
                     {prop(t(lang, "dialog.props.author"), if info.author.is_empty() { "—".into() } else { info.author.clone() })}
@@ -89,6 +97,40 @@ pub fn RightPane() -> Element {
                         {prop(t(lang, "props.type"), annot_name(lang, &a.subtype))}
                         {prop(t(lang, "dialog.note.author"), a.author.clone())}
                         {prop(t(lang, "dialog.props.modified"), a.modified.clone())}
+                        // Only what the layer commands put on layers (not marks for
+                        // redaction, fields or links).
+                        if !layers.is_empty() && folitecta_core::layer_drawing::can_be_on_layer(&a.subtype) {
+                            {
+                                let (cur, several) = sel_layer.unwrap_or((None, false));
+                                let cur_value = match cur {
+                                    Some((x, y)) => format!("{x}-{y}"),
+                                    None if several => "several".to_string(),
+                                    None => "none".to_string(),
+                                };
+                                rsx! {
+                                    div { class: "prop prop-select",
+                                        span { class: "k", "{t(lang, \"props.layer\")}" }
+                                        select { class: "comment-layer",
+                                            onchange: move |e| {
+                                                let v = e.value();
+                                                if v == "several" {
+                                                    return;
+                                                }
+                                                let layer = v.split_once('-').and_then(|(x, y)| Some((x.parse().ok()?, y.parse().ok()?)));
+                                                crate::commands::layers::set_comments_layer(st, layer);
+                                            },
+                                            option { value: "none", selected: cur_value == "none", "{t(lang, \"layers.no_layer\")}" }
+                                            if several {
+                                                option { value: "several", selected: cur_value == "several", disabled: true, "{t(lang, \"layers.several\")}" }
+                                            }
+                                            for l in layers.iter() {
+                                                option { key: "{l.id.0}-{l.id.1}", value: "{l.id.0}-{l.id.1}", selected: cur_value == format!("{}-{}", l.id.0, l.id.1), "{l.name}" }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         if !a.contents.is_empty() {
                             div { class: "prop-text", "{a.contents}" }
                         }

@@ -381,6 +381,8 @@ pub(super) fn xfdf_comment(
         in_reply_to,
         keep_appearance: false,
         file,
+        // XFDF does not name layers: a comment updated in place keeps its own.
+        layer: None,
     })
 }
 

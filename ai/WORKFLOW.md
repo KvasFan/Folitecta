@@ -79,10 +79,13 @@ windows, gets no frames, and then the page runs no scroll, resize or observer ca
 still completes, but the checks made meanwhile are listed as failed in "the window is drawn during
 the whole run". On a Linux desktop with KDE Plasma the run can go to a compositor of its own, on a
 virtual screen, where nothing covers it and the desktop stays free (the script receives the
-nested display):
+nested display). Give the nested compositor a configuration folder of its own, or it writes its
+virtual screen into the desktop's own screen settings (`~/.config/kwinoutputconfig.json`):
 
 ```sh
-dbus-run-session -- kwin_wayland --virtual --no-lockscreen --width 2560 --height 1440 \
+mkdir -p /tmp/kwin-selftest
+env XDG_CONFIG_HOME=/tmp/kwin-selftest \
+  dbus-run-session -- kwin_wayland --virtual --no-lockscreen --width 2560 --height 1440 \
   --exit-with-session "/path/to/script-that-runs folitecta --ui-selftest <output folder>"
 ```
 

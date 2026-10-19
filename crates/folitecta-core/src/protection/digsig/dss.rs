@@ -329,6 +329,11 @@ impl SourceAnalysis {
         let mut prev_end = from;
         let mut prev_doc: Option<Option<lopdf::Document>> = None;
         for &end in ends {
+            if out.len() >= MAX_REVISIONS {
+                // Too many revisions to read: a change that is not analysed.
+                out.push(RevisionKind::Other);
+                break;
+            }
             let key = (prev_end, end);
             let known = self.kinds.lock().ok().and_then(|k| k.get(&key).copied());
             let kind = if stamped.contains(&end) {
@@ -355,9 +360,38 @@ impl SourceAnalysis {
             }
             out.push(kind);
             prev_end = end;
+            if kind == RevisionKind::Other {
+                // What follows changes nothing of the answer.
+                break;
+            }
         }
         out
     }
+}
+
+/// At most this many later revisions are read after a signature.
+const MAX_REVISIONS: usize = 32;
+
+/// Where the revisions of `data` end: after each `%%EOF` whose
+/// cross-reference section (its `startxref`) lies inside the bytes since the
+/// end before. Markers inside the data of a revision (in a stream) are not
+/// ends of revisions.
+pub(crate) fn revision_ends(data: &[u8]) -> Vec<usize> {
+    let base = encrypted::find_bytes(data, b"%PDF-").unwrap_or(0);
+    let mut out = Vec::new();
+    let mut from = 0;
+    let mut last = 0;
+    while let Some(i) = encrypted::find_bytes(&data[from..], b"%%EOF") {
+        from += i + 5;
+        let inside = encrypted::last_startxref(&data[..from])
+            .and_then(|s| s.checked_add(base))
+            .is_some_and(|s| s >= last && s < from);
+        if inside {
+            out.push(from);
+            last = from;
+        }
+    }
+    out
 }
 
 /// The encryption used while an encrypted revision is read, and the objects
@@ -676,13 +710,257 @@ fn info_ok(prev: Option<&Dictionary>, next: Option<&Dictionary>) -> bool {
     })
 }
 
+/// An entry of a cross-reference section, as the section itself says.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Entry {
+    Free,
+    Normal { offset: usize, generation: u16 },
+    Compressed { container: u32, index: u32 },
+}
+
+fn pdf_space(c: u8) -> bool {
+    matches!(c, b' ' | b'\t' | b'\r' | b'\n' | b'\x0c' | 0)
+}
+
+/// The tokens of a cross-reference table (numbers, `n`, `f`, `trailer`).
+struct Tokens<'a> {
+    data: &'a [u8],
+    pos: usize,
+}
+
+impl<'a> Tokens<'a> {
+    fn next_token(&mut self) -> Option<&'a [u8]> {
+        while self.data.get(self.pos).is_some_and(|c| pdf_space(*c)) {
+            self.pos += 1;
+        }
+        let start = self.pos;
+        while self
+            .data
+            .get(self.pos)
+            .is_some_and(|c| !pdf_space(*c) && *c != b'<')
+        {
+            self.pos += 1;
+        }
+        (self.pos > start).then(|| &self.data[start..self.pos])
+    }
+}
+
+fn number<T: std::str::FromStr>(t: &[u8]) -> Option<T> {
+    std::str::from_utf8(t).ok()?.parse().ok()
+}
+
+/// The number and generation of the object header at `pos` (`N G obj`).
+fn header_at(data: &[u8], pos: usize) -> Option<(u32, u16)> {
+    let mut t = Tokens { data, pos };
+    let n = number(t.next_token()?)?;
+    let g = number(t.next_token()?)?;
+    let rest = data.get(t.pos..)?;
+    let rest = &rest[rest.iter().take_while(|c| pdf_space(**c)).count()..];
+    if !rest.starts_with(b"obj") || rest.get(3).is_some_and(|c| c.is_ascii_alphanumeric()) {
+        return None;
+    }
+    // The tokens stop at "obj" glued to the generation ("0obj") too: refuse it.
+    if !data.get(t.pos).is_some_and(|c| pdf_space(*c)) {
+        return None;
+    }
+    Some((n, g))
+}
+
+/// At most this many entries are read from the section of one revision.
+const MAX_ENTRIES: usize = 4_000_000;
+
+/// The entries of the cross-reference table at `at`, and whether its
+/// trailer points to a cross-reference stream as well (a hybrid file).
+fn table_section(data: &[u8], at: usize) -> Option<(Vec<(u32, Entry)>, bool)> {
+    let rest = data.get(at..)?;
+    if !rest.starts_with(b"xref") {
+        return None;
+    }
+    let mut t = Tokens { data: rest, pos: 4 };
+    let mut out = Vec::new();
+    loop {
+        let tok = t.next_token()?;
+        if tok == b"trailer" {
+            break;
+        }
+        let start: u32 = number(tok)?;
+        let count: usize = number(t.next_token()?)?;
+        if out.len() + count > MAX_ENTRIES {
+            return None;
+        }
+        for i in 0..count {
+            let offset: usize = number(t.next_token()?)?;
+            let generation: u32 = number(t.next_token()?)?;
+            let entry = match t.next_token()? {
+                b"n" => Entry::Normal {
+                    offset,
+                    generation: u16::try_from(generation).ok()?,
+                },
+                b"f" => Entry::Free,
+                _ => return None,
+            };
+            out.push((start.checked_add(u32::try_from(i).ok()?)?, entry));
+        }
+    }
+    let trailer = &rest[t.pos..];
+    let trailer = &trailer[..encrypted::find_bytes(trailer, b"startxref").unwrap_or(trailer.len())];
+    Some((out, encrypted::find_bytes(trailer, b"/XRefStm").is_some()))
+}
+
+fn int_of(d: &Dictionary, key: &[u8]) -> Option<i64> {
+    d.get(key).ok()?.as_i64().ok()
+}
+
+/// The entries of the cross-reference stream at `at` (the object the
+/// reader loaded at that very offset), and whether it names another one.
+fn stream_section(
+    data: &[u8],
+    at: usize,
+    base: usize,
+    next: &lopdf::Document,
+) -> Option<(Vec<(u32, Entry)>, bool)> {
+    let (num, generation) = header_at(data, at)?;
+    let offset = u32::try_from(at.checked_sub(base)?).ok()?;
+    if !matches!(next.reference_table.get(num), Some(XrefEntry::Normal { offset: o, generation: g }) if *o == offset && *g == generation)
+    {
+        return None;
+    }
+    let Object::Stream(s) = next.objects.get(&(num, generation))? else {
+        return None;
+    };
+    if s.dict.get(b"Type").ok()?.as_name().ok()? != b"XRef" {
+        return None;
+    }
+    let w: Vec<usize> = s
+        .dict
+        .get(b"W")
+        .ok()?
+        .as_array()
+        .ok()?
+        .iter()
+        .map(|v| {
+            v.as_i64()
+                .ok()
+                .and_then(|v| usize::try_from(v).ok())
+                .filter(|v| *v <= 8)
+        })
+        .collect::<Option<_>>()?;
+    if w.len() != 3 {
+        return None;
+    }
+    let size = int_of(&s.dict, b"Size")?;
+    let index: Vec<i64> = match s.dict.get(b"Index") {
+        Ok(i) => i
+            .as_array()
+            .ok()?
+            .iter()
+            .map(|v| v.as_i64().ok())
+            .collect::<Option<_>>()?,
+        Err(_) => vec![0, size],
+    };
+    if !index.len().is_multiple_of(2) {
+        return None;
+    }
+    let content = s.decompressed_content_with_limit(MAX_STREAM).ok()?;
+    let row = w[0] + w[1] + w[2];
+    let field = |bytes: &[u8]| bytes.iter().fold(0u64, |a, b| (a << 8) | u64::from(*b));
+    let mut out = Vec::new();
+    let mut at_row = 0usize;
+    for pair in index.chunks(2) {
+        let (start, count) = (u32::try_from(pair[0]).ok()?, usize::try_from(pair[1]).ok()?);
+        if out.len() + count > MAX_ENTRIES {
+            return None;
+        }
+        for i in 0..count {
+            let r = content.get(at_row..at_row + row)?;
+            at_row += row;
+            let kind = if w[0] == 0 { 1 } else { field(&r[..w[0]]) };
+            let (a, b) = (field(&r[w[0]..w[0] + w[1]]), field(&r[w[0] + w[1]..]));
+            let entry = match kind {
+                0 => Entry::Free,
+                1 => Entry::Normal {
+                    offset: usize::try_from(a).ok()?,
+                    generation: u16::try_from(b).ok()?,
+                },
+                2 => Entry::Compressed {
+                    container: u32::try_from(a).ok()?,
+                    index: u32::try_from(b).ok()?,
+                },
+                // Other types are references to the null object.
+                _ => continue,
+            };
+            out.push((start.checked_add(u32::try_from(i).ok()?)?, entry));
+        }
+    }
+    Some((out, s.dict.has(b"XRefStm")))
+}
+
+/// Two entries of the reader's tables are the same.
+fn same_entry(a: Option<&XrefEntry>, b: Option<&XrefEntry>) -> bool {
+    use XrefEntry::*;
+    match (a, b) {
+        (None, None) => true,
+        (Some(Free), Some(Free)) | (Some(UnusableFree), Some(UnusableFree)) => true,
+        (
+            Some(Normal {
+                offset: o1,
+                generation: g1,
+            }),
+            Some(Normal {
+                offset: o2,
+                generation: g2,
+            }),
+        ) => o1 == o2 && g1 == g2,
+        (
+            Some(Compressed {
+                container: c1,
+                index: i1,
+            }),
+            Some(Compressed {
+                container: c2,
+                index: i2,
+            }),
+        ) => c1 == c2 && i1 == i2,
+        _ => false,
+    }
+}
+
+/// The object numbers an object stream of `doc` holds, in order.
+fn container_numbers(doc: &lopdf::Document, container: u32) -> Option<Vec<u32>> {
+    let Object::Stream(s) = doc.objects.get(&(container, 0))? else {
+        return None;
+    };
+    if s.dict.get(b"Type").ok()?.as_name().ok()? != b"ObjStm" {
+        return None;
+    }
+    let n = usize::try_from(int_of(&s.dict, b"N")?).ok()?;
+    let first = usize::try_from(int_of(&s.dict, b"First")?).ok()?;
+    let content = s.decompressed_content_with_limit(MAX_STREAM).ok()?;
+    let mut t = Tokens {
+        data: content.get(..first)?,
+        pos: 0,
+    };
+    let mut out = Vec::with_capacity(n.min(100_000));
+    for _ in 0..n {
+        out.push(number(t.next_token()?)?);
+        let _offset: usize = number(t.next_token()?)?;
+    }
+    Some(out)
+}
+
 /// What the revision of `data` between `prev_end` and `end` does, from its
 /// structure (never from what it says of itself):
-/// - its cross-reference section is in its own bytes and follows the one
-///   before, and every object it writes is one its section points to (no
-///   object a reader rebuilding the table would see differently);
+/// - its cross-reference section (read here, not through the reader's merged
+///   table) is in its own bytes, follows the one before, is not hybrid, names
+///   each object once, and neither defines nor frees any object the document
+///   reaches (its catalog and document information excepted);
+/// - each object it writes sits at the offset its entry gives, under the
+///   number and generation of the entry, and every object header in its
+///   bytes is such an entry; its object streams hold each number once, at
+///   the index their entries give, and no object of the document;
 /// - every object the document reaches from its catalog (without the store)
-///   and its document information is unchanged, dictionary and content;
+///   and its document information has the same entry as before and is
+///   unchanged, dictionary and content;
 /// - the catalog changes only in `/DSS`, `/Version` and a direct
 ///   `/Extensions` `/ESIC`, the document information only in its
 ///   modification date and producer;
@@ -699,23 +977,31 @@ pub(crate) fn classify(
 ) -> RevisionKind {
     use RevisionKind::Other;
     let base = encrypted::find_bytes(data, b"%PDF-").unwrap_or(0);
-    let next_xref = next.xref_start + base;
-    if next_xref < prev_end || next_xref >= end {
+    let Some(section) = encrypted::last_startxref(&data[..end]) else {
+        return Other;
+    };
+    let section_at = section + base;
+    if next.xref_start != section || section_at < prev_end || section_at >= end {
         return Other;
     }
     let declared = encrypted::last_startxref(&data[..prev_end]);
-    if declared.is_none() || declared_prev(&data[..end], next.xref_start + base) != declared {
+    if declared.is_none() || declared_prev(&data[..end], section_at) != declared {
         return Other;
     }
-    // Every object written by the revision is the one its section points to.
-    for (pos, n, g) in object_headers(&data[prev_end..end]) {
-        let offset = (prev_end + pos).checked_sub(base);
-        let pointed = next.reference_table.get(n).is_some_and(|e| {
-            matches!(e, XrefEntry::Normal { offset: o, generation } if Some(*o as usize) == offset && *generation == g)
-        });
-        if !pointed {
-            return Other;
-        }
+    let own = if data[section_at..].starts_with(b"xref") {
+        table_section(&data[..end], section_at)
+    } else {
+        stream_section(&data[..end], section_at, base, next)
+    };
+    let Some((entries, hybrid)) = own else {
+        return Other;
+    };
+    if hybrid {
+        return Other;
+    }
+    let mut numbers = HashSet::new();
+    if !entries.iter().all(|(n, _)| numbers.insert(*n)) {
+        return Other;
     }
     let (Some(root), Some(prev_root)) = (trailer_ref(next, b"Root"), trailer_ref(prev, b"Root")) else {
         return Other;
@@ -724,8 +1010,76 @@ pub(crate) fn classify(
         return Other;
     }
     let (prev_info, next_info) = (trailer_ref(prev, b"Info"), trailer_ref(next, b"Info"));
-    if prev_info.is_some() && prev_info != next_info {
+    if prev_info.is_some() && prev_info != next_info
+        || prev_info.is_none() && next_info.is_some_and(|i| prev.objects.contains_key(&i))
+    {
         return Other;
+    }
+    let (Some(r_next), Some(r_prev)) = (
+        document_reach(next, root, next_info),
+        document_reach(prev, root, prev_info),
+    ) else {
+        return Other;
+    };
+    // The numbers the document reaches, the catalog and the document
+    // information excepted: the revision may not touch them.
+    let special: HashSet<u32> = std::iter::once(root.0).chain(next_info.map(|i| i.0)).collect();
+    let document: HashSet<u32> = r_next
+        .iter()
+        .chain(r_prev.iter())
+        .map(|id| id.0)
+        .filter(|n| !special.contains(n))
+        .collect();
+    let mut written: HashSet<(usize, u32, u16)> = HashSet::new();
+    let mut containers: HashMap<u32, Vec<(u32, u32)>> = HashMap::new();
+    for (n, e) in &entries {
+        if document.contains(n) {
+            return Other;
+        }
+        match *e {
+            Entry::Free => {}
+            Entry::Normal { offset, generation } => {
+                let at = offset + base;
+                if at < prev_end || at >= end || header_at(data, at) != Some((*n, generation)) {
+                    return Other;
+                }
+                written.insert((at, *n, generation));
+            }
+            Entry::Compressed { container, index } => {
+                containers.entry(container).or_default().push((*n, index))
+            }
+        }
+    }
+    // Every object written in the revision's bytes is one of its entries.
+    for (pos, n, g) in object_headers(&data[prev_end..end]) {
+        if !written.contains(&(prev_end + pos, n, g)) {
+            return Other;
+        }
+    }
+    // Object streams of the revision: written by it, each number once, at
+    // the index of its entry, nothing of the document.
+    for (container, members) in &containers {
+        let own_container = entries
+            .iter()
+            .any(|(n, e)| n == container && matches!(e, Entry::Normal { .. }));
+        let Some(held) = container_numbers(next, *container).filter(|_| own_container) else {
+            return Other;
+        };
+        let mut seen = HashSet::new();
+        if !held.iter().all(|n| seen.insert(*n)) || held.iter().any(|n| document.contains(n)) {
+            return Other;
+        }
+        for (n, index) in members {
+            if usize::try_from(*index).ok().and_then(|i| held.get(i)) != Some(n) {
+                return Other;
+            }
+        }
+    }
+    // The reader resolves every object of the document as before.
+    for n in &document {
+        if !same_entry(prev.reference_table.get(*n), next.reference_table.get(*n)) {
+            return Other;
+        }
     }
     let dict = |doc: &lopdf::Document, id: Option<ObjectId>| -> Option<Dictionary> {
         id.and_then(|i| doc.objects.get(&i))
@@ -740,12 +1094,6 @@ pub(crate) fn classify(
     {
         return Other;
     }
-    let (Some(r_next), Some(r_prev)) = (
-        document_reach(next, root, next_info),
-        document_reach(prev, root, prev_info),
-    ) else {
-        return Other;
-    };
     for id in &r_next {
         if *id == root || Some(*id) == next_info {
             continue;

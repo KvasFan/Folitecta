@@ -3,17 +3,20 @@
 
 use std::path::PathBuf;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use dioxus::prelude::*;
 use folitecta_core::digsig::{
-    CertInfo, Certificate, DigitalId, IdentityInfo, KeyKind, SignOptions, SignPlacement, SignatureStatus,
-    SignedFile, Transport, cert_info, cert_to_der, parse_certificates,
+    CertInfo, Certificate, Check, DigitalId, IdentityInfo, KeyKind, SignOptions, SignPlacement,
+    SignatureStatus, SignedFile, Transport, cert_info, cert_to_der, parse_certificates,
 };
 
 use crate::commands::{handlers, no_doc, show_pane};
 use crate::files;
 use crate::i18n::{t, tf};
-use crate::state::{AppState, ConfirmAction, Dialog, Pane, PasswordTarget, ToastKind, Tool, app_data_dir};
+use crate::state::{
+    AppState, ConfirmAction, Dialog, DocTab, Pane, PasswordTarget, ToastKind, Tool, app_data_dir,
+};
 
 /// A digital ID kept in Folitecta's data folder.
 #[derive(Debug, Clone, PartialEq)]
@@ -144,26 +147,108 @@ pub fn remove_trusted(sha1: &str) {
     }
 }
 
-/// Signature validation results of the active document (cached per revision).
-pub fn signature_status(st: AppState) -> Vec<SignatureStatus> {
-    st.with_active(|t| {
-        if let Some((rev, s)) = &t.sig_status {
-            if *rev == t.revision {
-                return s.clone();
-            }
-        }
-        let s = t.doc.validate_signatures(&trusted_certs());
-        t.sig_status = Some((t.revision, s.clone()));
-        s
-    })
-    .unwrap_or_default()
+/// The state validation results are for: the document's revision and saves
+/// (the file it is checked against), the online data of its tab, and the
+/// generation of the trusted list and options.
+pub type StatusKey = ((u64, u64), u64, u64);
+
+/// Bumped when the trusted list or the options of validation change.
+static STATUS_GEN: AtomicU64 = AtomicU64::new(0);
+
+/// Validations under way: (tab, key).
+static CHECKING: Mutex<Vec<(u64, StatusKey)>> = Mutex::new(Vec::new());
+
+pub fn status_key(t: &DocTab) -> StatusKey {
+    (
+        t.doc.validation_stamp(),
+        t.revocation_gen,
+        STATUS_GEN.load(Ordering::SeqCst),
+    )
 }
 
-/// Forget cached validation results (after the trusted list changed).
-pub fn invalidate_status(st: AppState) {
-    for t in st.docs_mut().iter_mut() {
-        t.sig_status = None;
+fn with_tab<T>(st: AppState, id: u64, f: impl FnOnce(&mut DocTab) -> T) -> Option<T> {
+    let mut docs = st.docs_mut();
+    let tab = docs.iter_mut().find(|t| t.id == id)?;
+    let out = f(tab);
+    tab.refresh();
+    Some(out)
+}
+
+/// Validate the document of tab `tab` on another thread (the checks of
+/// signatures, revocation data and later revisions take time) and keep the
+/// result for the state it was made for.
+async fn validate_tab(st: AppState, tab: u64) -> Option<Vec<SignatureStatus>> {
+    let (key, job, pool) = st
+        .docs
+        .peek()
+        .iter()
+        .find(|t| t.id == tab)
+        .map(|t| (status_key(t), t.doc.validation_job(), t.revocation.clone()))?;
+    let result =
+        tokio::task::spawn_blocking(move || job.run(&trusted_certs(), &pool, super::revocation::now_secs()))
+            .await
+            .ok();
+    if let Some(s) = &result {
+        let current = st.docs.peek().iter().find(|t| t.id == tab).map(status_key);
+        if current == Some(key) {
+            with_tab(st, tab, |t| t.sig_status = Some((key, s.clone())));
+        }
     }
+    result
+}
+
+/// Signature validation results of the active document: the results for its
+/// current state when they are ready, else the last ones (while the checks
+/// run on another thread).
+pub fn signature_status(st: AppState) -> Vec<SignatureStatus> {
+    let Some((tab, key, cached)) = st.read_active(|t| (t.id, status_key(t), t.sig_status.clone())) else {
+        return Vec::new();
+    };
+    if let Some((k, s)) = &cached {
+        if *k == key {
+            return s.clone();
+        }
+    }
+    let start = {
+        let mut running = CHECKING.lock().expect("validations");
+        let new = !running.contains(&(tab, key));
+        if new {
+            running.push((tab, key));
+        }
+        new
+    };
+    if start {
+        dioxus::core::spawn_forever(async move {
+            validate_tab(st, tab).await;
+            CHECKING.lock().expect("validations").retain(|r| *r != (tab, key));
+        });
+    }
+    cached.map(|(_, s)| s).unwrap_or_default()
+}
+
+/// The checks of the active document are running (its results are not for
+/// its current state yet).
+pub fn signatures_checking(st: AppState) -> bool {
+    st.read_active(|t| t.sig_status.as_ref().map(|(k, _)| *k) != Some(status_key(t)))
+        .unwrap_or(false)
+}
+
+/// Signature validation results of the active document for its current
+/// state, waiting for the checks when they are not ready.
+pub async fn current_status(st: AppState) -> Vec<SignatureStatus> {
+    let Some((tab, key, cached)) = st.read_active(|t| (t.id, status_key(t), t.sig_status.clone())) else {
+        return Vec::new();
+    };
+    match cached {
+        Some((k, s)) if k == key => s,
+        _ => validate_tab(st, tab).await.unwrap_or_default(),
+    }
+}
+
+/// Forget cached validation results (after the trusted list or the options
+/// changed): they are checked again.
+pub fn invalidate_status(_st: AppState) {
+    STATUS_GEN.fetch_add(1, Ordering::SeqCst);
 }
 
 /// Media types of time stamp requests and answers (RFC 3161).
@@ -349,27 +434,34 @@ fn validate_all(st: AppState) {
         return;
     }
     invalidate_status(st);
-    let s = signature_status(st);
     show_pane(st, Pane::Signatures);
-    if s.is_empty() {
-        st.toast(ToastKind::Info, t(st.lang(), "toast.no_signatures"), "");
-        return;
-    }
-    let valid = s.iter().filter(|x| x.valid).count();
-    let kind = if valid == s.len() {
-        ToastKind::Ok
-    } else {
-        ToastKind::Warn
-    };
-    st.toast(
-        kind,
-        tf(
-            st.lang(),
-            "toast.signatures_checked",
-            &[("valid", &valid.to_string()), ("count", &s.len().to_string())],
-        ),
-        "",
-    );
+    dioxus::core::spawn_forever(async move {
+        let s = current_status(st).await;
+        if s.is_empty() {
+            st.toast(ToastKind::Info, t(st.lang(), "toast.no_signatures"), "");
+            return;
+        }
+        let valid = s
+            .iter()
+            .filter(|x| x.valid && x.checks.revocation != Check::Failed)
+            .count();
+        let kind = if valid == s.len() {
+            ToastKind::Ok
+        } else {
+            ToastKind::Warn
+        };
+        st.toast(
+            kind,
+            tf(
+                st.lang(),
+                "toast.signatures_checked",
+                &[("valid", &valid.to_string()), ("count", &s.len().to_string())],
+            ),
+            "",
+        );
+        // With online checks on, ask for what the signatures miss.
+        super::revocation::refresh_online(st);
+    });
 }
 
 fn clear_all(st: AppState) {
@@ -392,11 +484,13 @@ fn summary(st: AppState) {
     if no_doc(st) {
         return;
     }
-    let s = signature_status(st);
-    match s.first() {
-        Some(first) => st.set_dialog(Dialog::SignatureDetails(first.field.clone())),
-        None => st.toast(ToastKind::Info, t(st.lang(), "toast.no_signatures"), ""),
-    }
+    dioxus::core::spawn_forever(async move {
+        let s = current_status(st).await;
+        match s.first() {
+            Some(first) => st.set_dialog(Dialog::SignatureDetails(first.field.clone())),
+            None => st.toast(ToastKind::Info, t(st.lang(), "toast.no_signatures"), ""),
+        }
+    });
 }
 
 /// Open the revision a signature of the active document covers in a new tab.

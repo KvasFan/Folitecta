@@ -394,6 +394,7 @@ pub fn replace_tab_document(st: AppState, tab: u64, doc: Document, opened: bool)
             t.doc = doc;
             t.revision = u64::MAX; // force refresh
             t.sig_status = None;
+            crate::commands::revocation::forget(t);
             i
         }
         None => {

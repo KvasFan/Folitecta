@@ -14,6 +14,15 @@
 .sig-check .k { color: var(--muted); }
 .sig-check .v { overflow-wrap: anywhere; min-width: 0; }
 .sig-check.bad .v { color: var(--danger); }
+/* Revocation of the certificates of a signature */
+.rev-list { display: flex; flex-direction: column; gap: 6px; padding: 2px 0 4px; }
+.rev-row { display: grid; grid-template-columns: 10px minmax(90px, 160px) minmax(0, 1fr) auto; gap: 2px 8px; align-items: center; }
+.rev-row .k { color: var(--muted); overflow-wrap: anywhere; min-width: 0; }
+.rev-row .v { overflow-wrap: anywhere; min-width: 0; }
+.rev-row.bad .v { color: var(--danger); }
+.rev-row .rev-meta, .rev-row .rev-note { grid-column: 2 / -1; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; min-width: 0; }
+.chip.rev-source { white-space: nowrap; }
+.material-servers { margin: 4px 0; padding-left: 18px; max-height: 120px; overflow: auto; font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
 .chip.sig-stamp { display: inline-flex; align-items: center; padding: 0 4px; }
 .chip.sig-stamp.ok { color: var(--ok); }
 .chip.sig-stamp.warn { color: var(--warn); }

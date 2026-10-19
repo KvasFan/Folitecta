@@ -40,32 +40,11 @@ fn subtype_of(d: &Dictionary) -> &[u8] {
 }
 
 /// Whether an optional content entry (an `/OC` value: a layer or a
-/// membership dictionary) is visible with the given layer states (layers not
-/// listed are visible). Visibility expressions (`/VE`) are not evaluated:
-/// the `/OCGs` and `/P` of the dictionary decide.
+/// membership dictionary, with its visibility expression) is visible with
+/// the given layer states (layers not listed are visible): the evaluation
+/// printing uses, so views and printed sheets agree.
 pub(crate) fn oc_visible(doc: &lopdf::Document, oc: &Object, states: &HashMap<ObjectId, bool>) -> bool {
-    let on = |id: &ObjectId| states.get(id).copied().unwrap_or(true);
-    if let Ok(id) = oc.as_reference() {
-        if is_ocg(doc, id) {
-            return on(&id);
-        }
-    }
-    let Ok(d) = deref(doc, oc).as_dict() else {
-        return true;
-    };
-    if !d.has_type(b"OCMD") {
-        return true;
-    }
-    let members = ocmd_members(doc, d);
-    if members.is_empty() {
-        return true;
-    }
-    match d.get(b"P").ok().and_then(|p| p.as_name().ok()) {
-        Some(b"AllOn") => members.iter().all(on),
-        Some(b"AnyOff") => members.iter().any(|m| !on(m)),
-        Some(b"AllOff") => members.iter().all(|m| !on(m)),
-        _ => members.iter().any(on),
-    }
+    crate::print::build::oc_visible(doc, oc, states)
 }
 
 /// The layers of an optional content entry: the layer itself, or the

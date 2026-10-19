@@ -219,7 +219,7 @@ fn ocmd_members(doc: &lopdf::Document, d: &Dictionary) -> Vec<ObjectId> {
 /// Whether content marked with `oc` (a layer or a membership dictionary)
 /// shows with the layer states `states`. Visibility expressions count as
 /// visible.
-fn oc_visible(doc: &lopdf::Document, oc: &Object, states: &HashMap<ObjectId, bool>) -> bool {
+pub(crate) fn oc_visible(doc: &lopdf::Document, oc: &Object, states: &HashMap<ObjectId, bool>) -> bool {
     let Ok(d) = deref(doc, oc).as_dict() else {
         return true;
     };

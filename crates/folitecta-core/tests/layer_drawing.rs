@@ -1513,3 +1513,43 @@ fn e_mail_copies_keep_the_layers_their_comments_use() {
     assert!(!back.layers()[0].visible);
     assert!(is_white(page_pixel(back.render_bytes().unwrap(), 0, 50, 50)));
 }
+
+#[test]
+fn visibility_expressions_decide_like_printing() {
+    let mut doc = Document::new_blank(1, 300.0, 300.0).unwrap();
+    let (a, _) = doc.add_layer("A", &[]).unwrap();
+    let (b, _) = doc.add_layer("B", &[]).unwrap();
+    doc.add_shape(
+        0,
+        Shape::Square,
+        [10.0, 10.0, 90.0, 90.0],
+        RED,
+        Some(RED),
+        2.0,
+        "R",
+        "",
+    )
+    .unwrap();
+    // Shown when A is on and B is off (the expression wins over /OCGs).
+    let ocmd = doc.inner_mut().add_object(dictionary! {
+        "Type" => "OCMD",
+        "OCGs" => vec![Object::Reference(a)],
+        "VE" => vec![
+            Object::Name(b"And".to_vec()),
+            Object::Reference(a),
+            Object::Array(vec![Object::Name(b"Not".to_vec()), Object::Reference(b)]),
+        ],
+    });
+    let aid = doc.annotations(0).unwrap()[0].id.unwrap();
+    doc.inner_mut().get_dictionary_mut(aid).unwrap().set("OC", ocmd);
+    doc.commit().unwrap();
+    assert!(doc.annotations_in_hidden_layers(&HashMap::new()).contains(&aid));
+    let view = HashMap::from([(b, false)]);
+    assert!(doc.annotations_in_hidden_layers(&view).is_empty());
+    assert!(!is_white(pixel(
+        doc.view_bytes(&HashSet::new(), &view).unwrap(),
+        50,
+        50
+    )));
+    assert!(is_white(pixel(doc.render_bytes().unwrap(), 50, 50)));
+}

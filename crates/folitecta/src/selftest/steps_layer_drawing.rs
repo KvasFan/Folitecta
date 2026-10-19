@@ -132,7 +132,9 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         format!("clicked {clicked}, drawing {drawing:?}, chip {chip:?}"),
     );
 
-    // An ink stroke and a text box drawn on it.
+    // An ink stroke and a text box drawn on it (the page as it was before,
+    // with the comments of earlier steps, to compare with).
+    let before = rendered(st, 0, true).await;
     let r = draw_stroke(cx, 470.0).await;
     let ink = last_annot(st).filter(|a| a.subtype == "Ink");
     let ink_layer = ink
@@ -198,7 +200,6 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         .as_ref()
         .map(|a| folitecta_core::marks::pdf_rect_to_display(&size, a.rect))
         .unwrap_or([0.0; 4]);
-    let plain = rendered(st, 0, false).await;
     let shown = rendered(st, 0, true).await;
     let src_before = eval("return document.querySelector('#pg-0 img')?.getAttribute('src') || '';")
         .await
@@ -213,11 +214,11 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         .ok()
         .and_then(|v| v.as_str().map(str::to_string))
         .unwrap_or_default();
-    // The stroke against the page without comments, and what hiding took away
-    // (other comments of earlier steps may lie in the same area).
-    let (drawn, gone, left) = match (&plain, &shown, &hidden) {
-        (Some(p), Some(s), Some(h)) => (changed(p, s, area), changed(s, h, area), changed(p, h, area)),
-        _ => (0, 0, usize::MAX),
+    // The stroke against the page before it was drawn: hiding the layer
+    // gives that page back (the comments of earlier steps stay).
+    let (drawn, left) = match (&before, &shown, &hidden) {
+        (Some(b), Some(s), Some(h)) => (changed(b, s, area), changed(b, h, area)),
+        _ => (0, usize::MAX),
     };
     let in_pane = ink
         .as_ref()
@@ -229,9 +230,9 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         .unwrap_or(true);
     cx.record(
         "hiding the layer hides the stroke in the canvas and the comments pane",
-        drawn > 20 && gone * 10 >= drawn * 9 && src_before != src_after && !in_pane,
+        drawn > 20 && left * 50 <= drawn && src_before != src_after && !in_pane,
         format!(
-            "{drawn} pixels of the stroke shown, {gone} gone when hidden ({left} differ from the page without comments); image {src_before} -> {src_after}; listed {in_pane}"
+            "{drawn} pixels of the stroke shown, {left} left when hidden; image {src_before} -> {src_after}; listed {in_pane}"
         ),
     );
     let _ = capture_window(&dir.join("interaction-layer-drawing.png"));

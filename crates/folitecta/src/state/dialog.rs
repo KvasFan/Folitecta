@@ -388,8 +388,11 @@ pub enum PrintTarget {
     /// Every open document.
     AllOpen,
     /// PDF files given by name and contents (the files of a portfolio).
-    Files(Vec<(String, std::sync::Arc<Vec<u8>>)>),
+    Files(Vec<PrintFile>),
 }
+
+/// A PDF file to print: its name and contents.
+pub type PrintFile = (String, std::sync::Arc<Vec<u8>>);
 
 /// Sheets laid out for the system print dialog, as pictures.
 #[derive(Debug, Clone, PartialEq)]

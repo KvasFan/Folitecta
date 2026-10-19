@@ -349,7 +349,7 @@ fn print(st: AppState) {
 pub(crate) fn pdf_files(
     doc: &Document,
     items: &[folitecta_core::portfolio::PortfolioItem],
-) -> (Vec<(String, std::sync::Arc<Vec<u8>>)>, usize) {
+) -> (Vec<crate::state::PrintFile>, usize) {
     let mut files = Vec::new();
     let mut unreadable = 0;
     for it in items

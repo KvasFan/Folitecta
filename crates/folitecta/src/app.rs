@@ -75,6 +75,8 @@ const VIEWPORT_SCRIPT: &str = r#"
 })();
 "#;
 
+/// Two fixes to how Dioxus talks to the page.
+///
 /// Dioxus applies each batch of changes to the page in the next animation
 /// frame and runs nothing else (no task, no timer, no event) until the page
 /// confirms it. No frame comes while the window is minimized or covered by
@@ -83,6 +85,11 @@ const VIEWPORT_SCRIPT: &str = r#"
 /// applied at once while the page is hidden, and after a short wait when no
 /// frame comes; otherwise in the next frame, as before. Exactly one
 /// confirmation is sent per batch.
+///
+/// The result of a script run from the program was lost (the error "eval has
+/// already ran") when the page collected the script's channel before the
+/// program read the result: the page tells the program to forget a channel
+/// once it is garbage. The channels of the last scripts are kept a while.
 const PAGE_FIXES_SCRIPT: &str = r#"
 (function(){
   const it = window.interpreter;
@@ -96,6 +103,18 @@ const PAGE_FIXES_SCRIPT: &str = r#"
       const late = setTimeout(apply, 100);
       requestAnimationFrame(() => { clearTimeout(late); apply(); });
     };
+  }
+  const create = window.createQuery;
+  if (typeof create === 'function' && !create.__foliKept) {
+    const recent = [];
+    const kept = function (id) {
+      const query = create(id);
+      recent.push(query);
+      if (recent.length > 200) recent.shift();
+      return query;
+    };
+    kept.__foliKept = true;
+    window.createQuery = kept;
   }
   return true;
 })();
@@ -132,7 +151,7 @@ pub fn App() -> Element {
 
     // Track the window size and pixel ratio (initially and on every resize).
     use_future(move || async move {
-        // Changes reach the page also when no frame is drawn.
+        // Changes reach the page also when no frame is drawn; script results are kept.
         let _ = document::eval(PAGE_FIXES_SCRIPT).await;
         let mut eval = document::eval(VIEWPORT_SCRIPT);
         while let Ok(v) = eval.recv::<(f64, f64, f64)>().await {

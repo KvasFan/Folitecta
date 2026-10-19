@@ -5,7 +5,9 @@
 //! print file of the sheet shown (one sheet, so it is quick for any document)
 //! and draws it.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
@@ -349,6 +351,57 @@ enum Scope {
     Given,
 }
 
+/// A sheet for the preview: its document, plan, number and content.
+#[derive(Clone)]
+struct Want {
+    src: Arc<PrintSource>,
+    plan: PrintPlan,
+    sheet: usize,
+    content: Content,
+}
+
+impl PartialEq for Want {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.src, &other.src)
+            && self.sheet == other.sheet
+            && self.content == other.content
+            && self.plan == other.plan
+    }
+}
+
+/// The picture of a sheet for the preview (a PNG), turned upright when it is
+/// laid out across the paper, as it is read.
+fn draw_sheet(w: &Want) -> Result<Vec<u8>, String> {
+    let o = BuildOptions {
+        content: w.content,
+        compress: false,
+    };
+    let bytes = w
+        .src
+        .build(&w.plan, w.sheet..w.sheet + 1, &o, &mut |_, _| true)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "cancelled".to_string())?;
+    let s = &w.plan.sheets[w.sheet];
+    let scale = 900.0 / s.paper.width.max(s.paper.height).max(1.0);
+    let r = folitecta_core::Renderer::new(Arc::new(bytes)).map_err(|e| e.to_string())?;
+    let opts = folitecta_core::RenderOpts {
+        annotations: false,
+        transparent: false,
+    };
+    let img = r.render_rgba(0, scale, opts).map_err(|e| e.to_string())?;
+    let img = if s.landscape {
+        image::imageops::rotate90(&img)
+    } else {
+        img
+    };
+    let mut png = Vec::new();
+    image::DynamicImage::ImageRgba8(img)
+        .to_rgb8()
+        .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+        .map_err(|e| e.to_string())?;
+    Ok(png)
+}
+
 /// The generation of the newest preview asked for.
 static PREVIEW_GEN: AtomicU64 = AtomicU64::new(0);
 
@@ -518,45 +571,6 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
     let mut printers: Signal<Option<Result<Vec<PrinterInfo>, PrintError>>> = use_signal(|| None);
     let mut caps: Signal<HashMap<String, Result<PrinterCaps, PrintError>>> = use_signal(HashMap::new);
     let mut destination = use_signal(|| PrintPrefs::load(st).destination);
-    use_hook(move || {
-        spawn(async move {
-            let list = tokio::task::spawn_blocking(|| printing::backend().printers())
-                .await
-                .unwrap_or_else(|e| Err(PrintError::Io(e.to_string())));
-            let names: Vec<String> = list
-                .as_ref()
-                .map(|l| l.iter().map(|p| p.name.clone()).collect())
-                .unwrap_or_default();
-            let default = list
-                .as_ref()
-                .ok()
-                .and_then(|l| l.iter().find(|p| p.is_default).or(l.first()))
-                .map(|p| p.name.clone());
-            let current = destination.peek().clone();
-            if !(current == PDF || current == SYSTEM || names.contains(&current)) {
-                destination.set(default.unwrap_or_else(|| SYSTEM.to_string()));
-            }
-            printers.set(Some(list));
-        });
-    });
-    let is_printer = move || {
-        let d = destination();
-        !d.is_empty() && d != PDF && d != SYSTEM
-    };
-    // Capabilities of the printer chosen, once for each printer.
-    use_effect(move || {
-        let d = destination();
-        if d.is_empty() || d == PDF || d == SYSTEM || caps.peek().contains_key(&d) {
-            return;
-        }
-        spawn(async move {
-            let name = d.clone();
-            let c = tokio::task::spawn_blocking(move || printing::backend().capabilities(&name))
-                .await
-                .unwrap_or_else(|e| Err(PrintError::Io(e.to_string())));
-            caps.write().insert(d, c);
-        });
-    });
     let current_caps = move || -> Option<PrinterCaps> {
         let d = destination();
         caps.read().get(&d).and_then(|c| c.as_ref().ok().cloned())
@@ -570,11 +584,11 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
     let mut paper_key = use_signal(String::new);
     let mut sides = use_signal(|| Sides::OneSided);
     let mut gray = use_signal(|| false);
-    // The paper, sides and colour of the destination chosen (remembered for each printer).
-    use_effect(move || {
-        let d = destination();
-        let list = media();
-        let c = current_caps();
+    // The paper, sides and colour of a destination (remembered for each
+    // printer), once its capabilities are known. The loading is done by tasks
+    // and handlers, never by effects: effects may wait while other work keeps
+    // the interface busy, and the window would stay without a printer.
+    let mut apply_defaults = move |d: String, c: Option<PrinterCaps>| {
         let p = prefs.peek().clone();
         let remembered = if d == PDF || d == SYSTEM {
             PrinterPrefs {
@@ -583,6 +597,10 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
             }
         } else {
             p.printers.get(&d).cloned().unwrap_or_default()
+        };
+        let list = match &c {
+            Some(c) if !c.media.is_empty() => c.media.clone(),
+            _ => standard_media(),
         };
         let default_media = c
             .as_ref()
@@ -607,7 +625,65 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
                 .gray
                 .unwrap_or_else(|| c.as_ref().is_some_and(|c| c.color && !c.default_color)),
         );
+    };
+    // The capabilities of a printer (once for each), then its settings.
+    let load_caps = move |d: String| async move {
+        let known = caps.peek().get(&d).cloned();
+        let c = match known {
+            Some(c) => c,
+            None => {
+                let name = d.clone();
+                let c = tokio::task::spawn_blocking(move || printing::backend().capabilities(&name))
+                    .await
+                    .unwrap_or_else(|e| Err(PrintError::Io(e.to_string())));
+                caps.write().insert(d.clone(), c.clone());
+                c
+            }
+        };
+        if *destination.peek() == d {
+            apply_defaults(d, c.ok());
+        }
+    };
+    // Choose a destination (from the list of the window).
+    let mut choose_destination = move |d: String| {
+        destination.set(d.clone());
+        if d == PDF || d == SYSTEM || d.is_empty() {
+            apply_defaults(d, None);
+        } else {
+            spawn(load_caps(d));
+        }
+    };
+    use_hook(move || {
+        spawn(async move {
+            let list = tokio::task::spawn_blocking(|| printing::backend().printers())
+                .await
+                .unwrap_or_else(|e| Err(PrintError::Io(e.to_string())));
+            let names: Vec<String> = list
+                .as_ref()
+                .map(|l| l.iter().map(|p| p.name.clone()).collect())
+                .unwrap_or_default();
+            let default = list
+                .as_ref()
+                .ok()
+                .and_then(|l| l.iter().find(|p| p.is_default).or(l.first()))
+                .map(|p| p.name.clone());
+            let mut d = destination.peek().clone();
+            if !(d == PDF || d == SYSTEM || names.contains(&d)) {
+                d = default.unwrap_or_else(|| SYSTEM.to_string());
+                destination.set(d.clone());
+            }
+            printers.set(Some(list));
+            if d == PDF || d == SYSTEM {
+                apply_defaults(d, None);
+            } else {
+                load_caps(d).await;
+            }
+        });
     });
+    let is_printer = move || {
+        let d = destination();
+        !d.is_empty() && d != PDF && d != SYSTEM
+    };
     let paper = move || -> Paper {
         let key = paper_key();
         media()
@@ -678,82 +754,34 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
     let mut index = use_signal(|| 0usize);
     let mut shown: Signal<Option<u64>> = use_signal(|| None);
     let mut preview_error: Signal<Option<String>> = use_signal(|| None);
-    use_effect(move || {
-        let total = total_sides();
-        if index() >= total.max(1) {
-            index.set(total.saturating_sub(1));
-            return;
-        }
-        let i = index();
-        let content = prefs.read().content;
-        let Ok(list) = plans.read().clone() else {
-            return;
-        };
-        // The document and the sheet shown.
-        let mut k = i;
-        let mut found = None;
-        for (d, plan) in list {
-            if k < plan.sheets.len() {
-                found = Some((d, plan, k));
-                break;
-            }
-            k -= plan.sheets.len();
-        }
-        let Some((d, plan, sheet)) = found else { return };
-        let Some(src) = docs.read().get(d).and_then(|x| x.source.clone()) else {
-            return;
-        };
-        let generation = PREVIEW_GEN.fetch_add(1, Ordering::Relaxed) + 1;
+    // The sheet to draw, set by each render; a task of the window draws it
+    // once it has stayed the same for a moment (not an effect: see above).
+    let want: Rc<RefCell<Option<Want>>> = use_hook(|| Rc::new(RefCell::new(None)));
+    let wanted = want.clone();
+    use_hook(move || {
         spawn(async move {
-            tokio::time::sleep(Duration::from_millis(120)).await;
-            if PREVIEW_GEN.load(Ordering::Relaxed) != generation {
-                return;
-            }
-            let made = tokio::task::spawn_blocking(move || -> Result<Vec<u8>, String> {
-                let o = BuildOptions {
-                    content,
-                    compress: false,
-                };
-                let bytes = src
-                    .build(&plan, sheet..sheet + 1, &o, &mut |_, _| {
-                        PREVIEW_GEN.load(Ordering::Relaxed) == generation
-                    })
-                    .map_err(|e| e.to_string())?
-                    .ok_or_else(String::new)?;
-                let s = &plan.sheets[sheet];
-                let scale = 900.0 / s.paper.width.max(s.paper.height).max(1.0);
-                let r = folitecta_core::Renderer::new(Arc::new(bytes)).map_err(|e| e.to_string())?;
-                let opts = folitecta_core::RenderOpts {
-                    annotations: false,
-                    transparent: false,
-                };
-                let img = r.render_rgba(0, scale, opts).map_err(|e| e.to_string())?;
-                // Shown as it is read: a sheet laid out across the paper turned upright.
-                let img = if s.landscape {
-                    image::imageops::rotate90(&img)
-                } else {
-                    img
-                };
-                let mut png = Vec::new();
-                image::DynamicImage::ImageRgba8(img)
-                    .to_rgb8()
-                    .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
-                    .map_err(|e| e.to_string())?;
-                Ok(png)
-            })
-            .await;
-            if PREVIEW_GEN.load(Ordering::Relaxed) != generation {
-                return;
-            }
-            match made {
-                Ok(Ok(png)) => {
-                    runner::store_preview(generation, png);
-                    preview_error.set(None);
-                    shown.set(Some(generation));
+            let mut drawn: Option<Want> = None;
+            let mut seen: Option<Want> = None;
+            loop {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                let now = wanted.borrow().clone();
+                if now.is_none() || now == drawn || now != seen {
+                    seen = now;
+                    continue;
                 }
-                Ok(Err(e)) if !e.is_empty() => preview_error.set(Some(e)),
-                Ok(Err(_)) => {}
-                Err(e) => preview_error.set(Some(e.to_string())),
+                let Some(w) = now.clone() else { continue };
+                let generation = PREVIEW_GEN.fetch_add(1, Ordering::Relaxed) + 1;
+                let made = tokio::task::spawn_blocking(move || draw_sheet(&w)).await;
+                drawn = now;
+                match made {
+                    Ok(Ok(png)) => {
+                        runner::store_preview(generation, png);
+                        preview_error.set(None);
+                        shown.set(Some(generation));
+                    }
+                    Ok(Err(e)) => preview_error.set(Some(e)),
+                    Err(e) => preview_error.set(Some(e.to_string())),
+                }
             }
         });
     });
@@ -802,6 +830,27 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
         _ => None,
     };
     let no_duplex = sides_warning.is_some();
+    // The sheet the preview draws.
+    *want.borrow_mut() = match &plans_now {
+        Ok(list) => {
+            let mut k = i;
+            let mut found = None;
+            for (d, plan) in list {
+                if k < plan.sheets.len() {
+                    found = docs_now.get(*d).and_then(|x| x.source.clone()).map(|src| Want {
+                        src,
+                        plan: plan.clone(),
+                        sheet: k,
+                        content: p.content,
+                    });
+                    break;
+                }
+                k -= plan.sheets.len();
+            }
+            found
+        }
+        Err(_) => None,
+    };
     let pages_total: usize = plans_now
         .as_ref()
         .map(|l| l.iter().map(|(_, p)| p.pages.len()).sum())
@@ -1196,7 +1245,7 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
 
     rsx! {
         Frame { title, xl: true, ok_label: Some(ok_label), ok_disabled: blocked, on_ok: go,
-            div { class: "print-window",
+            div { class: "print-window", "data-loaded": "{loaded}", "data-ready": "{printer_ready}", "data-dest": "{dest}",
                 onkeydown: move |e| match e.key() {
                     Key::PageDown => { e.prevent_default(); step(1) }
                     Key::PageUp => { e.prevent_default(); step(-1) }
@@ -1207,7 +1256,7 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
                     div { class: "field",
                         label { r#for: "print-printer", "{t(lang, \"dialog.print.printer\")}" }
                         select { id: "print-printer", class: "print-printer", title: "{t(lang, \"dialog.print.printer\")}",
-                            onchange: move |e| destination.set(e.value()),
+                            onchange: move |e| choose_destination(e.value()),
                             for pr in printer_list.iter() {
                                 option { key: "{pr.name}", value: "{pr.name}", selected: dest == pr.name,
                                     if pr.is_default { "{tf(lang, \"dialog.print.default_printer\", &[(\"name\", &pr.label)])}" } else { "{pr.label}" }

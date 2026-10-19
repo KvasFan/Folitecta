@@ -47,6 +47,21 @@ async fn sides_shown() -> i64 {
         .unwrap_or(-1)
 }
 
+/// What the window says besides the preview (its hints, warnings and the
+/// state of its button), for the details of a failed check.
+async fn window_notes() -> String {
+    eval(
+        "const t = s => [...document.querySelectorAll(s)].map(e => e.innerText.trim()).filter(x => x).join(' | '); \
+         const b = document.querySelector('.dialog-foot .tbtn.primary'); \
+         const w = document.querySelector('.print-window'); \
+         return 'wait: ' + t('.print-wait') + '; hints: ' + t('.print-hint') + '; warnings: ' + t('.print-warning') + '; error: ' + t('.print-error') + '; button disabled: ' + (b ? b.disabled : 'none') + '; window: ' + (w ? JSON.stringify(w.dataset) : 'none');",
+    )
+    .await
+    .ok()
+    .and_then(|v| v.as_str().map(str::to_string))
+    .unwrap_or_default()
+}
+
 async fn text_of(selector: &str) -> String {
     eval(&format!(
         "const e = document.querySelector({}); return e ? e.innerText : '';",
@@ -119,11 +134,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     crate::commands::dispatch(st, "print");
     let drawn = wait_preview(20).await;
     let first_sides = sides_shown().await;
+    let notes = window_notes().await;
     cx.record(
         "print: the window opens with a drawn preview and prints nothing",
         drawn && first_sides > 0 && fake.jobs().is_empty(),
         format!(
-            "preview drawn {drawn}, {first_sides} sides, {} jobs",
+            "preview drawn {drawn}, {first_sides} sides, {} jobs; {notes}",
             fake.jobs().len()
         ),
     );

@@ -645,7 +645,8 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
     } else if only.as_deref() == Some("interactions") {
         total += interactions(st, &dir, &mut log).await;
     } else if let Some(step) = only.as_deref().and_then(|o| o.strip_prefix("step:")) {
-        // FOLITECTA_SELFTEST_ONLY=step:<name> runs one interaction step (for debugging).
+        // FOLITECTA_SELFTEST_ONLY=step:<name> runs one interaction step (for
+        // debugging); step:<a>,<b> runs several, in that order.
         set_size(1280.0, 800.0);
         st.with_active(|t| t.zoom = crate::state::Zoom::Fixed(1.0));
         pause(800).await;
@@ -656,7 +657,9 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
             failures: 0,
             z: 1.0,
         };
-        run_step(&mut cx, step).await;
+        for name in step.split(',').map(str::trim).filter(|n| !n.is_empty()) {
+            run_step(&mut cx, name).await;
+        }
         total += cx.failures;
     }
     total += print_layout(st, &dir, &mut log).await;

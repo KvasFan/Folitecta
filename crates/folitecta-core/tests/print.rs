@@ -889,3 +889,156 @@ fn timing_of_a_long_document() {
         png.height
     );
 }
+
+#[test]
+fn visibility_expressions_decide_which_annotations_print() {
+    let mut ids = Vec::new();
+    let bytes = pdf_with(vec![(100.0, 400.0, String::new())], |d, pages| {
+        let p = pages[0];
+        let on = d.add_object(dictionary! { "Type" => "OCG", "Name" => Object::string_literal("On") });
+        let off = d.add_object(dictionary! { "Type" => "OCG", "Name" => Object::string_literal("Off") });
+        let r = Object::Reference;
+        let name = |n: &str| Object::Name(n.as_bytes().to_vec());
+        // A cycle: an expression that holds itself.
+        let cycle = d.new_object_id();
+        d.objects
+            .insert(cycle, Object::Array(vec![name("Not"), r(cycle)]));
+        let expressions = [
+            vec![name("Not"), r(on)],
+            vec![name("Or"), r(off), r(on)],
+            vec![name("And"), r(on), Object::Array(vec![name("Not"), r(off)])],
+            vec![name("And"), r(on), r(off)],
+            vec![name("Not"), r(cycle)],
+        ];
+        for (i, ve) in expressions.into_iter().enumerate() {
+            let md = d.add_object(dictionary! { "Type" => "OCMD", "OCGs" => vec![r(on)], "VE" => ve });
+            let a = annot(d, p, "Square", 4, (25.0, 10.0 + 80.0 * i as f32), RED);
+            d.get_dictionary_mut(a).unwrap().set("OC", md);
+            ids.push(a);
+        }
+        let root = d.trailer.get(b"Root").unwrap().as_reference().unwrap();
+        d.get_dictionary_mut(root).unwrap().set(
+            "OCProperties",
+            dictionary! { "OCGs" => vec![r(on), r(off)], "D" => dictionary! { "OFF" => vec![r(off)] } },
+        );
+    });
+    let doc = open(bytes);
+    let src = source(&doc);
+    let o = options(
+        Layout::Single {
+            sizing: Sizing::Actual,
+            auto_rotate: false,
+            centre: true,
+            paper_per_page: false,
+        },
+        Paper::new("p", 100.0, 400.0),
+    );
+    let plan = plan_of(&src, &[0], &o);
+    let out = build(&src, &plan, Content::DocumentAndComments);
+    let shown: Vec<bool> = (0..5)
+        .map(|i| {
+            is(
+                pixel(&out, 0, 1.0, 0.5, 1.0 - (35.0 + 80.0 * i as f32) / 400.0),
+                RED,
+            )
+        })
+        .collect();
+    // Not On: hidden; Off or On: shown; On and not Off: shown; On and Off:
+    // hidden; an expression that cannot be read: shown.
+    assert_eq!(shown, [false, true, true, false, true]);
+}
+
+#[test]
+fn appearances_that_do_not_rotate_stay_upright_on_turned_pages() {
+    // A note 20 wide and 40 tall on a page turned a quarter.
+    let size_printed = |flags: i64| {
+        let bytes = pdf_with(vec![(300.0, 300.0, String::new())], |d, pages| {
+            let p = pages[0];
+            d.get_dictionary_mut(p).unwrap().set("Rotate", 90);
+            let ap = d.add_object(Stream::new(
+                dictionary! { "Type" => "XObject", "Subtype" => "Form", "BBox" => vec![0.into(), 0.into(), 20.into(), 40.into()] },
+                b"1 0 0 rg 0 0 20 40 re f".to_vec(),
+            ));
+            let a = d.add_object(dictionary! {
+                "Type" => "Annot", "Subtype" => "Text", "F" => flags, "P" => p,
+                "Rect" => vec![100.into(), 100.into(), 120.into(), 140.into()],
+                "AP" => dictionary! { "N" => ap },
+            });
+            add_annot(d, p, a);
+        });
+        let doc = open(bytes);
+        let src = source(&doc);
+        let o = options(
+            Layout::Single {
+                sizing: Sizing::Actual,
+                auto_rotate: false,
+                centre: true,
+                paper_per_page: false,
+            },
+            Paper::new("p", 300.0, 300.0),
+        );
+        let plan = plan_of(&src, &[0], &o);
+        let out = build(&src, &plan, Content::DocumentAndComments);
+        let img = Renderer::new(out)
+            .unwrap()
+            .render_rgba(0, 1.0, RenderOpts::default())
+            .unwrap();
+        let (mut x0, mut y0, mut x1, mut y1) = (u32::MAX, u32::MAX, 0, 0);
+        for (x, y, p) in img.enumerate_pixels() {
+            if p.0[0] > 200 && p.0[1] < 60 {
+                x0 = x0.min(x);
+                y0 = y0.min(y);
+                x1 = x1.max(x);
+                y1 = y1.max(y);
+            }
+        }
+        (x1 + 1 - x0, y1 + 1 - y0)
+    };
+    // Turned with the page: 40 wide, 20 tall as printed.
+    let (w, h) = size_printed(4);
+    assert!((39..=41).contains(&w) && (19..=21).contains(&h), "{w} x {h}");
+    // NoRotate: upright, 20 wide and 40 tall.
+    let (w, h) = size_printed(4 | 16);
+    assert!((19..=21).contains(&w) && (39..=41).contains(&h), "{w} x {h}");
+}
+
+#[test]
+fn turned_and_cropped_pages_print_as_they_are_shown() {
+    let content = "1 0 0 rg 0 0 400 600 re f 0 g 50 500 60 60 re f 0 0 1 rg 290 60 60 60 re f 0 1 0 rg 150 300 40 80 re f";
+    for rotate in [0i64, 90, 180, 270] {
+        let bytes = pdf_with(vec![(400.0, 600.0, content.into())], |d, pages| {
+            let page = d.get_dictionary_mut(pages[0]).unwrap();
+            page.set("CropBox", vec![50.into(), 60.into(), 350.into(), 560.into()]);
+            if rotate != 0 {
+                page.set("Rotate", rotate);
+            }
+        });
+        let doc = open(bytes);
+        let src = source(&doc);
+        let (w, h) = src.geoms()[0].display_size();
+        // The paper of the page as shown: one to one.
+        let plan = plan_of(&src, &[0], &options(Layout::default(), Paper::new("p", w, h)));
+        let out = build(&src, &plan, Content::Document);
+        let sheet = Renderer::new(out)
+            .unwrap()
+            .render_rgba(0, 1.0, RenderOpts::default())
+            .unwrap();
+        // A sheet laid out across the paper is read turned clockwise.
+        let sheet = if plan.sheets[0].landscape {
+            image::imageops::rotate90(&sheet)
+        } else {
+            sheet
+        };
+        let page = Renderer::new(doc.bytes())
+            .unwrap()
+            .render_rgba(0, 1.0, RenderOpts::default())
+            .unwrap();
+        assert_eq!(page.dimensions(), sheet.dimensions(), "rotate {rotate}");
+        let differing = page
+            .pixels()
+            .zip(sheet.pixels())
+            .filter(|(a, b)| (0..3).any(|i| a.0[i].abs_diff(b.0[i]) > 40))
+            .count();
+        assert!(differing <= 4, "rotate {rotate}: {differing} pixels differ");
+    }
+}

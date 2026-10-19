@@ -1229,6 +1229,22 @@ mod tests {
     }
 
     #[test]
+    fn booklets_in_signatures_with_a_back_cover_bound_on_the_right() {
+        let geoms = vec![geom(A4.0, A4.1); 10];
+        let o = opts(booklet(Binding::Right, BookletSides::Both, 1, true));
+        let p = plan(&(0..10).collect::<Vec<_>>(), &geoms, &o).unwrap();
+        // Signatures of one sheet: 1-4, 5-8, then 9-10 with two blank pages
+        // before its last page (the back cover); right binding mirrors each side.
+        assert_eq!(halves(&p), [(1, 4), (3, 2), (5, 8), (7, 6), (9, 10), (0, 0)]);
+        assert_eq!(p.warnings, vec![PlanWarning::Blanks(2)]);
+        assert_eq!(p.physical_sheets, 3);
+        // Read in order once folded: each sheet's front then back.
+        let o = opts(booklet(Binding::Left, BookletSides::Both, 2, false));
+        let p = plan(&(0..8).collect::<Vec<_>>(), &geoms, &o).unwrap();
+        assert_eq!(halves(&p), [(8, 1), (2, 7), (6, 3), (4, 5)]);
+    }
+
+    #[test]
     fn booklet_pages_meet_at_the_fold_in_the_middle_of_the_paper() {
         let geoms = vec![geom(A4.0, A4.1); 4];
         let mut o = opts(booklet(Binding::Left, BookletSides::Both, 0, false));

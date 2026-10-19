@@ -190,6 +190,19 @@ pub(crate) fn appearance_matrix(bbox: [f32; 4], matrix: [f32; 6], rect: [f32; 4]
     [sx, 0.0, 0.0, sy, rect[0] - x0 * sx, rect[1] - y0 * sy]
 }
 
+/// The turn that undoes a page rotation of `rotation` degrees (clockwise as
+/// shown) around the point (`x`, `y`).
+fn upright(rotation: i32, x: f32, y: f32) -> [f32; 6] {
+    let (cos, sin) = match rotation {
+        90 => (0.0, 1.0),
+        180 => (-1.0, 0.0),
+        270 => (0.0, -1.0),
+        _ => return [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+    };
+    // Counter-clockwise by the page's turn, the corner staying in place.
+    [cos, sin, -sin, cos, x - cos * x + sin * y, y - sin * x - cos * y]
+}
+
 /// The members of an optional content membership dictionary.
 fn ocmd_members(doc: &lopdf::Document, d: &Dictionary) -> Vec<ObjectId> {
     match d.get(b"OCGs") {
@@ -211,8 +224,9 @@ fn oc_visible(doc: &lopdf::Document, oc: &Object, states: &HashMap<ObjectId, boo
         return true;
     };
     if d.has_type(b"OCMD") {
-        if d.has(b"VE") {
-            return true;
+        if let Ok(ve) = d.get(b"VE") {
+            // An expression that cannot be read shows the content.
+            return visibility(doc, ve, states, 0).unwrap_or(true);
         }
         let members = ocmd_members(doc, d);
         if members.is_empty() {
@@ -229,6 +243,41 @@ fn oc_visible(doc: &lopdf::Document, oc: &Object, states: &HashMap<ObjectId, boo
     match oc.as_reference() {
         Ok(id) => states.get(&id).copied().unwrap_or(true),
         Err(_) => true,
+    }
+}
+
+/// The value of a visibility expression (PDF 32000-1, 8.11.2.2):
+/// `[/And e ...]`, `[/Or e ...]` or `[/Not e]`, each operand a layer or an
+/// expression. `None` when it cannot be read (an unknown operator, a missing
+/// object, deeper than 16 levels: also a cycle).
+fn visibility(
+    doc: &lopdf::Document,
+    e: &Object,
+    states: &HashMap<ObjectId, bool>,
+    depth: u32,
+) -> Option<bool> {
+    if depth > 16 {
+        return None;
+    }
+    match e {
+        Object::Reference(id) => match doc.get_object(*id).ok()? {
+            array @ Object::Array(_) => visibility(doc, array, states, depth + 1),
+            _ => Some(states.get(id).copied().unwrap_or(true)),
+        },
+        Object::Array(a) => {
+            let op = a.first()?.as_name().ok()?;
+            let values = a[1..]
+                .iter()
+                .map(|x| visibility(doc, x, states, depth + 1))
+                .collect::<Option<Vec<bool>>>()?;
+            match op {
+                b"And" if !values.is_empty() => Some(values.iter().all(|v| *v)),
+                b"Or" if !values.is_empty() => Some(values.iter().any(|v| *v)),
+                b"Not" if values.len() == 1 => Some(!values[0]),
+                _ => None,
+            }
+        }
+        _ => None,
     }
 }
 
@@ -590,7 +639,13 @@ impl PrintSource {
                 .ok()
                 .and_then(|b| rect_of(doc, b))
                 .unwrap_or(rect);
-            out.push((ap, appearance_matrix(bbox, matrix_of(doc, &form.dict), rect)));
+            let mut m = appearance_matrix(bbox, matrix_of(doc, &form.dict), rect);
+            // NoRotate: the appearance stays upright on a turned page, turned
+            // back around the top left corner of its rectangle (12.5.3).
+            if flags & 16 != 0 {
+                m = super::plan::mul(upright(self.geoms[page].rotation, rect[0], rect[3]), m);
+            }
+            out.push((ap, m));
         }
         out
     }

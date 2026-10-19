@@ -154,11 +154,10 @@ fn dechunk(mut data: &[u8]) -> Option<Vec<u8>> {
         if size == 0 {
             return Some(out);
         }
-        if data.len() < size + 2 {
-            return None;
-        }
+        // A size past the data (or past the largest number) is an answer not complete yet.
+        let end = size.checked_add(2).filter(|end| *end <= data.len())?;
         out.extend_from_slice(&data[..size]);
-        data = &data[size + 2..];
+        data = &data[end..];
     }
 }
 
@@ -362,6 +361,62 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(a.body, b"all of it");
+    }
+
+    /// Answers cut, chunked with any sizes (the largest numbers among them) or
+    /// with any lengths are errors or incomplete, never a panic.
+    #[test]
+    fn any_framing_of_an_answer_is_read_without_panicking() {
+        let mut x: u64 = 0x2545_F491_4F6C_DD1D;
+        let mut next = move || {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            x
+        };
+        let sizes = [
+            "ffffffffffffffff",
+            "fffffffffffffffe",
+            "7fffffffffffffff",
+            "10000000000000000",
+            "0",
+            "3",
+            "zz",
+            "",
+        ];
+        for round in 0..20_000 {
+            let mut data = b"HTTP/1.1 200 OK\r\n".to_vec();
+            if round % 2 == 0 {
+                data.extend_from_slice(b"Transfer-Encoding: chunked\r\n\r\n");
+                for _ in 0..(next() % 4) {
+                    let size = if next() % 3 == 0 {
+                        sizes[(next() % sizes.len() as u64) as usize].to_string()
+                    } else {
+                        format!("{:x}", next() % 40)
+                    };
+                    data.extend_from_slice(size.as_bytes());
+                    data.extend_from_slice(b"\r\n");
+                    for _ in 0..(next() % 50) {
+                        data.push((next() % 256) as u8);
+                    }
+                    if next() % 2 == 0 {
+                        data.extend_from_slice(b"\r\n");
+                    }
+                }
+            } else {
+                data.extend_from_slice(format!("Content-Length: {}\r\n\r\n", next() % 100).as_bytes());
+                for _ in 0..(next() % 80) {
+                    data.push((next() % 256) as u8);
+                }
+            }
+            let cut = (next() as usize) % (data.len() + 1);
+            for closed in [false, true] {
+                let _ = parse_answer(&data[..cut], closed);
+                let _ = read_answer(&mut std::io::Cursor::new(data[..cut].to_vec()));
+            }
+        }
+        assert_eq!(dechunk(b"ffffffffffffffff\r\nabc"), None);
+        assert_eq!(dechunk(b"3\r\nabc\r\n0\r\n\r\n"), Some(b"abc".to_vec()));
     }
 
     /// A server on this computer answering each connection with the next of `answers`.

@@ -176,6 +176,18 @@ pub struct DocTab {
     pub image_sel: Option<(usize, usize)>,
     /// The spell check under way.
     pub spell: Option<SpellRun>,
+    /// A redaction is being applied to the document (on another thread).
+    pub redacting: bool,
+    /// The last redaction applied, until a save checked it (dropped with the tab).
+    pub redaction: Option<RedactionPending>,
+}
+
+/// A redaction applied to a document whose saved bytes are still to check.
+#[derive(Debug, Clone)]
+pub struct RedactionPending {
+    /// The revision of the document right after the redaction.
+    pub revision: u64,
+    pub report: folitecta_core::redaction::RedactionReport,
 }
 
 /// What the accessibility panes show and select.
@@ -312,6 +324,8 @@ impl DocTab {
             acc: AccState::default(),
             image_sel: None,
             spell: None,
+            redacting: false,
+            redaction: None,
         };
         // A portfolio opens on its initial file, when it names one.
         if let Some(key) = tab.doc.portfolio().and_then(|p| p.initial) {

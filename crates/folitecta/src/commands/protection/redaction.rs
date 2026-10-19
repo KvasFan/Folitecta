@@ -2,10 +2,13 @@
 //! codes): the look of new marks and of the selected mark, and the sets of
 //! redaction codes.
 
-use folitecta_core::redaction::{Overlay, RedactionLook};
+use folitecta_core::redaction::{
+    Overlay, RedactionLook, RedactionMethod, SANITIZE_BY_DEFAULT, SanitizeOptions,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::commands::{handlers, no_doc};
+use crate::i18n::t;
 use crate::state::{AppState, Dialog};
 
 /// A named set of redaction codes (the reasons areas are redacted).
@@ -76,6 +79,76 @@ pub fn save_default_look(st: AppState, look: &RedactionLook) {
     };
     if let Ok(json) = serde_json::to_string(&s) {
         st.set_value("redact.look", json);
+    }
+}
+
+/// The sanitizing parts kept in the preferences (missing ones take their default).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+struct StoredSanitize {
+    metadata: bool,
+    attachments: bool,
+    hidden: bool,
+    quoting: bool,
+    scripts: bool,
+}
+
+impl Default for StoredSanitize {
+    fn default() -> Self {
+        StoredSanitize {
+            metadata: SANITIZE_BY_DEFAULT,
+            attachments: SANITIZE_BY_DEFAULT,
+            hidden: SANITIZE_BY_DEFAULT,
+            quoting: SANITIZE_BY_DEFAULT,
+            scripts: SANITIZE_BY_DEFAULT,
+        }
+    }
+}
+
+/// The sanitizing chosen for redactions (the placeholder in the language of
+/// the interface).
+pub fn sanitize_options(st: AppState) -> SanitizeOptions {
+    let s: StoredSanitize = serde_json::from_str(&st.value("redact.sanitize")).unwrap_or_default();
+    SanitizeOptions {
+        metadata: s.metadata,
+        attachments: s.attachments,
+        hidden: s.hidden,
+        quoting: s.quoting,
+        scripts: s.scripts,
+        placeholder: t(st.lang(), "redact.placeholder"),
+        skip_terms: Vec::new(),
+    }
+}
+
+pub fn save_sanitize_options(st: AppState, o: &SanitizeOptions) {
+    let s = StoredSanitize {
+        metadata: o.metadata,
+        attachments: o.attachments,
+        hidden: o.hidden,
+        quoting: o.quoting,
+        scripts: o.scripts,
+    };
+    if let Ok(json) = serde_json::to_string(&s) {
+        st.set_value("redact.sanitize", json);
+    }
+}
+
+/// Whether applying a redaction saves the result as a new file and checks
+/// it first (on unless turned off).
+pub fn save_copy_after_apply(st: AppState) -> bool {
+    st.value("redact.save_copy") != "off"
+}
+
+pub fn set_save_copy_after_apply(st: AppState, on: bool) {
+    st.set_value("redact.save_copy", if on { "on" } else { "off" });
+}
+
+/// How the marks are applied: by content, or every marked page as a picture.
+pub fn redaction_method(st: AppState) -> RedactionMethod {
+    if st.value("redact.method") == "picture" {
+        RedactionMethod::Picture
+    } else {
+        RedactionMethod::Content
     }
 }
 
@@ -182,6 +255,14 @@ handlers! {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sanitizing_is_on_unless_stored_off() {
+        let s: StoredSanitize = serde_json::from_str("").unwrap_or_default();
+        assert!(s.metadata && s.attachments && s.hidden && s.quoting && s.scripts);
+        let s: StoredSanitize = serde_json::from_str(r#"{"scripts":false}"#).unwrap();
+        assert!(s.metadata && !s.scripts);
+    }
 
     #[test]
     fn overlay_names_round_trip() {

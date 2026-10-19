@@ -51,10 +51,19 @@ headers and footers, page numbering),
 `structure` and `accessibility` (tags, reading order, the accessibility check), `digsig`
 (signatures; `timestamp` builds RFC 3161 requests, checks the answers and tokens and holds a
 small authority for the tests, while the interface's `http` module carries the requests; the
-validation reports integrity, signer, time and revocation as separate checks), `redaction` (the glyphs under the marks leave their text operations, each
-replaced by a move of its width found by the text probe, the pixels of pictures under the marks
-are covered, comments and fields over them go; pages that cannot be edited that way are drawn as
-pictures), `compare`, `combine` (documents made from several files), `pictures` (the pictures
+validation reports integrity, signer, time and revocation as separate checks), `redaction` (a
+probe draws a copy of the marked pages with every text operation, `Do` and inline picture
+wrapped in numbered marked content and optional content neutralized, so it tells which operation
+of which stream — page or form, through the chain of drawings — drew each glyph and picture;
+glyphs under the marks leave their text operations, each replaced by a move of its width, paths
+lose their geometry there (fills and clips cut to the four bands around each mark, strokes cut
+where their ink would enter it), pictures and inline pictures get their pixels covered, forms
+drawn under a mark are redacted in place when drawn once and copied otherwise; what nothing draws
+any more leaves the file with every reference to it; comments and fields over the marks go with
+their replies, signatures go, covers are tagged per redaction, and the document is sanitized as
+chosen; every edited page is checked before its covers are drawn and the exact bytes of a save
+can be checked — read again, decrypted with the kept key — before they are written; pages that
+cannot be edited that way are drawn as pictures), `compare`, `combine` (documents made from several files), `pictures` (the pictures
 a page draws: where they are, their pixels, an edited picture put back), `imaging` (turning,
 cropping, straightening, filters and pixel formats) and `barcodes` (barcodes written by rxing and
 drawn as vector shapes; read from rendered pages one at a time, each painted out before the next
@@ -190,4 +199,11 @@ Mouse coordinates on a page image are converted to PDF user space with
   material is added; later revisions after a signature are reported, but what they change is
   not analysed (only whether they end with document time stamps). There is no conversion to
   PDF/A.
+- Redaction applies rectangles only (no quadrilateral marks) and does not remove content
+  outside the crop box. The moves that replace removed glyphs keep their widths, so the length
+  of a removed word can be measured; shapes of removed glyphs stay in embedded font programs
+  that other text still uses. Comments, form values and page text elsewhere that quote the
+  removed words are reported, not changed. Gradients, patterns and transparency masks that could
+  keep content under a mark, vertical writing and drawings nested more than 12 deep make the
+  page a picture.
 - Commands marked *planned* in [FEATURES.md](FEATURES.md) open a roadmap notice.

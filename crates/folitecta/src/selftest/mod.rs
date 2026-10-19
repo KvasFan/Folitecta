@@ -435,6 +435,7 @@ mod steps_pictures;
 mod steps_policies;
 mod steps_qat;
 mod steps_recovery;
+mod steps_redaction;
 mod steps_review;
 mod steps_spelling;
 mod steps_split;
@@ -502,6 +503,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "qat" => Box::pin(steps_qat::run(cx)),
             "email" => Box::pin(steps_email::run(cx)),
             "timestamp" => Box::pin(steps_timestamp::run(cx)),
+            "redaction" => Box::pin(steps_redaction::run(cx)),
             "frames" => Box::pin(steps_frames::run(cx)),
             _ => Box::pin(async { cx.record("unknown step", false, name.to_string()) }),
         };
@@ -527,7 +529,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
 }
 
 /// The interaction steps in the order of a full run.
-const STEPS: [&str; 24] = [
+const STEPS: [&str; 25] = [
     "tools",
     "review",
     "panes",
@@ -551,6 +553,7 @@ const STEPS: [&str; 24] = [
     "qat",
     "email",
     "timestamp",
+    "redaction",
     "frames",
 ];
 
@@ -942,6 +945,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("split-pages", Dialog::SplitPages),
         ("redaction-look", Dialog::RedactionLook),
         ("redaction-code", Dialog::RedactionCode { set: true }),
+        ("apply-redactions", Dialog::ApplyRedactions { page: None }),
         (
             "find-replace",
             Dialog::FindReplace {

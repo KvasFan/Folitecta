@@ -180,7 +180,7 @@
   "dialog.props.version": "Versione PDF",
   "dialog.rasterize.annots": "Includi i commenti",
   "dialog.rasterize.hint": "Le pagine vengono sostituite da immagini: il testo non sarà più selezionabile né ricercabile.",
-  "dialog.redact.body": "Il testo, le immagini, i commenti e i campi modulo sotto le aree marcate vengono rimossi definitivamente dal documento e le aree vengono coperte. Il prossimo salvataggio riscrive l'intero file, così nessuna versione precedente li conserva; le firme digitali del documento non saranno più valide.",
+  "dialog.redact.body": "Il testo, le immagini, i disegni, i commenti e i campi modulo sotto le aree marcate vengono rimossi definitivamente e le aree vengono coperte. L'intero file viene riscritto, così nessuna versione precedente li conserva.",
   "dialog.redact.title": "Applica redazioni",
   "dialog.remove": "Rimuovi",
   "dialog.removemarks.all": "Tutti i contrassegni (filigrane, sfondi, intestazioni, piè di pagina, numeri)",

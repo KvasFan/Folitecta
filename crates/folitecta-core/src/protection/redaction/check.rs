@@ -718,11 +718,11 @@ fn reachable(doc: &lopdf::Document, start: &[Object], skip: &[&[u8]]) -> HashSet
     seen
 }
 
-/// The text strings and names of an object (not following references).
+/// The text strings of an object (not following references; names are
+/// font, colour and resource names, not text).
 fn strings_of(doc: &lopdf::Document, o: &Object, out: &mut Vec<String>) {
     match o {
         Object::String(..) => out.extend(text_of(doc, o)),
-        Object::Name(n) => out.push(String::from_utf8_lossy(n).into_owned()),
         Object::Array(a) => a.iter().for_each(|x| strings_of(doc, x, out)),
         Object::Dictionary(d) => d.iter().for_each(|(_, v)| strings_of(doc, v, out)),
         Object::Stream(s) => s.dict.iter().for_each(|(_, v)| strings_of(doc, v, out)),

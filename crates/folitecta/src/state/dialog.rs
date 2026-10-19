@@ -24,7 +24,6 @@ pub enum ConfirmAction {
     RemoveLinks,
     ResetForm,
     Revert,
-    ApplyRedactions(Option<usize>),
     RemoveScripts,
     /// Delete these pages.
     DeletePages(Vec<usize>),
@@ -336,6 +335,11 @@ pub enum Dialog {
     /// A new redaction code, or (set) a new set of codes.
     RedactionCode {
         set: bool,
+    },
+    /// Apply the redaction marks of a page (or of every page): what goes,
+    /// what is sanitized, and whether the result is saved and checked.
+    ApplyRedactions {
+        page: Option<usize>,
     },
     /// Find and Replace in the text of the pages, starting with `find`.
     FindReplace {

@@ -67,7 +67,10 @@ textarea.field-input { resize: none; padding: 2px 3px; }
 .field-option { padding: 1px 6px; cursor: pointer; white-space: nowrap; }
 .field-option:hover { background: #e0f2fe; }
 .field-option.on { background: #9ec3f5; }
-.page-img { display: block; width: 100%; height: 100%; -webkit-user-drag: none; }
+.page-img { display: block; position: absolute; inset: 0; width: 100%; height: 100%; -webkit-user-drag: none; }
+/* The small picture of a page, seen under the sharp one until it comes. */
+.page-preview { display: block; position: absolute; inset: 0; width: 100%; height: 100%; -webkit-user-drag: none; }
+.page-inner[data-sharp] > .page-preview { display: none; }
 .grid-overlay { position: absolute; inset: 0; background-image: linear-gradient(to right, rgba(79,70,229,.18) 1px, transparent 1px), linear-gradient(to bottom, rgba(79,70,229,.18) 1px, transparent 1px); }
 .guide { position: absolute; background: #06b6d4; opacity: .85; }
 .guide.h { left: 0; right: 0; height: 1px; }

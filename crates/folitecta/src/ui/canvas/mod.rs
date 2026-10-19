@@ -401,6 +401,12 @@ pub(crate) const CANVAS_EVENTS_SCRIPT: &str = r#"
     const later = () => { if (waiting.get(c)) { waiting.set(c, false); report(c); setTimeout(later, 100); } else waiting.delete(c); };
     setTimeout(later, 100);
   }, { capture: true, passive: true });
+  // A page whose sharp picture has come stops drawing its small picture
+  // under it (drawing it scaled up costs while scrolling).
+  document.addEventListener('load', e => {
+    const img = e.target;
+    if (img && img.classList && img.classList.contains('page-img') && img.parentNode) img.parentNode.setAttribute('data-sharp', '');
+  }, true);
   // A view that is resized, or whose pages change size (zoom), reports too.
   const sized = new ResizeObserver(entries => {
     const views = new Set(entries.map(en => en.target.closest('.canvas')).filter(Boolean));
@@ -713,6 +719,7 @@ fn Canvas(pane: u8) -> Element {
                 .collect()
         })
         .unwrap_or_default();
+    let preview = crate::ui::panes::thumb_render_scale(st);
     let labels = st.read_active(|t| t.doc.page_labels()).unwrap_or_default();
     let gaps = option_on(st, "view.layout.showGaps");
     let r2l = option_on(st, "view.layout.r2l");
@@ -785,7 +792,7 @@ fn Canvas(pane: u8) -> Element {
                             if p < wa || p > wb {
                                 PagePlaceholder { key: "e{tab_id}-{p}", id: if focused { format!("pg-{p}") } else { format!("spg-{p}") }, page: p, width: sizes.get(p).map(|s| s.0).unwrap_or(0.0), height: sizes.get(p).map(|s| s.1).unwrap_or(0.0), label: labels.get(p).cloned().unwrap_or_default() }
                             } else if focused {
-                                PageView { key: "{tab_id}-{p}", tab_id, page: p, rev, scale: render_scale, zoom, current: p == page, tool, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default(), stamp: stamps.get(p).copied().unwrap_or_default() }
+                                PageView { key: "{tab_id}-{p}", tab_id, page: p, rev, scale: render_scale, preview, zoom, current: p == page, tool, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default(), stamp: stamps.get(p).copied().unwrap_or_default() }
                             } else {
                                 StillPage { key: "s{tab_id}-{p}", tab_id, page: p, rev, scale: render_scale, zoom, view_rotation: rotation, label: labels.get(p).cloned().unwrap_or_default() }
                             }

@@ -2,6 +2,24 @@
 
 use super::*;
 
+/// The size of the thumbnails (CSS pixels of their longer edge).
+fn thumb_box(st: AppState) -> f32 {
+    st.ui
+        .read()
+        .value("thumb.size")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(150.0f32)
+        .clamp(80.0, 320.0)
+}
+
+/// The scale (milli) of the thumbnails' pictures; the pages of the canvas
+/// show the same small pictures while their sharp ones are made.
+pub(crate) fn thumb_render_scale(st: AppState) -> u32 {
+    ((thumb_box(st) * 1.6 / 842.0) * 1000.0)
+        .round()
+        .clamp(120.0, 900.0) as u32
+}
+
 #[component]
 pub(super) fn ThumbnailsPane() -> Element {
     crate::perf::THUMBNAIL_PANES.bump();
@@ -23,20 +41,14 @@ pub(super) fn ThumbnailsPane() -> Element {
     }) else {
         return rsx! {};
     };
-    let box_px: f32 = st
-        .ui
-        .read()
-        .value("thumb.size")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(150.0f32)
-        .clamp(80.0, 320.0);
+    let box_px = thumb_box(st);
     let logical = option_on(st, "thumbnailsView.logicalVisible");
     let labels = if logical {
         st.read_active(|t| t.doc.page_labels()).unwrap_or_default()
     } else {
         Vec::new()
     };
-    let render_scale = ((box_px * 1.6 / 842.0) * 1000.0).round().clamp(120.0, 900.0) as u32;
+    let render_scale = thumb_render_scale(st);
     // The part of the current page the canvas shows, outlined on its
     // thumbnail (Highlight Visible), followed while the pages scroll.
     let mut visible: Signal<Option<[f64; 4]>> = use_signal(|| None);

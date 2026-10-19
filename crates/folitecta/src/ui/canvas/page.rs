@@ -8,6 +8,9 @@ pub(super) fn PageView(
     page: usize,
     rev: u64,
     scale: u32,
+    // The scale (milli) of the small picture shown until the sharp one has
+    // come (the thumbnails' pictures); 0: none.
+    preview: u32,
     zoom: f32,
     current: bool,
     tool: Tool,
@@ -345,7 +348,10 @@ pub(super) fn PageView(
             format!("/page/{tab_id}/{page}/{rev}/{scale}.png?lane=view")
         }
     });
-
+    // A small picture under the sharp one, seen until it comes (not over a
+    // transparent page, where it would hide the grid).
+    let preview_src = (scale > 0 && preview > 0 && preview < scale && !transparent)
+        .then(|| format!("/page/{tab_id}/{page}/{rev}/{preview}.png?lane=preview"));
     let mut img_filter = String::new();
     if dark {
         img_filter.push_str("invert(1) hue-rotate(180deg) ");
@@ -799,6 +805,9 @@ pub(super) fn PageView(
     };
     let inner_style = format!("width:{inner_w}px;height:{inner_h}px;transform:{transform}");
     let inner_content = rsx! {
+                if let Some(psrc) = preview_src {
+                    img { class: "page-preview", src: "{psrc}", alt: "", decoding: "async", draggable: "false", style: if img_filter.is_empty() { String::new() } else { format!("filter:{img_filter}") } }
+                }
                 img { class: "page-img", src, alt: "", decoding: "async", draggable: "false", style: if img_filter.is_empty() { String::new() } else { format!("filter:{img_filter}") } }
                 if show_grid {
                     div { class: "grid-overlay", style: "background-size:{grid_px}px {grid_px}px" }

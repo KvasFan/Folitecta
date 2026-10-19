@@ -10,6 +10,7 @@ mod http;
 mod i18n;
 mod icons;
 mod mail;
+mod private_files;
 mod recovery;
 mod selftest;
 mod state;

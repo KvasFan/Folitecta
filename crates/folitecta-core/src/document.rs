@@ -231,19 +231,27 @@ fn load_decrypted(bytes: &[u8], password: &[u8]) -> Result<lopdf::Document> {
             let _ = lopdf::encryption::decrypt_object(&state, *id, obj);
         }
     }
+    // The objects of object streams, each from the stream the
+    // cross-reference points to (an older stream may still hold an older
+    // version of it, or an object freed since).
     let mut inside = Vec::new();
-    for obj in doc.objects.values_mut() {
+    for (&(container, _), obj) in doc.objects.iter_mut() {
         if let Object::Stream(s) = obj {
             if s.dict.has_type(KEPT_OBJECT_STREAM) {
                 s.dict.set("Type", Object::Name(b"ObjStm".to_vec()));
                 if let Ok(objects) = lopdf::ObjectStream::new(s) {
-                    inside.extend(objects.objects);
+                    inside.extend(objects.objects.into_iter().filter(|((n, _), _)| {
+                        matches!(
+                            doc.reference_table.entries.get(n),
+                            Some(lopdf::xref::XrefEntry::Compressed { container: c, .. }) if *c == container
+                        )
+                    }));
                 }
             }
         }
     }
     for (id, obj) in inside {
-        doc.objects.entry(id).or_insert(obj);
+        doc.objects.insert(id, obj);
     }
     if let Some(&(last, _)) = doc.objects.keys().next_back() {
         doc.max_id = doc.max_id.max(last);

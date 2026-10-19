@@ -1906,6 +1906,62 @@ mod tests {
     }
 
     #[test]
+    fn encrypted_strings_with_line_ends_are_written_in_hexadecimal() {
+        // RC4 is deterministic: choose the plain text whose encrypted bytes
+        // hold line ends, parentheses and a backslash, which a literal string
+        // would not carry through a reader.
+        let mut doc = protected_blank(2);
+        let note = doc
+            .add_note(0, 20.0, 180.0, "placeholder", "Ann", [1.0, 1.0, 0.0])
+            .unwrap();
+        let wanted = b"A\r\nB\n\nC\rD)E\\F(G\n".to_vec();
+        let state = doc.protection().unwrap().state().clone();
+        let filter = state.get_string_filter();
+        let key = filter.compute_key(state.file_encryption_key(), note).unwrap();
+        let plain = filter.decrypt(&key, &wanted).unwrap();
+        doc.inner
+            .get_dictionary_mut(note)
+            .unwrap()
+            .set("Contents", Object::String(plain.clone(), StringFormat::Literal));
+        doc.commit().unwrap();
+        let raw = doc.file_bytes_from().unwrap().bytes;
+        // Written as a hexadecimal string, with the encryption dictionary.
+        let hex: Vec<u8> = hex_upper(&wanted);
+        let lower = String::from_utf8(hex.clone())
+            .unwrap()
+            .to_lowercase()
+            .into_bytes();
+        assert!(
+            find(&raw, &hex).is_some() || find(&raw, &lower).is_some(),
+            "the encrypted value is not written in hexadecimal"
+        );
+        assert!(find(&raw, &wanted).is_none());
+        let back = Document::from_bytes(raw.clone(), None, Some("pw")).unwrap();
+        let contents = back
+            .inner
+            .get_dictionary(note)
+            .unwrap()
+            .get(b"Contents")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_vec();
+        assert_eq!(contents, plain);
+        let r = crate::render::Renderer::new_with_password(std::sync::Arc::new(raw), "pw").unwrap();
+        r.render_rgba(0, 1.0, Default::default()).unwrap();
+        // The binary strings of encryption dictionaries too.
+        for kind in 0..3 {
+            let d = protected_blank(kind).protection().unwrap().dictionary().unwrap();
+            for key in [&b"O"[..], b"U"] {
+                assert!(
+                    matches!(d.get(key), Ok(Object::String(_, StringFormat::Hexadecimal))),
+                    "{kind}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn signature_dictionaries_are_read_back_whole() {
         // What the PDF library's reader does with a signature value it cannot
         // decrypt (it stops the dictionary there) is repaired whatever the

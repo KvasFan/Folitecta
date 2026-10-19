@@ -268,7 +268,7 @@ pub fn close_tab(st: AppState, id: u64, force: bool, then: AfterUnsaved) {
     // files handed to other programs once no protected document is open.
     crate::recovery::checkpoint(st);
     if !st.docs.peek().iter().any(|t| t.doc.is_protected()) {
-        crate::util::forget_protected_temp();
+        crate::private_files::forget(crate::private_files::PROTECTED);
     }
     let n = st.docs.read().len();
     let active = (st.active)();
@@ -338,7 +338,7 @@ pub fn exit_app(st: AppState) {
         None => {
             // Left on purpose: nothing to recover next time.
             crate::recovery::forget_session();
-            crate::util::forget_protected_temp();
+            crate::private_files::forget_all();
             dioxus::desktop::window().close()
         }
     }

@@ -79,30 +79,18 @@ pub fn open_attachment(st: AppState, att: Attachment) {
         None => return,
     };
     let (data, protected) = data;
-    // An attachment of a protected document goes to a folder only the user
-    // can read (see `util::protected_temp_dir`).
-    let dir = if protected {
-        match crate::util::protected_temp_dir() {
-            Ok(dir) => dir,
-            Err(e) => return st.error(e),
-        }
+    // A folder of the user's own; the one of protected documents goes as
+    // soon as no protected document is open.
+    let kind = if protected {
+        crate::private_files::PROTECTED
     } else {
-        std::env::temp_dir()
-            .join("Folitecta")
-            .join(format!("attachments-{}", std::process::id()))
+        crate::private_files::ATTACHMENTS
     };
-    let path = dir.join(safe_file_name(&att.name));
-    let r = std::fs::create_dir_all(&dir)
-        .and_then(|_| std::fs::write(&path, &data))
-        .and_then(|_| {
-            if protected {
-                crate::util::make_private(&path)
-            } else {
-                Ok(())
-            }
-        })
+    let r = crate::private_files::private_dir(kind)
+        .map(|dir| dir.join(safe_file_name(&att.name)))
+        .and_then(|path| crate::private_files::write_private_file(&path, &data).map(|_| path))
         .map_err(|e| e.to_string())
-        .and_then(|_| crate::util::open_external(&path.display().to_string()));
+        .and_then(|path| crate::util::open_external(&path.display().to_string()));
     match r {
         Err(e) => st.error(e),
         Ok(()) if protected => st.toast(ToastKind::Info, t(st.lang(), "toast.protected_attachment"), ""),

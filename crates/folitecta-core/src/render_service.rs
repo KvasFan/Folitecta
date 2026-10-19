@@ -10,8 +10,9 @@
 //!   then the pages ahead in the scroll direction (nearest first), the
 //!   others, and the small pictures of the thumbnails and previews last;
 //!   without a window telling what it shows, first asked first drawn.
-//! - The pictures made are kept, up to a number of bytes, the least recently
-//!   used dropped first; a picture asked again is answered at once. When a
+//! - The pictures made are kept, up to a number of bytes shared by the open
+//!   documents, the least recently used dropped first; a picture asked again
+//!   is answered at once. When a
 //!   page is drawn for the window, its small picture (at the scale the
 //!   thumbnails ask for) is made from the same pixels, so thumbnails and
 //!   previews of the pages seen cost no drawing.
@@ -103,9 +104,19 @@ fn bump(counter: &AtomicU64, n: u64) {
     counter.fetch_add(n, Ordering::Relaxed);
 }
 
-/// The bytes of pictures a document keeps (uncompressed pictures: about 40
-/// pages of text at 125 % on a pixel ratio of 2).
-const KEPT_BYTES: usize = 256 * 1024 * 1024;
+/// The bytes of pictures all the open documents keep together (uncompressed
+/// pictures: about 40 pages of text at 125 % on a pixel ratio of 2); each
+/// document keeps its share, at least [`KEPT_LEAST`].
+const KEPT_TOTAL: usize = 256 * 1024 * 1024;
+const KEPT_LEAST: usize = 48 * 1024 * 1024;
+
+/// Render services alive (open documents).
+static OPEN: AtomicU64 = AtomicU64::new(0);
+
+/// The bytes of pictures one document keeps.
+fn kept_budget() -> usize {
+    (KEPT_TOTAL / OPEN.load(Ordering::Relaxed).max(1) as usize).max(KEPT_LEAST)
+}
 
 type Reply = Box<dyn FnOnce(RenderAnswer) + Send + 'static>;
 
@@ -191,7 +202,8 @@ impl State {
             self.kept_bytes -= old.picture.png.len();
         }
         self.kept_bytes += size;
-        while self.kept_bytes > KEPT_BYTES && self.kept.len() > 1 {
+        let budget = kept_budget();
+        while self.kept_bytes > budget && self.kept.len() > 1 {
             let Some(oldest) = self.kept.iter().min_by_key(|(_, k)| k.used).map(|(k, _)| *k) else {
                 break;
             };
@@ -291,6 +303,7 @@ impl RenderService {
 
     /// Start `n` render threads (at least one).
     pub fn with_workers(bytes: Arc<Vec<u8>>, n: usize) -> Self {
+        OPEN.fetch_add(1, Ordering::Relaxed);
         let shared = Arc::new(Shared {
             state: Mutex::new(State {
                 bytes,
@@ -505,6 +518,7 @@ impl RenderService {
 
 impl Drop for RenderService {
     fn drop(&mut self) {
+        OPEN.fetch_sub(1, Ordering::Relaxed);
         let stale = {
             let mut s = self.shared.lock();
             s.stop = true;

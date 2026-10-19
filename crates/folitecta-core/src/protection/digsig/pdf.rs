@@ -1266,6 +1266,50 @@ mod tests {
     }
 
     #[test]
+    fn values_encrypted_by_their_producer_are_read() {
+        // Another producer may encrypt the value of a signature: it is read
+        // decrypted, and the signature validates.
+        let id = DigitalId::create_self_signed(
+            &crate::digsig::IdentityInfo {
+                name: "Producer".into(),
+                ..Default::default()
+            },
+            crate::digsig::KeyKind::EcP256,
+            1,
+        )
+        .unwrap();
+        let signed = protected_blank(1).sign(&id, &SignOptions::default()).unwrap();
+        let back = Document::from_bytes(signed.clone(), None, Some("pw")).unwrap();
+        let (field_id, _, sig) = back.signed_fields()[0].clone();
+        let holder = back.signature_holder(field_id);
+        let (start, end) = encrypted::byte_range(&sig)
+            .and_then(encrypted::byte_range_gap)
+            .unwrap();
+        let value = encrypted::hex_in_gap(&signed, start, end).unwrap();
+        let state = back.protection().unwrap().state();
+        let filter = state.get_string_filter();
+        let key = filter.compute_key(state.file_encryption_key(), holder).unwrap();
+        // The vector and the padding take 32 bytes of the room.
+        let n = (value.len() - 32) / 16 * 16;
+        let cipher = loop {
+            let c = filter.encrypt(&key, &value[..n]).unwrap();
+            if c[0] != 0x30 {
+                break c;
+            }
+        };
+        let hex = hex_upper(&cipher);
+        let mut changed = signed.clone();
+        changed[start + 1..start + 1 + hex.len()].copy_from_slice(&hex);
+        for b in &mut changed[start + 1 + hex.len()..end - 1] {
+            *b = b' ';
+        }
+        let v = Document::from_bytes(changed, None, Some("pw"))
+            .unwrap()
+            .validate_signatures(&[]);
+        assert!(v[0].valid && v[0].covers_document, "{:?}", v[0].problems);
+    }
+
+    #[test]
     fn a_protection_that_cannot_encrypt_stops_the_save() {
         let mut doc = Document::new_blank(1, 200.0, 200.0).unwrap();
         doc.inner.trailer.set(

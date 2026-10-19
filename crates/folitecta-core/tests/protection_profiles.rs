@@ -413,3 +413,104 @@ fn opened_rc4_files_keep_their_encryption() {
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A file protected with `user` / `owner` by the PDF library itself: RC4
+/// 40-bit (V1), RC4 128-bit (V2) or AES-128 (V4), as older producers write.
+fn library_protected(kind: u8) -> Vec<u8> {
+    let plain = marked().bytes();
+    let mut doc = lopdf::Document::load_mem(&plain).unwrap();
+    let id = vec![3u8; 16];
+    doc.trailer.set(
+        "ID",
+        Object::Array(vec![
+            Object::String(id.clone(), lopdf::StringFormat::Hexadecimal),
+            Object::String(id, lopdf::StringFormat::Hexadecimal),
+        ]),
+    );
+    let (owner_password, user_password) = ("owner", "user");
+    let state = match kind {
+        1 => lopdf::EncryptionState::try_from(lopdf::EncryptionVersion::V1 {
+            document: &doc,
+            owner_password,
+            user_password,
+            permissions: lopdf::Permissions::default(),
+        }),
+        2 => lopdf::EncryptionState::try_from(lopdf::EncryptionVersion::V2 {
+            document: &doc,
+            owner_password,
+            user_password,
+            key_length: 128,
+            permissions: lopdf::Permissions::default(),
+        }),
+        _ => {
+            let mut filters: std::collections::BTreeMap<
+                Vec<u8>,
+                Arc<dyn lopdf::encryption::crypt_filters::CryptFilter>,
+            > = std::collections::BTreeMap::new();
+            filters.insert(
+                b"StdCF".to_vec(),
+                Arc::new(lopdf::encryption::crypt_filters::Aes128CryptFilter),
+            );
+            lopdf::EncryptionState::try_from(lopdf::EncryptionVersion::V4 {
+                document: &doc,
+                encrypt_metadata: true,
+                crypt_filters: filters,
+                stream_filter: b"StdCF".to_vec(),
+                string_filter: b"StdCF".to_vec(),
+                owner_password,
+                user_password,
+                permissions: lopdf::Permissions::default(),
+            })
+        }
+    }
+    .unwrap();
+    doc.encrypt(&state).unwrap();
+    let mut out = Vec::new();
+    doc.save_to(&mut out).unwrap();
+    out
+}
+
+#[test]
+fn owner_passwords_decrypt_and_save_right() {
+    // The PDF library makes the file key of revisions 2 to 4 from any
+    // password as if it were the user password: opened with the owner
+    // password, the content was noise, and a saved copy kept the noise.
+    let dir = folder("owner");
+    let mut files: Vec<(String, Vec<u8>, &str, &str)> = (1..=4)
+        .filter(|k| *k != 3)
+        .map(|k| (format!("library-{k}"), library_protected(k), "user", "owner"))
+        .collect();
+    for profile in EncryptionProfile::ALL {
+        let p = dir.join(format!("{}.pdf", profile.key()));
+        marked()
+            .save_encrypted(&p, "user-pw", "owner-pw", no_printing(), profile)
+            .unwrap();
+        files.push((
+            profile.key().to_string(),
+            std::fs::read(&p).unwrap(),
+            "user-pw",
+            "owner-pw",
+        ));
+    }
+    for (name, raw, user, owner) in files {
+        let mut doc = Document::from_bytes(raw.clone(), None, Some(owner)).unwrap();
+        assert!(doc.page_text(0).contains("MARKER-PAGE-7Q"), "{name}");
+        assert!(
+            doc.annotations(0)
+                .unwrap()
+                .iter()
+                .any(|a| a.contents.contains("MARKER-NOTE-7Q")),
+            "{name}"
+        );
+        let copy = dir.join(format!("{name}-copy.pdf"));
+        doc.save_copy(&copy).unwrap();
+        let saved = std::fs::read(&copy).unwrap();
+        assert_eq!(p_of(&saved), p_of(&raw), "{name}");
+        for pw in [user, owner] {
+            let again = Document::from_bytes(saved.clone(), None, Some(pw)).unwrap();
+            assert!(again.page_text(0).contains("MARKER-PAGE-7Q"), "{name} {pw}");
+        }
+        assert!(renders_with(&saved, user), "{name}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}

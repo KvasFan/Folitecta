@@ -1,7 +1,7 @@
 //! Comment summaries: a new PDF document that lists the comments of a document,
 //! alone or next to the pages they belong to.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
@@ -64,6 +64,11 @@ pub struct SummaryOptions {
     pub font_size: f32,
     /// Include hidden comments.
     pub include_hidden: bool,
+    /// Include the comments of hidden layers.
+    pub include_hidden_layers: bool,
+    /// The visibility of the layers where it differs from the default one
+    /// (the view the summary is made from).
+    pub layer_view: HashMap<ObjectId, bool>,
     /// Paper size of the comment pages of the comments-only layout (points).
     pub paper: (f32, f32),
     pub labels: SummaryLabels,
@@ -76,6 +81,8 @@ impl Default for SummaryOptions {
             sort: SummarySort::Page,
             font_size: 10.0,
             include_hidden: false,
+            include_hidden_layers: false,
+            layer_view: HashMap::new(),
             paper: (595.28, 841.89),
             labels: SummaryLabels::default(),
         }
@@ -367,11 +374,25 @@ impl Flow {
 impl Document {
     /// The comments of the document as summary entries, numbered in summary order.
     pub fn summary_entries(&self, include_hidden: bool, sort: SummarySort) -> Vec<SummaryEntry> {
+        self.summary_entries_except(include_hidden, &HashSet::new(), sort)
+    }
+
+    /// [`Document::summary_entries`] without the comments `left_out` (the
+    /// comments of hidden layers, with their replies and states).
+    pub fn summary_entries_except(
+        &self,
+        include_hidden: bool,
+        left_out: &HashSet<ObjectId>,
+        sort: SummarySort,
+    ) -> Vec<SummaryEntry> {
         let doc = &self.inner;
         let mut entries: Vec<(ObjectId, SummaryEntry)> = Vec::new();
         let mut replies: Vec<(ObjectId, (String, String, String, String))> = Vec::new();
         for a in self.comments() {
             let Some(id) = a.id else { continue };
+            if left_out.contains(&id) {
+                continue;
+            }
             let Ok(d) = doc.get_dictionary(id) else {
                 continue;
             };
@@ -466,7 +487,13 @@ impl Document {
     /// Build a new document summarizing the comments (protected like this
     /// document when it is).
     pub fn summarize_comments(&self, opts: &SummaryOptions) -> Result<Document> {
-        let mut entries = self.summary_entries(opts.include_hidden, opts.sort);
+        // The comments of the layers the view hides are left out, unless asked for.
+        let left_out = if opts.include_hidden_layers {
+            HashSet::new()
+        } else {
+            self.annotations_in_hidden_layers(&opts.layer_view)
+        };
+        let mut entries = self.summary_entries_except(opts.include_hidden, &left_out, opts.sort);
         if entries.is_empty() {
             return Err(Error::Invalid("the document has no comments to summarize".into()));
         }
@@ -521,6 +548,12 @@ impl Document {
             SummaryLayout::SeparatePages | SummaryLayout::ConnectorLines => {
                 let mut doc = Document::from_bytes(self.bytes().to_vec(), None, None)?;
                 let n = doc.page_count();
+                // Comments left out are not drawn on the pages either.
+                if !left_out.is_empty() {
+                    for pid in doc.page_ids() {
+                        doc.remove_annotations(pid, &left_out);
+                    }
+                }
                 doc.flatten_internal(&(0..n).collect::<Vec<_>>(), FlattenScope::Comments, None)?;
                 // Group entries by page, keeping the chosen order inside each page.
                 entries.sort_by_key(|e| e.page);

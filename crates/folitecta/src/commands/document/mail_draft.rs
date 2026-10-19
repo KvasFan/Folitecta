@@ -616,6 +616,8 @@ pub const THUMBS: usize = 4;
 
 /// Pictures of the first pages of `plain`, as `data:` URLs.
 fn thumbnails(plain: Arc<Vec<u8>>, stop: &AtomicBool) -> (Vec<String>, usize) {
+    // The comments of layers hidden by default are not drawn.
+    let plain = folitecta_core::layer_drawing::pictures_bytes(plain);
     let Ok(r) = folitecta_core::Renderer::new(plain) else {
         return (Vec::new(), 0);
     };

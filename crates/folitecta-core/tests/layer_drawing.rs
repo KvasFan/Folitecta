@@ -1101,3 +1101,96 @@ fn rasterized_pages_keep_the_comments_of_hidden_layers() {
     doc.undo().unwrap();
     assert_eq!(doc.annotations(0).unwrap().len(), 2);
 }
+
+#[test]
+fn summaries_and_pictures_of_files_leave_out_hidden_layers() {
+    use folitecta_core::{SummaryLayout, SummaryOptions, SummarySort};
+    let (mut doc, ink) = with_layer();
+    doc.set_drawing_layer(Some(ink)).unwrap();
+    doc.add_shape(
+        0,
+        Shape::Square,
+        [10.0, 10.0, 90.0, 90.0],
+        RED,
+        Some(RED),
+        2.0,
+        "R",
+        "on the layer",
+    )
+    .unwrap();
+    doc.add_reply(0, 0, "a reply", "R").unwrap();
+    doc.set_drawing_layer(None).unwrap();
+    doc.add_shape(
+        0,
+        Shape::Square,
+        [110.0, 10.0, 190.0, 90.0],
+        RED,
+        Some(RED),
+        2.0,
+        "R",
+        "on no layer",
+    )
+    .unwrap();
+    doc.set_layer_visible(ink, false).unwrap();
+    let texts = |entries: Vec<folitecta_core::SummaryEntry>| {
+        entries.into_iter().map(|e| e.contents).collect::<Vec<_>>()
+    };
+    // The comments of hidden layers are left out unless asked for.
+    let hidden = doc.annotations_in_hidden_layers(&HashMap::new());
+    assert_eq!(
+        texts(doc.summary_entries_except(false, &hidden, SummarySort::Page)),
+        ["on no layer"]
+    );
+    let summary = doc.summarize_comments(&SummaryOptions::default()).unwrap();
+    let text: String = (0..summary.page_count()).map(|p| summary.page_text(p)).collect();
+    assert!(
+        text.contains("on no layer") && !text.contains("on the layer") && !text.contains("a reply"),
+        "{text}"
+    );
+    let all = doc
+        .summarize_comments(&SummaryOptions {
+            include_hidden_layers: true,
+            ..SummaryOptions::default()
+        })
+        .unwrap();
+    let text: String = (0..all.page_count()).map(|p| all.page_text(p)).collect();
+    assert!(
+        text.contains("on the layer") && text.contains("a reply"),
+        "{text}"
+    );
+    // A view showing the layer lists them too.
+    let shown = doc
+        .summarize_comments(&SummaryOptions {
+            layer_view: HashMap::from([(ink, true)]),
+            ..SummaryOptions::default()
+        })
+        .unwrap();
+    let text: String = (0..shown.page_count()).map(|p| shown.page_text(p)).collect();
+    assert!(text.contains("on the layer"), "{text}");
+    // The pages of the summary do not draw them either.
+    let pages = doc
+        .summarize_comments(&SummaryOptions {
+            layout: SummaryLayout::SeparatePages,
+            ..SummaryOptions::default()
+        })
+        .unwrap();
+    let bytes = pages.render_bytes().unwrap();
+    assert!(is_white(pixel(bytes.clone(), 50, 50)));
+    assert!(!is_white(pixel(bytes, 150, 50)));
+    // Pictures of a file: the comments of layers hidden by default are hidden.
+    let path = folder("thumbs").join("file.pdf");
+    doc.save_as(&path).unwrap();
+    let file = Arc::new(std::fs::read(&path).unwrap());
+    let drawn = folitecta_core::layer_drawing::pictures_bytes(file.clone());
+    assert!(is_white(pixel(drawn.clone(), 50, 50)));
+    assert!(!is_white(pixel(drawn, 150, 50)));
+    let mut plain = Document::new_blank(1, 300.0, 300.0).unwrap();
+    plain
+        .add_ink(0, &[vec![(10.0, 10.0), (50.0, 60.0)]], RED, 2.0, "R")
+        .unwrap();
+    let bytes = plain.bytes();
+    assert!(Arc::ptr_eq(
+        &folitecta_core::layer_drawing::pictures_bytes(bytes.clone()),
+        &bytes
+    ));
+}

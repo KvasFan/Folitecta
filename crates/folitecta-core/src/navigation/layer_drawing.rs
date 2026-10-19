@@ -516,6 +516,22 @@ pub(crate) fn last_startxref(bytes: &[u8]) -> Option<usize> {
     digits.parse().ok().filter(|n| *n > 0 && *n < bytes.len())
 }
 
+/// The bytes of a PDF file to draw pictures of its pages from (thumbnails
+/// of files and of copies): the comments of the layers it hides by default
+/// hidden. A file without layers comes back as it is; a file that cannot be
+/// read here too (the renderer reports it).
+pub fn pictures_bytes(bytes: Arc<Vec<u8>>) -> Arc<Vec<u8>> {
+    // Layers are named in the catalog, maybe inside an object stream.
+    let maybe = |needle: &[u8]| bytes.windows(needle.len()).any(|w| w == needle);
+    if !maybe(b"OCProperties") && !maybe(b"ObjStm") {
+        return bytes;
+    }
+    match Document::from_bytes(bytes.to_vec(), None, None) {
+        Ok(doc) if !doc.layers().is_empty() => doc.render_bytes().unwrap_or(bytes),
+        _ => bytes,
+    }
+}
+
 /// `content` inside the marked-content sequence of the property `name`.
 pub(crate) fn wrap_marked(name: &[u8], content: Vec<u8>) -> Vec<u8> {
     let mut out = format!("/OC {} BDC\n", name_token(name)).into_bytes();

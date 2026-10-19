@@ -476,7 +476,9 @@ pub fn thumbnail(url: &str) -> Option<Arc<Vec<u8>>> {
         return Some(png.clone());
     }
     let data = std::fs::read(&path).ok()?;
-    let renderer = folitecta_core::render::Renderer::new(Arc::new(data)).ok()?;
+    // The comments of layers hidden by default are not drawn.
+    let data = folitecta_core::layer_drawing::pictures_bytes(Arc::new(data));
+    let renderer = folitecta_core::render::Renderer::new(data).ok()?;
     let page = renderer.render_page(0, 0.25).ok()?;
     let png = Arc::new(page.png);
     if let Ok(mut cache) = THUMBS.lock() {

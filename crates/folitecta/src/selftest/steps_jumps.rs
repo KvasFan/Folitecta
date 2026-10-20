@@ -83,6 +83,17 @@ async fn check_jump(cx: &mut Ctx<'_>, name: &str, target: usize) {
     );
 }
 
+/// The time of an event given to the web view: milliseconds that go on, as
+/// those of the window system do (outside the handler of an event the
+/// toolkit has no time to give, and two clicks at the same time are a
+/// double click).
+#[cfg(target_os = "linux")]
+fn event_time() -> u32 {
+    static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    let start = START.get_or_init(std::time::Instant::now);
+    1_000 + start.elapsed().as_millis() as u32
+}
+
 /// An event of the pointer given to the web view as the window toolkit gives
 /// those of the mouse (trusted input for the page): `kind` a GDK event type.
 #[cfg(target_os = "linux")]
@@ -108,7 +119,7 @@ fn pointer_event(kind: i32, x: f64, y: f64, pressed: bool) -> bool {
     // owns its references once wrapped (`from_glib_full`).
     unsafe {
         let ev = gtk::gdk::ffi::gdk_event_new(kind);
-        let time = gtk::current_event_time().max(1);
+        let time = event_time();
         if kind == gtk::gdk::ffi::GDK_MOTION_NOTIFY {
             let m = &mut (*ev).motion;
             m.window = gdk_window.to_glib_full();
@@ -258,6 +269,25 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
                         120,
                     )
                     .await;
+                    // The same row clicked again later: a click, not the
+                    // second one of a double click (which renames it).
+                    st.navigate(0, false);
+                    pause(800).await;
+                    let _ = eval(ERRORS_JS).await;
+                    let input = real_click(x, y).await;
+                    let dialog = st.dialog.peek().clone();
+                    check_jump(
+                        cx,
+                        &format!("jumps: bookmark 2 clicked again with the mouse goes to page 121 ({input})"),
+                        120,
+                    )
+                    .await;
+                    cx.record(
+                        "jumps: a second click on a bookmark is not a double click",
+                        dialog == crate::state::Dialog::None,
+                        format!("{dialog:?}"),
+                    );
+                    st.set_dialog(crate::state::Dialog::None);
                 }
                 None => cx.record("jumps: the bookmark row is there", false, pos.to_string()),
             }

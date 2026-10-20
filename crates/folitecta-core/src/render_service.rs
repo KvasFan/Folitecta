@@ -106,8 +106,10 @@ fn bump(counter: &AtomicU64, n: u64) {
 }
 
 /// The bytes of pictures all the open documents keep together (uncompressed
-/// pictures: about 40 pages of text at 125 % on a pixel ratio of 2).
-const KEPT_TOTAL: usize = 256 * 1024 * 1024;
+/// pictures: about 20 pages of text at 125 % on a pixel ratio of 2, 85 at
+/// 100 % on a pixel ratio of 1). The pages a view holds keep their pictures
+/// in the page; these are for the pages seen again later.
+const KEPT_TOTAL: usize = 128 * 1024 * 1024;
 
 /// The pictures kept by the render threads of every open document together,
 /// within one budget: past it, the least recently used picture of any

@@ -6,6 +6,16 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Every release package carries `THIRD-PARTY-LICENSES.txt`: the libraries built into the program
+  for that system, each with its licence and the address of its source, and their licence texts
+  (written by `crates/notices` from the published sources; a library without a text stops the
+  release). The macOS app also carries Folitecta's own `LICENSE`.
+
+### Changed
+- The macOS app is signed ad hoc as a whole bundle (program, Info.plist and resources sealed
+  together); it is still not notarized.
+
 ### Fixed
 - The Linux program starts without libxdo. It needed `libxdo.so.3` only because the menu library
   of the interface toolkit linked it (Folitecta never calls it), so it did not start on systems

@@ -53,6 +53,10 @@ jobs:
             while IFS= read -r m; do echo "::error title=Failing test::$m"; done
       - name: Build
         run: cargo build --workspace
+      - name: Licence notices of the libraries
+        shell: bash
+        run: |
+          cargo run --locked --package folitecta-notices -- --target "$(rustc -vV | sed -n 's/^host: //p')" --out target/THIRD-PARTY-LICENSES.txt
       - name: The Linux program starts without libxdo
         if: runner.os == 'Linux'
         run: |

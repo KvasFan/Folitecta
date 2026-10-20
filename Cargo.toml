@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/folitecta-core", "crates/folitecta", "crates/libxdo"]
+members = ["crates/folitecta-core", "crates/folitecta", "crates/libxdo", "crates/notices"]
 
 [workspace.package]
 version = "0.2.1"

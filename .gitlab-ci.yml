@@ -44,6 +44,8 @@ build-linux:
     - NAME="folitecta-${VERSION}-linux-x64"
     - mkdir -p "dist/${NAME}"
     - cp target/release/folitecta README.md LICENSE CHANGELOG.md "dist/${NAME}/"
+    # The licence notices of the libraries built into the program.
+    - cargo run --release --locked --package folitecta-notices -- --target x86_64-unknown-linux-gnu --out "dist/${NAME}/THIRD-PARTY-LICENSES.txt"
     - cp -r docs "dist/${NAME}/docs"
     - cp -r dictionaries "dist/${NAME}/dictionaries"
     - cp -r ocr "dist/${NAME}/ocr"

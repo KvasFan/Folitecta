@@ -1,13 +1,23 @@
 # Architecture
 
-Folitecta is a two-crate Cargo workspace, with one small crate that replaces a dependency.
+Folitecta is a two-crate Cargo workspace, with a small crate that replaces a dependency and a
+tool of the release jobs.
 
 ```
 crates/
   folitecta-core/   library: document model, operations, rendering, command registry
   folitecta/        binary: Dioxus desktop user interface
   libxdo/           the libxdo bindings, loading the library when first used
+  notices/          tool: the licence notices of the libraries for the release packages
 ```
+
+`crates/notices` (`folitecta-notices --target <triple>... --out <file>`) lists the libraries
+`cargo metadata` resolves as normal dependencies of the program for the given systems and writes
+their licence texts, taken from the licence, copying and notice files of their published
+sources; a library without such files takes those of another library of the same repository, or
+the MIT text with its authors when its licence allows MIT, and any other library without a text
+stops the run. The release jobs put its output in every package as `THIRD-PARTY-LICENSES.txt`,
+and the CI runs it on every system.
 
 `crates/libxdo` takes the place of the crates.io bindings of the same name through
 `[patch.crates-io]`. The menu library of the interface toolkit uses libxdo for the predefined

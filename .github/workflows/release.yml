@@ -37,6 +37,9 @@ jobs:
           New-Item -ItemType Directory -Force "dist/$name" | Out-Null
           Copy-Item "target/release/folitecta.exe" "dist/$name/"
           Copy-Item README.md, LICENSE, CHANGELOG.md "dist/$name/"
+          # The licence notices of the libraries built into the program.
+          cargo run --release --locked --package folitecta-notices -- --target x86_64-pc-windows-msvc --out "dist/$name/THIRD-PARTY-LICENSES.txt"
+          if ($LASTEXITCODE -ne 0) { throw "the licence notices could not be written" }
           Copy-Item -Recurse docs "dist/$name/docs"
           Copy-Item -Recurse dictionaries "dist/$name/dictionaries"
           Copy-Item -Recurse ocr "dist/$name/ocr"
@@ -86,6 +89,8 @@ jobs:
           mkdir -p "dist/${NAME}"
           cp target/release/folitecta "dist/${NAME}/"
           cp README.md LICENSE CHANGELOG.md "dist/${NAME}/"
+          # The licence notices of the libraries built into the program.
+          cargo run --release --locked --package folitecta-notices -- --target x86_64-unknown-linux-gnu --out "dist/${NAME}/THIRD-PARTY-LICENSES.txt"
           cp -r docs "dist/${NAME}/docs"
           cp -r dictionaries "dist/${NAME}/dictionaries"
           cp -r ocr "dist/${NAME}/ocr"
@@ -142,6 +147,9 @@ jobs:
           APP="dist/Folitecta.app"
           mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
           cp dist/folitecta "$APP/Contents/MacOS/folitecta"
+          # The licence of Folitecta and the notices of the libraries built into it.
+          cargo run --release --locked --package folitecta-notices -- --target aarch64-apple-darwin --target x86_64-apple-darwin --out dist/THIRD-PARTY-LICENSES.txt
+          cp LICENSE dist/THIRD-PARTY-LICENSES.txt "$APP/Contents/Resources/"
           cp -r dictionaries "$APP/Contents/Resources/dictionaries"
           cp -r ocr "$APP/Contents/Resources/ocr"
           cp -r fonts "$APP/Contents/Resources/fonts"
@@ -179,9 +187,14 @@ jobs:
           </dict></plist>
           EOF
           sed -i '' 's/^          //' "$APP/Contents/Info.plist"
+          # An ad hoc signature of the whole bundle (no identity): its program,
+          # Info.plist and resources are sealed together, as macOS expects.
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign --force --sign - dist/folitecta
           (cd dist && ditto -c -k --keepParent Folitecta.app "${NAME}.zip")
           mkdir -p "dist/${NAME}"
-          cp dist/folitecta README.md LICENSE CHANGELOG.md "dist/${NAME}/"
+          cp dist/folitecta README.md LICENSE CHANGELOG.md dist/THIRD-PARTY-LICENSES.txt "dist/${NAME}/"
           cp -r docs "dist/${NAME}/docs"
           cp -r dictionaries "dist/${NAME}/dictionaries"
           cp -r ocr "dist/${NAME}/ocr"

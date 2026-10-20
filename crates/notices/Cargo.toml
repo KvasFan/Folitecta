@@ -1,0 +1,18 @@
+[package]
+# Writes the licence notices of the libraries built into the program
+# (THIRD-PARTY-LICENSES.txt in the release packages). A tool of the release
+# jobs, never shipped.
+name = "folitecta-notices"
+version.workspace = true
+publish = false
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

@@ -206,6 +206,9 @@ pub fn kept_bytes() -> usize {
     kept_pool().bytes()
 }
 
+/// How long a picture that failed fails at once when asked again.
+const FAILED_FOR: std::time::Duration = std::time::Duration::from_secs(10);
+
 /// The number of the next render service (the key of its pictures kept).
 static NEXT_SERVICE: AtomicU64 = AtomicU64::new(1);
 
@@ -262,6 +265,10 @@ struct State {
     seq: u64,
     /// The replies waiting for each picture asked (queued or being drawn).
     waiting: HashMap<Key, Vec<Reply>>,
+    /// The pictures that failed lately, with why: asked again (the page
+    /// script tries a picture again after an error) they fail at once
+    /// instead of being drawn again.
+    failed: HashMap<Key, (std::time::Instant, String)>,
     focus: Focus,
     /// The pages each view (of a split window: two) holds with their
     /// pictures, as the views draw them: a view picture of a page that no
@@ -379,6 +386,7 @@ impl RenderService {
                 queue: Vec::new(),
                 seq: 0,
                 waiting: HashMap::new(),
+                failed: HashMap::new(),
                 focus: Focus::default(),
                 views: [None; 2],
                 thumb_scale: None,
@@ -453,6 +461,11 @@ impl RenderService {
             self.shared
                 .pool
                 .retain(self.shared.id, |k| k.rev == s.rev_of(k.page));
+            let failed = std::mem::take(&mut s.failed);
+            s.failed = failed
+                .into_iter()
+                .filter(|(k, _)| k.rev == s.rev_of(k.page))
+                .collect();
             take_stale(&mut s)
         };
         answer_stale(&self.shared, stale);
@@ -506,6 +519,14 @@ impl RenderService {
             bump(&self.shared.stats.reused, 1);
             reply(RenderAnswer::Picture(picture));
             return;
+        }
+        if let Some((at, why)) = s.failed.get(&key) {
+            if at.elapsed() < FAILED_FOR {
+                let why = why.clone();
+                drop(s);
+                reply(RenderAnswer::Failed(why));
+                return;
+            }
         }
         s.seq += 1;
         let job = Job {
@@ -834,10 +855,15 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
     let replies = {
         let mut s = shared.lock();
         s.running = s.running.saturating_sub(1);
-        if let RenderAnswer::Picture(p) = &answer {
-            if key.rev == s.rev_of(key.page) {
+        match &answer {
+            RenderAnswer::Picture(p) if key.rev == s.rev_of(key.page) => {
                 shared.pool.keep(shared.id, key, p.clone());
             }
+            RenderAnswer::Failed(why) => {
+                s.failed.retain(|_, (at, _)| at.elapsed() < FAILED_FOR);
+                s.failed.insert(key, (std::time::Instant::now(), why.clone()));
+            }
+            _ => {}
         }
         s.waiting.remove(&key).unwrap_or_default()
     };
@@ -1147,6 +1173,30 @@ mod tests {
         let mut got: Vec<(u8, bool)> = (0..3).map(|_| rx.recv().unwrap()).collect();
         got.sort();
         assert_eq!(got, vec![(0, true), (1, true), (2, true)]);
+    }
+
+    #[test]
+    fn a_picture_that_fails_is_drawn_once_for_its_retries() {
+        let svc = RenderService::with_workers(doc(3), 1);
+        // Page 8 of 3, and a tile outside the picture: each fails.
+        let mut tile = req(0, 0.5, Lane::View, None);
+        tile.tile = Some((40, 0));
+        for asked in [req(7, 0.5, Lane::View, None), tile] {
+            let before = svc.stats().rendered;
+            // The page script asks again three times.
+            for _ in 0..4 {
+                assert!(matches!(ask(&svc, asked), RenderAnswer::Failed(_)));
+            }
+            assert_eq!(svc.stats().rendered, before + 1, "{asked:?}");
+        }
+        // Another revision of the document is tried again.
+        svc.replace(doc(3));
+        let before = svc.stats().rendered;
+        assert!(matches!(
+            ask(&svc, req(7, 0.5, Lane::View, None)),
+            RenderAnswer::Failed(_)
+        ));
+        assert_eq!(svc.stats().rendered, before + 1);
     }
 
     #[test]

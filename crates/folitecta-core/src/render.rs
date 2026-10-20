@@ -175,17 +175,28 @@ pub(crate) fn render_region<'a>(
     let pages = pdf.pages();
     let p = pages.get(page).ok_or(Error::InvalidPage(page))?;
     let (w, h) = p.render_dimensions();
-    let scale = scale.max(0.05).min(MAX_EDGE / w.max(h).max(1.0));
-    let (full_w, full_h) = ((w * scale) as u16, (h * scale) as u16);
+    // A whole picture is kept within the largest edge; a part of it (a tile
+    // of the views) is drawn at the scale asked for, its own size kept
+    // within that edge, so that the parts are where the views put them.
+    let scale = match region {
+        Some(_) => scale.max(0.05),
+        None => scale.max(0.05).min(MAX_EDGE / w.max(h).max(1.0)),
+    };
+    let (full_w, full_h) = ((w * scale) as u32, (h * scale) as u32);
+    let edge = MAX_EDGE as u32;
     let (x, y, rw, rh) = match region {
         Some((x, y, rw, rh)) => {
-            let (fw, fh) = (u32::from(full_w), u32::from(full_h));
-            if x >= fw || y >= fh || rw == 0 || rh == 0 {
+            if x >= full_w || y >= full_h || rw == 0 || rh == 0 {
                 return Err(Error::Render(format!("no such part of page {}", page + 1)));
             }
-            (x, y, rw.min(fw - x) as u16, rh.min(fh - y) as u16)
+            (
+                x,
+                y,
+                rw.min(full_w - x).min(edge) as u16,
+                rh.min(full_h - y).min(edge) as u16,
+            )
         }
-        None => (0, 0, full_w, full_h),
+        None => (0, 0, full_w.min(edge) as u16, full_h.min(edge) as u16),
     };
     let background = if opts.transparent { TRANSPARENT } else { WHITE };
     let result = catch_unwind(AssertUnwindSafe(|| {

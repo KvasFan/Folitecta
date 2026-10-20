@@ -84,12 +84,72 @@ struct TreeOpts {
     dark: bool,
 }
 
+/// Follows a bookmark dragged in the pane: while a row is pressed, the row
+/// under the pointer (its path) and the part of it (before, inside, after)
+/// are sent when they change. The program listens to no mouse move for it:
+/// a listener of mouse moves makes every move in the window wait for the
+/// program, and changing the rows' listeners when a row is pressed would
+/// replace the row before the release, so the click would be lost.
+const TREE_DRAG_SCRIPT: &str = r#"
+(function(){
+  window.__foliTreeSend = m => dioxus.send(m);
+  if (window.__foliTreeDrag) return true;
+  window.__foliTreeDrag = true;
+  let pressed = false, last = null;
+  const send = m => { try { window.__foliTreeSend(m); } catch (e) {} };
+  document.addEventListener('mousedown', e => {
+    pressed = e.button === 0 && !!(e.target && e.target.closest && e.target.closest('.bookmark-tree .tree-item'));
+    last = null;
+  }, true);
+  document.addEventListener('mousemove', e => {
+    if (!pressed) return;
+    const row = e.target && e.target.closest ? e.target.closest('.bookmark-tree .tree-item') : null;
+    let m = '';
+    if (row && row.dataset.path !== undefined) {
+      const y = e.clientY - row.getBoundingClientRect().top;
+      m = row.dataset.path + ' ' + (y < 7 ? 'before' : y > 17 ? 'after' : 'inside');
+    }
+    if (m !== last) { last = m; send(m); }
+  }, true);
+  document.addEventListener('mouseup', () => { pressed = false; last = null; }, true);
+  return true;
+})();
+"#;
+
+/// The place a bookmark dragged would drop at, from a message of
+/// [`TREE_DRAG_SCRIPT`]: none over the bookmark dragged or one under it.
+fn drop_place(message: &str, src: &[usize]) -> Option<(Vec<usize>, Zone)> {
+    let (path, zone) = message.split_once(' ')?;
+    let path: Vec<usize> = path.split('.').map(|x| x.parse().ok()).collect::<Option<_>>()?;
+    if path == src || (path.len() > src.len() && path[..src.len()] == src[..]) {
+        return None;
+    }
+    let zone = match zone {
+        "before" => Zone::Before,
+        "after" => Zone::After,
+        _ => Zone::Inside,
+    };
+    Some((path, zone))
+}
+
 #[component]
 pub fn BookmarksPane() -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
     let mut drag_src: Signal<Option<Vec<usize>>> = use_signal(|| None);
     let mut drop_at: Signal<Option<(Vec<usize>, Zone)>> = use_signal(|| None);
+    use_future(move || async move {
+        let mut follow = document::eval(TREE_DRAG_SCRIPT);
+        while let Ok(message) = follow.recv::<String>().await {
+            let Some(src) = drag_src.peek().clone() else {
+                continue;
+            };
+            let next = drop_place(&message, &src);
+            if *drop_at.peek() != next {
+                drop_at.set(next);
+            }
+        }
+    });
     let Some((items, expanded, selected, page)) = st.read_active(|t| {
         (
             t.doc.outline(),
@@ -251,7 +311,6 @@ fn bookmark_nodes(
     drop_at: Signal<Option<(Vec<usize>, Zone)>>,
 ) -> Element {
     let mut drag_src = drag_src;
-    let mut drop_at = drop_at;
     let lang = st.lang();
     rsx! {
         for (i, item) in items.iter().enumerate() {
@@ -285,7 +344,6 @@ fn bookmark_nodes(
                 let p_click = p.clone();
                 let p_dbl = p.clone();
                 let p_down = p.clone();
-                let p_move = p.clone();
                 let key_t = key.clone();
                 let all = all_keys.clone();
                 let item_c = item.clone();
@@ -293,27 +351,14 @@ fn bookmark_nodes(
                 let tip = if item.action.is_empty() { title.clone() } else { format!("{title}\n{}", item.action) };
                 let children = item.children.clone();
                 let icon = if item.page.is_none() && !item.action.is_empty() { "link" } else { "bookmark" };
-                // The mouse moves over the rows are listened to only while a
-                // bookmark is dragged: a listener of mouse moves makes every move
-                // in the window wait for the program. (Starting and ending a drag
-                // draws the rows again.)
-                let dragging = drag_src.read().is_some();
+                // A press starts a drag; the place it would drop at is followed
+                // by the page script of the pane (`TREE_DRAG_SCRIPT`), not by a
+                // listener of mouse moves on the rows. The row stays the same
+                // element when it is pressed, so a click on it is a click.
                 let on_down = move |e: Event<MouseData>| {
                     if e.trigger_button() == Some(dioxus::html::input_data::MouseButton::Primary) {
                         drag_src.set(Some(p_down.clone()));
                     }
-                };
-                let on_move = move |e: Event<MouseData>| {
-                    let src = drag_src.peek().clone();
-                    let Some(src) = src else { return };
-                    if src == p_move || (p_move.len() > src.len() && p_move[..src.len()] == src[..]) {
-                        drop_at.set(None);
-                        return;
-                    }
-                    let y = e.element_coordinates().y;
-                    let zone = if y < 7.0 { Zone::Before } else if y > 17.0 { Zone::After } else { Zone::Inside };
-                    let next = Some((p_move.clone(), zone));
-                    if *drop_at.peek() != next { drop_at.set(next); }
                 };
                 let on_click = move |_: Event<MouseData>| {
                     st.with_active(|t| t.selected_bookmark = Some(p_click.clone()));
@@ -342,24 +387,12 @@ fn bookmark_nodes(
                     if invalid { span { class: "chip warn", title: "{t(lang, \"toast.bookmark_invalid\")}", "!" } }
                     if let Some(pg) = item.page { span { class: "page-ref", "{pg + 1}" } }
                 };
-                let row = if dragging {
-                    rsx! {
-                        div { class: "{class}", style: "{style}", title: "{tip}",
-                            onmousedown: on_down, onmousemove: on_move, onclick: on_click, ondoubleclick: on_dbl,
-                            {content}
-                        }
-                    }
-                } else {
-                    rsx! {
-                        div { class: "{class}", style: "{style}", title: "{tip}",
+                rsx! {
+                    div { key: "{key}",
+                        div { class: "{class}", style: "{style}", title: "{tip}", "data-path": "{key}",
                             onmousedown: on_down, onclick: on_click, ondoubleclick: on_dbl,
                             {content}
                         }
-                    }
-                };
-                rsx! {
-                    div { key: "{key}",
-                        {row}
                         if has_children && is_open {
                             {bookmark_nodes(st, &children, p.clone(), expanded, auto, all_keys, selected, current, opts, drag_src, drop_at)}
                         }
@@ -453,5 +486,21 @@ pub fn DestinationsPane() -> Element {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_place_a_bookmark_drops_at_comes_from_the_page_script() {
+        assert_eq!(drop_place("0.2 after", &[1]), Some((vec![0, 2], Zone::After)));
+        assert_eq!(drop_place("3 before", &[1]), Some((vec![3], Zone::Before)));
+        assert_eq!(drop_place("3 inside", &[1]), Some((vec![3], Zone::Inside)));
+        // Not over the bookmark dragged, one under it, or no row.
+        assert_eq!(drop_place("1 after", &[1]), None);
+        assert_eq!(drop_place("1.0 before", &[1]), None);
+        assert_eq!(drop_place("", &[1]), None);
     }
 }

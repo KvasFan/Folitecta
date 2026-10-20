@@ -197,3 +197,73 @@ fn a_state_worked_away_from_the_document_redraws_the_pages_it_changed() {
     assert!(changed.contains(&3), "{changed:?}");
     assert!(!changed.contains(&0), "{changed:?}");
 }
+
+#[test]
+fn a_field_with_widgets_on_two_pages_gives_both_pages_a_new_revision() {
+    use lopdf::{Dictionary, Object, dictionary};
+    // A text field with a widget on page 1 and another on page 2 (the same
+    // field shown twice, as a name on every page); page 3 has none.
+    let mut b = folitecta_core::testdocs::Builder::new();
+    let field = b.doc.new_object_id();
+    let widget = |b: &mut folitecta_core::testdocs::Builder| {
+        b.doc.add_object(dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Widget",
+            "Rect" => vec![100.into(), 700.into(), 400.into(), 724.into()],
+            "F" => 4,
+            "Parent" => field,
+        })
+    };
+    let widgets = [widget(&mut b), widget(&mut b)];
+    for w in widgets {
+        let page = b.page((595.0, 842.0), Vec::new(), Dictionary::new(), vec![w.into()]);
+        if let Ok(Object::Dictionary(d)) = b.doc.get_object_mut(w) {
+            d.set("P", page);
+        }
+    }
+    b.page(
+        (595.0, 842.0),
+        b"0 g 50 50 100 100 re f".to_vec(),
+        Dictionary::new(),
+        Vec::new(),
+    );
+    b.doc.objects.insert(
+        field,
+        Object::Dictionary(dictionary! {
+            "FT" => "Tx",
+            "T" => Object::string_literal("name"),
+            "DA" => Object::string_literal("/Helv 12 Tf 0 g"),
+            "Kids" => widgets.iter().map(|w| Object::Reference(*w)).collect::<Vec<_>>(),
+        }),
+    );
+    let helv = dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica", "Encoding" => "WinAnsiEncoding" };
+    b.catalog_entry(
+        "AcroForm",
+        Object::Dictionary(dictionary! {
+            "Fields" => vec![Object::Reference(field)],
+            "DA" => Object::string_literal("/Helv 12 Tf 0 g"),
+            "DR" => dictionary! { "Font" => dictionary! { "Helv" => helv } },
+        }),
+    );
+    let mut doc = Document::from_bytes(b.finish(), None, None).unwrap();
+    let id = doc
+        .form_fields()
+        .into_iter()
+        .find(|f| f.name == "name")
+        .expect("the field")
+        .id;
+    // A first edit elsewhere (after opening, every page counts as changed).
+    doc.add_note(2, 300.0, 300.0, "A note", "Reviewer", [1.0, 0.8, 0.2])
+        .unwrap();
+    let before = pictures(&doc);
+    let changed = check(&mut doc, "the value of a field on two pages", |d| {
+        d.set_field_value(id, "Ada Lovelace").unwrap()
+    });
+    assert_eq!(changed, vec![0, 1]);
+    // The value shows on both pages.
+    let after = pictures(&doc);
+    assert!(after[0] != before[0] && after[1] != before[1]);
+    // Saved and opened again, both widgets show the value.
+    let saved = Document::from_bytes(doc.bytes().to_vec(), None, None).unwrap();
+    assert_eq!(pictures(&saved), pictures(&doc));
+}

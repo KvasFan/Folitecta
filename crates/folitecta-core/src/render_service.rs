@@ -10,9 +10,10 @@
 //!   then the pages ahead in the scroll direction (nearest first), the
 //!   others, and the small pictures of the thumbnails and previews last;
 //!   without a window telling what it shows, first asked first drawn.
-//! - The pictures made are kept, up to a number of bytes shared by the open
-//!   documents, the least recently used dropped first; a picture asked again
-//!   is answered at once. When a
+//! - The pictures made are kept within one budget of bytes for every open
+//!   document together: past it the least recently used picture of any
+//!   document is dropped first, and a document's pictures go when it
+//!   closes; a picture asked again is answered at once. When a
 //!   page is drawn for the window, its small picture (at the scale the
 //!   thumbnails ask for) is made from the same pixels, so thumbnails and
 //!   previews of the pages seen cost no drawing.
@@ -105,18 +106,101 @@ fn bump(counter: &AtomicU64, n: u64) {
 }
 
 /// The bytes of pictures all the open documents keep together (uncompressed
-/// pictures: about 40 pages of text at 125 % on a pixel ratio of 2); each
-/// document keeps its share, at least [`KEPT_LEAST`].
+/// pictures: about 40 pages of text at 125 % on a pixel ratio of 2).
 const KEPT_TOTAL: usize = 256 * 1024 * 1024;
-const KEPT_LEAST: usize = 48 * 1024 * 1024;
 
-/// Render services alive (open documents).
-static OPEN: AtomicU64 = AtomicU64::new(0);
-
-/// The bytes of pictures one document keeps.
-fn kept_budget() -> usize {
-    (KEPT_TOTAL / OPEN.load(Ordering::Relaxed).max(1) as usize).max(KEPT_LEAST)
+/// The pictures kept by the render threads of every open document together,
+/// within one budget: past it, the least recently used picture of any
+/// document is dropped first (the newest stays, even alone larger than the
+/// budget), and the pictures of a document go when it closes.
+pub(crate) struct KeptPool {
+    budget: usize,
+    inner: Mutex<KeptPictures>,
 }
+
+#[derive(Default)]
+struct KeptPictures {
+    /// The pictures by render service and picture.
+    pictures: HashMap<(u64, Key), Kept>,
+    bytes: usize,
+    used: u64,
+}
+
+impl KeptPool {
+    pub(crate) fn new(budget: usize) -> Self {
+        KeptPool {
+            budget,
+            inner: Mutex::new(KeptPictures::default()),
+        }
+    }
+
+    fn lock(&self) -> MutexGuard<'_, KeptPictures> {
+        self.inner.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// Keep a picture of the render service `id`.
+    fn keep(&self, id: u64, key: Key, picture: Arc<RenderedPage>) {
+        let mut k = self.lock();
+        k.used += 1;
+        let used = k.used;
+        let size = picture.png.len();
+        if let Some(old) = k.pictures.insert((id, key), Kept { picture, used }) {
+            k.bytes -= old.picture.png.len();
+        }
+        k.bytes += size;
+        while k.bytes > self.budget && k.pictures.len() > 1 {
+            let Some(oldest) = k.pictures.iter().min_by_key(|(_, p)| p.used).map(|(key, _)| *key) else {
+                break;
+            };
+            if let Some(gone) = k.pictures.remove(&oldest) {
+                k.bytes -= gone.picture.png.len();
+            }
+        }
+    }
+
+    /// A picture kept of the render service `id`, now the most recently used.
+    fn get(&self, id: u64, key: &Key) -> Option<Arc<RenderedPage>> {
+        let mut k = self.lock();
+        k.used += 1;
+        let used = k.used;
+        k.pictures.get_mut(&(id, *key)).map(|p| {
+            p.used = used;
+            p.picture.clone()
+        })
+    }
+
+    fn contains(&self, id: u64, key: &Key) -> bool {
+        self.lock().pictures.contains_key(&(id, *key))
+    }
+
+    /// Keep only the pictures of the render service `id` that `keep` accepts.
+    fn retain(&self, id: u64, keep: impl Fn(&Key) -> bool) {
+        let mut k = self.lock();
+        let KeptPictures { pictures, bytes, .. } = &mut *k;
+        pictures.retain(|(i, key), p| {
+            let stays = *i != id || keep(key);
+            if !stays {
+                *bytes -= p.picture.png.len();
+            }
+            stays
+        });
+    }
+
+    /// The bytes of the pictures kept.
+    #[cfg(test)]
+    fn bytes(&self) -> usize {
+        self.lock().bytes
+    }
+}
+
+/// The pool of the pictures kept by the render services of the program.
+fn kept_pool() -> Arc<KeptPool> {
+    static POOL: std::sync::OnceLock<Arc<KeptPool>> = std::sync::OnceLock::new();
+    POOL.get_or_init(|| Arc::new(KeptPool::new(KEPT_TOTAL))).clone()
+}
+
+/// The number of the next render service (the key of its pictures kept).
+static NEXT_SERVICE: AtomicU64 = AtomicU64::new(1);
 
 type Reply = Box<dyn FnOnce(RenderAnswer) + Send + 'static>;
 
@@ -155,9 +239,6 @@ struct Focus {
     shown: Option<(usize, usize)>,
     /// The pages scroll towards higher page numbers.
     forward: bool,
-    /// The pages the views hold (with their pictures); a view picture of a
-    /// page outside is no longer shown anywhere.
-    held: Option<(usize, usize)>,
 }
 
 struct State {
@@ -174,10 +255,11 @@ struct State {
     seq: u64,
     /// The replies waiting for each picture asked (queued or being drawn).
     waiting: HashMap<Key, Vec<Reply>>,
-    kept: HashMap<Key, Kept>,
-    kept_bytes: usize,
-    used: u64,
     focus: Focus,
+    /// The pages each view (of a split window: two) holds with their
+    /// pictures, as the views draw them: a view picture of a page that no
+    /// view holds is no longer shown anywhere (no view told: every page).
+    views: [Option<(usize, usize)>; 2],
     /// The scale of the thumbnails (milli), the size of the small pictures
     /// made with each page drawn for the window.
     thumb_scale: Option<u32>,
@@ -192,50 +274,15 @@ impl State {
         self.page_revs.get(page).copied().unwrap_or(self.rev)
     }
 
-    fn keep(&mut self, key: Key, picture: Arc<RenderedPage>) {
-        self.used += 1;
-        let size = picture.png.len();
-        if let Some(old) = self.kept.insert(
-            key,
-            Kept {
-                picture,
-                used: self.used,
-            },
-        ) {
-            self.kept_bytes -= old.picture.png.len();
-        }
-        self.kept_bytes += size;
-        let budget = kept_budget();
-        while self.kept_bytes > budget && self.kept.len() > 1 {
-            let Some(oldest) = self.kept.iter().min_by_key(|(_, k)| k.used).map(|(k, _)| *k) else {
-                break;
-            };
-            if let Some(gone) = self.kept.remove(&oldest) {
-                self.kept_bytes -= gone.picture.png.len();
-            }
-        }
-    }
-
-    fn kept(&mut self, key: &Key) -> Option<Arc<RenderedPage>> {
-        self.used += 1;
-        let used = self.used;
-        self.kept.get_mut(key).map(|k| {
-            k.used = used;
-            k.picture.clone()
-        })
-    }
-
     /// Whether a job is no longer wanted.
     fn stale(&self, job: &Job) -> bool {
         if job.key.rev != self.rev_of(job.key.page) {
             return true;
         }
-        match (job.lane, self.focus.held) {
-            (Lane::View | Lane::Preview, Some((a, b))) if !job.wanted_outside => {
-                job.key.page < a || job.key.page > b
-            }
-            _ => false,
-        }
+        let page = job.key.page;
+        let told = self.views.iter().any(Option::is_some);
+        let held = self.views.iter().flatten().any(|&(a, b)| page >= a && page <= b);
+        matches!(job.lane, Lane::View | Lane::Preview) && !job.wanted_outside && told && !held
     }
 
     /// The order of a job: lower first. Without a view telling what it
@@ -275,6 +322,9 @@ struct Shared {
     state: Mutex<State>,
     wake: Condvar,
     stats: StatCounters,
+    /// The number of this service in the pool of the pictures kept.
+    id: u64,
+    pool: Arc<KeptPool>,
 }
 
 impl Shared {
@@ -308,7 +358,11 @@ impl RenderService {
 
     /// Start `n` render threads (at least one).
     pub fn with_workers(bytes: Arc<Vec<u8>>, n: usize) -> Self {
-        OPEN.fetch_add(1, Ordering::Relaxed);
+        Self::with_pool(bytes, n, kept_pool())
+    }
+
+    /// Start `n` render threads keeping their pictures in `pool`.
+    pub(crate) fn with_pool(bytes: Arc<Vec<u8>>, n: usize, pool: Arc<KeptPool>) -> Self {
         let shared = Arc::new(Shared {
             state: Mutex::new(State {
                 bytes,
@@ -318,16 +372,16 @@ impl RenderService {
                 queue: Vec::new(),
                 seq: 0,
                 waiting: HashMap::new(),
-                kept: HashMap::new(),
-                kept_bytes: 0,
-                used: 0,
                 focus: Focus::default(),
+                views: [None; 2],
                 thumb_scale: None,
                 running: 0,
                 stop: false,
             }),
             wake: Condvar::new(),
             stats: StatCounters::default(),
+            id: NEXT_SERVICE.fetch_add(1, Ordering::Relaxed),
+            pool,
         });
         let threads = (0..n.max(1))
             .map(|i| {
@@ -389,14 +443,9 @@ impl RenderService {
             }
             s.rev = rev;
             s.page_revs = page_revs;
-            let current: Vec<Key> = s.kept.keys().copied().collect();
-            for k in current {
-                if k.rev != s.rev_of(k.page) {
-                    if let Some(gone) = s.kept.remove(&k) {
-                        s.kept_bytes -= gone.picture.png.len();
-                    }
-                }
-            }
+            self.shared
+                .pool
+                .retain(self.shared.id, |k| k.rev == s.rev_of(k.page));
             take_stale(&mut s)
         };
         answer_stale(&self.shared, stale);
@@ -411,12 +460,20 @@ impl RenderService {
         s.focus.forward = forward;
     }
 
-    /// Tell which pages the views hold with their pictures: a view picture
-    /// of a page outside is no longer wanted (`None`: every page).
-    pub fn set_held(&self, held: Option<(usize, usize)>) {
+    /// Tell which pages view `view` (0, or 1 in a split window) holds with
+    /// their pictures (`None`: none), when it draws them and before their
+    /// pictures are asked for: a view picture of a page that no view holds
+    /// is no longer wanted.
+    pub fn set_held_view(&self, view: usize, held: Option<(usize, usize)>) {
         let stale = {
             let mut s = self.shared.lock();
-            s.focus.held = held;
+            let Some(slot) = s.views.get_mut(view) else {
+                return;
+            };
+            if *slot == held {
+                return;
+            }
+            *slot = held;
             take_stale(&mut s)
         };
         answer_stale(&self.shared, stale);
@@ -437,7 +494,7 @@ impl RenderService {
         if matches!(req.lane, Lane::Thumb | Lane::Preview) {
             s.thumb_scale = Some(key.scale);
         }
-        if let Some(picture) = s.kept(&key) {
+        if let Some(picture) = self.shared.pool.get(self.shared.id, &key) {
             drop(s);
             bump(&self.shared.stats.reused, 1);
             reply(RenderAnswer::Picture(picture));
@@ -527,7 +584,6 @@ impl RenderService {
 
 impl Drop for RenderService {
     fn drop(&mut self) {
-        OPEN.fetch_sub(1, Ordering::Relaxed);
         let stale = {
             let mut s = self.shared.lock();
             s.stop = true;
@@ -541,6 +597,8 @@ impl Drop for RenderService {
         for t in self.threads.drain(..) {
             let _ = t.join();
         }
+        // The document closed: its pictures leave the pool.
+        self.shared.pool.retain(self.shared.id, |_| false);
     }
 }
 
@@ -662,10 +720,29 @@ fn shrink(pixels: &[u8], w: u32, h: u32, channels: usize, tw: u32, th: u32) -> V
 fn worker(shared: Arc<Shared>) {
     let mut held: Option<Taken> = None;
     loop {
-        let (generation, bytes) = {
-            let s = shared.lock();
-            (s.generation, s.bytes.clone())
+        // The document to draw from. A job taken for an older one is decided
+        // here, under the lock, so that the document changing again meanwhile
+        // cannot leave it waiting for ever: answered as no longer wanted when
+        // its page changed (or the service stops), else drawn from this one.
+        let (generation, bytes, dropped) = {
+            let mut s = shared.lock();
+            let mut dropped = Vec::new();
+            if let Some(taken) = held.as_mut() {
+                if s.stop || s.stale(&taken.job) {
+                    let key = taken.job.key;
+                    held = None;
+                    s.running = s.running.saturating_sub(1);
+                    dropped = s.waiting.remove(&key).unwrap_or_default();
+                } else {
+                    taken.generation = s.generation;
+                }
+            }
+            (s.generation, s.bytes.clone(), dropped)
         };
+        answer_stale(&shared, dropped);
+        if shared.lock().stop {
+            return;
+        }
         let pdf = load_pdf(bytes);
         let cache = RenderCache::new();
         loop {
@@ -752,7 +829,7 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
         s.running = s.running.saturating_sub(1);
         if let RenderAnswer::Picture(p) = &answer {
             if key.rev == s.rev_of(key.page) {
-                s.keep(key, p.clone());
+                shared.pool.keep(shared.id, key, p.clone());
             }
         }
         s.waiting.remove(&key).unwrap_or_default()
@@ -770,7 +847,7 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
         tile: None,
         ..key
     };
-    if shared.lock().kept.contains_key(&small_key) {
+    if shared.pool.contains(shared.id, &small_key) {
         return;
     }
     let Some(page) = pdf.pages().get(key.page) else {
@@ -797,7 +874,7 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
         if key.rev != s.rev_of(key.page) {
             return;
         }
-        s.keep(small_key, picture.clone());
+        shared.pool.keep(shared.id, small_key, picture.clone());
         // Requests of it waiting in the queue are answered now.
         s.queue.retain(|j| j.key != small_key);
         s.waiting.remove(&small_key).unwrap_or_default()
@@ -923,7 +1000,7 @@ mod tests {
     fn pages_outside_the_views_are_not_drawn() {
         let svc = RenderService::with_workers(doc(6), 1);
         svc.set_focus(Some((2, 3)), true);
-        svc.set_held(Some((1, 4)));
+        svc.set_held_view(0, Some((1, 4)));
         assert!(matches!(
             ask(&svc, req(0, 0.3, Lane::View, None)),
             RenderAnswer::Stale
@@ -941,6 +1018,103 @@ mod tests {
             ask(&svc, req(0, 0.2, Lane::Thumb, None)),
             RenderAnswer::Picture(_)
         ));
+    }
+
+    /// Sets its flag when dropped (a test that fails stops its helper thread).
+    struct StopOnDrop(Arc<std::sync::atomic::AtomicBool>);
+
+    impl Drop for StopOnDrop {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::Relaxed);
+        }
+    }
+
+    #[test]
+    fn quick_changes_of_the_document_leave_no_request_unanswered() {
+        use std::time::{Duration, Instant};
+        let bytes = doc(3);
+        let svc = Arc::new(RenderService::with_workers(bytes.clone(), 4));
+        let stop = StopOnDrop(Arc::new(std::sync::atomic::AtomicBool::new(false)));
+        // The document changes twice in a row, again and again (quick edits,
+        // the layers made default), while pictures are taken and drawn.
+        let changer = {
+            let (svc, stop, bytes) = (svc.clone(), stop.0.clone(), bytes.clone());
+            std::thread::spawn(move || {
+                while !stop.load(Ordering::Relaxed) {
+                    svc.replace(bytes.clone());
+                    svc.replace(bytes.clone());
+                    std::thread::sleep(Duration::from_micros(300));
+                }
+            })
+        };
+        let started = Instant::now();
+        let mut n = 0usize;
+        while started.elapsed() < Duration::from_secs(3) {
+            let (tx, rx) = std::sync::mpsc::channel();
+            svc.request(
+                req(n % 3, 0.2 + (n % 7) as f32 * 0.01, Lane::Other, None),
+                move |a| {
+                    let _ = tx.send(matches!(a, RenderAnswer::Picture(_)));
+                },
+            );
+            assert!(
+                rx.recv_timeout(Duration::from_secs(5)).is_ok(),
+                "request {n} not answered"
+            );
+            n += 1;
+        }
+        drop(stop);
+        changer.join().unwrap();
+        // Closing the document returns at once.
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            drop(Arc::try_unwrap(svc).ok());
+            let _ = tx.send(());
+        });
+        assert!(
+            rx.recv_timeout(Duration::from_secs(5)).is_ok(),
+            "closing the document does not return"
+        );
+    }
+
+    #[test]
+    fn the_pictures_kept_stay_within_one_budget_for_every_document() {
+        // A pool of its own, of about five pictures of a page at 50 %.
+        let budget = 2 * 1024 * 1024;
+        let pool = Arc::new(KeptPool::new(budget));
+        let bytes = doc(6);
+        let a = RenderService::with_pool(bytes.clone(), 1, pool.clone());
+        let b = RenderService::with_pool(bytes, 1, pool.clone());
+        // Whether the picture was drawn (not kept), and its bytes.
+        let drawn = |svc: &RenderService, page: usize| {
+            let before = svc.stats().rendered;
+            let RenderAnswer::Picture(p) = ask(svc, req(page, 0.5, Lane::Other, None)) else {
+                panic!("no picture of page {page}");
+            };
+            (svc.stats().rendered != before, p.png.len())
+        };
+        for page in 0..6 {
+            drawn(&a, page);
+            assert!(pool.bytes() <= budget, "{} bytes kept", pool.bytes());
+        }
+        for page in 0..6 {
+            drawn(&b, page);
+            assert!(pool.bytes() <= budget, "{} bytes kept", pool.bytes());
+        }
+        // The least recently used pictures went first, whatever their
+        // document: all those of the first one.
+        let (again, size) = drawn(&a, 5);
+        assert!(again, "a picture of the first document still kept");
+        assert!(!drawn(&b, 5).0, "the pictures used last are kept");
+        // A document closed gives its pictures back.
+        drop(b);
+        assert_eq!(
+            pool.bytes(),
+            size,
+            "only the picture of the first document is left"
+        );
+        drop(a);
+        assert_eq!(pool.bytes(), 0);
     }
 
     #[test]
@@ -962,10 +1136,47 @@ mod tests {
             let _ = tx.send((2, matches!(a, RenderAnswer::Picture(_))));
         });
         // The views no longer hold page 5; the pane still shows it.
-        svc.set_held(Some((0, 2)));
+        svc.set_held_view(0, Some((0, 2)));
         let mut got: Vec<(u8, bool)> = (0..3).map(|_| rx.recv().unwrap()).collect();
         got.sort();
         assert_eq!(got, vec![(0, true), (1, true), (2, true)]);
+    }
+
+    #[test]
+    fn the_pages_held_are_those_of_every_view() {
+        let svc = RenderService::with_workers(doc(12), 1);
+        svc.set_held_view(0, Some((5, 9)));
+        assert!(matches!(
+            ask(&svc, req(2, 0.3, Lane::View, None)),
+            RenderAnswer::Stale
+        ));
+        assert!(matches!(
+            ask(&svc, req(7, 0.3, Lane::View, None)),
+            RenderAnswer::Picture(_)
+        ));
+        // The other view of a split window holds pages 0 to 3.
+        svc.set_held_view(1, Some((0, 3)));
+        assert!(matches!(
+            ask(&svc, req(2, 0.3, Lane::View, None)),
+            RenderAnswer::Picture(_)
+        ));
+        // The first view jumped to page 11: its old pages are no longer held.
+        svc.set_held_view(0, Some((10, 11)));
+        assert!(matches!(
+            ask(&svc, req(7, 0.31, Lane::View, None)),
+            RenderAnswer::Stale
+        ));
+        assert!(matches!(
+            ask(&svc, req(11, 0.3, Lane::View, None)),
+            RenderAnswer::Picture(_)
+        ));
+        // Neither view holds anything: no page is refused.
+        svc.set_held_view(0, None);
+        svc.set_held_view(1, None);
+        assert!(matches!(
+            ask(&svc, req(7, 0.32, Lane::View, None)),
+            RenderAnswer::Picture(_)
+        ));
     }
 
     #[test]
@@ -1097,6 +1308,69 @@ mod tests {
         let mut beyond = req(0, scale, Lane::View, None);
         beyond.tile = Some((w / TILE + 2, 0));
         assert!(matches!(ask(&svc, beyond), RenderAnswer::Failed(_)));
+    }
+
+    #[test]
+    fn tiles_of_a_large_page_at_a_high_scale_are_where_the_views_put_them() {
+        use crate::testdocs::Builder;
+        // A0 at 600 % (the page view) and A1 at 800 % (the loupe at its
+        // largest): pictures wider than the largest whole picture drawn.
+        for ((w, h), scale) in [((2384.0f32, 3370.0f32), 6.0f32), ((1684.0, 2384.0), 8.0)] {
+            // A black square of 20 pt, its top left corner 1400 pt from the
+            // left and 2300 pt from the top of the page.
+            let (left, top, side) = (1400.0f32, 2300.0f32, 20.0f32);
+            let mut b = Builder::new();
+            let content = format!("0 g {left} {} {side} {side} re f", h - top - side);
+            b.page((w, h), content.into_bytes(), lopdf::Dictionary::new(), Vec::new());
+            let svc = RenderService::with_workers(Arc::new(b.finish()), 2);
+            // The grid the views lay out over the picture at that scale.
+            let (pw, ph) = ((w * scale) as u32, (h * scale) as u32);
+            let (cols, rows) = (pw.div_ceil(TILE), ph.div_ceil(TILE));
+            let tile = |c: u32, r: u32| {
+                let mut tile_req = req(0, scale, Lane::Other, None);
+                tile_req.tile = Some((c, r));
+                match ask(&svc, tile_req) {
+                    RenderAnswer::Picture(p) => image::load_from_memory(&p.png).unwrap().to_rgba8(),
+                    other => panic!("tile {c},{r} of {cols}x{rows} at {scale}: {other:?}"),
+                }
+            };
+            // Every tile of the grid has its size, the last ones too.
+            for (c, r) in [(0, 0), (cols - 1, 0), (0, rows - 1), (cols - 1, rows - 1)] {
+                let t = tile(c, r);
+                assert_eq!(
+                    t.width(),
+                    (TILE + 1).min(pw - c * TILE),
+                    "tile {c},{r} at {scale}"
+                );
+                assert_eq!(
+                    t.height(),
+                    (TILE + 1).min(ph - r * TILE),
+                    "tile {c},{r} at {scale}"
+                );
+            }
+            // The square is where the grid puts it: its middle black, just
+            // outside it white.
+            let at = |x: f32, y: f32| {
+                let (x, y) = ((x * scale) as u32, (y * scale) as u32);
+                let t = tile(x / TILE, y / TILE);
+                t.get_pixel(x % TILE, y % TILE).0
+            };
+            let black = at(left + side / 2.0, top + side / 2.0);
+            assert!(
+                black[..3].iter().all(|v| *v < 40),
+                "middle of the square at {scale}: {black:?}"
+            );
+            let white = at(left - 4.0, top + side / 2.0);
+            assert!(
+                white[..3].iter().all(|v| *v > 215),
+                "left of the square at {scale}: {white:?}"
+            );
+            let white = at(left + side / 2.0, top + side + 4.0);
+            assert!(
+                white[..3].iter().all(|v| *v > 215),
+                "under the square at {scale}: {white:?}"
+            );
+        }
     }
 
     #[test]

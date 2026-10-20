@@ -19,6 +19,11 @@ the MIT text with its authors when its licence allows MIT, and any other library
 stops the run. The release jobs put its output in every package as `THIRD-PARTY-LICENSES.txt`,
 and the CI runs it on every system.
 
+On Windows, `crates/folitecta/build.rs` gives the program its icon (made from the PNG icons of
+`assets/`), its version information and a manifest, through the resource compiler of the Windows
+tools, and `.cargo/config.toml` links the C runtime statically; the CI checks that the program
+does not import the Visual C++ runtime libraries.
+
 `crates/libxdo` takes the place of the crates.io bindings of the same name through
 `[patch.crates-io]`. The menu library of the interface toolkit uses libxdo for the predefined
 Copy, Cut, Paste and Select All items of native menus on Linux; Folitecta shows no native menu,

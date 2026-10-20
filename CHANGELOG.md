@@ -13,6 +13,9 @@ All notable changes to Folitecta are documented here. The format follows
   release). The macOS app also carries Folitecta's own `LICENSE`.
 
 ### Changed
+- The Windows program carries the C runtime itself, so it starts without the Visual C++
+  Redistributable installed, and it has its icon, its version (shown in the file properties) and
+  a manifest (the common controls of Windows 10 and 11 for the dialogs of the system).
 - The macOS app is signed ad hoc as a whole bundle (program, Info.plist and resources sealed
   together); it is still not notarized.
 

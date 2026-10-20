@@ -29,6 +29,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build
         run: cargo build --release --locked --package folitecta
+      - name: The program carries its C runtime
+        shell: pwsh
+        run: |
+          $text = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes("target/release/folitecta.exe"))
+          if ($text -cmatch 'VCRUNTIME140(_1)?\.dll') { Write-Output "::error::The program imports the Visual C++ runtime DLLs again (see .cargo/config.toml)."; exit 1 }
+          Write-Output "No import of VCRUNTIME140"
       - name: Package
         shell: pwsh
         run: |

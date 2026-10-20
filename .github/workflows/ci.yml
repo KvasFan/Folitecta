@@ -57,6 +57,13 @@ jobs:
         shell: bash
         run: |
           cargo run --locked --package folitecta-notices -- --target "$(rustc -vV | sed -n 's/^host: //p')" --out target/THIRD-PARTY-LICENSES.txt
+      - name: The Windows program carries its C runtime
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $text = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes("target/debug/folitecta.exe"))
+          if ($text -cmatch 'VCRUNTIME140(_1)?\.dll') { Write-Output "::error::The program imports the Visual C++ runtime DLLs again (see .cargo/config.toml)."; exit 1 }
+          Write-Output "No import of VCRUNTIME140"
       - name: The Linux program starts without libxdo
         if: runner.os == 'Linux'
         run: |

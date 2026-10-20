@@ -44,12 +44,6 @@ fn print_usage() {
     );
 }
 
-/// The memory allocator: the pictures drawn by the render threads and their
-/// rasterizer threads go back to the system once freed (the system
-/// allocator of Linux kept them in an area of each thread).
-#[global_allocator]
-static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.iter().any(|a| a == "--version" || a == "-V") {

@@ -18,6 +18,8 @@ All notable changes to Folitecta are documented here. The format follows
   a manifest (the common controls of Windows 10 and 11 for the dialogs of the system).
 - The macOS app is signed ad hoc as a whole bundle (program, Info.plist and resources sealed
   together); it is still not notarized.
+- The release and CI workflows use the current versions of their actions (Node.js 24); a
+  downloaded artifact whose digest does not match now stops the release.
 
 ### Fixed
 - The Linux program starts without libxdo. It needed `libxdo.so.3` only because the menu library

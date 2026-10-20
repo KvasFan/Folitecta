@@ -22,7 +22,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.RELEASE_TAG }}
       - uses: dtolnay/rust-toolchain@stable
@@ -57,7 +57,7 @@ jobs:
           $hash = (Get-FileHash "dist/$name.zip" -Algorithm SHA256).Hash.ToLower()
           # One line ending in LF, as on the other systems (checkers on macOS refuse CR LF).
           Set-Content -NoNewline -Encoding ascii -Path "dist/$name.zip.sha256" -Value "$hash  $name.zip`n"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows
           path: |
@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.RELEASE_TAG }}
       - uses: dtolnay/rust-toolchain@stable
@@ -118,7 +118,7 @@ jobs:
           sed -i 's/^          //' "dist/${NAME}/folitecta.desktop"
           tar -C dist -czf "dist/${NAME}.tar.gz" "${NAME}"
           (cd dist && sha256sum "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256")
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux
           path: |
@@ -130,7 +130,7 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.RELEASE_TAG }}
       - uses: dtolnay/rust-toolchain@stable
@@ -210,7 +210,7 @@ jobs:
           test -f "dist/${NAME}/fonts/FreeSans.ttf" && test ! -e "dist/${NAME}/fonts/source"
           tar -C dist -czf "dist/${NAME}.tar.gz" "${NAME}"
           (cd dist && shasum -a 256 "${NAME}.zip" > "${NAME}.zip.sha256" && shasum -a 256 "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256")
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos
           path: |
@@ -223,16 +223,16 @@ jobs:
     needs: [windows, linux, macos]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.RELEASE_TAG }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
       - name: List artifacts
         run: ls -la artifacts
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: Folitecta ${{ env.RELEASE_TAG }}
@@ -257,12 +257,12 @@ jobs:
       - name: Without a GitLab token
         if: env.GITLAB_TOKEN == ''
         run: echo "::warning::No GITLAB_TOKEN secret, so the GitLab release was not published."
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: env.GITLAB_TOKEN != ''
         with:
           ref: ${{ env.RELEASE_TAG }}
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         if: env.GITLAB_TOKEN != ''
         with:
           path: artifacts

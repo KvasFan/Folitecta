@@ -105,8 +105,9 @@ fn main() {
         .with_custom_head(format!("<meta charset=\"utf-8\"><style>{}</style>", theme::CSS))
         .with_disable_context_menu(!cfg!(debug_assertions))
         .with_background_color((238, 240, 246, 255))
-        // The environment of the web view is set by `gpu` instead.
-        .with_disable_dma_buf_on_wayland(false);
+        // The environment of the web view is set by `gpu`, which leaves it
+        // to the toolkit where the shared buffers are not known to be safe.
+        .with_disable_dma_buf_on_wayland(gpu::toolkit_decides());
     if let Some(icon) = icon {
         config = config.with_icon(icon);
     }

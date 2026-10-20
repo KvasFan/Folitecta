@@ -187,7 +187,6 @@ impl KeptPool {
     }
 
     /// The bytes of the pictures kept.
-    #[cfg(test)]
     fn bytes(&self) -> usize {
         self.lock().bytes
     }
@@ -197,6 +196,12 @@ impl KeptPool {
 fn kept_pool() -> Arc<KeptPool> {
     static POOL: std::sync::OnceLock<Arc<KeptPool>> = std::sync::OnceLock::new();
     POOL.get_or_init(|| Arc::new(KeptPool::new(KEPT_TOTAL))).clone()
+}
+
+/// The bytes of the pictures the render threads of every open document keep
+/// together (what the memory of the program holds for them).
+pub fn kept_bytes() -> usize {
+    kept_pool().bytes()
 }
 
 /// The number of the next render service (the key of its pictures kept).

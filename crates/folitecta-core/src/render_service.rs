@@ -662,10 +662,29 @@ fn shrink(pixels: &[u8], w: u32, h: u32, channels: usize, tw: u32, th: u32) -> V
 fn worker(shared: Arc<Shared>) {
     let mut held: Option<Taken> = None;
     loop {
-        let (generation, bytes) = {
-            let s = shared.lock();
-            (s.generation, s.bytes.clone())
+        // The document to draw from. A job taken for an older one is decided
+        // here, under the lock, so that the document changing again meanwhile
+        // cannot leave it waiting for ever: answered as no longer wanted when
+        // its page changed (or the service stops), else drawn from this one.
+        let (generation, bytes, dropped) = {
+            let mut s = shared.lock();
+            let mut dropped = Vec::new();
+            if let Some(taken) = held.as_mut() {
+                if s.stop || s.stale(&taken.job) {
+                    let key = taken.job.key;
+                    held = None;
+                    s.running = s.running.saturating_sub(1);
+                    dropped = s.waiting.remove(&key).unwrap_or_default();
+                } else {
+                    taken.generation = s.generation;
+                }
+            }
+            (s.generation, s.bytes.clone(), dropped)
         };
+        answer_stale(&shared, dropped);
+        if shared.lock().stop {
+            return;
+        }
         let pdf = load_pdf(bytes);
         let cache = RenderCache::new();
         loop {
@@ -941,6 +960,63 @@ mod tests {
             ask(&svc, req(0, 0.2, Lane::Thumb, None)),
             RenderAnswer::Picture(_)
         ));
+    }
+
+    /// Sets its flag when dropped (a test that fails stops its helper thread).
+    struct StopOnDrop(Arc<std::sync::atomic::AtomicBool>);
+
+    impl Drop for StopOnDrop {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::Relaxed);
+        }
+    }
+
+    #[test]
+    fn quick_changes_of_the_document_leave_no_request_unanswered() {
+        use std::time::{Duration, Instant};
+        let bytes = doc(3);
+        let svc = Arc::new(RenderService::with_workers(bytes.clone(), 4));
+        let stop = StopOnDrop(Arc::new(std::sync::atomic::AtomicBool::new(false)));
+        // The document changes twice in a row, again and again (quick edits,
+        // the layers made default), while pictures are taken and drawn.
+        let changer = {
+            let (svc, stop, bytes) = (svc.clone(), stop.0.clone(), bytes.clone());
+            std::thread::spawn(move || {
+                while !stop.load(Ordering::Relaxed) {
+                    svc.replace(bytes.clone());
+                    svc.replace(bytes.clone());
+                    std::thread::sleep(Duration::from_micros(300));
+                }
+            })
+        };
+        let started = Instant::now();
+        let mut n = 0usize;
+        while started.elapsed() < Duration::from_secs(3) {
+            let (tx, rx) = std::sync::mpsc::channel();
+            svc.request(
+                req(n % 3, 0.2 + (n % 7) as f32 * 0.01, Lane::Other, None),
+                move |a| {
+                    let _ = tx.send(matches!(a, RenderAnswer::Picture(_)));
+                },
+            );
+            assert!(
+                rx.recv_timeout(Duration::from_secs(5)).is_ok(),
+                "request {n} not answered"
+            );
+            n += 1;
+        }
+        drop(stop);
+        changer.join().unwrap();
+        // Closing the document returns at once.
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            drop(Arc::try_unwrap(svc).ok());
+            let _ = tx.send(());
+        });
+        assert!(
+            rx.recv_timeout(Duration::from_secs(5)).is_ok(),
+            "closing the document does not return"
+        );
     }
 
     #[test]

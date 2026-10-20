@@ -2,7 +2,10 @@
 //! two-page layouts, with Go To Page, a bookmark and a search result, every
 //! page in the window shows its picture and none of their pictures is
 //! refused (the render threads learn the pages a view holds as it draws
-//! them, not from its later report).
+//! them, not from its later report). A bookmark row pressed stays the same
+//! element (a row replaced before the release gets no click), and on Linux
+//! a bookmark clicked with the mouse, through the window toolkit, goes to
+//! its page.
 
 use serde_json::Value;
 
@@ -78,6 +81,60 @@ async fn check_jump(cx: &mut Ctx<'_>, name: &str, target: usize) {
             crate::perf::PAGE_OTHER.get() - before
         ),
     );
+}
+
+/// An event of the pointer given to the web view as the window toolkit gives
+/// those of the mouse (trusted input for the page): `kind` a GDK event type.
+#[cfg(target_os = "linux")]
+fn pointer_event(kind: i32, x: f64, y: f64, pressed: bool) -> bool {
+    use dioxus::desktop::wry::WebViewExtUnix;
+    use gtk::glib::translate::{FromGlibPtrFull, ToGlibPtr};
+    use gtk::prelude::*;
+    let window = dioxus::desktop::window();
+    let view = window.webview.webview();
+    let Some(gdk_window) = view.window() else {
+        return false;
+    };
+    let Some(pointer) = gdk_window.display().default_seat().and_then(|s| s.pointer()) else {
+        return false;
+    };
+    let state = if pressed {
+        gtk::gdk::ffi::GDK_BUTTON1_MASK
+    } else {
+        0
+    };
+    // SAFETY: the event is made by GDK for its type and every field written
+    // is of that type; the window and device given are alive, and the event
+    // owns its references once wrapped (`from_glib_full`).
+    unsafe {
+        let ev = gtk::gdk::ffi::gdk_event_new(kind);
+        let time = gtk::current_event_time().max(1);
+        if kind == gtk::gdk::ffi::GDK_MOTION_NOTIFY {
+            let m = &mut (*ev).motion;
+            m.window = gdk_window.to_glib_full();
+            (m.time, m.x, m.y, m.x_root, m.y_root, m.state) = (time, x, y, x, y, state);
+        } else {
+            let b = &mut (*ev).button;
+            b.window = gdk_window.to_glib_full();
+            (b.time, b.x, b.y, b.x_root, b.y_root, b.state, b.button) = (time, x, y, x, y, state, 1);
+        }
+        gtk::gdk::ffi::gdk_event_set_device(ev, pointer.to_glib_none().0);
+        let event = gtk::gdk::Event::from_glib_full(ev);
+        view.event(&event)
+    }
+}
+
+/// A click at (`x`, `y`) of the web view with the mouse: a move there, a
+/// press held 150 ms and a release.
+#[cfg(target_os = "linux")]
+async fn real_click(x: f64, y: f64) -> String {
+    let a = pointer_event(gtk::gdk::ffi::GDK_MOTION_NOTIFY, x, y, false);
+    pause(200).await;
+    let b = pointer_event(gtk::gdk::ffi::GDK_BUTTON_PRESS, x, y, false);
+    pause(150).await;
+    let c = pointer_event(gtk::gdk::ffi::GDK_BUTTON_RELEASE, x, y, true);
+    pause(300).await;
+    format!("input {a}/{b}/{c}")
 }
 
 /// Ask a far page with Go To Page (as the page number box, the thumbnails
@@ -175,6 +232,38 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             t.zoom = Zoom::Fixed(1.0);
         });
         pause(1500).await;
+        // A row pressed stays the same element until the release.
+        let kept = eval("const it = document.querySelectorAll('.bookmark-tree .tree-item')[1]; if (!it) return null; window.__jumpPressed = it; const r = it.getBoundingClientRect(); it.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: r.left + 30, clientY: r.top + 10 })); return true;").await;
+        pause(400).await;
+        let still = eval("const it = window.__jumpPressed; if (!it) return null; const kept = it.isConnected; const r = it.getBoundingClientRect(); it.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0, clientX: r.left + 30, clientY: r.top + 10 })); window.__jumpPressed = null; return kept;").await;
+        cx.record(
+            "jumps: a bookmark row pressed stays the same element",
+            still.as_ref().ok().and_then(Value::as_bool) == Some(true),
+            format!("pressed {kept:?}, still there at the release {still:?}"),
+        );
+        #[cfg(target_os = "linux")]
+        {
+            // A real click (press, 150 ms, release) through the window toolkit.
+            let _ = eval(ERRORS_JS).await;
+            let pos = eval("const it = document.querySelectorAll('.bookmark-tree .tree-item')[1]; if (!it) return null; const r = it.getBoundingClientRect(); return [r.left + 40, r.top + r.height / 2];").await.unwrap_or_default();
+            match pos
+                .as_array()
+                .and_then(|a| Some((a.first()?.as_f64()?, a.get(1)?.as_f64()?)))
+            {
+                Some((x, y)) => {
+                    let input = real_click(x, y).await;
+                    check_jump(
+                        cx,
+                        &format!("jumps: bookmark 2 clicked with the mouse goes to page 121 ({input})"),
+                        120,
+                    )
+                    .await;
+                }
+                None => cx.record("jumps: the bookmark row is there", false, pos.to_string()),
+            }
+            st.navigate(0, false);
+            pause(800).await;
+        }
         for (i, target) in [(0usize, 350usize), (1, 120)] {
             let _ = eval(ERRORS_JS).await;
             let _ = eval(&format!("const it = document.querySelectorAll('.bookmark-tree .tree-item')[{i}]; if (it) it.click(); return !!it;")).await;

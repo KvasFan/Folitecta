@@ -169,7 +169,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     // Drag the third bookmark onto the lower part of the first: it goes after it.
     pause(300).await;
     // The press, then the moves a moment later, as a hand would do them (the
-    // rows follow the moves only once a drag has started).
+    // page script of the pane follows the moves once a row is pressed).
     let _ = eval(
         "const items = [...document.querySelectorAll('.bookmark-tree .tree-item')]; const src = items[2]; if (src) { const s = src.getBoundingClientRect(); src.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: s.left + 30, clientY: s.top + 10 })); }",
     )

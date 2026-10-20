@@ -21,7 +21,7 @@ Command-level detail (1981 registry commands: 1445 available, 59 partial, 477 pl
 | Item | Requirement | State |
 |---|---|---|
 | Checks on real devices and services: printing on real printers (Linux, macOS, Windows), e-mail through real mail programs, time stamp and OCSP/CRL servers on the internet | FOL-L046, FOL-L053, FOL-C006, FOL-L040 | ⬜ to be done by hand; the tests and the self-test use stand-ins (a test printer, stand-in `xdg-email` programs, local servers on 127.0.0.1) |
-| Speed on HiDPI screens and with pinch zoom (measured so far at pixel ratio 1 in a nested compositor); less memory for the pictures kept; decoded JPEG pictures kept between renders | FOL-L001 | ⬜ after 0.2.1, which made scrolling and zoom smooth on long documents |
+| Speed on HiDPI screens and with pinch zoom (measured so far at pixel ratio 1 in a nested compositor); decoded JPEG pictures kept between renders | FOL-L001 | ⬜ after 0.2.1, which made scrolling and zoom smooth on long documents |
 
 ## Next releases
 

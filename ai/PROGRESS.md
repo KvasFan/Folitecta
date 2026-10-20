@@ -41,12 +41,32 @@ checked, what is still open. The history before October 2026 is in
   scrolling 41–44 ms (401–409 ms); six Ctrl+wheel steps sharp after 107–124 ms (556–577 ms);
   a text selection press 3 ms (203–208 ms). On the 50-page document: dynamic zoom sharp after
   0.20–0.22 s (2.36–2.38 s). Synchronous event requests while scrolling or hovering: 0 (91–241).
+- **Review fixes:** 275e0ae (a render thread no longer loops when the document changes twice in
+  a row), c0a4c14 (tiles of large pages at high zoom drawn at their scale), 66f90d0 (one picture
+  store of 256 MB for every document, freed on close), e55722d (each view tells the render threads
+  which pages it holds before asking their pictures; failed pictures asked again at most 3 times;
+  self-test step `jumps`), e965678 (bookmark rows keep their element on press, so clicks reach
+  them), d90276e (picture addresses only grow; numbers hashed by value, so an undo no longer
+  redraws untouched pages), 3860324 (GPU composition only with a render node, no NVIDIA driver and
+  no virtual machine), 7925709 (the `perf` step measures Go To Page). Each with a test that failed
+  before. Go To Page to a far page of the 1000-page document is sharp after 42–44 ms (0.2.0:
+  394–400 ms). Memory round (merge 1d58434): glibc kept the pictures' memory in 26 per-thread
+  arenas (999 of 1224 MB at the peak); f6a191a makes mimalloc the global allocator of the program
+  and 4ce4145 lowers the picture store to 128 MB. Interface process, 0.2.0 → final: peak 927–964 →
+  901–1021 MB; after the 50-page document 475–478 → 597–616 MB; after the 1000-page document
+  798–808 → 640–695 MB; speed unchanged. Second review fixes: 0bf05b0 (integers hashed as
+  integers), 767c52e (a failed picture is drawn once per address), 9cb36c3 (a thumbnail asked
+  with a preview set aside is no longer dropped), 19d242f (virtual machines found by their
+  graphics driver), 2a2bad0 and f2f857f (real clicks with increasing times; `jumps` covers the
+  split window and tab switching), 5a4a955 (stress tests of the render service).
 - **Open:** pinch zoom and real HiDPI screens not measured (the nested compositor gives a pixel
   ratio of 1); decoded JPEG pictures not kept between renders; the document is serialized on the
-  interface thread at each commit (about 10 ms at 1000 pages); slower than 0.2.0: a jump far
-  away (40–55 ms instead of about 10 ms), thumbnails of heavy drawings (0.36 s instead of
-  0.18 s), 400 % zoom on the 50-page document (0.19–0.26 s instead of 0.17 s); about 300–400 MB
-  more memory at the end of the probe.
+  interface thread at each commit (about 10 ms at 1000 pages); slower than 0.2.0: a jump with the
+  scroll bar (33–48 ms instead of 0–11 ms for pages 0.2.0 kept in the page), thumbnails of heavy
+  drawings (0.36 s instead of 0.18 s), 400 % zoom on the 50-page document (0.19–0.26 s instead of
+  0.17 s); throughput of the render service with 3–4 threads on light pages up to about 10 %
+  lower with mimalloc; the 128 MB picture store holds about 85 text pages at 100 % but about 5 at
+  scale 4.
 
 ## 2026-10-19 — FOL-L023/S02: drawing and writing on the selected layer
 

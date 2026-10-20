@@ -68,16 +68,23 @@ All notable changes to Folitecta are documented here. The format follows
     0.2–0.4 s.
   - Each document has one drawing queue (the pages shown first, then those ahead, thumbnails
     last); a picture asked for twice is drawn once and one no longer shown is not drawn; a page
-    drawn alone uses several threads; recent pictures are kept (256 MB for all documents); a page
+    drawn alone uses several threads; recent pictures are kept (128 MB for all documents); a page
     shows its small picture until the sharp one comes.
   - Zoom scales the pictures shown at once and draws new ones when it has stayed the same for
     90 ms; at high zoom pages and the loupe are drawn in 512-pixel tiles. Six Ctrl+wheel steps
-    are sharp after 0.11–0.14 s instead of 0.45–0.58 s.
+    are sharp after 0.11–0.14 s instead of 0.47–0.58 s; a dynamic zoom drag on a 50-page document
+    is sharp after 0.2 s instead of 2.4–2.7 s.
   - An edit draws again only the pages it touched, and the text of the pages is kept when
     comments change.
-  - Linux: the page view is composited on the graphics card (WebKitGTK's shared buffers stay on
-    except with the NVIDIA driver; `FOLITECTA_GPU=off`, `on` or `no-shared-buffers` overrides).
-  - The interface uses more memory than 0.2.0 (about 300–400 MB more on long documents).
+  - Go To Page, bookmarks, search results and thumbnails jump to a far page that is sharp after
+    about 40 ms on a 1000-page document (0.2.0: about 0.4 s for a page not seen before).
+  - Linux: the page view is composited on the graphics card where that is known to be safe (a
+    graphics card with a render node, a driver other than NVIDIA's, not a virtual machine);
+    elsewhere the setting of 0.2.0 stays. `FOLITECTA_GPU=off`, `on` or `no-shared-buffers`
+    overrides the choice.
+  - The program allocates its memory with mimalloc, which gives the memory of pictures back to the
+    system: the interface uses about as much memory as 0.2.0 (at most about 140 MB more, for the
+    pictures it keeps to show pages again at once) and less on long documents.
 - Signing, certifying and time-stamping a protected document write a file encrypted like the
   document, and saving a signed protected document keeps its signatures valid (encrypted
   incremental update). Documents made from a protected document are protected like it; pages,

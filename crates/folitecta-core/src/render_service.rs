@@ -1176,6 +1176,69 @@ mod tests {
     }
 
     #[test]
+    fn tiles_of_a_large_page_at_a_high_scale_are_where_the_views_put_them() {
+        use crate::testdocs::Builder;
+        // A0 at 600 % (the page view) and A1 at 800 % (the loupe at its
+        // largest): pictures wider than the largest whole picture drawn.
+        for ((w, h), scale) in [((2384.0f32, 3370.0f32), 6.0f32), ((1684.0, 2384.0), 8.0)] {
+            // A black square of 20 pt, its top left corner 1400 pt from the
+            // left and 2300 pt from the top of the page.
+            let (left, top, side) = (1400.0f32, 2300.0f32, 20.0f32);
+            let mut b = Builder::new();
+            let content = format!("0 g {left} {} {side} {side} re f", h - top - side);
+            b.page((w, h), content.into_bytes(), lopdf::Dictionary::new(), Vec::new());
+            let svc = RenderService::with_workers(Arc::new(b.finish()), 2);
+            // The grid the views lay out over the picture at that scale.
+            let (pw, ph) = ((w * scale) as u32, (h * scale) as u32);
+            let (cols, rows) = (pw.div_ceil(TILE), ph.div_ceil(TILE));
+            let tile = |c: u32, r: u32| {
+                let mut tile_req = req(0, scale, Lane::Other, None);
+                tile_req.tile = Some((c, r));
+                match ask(&svc, tile_req) {
+                    RenderAnswer::Picture(p) => image::load_from_memory(&p.png).unwrap().to_rgba8(),
+                    other => panic!("tile {c},{r} of {cols}x{rows} at {scale}: {other:?}"),
+                }
+            };
+            // Every tile of the grid has its size, the last ones too.
+            for (c, r) in [(0, 0), (cols - 1, 0), (0, rows - 1), (cols - 1, rows - 1)] {
+                let t = tile(c, r);
+                assert_eq!(
+                    t.width(),
+                    (TILE + 1).min(pw - c * TILE),
+                    "tile {c},{r} at {scale}"
+                );
+                assert_eq!(
+                    t.height(),
+                    (TILE + 1).min(ph - r * TILE),
+                    "tile {c},{r} at {scale}"
+                );
+            }
+            // The square is where the grid puts it: its middle black, just
+            // outside it white.
+            let at = |x: f32, y: f32| {
+                let (x, y) = ((x * scale) as u32, (y * scale) as u32);
+                let t = tile(x / TILE, y / TILE);
+                t.get_pixel(x % TILE, y % TILE).0
+            };
+            let black = at(left + side / 2.0, top + side / 2.0);
+            assert!(
+                black[..3].iter().all(|v| *v < 40),
+                "middle of the square at {scale}: {black:?}"
+            );
+            let white = at(left - 4.0, top + side / 2.0);
+            assert!(
+                white[..3].iter().all(|v| *v > 215),
+                "left of the square at {scale}: {white:?}"
+            );
+            let white = at(left + side / 2.0, top + side + 4.0);
+            assert!(
+                white[..3].iter().all(|v| *v > 215),
+                "under the square at {scale}: {white:?}"
+            );
+        }
+    }
+
+    #[test]
     fn shrinking_averages_the_pixels() {
         let px = vec![0u8, 0, 0, 255, 255, 255, 0, 0, 0, 255, 255, 255];
         // 4×1 RGB to 2×1.

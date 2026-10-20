@@ -206,6 +206,25 @@ pub fn kept_bytes() -> usize {
     kept_pool().bytes()
 }
 
+/// What the program does when the render threads of a document have drawn
+/// and have nothing more to do, and when a document closes (on Linux, give
+/// the memory freed back to the system): set once by [`on_idle`].
+static IDLE_HOOK: std::sync::OnceLock<fn()> = std::sync::OnceLock::new();
+
+/// Set what the program does when the render threads of a document go idle
+/// after drawing or a document closes. It runs on a render thread (or the
+/// thread closing the document) and must be quick; set once, later calls
+/// are ignored.
+pub fn on_idle(hook: fn()) {
+    let _ = IDLE_HOOK.set(hook);
+}
+
+fn idle() {
+    if let Some(hook) = IDLE_HOOK.get() {
+        hook();
+    }
+}
+
 /// How long a picture that failed fails at once when asked again.
 const FAILED_FOR: std::time::Duration = std::time::Duration::from_secs(10);
 
@@ -278,6 +297,8 @@ struct State {
     /// script tries a picture again after an error) they fail at once
     /// instead of being drawn again.
     failed: HashMap<Key, (std::time::Instant, String)>,
+    /// How long a failure is answered at once ([`FAILED_FOR`]).
+    failed_for: std::time::Duration,
     focus: Focus,
     /// The pages each view (of a split window: two) holds with their
     /// pictures, as the views draw them: a view picture of a page that no
@@ -289,6 +310,8 @@ struct State {
     /// Jobs being drawn.
     running: usize,
     stop: bool,
+    /// Pictures were drawn since the threads last had nothing to do.
+    drawn_since_idle: bool,
 }
 
 impl State {
@@ -400,11 +423,13 @@ impl RenderService {
                 seq: 0,
                 waiting: HashMap::new(),
                 failed: HashMap::new(),
+                failed_for: FAILED_FOR,
                 focus: Focus::default(),
                 views: [None; 2],
                 thumb_scale: None,
                 running: 0,
                 stop: false,
+                drawn_since_idle: false,
             }),
             wake: Condvar::new(),
             stats: StatCounters::default(),
@@ -468,6 +493,9 @@ impl RenderService {
             if let Some(bytes) = bytes {
                 s.bytes = bytes;
                 s.generation += 1;
+                // A failure may be one of the bytes (unreadable), not of the
+                // page: new bytes are tried again.
+                s.failed.clear();
             }
             s.rev = rev;
             s.page_revs = page_revs;
@@ -534,7 +562,7 @@ impl RenderService {
             return;
         }
         if let Some((at, why)) = s.failed.get(&key) {
-            if at.elapsed() < FAILED_FOR {
+            if at.elapsed() < s.failed_for {
                 let why = why.clone();
                 drop(s);
                 reply(RenderAnswer::Failed(why));
@@ -640,6 +668,7 @@ impl Drop for RenderService {
         }
         // The document closed: its pictures leave the pool.
         self.shared.pool.retain(self.shared.id, |_| false);
+        idle();
     }
 }
 
@@ -715,6 +744,15 @@ fn next_job(shared: &Shared) -> Option<Taken> {
                 threads: if alone { extra_threads() } else { 0 },
             });
         }
+        // Nothing more to draw after drawing: the program may give the
+        // memory freed back to the system.
+        if s.running == 0 && s.drawn_since_idle {
+            s.drawn_since_idle = false;
+            drop(s);
+            idle();
+            s = shared.lock();
+            continue;
+        }
         s = shared.wake.wait(s).unwrap_or_else(|e| e.into_inner());
     }
 }
@@ -783,13 +821,17 @@ fn worker(shared: Arc<Shared>) {
         // here, under the lock, so that the document changing again meanwhile
         // cannot leave it waiting for ever: answered as no longer wanted when
         // its page changed (or the service stops), else drawn from this one.
-        let (generation, bytes, dropped) = {
+        // Whether the service stops is read in the same hold of the lock as
+        // the decision about the job set aside (which answers it then): read
+        // apart, the service could stop in between and the job kept would be
+        // left with its askers unanswered.
+        let (generation, bytes, dropped, stop) = {
             let mut s = shared.lock();
             let dropped = settle_taken(&mut s, &mut held);
-            (s.generation, s.bytes.clone(), dropped)
+            (s.generation, s.bytes.clone(), dropped, s.stop)
         };
         answer_stale(&shared, dropped);
-        if shared.lock().stop {
+        if stop {
             return;
         }
         let pdf = load_pdf(bytes);
@@ -876,12 +918,14 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
     let replies = {
         let mut s = shared.lock();
         s.running = s.running.saturating_sub(1);
+        s.drawn_since_idle = true;
         match &answer {
             RenderAnswer::Picture(p) if key.rev == s.rev_of(key.page) => {
                 shared.pool.keep(shared.id, key, p.clone());
             }
             RenderAnswer::Failed(why) => {
-                s.failed.retain(|_, (at, _)| at.elapsed() < FAILED_FOR);
+                let failed_for = s.failed_for;
+                s.failed.retain(|_, (at, _)| at.elapsed() < failed_for);
                 s.failed.insert(key, (std::time::Instant::now(), why.clone()));
             }
             _ => {}
@@ -1444,6 +1488,112 @@ mod tests {
             RenderAnswer::Failed(_)
         ));
         assert_eq!(svc.stats().rendered, before + 1);
+    }
+
+    /// The times the idle hook ran (one hook for the whole process).
+    static IDLE_CALLS: AtomicU64 = AtomicU64::new(0);
+
+    #[test]
+    fn the_program_hears_when_the_threads_go_idle_and_when_a_document_closes() {
+        on_idle(|| {
+            IDLE_CALLS.fetch_add(1, Ordering::SeqCst);
+        });
+        let svc = RenderService::with_workers(doc(3), 2);
+        let before = IDLE_CALLS.load(Ordering::SeqCst);
+        // A burst of pictures: told once it is drawn (other tests' services
+        // may tell too, so at least once).
+        let (tx, rx) = std::sync::mpsc::channel();
+        for p in 0..3 {
+            let tx = tx.clone();
+            svc.request(req(p, 0.4, Lane::Other, None), move |_| {
+                let _ = tx.send(());
+            });
+        }
+        for _ in 0..3 {
+            rx.recv().unwrap();
+        }
+        let started = std::time::Instant::now();
+        while IDLE_CALLS.load(Ordering::SeqCst) == before && started.elapsed().as_secs() < 5 {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(
+            IDLE_CALLS.load(Ordering::SeqCst) > before,
+            "not told after the burst"
+        );
+        // Pictures kept are answered without drawing: no new burst.
+        let after_burst = IDLE_CALLS.load(Ordering::SeqCst);
+        drop(svc);
+        assert!(
+            IDLE_CALLS.load(Ordering::SeqCst) > after_burst,
+            "not told when it closed"
+        );
+    }
+
+    #[test]
+    fn a_failure_of_unreadable_bytes_ends_with_good_bytes() {
+        let good = doc(3);
+        let svc = RenderService::with_workers(good.clone(), 1);
+        svc.replace_pages(good.clone(), vec![5, 5, 5]);
+        // An edit of page 3 gives bytes that cannot be read: page 1, which
+        // did not change, fails with them.
+        svc.replace_pages(Arc::new(b"%PDF-1.7\nnot a document".to_vec()), vec![5, 5, 6]);
+        assert!(matches!(
+            ask(&svc, req(0, 0.5, Lane::Other, None)),
+            RenderAnswer::Failed(_)
+        ));
+        // Undone: the bytes are good again and page 1 still at revision 5.
+        svc.replace_pages(good, vec![5, 5, 7]);
+        assert!(matches!(
+            ask(&svc, req(0, 0.5, Lane::Other, None)),
+            RenderAnswer::Picture(_)
+        ));
+    }
+
+    #[test]
+    fn a_picture_that_failed_is_tried_again_after_a_while() {
+        let svc = RenderService::with_workers(doc(3), 1);
+        svc.shared.lock().failed_for = std::time::Duration::from_millis(60);
+        let before = svc.stats().rendered;
+        for _ in 0..3 {
+            assert!(matches!(
+                ask(&svc, req(7, 0.5, Lane::View, None)),
+                RenderAnswer::Failed(_)
+            ));
+        }
+        assert_eq!(svc.stats().rendered, before + 1);
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        assert!(matches!(
+            ask(&svc, req(7, 0.5, Lane::View, None)),
+            RenderAnswer::Failed(_)
+        ));
+        assert_eq!(
+            svc.stats().rendered,
+            before + 2,
+            "tried again once the time passed"
+        );
+    }
+
+    #[test]
+    fn a_document_closed_right_after_new_bytes_answers_every_request() {
+        use std::sync::atomic::AtomicUsize;
+        let bytes = doc(4);
+        for round in 0..200u64 {
+            let svc = RenderService::with_workers(bytes.clone(), 8);
+            let answered = Arc::new(AtomicUsize::new(0));
+            for i in 0..40 {
+                let answered = answered.clone();
+                svc.request(req(i % 4, 0.2 + i as f32 * 0.01, Lane::Other, None), move |_| {
+                    answered.fetch_add(1, Ordering::SeqCst);
+                });
+            }
+            // New bytes of the same revision (an undo of an edit of another
+            // page, the layers made default): the threads set their jobs
+            // aside to parse them, and the document closes meanwhile.
+            svc.replace_rev(bytes.clone(), 0);
+            std::thread::sleep(std::time::Duration::from_micros(250 * (round % 12)));
+            drop(svc);
+            assert_eq!(answered.load(Ordering::SeqCst), 40, "round {round}");
+        }
     }
 
     #[test]

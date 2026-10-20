@@ -1159,12 +1159,24 @@ async fn document_scenarios(p: &mut Probe<'_, '_>, doc: &str, pages: usize, byte
     // Of the interface process: the pictures the render threads keep.
     let kept = folitecta_core::render_service::kept_bytes() as f64 / (1024.0 * 1024.0);
     m.insert("pictures_kept_mb".into(), json!(kept));
+    // Freed memory given back to the system so far (Linux): times, time.
+    m.insert("trims".into(), json!(crate::perf::TRIMS.get()));
+    m.insert(
+        "trim_ms".into(),
+        json!(crate::perf::TRIM_US.get() as f64 / 1000.0),
+    );
     p.record(
         doc,
         "memory",
         vec![m],
         true,
-        &["ui_process_mb", "web_processes_mb", "pictures_kept_mb"],
+        &[
+            "ui_process_mb",
+            "web_processes_mb",
+            "pictures_kept_mb",
+            "trims",
+            "trim_ms",
+        ],
     );
 
     st.set_tool(Tool::Hand);

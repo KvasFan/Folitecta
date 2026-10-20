@@ -11,6 +11,7 @@ mod http;
 mod i18n;
 mod icons;
 mod mail;
+mod memory;
 mod perf;
 mod printing;
 mod private_files;
@@ -43,12 +44,6 @@ fn print_usage() {
         folitecta_core::VERSION
     );
 }
-
-/// The memory allocator: the pictures drawn by the render threads and their
-/// rasterizer threads go back to the system once freed (the system
-/// allocator of Linux kept them in an area of each thread).
-#[global_allocator]
-static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -99,6 +94,8 @@ fn main() {
     // Hardware acceleration of the web view: decided before the window and
     // its web process start.
     gpu::prepare_environment();
+    // Freed memory goes back to the system (Linux).
+    memory::set_up();
     let icon = icon_from_memory::<Icon>(ICON_PNG).ok();
     let window = WindowBuilder::new()
         .with_title("Folitecta")

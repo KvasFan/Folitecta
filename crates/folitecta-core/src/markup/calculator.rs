@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::document::Document;
 use crate::error::{Error, Result};
-use crate::util::{fmt_num, helvetica_width, pdf_literal};
+use crate::fonts::{GlyphProblem, TextWriter, previous_font};
+use crate::util::fmt_num;
 
 /// `/Name` of the stamp comments that hold a tape.
 pub const CALC_STAMP: &str = "FolitectaCalculator";
@@ -214,10 +215,31 @@ impl Tape {
         size * 1.35 * lines as f32 + size * 1.2
     }
 
-    /// Content stream drawing the tape inside `rect` (PDF space).
-    pub fn content(&self, rect: [f32; 4]) -> String {
+    /// The text the tape shows: the date, the comments, the values and the
+    /// signs of the operations.
+    fn shown_texts(&self) -> Vec<String> {
+        let mut texts = Vec::new();
+        if self.show_date && !self.date.is_empty() {
+            texts.push(self.date.clone());
+        }
+        for (comment, value, _, _) in self.rows() {
+            texts.push(comment);
+            texts.push(value);
+        }
+        texts.push(self.format(self.total()));
+        texts.push("+-×÷=T".into());
+        texts
+    }
+
+    /// Content stream drawing the tape inside `rect` (PDF space), and the
+    /// writer of its text, whose font goes in the resources of the drawing
+    /// ([`Document::drawing_resources`]). Text that cannot be drawn is
+    /// refused before anything is drawn.
+    pub(crate) fn drawing(&self, rect: [f32; 4]) -> std::result::Result<(String, TextWriter), GlyphProblem> {
         let f = fmt_num;
         let s = &self.style;
+        let texts = self.shown_texts();
+        let mut writer = TextWriter::for_pieces(texts.iter().map(String::as_str))?;
         let (x0, y0, x1, y1) = (rect[0], rect[1], rect[2], rect[3]);
         let mut c = String::new();
         if let Some(bg) = s.background {
@@ -237,29 +259,34 @@ impl Tape {
         let pad = size * 0.6;
         let tc = s.text_color;
         let mut y = y1 - pad - size * 0.85;
-        let mut text = |font: &str, x: f32, y: f32, t: &str| {
-            c.push_str(&format!(
-                "BT /{font} {} Tf {} {} {} rg {} {} Td {} Tj ET\n",
-                f(size),
-                f(tc[0]),
-                f(tc[1]),
-                f(tc[2]),
-                f(x),
-                f(y),
-                String::from_utf8_lossy(&pdf_literal(t))
-            ));
-        };
-        let op_w = helvetica_width("*", size) * 1.6;
+        let place = |x: f32, y: f32| format!("{} {} Td", f(x), f(y));
+        let op_w = writer.width("*", size) * 1.6;
         let right = x1 - pad - op_w;
         if self.show_date && !self.date.is_empty() {
-            text("TR", x0 + pad, y, &self.date);
+            let date = writer.piece(&self.date);
+            c.push_str(&writer.text_object(
+                &date,
+                size,
+                Some(tc),
+                &place(x0 + pad, y),
+                false,
+                ("TR", "TB"),
+            )?);
+            c.push('\n');
             y -= lead;
         }
         for (comment, value, op, total) in self.rows() {
-            let font = if total { "TB" } else { "TR" };
             let factor = if total { 1.06 } else { 1.0 };
-            let vw = helvetica_width(&value, size) * factor;
-            text(font, right - vw, y, &value);
+            let vw = writer.width(&value, size) * factor;
+            c.push_str(&writer.text_object(
+                &value,
+                size,
+                Some(tc),
+                &place(right - vw, y),
+                total,
+                ("TR", "TB"),
+            )?);
+            c.push('\n');
             let opt = if op == '*' {
                 "×".to_string()
             } else if op == '/' {
@@ -267,16 +294,33 @@ impl Tape {
             } else {
                 op.to_string()
             };
-            text(font, right + op_w * 0.3, y, &opt);
+            c.push_str(&writer.text_object(
+                &opt,
+                size,
+                Some(tc),
+                &place(right + op_w * 0.3, y),
+                total,
+                ("TR", "TB"),
+            )?);
+            c.push('\n');
+            let comment = writer.piece(&comment);
             if !comment.is_empty() {
                 // The comment fills the room left of the value.
                 let room = (right - vw - x0 - 2.0 * pad).max(0.0);
-                let mut shown = comment.clone();
-                while !shown.is_empty() && helvetica_width(&shown, size) > room {
+                let mut shown = comment;
+                while !shown.is_empty() && writer.width(&shown, size) > room {
                     shown.pop();
                 }
                 if !shown.is_empty() {
-                    text("TR", x0 + pad, y, &shown);
+                    c.push_str(&writer.text_object(
+                        &shown,
+                        size,
+                        Some(tc),
+                        &place(x0 + pad, y),
+                        false,
+                        ("TR", "TB"),
+                    )?);
+                    c.push('\n');
                 }
             }
             y -= lead;
@@ -293,21 +337,18 @@ impl Tape {
             f(y + size * 1.05)
         ));
         let total = self.format(self.total());
-        let tw = helvetica_width(&total, size) * 1.06;
-        let mut text2 = |font: &str, x: f32, t: &str| {
-            c.push_str(&format!(
-                "BT /{font} {} Tf {} {} {} rg {} {} Td {} Tj ET\n",
-                f(size),
-                f(tc[0]),
-                f(tc[1]),
-                f(tc[2]),
-                f(x),
-                f(y),
-                String::from_utf8_lossy(&pdf_literal(t))
-            ));
-        };
-        text2("TB", right - tw, &total);
-        text2("TB", right + op_w * 0.3, "T");
+        let tw = writer.width(&total, size) * 1.06;
+        c.push_str(&writer.text_object(&total, size, Some(tc), &place(right - tw, y), true, ("TR", "TB"))?);
+        c.push('\n');
+        c.push_str(&writer.text_object(
+            "T",
+            size,
+            Some(tc),
+            &place(right + op_w * 0.3, y),
+            true,
+            ("TR", "TB"),
+        )?);
+        c.push('\n');
         if s.border_width > 0.0 {
             let b = s.border_color;
             let hw = s.border_width / 2.0;
@@ -324,7 +365,7 @@ impl Tape {
                 f(y1 - y0 - s.border_width)
             ));
         }
-        c
+        Ok((c, writer))
     }
 }
 
@@ -343,14 +384,22 @@ impl Document {
         let top = rect[1].max(rect[3]);
         let r = [x0, top - tape.height(), x1, top];
         let json = serde_json::to_string(tape).map_err(|e| Error::Invalid(e.to_string()))?;
+        // Text that cannot be drawn is refused before the document changes.
+        let (content, writer) = tape.drawing(r)?;
         self.begin_edit();
         let mut annot =
             self.base_annotation(page_id, "Stamp", r, author, &tape.text(), tape.style.border_color);
         annot.set("Name", Object::Name(CALC_STAMP.as_bytes().to_vec()));
         annot.set("Subj", lopdf::text_string("Accounting Calculator"));
         annot.set("FolitectaCalc", Object::string_literal(json));
-        let res = self.table_resources();
-        self.add_appearance(&mut annot, r, tape.content(r), res);
+        let res = match self.drawing_resources(writer, None) {
+            Ok(res) => res,
+            Err(e) => {
+                self.abandon_edit();
+                return Err(e);
+            }
+        };
+        self.add_appearance(&mut annot, r, content, res);
         let id = self.push_drawn_annotation(page_id, annot)?;
         self.commit()?;
         Ok(id)
@@ -380,16 +429,25 @@ impl Document {
             .ok_or_else(|| Error::Invalid("calculator not found".into()))?;
         let r = [old[0], old[3] - tape.height(), old[2], old[3]];
         let json = serde_json::to_string(tape).map_err(|e| Error::Invalid(e.to_string()))?;
-        self.begin_edit();
-        let res = self.table_resources();
+        // Text that cannot be drawn is refused before the document changes.
+        let (content, writer) = tape.drawing(r)?;
         let mut annot = self.inner.get_dictionary(id)?.clone();
+        let previous = previous_font(&self.inner, &annot, &writer);
+        self.begin_edit();
+        let res = match self.drawing_resources(writer, previous) {
+            Ok(res) => res,
+            Err(e) => {
+                self.abandon_edit();
+                return Err(e);
+            }
+        };
         annot.set("FolitectaCalc", Object::string_literal(json));
         annot.set("Contents", lopdf::text_string(&tape.text()));
         annot.set(
             "Rect",
             Object::Array(r.iter().map(|v| Object::Real(*v)).collect()),
         );
-        self.add_appearance(&mut annot, r, tape.content(r), res);
+        self.add_appearance(&mut annot, r, content, res);
         *self.inner.get_dictionary_mut(id)? = annot;
         self.commit()
     }
@@ -456,7 +514,8 @@ mod tests {
         let rows = t.rows();
         assert_eq!(rows[2], (String::new(), "74.50".to_string(), '=', true));
         assert_eq!(t.text(), "100.00 +  Rent\n25.50 -\n74.50 =\n74.50 T");
-        let c = t.content([0.0, 0.0, 150.0, t.height()]);
+        let (c, writer) = t.drawing([0.0, 0.0, 150.0, t.height()]).unwrap();
+        assert!(writer.is_standard());
         assert!(c.contains("(Rent) Tj") && c.contains("(74.50) Tj"));
     }
 }

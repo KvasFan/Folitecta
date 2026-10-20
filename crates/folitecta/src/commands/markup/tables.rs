@@ -199,13 +199,16 @@ fn delete_table(st: AppState) {
     crate::commands::core_result(st, r);
 }
 
-/// Write the edited table into the document.
-pub fn apply(st: AppState) {
+/// Write the edited table into the document; false when it was refused
+/// (the reason is shown).
+pub fn apply(st: AppState) -> bool {
     let Some(e) = TABLE_EDIT.peek().clone() else {
-        return;
+        return true;
     };
     let r = st.with_active(|t| t.doc.set_table(e.page, e.index, &e.table));
+    let done = !matches!(r, Some(Err(_)));
     crate::commands::core_result(st, r);
+    done
 }
 
 fn toggle(st: AppState, key: &str) {

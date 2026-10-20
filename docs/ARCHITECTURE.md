@@ -290,11 +290,12 @@ Mouse coordinates on a page image are converted to PDF user space with
   draws them itself (pictures inside forms and inline pictures are not found); edited pictures are
   written as 8-bit RGB, gray, palette or black and white pictures (CMYK, ICC profiles and 16-bit
   samples are not kept, and stencil masks become black and white pictures).
-- Text boxes, typewriter text, callouts and measurement labels draw text beyond WinAnsi with the
-  embedded FreeSans subset; right-to-left text, letters that join or combine (Arabic, Hebrew,
-  Indic scripts, Thai marks) and characters FreeSans lacks (Chinese, Japanese, Korean, ...) are
-  refused, with no choice of another font yet; `/DA` still names Helvetica. Text stamps refuse
-  text beyond WinAnsi. The other generated text (designed stamps, tables, calculator tapes, form
+- Text boxes, typewriter text, callouts, measurement labels, text stamps, designed stamps,
+  tables and calculator tapes draw text beyond WinAnsi with the embedded FreeSans subset (one
+  subset for all the text of a drawing; FreeSans has no bold, so bold text in it is filled and
+  stroked); right-to-left text, letters that join or combine (Arabic, Hebrew, Indic scripts,
+  Thai marks) and characters FreeSans lacks (Chinese, Japanese, Korean, ...) are refused, with no
+  choice of another font yet; `/DA` still names Helvetica. The other generated text (form
   fields, watermarks, headers and footers, page numbers, Bates numbers, comment summaries,
   documents made from text or e-mail, signature appearances, typed signature marks, media
   captions, barcode captions, redaction overlay text) still uses Helvetica with WinAnsi encoding,

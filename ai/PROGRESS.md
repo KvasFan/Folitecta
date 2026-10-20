@@ -4,6 +4,27 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-20 — FOL-L018/S02: Unicode in tables, calculator tapes and stamps
+
+- **Current state before:** designed stamps, tables and calculator tapes wrote their text with the
+  standard Helvetica in WinAnsi, so other characters became `?`; text stamps refused them.
+- **Changed:** `TextWriter` draws a drawing of several pieces of text with one font
+  (`for_pieces`, `piece`, `wrap_piece`, `text_object`); the bold of the Unicode font is filled
+  and stroked inside `q`/`Q`; WinAnsi drawings keep their fonts and their bytes. Tables, tapes,
+  designed stamps and text stamps (and their appearances drawn again when moved or resized) use
+  it, with the subset of a drawing made again used again (`previous_font`, now in `fonts`). The
+  table editor names text it cannot draw while it is typed and stays open when its table is
+  refused.
+- **Checked:** `tests/unicode_drawings.rs` (8: tables, tapes and designed stamps beyond WinAnsi,
+  saved and reopened, found after flattening; WinAnsi kept; refusals leave the document, its
+  bytes and its history unchanged; the subset used again and a new one for new characters, undo);
+  the text stamp test of `unicode_text.rs` rewritten for the new behaviour; writer unit tests (3
+  new); self-test step `unicode` with a table typed in Polish and Greek, a refused table (editor
+  kept open, nothing changed) and a tape comment in Polish (9 interactions, 0 problems).
+- **Open:** right-to-left text and shaping still refused; no real bold or italic face (bold is
+  stroked); S03 (page marks, Bates numbers, summaries, text and e-mail documents), S04 (form
+  fields) and S05 (OCR, barcodes, signatures, media, redaction text) still write WinAnsi.
+
 ## 2026-10-20 — release 0.2.1: check of the published packages
 
 - **What:** the eight files of the v0.2.1 release downloaded and checked by four independent

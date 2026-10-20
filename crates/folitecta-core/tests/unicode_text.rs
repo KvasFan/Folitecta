@@ -1155,49 +1155,56 @@ fn redaction_removes_the_subset_of_a_removed_comment() {
 }
 
 #[test]
-fn text_stamps_refuse_text_beyond_winansi() {
+fn text_stamps_draw_text_beyond_winansi_with_the_embedded_font() {
     let mut doc = with_redo();
+    let place = [100.0, 100.0, 300.0, 160.0];
+    // Text that cannot be drawn is still refused before any change.
     let before = Unchanged::of(&doc);
     assert!(matches!(
-        doc.add_stamp(0, [100.0, 100.0, 300.0, 160.0], "Łódź", [0.8, 0.1, 0.1], "Reviewer"),
-        Err(Error::Glyphs(GlyphProblem::StampText(chars))) if chars == vec!['Ł', 'ź']
+        doc.add_stamp(0, place, "שלום", [0.8, 0.1, 0.1], "Reviewer"),
+        Err(Error::Glyphs(GlyphProblem::NeedsLayout(_)))
     ));
-    let message = doc
-        .add_stamp(
-            0,
-            [100.0, 100.0, 300.0, 160.0],
-            "Łódź",
-            [0.8, 0.1, 0.1],
-            "Reviewer",
-        )
-        .unwrap_err()
-        .to_string();
+    assert!(matches!(
+        doc.add_stamp(0, place, "漢字", [0.8, 0.1, 0.1], "Reviewer"),
+        Err(Error::Glyphs(GlyphProblem::Missing { .. }))
+    ));
+    before.check(&doc);
+    // WinAnsi text keeps the standard Helvetica.
+    doc.add_stamp(0, place, "APPROVED", [0.8, 0.1, 0.1], "Reviewer")
+        .unwrap();
+    assert!(is_helvetica(&doc, 0, 0));
+    // Other text is drawn with the embedded subset, also when edited.
+    let id = doc
+        .add_stamp(0, place, "Łódź", [0.8, 0.1, 0.1], "Reviewer")
+        .unwrap();
+    assert!(is_unicode_box(&doc, 0, 1));
+    let (_, font) = unicode_font(doc.inner(), id);
+    assert_eq!(name(font, b"Subtype"), "Type0");
+    doc.set_annotation_contents(0, 0, "Approvato à Łódź").unwrap();
+    assert!(is_unicode_box(&doc, 0, 0));
+    let before = Unchanged::of(&doc);
+    assert!(matches!(
+        doc.set_annotation_contents(0, 0, "漢字"),
+        Err(Error::Glyphs(GlyphProblem::Missing { .. }))
+    ));
+    before.check(&doc);
+    assert_eq!(doc.annotations(0).unwrap()[0].contents, "Approvato à Łódź");
+    for k in 0..2 {
+        let id = doc.annotations(0).unwrap()[k].id.unwrap();
+        let content = appearance(doc.inner(), id).content.clone();
+        assert!(!String::from_utf8_lossy(&content).contains('?'));
+    }
+    // Saved and opened again, the stamps show their text.
+    let file = temp("text-stamps");
+    doc.save_as(&*file).unwrap();
+    let mut back = reopen(&file);
+    assert!(is_unicode_box(&back, 0, 0) && is_unicode_box(&back, 0, 1));
+    back.flatten(&[0], FlattenScope::Comments).unwrap();
+    let text = back.page_text(0);
     assert!(
-        message.contains("text stamps can draw only Western European characters"),
-        "{message}"
+        text.contains("Approvato à Łódź") && text.contains("Łódź"),
+        "{text:?}"
     );
-    assert!(!message.contains("Helvetica"), "{message}");
-    before.check(&doc);
-    doc.add_stamp(
-        0,
-        [100.0, 100.0, 300.0, 160.0],
-        "APPROVED",
-        [0.8, 0.1, 0.1],
-        "Reviewer",
-    )
-    .unwrap();
-    let before = Unchanged::of(&doc);
-    assert!(matches!(
-        doc.set_annotation_contents(0, 0, "Approvato à Łódź"),
-        Err(Error::Glyphs(GlyphProblem::StampText(_)))
-    ));
-    before.check(&doc);
-    assert_eq!(doc.annotations(0).unwrap()[0].contents, "APPROVED");
-    // Text in WinAnsi is still drawn.
-    doc.set_annotation_contents(0, 0, "Approvato à Milano").unwrap();
-    let id = doc.annotations(0).unwrap()[0].id.unwrap();
-    let content = appearance(doc.inner(), id).content.clone();
-    assert!(!String::from_utf8_lossy(&content).contains('?'));
 }
 
 #[test]

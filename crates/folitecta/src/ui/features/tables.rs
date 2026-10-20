@@ -98,6 +98,17 @@ pub fn TableEditorDialog() -> Element {
         ("tool.table.cell.fill", "highlight"),
     ];
     let sel_cell = table.cells[r0][c0].clone();
+    // The text of the cells drawn, which the table must be able to draw:
+    // what it cannot is named while it is typed.
+    let cells_text = table
+        .layout()
+        .iter()
+        .map(|(r, c, ..)| table.cells[*r][*c].text.clone())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let problem = folitecta_core::fonts::check_text(&cells_text)
+        .err()
+        .map(|p| crate::i18n::glyph_problem(lang, &p));
     let edit_cells = move |f: Box<dyn Fn(&mut folitecta_core::tables::TableCell)>| {
         if let Some(ed) = TABLE_EDIT.write().as_mut() {
             let (a, b, c, d) = norm(ed);
@@ -110,7 +121,8 @@ pub fn TableEditorDialog() -> Element {
     };
     rsx! {
         Frame { title: t(lang, "table.editor"), wide: true,
-            on_ok: move |_| { apply(st); *TABLE_EDIT.write() = None; st.set_dialog(Dialog::None); },
+            // A table that cannot be drawn is refused and stays open with what was typed.
+            on_ok: move |_| { if apply(st) { *TABLE_EDIT.write() = None; st.set_dialog(Dialog::None); } },
             div { class: "row", style: "gap:4px;flex-wrap:wrap;align-items:center",
                 for (id, icon) in tools {
                     button { class: "ibtn", key: "{id}", title: "{label(id)}", onclick: move |_| dispatch(st, id), Icon { name: icon } }
@@ -165,6 +177,9 @@ pub fn TableEditorDialog() -> Element {
                         }
                     }
                 }
+            }
+            if let Some(p) = problem {
+                p { class: "hint warn glyph-hint", "{p}" }
             }
             div { class: "hint", "{t(lang, \"table.hint\")}" }
         }

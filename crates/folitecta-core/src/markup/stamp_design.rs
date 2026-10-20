@@ -10,7 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::document::Document;
 use crate::error::{Error, Result};
-use crate::util::{fmt_num, helvetica_width, pdf_literal};
+use crate::fonts::TextWriter;
+use crate::util::fmt_num;
 
 /// One part of a designed stamp. Coordinates are points of the design,
 /// origin at the top-left corner, y downwards.
@@ -579,6 +580,15 @@ impl Document {
                 }
             })
             .collect();
+        // Text that cannot be drawn is refused before the document changes.
+        let mut writer = TextWriter::for_pieces(
+            design
+                .elements
+                .iter()
+                .zip(&texts)
+                .filter(|(e, _)| e.is_text())
+                .map(|(_, t)| t.as_str()),
+        )?;
         let mut images = Vec::new();
         for e in &design.elements {
             if e.kind == "image" && !e.image.is_empty() {
@@ -592,11 +602,16 @@ impl Document {
         }
         self.begin_edit();
         let f = fmt_num;
-        let font = self.inner.add_object(dictionary! {
-            "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica", "Encoding" => "WinAnsiEncoding",
-        });
-        let bold = self.inner.add_object(dictionary! {
-            "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica-Bold", "Encoding" => "WinAnsiEncoding",
+        // The standard Helvetica for WinAnsi text, as before; else the
+        // Unicode font of the writer, added once the stamp is drawn.
+        let standard = writer.is_standard().then(|| {
+            let font = self.inner.add_object(dictionary! {
+                "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica", "Encoding" => "WinAnsiEncoding",
+            });
+            let bold = self.inner.add_object(dictionary! {
+                "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica-Bold", "Encoding" => "WinAnsiEncoding",
+            });
+            (font, bold)
         });
         let mut xobjects = lopdf::Dictionary::new();
         let mut gstates = lopdf::Dictionary::new();
@@ -735,25 +750,28 @@ impl Document {
                     }
                 }
                 "text" | "field" => {
-                    let text = &texts[i];
+                    let text = writer.piece(&texts[i]);
                     let size = e.font_size.max(2.0);
-                    let fname = if e.bold { "HB" } else { "H" };
                     let factor = if e.bold { 1.06 } else { 1.0 };
                     for (k, line) in text.lines().enumerate() {
-                        let w = helvetica_width(line, size) * factor;
+                        let w = writer.width(line, size) * factor;
                         let x = match e.align.as_str() {
                             "left" => rr[0],
                             "right" => rr[0] + rr[2] - w,
                             _ => rr[0] + (rr[2] - w) / 2.0,
                         };
                         let y = rr[1] + size * (0.85 + 1.2 * k as f32);
-                        c.push_str(&format!(
-                            "BT /{fname} {} Tf 1 0 0 -1 {} {} Tm {} Tj ET ",
-                            f(size),
-                            f(x),
-                            f(y),
-                            String::from_utf8_lossy(&pdf_literal(line))
-                        ));
+                        let at = format!("1 0 0 -1 {} {} Tm", f(x), f(y));
+                        match writer.text_object(line, size, None, &at, e.bold, ("H", "HB")) {
+                            Ok(shown) => {
+                                c.push_str(&shown);
+                                c.push(' ');
+                            }
+                            Err(problem) => {
+                                self.abandon_edit();
+                                return Err(problem.into());
+                            }
+                        }
                     }
                 }
                 _ => {}
@@ -761,7 +779,20 @@ impl Document {
             c.push_str(" Q\n");
         }
         c.push_str("Q\n");
-        let mut resources = dictionary! { "Font" => dictionary! { "H" => font, "HB" => bold } };
+        let fonts = match standard {
+            Some((font, bold)) => dictionary! { "H" => font, "HB" => bold },
+            None => {
+                let name = writer.resource_name();
+                match writer.finish(self, None) {
+                    Ok(font) => dictionary! { name => font },
+                    Err(e) => {
+                        self.abandon_edit();
+                        return Err(e);
+                    }
+                }
+            }
+        };
+        let mut resources = dictionary! { "Font" => fonts };
         if !xobjects.is_empty() {
             resources.set("XObject", Object::Dictionary(xobjects));
         }

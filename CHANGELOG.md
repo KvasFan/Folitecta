@@ -6,6 +6,16 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Tables, calculator tapes, designed stamps and text stamps draw text beyond Western European
+  characters (Polish, Czech, Greek, Cyrillic, symbols and more) with the embedded subset of GNU
+  FreeFont FreeSans, like text boxes since 0.2.1: one subset for all the text of a drawing, bold
+  text filled and stroked (FreeSans has no bold), shown, printed, copied and found after
+  flattening. Text stamps no longer refuse such text. Text that cannot be drawn (right to left,
+  joining or combining letters, characters the font lacks) is refused before any change; the
+  table editor names it while it is typed and stays open with what was typed. WinAnsi text keeps
+  the standard Helvetica, written as before.
+
 ### Changed
 - Pictures made of the pages follow the layers of the view, as printing does: Export to Images,
   a page copied as a picture, the snapshot of an area and a stamp made of the page leave out what
@@ -14,6 +24,10 @@ All notable changes to Folitecta are documented here. The format follows
 - Messages that count say "1 page deleted", "1 comment" or "1 file" for one, in English and
   Italian, instead of "1 page(s)" or "1 files"; messages with several numbers are written as
   labels ("Pages: 6 · sides: 4 · sheets of paper: 2"), right for any number.
+
+### Fixed
+- The table editor closed when its table could not be saved, and what was typed was lost; it now
+  stays open with the reason shown.
 
 ## [0.2.1] - 2026-10-20
 

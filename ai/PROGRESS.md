@@ -4,6 +4,34 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-20 — release 0.2.1: check of the published packages
+
+- **What:** the eight files of the v0.2.1 release downloaded and checked by four independent
+  checks and a completeness critic, after the release (the release page itself was left as
+  published).
+- **Found right:** SHA-256 of every file equal to the `.sha256` files and to the digests GitHub
+  shows (8 of 8); every package holds what `release.yml` puts in it, byte for byte with the tag
+  (no `fonts/source`, no build or hidden files); Windows PE32+ x86-64, Linux ELF x86-64 (glibc
+  2.35 or newer), macOS universal (x86_64 and arm64, Info.plist 0.2.1); no private data in the
+  packages; the release body equals `docs/RELEASE_NOTES.md`. The CI of the tag passed on Linux
+  (770 tests), macOS (769) and Windows (757).
+- **Found wrong, fixed in the documents:** the Linux program links libxdo 3 (through the menu
+  component of the interface toolkit, never called by Folitecta) and does not start without it:
+  Arch, Manjaro and CachyOS have only libxdo 4, and Ubuntu desktops do not install libxdo3 (the
+  same in 0.2.0). With a compatibility link the published package passed the full interface
+  self-test on this PC (554 entries: 277 states and 277 interactions, 0 problems). The README and
+  the release notes now give the libraries per system and the link; the program will start
+  without libxdo in 0.3.0. Also corrected: exported pictures follow the default layer visibility
+  (the notes said comments of hidden layers were hidden everywhere), the GitLab releases stop at
+  0.0.12, the Visual C++ runtime of the Windows program, the first start on macOS 15, names of
+  menus and dialogs, the zoom figures, the Windows checksum file (CR LF, refused by the checker
+  of macOS; LF from the next release) and a visible warning when the GitLab release is skipped.
+- **Open (planned for 0.3.0 in ROADMAP.md):** libxdo not needed at start, licence notices of the
+  libraries in the packages, the Visual C++ runtime built into the Windows program with its icon
+  and version, an ad hoc signature of the macOS app, singular forms of counted messages, exported
+  pictures following the view. Not verified at all: the Windows and macOS packages on a real
+  machine, real printers, real mail programs, servers on the internet.
+
 ## 2026-10-20 — release 0.2.1
 
 - **Tag:** `v0.2.1` on `main` (full CI on Windows, macOS and Linux; release packages).
@@ -30,8 +58,9 @@ checked, what is still open. The history before October 2026 is in
   wheel events reach the program only where listened to; page ids and the comments, outline,
   links, destinations and fields of a revision kept; per-page revisions (`changes`) so an edit
   redraws the pages it touched and keeps the text of the others; `render_service`: one queue per
-  document ranked by the window, duplicates merged, stale requests refused, a 256 MB picture
-  cache shared by the documents, thumbnails from the page pixels, several threads for a page
+  document ranked by the window, duplicates merged, stale requests refused, a picture cache
+  shared by the documents (256 MB, lowered to 128 MB in the memory round below), thumbnails
+  from the page pixels, several threads for a page
   drawn alone, uncompressed pictures; a page window with placeholders and small previews; zoom
   settled after 90 ms; 512-pixel tiles at high zoom and for the loupe; GPU composition on Linux
   (`FOLITECTA_GPU`).
@@ -44,7 +73,8 @@ checked, what is still open. The history before October 2026 is in
   0.20–0.22 s (2.36–2.38 s). Synchronous event requests while scrolling or hovering: 0 (91–241).
 - **Review fixes:** 275e0ae (a render thread no longer loops when the document changes twice in
   a row), c0a4c14 (tiles of large pages at high zoom drawn at their scale), 66f90d0 (one picture
-  store of 256 MB for every document, freed on close), e55722d (each view tells the render threads
+  store of 256 MB for every document, freed on close; 128 MB after the memory round), e55722d
+  (each view tells the render threads
   which pages it holds before asking their pictures; failed pictures asked again at most 3 times;
   self-test step `jumps`), e965678 (bookmark rows keep their element on press, so clicks reach
   them), d90276e (picture addresses only grow; numbers hashed by value, so an undo no longer
@@ -136,7 +166,7 @@ checked, what is still open. The history before October 2026 is in
   quotes of the removed words in bookmarks, links, destinations, tags and document information,
   scripts and risky actions); the document security store goes; checks in memory and on the
   bytes before the new file is written; the apply dialog.
-- **Checked:** `redaction_vectors` (25+), `redaction_sanitize` (19+), `redaction_reuse` (6), a
+- **Checked:** `redaction_vectors` (25+), `redaction_sanitize` (19+), `redaction_reuse` (9), a
   2,000-page timing test; self-test step `redaction`; 617 workspace tests and a full self-test
   (431 states, 0 problems) on the branch.
 - **Open:** rectangles only; nothing removed outside the crop box; the moves that replace removed

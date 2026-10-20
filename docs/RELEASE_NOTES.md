@@ -15,13 +15,13 @@ what lies under redaction marks, and makes scrolling and zoom smoother on large 
   are kept, the visible ones are drawn first on several threads, and zoom scales the pictures at
   once and sharpens them when it stops. On a 1000-page document the longest pause while scrolling
   fell from about 0.4 s to about 40 ms, and six Ctrl+wheel steps are sharp after about 0.12 s
-  instead of 0.5 s. On Linux the interface also uses less memory than 0.2.0.
+  instead of about 0.57 s. On Linux the interface also uses less memory than 0.2.0.
 - **Protection that stays**: new passwords use AES-256 (AES-128 is still a choice). Signing,
   certifying and time-stamping a protected document keep it encrypted, and documents made from a
   protected one are protected like it. Passwords with accents or other non-ASCII characters open
   older AES-128 and RC4 files correctly.
 - **Revocation checked**: signature certificates are checked against OCSP answers and revocation
-  lists in the file, or fetched online once you turn that on; Add Validation Material stores them
+  lists in the file, or fetched online once you turn that on; Add validation material… stores them
   in the document so the signatures can be checked later.
 - **Redaction removes more**: vector drawings under the marks and the content of reused drawings
   are removed instead of drawing the page as a picture, and a dialog offers to sanitize the
@@ -34,10 +34,14 @@ what lies under redaction marks, and makes scrolling and zoom smoother on large 
   some pages, comments kept, flattened or removed, form data and comments as separate files or one
   ZIP, with sizes and previews; save an unsent draft or open the mail program.
 - **Drawing on layers**: what you draw or write goes to the layer selected in the Layers pane, and
-  hiding a layer hides its comments everywhere.
+  hiding a layer hides its comments on the pages, thumbnails, prints, comment summaries and in the
+  Comments pane (pictures exported from the pages follow the document's default layer
+  visibility).
 
 **Not yet verified**: printing on real printers, sending through real mail programs, public time
-stamp and revocation servers. The tests use stand-ins for all three; reports are welcome.
+stamp and revocation servers (the tests use stand-ins for all three), and the first start of the
+Windows and macOS packages on a real machine (they are built and unit-tested by the CI only).
+Reports are welcome.
 
 **Binaries**
 
@@ -45,12 +49,25 @@ stamp and revocation servers. The tests use stand-ins for all three; reports are
 |---|---|
 | Windows x64 | `folitecta-0.2.1-windows-x64.zip` |
 | Linux x64 | `folitecta-0.2.1-linux-x64.tar.gz` |
-| macOS (Apple silicon and Intel) | `folitecta-0.2.1-macos-universal.zip` (app bundle) or `.tar.gz` (binary) |
+| macOS (Apple silicon and Intel) | `folitecta-0.2.1-macos-universal.zip` (app bundle) or `folitecta-0.2.1-macos-universal.tar.gz` (binary) |
 
 Each package carries the `dictionaries`, `ocr` and `fonts` folders next to the program (in the
-app bundle's resources on macOS): keep them with it. Linux needs the WebKitGTK 4.1 runtime
-(`libwebkit2gtk-4.1-0`). macOS builds are not notarized: right-click → Open on first launch.
-SHA-256 checksums are attached.
+app bundle's resources on macOS): keep them with it. SHA-256 checksums are attached.
 
-The full list of changes is in `CHANGELOG.md`; the status of every command is in
-`docs/FEATURES.md`; known limitations are in `docs/ARCHITECTURE.md`.
+- **Linux** needs glibc 2.35 or newer, the WebKitGTK 4.1 runtime and libxdo 3 (`sudo apt install
+  libwebkit2gtk-4.1-0 libxdo3` on Debian and Ubuntu, `sudo dnf install webkit2gtk4.1 libxdo` on
+  Fedora). Arch, Manjaro and CachyOS have only libxdo 4: see
+  [Linux libraries](https://github.com/KvasFan/Folitecta#linux-libraries) for a compatibility link.
+- **Windows**: if `VCRUNTIME140.dll` is reported missing, install the latest Microsoft Visual
+  C++ Redistributable for x64 from Microsoft.
+- **macOS** builds are not notarized: the first time, right-click → Open (on macOS 15 and later,
+  System Settings › Privacy & Security › Open Anyway).
+
+The full list of changes is in [CHANGELOG.md][changelog]; the status of every command is in
+[docs/FEATURES.md][features]; known limitations are in [docs/ARCHITECTURE.md][limits] and
+[ai/ROADMAP.md][roadmap].
+
+[changelog]: https://github.com/KvasFan/Folitecta/blob/main/CHANGELOG.md#021---2026-10-20
+[features]: https://github.com/KvasFan/Folitecta/blob/v0.2.1/docs/FEATURES.md
+[limits]: https://github.com/KvasFan/Folitecta/blob/main/docs/ARCHITECTURE.md#known-limitations
+[roadmap]: https://github.com/KvasFan/Folitecta/blob/main/ai/ROADMAP.md

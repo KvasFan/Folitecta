@@ -26,31 +26,32 @@ All notable changes to Folitecta are documented here. The format follows
   cannot be drawn yet (right-to-left, joining or combining letters, characters the font lacks)
   is refused before any change, with the characters named while typing; no `?` is written.
   Comment imports name the comments they cannot draw and import the others on request.
-- E-mail attachment dialog (File › Email Document…, Share › Send, Form › Email Form Data…): for
-  each document the current state or the saved file, its form data (XFDF, FDF, CSV, text) and
-  its comments (XFDF, FDF); PDF files cut to some pages, with their comments kept, flattened or
-  removed, separately or in one ZIP archive. Every file is prepared in the background and shows
-  its size, what it holds and its first pages. Save Draft… writes an unsent `.eml` where you
-  choose; Open in Mail Program hands the files over. Nothing is sent.
-- New password protection uses AES-256 by default; AES-128 stays a choice in Password Security
-  and in security policies (older policies load as AES-256).
+- E-mail attachment dialog (File › Email Document…, Share › Send, Form › Forms › Email Form
+  Data…): for each document the current state or the saved file, its form data (XFDF, FDF, CSV,
+  text) and its comments (XFDF, FDF); PDF files cut to some pages, with their comments kept,
+  flattened or removed, separately or in one ZIP archive. Every file is prepared in the
+  background and shows its size, what it holds and its first pages. Save Draft… writes an unsent
+  `.eml` where you choose; Open in Mail Program hands the files over. Nothing is sent.
+- New password protection uses AES-256 by default; AES-128 stays a choice in the Password
+  protection dialog and in security policies (older policies load as AES-256).
 - Revocation of signature certificates is checked from the OCSP answers and revocation lists in
   the signature, its time stamp or the document security store, or fetched online; online checks
-  are off until turned on in Signatures pane › Options. Add Validation Material writes the
+  are off until turned on in Signatures pane › Options. Add validation material… writes the
   certificates and revocation data to the document security store as an update that keeps the
   signatures valid (encrypted for protected documents).
 - Redaction removes the vector paths under the marks, and the text, pictures and paths of
   reused drawings, inline pictures and Type 3 text, without drawing the page as a picture; text
   of hidden layers and clipped text go too. Applying redaction opens a dialog: what goes,
   warnings for blurred areas and signatures, and sanitizing on by default (metadata,
-  attachments, hidden content, quotes of the removed words, scripts). The result is saved as a
-  new file that is checked before it is written. The document security store and its declaration
-  go with every redaction.
+  attachments, hidden content, quotes of the removed words, scripts). By default the result is
+  saved as a new file that is checked before it is written. The document security store and its
+  declaration go with every redaction.
 - What you draw or write goes to the selected layer: with one layer selected in the Layers pane
   (or chosen with Edit › Choose Layer), new comments are put on the layer and placed pictures and
   barcodes become content of the layer; the status bar shows the layer, Default Layer stops it.
-  Hiding a layer hides its comments in the pages, thumbnails, printing, exported pictures, comment
-  summaries and the Comments pane (Show Comments from Hidden Layers, off by default). Flattened
+  Hiding a layer hides its comments in the pages, thumbnails, printing, comment summaries and the
+  Comments pane (Show Comments from Hidden Layers, off by default); pictures exported from the
+  pages follow the document's default layer visibility, not the view. Flattened
   comments keep their layer; Choose Layer, the Layer field of the properties and Move to New
   Layer move comments and pictures between layers. Rasterized pages keep the comments of hidden
   layers as comments on their layer.
@@ -72,11 +73,11 @@ All notable changes to Folitecta are documented here. The format follows
     shows its small picture until the sharp one comes.
   - Zoom scales the pictures shown at once and draws new ones when it has stayed the same for
     90 ms; at high zoom pages and the loupe are drawn in 512-pixel tiles. Six Ctrl+wheel steps
-    are sharp after 0.11–0.14 s instead of 0.47–0.58 s; a dynamic zoom drag on a 50-page document
-    is sharp after 0.2 s instead of 2.4–2.7 s.
+    are sharp after 0.11–0.13 s instead of 0.56–0.58 s; a dynamic zoom drag on a 50-page document
+    is sharp after 0.2 s instead of 2.4 s.
   - An edit draws again only the pages it touched, and the text of the pages is kept when
     comments change.
-  - Go To Page, bookmarks, search results and thumbnails jump to a far page that is sharp after
+  - Go to Page…, bookmarks, search results and thumbnails jump to a far page that is sharp after
     about 40 ms on a 1000-page document (0.2.0: about 0.4 s for a page not seen before).
   - Linux: the page view is composited on the graphics card where that is known to be safe (a
     graphics card with a render node, a driver other than NVIDIA's, not a virtual machine);
@@ -94,8 +95,9 @@ All notable changes to Folitecta are documented here. The format follows
 - Print permissions of protected files apply to readers who opened them with the user password
   (or without one when the file has none); the owner password lifts them, at open or typed in
   the print window. Files protected by Folitecta with printing allowed now permit full-quality
-  printing; files protected by 0.2.0 with "Allow printing" print as 150 dpi pictures when opened
-  with their user password. Save as PDF keeps the protection.
+  printing; files protected by 0.2.0 with the Print permission ticked print as 150 dpi pictures
+  when opened with their user password (typing the owner password in the print window lifts
+  this). Save as PDF keeps the protection.
 - Later revisions that only add validation material keep a signature's integrity: they must be
   regular updates, read the same by a second reader; anything else counts as a change after
   signing. Signature checks run off the interface thread, and earlier results stay dimmed with
@@ -119,8 +121,8 @@ All notable changes to Folitecta are documented here. The format follows
 - Signatures in encrypted files did not validate; a byte range that does not leave out exactly
   the signature's own value now makes the signature invalid.
 - Passwords AES-128 could not keep were silently weakened; they are now refused.
-- A wrong password asks again; certificate-protected files are reported; Revert asks for the
-  password of protected files. Protected copies always open in readers.
+- A wrong password asks again; certificate-protected files are reported; Revert to Saved asks for
+  the password of protected files. Protected copies always open in readers.
 - Pictures and attachments handed to other programs go to a private folder of the user that is
   removed afterwards.
 - Copies of some pages (e-mail, attachments) keep nothing of the pages left out: pictures, fonts,
@@ -137,9 +139,9 @@ All notable changes to Folitecta are documented here. The format follows
   copied before something is added to one of them. Documents that claim PDF/A-1 refuse new
   layers.
 - With the Signatures pane or the details of a signature open (after signing, time-stamping,
-  Validate All or Summary), the interface drew itself again without pause, keeping the processor
-  busy, and dialogs that measure themselves (Split Pages, picture editor), the portfolio preview
-  and menu searches stopped working.
+  Validate All Signatures or Summary), the interface drew itself again without pause, keeping the
+  processor busy, and dialogs that measure themselves (Split Pages, picture editor), the
+  portfolio preview and menu searches stopped working.
 - The interface no longer stops while its window is not drawn (minimized or hidden), and the
   results of page scripts are no longer lost. Sounds and videos play on Linux.
 - With the side pane hidden, the page area could lose its width.

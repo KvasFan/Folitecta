@@ -66,7 +66,11 @@ zoom (FOL-L001), and the interface self-test on Linux.
 
 FOL-L014 (OCR review), FOL-L012 (scan clean-up workflow), FOL-L005 (CSV, Markdown, RTF), FOL-L035
 (synchronized side-by-side comparison), FOL-L018/S02–S03 (Unicode in stamps, tables, tapes and
-page marks), FOL-L042 (local text to
+page marks), packaging found by the 0.2.1 release check (the Linux program starts without libxdo,
+licence notices of the libraries in every package, the Visual C++ runtime built into the Windows
+program with its icon and version, an ad hoc signature of the macOS app, LF in the Windows
+checksum file, current versions of the release actions), pictures exported from the pages
+following the layers of the view, singular forms of counted messages, FOL-L042 (local text to
 speech with the system voices, reading reflow), FOL-L022 (table of contents from bookmarks or
 headings, article threads), FOL-L028 (angle, radius, volume), FOL-L029 (tick marks), FOL-L002
 (tab groups and windows), FOL-L010 (template gallery), FOL-L011 (scanner through the system
@@ -138,7 +142,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
 | FOL-L022 | P1 | 🟡 | bookmarks (hierarchy, editing, export), links, named destinations, web links from text and barcodes | Table of contents generation, bookmarks from headings, article threads, duplicate cleanup. |
-| FOL-L023 | P1/P2 | ✅ | attachments, layers (visibility, properties, drawing and writing on the selected layer, comments and pictures moved between layers, comments of hidden layers hidden everywhere, visibility expressions), audio/video with playback | Codec list and unsupported media report; layers given by membership dictionaries lost on export and paste; XFDF carries no layer; pictures inside reused drawings on layers. |
+| FOL-L023 | P1/P2 | ✅ | attachments, layers (visibility, properties, drawing and writing on the selected layer, comments and pictures moved between layers, comments of hidden layers hidden in the view, thumbnails, printing, summaries and the Comments pane, visibility expressions), audio/video with playback | Codec list and unsupported media report; pictures exported from the pages follow the default layer visibility, not the view; layers given by membership dictionaries lost on export and paste; XFDF carries no layer; pictures inside reused drawings on layers. |
 | FOL-L024 | P2 | 🟡 | PDF portfolios: create, view, extract, print | Binder project with sources and regeneration. |
 
 ### Comments and technical tools

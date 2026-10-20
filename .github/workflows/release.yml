@@ -46,7 +46,8 @@ jobs:
           if (-not (Test-Path "dist/$name/fonts/FreeSans.ttf") -or (Test-Path "dist/$name/fonts/source")) { throw "the fonts folder of the package is wrong" }
           Compress-Archive -Path "dist/$name" -DestinationPath "dist/$name.zip"
           $hash = (Get-FileHash "dist/$name.zip" -Algorithm SHA256).Hash.ToLower()
-          "$hash  $name.zip" | Out-File -Encoding ascii "dist/$name.zip.sha256"
+          # One line ending in LF, as on the other systems (checkers on macOS refuse CR LF).
+          Set-Content -NoNewline -Encoding ascii -Path "dist/$name.zip.sha256" -Value "$hash  $name.zip`n"
       - uses: actions/upload-artifact@v4
         with:
           name: windows
@@ -229,7 +230,7 @@ jobs:
     steps:
       - name: Without a GitLab token
         if: env.GITLAB_TOKEN == ''
-        run: echo "No GITLAB_TOKEN secret, the GitLab release is left out."
+        run: echo "::warning::No GITLAB_TOKEN secret, so the GitLab release was not published."
       - uses: actions/checkout@v4
         if: env.GITLAB_TOKEN != ''
         with:

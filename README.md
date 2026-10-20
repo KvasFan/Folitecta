@@ -23,7 +23,7 @@
   <img alt="Written in Rust" src="https://img.shields.io/badge/written%20in-Rust-4f46e5?style=flat-square&logo=rust&logoColor=white">
   <img alt="Runs on Windows, Linux and macOS" src="https://img.shields.io/badge/runs%20on-Windows%20%C2%B7%20Linux%20%C2%B7%20macOS-7c3aed?style=flat-square">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-4f46e5?style=flat-square">
-  <a href="https://github.com/KvasFan/Folitecta/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/KvasFan/Folitecta?include_prereleases&style=flat-square&color=7c3aed&label=release"></a>
+  <a href="https://github.com/KvasFan/Folitecta/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/KvasFan/Folitecta?include_prereleases&style=flat-square&color=7c3aed&label=release"></a>
   <img alt="Status: pre-release" src="https://img.shields.io/badge/status-pre--release-d97706?style=flat-square">
 </p>
 
@@ -125,7 +125,7 @@ already in 0.2.0.
 | Protect | Password protection with AES-256 (*new in 0.2.1*; AES-128 as a choice) and permissions; a protected file is saved again with its encryption, passwords and permissions, and Save Unrestricted Copy removes them on purpose; documents made from a protected one stay protected (*new in 0.2.1*); security policies (named sets of permissions, imported and exported); listing and removal of document scripts |
 | Redaction | Areas or text marked for redaction, with colour, blur or pixelated overlays, overlay text and sets of redaction codes. Applying takes the text and pictures under the marks out of the page content, and *(new in 0.2.1)* the vector paths too, also inside drawings reused on several pages, while the rest of the page stays text and drawings; comments and form fields over the marks go with their values, and the next save rewrites the whole file so no earlier revision keeps what was removed. *New in 0.2.1:* an apply dialog shows what goes, warns about blurred areas and signatures, and by default also removes the metadata, attachments, hidden content and scripts, and the quotes of the removed words in bookmarks, links, tags and document information (quotes in the text of other pages are reported, not changed); the result can be saved as a new file that is checked before it is written. Pages that cannot be edited that way, or every marked page when chosen, are drawn as pictures. Marks are rectangles, and the space a removed word took stays on its line (the dialog says so) |
 | Print | *New in 0.2.1:* Folitecta's own print window with a live preview of the sheets: the computer's printers, copies and collation; ranges by number or page label, odd or even pages, reverse order, every open document; comments and form fields; fit, actual size, shrink, custom scale, paper by page size, auto-rotate; 2 to 16 pages per sheet; booklets (binding, signatures, back cover); posters (overlap, cut marks, labels); orientation, paper, two-sided printing and colour. Jobs go straight to the printer: the vector print file to the local print server on Linux and macOS (IPP), the sheets as pictures of up to 600 dpi on Windows; progress and cancel in the status bar. Save as PDF and the system dialog remain. Print permissions of protected files apply. Not yet verified on real printers |
-| E-mail | *New in 0.2.1:* an attachment dialog (File › Email Document…, Share › Send, Form › Email Form Data…): for each document, the current state or the saved file, its form data (XFDF, FDF, CSV, text) and its comments (XFDF, FDF); PDF copies cut to some pages, with comments kept, flattened or removed, separately or in one ZIP archive; every file prepared in the background with its size, what it holds and its first pages. Open in Mail Program hands the files to the mail program (Simple MAPI on Windows, Mail on macOS, `xdg-email` on Linux), Save Draft… writes an unsent `.eml` message, and Folitecta itself sends nothing. E-mail messages (`.eml`) open as PDF documents with their attachments embedded. Not yet tried with real mail programs |
+| E-mail | Files handed to the mail program (Simple MAPI on Windows, Mail on macOS, `xdg-email` on Linux) or saved as an unsent `.eml` draft; e-mail messages (`.eml`) open as PDF documents with their attachments embedded. *New in 0.2.1:* an attachment dialog (File › Email Document…, Share › Send, Form › Forms › Email Form Data…): for each document, the current state or the saved file, its form data (XFDF, FDF, CSV, text) and its comments (XFDF, FDF); PDF copies cut to some pages, with comments kept, flattened or removed, separately or in one ZIP archive; every file prepared in the background with its size, what it holds and its first pages. Open in Mail Program hands the files over, Save Draft… writes the draft where you choose, and Folitecta itself sends nothing. Not yet tried with real mail programs |
 | Measure | Distance, perimeter and area with a calibrated scale, precision and separators, labels on the page, CSV export |
 | Forms | Text, check box, radio button, combo box, list box, button and signature fields drawn on the page; their properties, the items of choice fields (sorted or in any order) and the pictures of push buttons for each state; filling on the page; fields calculated from others (sum, product, average, smallest, largest) in a chosen order; import and export of values (XFDF, FDF, CSV, text); one filled copy per row of a table (Populate Forms); reset; tab order; field highlighting by kind |
 | Pages | Insert blank pages, pages of another PDF or pictures; delete (also empty pages), duplicate, extract, move by dragging thumbnails, swap, reverse, replace with pages of another file; rotate, crop by margins or to the visible content, resize, add margins, normalise sizes; cut along lines drawn over a page (split pages editor); rasterise; find duplicates; split a document; combine PDF files, pictures and text files from a list of source files |
@@ -145,22 +145,62 @@ already in 0.2.0.
 
 ## Downloads
 
-**Download Folitecta** from GitHub: the [latest release](https://github.com/KvasFan/Folitecta/releases/latest)
-has the packages listed below, and [all releases](https://github.com/KvasFan/Folitecta/releases)
-has the earlier versions with their notes. The
-[GitLab releases](https://gitlab.com/tirael8308/folitecta/-/releases) carry the same versions.
-`<version>` in the file names is the version number, for example `0.2.1`.
+**Download Folitecta** from the [GitHub releases](https://github.com/KvasFan/Folitecta/releases):
+the newest version is at the top, with the packages listed below and its notes, followed by the
+earlier versions. Versions up to 0.0.12 are also on the
+[GitLab releases](https://gitlab.com/tirael8308/folitecta/-/releases); later versions are published
+on GitHub only. `<version>` in the file names is the version number, for example `0.2.1`.
 
 | System | File | Notes |
 |---|---|---|
-| Windows 10 and 11, x64 | `folitecta-<version>-windows-x64.zip` | Unpack it anywhere and start `folitecta.exe`. Uses the WebView2 runtime, preinstalled on Windows 10 and 11. The program is not code-signed, so Windows may warn before the first start |
-| Linux, x64 | `folitecta-<version>-linux-x64.tar.gz` | Unpack it anywhere and start `folitecta`. Needs the WebKitGTK 4.1 runtime (`libwebkit2gtk-4.1-0`, `libgtk-3-0`). A `folitecta.desktop` file and an icon are included |
-| macOS 11 or later, universal (Apple silicon and Intel) | `folitecta-<version>-macos-universal.zip` (the app) or `folitecta-<version>-macos-universal.tar.gz` (the program and its folders) | Not notarized: the first time, open it with a right click › Open (on macOS 15 and later, System Settings › Privacy & Security › Open Anyway) |
+| Windows 10 and 11, x64 | `folitecta-<version>-windows-x64.zip` | Unpack it anywhere and start `folitecta.exe`. Uses the WebView2 runtime, preinstalled on Windows 10 and 11. If Windows reports that `VCRUNTIME140.dll` is missing, install the latest Microsoft Visual C++ Redistributable for x64 from Microsoft. The program is not code-signed, so Windows may warn before the first start |
+| Linux, x64 | `folitecta-<version>-linux-x64.tar.gz` | Unpack it anywhere and start `folitecta`. Needs glibc 2.35 or newer, the WebKitGTK 4.1 runtime and libxdo 3: see [Linux libraries](#linux-libraries) below. A `folitecta.desktop` file and an icon are included |
+| macOS 11 or later, universal (Apple silicon and Intel) | `folitecta-<version>-macos-universal.zip` (the app) or `folitecta-<version>-macos-universal.tar.gz` (the program and its folders) | Not notarized: the first time, open it with a right click › Open (on macOS 15 and later, System Settings › Privacy & Security › Open Anyway). If macOS says the app is damaged, remove the download mark with `xattr -dr com.apple.quarantine Folitecta.app`. The first start on a Mac has not been tried yet |
 
 - Keep the `dictionaries`, `ocr` and `fonts` folders next to the program: they hold the spelling
   dictionaries, the text recognition models and the font for text beyond Western European
   characters. In the macOS app they are inside the app bundle.
 - Every package has its SHA-256 checksum in a `.sha256` file next to it on the release page.
+
+### Linux libraries
+
+The Linux program is built on Ubuntu 22.04: it needs glibc 2.35 or newer (Ubuntu 22.04, Debian 12,
+Fedora 36 and later), the WebKitGTK 4.1 runtime and libxdo 3. Folitecta never calls libxdo (a menu
+component of its interface toolkit links it), but up to 0.2.1 the program does not start without
+it; 0.3.0 is planned to start without it.
+
+- **Debian and Ubuntu**: `sudo apt install libwebkit2gtk-4.1-0 libxdo3` (on Ubuntu, `libxdo3` is in
+  the *universe* component).
+- **Fedora**: `sudo dnf install webkit2gtk4.1 libxdo`.
+- **Arch, Manjaro and CachyOS**: `sudo pacman -S --needed webkit2gtk-4.1 xdotool`. These systems
+  have only libxdo 4, so make a compatibility link once and start the program through it:
+
+  ```sh
+  mkdir -p ~/.local/lib/folitecta-compat
+  ln -sf /usr/lib/libxdo.so.4 ~/.local/lib/folitecta-compat/libxdo.so.3
+  LD_LIBRARY_PATH=~/.local/lib/folitecta-compat ./folitecta
+  ```
+
+To start Folitecta from the menu, run these lines in the unpacked folder. The menu entry gets the
+full path of `~/.local/bin/folitecta`, because the desktop session does not always search
+`~/.local/bin` (on Arch and CachyOS it does not by default):
+
+```sh
+mkdir -p ~/.local/bin ~/.local/share/applications ~/.local/share/icons/hicolor/256x256/apps
+ln -sf "$PWD/folitecta" ~/.local/bin/folitecta
+sed "s|^Exec=folitecta|Exec=$HOME/.local/bin/folitecta|" folitecta.desktop > ~/.local/share/applications/folitecta.desktop
+cp folitecta.png ~/.local/share/icons/hicolor/256x256/apps/
+```
+
+On Arch, Manjaro and CachyOS, then replace the link with a script that starts the program through
+the compatibility link and passes on the files to open (the link is removed first, so that the
+script is not written over the program):
+
+```sh
+rm -f ~/.local/bin/folitecta
+printf '#!/bin/sh\nLD_LIBRARY_PATH="$HOME/.local/lib/folitecta-compat" exec "%s/folitecta" "$@"\n' "$PWD" > ~/.local/bin/folitecta
+chmod +x ~/.local/bin/folitecta
+```
 
 ## Building from source
 

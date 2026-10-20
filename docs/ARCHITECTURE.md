@@ -327,4 +327,17 @@ Mouse coordinates on a page image are converted to PDF user space with
   ink outside the marks where their ends are slanted or a corner is split, and cut pieces
   restart their dash pattern. A signed version brought back by Undo after a later save cannot
   be saved with its signatures unless its signed file is on the disk again.
+- Printing has not been tried on real printers yet (order, scale, margins, counts); on Windows the
+  sheets are sent as pictures (up to 600 dpi), not as vector data, and a booklet printed on both
+  sides needs a printer that turns the paper itself.
+- Hiding a layer in the view hides its comments on the pages, thumbnails, prints, summaries and in
+  the Comments pane, but pictures exported from the pages follow the document's default layer
+  visibility. XFDF carries no layer, and a comment whose layer is a membership dictionary loses
+  it on export and paste.
+- The hand-over of files to mail programs (Simple MAPI, Mail, `xdg-email`) has been tried only
+  with stand-in programs. Time stamp and revocation servers on the internet have not been tried.
+- Protection: no certificate (public-key) encryption; changing or removing the protection needs
+  only the password to open; permissions other than printing are not enforced in Folitecta.
+- Speed and memory were measured on Linux only, at pixel ratio 1 (no HiDPI screen, no pinch
+  zoom). The Linux package needs libxdo 3 to start, though it never calls it (see the README).
 - Commands marked *planned* in [FEATURES.md](FEATURES.md) open a roadmap notice.

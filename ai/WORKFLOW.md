@@ -80,11 +80,12 @@ still completes, but the checks made meanwhile are listed as failed in "the wind
 the whole run". On a Linux desktop with KDE Plasma the run can go to a compositor of its own, on a
 virtual screen, where nothing covers it and the desktop stays free (the script receives the
 nested display). Give the nested compositor a configuration folder of its own, or it writes its
-virtual screen into the desktop's own screen settings (`~/.config/kwinoutputconfig.json`):
+virtual screen into the desktop's own screen settings (`~/.config/kwinoutputconfig.json`); without
+`DISPLAY` an X11 fallback cannot open the window on the desktop:
 
 ```sh
 mkdir -p /tmp/kwin-selftest
-env XDG_CONFIG_HOME=/tmp/kwin-selftest \
+env -u DISPLAY XDG_CONFIG_HOME=/tmp/kwin-selftest \
   dbus-run-session -- kwin_wayland --virtual --no-lockscreen --width 2560 --height 1440 \
   --exit-with-session "/path/to/script-that-runs folitecta --ui-selftest <output folder>"
 ```

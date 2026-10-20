@@ -554,3 +554,65 @@ impl DocTab {
         self.view_rotation = view.rotation;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The revision in the address of the picture of every page.
+    fn revs(t: &DocTab) -> Vec<u64> {
+        (0..t.doc.page_count()).map(|p| t.page_rev(p)).collect()
+    }
+
+    #[test]
+    fn the_addresses_of_the_page_pictures_only_grow() {
+        let bytes = folitecta_core::testdocs::long_doc(3);
+        let doc = folitecta_core::Document::from_bytes(bytes, None, None).unwrap();
+        let mut t = DocTab::new(1, doc);
+        // More than a thousand changes of the view filters: every page gets
+        // a new, larger address each time (it never starts again).
+        let hide = CommentFilter {
+            checked: Some(true),
+            ..CommentFilter::default()
+        };
+        let mut last = revs(&t);
+        for i in 0..1200 {
+            let filter = if i % 2 == 0 {
+                hide.clone()
+            } else {
+                CommentFilter::default()
+            };
+            t.set_comment_filter(filter);
+            let now = revs(&t);
+            assert!(
+                now.iter().zip(&last).all(|(n, l)| n > l),
+                "filter change {i}: {last:?} then {now:?}"
+            );
+            last = now;
+        }
+        // A first edit (after opening, every page counts as changed).
+        t.doc
+            .add_note(2, 300.0, 300.0, "First", "Reviewer", [1.0, 0.8, 0.2])
+            .unwrap();
+        t.refresh();
+        let mut last = revs(&t);
+        // An edit of page 1, its undo and its redo: page 1 gets a new,
+        // larger address each time, the others keep theirs.
+        for step in ["edit", "undo", "redo"] {
+            match step {
+                "edit" => {
+                    t.doc
+                        .add_note(1, 200.0, 200.0, "A note", "Reviewer", [1.0, 0.8, 0.2])
+                        .unwrap();
+                }
+                "undo" => t.doc.undo().unwrap(),
+                _ => t.doc.redo().unwrap(),
+            }
+            t.refresh();
+            let now = revs(&t);
+            assert!(now[1] > last[1], "{step}: page 1, {last:?} then {now:?}");
+            assert_eq!((now[0], now[2]), (last[0], last[2]), "{step}: the other pages");
+            last = now;
+        }
+    }
+}

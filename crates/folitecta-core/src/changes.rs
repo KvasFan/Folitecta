@@ -77,12 +77,26 @@ impl Touched {
 }
 
 fn hash_object(o: &Object, h: &mut impl Hasher) {
-    std::mem::discriminant(o).hash(h);
+    // A number by its value: one made as a real in the program (300.0) is
+    // read back from the saved file as an integer (300); the page is the
+    // same.
+    match o {
+        Object::Integer(i) => {
+            0xA5u8.hash(h);
+            (*i as f64).to_bits().hash(h);
+            return;
+        }
+        Object::Real(r) => {
+            0xA5u8.hash(h);
+            f64::from(*r).to_bits().hash(h);
+            return;
+        }
+        _ => std::mem::discriminant(o).hash(h),
+    }
     match o {
         Object::Null => {}
         Object::Boolean(b) => b.hash(h),
-        Object::Integer(i) => i.hash(h),
-        Object::Real(r) => r.to_bits().hash(h),
+        Object::Integer(_) | Object::Real(_) => {}
         Object::Name(n) => n.hash(h),
         Object::String(s, f) => {
             s.hash(h);

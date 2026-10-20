@@ -48,6 +48,55 @@ fn parse_page_path(path: &str) -> Option<PagePath> {
     })
 }
 
+/// What the page handler does with the address of a page picture (`path`
+/// and `query`): the request for the render threads of the tab it names,
+/// with what `find` gives for that tab and page (its render threads, say,
+/// and the revision of the page the tab shows: `None` when the tab is
+/// closed), or the answer without a picture (status and text). Only the
+/// revision the tab shows is drawn; an address of another one gets 409.
+fn page_request<T>(
+    path: &str,
+    query: &str,
+    find: impl FnOnce(u64, usize) -> Option<(T, u64)>,
+) -> Result<(T, RenderRequest), (u16, &'static str)> {
+    let has = |kv: &str| query.split('&').any(|q| q == kv);
+    let opts = RenderOpts {
+        annotations: !has("annots=0"),
+        transparent: has("bg=0"),
+    };
+    // The pages of the views say so; their pictures are dropped once the
+    // views no longer hold them.
+    let lane = if has("lane=view") {
+        Lane::View
+    } else if has("lane=thumb") {
+        Lane::Thumb
+    } else if has("lane=preview") {
+        Lane::Preview
+    } else {
+        Lane::Other
+    };
+    let path = parse_page_path(path).ok_or((404, "no such page picture"))?;
+    let (found, shown) = find(path.tab, path.page).ok_or((404, "the document is closed"))?;
+    if path.rev != shown {
+        return Err((409, "the document changed"));
+    }
+    // A tile of the picture: `tile=column,row`.
+    let tile = query
+        .split('&')
+        .find_map(|q| q.strip_prefix("tile="))
+        .and_then(|t| t.split_once(','))
+        .and_then(|(c, r)| Some((c.parse().ok()?, r.parse().ok()?)));
+    let req = RenderRequest {
+        page: path.page,
+        scale: path.scale,
+        opts,
+        lane,
+        rev: Some(path.rev),
+        tile,
+    };
+    Ok((found, req))
+}
+
 /// An answer without a picture: never kept by the page, so the same address
 /// asked again is asked again.
 fn no_picture(status: u16, text: &str) -> Response<Vec<u8>> {
@@ -247,56 +296,19 @@ pub fn App() -> Element {
         crate::perf::PAGE_REQUESTS.bump();
         let asked = std::time::Instant::now();
         let uri = request.uri();
-        let query = uri.query().unwrap_or("");
-        let has = |kv: &str| query.split('&').any(|q| q == kv);
-        let opts = RenderOpts {
-            annotations: !has("annots=0"),
-            transparent: has("bg=0"),
-        };
-        // The pages of the views say so; their pictures are dropped once
-        // the views no longer hold them.
-        let lane = if has("lane=view") {
-            Lane::View
-        } else if has("lane=thumb") {
-            Lane::Thumb
-        } else if has("lane=preview") {
-            Lane::Preview
-        } else {
-            Lane::Other
-        };
-        let Some(path) = parse_page_path(uri.path()) else {
-            crate::perf::PAGE_OTHER.bump();
-            responder.respond(no_picture(404, "no such page picture"));
-            return;
-        };
-        let found = docs
-            .peek()
-            .iter()
-            .find(|t| t.id == path.tab)
-            .map(|t| (t.render.clone(), t.page_rev(path.page)));
-        let Some((service, shown)) = found else {
-            crate::perf::PAGE_OTHER.bump();
-            responder.respond(no_picture(404, "the document is closed"));
-            return;
-        };
-        if path.rev != shown {
-            crate::perf::PAGE_OTHER.bump();
-            responder.respond(no_picture(409, "the document changed"));
-            return;
-        }
-        // A tile of the picture: `tile=column,row`.
-        let tile = query
-            .split('&')
-            .find_map(|q| q.strip_prefix("tile="))
-            .and_then(|t| t.split_once(','))
-            .and_then(|(c, r)| Some((c.parse().ok()?, r.parse().ok()?)));
-        let req = RenderRequest {
-            page: path.page,
-            scale: path.scale,
-            opts,
-            lane,
-            rev: Some(path.rev),
-            tile,
+        let asked_for = page_request(uri.path(), uri.query().unwrap_or(""), |tab, page| {
+            docs.peek()
+                .iter()
+                .find(|t| t.id == tab)
+                .map(|t| (t.render.clone(), t.page_rev(page)))
+        });
+        let (service, req) = match asked_for {
+            Ok(found) => found,
+            Err((status, text)) => {
+                crate::perf::PAGE_OTHER.bump();
+                responder.respond(no_picture(status, text));
+                return;
+            }
         };
         service.request(req, move |answer| {
             crate::perf::PAGE_WAIT_US.add(asked.elapsed().as_micros() as u64);
@@ -617,7 +629,34 @@ pub fn App() -> Element {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_page_path;
+    use super::{Lane, page_request, parse_page_path};
+
+    /// The decision of the page handler for an address, the tab 3 showing
+    /// revision 12 of every page.
+    fn decide(path: &str, query: &str) -> Result<super::RenderRequest, (u16, &'static str)> {
+        page_request(path, query, |tab, _| (tab == 3).then_some(((), 12))).map(|(_, r)| r)
+    }
+
+    #[test]
+    fn only_the_revision_a_tab_shows_is_drawn() {
+        let r = decide("/page/3/7/12/1500.png", "lane=view&tile=2,5").unwrap();
+        assert_eq!(
+            (r.page, r.rev, r.tile, r.lane),
+            (7, Some(12), Some((2, 5)), Lane::View)
+        );
+        assert!((r.scale - 1.5).abs() < 1e-6);
+        assert!(r.opts.annotations && !r.opts.transparent);
+        let r = decide("/page/3/0/12/800.png", "bg=0&annots=0&lane=thumb&retry=1").unwrap();
+        assert_eq!(r.lane, Lane::Thumb);
+        assert!(!r.opts.annotations && r.opts.transparent);
+        assert_eq!(decide("/page/3/0/12/800.png", "").unwrap().lane, Lane::Other);
+        // Another revision of the page (before or after the one shown): refused, 409.
+        assert_eq!(decide("/page/3/7/11/1500.png", "lane=view").unwrap_err().0, 409);
+        assert_eq!(decide("/page/3/7/13/1500.png", "").unwrap_err().0, 409);
+        // A tab closed, an address that is not one: 404.
+        assert_eq!(decide("/page/4/7/12/1500.png", "").unwrap_err().0, 404);
+        assert_eq!(decide("/page/3/7", "").unwrap_err().0, 404);
+    }
 
     #[test]
     fn page_paths_parse() {

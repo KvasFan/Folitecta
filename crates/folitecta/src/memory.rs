@@ -7,8 +7,10 @@
 //! closes), and stay so for a second, a thread of its own asks the
 //! allocator to give the free memory back (`malloc_trim`): never on the
 //! thread of the interface, and not while the pages keep being drawn (a
-//! scroll postpones it). Elsewhere (Windows, macOS, other C libraries) the
-//! allocator of the system works as in 0.2.0.
+//! scroll postpones it). The allocator also keeps at most four such areas
+//! for all the threads, so that what one thread frees serves the others.
+//! Elsewhere (Windows, macOS, other C libraries) the allocator of the system
+//! works as in 0.2.0.
 
 /// Start giving freed memory back (call once at start, before the windows).
 pub fn set_up() {
@@ -30,6 +32,10 @@ mod imp {
     /// How long the render threads stay idle before the memory is given back.
     const QUIET: u64 = 1000;
 
+    /// The areas of memory of the allocator for all the threads (its own
+    /// limit is eight a processor).
+    const ARENAS: i32 = 4;
+
     fn now() -> u64 {
         START.get_or_init(Instant::now).elapsed().as_millis() as u64 + 1
     }
@@ -39,6 +45,10 @@ mod imp {
     }
 
     pub(super) fn set_up() {
+        // SAFETY: called at the start of main, before any other thread.
+        unsafe {
+            libc::mallopt(libc::M_ARENA_MAX, ARENAS);
+        }
         let _ = START.get_or_init(Instant::now);
         folitecta_core::render_service::on_idle(ask);
         let _ = std::thread::Builder::new()

@@ -15,7 +15,7 @@ what lies under redaction marks, and makes scrolling and zoom smoother on large 
   are kept, the visible ones are drawn first on several threads, and zoom scales the pictures at
   once and sharpens them when it stops. On a 1000-page document the longest pause while scrolling
   fell from about 0.4 s to about 40 ms, and six Ctrl+wheel steps are sharp after about 0.12 s
-  instead of 0.5 s.
+  instead of 0.5 s. On Linux the interface also uses less memory than 0.2.0.
 - **Protection that stays**: new passwords use AES-256 (AES-128 is still a choice). Signing,
   certifying and time-stamping a protected document keep it encrypted, and documents made from a
   protected one are protected like it. Passwords with accents or other non-ASCII characters open

@@ -250,8 +250,7 @@ The icons of the interface are [Tabler Icons](https://tabler.io/icons) (MIT Lice
 Copyright (c) 2020-2026 Paweł Kuna), used through the `icondata_tb` crate (MIT). Barcodes are
 written and read with [rxing](https://github.com/rxing-core/rxing), the Rust port of ZXing
 (Apache-2.0). Spelling is checked with [spellbook](https://github.com/helix-editor/spellbook)
-(MPL-2.0). Memory is allocated with [mimalloc](https://github.com/microsoft/mimalloc) (MIT),
-through the `mimalloc` crate (MIT). The spelling dictionaries in [`dictionaries/`](dictionaries/README.md) are separate
+(MPL-2.0). The spelling dictionaries in [`dictionaries/`](dictionaries/README.md) are separate
 data files with their own licences: the English one from SCOWL (MIT-like and BSD licences), the
 Italian one from the Italian Writing Aids extension by Andrea Pescetti and others (GNU GPL 3);
 the release packages carry them in a `dictionaries` folder next to the program. Text is

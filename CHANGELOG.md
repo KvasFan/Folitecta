@@ -82,9 +82,10 @@ All notable changes to Folitecta are documented here. The format follows
     graphics card with a render node, a driver other than NVIDIA's, not a virtual machine);
     elsewhere the setting of 0.2.0 stays. `FOLITECTA_GPU=off`, `on` or `no-shared-buffers`
     overrides the choice.
-  - The program allocates its memory with mimalloc, which gives the memory of pictures back to the
-    system: the interface uses about as much memory as 0.2.0 (at most about 140 MB more, for the
-    pictures it keeps to show pages again at once) and less on long documents.
+  - Linux: the memory the render threads free goes back to the system once the pages have been
+    drawn (a second without drawing, and when a document closes), and the threads share four
+    memory areas; the interface uses less memory than 0.2.0 (after a 1000-page document about
+    470 MB instead of about 780 MB).
 - Signing, certifying and time-stamping a protected document write a file encrypted like the
   document, and saving a signed protected document keeps its signatures valid (encrypted
   incremental update). Documents made from a protected document are protected like it; pages,

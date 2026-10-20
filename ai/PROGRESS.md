@@ -50,22 +50,29 @@ checked, what is still open. The history before October 2026 is in
   redraws untouched pages), 3860324 (GPU composition only with a render node, no NVIDIA driver and
   no virtual machine), 7925709 (the `perf` step measures Go To Page). Each with a test that failed
   before. Go To Page to a far page of the 1000-page document is sharp after 42–44 ms (0.2.0:
-  394–400 ms). Memory round (merge 1d58434): glibc kept the pictures' memory in 26 per-thread
-  arenas (999 of 1224 MB at the peak); f6a191a makes mimalloc the global allocator of the program
-  and 4ce4145 lowers the picture store to 128 MB. Interface process, 0.2.0 → final: peak 927–964 →
-  901–1021 MB; after the 50-page document 475–478 → 597–616 MB; after the 1000-page document
-  798–808 → 640–695 MB; speed unchanged. Second review fixes: 0bf05b0 (integers hashed as
+  394–400 ms). Memory round (merges 1d58434 and 53cf5aa): glibc kept the pictures' memory in 26
+  per-thread arenas (999 of 1224 MB at the peak). 4ce4145 lowers the picture store to 128 MB;
+  7941c16 asks glibc to give freed memory back (`malloc_trim`, on a thread of its own, after a
+  second without drawing and when a document closes) and ca943a9 limits it to four arenas, both on
+  Linux only. A C allocator (mimalloc, f6a191a) was tried and removed (8002c53): it kept more
+  memory than this and would have been the one dependency not written in Rust. Interface process,
+  0.2.0 → final: peak 926–936 → 810–834 MB; end of the probe 877–918 → 247–252 MB; after the
+  50-page document 472–479 → 422–425 MB; after the 1000-page document 775–786 → 466–474 MB; speed
+  unchanged. Second review fixes: 0bf05b0 (integers hashed as
   integers), 767c52e (a failed picture is drawn once per address), 9cb36c3 (a thumbnail asked
   with a preview set aside is no longer dropped), 19d242f (virtual machines found by their
   graphics driver), 2a2bad0 and f2f857f (real clicks with increasing times; `jumps` covers the
-  split window and tab switching), 5a4a955 (stress tests of the render service).
+  split window and tab switching), 5a4a955 (stress tests of the render service). Third review
+  fixes: 5aadf11 (failed pictures tried again with new bytes), c1b0a3c (a render thread reads the
+  stop with its last decision, so no answer is lost on close), dcffac7 (`jumps` waits for the
+  pictures of the active document).
 - **Open:** pinch zoom and real HiDPI screens not measured (the nested compositor gives a pixel
   ratio of 1); decoded JPEG pictures not kept between renders; the document is serialized on the
   interface thread at each commit (about 10 ms at 1000 pages); slower than 0.2.0: a jump with the
   scroll bar (33–48 ms instead of 0–11 ms for pages 0.2.0 kept in the page), thumbnails of heavy
   drawings (0.36 s instead of 0.18 s), 400 % zoom on the 50-page document (0.19–0.26 s instead of
-  0.17 s); throughput of the render service with 3–4 threads on light pages up to about 10 %
-  lower with mimalloc; the 128 MB picture store holds about 85 text pages at 100 % but about 5 at
+  0.17 s); memory measured on Linux only (Windows and macOS keep their allocators as in 0.2.0);
+  the 128 MB picture store holds about 85 text pages at 100 % but about 5 at
   scale 4.
 
 ## 2026-10-19 — FOL-L023/S02: drawing and writing on the selected layer

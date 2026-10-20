@@ -192,18 +192,41 @@ fn check_private_dir(meta: &std::fs::Metadata, path: &Path) -> io::Result<()> {
 }
 
 /// Whether the window of process `pid` has ended: its process is gone where
-/// processes can be looked at (Linux), else its folder is older than half a
-/// day.
+/// processes can be looked at (Linux through `/proc`, other Unix systems by
+/// asking for it), else its folder is older than half a day.
 fn ended(pid: u32, folder: &Path) -> bool {
     let proc = Path::new("/proc");
     if proc.join("self").exists() {
         return !proc.join(pid.to_string()).exists();
     }
-    std::fs::symlink_metadata(folder)
-        .and_then(|m| m.modified())
-        .ok()
-        .and_then(|m| m.elapsed().ok())
-        .is_some_and(|age| age > std::time::Duration::from_secs(12 * 3600))
+    #[cfg(unix)]
+    {
+        let _ = folder;
+        process_gone(pid)
+    }
+    #[cfg(not(unix))]
+    {
+        std::fs::symlink_metadata(folder)
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|m| m.elapsed().ok())
+            .is_some_and(|age| age > std::time::Duration::from_secs(12 * 3600))
+    }
+}
+
+/// Whether no process `pid` runs, asking the system (Unix).
+#[cfg(unix)]
+fn process_gone(pid: u32) -> bool {
+    // A number no process can have.
+    let Some(pid) = libc::pid_t::try_from(pid).ok().filter(|p| *p > 0) else {
+        return true;
+    };
+    // SAFETY: signal 0 sends nothing; it only tells whether the process
+    // exists (EPERM: it exists, of another user).
+    if unsafe { libc::kill(pid, 0) } == 0 {
+        return false;
+    }
+    io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
 }
 
 fn sweep_in(root: &Path, me: u32) {
@@ -327,9 +350,17 @@ mod tests {
         assert!(std::fs::symlink_metadata(root.join(format!("{PICTURES}-{dead}"))).is_err());
         assert!(elsewhere.join("keep.txt").exists());
         assert!(root.join(format!("{PICTURES}-{me}")).exists());
-        if Path::new("/proc/self").exists() {
-            assert!(live.exists(), "the folder of a running window was removed");
-        }
+        assert!(live.exists(), "the folder of a running window was removed");
         let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn processes_are_asked_for_where_they_cannot_be_looked_at() {
+        // The way of Unix systems without /proc (macOS), tried everywhere.
+        assert!(!process_gone(std::process::id()));
+        assert!(!process_gone(1), "the first process of the system runs");
+        assert!(process_gone(i32::MAX as u32), "no process has the largest number");
+        assert!(process_gone(u32::MAX - 1));
+        assert!(process_gone(0));
     }
 }

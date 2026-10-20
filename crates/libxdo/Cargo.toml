@@ -12,7 +12,7 @@ repository.workspace = true
 authors.workspace = true
 rust-version.workspace = true
 
-[dependencies]
+[target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
 [lints]

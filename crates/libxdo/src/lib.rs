@@ -10,6 +10,10 @@
 //! [`XDo::new`] fails with [`CreationError::Ffi`], as when no display can be
 //! opened. Other versions of the library are not opened: their functions are
 //! not known to take the same arguments.
+//!
+//! The menu library uses libxdo on Unix systems with X11 only; elsewhere this
+//! crate is empty (it is still built as a member of the workspace).
+#![cfg(unix)]
 
 use std::error::Error;
 use std::ffi::{CString, NulError, c_char, c_int, c_uint, c_ulong, c_void};

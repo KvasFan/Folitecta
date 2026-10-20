@@ -789,13 +789,17 @@ fn worker(shared: Arc<Shared>) {
         // here, under the lock, so that the document changing again meanwhile
         // cannot leave it waiting for ever: answered as no longer wanted when
         // its page changed (or the service stops), else drawn from this one.
-        let (generation, bytes, dropped) = {
+        // Whether the service stops is read in the same hold of the lock as
+        // the decision about the job set aside (which answers it then): read
+        // apart, the service could stop in between and the job kept would be
+        // left with its askers unanswered.
+        let (generation, bytes, dropped, stop) = {
             let mut s = shared.lock();
             let dropped = settle_taken(&mut s, &mut held);
-            (s.generation, s.bytes.clone(), dropped)
+            (s.generation, s.bytes.clone(), dropped, s.stop)
         };
         answer_stale(&shared, dropped);
-        if shared.lock().stop {
+        if stop {
             return;
         }
         let pdf = load_pdf(bytes);
@@ -1495,6 +1499,29 @@ mod tests {
             before + 2,
             "tried again once the time passed"
         );
+    }
+
+    #[test]
+    fn a_document_closed_right_after_new_bytes_answers_every_request() {
+        use std::sync::atomic::AtomicUsize;
+        let bytes = doc(4);
+        for round in 0..200u64 {
+            let svc = RenderService::with_workers(bytes.clone(), 8);
+            let answered = Arc::new(AtomicUsize::new(0));
+            for i in 0..40 {
+                let answered = answered.clone();
+                svc.request(req(i % 4, 0.2 + i as f32 * 0.01, Lane::Other, None), move |_| {
+                    answered.fetch_add(1, Ordering::SeqCst);
+                });
+            }
+            // New bytes of the same revision (an undo of an edit of another
+            // page, the layers made default): the threads set their jobs
+            // aside to parse them, and the document closes meanwhile.
+            svc.replace_rev(bytes.clone(), 0);
+            std::thread::sleep(std::time::Duration::from_micros(250 * (round % 12)));
+            drop(svc);
+            assert_eq!(answered.load(Ordering::SeqCst), 40, "round {round}");
+        }
     }
 
     #[test]

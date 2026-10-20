@@ -10,9 +10,10 @@
 //!   then the pages ahead in the scroll direction (nearest first), the
 //!   others, and the small pictures of the thumbnails and previews last;
 //!   without a window telling what it shows, first asked first drawn.
-//! - The pictures made are kept, up to a number of bytes shared by the open
-//!   documents, the least recently used dropped first; a picture asked again
-//!   is answered at once. When a
+//! - The pictures made are kept within one budget of bytes for every open
+//!   document together: past it the least recently used picture of any
+//!   document is dropped first, and a document's pictures go when it
+//!   closes; a picture asked again is answered at once. When a
 //!   page is drawn for the window, its small picture (at the scale the
 //!   thumbnails ask for) is made from the same pixels, so thumbnails and
 //!   previews of the pages seen cost no drawing.
@@ -105,18 +106,101 @@ fn bump(counter: &AtomicU64, n: u64) {
 }
 
 /// The bytes of pictures all the open documents keep together (uncompressed
-/// pictures: about 40 pages of text at 125 % on a pixel ratio of 2); each
-/// document keeps its share, at least [`KEPT_LEAST`].
+/// pictures: about 40 pages of text at 125 % on a pixel ratio of 2).
 const KEPT_TOTAL: usize = 256 * 1024 * 1024;
-const KEPT_LEAST: usize = 48 * 1024 * 1024;
 
-/// Render services alive (open documents).
-static OPEN: AtomicU64 = AtomicU64::new(0);
-
-/// The bytes of pictures one document keeps.
-fn kept_budget() -> usize {
-    (KEPT_TOTAL / OPEN.load(Ordering::Relaxed).max(1) as usize).max(KEPT_LEAST)
+/// The pictures kept by the render threads of every open document together,
+/// within one budget: past it, the least recently used picture of any
+/// document is dropped first (the newest stays, even alone larger than the
+/// budget), and the pictures of a document go when it closes.
+pub(crate) struct KeptPool {
+    budget: usize,
+    inner: Mutex<KeptPictures>,
 }
+
+#[derive(Default)]
+struct KeptPictures {
+    /// The pictures by render service and picture.
+    pictures: HashMap<(u64, Key), Kept>,
+    bytes: usize,
+    used: u64,
+}
+
+impl KeptPool {
+    pub(crate) fn new(budget: usize) -> Self {
+        KeptPool {
+            budget,
+            inner: Mutex::new(KeptPictures::default()),
+        }
+    }
+
+    fn lock(&self) -> MutexGuard<'_, KeptPictures> {
+        self.inner.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// Keep a picture of the render service `id`.
+    fn keep(&self, id: u64, key: Key, picture: Arc<RenderedPage>) {
+        let mut k = self.lock();
+        k.used += 1;
+        let used = k.used;
+        let size = picture.png.len();
+        if let Some(old) = k.pictures.insert((id, key), Kept { picture, used }) {
+            k.bytes -= old.picture.png.len();
+        }
+        k.bytes += size;
+        while k.bytes > self.budget && k.pictures.len() > 1 {
+            let Some(oldest) = k.pictures.iter().min_by_key(|(_, p)| p.used).map(|(key, _)| *key) else {
+                break;
+            };
+            if let Some(gone) = k.pictures.remove(&oldest) {
+                k.bytes -= gone.picture.png.len();
+            }
+        }
+    }
+
+    /// A picture kept of the render service `id`, now the most recently used.
+    fn get(&self, id: u64, key: &Key) -> Option<Arc<RenderedPage>> {
+        let mut k = self.lock();
+        k.used += 1;
+        let used = k.used;
+        k.pictures.get_mut(&(id, *key)).map(|p| {
+            p.used = used;
+            p.picture.clone()
+        })
+    }
+
+    fn contains(&self, id: u64, key: &Key) -> bool {
+        self.lock().pictures.contains_key(&(id, *key))
+    }
+
+    /// Keep only the pictures of the render service `id` that `keep` accepts.
+    fn retain(&self, id: u64, keep: impl Fn(&Key) -> bool) {
+        let mut k = self.lock();
+        let KeptPictures { pictures, bytes, .. } = &mut *k;
+        pictures.retain(|(i, key), p| {
+            let stays = *i != id || keep(key);
+            if !stays {
+                *bytes -= p.picture.png.len();
+            }
+            stays
+        });
+    }
+
+    /// The bytes of the pictures kept.
+    #[cfg(test)]
+    fn bytes(&self) -> usize {
+        self.lock().bytes
+    }
+}
+
+/// The pool of the pictures kept by the render services of the program.
+fn kept_pool() -> Arc<KeptPool> {
+    static POOL: std::sync::OnceLock<Arc<KeptPool>> = std::sync::OnceLock::new();
+    POOL.get_or_init(|| Arc::new(KeptPool::new(KEPT_TOTAL))).clone()
+}
+
+/// The number of the next render service (the key of its pictures kept).
+static NEXT_SERVICE: AtomicU64 = AtomicU64::new(1);
 
 type Reply = Box<dyn FnOnce(RenderAnswer) + Send + 'static>;
 
@@ -174,9 +258,6 @@ struct State {
     seq: u64,
     /// The replies waiting for each picture asked (queued or being drawn).
     waiting: HashMap<Key, Vec<Reply>>,
-    kept: HashMap<Key, Kept>,
-    kept_bytes: usize,
-    used: u64,
     focus: Focus,
     /// The scale of the thumbnails (milli), the size of the small pictures
     /// made with each page drawn for the window.
@@ -190,39 +271,6 @@ impl State {
     /// The revision of a page.
     fn rev_of(&self, page: usize) -> u64 {
         self.page_revs.get(page).copied().unwrap_or(self.rev)
-    }
-
-    fn keep(&mut self, key: Key, picture: Arc<RenderedPage>) {
-        self.used += 1;
-        let size = picture.png.len();
-        if let Some(old) = self.kept.insert(
-            key,
-            Kept {
-                picture,
-                used: self.used,
-            },
-        ) {
-            self.kept_bytes -= old.picture.png.len();
-        }
-        self.kept_bytes += size;
-        let budget = kept_budget();
-        while self.kept_bytes > budget && self.kept.len() > 1 {
-            let Some(oldest) = self.kept.iter().min_by_key(|(_, k)| k.used).map(|(k, _)| *k) else {
-                break;
-            };
-            if let Some(gone) = self.kept.remove(&oldest) {
-                self.kept_bytes -= gone.picture.png.len();
-            }
-        }
-    }
-
-    fn kept(&mut self, key: &Key) -> Option<Arc<RenderedPage>> {
-        self.used += 1;
-        let used = self.used;
-        self.kept.get_mut(key).map(|k| {
-            k.used = used;
-            k.picture.clone()
-        })
     }
 
     /// Whether a job is no longer wanted.
@@ -275,6 +323,9 @@ struct Shared {
     state: Mutex<State>,
     wake: Condvar,
     stats: StatCounters,
+    /// The number of this service in the pool of the pictures kept.
+    id: u64,
+    pool: Arc<KeptPool>,
 }
 
 impl Shared {
@@ -308,7 +359,11 @@ impl RenderService {
 
     /// Start `n` render threads (at least one).
     pub fn with_workers(bytes: Arc<Vec<u8>>, n: usize) -> Self {
-        OPEN.fetch_add(1, Ordering::Relaxed);
+        Self::with_pool(bytes, n, kept_pool())
+    }
+
+    /// Start `n` render threads keeping their pictures in `pool`.
+    pub(crate) fn with_pool(bytes: Arc<Vec<u8>>, n: usize, pool: Arc<KeptPool>) -> Self {
         let shared = Arc::new(Shared {
             state: Mutex::new(State {
                 bytes,
@@ -318,9 +373,6 @@ impl RenderService {
                 queue: Vec::new(),
                 seq: 0,
                 waiting: HashMap::new(),
-                kept: HashMap::new(),
-                kept_bytes: 0,
-                used: 0,
                 focus: Focus::default(),
                 thumb_scale: None,
                 running: 0,
@@ -328,6 +380,8 @@ impl RenderService {
             }),
             wake: Condvar::new(),
             stats: StatCounters::default(),
+            id: NEXT_SERVICE.fetch_add(1, Ordering::Relaxed),
+            pool,
         });
         let threads = (0..n.max(1))
             .map(|i| {
@@ -389,14 +443,9 @@ impl RenderService {
             }
             s.rev = rev;
             s.page_revs = page_revs;
-            let current: Vec<Key> = s.kept.keys().copied().collect();
-            for k in current {
-                if k.rev != s.rev_of(k.page) {
-                    if let Some(gone) = s.kept.remove(&k) {
-                        s.kept_bytes -= gone.picture.png.len();
-                    }
-                }
-            }
+            self.shared
+                .pool
+                .retain(self.shared.id, |k| k.rev == s.rev_of(k.page));
             take_stale(&mut s)
         };
         answer_stale(&self.shared, stale);
@@ -437,7 +486,7 @@ impl RenderService {
         if matches!(req.lane, Lane::Thumb | Lane::Preview) {
             s.thumb_scale = Some(key.scale);
         }
-        if let Some(picture) = s.kept(&key) {
+        if let Some(picture) = self.shared.pool.get(self.shared.id, &key) {
             drop(s);
             bump(&self.shared.stats.reused, 1);
             reply(RenderAnswer::Picture(picture));
@@ -527,7 +576,6 @@ impl RenderService {
 
 impl Drop for RenderService {
     fn drop(&mut self) {
-        OPEN.fetch_sub(1, Ordering::Relaxed);
         let stale = {
             let mut s = self.shared.lock();
             s.stop = true;
@@ -541,6 +589,8 @@ impl Drop for RenderService {
         for t in self.threads.drain(..) {
             let _ = t.join();
         }
+        // The document closed: its pictures leave the pool.
+        self.shared.pool.retain(self.shared.id, |_| false);
     }
 }
 
@@ -771,7 +821,7 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
         s.running = s.running.saturating_sub(1);
         if let RenderAnswer::Picture(p) = &answer {
             if key.rev == s.rev_of(key.page) {
-                s.keep(key, p.clone());
+                shared.pool.keep(shared.id, key, p.clone());
             }
         }
         s.waiting.remove(&key).unwrap_or_default()
@@ -789,7 +839,7 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
         tile: None,
         ..key
     };
-    if shared.lock().kept.contains_key(&small_key) {
+    if shared.pool.contains(shared.id, &small_key) {
         return;
     }
     let Some(page) = pdf.pages().get(key.page) else {
@@ -816,7 +866,7 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
         if key.rev != s.rev_of(key.page) {
             return;
         }
-        s.keep(small_key, picture.clone());
+        shared.pool.keep(shared.id, small_key, picture.clone());
         // Requests of it waiting in the queue are answered now.
         s.queue.retain(|j| j.key != small_key);
         s.waiting.remove(&small_key).unwrap_or_default()
@@ -1017,6 +1067,46 @@ mod tests {
             rx.recv_timeout(Duration::from_secs(5)).is_ok(),
             "closing the document does not return"
         );
+    }
+
+    #[test]
+    fn the_pictures_kept_stay_within_one_budget_for_every_document() {
+        // A pool of its own, of about five pictures of a page at 50 %.
+        let budget = 2 * 1024 * 1024;
+        let pool = Arc::new(KeptPool::new(budget));
+        let bytes = doc(6);
+        let a = RenderService::with_pool(bytes.clone(), 1, pool.clone());
+        let b = RenderService::with_pool(bytes, 1, pool.clone());
+        // Whether the picture was drawn (not kept), and its bytes.
+        let drawn = |svc: &RenderService, page: usize| {
+            let before = svc.stats().rendered;
+            let RenderAnswer::Picture(p) = ask(svc, req(page, 0.5, Lane::Other, None)) else {
+                panic!("no picture of page {page}");
+            };
+            (svc.stats().rendered != before, p.png.len())
+        };
+        for page in 0..6 {
+            drawn(&a, page);
+            assert!(pool.bytes() <= budget, "{} bytes kept", pool.bytes());
+        }
+        for page in 0..6 {
+            drawn(&b, page);
+            assert!(pool.bytes() <= budget, "{} bytes kept", pool.bytes());
+        }
+        // The least recently used pictures went first, whatever their
+        // document: all those of the first one.
+        let (again, size) = drawn(&a, 5);
+        assert!(again, "a picture of the first document still kept");
+        assert!(!drawn(&b, 5).0, "the pictures used last are kept");
+        // A document closed gives its pictures back.
+        drop(b);
+        assert_eq!(
+            pool.bytes(),
+            size,
+            "only the picture of the first document is left"
+        );
+        drop(a);
+        assert_eq!(pool.bytes(), 0);
     }
 
     #[test]

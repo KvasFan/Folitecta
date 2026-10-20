@@ -131,12 +131,12 @@ queue: first the pages a view shows (from the top), then those ahead in the scro
 other pages the views hold, and the small pictures (previews of pages, thumbnails) last; a
 picture asked again while it waits is drawn once, and a page alone in the queue is drawn by
 several threads of the rasterizer. Each thread owns its own parse of the PDF and hayro render
-cache. The pictures made by all open documents are kept within 256 MB (at least 48 MB each), the
-least recently used dropped first; when a page is drawn its thumbnail is made from the same
-pixels. The pictures for the window are uncompressed PNG up to 8 million pixels (fdeflate above);
-a page whose picture would be larger (a high zoom) is shown as a lighter picture with 512-pixel
-tiles over it, only those in the window being drawn, and the loupe shows tiles of a fixed grid at
-its scale.
+cache. The pictures made by all open documents are kept together within 256 MB, the least recently
+used of any document dropped first, and those of a document go when it closes; when a page is drawn
+its thumbnail is made from the same pixels. The pictures for the window are uncompressed PNG up to
+8 million pixels (fdeflate above); a page whose picture would be larger (a high zoom) is shown as a
+lighter picture with 512-pixel tiles over it, only those in the window being drawn, and the loupe
+shows tiles of a fixed grid at its scale.
 
 The UI never blocks on rendering: the webview requests
 `/page/{tab}/{page}/{revision}/{scale}.png[?lane=…][&tile=c,r]` and the response is produced on a

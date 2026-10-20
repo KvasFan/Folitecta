@@ -6,6 +6,139 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-20
+
+### Added
+- Printing has its own window with a live preview of the sheets and the printers of the
+  computer: copies and collation; ranges by number or page label, odd or even pages, reverse
+  order; comments and form fields; fit, actual size, shrink, custom scale, paper by page size,
+  auto-rotate; 2 to 16 pages per sheet; booklets (binding, signatures, back cover); posters
+  (overlap, cut marks, labels in a 3 mm strip under the tiles); orientation, paper, two-sided
+  printing (blocked with an explanation when the printer cannot turn the paper that way) and
+  colour. Jobs go straight to the printer: on Linux and macOS the vector print file goes to the
+  local print server, on Windows the sheets go as pictures at up to 600 dpi; progress and cancel
+  are in the status bar. Save as PDF and the system dialog remain as fallbacks. What prints
+  follows the document: printable comments only, NoRotate notes upright, layers in their print
+  state, visibility expressions included.
+- Text boxes, typewriter text, callouts and measurement labels draw text beyond Western European
+  characters (Polish, Czech, Greek, Cyrillic, symbols and more) with an embedded subset of GNU
+  FreeFont FreeSans: it shows, prints, is copied and found, also after flattening. Text that
+  cannot be drawn yet (right-to-left, joining or combining letters, characters the font lacks)
+  is refused before any change, with the characters named while typing; no `?` is written.
+  Comment imports name the comments they cannot draw and import the others on request.
+- E-mail attachment dialog (File › Email Document…, Share › Send, Form › Email Form Data…): for
+  each document the current state or the saved file, its form data (XFDF, FDF, CSV, text) and
+  its comments (XFDF, FDF); PDF files cut to some pages, with their comments kept, flattened or
+  removed, separately or in one ZIP archive. Every file is prepared in the background and shows
+  its size, what it holds and its first pages. Save Draft… writes an unsent `.eml` where you
+  choose; Open in Mail Program hands the files over. Nothing is sent.
+- New password protection uses AES-256 by default; AES-128 stays a choice in Password Security
+  and in security policies (older policies load as AES-256).
+- Revocation of signature certificates is checked from the OCSP answers and revocation lists in
+  the signature, its time stamp or the document security store, or fetched online; online checks
+  are off until turned on in Signatures pane › Options. Add Validation Material writes the
+  certificates and revocation data to the document security store as an update that keeps the
+  signatures valid (encrypted for protected documents).
+- Redaction removes the vector paths under the marks, and the text, pictures and paths of
+  reused drawings, inline pictures and Type 3 text, without drawing the page as a picture; text
+  of hidden layers and clipped text go too. Applying redaction opens a dialog: what goes,
+  warnings for blurred areas and signatures, and sanitizing on by default (metadata,
+  attachments, hidden content, quotes of the removed words, scripts). The result is saved as a
+  new file that is checked before it is written. The document security store and its declaration
+  go with every redaction.
+- What you draw or write goes to the selected layer: with one layer selected in the Layers pane
+  (or chosen with Edit › Choose Layer), new comments are put on the layer and placed pictures and
+  barcodes become content of the layer; the status bar shows the layer, Default Layer stops it.
+  Hiding a layer hides its comments in the pages, thumbnails, printing, exported pictures, comment
+  summaries and the Comments pane (Show Comments from Hidden Layers, off by default). Flattened
+  comments keep their layer; Choose Layer, the Layer field of the properties and Move to New
+  Layer move comments and pictures between layers. Rasterized pages keep the comments of hidden
+  layers as comments on their layer.
+
+### Changed
+- Scrolling and zoom are much smoother on large documents:
+  - Scrolling no longer waits for the program: the wheel, the scroll bar and Ctrl+wheel are
+    followed by a script in the page, and mouse moves and wheel events reach the program only
+    where something listens to them. On a 1000-page document the longest pause while scrolling
+    fell from about 0.4 s to about 40 ms.
+  - A view holds only the pages near what it shows (the others are boxes of their exact size);
+    pages are found without walking the page tree; comments, bookmarks, links and form fields are
+    read once per revision. On a 1000-page document the first sharp pages show after under 50 ms
+    instead of about 0.45 s, and text selection and drags answer in a few milliseconds instead of
+    0.2–0.4 s.
+  - Each document has one drawing queue (the pages shown first, then those ahead, thumbnails
+    last); a picture asked for twice is drawn once and one no longer shown is not drawn; a page
+    drawn alone uses several threads; recent pictures are kept (256 MB for all documents); a page
+    shows its small picture until the sharp one comes.
+  - Zoom scales the pictures shown at once and draws new ones when it has stayed the same for
+    90 ms; at high zoom pages and the loupe are drawn in 512-pixel tiles. Six Ctrl+wheel steps
+    are sharp after 0.11–0.14 s instead of 0.45–0.58 s.
+  - An edit draws again only the pages it touched, and the text of the pages is kept when
+    comments change.
+  - Linux: the page view is composited on the graphics card (WebKitGTK's shared buffers stay on
+    except with the NVIDIA driver; `FOLITECTA_GPU=off`, `on` or `no-shared-buffers` overrides).
+  - The interface uses more memory than 0.2.0 (about 300–400 MB more on long documents).
+- Signing, certifying and time-stamping a protected document write a file encrypted like the
+  document, and saving a signed protected document keeps its signatures valid (encrypted
+  incremental update). Documents made from a protected document are protected like it; pages,
+  layers and comments of protected files are refused by unprotected documents. Protected
+  documents leave no recovery copies, history thumbnails or history titles.
+- Print permissions of protected files apply to readers who opened them with the user password
+  (or without one when the file has none); the owner password lifts them, at open or typed in
+  the print window. Files protected by Folitecta with printing allowed now permit full-quality
+  printing; files protected by 0.2.0 with "Allow printing" print as 150 dpi pictures when opened
+  with their user password. Save as PDF keeps the protection.
+- Later revisions that only add validation material keep a signature's integrity: they must be
+  regular updates, read the same by a second reader; anything else counts as a change after
+  signing. Signature checks run off the interface thread, and earlier results stay dimmed with
+  "Checking the signatures…" while they run again. Clear All Signatures also removes the
+  validation material.
+- A missing mail program, one that cannot take the files, or a web browser handling e-mail links
+  is reported in the attachment dialog, with Save Draft…, Open the Draft and Show the Files; no
+  draft or `mailto:` message opens by itself. Files handed over go to a new folder only you can
+  open; drafts fold long subjects and write non-ASCII file names the standard way.
+- Flattening comments is much faster on documents with many comments (1,200 comments: 10.9 s →
+  0.11 s).
+- Text stamps refuse text beyond WinAnsi; a failed edit keeps the undo and redo history.
+- Release packages carry a `fonts` folder next to the program (in the app bundle's resources on
+  macOS).
+
+### Fixed
+- AES-128 and RC4 files opened with the owner password, or with a password with characters
+  outside ASCII (also typed with separate accents, or written as UTF-8 by other programs), were
+  decrypted into noise or opened as empty pages, and saving kept the noise; they now open
+  correctly, and a key that cannot be verified is refused.
+- Signatures in encrypted files did not validate; a byte range that does not leave out exactly
+  the signature's own value now makes the signature invalid.
+- Passwords AES-128 could not keep were silently weakened; they are now refused.
+- A wrong password asks again; certificate-protected files are reported; Revert asks for the
+  password of protected files. Protected copies always open in readers.
+- Pictures and attachments handed to other programs go to a private folder of the user that is
+  removed afterwards.
+- Copies of some pages (e-mail, attachments) keep nothing of the pages left out: pictures, fonts,
+  drawings, comments, form fields and their XFA data, layers, bookmarks, links, destinations,
+  tags, threads.
+- Redaction: text after kerned words keeps its place; strokes under skewed or stretched matrices
+  and miter joins leave no ink inside the marks; patterns, Type 3 glyph procedures and picture
+  metadata of removed content no longer stay in the file; patterns and fonts other pages keep with
+  what was under the marks are reported. A signed version brought back by Undo after a later save
+  is never written with a broken signature.
+- Comments exported as FDF and imported again, or imported from another PDF, stay on a layer of
+  the same name instead of a copy of the layer; re-importing XFDF keeps the layer of a comment;
+  pasting a comment on a layer no longer copies the layer. Resources shared by several pages are
+  copied before something is added to one of them. Documents that claim PDF/A-1 refuse new
+  layers.
+- With the Signatures pane or the details of a signature open (after signing, time-stamping,
+  Validate All or Summary), the interface drew itself again without pause, keeping the processor
+  busy, and dialogs that measure themselves (Split Pages, picture editor), the portfolio preview
+  and menu searches stopped working.
+- The interface no longer stops while its window is not drawn (minimized or hidden), and the
+  results of page scripts are no longer lost. Sounds and videos play on Linux.
+- With the side pane hidden, the page area could lose its width.
+- Once a drag or an editing tool had been used, every mouse move in the window waited for the
+  program.
+- Portfolio › Print prints only the portfolio's own PDF files, with the portfolio's protection.
+
 ## [0.2.0] - 2026-10-18
 
 ### Added

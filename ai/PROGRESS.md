@@ -4,6 +4,211 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-20 — release 0.2.1
+
+- **Tag:** `v0.2.1` on `main` (full CI on Windows, macOS and Linux; release packages).
+- **Contents:** FOL-L018/S01, FOL-L053/S01, FOL-L036/S02, FOL-L040/S02 with FOL-C006/S02,
+  FOL-L037/S02 (the 0.2.1 plan), and also FOL-L046/S01 (printing), FOL-L023/S02 (drawing on the
+  selected layer), the speed of the interface and the interface self-test on Linux.
+- **Checked:** 749 tests in 66 suites, clippy without warnings and the full interface self-test
+  in a nested compositor on Linux (501 states, 224 interactions, 0 problems) after the last merge;
+  the packages of the release downloaded and their SHA-256 compared.
+
+## 2026-10-20 — FOL-L001: speed of the interface (scrolling, zoom, long documents)
+
+- **Commits:** merge 43fc7f1 "Merge the speed of the interface (FOL-L001) after drawing on
+  layers" (branch commits 926df43…e923296) and f56d855 (pages changed by a redaction applied in
+  the background are drawn again).
+- **Current state before:** every scroll, wheel event and mouse move was a synchronous request to
+  the interface thread; every page and thumbnail was drawn again at each change, each page
+  walking the page tree (about 350 ms per change at 1000 pages); each render thread had its own
+  first-in-first-out queue without priority, merging or cancellation, and every zoom step asked
+  for every visible page again; pictures were compressed as PNG; every page stayed in the page
+  view and every edit redrew every page.
+- **Changed:** a page script follows scrolling, the current page and Ctrl+wheel, and mouse and
+  wheel events reach the program only where listened to; page ids and the comments, outline,
+  links, destinations and fields of a revision kept; per-page revisions (`changes`) so an edit
+  redraws the pages it touched and keeps the text of the others; `render_service`: one queue per
+  document ranked by the window, duplicates merged, stale requests refused, a 256 MB picture
+  cache shared by the documents, thumbnails from the page pixels, several threads for a page
+  drawn alone, uncompressed pictures; a page window with placeholders and small previews; zoom
+  settled after 90 ms; 512-pixel tiles at high zoom and for the loupe; GPU composition on Linux
+  (`FOLITECTA_GPU`).
+- **Checked:** `render_bench` (generated documents, medians of 10); core tests `page_lookup`,
+  `page_revisions` and unit tests of the render service; self-test step `perf` comparing with
+  0.2.0 in a nested compositor (1280×800, load 1.2–3.2, medians of 3, builds alternated). On the
+  1000-page document: sharp after opening 17–46 ms (0.2.0: 416–462 ms); longest pause while
+  scrolling 41–44 ms (401–409 ms); six Ctrl+wheel steps sharp after 107–124 ms (556–577 ms);
+  a text selection press 3 ms (203–208 ms). On the 50-page document: dynamic zoom sharp after
+  0.20–0.22 s (2.36–2.38 s). Synchronous event requests while scrolling or hovering: 0 (91–241).
+- **Open:** pinch zoom and real HiDPI screens not measured (the nested compositor gives a pixel
+  ratio of 1); decoded JPEG pictures not kept between renders; the document is serialized on the
+  interface thread at each commit (about 10 ms at 1000 pages); slower than 0.2.0: a jump far
+  away (40–55 ms instead of about 10 ms), thumbnails of heavy drawings (0.36 s instead of
+  0.18 s), 400 % zoom on the 50-page document (0.19–0.26 s instead of 0.17 s); about 300–400 MB
+  more memory at the end of the probe.
+
+## 2026-10-19 — FOL-L023/S02: drawing and writing on the selected layer
+
+- **Commits:** merge "Merge drawing on the selected layer (FOL-L023/S02) after the effects
+  check" (branch commits 4745cfb, dbddba0, 60c8a55, review fixes 44c3db3…dd7502c).
+- **Current state before:** layers could only be shown, hidden, merged, flattened and imported;
+  new comments had no layer; comments of hidden layers were still drawn and listed; pasting a
+  comment copied its layer object.
+- **Changed:** `layer_drawing`: the drawing layer, `/OC` on drawn comments, marked content of the
+  layer around placed pictures and barcodes, comments and pictures moved between layers,
+  comments of hidden layers hidden in the bytes the renderer reads (views cached per revision and
+  written as small updates: 1,000 pages × 20 comments × 20 layers went from 19/82 ms to 2/4 ms);
+  visibility expressions evaluated as printing does; flattening keeps the layer; exchanges carry
+  the layer by name; resources other pages share are copied before something is added;
+  rasterizing, summaries and file thumbnails follow the layers; PDF/A-1 refuses layers.
+  Interface: pane mark, status chip, Choose Layer, Default Layer, Move to New Layer, the Layer
+  field of the properties, the Comments pane option.
+- **Checked:** `tests/layer_drawing.rs` (27); self-test step `layer_drawing` (14 interactions);
+  629 workspace tests and a full self-test (275 states, 177 interactions, 0 problems) on the
+  branch.
+- **Open:** comments whose layer is a membership dictionary lose it on export and paste; XFDF
+  carries no layer; rasterizing a rotated page drops its comments; exported pictures follow the
+  default visibility, not the view; the drawing layer is not remembered between sessions; not on
+  layers: redaction marks, form fields, links, signatures.
+
+## 2026-10-19 — FOL-L046/S01: print sheets, print window, direct printing
+
+- **Commits:** merge 8df021a "Merge the print overhaul (FOL-L046): own print window, sheets,
+  direct printing" (branch commits b0e24cb…12ac5ec, review fixes e26bf16…cfa4399, bd281ca,
+  41f9125, 33acf3a).
+- **Current state before:** pictures of the pages through the dialog of the web view only; no
+  pages per sheet, booklet, poster, two-sided options, printer choice or permission check;
+  Portfolio › Print printed every open document.
+- **Changed:** a planner of sheets in the core and a vector print file (checked, protected when
+  saved), a band renderer for pictures of sheets; IPP to the local print server (Linux, macOS),
+  GDI (Windows) and a fake backend for tests; the print window with its sheet preview, the job
+  runner and the status chip; print permissions (user and owner password); self-test step
+  `print`.
+- **Checked:** 80 print tests (1 ignored); the IPP transport against an in-test server; the
+  Windows code type-checked against the `windows` crate on Linux; full self-test on the branch
+  (270 states, 165 interactions, 0 problems).
+- **Open:** real printers on Linux, macOS and Windows (order, scale, margins, counts); vector
+  output on Windows; about 40 lines of Windows-only window code not type-checked; listing the
+  printers opens each one (slow with many network printers); a booklet printed on both sides
+  needs a printer that turns the paper itself.
+
+## 2026-10-19 — FOL-L037/S02: vector paths, reused drawings and sanitizing in redaction
+
+- **Commits:** merge 1374d9e "Merge redaction of vectors, reused drawings and sanitizing
+  (FOL-L037) after printing" (branch commits e915b1f…6b9ad74 and three rounds of review fixes).
+- **Current state before:** paths under the marks were covered, not removed; text and pictures
+  inside reused drawings forced the page to a picture; no sanitizing.
+- **Changed:** fills and clips cut into bands around the marks, strokes against the marks
+  widened by half the line width and cut in user space with their joins; copies of reused
+  drawings (a list of allowed keys, structure retargeted); undrawn originals purged from shared
+  and inherited resources, the structure tree and comments; Type 3 glyph procedures, patterns
+  and picture metadata of removed content removed; XFA always removed; sanitizing (metadata with
+  PDF/A and PDF/UA claims kept, attachments and media, hidden layers, comments and fields,
+  quotes of the removed words in bookmarks, links, destinations, tags and document information,
+  scripts and risky actions); the document security store goes; checks in memory and on the
+  bytes before the new file is written; the apply dialog.
+- **Checked:** `redaction_vectors` (25+), `redaction_sanitize` (19+), `redaction_reuse` (6), a
+  2,000-page timing test; self-test step `redaction`; 617 workspace tests and a full self-test
+  (431 states, 0 problems) on the branch.
+- **Open:** rectangles only; nothing removed outside the crop box; the moves that replace removed
+  glyphs keep their widths (the length of a word can be measured); patterns and drawings other
+  pages draw stay for them (reported); quotes in page text, comments and field values are
+  reported, not changed; the quote search reads at most 100 pages of long documents.
+
+## 2026-10-19 — FOL-L040/S02, FOL-C006/S02: revocation and validation material
+
+- **Commits:** merges eb6e5b1, 003814c and 6400d9f (branch commits 2fbbe5d, ed6e156, 0d44817,
+  e5989e5, fc26766, 88f499a, 1b4c00c, e2a5210, 973b35c, b2de1ba).
+- **Current state before:** revocation was always "not checked"; no document security store;
+  any later revision counted as a change after signing.
+- **Changed:** OCSP answers and revocation lists checked for the time the signature is proven to
+  exist, then trust and expiry rules; data from the signature, its time stamp, the document
+  security store, or fetched online when turned on; Add Validation Material writes DSS and VRI as
+  an incremental update (encrypted for protected files); revisions that only add validation
+  material are recognised when they are regular updates and a second reader (the renderer's)
+  reads every object the same; validation runs in a task off the interface thread.
+- **Checked:** `revocation` (27), `material_revisions`, `xref_shadowing`, irregular update
+  shapes; online fetching only against 127.0.0.1; self-test step `revocation` (5); full
+  self-test (415 states, 0 problems) on the branch.
+- **Open:** indirect, delta and reason-partitioned lists, points named relative to the issuer,
+  AIA, policy checks, OCSP nonce; not tried against public servers or another validator; no
+  PAdES/LTV claim; protected files of other producers that keep objects in object streams show
+  their material revisions as changes.
+
+## 2026-10-19 — FOL-L036/S02: AES-256, protected documents signed and saved encrypted
+
+- **Commits:** merges 0eb7894, bf86a01 and e39f19f (branch commits dc57801…245a1d3, e62921d,
+  48ce0e5, 576515e, 4d16828, e368f6b, 955a4f0).
+- **Current state before:** AES-128 only; signed and time-stamped outputs of encrypted documents
+  were written plain; saving a signed encrypted document broke its signatures; owner passwords of
+  revisions 2–4 and passwords outside ASCII decrypted into noise; documents made from protected
+  ones were plain.
+- **Changed:** `EncryptionProfile` (AES-256 default, AES-128), `Protection`,
+  `protection::encrypted` (encrypted incremental updates, signature values left unencrypted,
+  check of `/Encrypt`); passwords tried as typed and composed, in PDFDocEncoding and UTF-8, and
+  SASLprep for AES-256; a key is used only once the user password it is made from is verified
+  (Algorithms 6 and 7); gates on derived documents, imports, recovery, history and files handed
+  to other programs (private folder); Dialog::Password targets.
+- **Checked:** `protection_profiles`, `protected_signatures`, `protection_gates`, owner and
+  composed/decomposed password tests (R2, R3, R4 RC4 and AES-128, AES-256); self-test step
+  `protection`; 527 workspace tests and a full self-test (427 states, 159 interactions,
+  0 problems) on the branch.
+- **Open:** certificate encryption (S03); changing or removing the protection needs only the
+  password to open (kept as it is by choice); permissions not enforced in Folitecta beyond
+  printing; strings in stream dictionaries not encrypted; no independent validator tried on
+  encrypted signatures.
+
+## 2026-10-19 — FOL-L053/S01: e-mail attachment dialog
+
+- **Commits:** merge b038555 "Merge the e-mail attachment dialog (FOL-L053) after Unicode
+  generated text" (branch commits 06d1490, a3ea3e7, 870f18f, 8bec9b0).
+- **Current state before:** no dialog; documents with changes copied on the interface thread;
+  form data as XFDF only; drafts opened by themselves and a `mailto:` fallback; a shared
+  temporary folder; copies of some pages kept data of the other pages.
+- **Changed:** the attachment dialog (versions, pages, comments, form data and comments as files,
+  ZIP, sizes and previews, Save Draft…, Open in Mail Program); `keep_only_pages` for page
+  copies; failures reported in the dialog; private folder for the files handed over; RFC 2231
+  file names and folded subjects in drafts; one-pass flattening.
+- **Checked:** `tests/delivery.rs` (17), `mail.rs`, `mail_draft.rs`; stand-in `xdg-email`
+  programs; self-test step `email`; full self-test (262 states, 142 interactions, 0 problems).
+- **Open:** not tried with real mail programs (Simple MAPI, xdg-email, Mail); Extract Pages,
+  Split and Delete Pages onto `keep_only_pages`; document-level data (XMP, embedded files,
+  scripts) stays in every copy.
+
+## 2026-10-19 — FOL-L018/S01: Unicode in generated text
+
+- **Commits:** f8d163b, 839e2de, cd0f20a, 5e69af0, e8385ac, db2c7d5, 6139ab8, 9121860, d39d8fe.
+- **Current state before:** `?` for every character WinAnsi lacks.
+- **Changed:** `fonts`: GNU FreeFont FreeSans in `fonts/` with its licence and signed source
+  (`fonts/source`, signature checked with key A015 6C13 9D2D AA3B 352E 42CD 5063 61DB A36F DD52);
+  text boxes, typewriter text, callouts and measurement labels embed a subset with ToUnicode;
+  refusals named before the change and while typing; comment imports choose; text stamps refuse;
+  release packages carry `fonts`.
+- **Checked:** 378 tests in 52 suites; self-test step `unicode`; full self-test (257 states,
+  145 interactions, 0 problems).
+- **Open:** right-to-left text and shaping refused; FreeSans is about 2% narrower than Helvetica
+  for Western text it replaces; other producers still write `?`: designed stamps, tables, tapes
+  (S02), page marks, Bates, summaries, text and e-mail documents (S03), form fields (S04), OCR,
+  barcodes, signatures, media, redaction text (S05).
+
+## 2026-10-19 — interface self-test on Linux
+
+- **Commits:** 18941ab, 24287b7, 55c1884, 6e2de25, 8af6985, fa45a4b, 3eda722; a32d07c (effects
+  check).
+- **Current state before:** the self-test was run on Windows only; on Linux under Wayland it
+  hung; the time stamp tests failed after noon UTC.
+- **Changed:** progress log, time limits on page scripts and steps, a watchdog; the interface
+  keeps running while its window is not drawn; results of page scripts no longer lost; window
+  sizes applied and checked on Wayland; sounds and videos play on Linux; the time stamp tests use
+  a time after the moment they run; a detector of state written while a component renders and
+  the `effects` step (Split Pages, picture editor, portfolio preview, search, with the signatures
+  pane and the details dialog open); several steps in one run (`step:a,b`).
+- **Checked:** full self-test in a nested compositor on Linux (KWin, Wayland), 0 problems; the
+  guide in ai/WORKFLOW.md.
+- **Open:** screenshots of the states are taken on Windows only; writes to global signals are not
+  instrumented by the detector.
+
 ## 2026-10-18 — release 0.2.0
 
 - **Tag:** `v0.2.0` on `main` (full CI on Windows, macOS and Linux; release packages).

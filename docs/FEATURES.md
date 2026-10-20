@@ -1,12 +1,12 @@
 # Folitecta feature matrix
 
-Generated from the command registry for version 0.2.0. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
+Generated from the command registry for version 0.2.1. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1438 |
-| 🟡 partial | 61 |
-| ⬜ planned | 482 |
+| ✅ available | 1445 |
+| 🟡 partial | 59 |
+| ⬜ planned | 477 |
 | total | 1981 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -278,7 +278,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Page Layout | `view.toolbar.pageLayout` | ✅ available |
 | Page Zoom | `view.toolbar.pageZoom` | ✅ available |
 | Panes | `view.panesGroup` | ⬜ planned |
-| Portfolio | `view.portfolio` | 🟡 partial |
+| Portfolio | `view.portfolio` | ✅ available |
 | ↳ Add Files | `view.portfolio.addFiles` | ✅ available |
 | ↳ Add Folder | `view.portfolio.addFolder` | ✅ available |
 | ↳ Cover | `view.portfolio.cover` | ✅ available |
@@ -292,7 +292,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Navigation Layout | `view.portfolio.navLayout` | ✅ available |
 | ↳ Preview | `view.portfolio.preview` | ✅ available |
 | ↳ Preview File | `view.portfolio.previewFile` | ✅ available |
-| ↳ Print | `view.portfolio.print` | 🟡 partial |
+| ↳ Print | `view.portfolio.print` | ✅ available |
 | ↳ Properties | `view.portfolio.properties` | ✅ available |
 | ↳ Schema View | `view.portfolio.schemaView` | ✅ available |
 | ↳ Select All | `view.portfolio.selectAll` | ✅ available |
@@ -1309,12 +1309,12 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Add Object Group | `addObjectGroup` | ⬜ planned |
 | Align | `align` | ✅ available |
 | Align To | `alignto` | ✅ available |
-| Choose Layer | `chooseLayer` | ⬜ planned |
+| Choose Layer | `chooseLayer` | ✅ available |
 | Clipboard | `clipboardGroup` | ⬜ planned |
 | Crop | `crop` | ⬜ planned |
 | Crop Page | `cropPage` | ⬜ planned |
 | Customize Toolbars | `customizeToolbars` | ✅ available |
-| Default Layer | `defaultLayer` | ⬜ planned |
+| Default Layer | `defaultLayer` | ✅ available |
 | Distribute Horizontally | `distribHorz` | 🟡 partial |
 | Distribute Vertically | `distribVert` | 🟡 partial |
 | Distribute to | `distributeTo` | 🟡 partial |
@@ -1344,7 +1344,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Make Same Size | `makeSameSize` | ✅ available |
 | Make Same Width | `makeSameWidth` | ✅ available |
 | Manage Search Providers | `manageSearchProviders` | ⬜ planned |
-| Move to New Layer | `moveToNewLayer` | ⬜ planned |
+| Move to New Layer | `moveToNewLayer` | ✅ available |
 | Order | `order` | 🟡 partial |
 | Paste Annotations | `pasteAnnots` | ✅ available |
 | Paste Bookmarks | `pasteBookmarks` | ✅ available |
@@ -1485,7 +1485,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Pan and Zoom | `panZoomView` | ⬜ planned |
 | Pan and Zoom | `view.panzoom` | ✅ available |
 | Panes | `view.panesGroup` | ⬜ planned |
-| Portfolio | `view.portfolio` | 🟡 partial |
+| Portfolio | `view.portfolio` | ✅ available |
 | Portfolio Tools | `view.portfolioTools` | ✅ available |
 | Recovery Pane | `recoveryView` | ⬜ planned |
 | Restore Cmd Bars Visibility | `view.restoreCmdBarsVisibility` | ✅ available |
@@ -1497,7 +1497,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Show | `view.show` | ⬜ planned |
 | Show Page Size | `view.showPageMeasureInfo` | ✅ available |
 | Show Pane Info Bar | `showPaneInfoBar` | ⬜ planned |
-| Signatures Pane | `signaturesView` | ⬜ planned |
+| Signatures Pane | `signaturesView` | ✅ available |
 | Snap | `view.snapGroup` | ⬜ planned |
 | Spell Check | `view.spellCheck` | ✅ available |
 | Stamps Palette | `view.stamps` | ✅ available |
@@ -2301,7 +2301,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `sessions.sortBy` | File › Sessions › Sort by | ✅ available |
 | `signMarkup.popup.createNew` | Document › Sign Markup › Popup › Create New | ✅ available |
 | `signMarkup.popup.fromList` | Document › Sign Markup › Popup › From List | ✅ available |
-| `signaturesView.options` | View › Signatures Pane › Options | ⬜ planned |
+| `signaturesView.options` | View › Signatures Pane › Options | ✅ available |
 | `signs.markup.company` | Document › Signs › Placeholders › Company | ✅ available |
 | `signs.markup.date` | Document › Signs › Placeholders › Date | ✅ available |
 | `signs.markup.email` | Document › Signs › Placeholders › Email | ✅ available |

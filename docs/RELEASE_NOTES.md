@@ -1,41 +1,56 @@
-## Folitecta 0.2.0 — safe saving, redaction by content, time stamps
+## Folitecta 0.2.1 — printing, protection and smoother pages
 
-A free PDF editor written entirely in Rust with a Dioxus desktop interface. This release is about
-the integrity of the files and about sending them.
+A free PDF editor written entirely in Rust with a Dioxus desktop interface. This release brings
+a print window of its own, keeps protected documents encrypted through signing, removes more of
+what lies under redaction marks, and makes scrolling and zoom smoother on large documents.
 
 **Highlights**
 
-- **Saving can no longer damage a file**: every save is written to a temporary file next to the
-  original and replaces it only once it is complete.
-- **Protected files stay protected**: a file opened with a password or with restrictions is
-  saved again with the same encryption, passwords and permissions. Save Unrestricted Copy removes
-  the protection on purpose.
-- **Redaction by content**: the text and the pictures under the redaction marks are taken out of
-  the page content, while the rest of the page stays text; comments and form fields over the
-  marks are removed with their values, and no earlier revision of the file keeps what was
-  removed. Pages that cannot be edited that way are drawn as pictures, as before (or every page,
-  when chosen in the redaction settings).
-- **Time stamps (RFC 3161)**: signatures can get a time stamp from a time stamp server, and a
-  document time stamp can be added to any document; only a SHA-256 digest is sent to the server.
-  Signature details now show separate checks: integrity, signer, time and revocation (not checked
-  yet).
-- **E-mail with real attachments**: the document, every open document, as a ZIP archive, or the
-  form data, through the mail program; when none takes attachments, an e-mail draft with the
-  files is opened. E-mail messages (`.eml`) open as PDF documents with their attachments.
-- **Ribbon**: short names under the tool icons (on by default, View › Tool Names hides them),
-  group edges that follow the pointer, submenus that wait for the pointer.
+- **Printing, redone**: a print window with a live preview of the sheets and the printers of the
+  computer. Copies, ranges by number or page label, odd/even, reverse; fit, actual size, shrink or
+  custom scale, paper by page size; 2 to 16 pages per sheet, booklets and posters; two-sided
+  printing and colour. Jobs go straight to the printer: a vector print file through the local
+  print server on Linux and macOS, sheets as pictures up to 600 dpi on Windows.
+- **Smoother pages**: scrolling no longer waits for the program, only the pages near the window
+  are kept, the visible ones are drawn first on several threads, and zoom scales the pictures at
+  once and sharpens them when it stops. On a 1000-page document the longest pause while scrolling
+  fell from about 0.4 s to about 40 ms, and six Ctrl+wheel steps are sharp after about 0.12 s
+  instead of 0.5 s.
+- **Protection that stays**: new passwords use AES-256 (AES-128 is still a choice). Signing,
+  certifying and time-stamping a protected document keep it encrypted, and documents made from a
+  protected one are protected like it. Passwords with accents or other non-ASCII characters open
+  older AES-128 and RC4 files correctly.
+- **Revocation checked**: signature certificates are checked against OCSP answers and revocation
+  lists in the file, or fetched online once you turn that on; Add Validation Material stores them
+  in the document so the signatures can be checked later.
+- **Redaction removes more**: vector drawings under the marks and the content of reused drawings
+  are removed instead of drawing the page as a picture, and a dialog offers to sanitize the
+  document (metadata, attachments, hidden content, quotes of the removed words, scripts) before a
+  checked new file is written.
+- **Text beyond Western European letters**: text boxes, typewriter text, callouts and measurement
+  labels write Polish, Czech, Greek, Cyrillic and many symbols with an embedded subset of GNU
+  FreeFont FreeSans. What cannot be drawn yet is refused, never replaced by `?`.
+- **E-mail attachment dialog**: choose for each document the current state or the saved file,
+  some pages, comments kept, flattened or removed, form data and comments as separate files or one
+  ZIP, with sizes and previews; save an unsent draft or open the mail program.
+- **Drawing on layers**: what you draw or write goes to the layer selected in the Layers pane, and
+  hiding a layer hides its comments everywhere.
+
+**Not yet verified**: printing on real printers, sending through real mail programs, public time
+stamp and revocation servers. The tests use stand-ins for all three; reports are welcome.
 
 **Binaries**
 
 | Platform | File |
 |---|---|
-| Windows x64 | `folitecta-0.2.0-windows-x64.zip` |
-| Linux x64 | `folitecta-0.2.0-linux-x64.tar.gz` |
-| macOS (Apple silicon and Intel) | `folitecta-0.2.0-macos-universal.zip` (app bundle) or `.tar.gz` (binary) |
+| Windows x64 | `folitecta-0.2.1-windows-x64.zip` |
+| Linux x64 | `folitecta-0.2.1-linux-x64.tar.gz` |
+| macOS (Apple silicon and Intel) | `folitecta-0.2.1-macos-universal.zip` (app bundle) or `.tar.gz` (binary) |
 
-Each package carries the `dictionaries` and `ocr` folders next to the program (in the app
-bundle's resources on macOS): keep them with it. Linux needs the WebKitGTK 4.1 runtime
+Each package carries the `dictionaries`, `ocr` and `fonts` folders next to the program (in the
+app bundle's resources on macOS): keep them with it. Linux needs the WebKitGTK 4.1 runtime
 (`libwebkit2gtk-4.1-0`). macOS builds are not notarized: right-click → Open on first launch.
+SHA-256 checksums are attached.
 
-The status of every command is listed in `docs/FEATURES.md`; known limitations are in
-`docs/ARCHITECTURE.md`.
+The full list of changes is in `CHANGELOG.md`; the status of every command is in
+`docs/FEATURES.md`; known limitations are in `docs/ARCHITECTURE.md`.

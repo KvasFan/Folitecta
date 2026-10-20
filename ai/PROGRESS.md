@@ -10,8 +10,9 @@ checked, what is still open. The history before October 2026 is in
 - **Contents:** FOL-L018/S01, FOL-L053/S01, FOL-L036/S02, FOL-L040/S02 with FOL-C006/S02,
   FOL-L037/S02 (the 0.2.1 plan), and also FOL-L046/S01 (printing), FOL-L023/S02 (drawing on the
   selected layer), the speed of the interface and the interface self-test on Linux.
-- **Checked:** 749 tests in 66 suites, clippy without warnings and the full interface self-test
-  in a nested compositor on Linux (501 states, 224 interactions, 0 problems) after the last merge;
+- **Checked:** 769 tests in 67 suites, clippy without warnings, licences, and the full interface
+  self-test in a nested compositor on Linux (554 states, 277 interactions, 0 problems) after the
+  last merge; three adversarial reviews of the speed work;
   the packages of the release downloaded and their SHA-256 compared.
 
 ## 2026-10-20 — FOL-L001: speed of the interface (scrolling, zoom, long documents)

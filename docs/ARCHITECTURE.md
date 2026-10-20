@@ -330,10 +330,8 @@ Mouse coordinates on a page image are converted to PDF user space with
 - Printing has not been tried on real printers yet (order, scale, margins, counts); on Windows the
   sheets are sent as pictures (up to 600 dpi), not as vector data, and a booklet printed on both
   sides needs a printer that turns the paper itself.
-- Hiding a layer in the view hides its comments on the pages, thumbnails, prints, summaries and in
-  the Comments pane, but pictures exported from the pages follow the document's default layer
-  visibility. XFDF carries no layer, and a comment whose layer is a membership dictionary loses
-  it on export and paste.
+- XFDF carries no layer, and a comment whose layer is a membership dictionary loses it on export
+  and paste.
 - The hand-over of files to mail programs (Simple MAPI, Mail, `xdg-email`) has been tried only
   with stand-in programs. Time stamp and revocation servers on the internet have not been tried.
 - Protection: no certificate (public-key) encryption; changing or removing the protection needs

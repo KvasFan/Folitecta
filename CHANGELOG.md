@@ -6,6 +6,12 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Pictures made of the pages follow the layers of the view, as printing does: Export to Images,
+  a page copied as a picture, the snapshot of an area and a stamp made of the page leave out what
+  a layer hidden in the view hides, comments included (before, they followed the default
+  visibility of the document).
+
 ## [0.2.1] - 2026-10-20
 
 ### Added

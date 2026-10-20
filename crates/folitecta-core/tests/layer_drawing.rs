@@ -417,6 +417,100 @@ fn hidden_layers_hide_what_was_drawn_on_them() {
 }
 
 #[test]
+fn pictures_made_from_a_view_follow_its_layers() {
+    let (mut doc, ink) = with_layer();
+    doc.set_drawing_layer(Some(ink)).unwrap();
+    doc.add_shape(
+        0,
+        Shape::Square,
+        [100.0, 100.0, 200.0, 200.0],
+        RED,
+        Some(RED),
+        2.0,
+        "R",
+        "",
+    )
+    .unwrap();
+    doc.add_image(0, png([0, 0, 255]), Some([20.0, 20.0, 80.0, 80.0]))
+        .unwrap();
+    let back = reopen(&mut doc, "view-pictures");
+    let layer = layer_named(&back, "Ink");
+    let hidden = HashMap::from([(layer, false)]);
+    let shown = HashMap::new();
+    // Pictures of the pages exported to files: the comment (100..200) and
+    // the picture (20..80 from the bottom) of the layer the view hides are
+    // left out, and drawn with the view of the document.
+    let dir = folder("view-export");
+    let files = back
+        .export_pages_images_with_view(
+            &[0],
+            &dir,
+            72.0,
+            folitecta_core::ImageFormat::Png,
+            "hidden",
+            &hidden,
+        )
+        .unwrap();
+    let img = image::open(&files[0]).unwrap().to_rgba8();
+    assert!(
+        is_white(img.get_pixel(150, 150).0),
+        "the comment of the hidden layer"
+    );
+    assert!(
+        is_white(img.get_pixel(50, 250).0),
+        "the picture of the hidden layer"
+    );
+    let files = back
+        .export_pages_images_with_view(
+            &[0],
+            &dir,
+            72.0,
+            folitecta_core::ImageFormat::Png,
+            "shown",
+            &shown,
+        )
+        .unwrap();
+    let img = image::open(&files[0]).unwrap().to_rgba8();
+    assert!(!is_white(img.get_pixel(150, 150).0));
+    assert!(!is_white(img.get_pixel(50, 250).0));
+    // A picture of the page (copied, made a stamp) and of an area (snapshot).
+    let page = back.render_page_png_with_view(0, 1.0, &hidden).unwrap();
+    let page = image::load_from_memory(&page.png).unwrap().to_rgba8();
+    assert!(is_white(page.get_pixel(150, 150).0));
+    assert!(is_white(page.get_pixel(50, 250).0));
+    let area = back
+        .render_region_png_with_view(0, [100.0, 100.0, 200.0, 200.0], 1.0, &hidden)
+        .unwrap();
+    assert!(is_white(
+        image::load_from_memory(&area)
+            .unwrap()
+            .to_rgba8()
+            .get_pixel(50, 50)
+            .0
+    ));
+    let area = back
+        .render_region_png_with_view(0, [100.0, 100.0, 200.0, 200.0], 1.0, &shown)
+        .unwrap();
+    assert!(!is_white(
+        image::load_from_memory(&area)
+            .unwrap()
+            .to_rgba8()
+            .get_pixel(50, 50)
+            .0
+    ));
+    // Without a view, the default visibility of the document (shown).
+    let page = back.render_page_png(0, 1.0).unwrap();
+    assert!(!is_white(
+        image::load_from_memory(&page.png)
+            .unwrap()
+            .to_rgba8()
+            .get_pixel(150, 150)
+            .0
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn flattened_comments_stay_on_their_layer() {
     let (mut doc, ink) = with_layer();
     doc.set_drawing_layer(Some(ink)).unwrap();

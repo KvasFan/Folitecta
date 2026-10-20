@@ -1,12 +1,12 @@
 //! The pictures the render threads keep stay within one budget for every
-//! open document together (256 MB), however many documents are open and in
+//! open document together (128 MB), however many documents are open and in
 //! whatever order they were drawn.
 
 use std::sync::Arc;
 
 use folitecta_core::{Lane, RenderAnswer, RenderOpts, RenderRequest, RenderService};
 
-const BUDGET: usize = 256 * 1024 * 1024;
+const BUDGET: usize = 128 * 1024 * 1024;
 
 /// Ask for a page; the bytes of its picture and whether it was drawn (not kept).
 fn ask(svc: &RenderService, page: usize, scale: f32) -> (usize, bool) {
@@ -49,7 +49,7 @@ fn kept_bytes(svc: &RenderService, pages: usize, scale: f32) -> usize {
 #[test]
 fn documents_drawn_one_after_the_other_stay_within_one_budget() {
     // Pages of about 6 MB (text at 200 %, not compressed): 50 of them pass
-    // the budget alone.
+    // the budget more than twice.
     let (pages, scale) = (50, 2.0f32);
     let bytes = Arc::new(folitecta_core::testdocs::text_doc(pages));
     let first = RenderService::with_workers(bytes.clone(), 2);

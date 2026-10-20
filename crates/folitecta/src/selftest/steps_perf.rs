@@ -1156,12 +1156,15 @@ async fn document_scenarios(p: &mut Probe<'_, '_>, doc: &str, pages: usize, byte
     let mut m = Map::new();
     m.insert("ui_process_mb".into(), json!(own));
     m.insert("web_processes_mb".into(), json!(web));
+    // Of the interface process: the pictures the render threads keep.
+    let kept = folitecta_core::render_service::kept_bytes() as f64 / (1024.0 * 1024.0);
+    m.insert("pictures_kept_mb".into(), json!(kept));
     p.record(
         doc,
         "memory",
         vec![m],
         true,
-        &["ui_process_mb", "web_processes_mb"],
+        &["ui_process_mb", "web_processes_mb", "pictures_kept_mb"],
     );
 
     st.set_tool(Tool::Hand);

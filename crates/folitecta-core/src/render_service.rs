@@ -106,8 +106,10 @@ fn bump(counter: &AtomicU64, n: u64) {
 }
 
 /// The bytes of pictures all the open documents keep together (uncompressed
-/// pictures: about 40 pages of text at 125 % on a pixel ratio of 2).
-const KEPT_TOTAL: usize = 256 * 1024 * 1024;
+/// pictures: about 20 pages of text at 125 % on a pixel ratio of 2, 85 at
+/// 100 % on a pixel ratio of 1). The pages a view holds keep their pictures
+/// in the page; these are for the pages seen again later.
+const KEPT_TOTAL: usize = 128 * 1024 * 1024;
 
 /// The pictures kept by the render threads of every open document together,
 /// within one budget: past it, the least recently used picture of any
@@ -187,7 +189,6 @@ impl KeptPool {
     }
 
     /// The bytes of the pictures kept.
-    #[cfg(test)]
     fn bytes(&self) -> usize {
         self.lock().bytes
     }
@@ -198,6 +199,15 @@ fn kept_pool() -> Arc<KeptPool> {
     static POOL: std::sync::OnceLock<Arc<KeptPool>> = std::sync::OnceLock::new();
     POOL.get_or_init(|| Arc::new(KeptPool::new(KEPT_TOTAL))).clone()
 }
+
+/// The bytes of the pictures the render threads of every open document keep
+/// together (what the memory of the program holds for them).
+pub fn kept_bytes() -> usize {
+    kept_pool().bytes()
+}
+
+/// How long a picture that failed fails at once when asked again.
+const FAILED_FOR: std::time::Duration = std::time::Duration::from_secs(10);
 
 /// The number of the next render service (the key of its pictures kept).
 static NEXT_SERVICE: AtomicU64 = AtomicU64::new(1);
@@ -227,6 +237,15 @@ struct Job {
     wanted_outside: bool,
 }
 
+/// The askers of a picture.
+#[derive(Default)]
+struct Waiting {
+    replies: Vec<Reply>,
+    /// One of them wants it whatever the views hold (a thumbnail, a picture
+    /// for another use): known whether the job is queued or already taken.
+    wanted_outside: bool,
+}
+
 struct Kept {
     picture: Arc<RenderedPage>,
     used: u64,
@@ -253,8 +272,12 @@ struct State {
     page_revs: Vec<u64>,
     queue: Vec<Job>,
     seq: u64,
-    /// The replies waiting for each picture asked (queued or being drawn).
-    waiting: HashMap<Key, Vec<Reply>>,
+    /// The askers waiting for each picture (queued, taken or being drawn).
+    waiting: HashMap<Key, Waiting>,
+    /// The pictures that failed lately, with why: asked again (the page
+    /// script tries a picture again after an error) they fail at once
+    /// instead of being drawn again.
+    failed: HashMap<Key, (std::time::Instant, String)>,
     focus: Focus,
     /// The pages each view (of a split window: two) holds with their
     /// pictures, as the views draw them: a view picture of a page that no
@@ -282,7 +305,11 @@ impl State {
         let page = job.key.page;
         let told = self.views.iter().any(Option::is_some);
         let held = self.views.iter().flatten().any(|&(a, b)| page >= a && page <= b);
-        matches!(job.lane, Lane::View | Lane::Preview) && !job.wanted_outside && told && !held
+        // Wanted whatever the views hold by its first asker or by any asker
+        // since, whether the job is queued or already taken.
+        let wanted_outside =
+            job.wanted_outside || self.waiting.get(&job.key).is_some_and(|w| w.wanted_outside);
+        matches!(job.lane, Lane::View | Lane::Preview) && !wanted_outside && told && !held
     }
 
     /// The order of a job: lower first. Without a view telling what it
@@ -372,6 +399,7 @@ impl RenderService {
                 queue: Vec::new(),
                 seq: 0,
                 waiting: HashMap::new(),
+                failed: HashMap::new(),
                 focus: Focus::default(),
                 views: [None; 2],
                 thumb_scale: None,
@@ -446,6 +474,11 @@ impl RenderService {
             self.shared
                 .pool
                 .retain(self.shared.id, |k| k.rev == s.rev_of(k.page));
+            let failed = std::mem::take(&mut s.failed);
+            s.failed = failed
+                .into_iter()
+                .filter(|(k, _)| k.rev == s.rev_of(k.page))
+                .collect();
             take_stale(&mut s)
         };
         answer_stale(&self.shared, stale);
@@ -500,6 +533,14 @@ impl RenderService {
             reply(RenderAnswer::Picture(picture));
             return;
         }
+        if let Some((at, why)) = s.failed.get(&key) {
+            if at.elapsed() < FAILED_FOR {
+                let why = why.clone();
+                drop(s);
+                reply(RenderAnswer::Failed(why));
+                return;
+            }
+        }
         s.seq += 1;
         let job = Job {
             key,
@@ -514,9 +555,10 @@ impl RenderService {
             reply(RenderAnswer::Stale);
             return;
         }
-        let replies = s.waiting.entry(key).or_default();
-        let new = replies.is_empty();
-        replies.push(Box::new(reply));
+        let waiting = s.waiting.entry(key).or_default();
+        let new = waiting.replies.is_empty();
+        waiting.replies.push(Box::new(reply));
+        waiting.wanted_outside |= job.wanted_outside;
         if new {
             s.queue.push(job);
         } else if let Some(j) = s.queue.iter_mut().find(|j| j.key == key) {
@@ -528,7 +570,6 @@ impl RenderService {
             if matches!(job.lane, Lane::View | Lane::Other) && j.lane != Lane::Other {
                 j.lane = job.lane;
             }
-            j.wanted_outside |= job.wanted_outside;
         }
         drop(s);
         self.shared.wake.notify_one();
@@ -589,7 +630,7 @@ impl Drop for RenderService {
             s.stop = true;
             let keys: Vec<Key> = s.queue.drain(..).map(|j| j.key).collect();
             keys.into_iter()
-                .flat_map(|k| s.waiting.remove(&k).unwrap_or_default())
+                .flat_map(|k| s.waiting.remove(&k).map(|w| w.replies).unwrap_or_default())
                 .collect::<Vec<_>>()
         };
         answer_stale(&self.shared, stale);
@@ -609,7 +650,7 @@ fn take_stale(s: &mut State) -> Vec<Reply> {
     while i < s.queue.len() {
         if s.stale(&s.queue[i]) {
             let job = s.queue.swap_remove(i);
-            out.extend(s.waiting.remove(&job.key).unwrap_or_default());
+            out.extend(s.waiting.remove(&job.key).map(|w| w.replies).unwrap_or_default());
         } else {
             i += 1;
         }
@@ -717,6 +758,24 @@ fn shrink(pixels: &[u8], w: u32, h: u32, channels: usize, tw: u32, th: u32) -> V
     out
 }
 
+/// A job taken for an older document than the one a thread parsed, decided
+/// under the lock: answered as no longer wanted (its replies returned) when
+/// its page changed, no asker wants it any longer or the service stops;
+/// otherwise kept, to be drawn from the document just read.
+fn settle_taken(s: &mut State, held: &mut Option<Taken>) -> Vec<Reply> {
+    let Some(taken) = held.as_mut() else {
+        return Vec::new();
+    };
+    if s.stop || s.stale(&taken.job) {
+        let key = taken.job.key;
+        *held = None;
+        s.running = s.running.saturating_sub(1);
+        return s.waiting.remove(&key).map(|w| w.replies).unwrap_or_default();
+    }
+    taken.generation = s.generation;
+    Vec::new()
+}
+
 fn worker(shared: Arc<Shared>) {
     let mut held: Option<Taken> = None;
     loop {
@@ -726,17 +785,7 @@ fn worker(shared: Arc<Shared>) {
         // its page changed (or the service stops), else drawn from this one.
         let (generation, bytes, dropped) = {
             let mut s = shared.lock();
-            let mut dropped = Vec::new();
-            if let Some(taken) = held.as_mut() {
-                if s.stop || s.stale(&taken.job) {
-                    let key = taken.job.key;
-                    held = None;
-                    s.running = s.running.saturating_sub(1);
-                    dropped = s.waiting.remove(&key).unwrap_or_default();
-                } else {
-                    taken.generation = s.generation;
-                }
-            }
+            let dropped = settle_taken(&mut s, &mut held);
             (s.generation, s.bytes.clone(), dropped)
         };
         answer_stale(&shared, dropped);
@@ -827,12 +876,17 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
     let replies = {
         let mut s = shared.lock();
         s.running = s.running.saturating_sub(1);
-        if let RenderAnswer::Picture(p) = &answer {
-            if key.rev == s.rev_of(key.page) {
+        match &answer {
+            RenderAnswer::Picture(p) if key.rev == s.rev_of(key.page) => {
                 shared.pool.keep(shared.id, key, p.clone());
             }
+            RenderAnswer::Failed(why) => {
+                s.failed.retain(|_, (at, _)| at.elapsed() < FAILED_FOR);
+                s.failed.insert(key, (std::time::Instant::now(), why.clone()));
+            }
+            _ => {}
         }
-        s.waiting.remove(&key).unwrap_or_default()
+        s.waiting.remove(&key).map(|w| w.replies).unwrap_or_default()
     };
     for r in replies {
         r(answer.clone());
@@ -877,7 +931,10 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
         shared.pool.keep(shared.id, small_key, picture.clone());
         // Requests of it waiting in the queue are answered now.
         s.queue.retain(|j| j.key != small_key);
-        s.waiting.remove(&small_key).unwrap_or_default()
+        s.waiting
+            .remove(&small_key)
+            .map(|w| w.replies)
+            .unwrap_or_default()
     };
     bump(&shared.stats.reused, replies.len() as u64);
     for r in replies {
@@ -1140,6 +1197,253 @@ mod tests {
         let mut got: Vec<(u8, bool)> = (0..3).map(|_| rx.recv().unwrap()).collect();
         got.sort();
         assert_eq!(got, vec![(0, true), (1, true), (2, true)]);
+    }
+
+    /// The pictures a store keeps and their bytes, checking that the bytes
+    /// it counts are those of its pictures.
+    fn store_of(pool: &KeptPool) -> (usize, usize) {
+        let k = pool.lock();
+        let bytes: usize = k.pictures.values().map(|p| p.picture.png.len()).sum();
+        assert_eq!(bytes, k.bytes, "the bytes counted are not those of the pictures");
+        (k.pictures.len(), k.bytes)
+    }
+
+    #[test]
+    fn under_every_change_each_request_is_answered_and_the_store_holds() {
+        use std::sync::atomic::{AtomicBool, AtomicUsize};
+        use std::time::{Duration, Instant};
+        let budget = 3 * 1024 * 1024;
+        let pool = Arc::new(KeptPool::new(budget));
+        let (eight, six) = (doc(8), doc(6));
+        let services: Vec<Arc<RenderService>> = (0..3)
+            .map(|_| Arc::new(RenderService::with_pool(eight.clone(), 3, pool.clone())))
+            .collect();
+        let stop = StopOnDrop(Arc::new(AtomicBool::new(false)));
+        let (asked, answered) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicUsize::new(0)));
+        let mut threads = Vec::new();
+        // Each document changes in every way, at random.
+        for (n, svc) in services.iter().enumerate() {
+            let (svc, stop, eight, six) = (svc.clone(), stop.0.clone(), eight.clone(), six.clone());
+            threads.push(std::thread::spawn(move || {
+                let mut r = crate::testdocs::Rng(0x9E37_79B9 + n as u64);
+                let mut below = |n: u64| r.next_u64() % n;
+                let mut rev = 0u64;
+                while !stop.load(Ordering::Relaxed) {
+                    match below(5) {
+                        0 => svc.replace(if below(2) == 0 { eight.clone() } else { six.clone() }),
+                        1 | 2 => {
+                            rev += 1;
+                            let revs: Vec<u64> = (0..8).map(|_| rev.saturating_sub(below(3))).collect();
+                            if below(2) == 0 {
+                                svc.replace_pages(eight.clone(), revs);
+                            } else {
+                                svc.set_page_revs(revs);
+                            }
+                        }
+                        3 => {
+                            let a = below(8) as usize;
+                            let held = (below(4) != 0).then(|| (a, (a + below(3) as usize).min(7)));
+                            svc.set_held_view(below(3) as usize, held);
+                        }
+                        _ => {
+                            let a = below(8) as usize;
+                            svc.set_focus(Some((a, a)), below(2) == 0);
+                        }
+                    }
+                    std::thread::sleep(Duration::from_micros(200 + below(800)));
+                }
+            }));
+        }
+        // Pictures of every lane, tiles, revisions and pages past the end.
+        for n in 0..4 {
+            let (services, stop) = (services.clone(), stop.0.clone());
+            let (asked, answered) = (asked.clone(), answered.clone());
+            threads.push(std::thread::spawn(move || {
+                let mut r = crate::testdocs::Rng(0xDEAD_BEEF + n as u64);
+                let mut below = |n: u64| r.next_u64() % n;
+                while !stop.load(Ordering::Relaxed) {
+                    let svc = &services[below(services.len() as u64) as usize];
+                    let lane = [Lane::View, Lane::Preview, Lane::Thumb, Lane::Other][below(4) as usize];
+                    let mut asked_for = req(
+                        below(9) as usize,
+                        [0.1f32, 0.2, 0.3, 1.0][below(4) as usize],
+                        lane,
+                        None,
+                    );
+                    asked_for.rev = (below(3) == 0).then(|| below(20));
+                    asked_for.tile = (below(5) == 0).then(|| (below(2) as u32, below(2) as u32));
+                    asked.fetch_add(1, Ordering::SeqCst);
+                    let answered = answered.clone();
+                    svc.request(asked_for, move |_| {
+                        answered.fetch_add(1, Ordering::SeqCst);
+                    });
+                    if below(4) == 0 {
+                        std::thread::sleep(Duration::from_micros(below(2000)));
+                    }
+                }
+            }));
+        }
+        let started = Instant::now();
+        while started.elapsed() < Duration::from_millis(1500) {
+            std::thread::sleep(Duration::from_millis(50));
+            let (n, bytes) = store_of(&pool);
+            assert!(bytes <= budget || n <= 1, "{bytes} bytes kept in {n} pictures");
+        }
+        drop(stop);
+        for t in threads {
+            t.join().unwrap();
+        }
+        // Once the changes stop, every request is answered.
+        let started = Instant::now();
+        while answered.load(Ordering::SeqCst) < asked.load(Ordering::SeqCst)
+            && started.elapsed() < Duration::from_secs(20)
+        {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(asked.load(Ordering::SeqCst), answered.load(Ordering::SeqCst));
+        // Each document closes at once and gives its pictures back.
+        for svc in services {
+            let started = Instant::now();
+            drop(Arc::try_unwrap(svc).ok().expect("the only owner"));
+            assert!(started.elapsed() < Duration::from_secs(5));
+            store_of(&pool);
+        }
+        assert_eq!(store_of(&pool), (0, 0));
+    }
+
+    #[test]
+    fn a_document_closed_with_requests_in_flight_answers_them_all() {
+        use std::sync::atomic::{AtomicBool, AtomicUsize};
+        use std::time::{Duration, Instant};
+        for round in 0..10 {
+            let pool = Arc::new(KeptPool::new(64 * 1024 * 1024));
+            let svc = Arc::new(RenderService::with_pool(doc(6), 4, pool.clone()));
+            let answered = Arc::new(AtomicUsize::new(0));
+            let stop = StopOnDrop(Arc::new(AtomicBool::new(false)));
+            let changer = {
+                let (svc, stop) = (svc.clone(), stop.0.clone());
+                std::thread::spawn(move || {
+                    let bytes = doc(6);
+                    while !stop.load(Ordering::Relaxed) {
+                        svc.replace(bytes.clone());
+                        svc.replace(bytes.clone());
+                        std::thread::sleep(Duration::from_micros(100));
+                    }
+                })
+            };
+            for i in 0..200 {
+                let answered = answered.clone();
+                svc.request(
+                    req(i % 6, 0.3 + (i % 5) as f32 * 0.1, Lane::Other, None),
+                    move |_| {
+                        answered.fetch_add(1, Ordering::SeqCst);
+                    },
+                );
+            }
+            std::thread::sleep(Duration::from_millis(round % 7));
+            drop(stop);
+            changer.join().unwrap();
+            let started = Instant::now();
+            drop(Arc::try_unwrap(svc).ok().expect("the only owner"));
+            assert!(started.elapsed() < Duration::from_secs(5), "round {round}");
+            assert_eq!(answered.load(Ordering::SeqCst), 200, "round {round}");
+            assert_eq!(store_of(&pool), (0, 0), "round {round}");
+        }
+    }
+
+    #[test]
+    fn a_store_too_small_for_one_picture_still_answers_every_page() {
+        let pool = Arc::new(KeptPool::new(1));
+        let svc = RenderService::with_pool(doc(10), 2, pool.clone());
+        svc.set_held_view(0, Some((0, 9)));
+        svc.set_focus(Some((0, 9)), true);
+        for round in 0..3 {
+            for page in 0..10 {
+                assert!(
+                    matches!(
+                        ask(&svc, req(page, 1.0, Lane::View, None)),
+                        RenderAnswer::Picture(_)
+                    ),
+                    "round {round}, page {page}"
+                );
+            }
+        }
+        // It keeps the last picture alone.
+        assert_eq!(store_of(&pool).0, 1);
+    }
+
+    #[test]
+    fn a_thumbnail_asked_while_its_job_is_set_aside_stays_wanted() {
+        let svc = RenderService::with_workers(doc(6), 1);
+        let (tx, rx) = std::sync::mpsc::channel();
+        let preview = tx.clone();
+        let mut s = svc.shared.lock();
+        // A thread took the small picture of page 5 for the canvas, then saw
+        // that the document changed and set it aside to parse it again.
+        let key = Key {
+            page: 5,
+            scale: scale_key(0.2),
+            opts: RenderOpts::default(),
+            rev: s.rev_of(5),
+            tile: None,
+        };
+        s.waiting.entry(key).or_default().replies.push(Box::new(move |a| {
+            let _ = preview.send((1, matches!(a, RenderAnswer::Stale)));
+        }));
+        s.running += 1;
+        let mut held = Some(Taken {
+            job: Job {
+                key,
+                scale: 0.2,
+                lane: Lane::Preview,
+                seq: 1,
+                wanted_outside: false,
+            },
+            generation: s.generation,
+            thumb_scale: None,
+            threads: 0,
+        });
+        drop(s);
+        // Meanwhile the thumbnails pane asks for the same picture, and the
+        // views move away from page 5.
+        svc.request(req(5, 0.2, Lane::Thumb, None), move |a| {
+            let _ = tx.send((2, matches!(a, RenderAnswer::Stale)));
+        });
+        svc.set_held_view(0, Some((0, 2)));
+        // The thread decides the job: still wanted, by the thumbnail.
+        let mut s = svc.shared.lock();
+        let dropped = settle_taken(&mut s, &mut held);
+        let kept = held.is_some();
+        s.running -= usize::from(kept);
+        let left = s.waiting.remove(&key);
+        drop(s);
+        assert!(dropped.is_empty() && kept, "the job set aside was dropped");
+        assert_eq!(left.map(|w| w.replies.len()), Some(2));
+        assert!(rx.try_recv().is_err(), "an asker was answered no longer wanted");
+    }
+
+    #[test]
+    fn a_picture_that_fails_is_drawn_once_for_its_retries() {
+        let svc = RenderService::with_workers(doc(3), 1);
+        // Page 8 of 3, and a tile outside the picture: each fails.
+        let mut tile = req(0, 0.5, Lane::View, None);
+        tile.tile = Some((40, 0));
+        for asked in [req(7, 0.5, Lane::View, None), tile] {
+            let before = svc.stats().rendered;
+            // The page script asks again three times.
+            for _ in 0..4 {
+                assert!(matches!(ask(&svc, asked), RenderAnswer::Failed(_)));
+            }
+            assert_eq!(svc.stats().rendered, before + 1, "{asked:?}");
+        }
+        // Another revision of the document is tried again.
+        svc.replace(doc(3));
+        let before = svc.stats().rendered;
+        assert!(matches!(
+            ask(&svc, req(7, 0.5, Lane::View, None)),
+            RenderAnswer::Failed(_)
+        ));
+        assert_eq!(svc.stats().rendered, before + 1);
     }
 
     #[test]

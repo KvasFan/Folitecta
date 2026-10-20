@@ -39,6 +39,55 @@ fn wait_js(target: usize) -> String {
     )
 }
 
+/// Wait until every page in the window of view `view` (`canvas`, or
+/// `canvas-other` for the other view of a split window) shows its picture:
+/// `{ ms, pages }` as [`wait_js`].
+fn wait_view_js(view: &str) -> String {
+    format!(
+        "const t0 = performance.now(); const vis = () => {{ const c = document.getElementById('{view}'); if (!c) return null; const v = c.getBoundingClientRect(); const out = []; for (const pg of c.getElementsByClassName('page')) {{ const r = pg.getBoundingClientRect(); if (r.bottom <= v.top || r.top >= v.bottom || r.right <= v.left || r.left >= v.right) continue; const img = pg.querySelector('.page-img'); out.push([+pg.dataset.page, pg.classList.contains('placeholder') ? 1 : 0, img ? img.naturalWidth : -1]); }} return out; }}; while (performance.now() - t0 < 6000) {{ const s = vis(); if (s && s.length && s.every(p => p[1] === 0 && p[2] > 0)) return {{ ms: performance.now() - t0, pages: s }}; await new Promise(r => setTimeout(r, 20)); }} return {{ ms: -1, pages: vis() }};"
+    )
+}
+
+/// Record whether every page in the window of view `view` shows its
+/// picture, none of them refused.
+async fn check_view(cx: &mut Ctx<'_>, name: &str, view: &str) {
+    let got = eval(&wait_view_js(view)).await.unwrap_or_default();
+    pause(150).await;
+    let errors = eval(ERRORS_JS).await.unwrap_or_default();
+    let ms = got.get("ms").and_then(Value::as_f64).unwrap_or(-1.0);
+    let shown: Vec<i64> = got
+        .get("pages")
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(|p| p.get(0).and_then(Value::as_i64))
+                .collect()
+        })
+        .unwrap_or_default();
+    let refused: Vec<i64> = errors
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(Value::as_i64)
+                .filter(|p| shown.contains(p))
+                .collect()
+        })
+        .unwrap_or_default();
+    cx.record(
+        name,
+        ms >= 0.0 && refused.is_empty(),
+        format!(
+            "sharp after {ms:.0} ms; window [page, placeholder, naturalWidth] = {}; refused {refused:?}",
+            got.get("pages").cloned().unwrap_or_default()
+        ),
+    );
+}
+
+/// The place of tab `id` among the tabs.
+fn index_of(st: AppState, id: u64) -> usize {
+    st.docs.peek().iter().position(|t| t.id == id).unwrap_or(0)
+}
+
 /// After a jump to `target` (already asked for): wait for the pictures and
 /// record whether every page in the window shows its picture with none
 /// refused.
@@ -83,6 +132,17 @@ async fn check_jump(cx: &mut Ctx<'_>, name: &str, target: usize) {
     );
 }
 
+/// The time of an event given to the web view: milliseconds that go on, as
+/// those of the window system do (outside the handler of an event the
+/// toolkit has no time to give, and two clicks at the same time are a
+/// double click).
+#[cfg(target_os = "linux")]
+fn event_time() -> u32 {
+    static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    let start = START.get_or_init(std::time::Instant::now);
+    1_000 + start.elapsed().as_millis() as u32
+}
+
 /// An event of the pointer given to the web view as the window toolkit gives
 /// those of the mouse (trusted input for the page): `kind` a GDK event type.
 #[cfg(target_os = "linux")]
@@ -108,7 +168,7 @@ fn pointer_event(kind: i32, x: f64, y: f64, pressed: bool) -> bool {
     // owns its references once wrapped (`from_glib_full`).
     unsafe {
         let ev = gtk::gdk::ffi::gdk_event_new(kind);
-        let time = gtk::current_event_time().max(1);
+        let time = event_time();
         if kind == gtk::gdk::ffi::GDK_MOTION_NOTIFY {
             let m = &mut (*ev).motion;
             m.window = gdk_window.to_glib_full();
@@ -258,6 +318,25 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
                         120,
                     )
                     .await;
+                    // The same row clicked again later: a click, not the
+                    // second one of a double click (which renames it).
+                    st.navigate(0, false);
+                    pause(800).await;
+                    let _ = eval(ERRORS_JS).await;
+                    let input = real_click(x, y).await;
+                    let dialog = st.dialog.peek().clone();
+                    check_jump(
+                        cx,
+                        &format!("jumps: bookmark 2 clicked again with the mouse goes to page 121 ({input})"),
+                        120,
+                    )
+                    .await;
+                    cx.record(
+                        "jumps: a second click on a bookmark is not a double click",
+                        dialog == crate::state::Dialog::None,
+                        format!("{dialog:?}"),
+                    );
+                    st.set_dialog(crate::state::Dialog::None);
                 }
                 None => cx.record("jumps: the bookmark row is there", false, pos.to_string()),
             }
@@ -303,6 +382,89 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         check_jump(cx, "jumps: the search result clicked goes to page 334", 333).await;
         crate::ui::panes::run_search(st, "");
         close_tab(st, id, back_to);
+        pause(500).await;
+    }
+
+    // 6. A split window: each view goes to its pages, the other keeps its
+    // own; then two documents, switching between them quickly.
+    if let Some(a) = add_tab(st, folitecta_core::testdocs::long_doc(400)) {
+        st.with_active(|t| {
+            t.layout = Layout::Continuous;
+            t.zoom = Zoom::Fixed(1.0);
+        });
+        pause(1500).await;
+        crate::commands::dispatch(st, "window.split.vert");
+        pause(1500).await;
+        let _ = eval(ERRORS_JS).await;
+        check_view(cx, "jumps split: the focused view", "canvas").await;
+        check_view(cx, "jumps split: the other view", "canvas-other").await;
+        go_to(cx, "jumps split: the focused view goes to page 301", 300).await;
+        check_view(cx, "jumps split: the other view keeps its pages", "canvas-other").await;
+        st.focus_view(1);
+        pause(600).await;
+        go_to(cx, "jumps split: the other view, focused, goes to page 151", 150).await;
+        check_view(cx, "jumps split: the first view keeps page 301", "canvas-other").await;
+        let other = st
+            .read_active(|t| t.split.as_ref().map(|s| s.other.page))
+            .flatten();
+        cx.record(
+            "jumps split: the first view is still at page 301",
+            other == Some(300),
+            format!("{other:?}"),
+        );
+        crate::commands::dispatch(st, "window.removeSplit");
+        pause(800).await;
+        check_view(cx, "jumps split: the window without its split", "canvas").await;
+        if let Some(b) = add_tab(st, folitecta_core::testdocs::long_doc(300)) {
+            st.with_active(|t| {
+                t.layout = Layout::Continuous;
+                t.zoom = Zoom::Fixed(1.0);
+            });
+            pause(1200).await;
+            st.navigate(60, true);
+            pause(800).await;
+            st.set_active(index_of(st, a));
+            pause(800).await;
+            st.navigate(200, true);
+            pause(800).await;
+            for _ in 0..4 {
+                st.set_active(index_of(st, b));
+                pause(40).await;
+                st.set_active(index_of(st, a));
+                pause(40).await;
+            }
+            let _ = eval(ERRORS_JS).await;
+            st.set_active(index_of(st, b));
+            check_view(
+                cx,
+                "jumps tabs: the second document after quick switching",
+                "canvas",
+            )
+            .await;
+            st.set_active(index_of(st, a));
+            check_view(
+                cx,
+                "jumps tabs: the first document after quick switching",
+                "canvas",
+            )
+            .await;
+            // A jump, then the other document at once.
+            st.navigate(350, true);
+            pause(30).await;
+            st.set_active(index_of(st, b));
+            check_view(
+                cx,
+                "jumps tabs: the second document after a jump in the first",
+                "canvas",
+            )
+            .await;
+            // (The tabs share one scroll position, as in 0.2.0: the first
+            // document shows the pages at that position, not its page.)
+            st.set_active(index_of(st, a));
+            check_view(cx, "jumps tabs: the first document again", "canvas").await;
+            close_tab(st, b, index_of(st, a));
+        }
+        close_tab(st, a, back_to);
         pause(500).await;
     }
 

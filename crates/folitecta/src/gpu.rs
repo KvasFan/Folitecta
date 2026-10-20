@@ -14,9 +14,10 @@
 //! - otherwise: on when the machine has a render node of a graphics card in
 //!   `/dev/dri`, its driver is not NVIDIA's (the known cause of blank
 //!   windows: its module loaded, or the driver of a render node) and it is
-//!   not a virtual machine (the processor's hypervisor flag, or the maker or
-//!   product of a known hypervisor); else the window toolkit's own setting,
-//!   as in Folitecta 0.2.0.
+//!   not a virtual machine (the processor's hypervisor flag, a hypervisor
+//!   named in `/sys/hypervisor/type`, the driver of a virtual graphics card,
+//!   or the maker or product of a known hypervisor); else the window
+//!   toolkit's own setting, as in Folitecta 0.2.0.
 //!
 //! The window stays a window of the session's own system (Wayland or X11),
 //! as before: the toolkit's request for X11 came after the window system had
@@ -52,6 +53,8 @@ pub struct Machine {
     pub nvidia_module: bool,
     /// The processor runs under a hypervisor (its `hypervisor` flag).
     pub hypervisor: bool,
+    /// The hypervisor the kernel names (`/sys/hypervisor/type`, Xen).
+    pub hypervisor_type: String,
     /// The maker and the product of the machine (`/sys/class/dmi/id`).
     pub vendor: String,
     pub product: String,
@@ -89,6 +92,7 @@ impl Machine {
                 .lines()
                 .find(|l| l.starts_with("flags"))
                 .is_some_and(|l| l.split_whitespace().any(|f| f == "hypervisor")),
+            hypervisor_type: read("/sys/hypervisor/type"),
             vendor: read("/sys/class/dmi/id/sys_vendor"),
             product: read("/sys/class/dmi/id/product_name"),
         }
@@ -100,9 +104,16 @@ impl Machine {
         Machine::default()
     }
 
-    /// A virtual machine: the hypervisor flag, or the maker or product of a
-    /// known hypervisor.
+    /// A virtual machine: the hypervisor flag, a hypervisor the kernel
+    /// names, the driver of a virtual graphics card, or the maker or product
+    /// of a known hypervisor.
     fn is_virtual(&self) -> bool {
+        // virtio_gpu, vmwgfx, vboxvideo, qxl, bochs-drm, cirrus.
+        const DRIVERS: [&str; 6] = ["virtio", "vmwgfx", "vbox", "qxl", "bochs", "cirrus"];
+        let virtual_card = self
+            .drivers
+            .iter()
+            .any(|d| DRIVERS.iter().any(|v| d.to_ascii_lowercase().contains(v)));
         const NAMES: [&str; 12] = [
             "qemu",
             "kvm",
@@ -121,7 +132,10 @@ impl Machine {
             self.vendor.to_ascii_lowercase(),
             self.product.to_ascii_lowercase(),
         );
-        self.hypervisor || NAMES.iter().any(|n| vendor.contains(n) || product.contains(n))
+        self.hypervisor
+            || !self.hypervisor_type.trim().is_empty()
+            || virtual_card
+            || NAMES.iter().any(|n| vendor.contains(n) || product.contains(n))
     }
 
     /// The shared-buffer renderer is known to be safe here.
@@ -372,6 +386,29 @@ mod tests {
             };
             assert_eq!(decide("", true, &vm), Toolkit, "{vendor} {product}");
         }
+        // The graphics card of a virtual machine that names no hypervisor.
+        for driver in ["virtio_gpu", "vmwgfx", "vboxvideo", "qxl", "bochs-drm", "cirrus"] {
+            let card = Machine {
+                drivers: vec![driver.into()],
+                vendor: "Example Cloud".into(),
+                product: "vServer".into(),
+                ..desktop()
+            };
+            assert_eq!(decide("", true, &card), Toolkit, "{driver}");
+        }
+        // A hypervisor the kernel names (Xen).
+        let xen = Machine {
+            hypervisor_type: "xen".into(),
+            ..desktop()
+        };
+        assert_eq!(decide("", true, &xen), Toolkit);
+        // A value of FOLITECTA_GPU it does not know: as if none.
+        assert_eq!(decide("maybe", true, &desktop()), On);
+        let virtio = Machine {
+            drivers: vec!["virtio_gpu".into()],
+            ..desktop()
+        };
+        assert_eq!(decide("maybe", true, &virtio), Toolkit);
         // What FOLITECTA_GPU asks comes first.
         assert_eq!(decide("on", true, &module), On);
         assert_eq!(decide("1", true, &none), On);

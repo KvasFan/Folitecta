@@ -278,6 +278,8 @@ struct State {
     /// script tries a picture again after an error) they fail at once
     /// instead of being drawn again.
     failed: HashMap<Key, (std::time::Instant, String)>,
+    /// How long a failure is answered at once ([`FAILED_FOR`]).
+    failed_for: std::time::Duration,
     focus: Focus,
     /// The pages each view (of a split window: two) holds with their
     /// pictures, as the views draw them: a view picture of a page that no
@@ -400,6 +402,7 @@ impl RenderService {
                 seq: 0,
                 waiting: HashMap::new(),
                 failed: HashMap::new(),
+                failed_for: FAILED_FOR,
                 focus: Focus::default(),
                 views: [None; 2],
                 thumb_scale: None,
@@ -468,6 +471,9 @@ impl RenderService {
             if let Some(bytes) = bytes {
                 s.bytes = bytes;
                 s.generation += 1;
+                // A failure may be one of the bytes (unreadable), not of the
+                // page: new bytes are tried again.
+                s.failed.clear();
             }
             s.rev = rev;
             s.page_revs = page_revs;
@@ -534,7 +540,7 @@ impl RenderService {
             return;
         }
         if let Some((at, why)) = s.failed.get(&key) {
-            if at.elapsed() < FAILED_FOR {
+            if at.elapsed() < s.failed_for {
                 let why = why.clone();
                 drop(s);
                 reply(RenderAnswer::Failed(why));
@@ -881,7 +887,8 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
                 shared.pool.keep(shared.id, key, p.clone());
             }
             RenderAnswer::Failed(why) => {
-                s.failed.retain(|_, (at, _)| at.elapsed() < FAILED_FOR);
+                let failed_for = s.failed_for;
+                s.failed.retain(|_, (at, _)| at.elapsed() < failed_for);
                 s.failed.insert(key, (std::time::Instant::now(), why.clone()));
             }
             _ => {}
@@ -1444,6 +1451,50 @@ mod tests {
             RenderAnswer::Failed(_)
         ));
         assert_eq!(svc.stats().rendered, before + 1);
+    }
+
+    #[test]
+    fn a_failure_of_unreadable_bytes_ends_with_good_bytes() {
+        let good = doc(3);
+        let svc = RenderService::with_workers(good.clone(), 1);
+        svc.replace_pages(good.clone(), vec![5, 5, 5]);
+        // An edit of page 3 gives bytes that cannot be read: page 1, which
+        // did not change, fails with them.
+        svc.replace_pages(Arc::new(b"%PDF-1.7\nnot a document".to_vec()), vec![5, 5, 6]);
+        assert!(matches!(
+            ask(&svc, req(0, 0.5, Lane::Other, None)),
+            RenderAnswer::Failed(_)
+        ));
+        // Undone: the bytes are good again and page 1 still at revision 5.
+        svc.replace_pages(good, vec![5, 5, 7]);
+        assert!(matches!(
+            ask(&svc, req(0, 0.5, Lane::Other, None)),
+            RenderAnswer::Picture(_)
+        ));
+    }
+
+    #[test]
+    fn a_picture_that_failed_is_tried_again_after_a_while() {
+        let svc = RenderService::with_workers(doc(3), 1);
+        svc.shared.lock().failed_for = std::time::Duration::from_millis(60);
+        let before = svc.stats().rendered;
+        for _ in 0..3 {
+            assert!(matches!(
+                ask(&svc, req(7, 0.5, Lane::View, None)),
+                RenderAnswer::Failed(_)
+            ));
+        }
+        assert_eq!(svc.stats().rendered, before + 1);
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        assert!(matches!(
+            ask(&svc, req(7, 0.5, Lane::View, None)),
+            RenderAnswer::Failed(_)
+        ));
+        assert_eq!(
+            svc.stats().rendered,
+            before + 2,
+            "tried again once the time passed"
+        );
     }
 
     #[test]

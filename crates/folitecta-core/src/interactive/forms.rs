@@ -112,6 +112,12 @@ impl Document {
 
     /// All terminal form fields.
     pub fn form_fields(&self) -> Vec<FormField> {
+        self.kept("form_fields", || self.read_form_fields())
+            .as_ref()
+            .clone()
+    }
+
+    fn read_form_fields(&self) -> Vec<FormField> {
         let Some(form) = self.acroform() else {
             return Vec::new();
         };

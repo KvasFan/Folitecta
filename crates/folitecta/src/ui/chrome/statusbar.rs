@@ -20,6 +20,7 @@ fn fmt_len(v: f32, unit_pt: f32) -> String {
 
 #[component]
 pub fn StatusBar() -> Element {
+    crate::perf::STATUS_BARS.bump();
     let st = use_context::<AppState>();
     let lang = st.lang();
     let has_doc = st.has_doc();

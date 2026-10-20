@@ -29,6 +29,7 @@ pub mod layers;
 pub mod right;
 
 pub use search::*;
+pub(crate) use thumbnails::thumb_render_scale;
 use thumbnails::*;
 
 fn pane_icon(p: &Pane) -> &'static str {

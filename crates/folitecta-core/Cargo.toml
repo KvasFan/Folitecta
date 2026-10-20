@@ -21,6 +21,10 @@ hayro.workspace = true
 image.workspace = true
 # Rendered pages encoded with the fast DEFLATE of fdeflate (MIT/Apache-2.0)
 png = "0.18"
+# The rasterizer of hayro (MIT/Apache-2.0), with its threads: a page alone
+# in the queue is drawn by several threads (rayon, crossbeam-channel,
+# thread_local and ordered-channel, MIT/Apache-2.0).
+vello_cpu = { version = "0.3", default-features = false, features = ["std", "png", "u8_pipeline", "multithreading"] }
 # ZIP archives: DEFLATE of flate2 and the checksums of crc32fast (MIT/Apache-2.0),
 # both already used by the PDF libraries
 flate2 = "1"

@@ -1066,6 +1066,8 @@ impl CopySource {
     pub fn prepare_until(&self, opts: &CopyOptions, stop: &AtomicBool) -> Result<PreparedCopy> {
         let check = || go_on(stop);
         let mut work = Document::from_bytes(self.bytes.to_vec(), None, None)?;
+        // Changed in place and never committed: nothing read from it is kept.
+        work.changing();
         work.source = self.source.clone();
         work.set_protection(self.protection.clone());
         work.inner.max_id = work.inner.max_id.max(self.max_id);

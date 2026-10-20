@@ -433,6 +433,7 @@ mod steps_links;
 mod steps_note_icon;
 mod steps_ocr;
 mod steps_panes;
+mod steps_perf;
 mod steps_pictures;
 mod steps_policies;
 mod steps_print;
@@ -517,6 +518,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "effects" => Box::pin(steps_effects::run(cx)),
             "unicode" => Box::pin(steps_unicode::run(cx)),
             "layer_drawing" => Box::pin(steps_layer_drawing::run(cx)),
+            "perf" => Box::pin(steps_perf::run(cx)),
             _ => Box::pin(async { cx.record("unknown step", false, name.to_string()) }),
         };
         tokio::time::timeout(step_limit(), fut).await.is_ok()
@@ -572,6 +574,7 @@ const STEPS: &[&str] = &[
     "frames",
     "unicode",
     "layer_drawing",
+    "perf",
     "effects",
 ];
 

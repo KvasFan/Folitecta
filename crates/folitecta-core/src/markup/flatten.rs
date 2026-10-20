@@ -107,6 +107,7 @@ impl Document {
         wanted: &dyn Fn(&[u8]) -> bool,
         removed: &mut HashSet<ObjectId>,
     ) -> Result<usize> {
+        self.changing();
         let ids = self.page_ids();
         let mut flattened = 0;
         let mut removed_widgets = false;

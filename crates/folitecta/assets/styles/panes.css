@@ -13,7 +13,9 @@
 .strip-btn .ic { width: 18px; height: 18px; }
 .strip-btn .count { position: absolute; top: 2px; right: 2px; background: var(--accent); color: var(--accent-text); font-size: 9px; border-radius: 8px; padding: 0 4px; }
 .pane-panel { width: var(--pane-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; }
-.main.no-left .pane-panel { display: none; }
+/* Hidden, the panel keeps its (empty) column: without it the page area moved
+   into that column and had no width. */
+.main.no-left .pane-panel { width: 0; border: 0; visibility: hidden; }
 .pane-header { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--border); font-weight: 600; min-width: 0; }
 .pane-header .pane-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .pane-header .spacer { flex: 1; }

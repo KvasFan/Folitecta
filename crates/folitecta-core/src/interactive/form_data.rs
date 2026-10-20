@@ -255,6 +255,17 @@ impl Document {
     /// Widgets on a page (form fields), in `/Annots` order.
     pub fn page_widgets(&self, page: usize) -> Vec<PageWidget> {
         let fields = self.form_fields();
+        // The field of every widget (the first field that has it), made once
+        // for the revision instead of for every widget of every page.
+        let field_of = self.kept("widget_fields", || {
+            let mut map = std::collections::HashMap::new();
+            for (i, f) in fields.iter().enumerate() {
+                for w in self.field_widgets(f.id) {
+                    map.entry(w).or_insert(i);
+                }
+            }
+            map
+        });
         let Ok(annots) = self.annotations(page) else {
             return Vec::new();
         };
@@ -262,7 +273,7 @@ impl Document {
         let mut out = Vec::new();
         for a in annots.into_iter().filter(|a| a.subtype == "Widget") {
             let Some(wid) = a.id else { continue };
-            let field = fields.iter().find(|f| self.field_widgets(f.id).contains(&wid));
+            let field = field_of.get(&wid).and_then(|i| fields.get(*i));
             let Some(field) = field else { continue };
             let wd = doc.get_dictionary(wid).ok();
             let ff = {

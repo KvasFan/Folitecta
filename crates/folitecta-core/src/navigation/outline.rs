@@ -354,6 +354,10 @@ impl Document {
 
     /// The bookmark tree.
     pub fn outline(&self) -> Vec<OutlineItem> {
+        self.kept("outline", || self.read_outline()).as_ref().clone()
+    }
+
+    fn read_outline(&self) -> Vec<OutlineItem> {
         let doc = &self.inner;
         let first = doc
             .catalog()

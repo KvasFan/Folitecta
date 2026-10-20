@@ -601,6 +601,7 @@ impl Document {
     /// Delete every comment of `pages` with their popups and replies, without
     /// an undo step. Returns how many comments were removed.
     pub(crate) fn delete_comments_inner(&mut self, pages: &[usize]) -> Result<usize> {
+        self.changing();
         let mut removed = 0;
         for &p in pages {
             let page_id = self.page_id(p)?;

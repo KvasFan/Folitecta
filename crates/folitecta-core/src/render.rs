@@ -4,21 +4,20 @@
 //! the pixels of a page (rasterizing, redacting, finding margins, exporting)
 //! take them from [`Renderer::render_rgba`] without a PNG in between.
 
-use std::collections::HashMap;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
-use std::sync::mpsc::{Receiver, Sender, channel};
-use std::thread::JoinHandle;
 
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
 use hayro::vello_cpu::color::palette::css::{TRANSPARENT, WHITE};
 use hayro::vello_cpu::peniko::ImageAlphaType;
 use hayro::vello_cpu::{Pixels, Pixmap};
-use hayro::{PixmapSettings, RenderCache, RenderSettings, render};
+use hayro::{RenderCache, RenderSettings};
 use image::RgbaImage;
 
 use crate::error::{Error, Result};
+
+pub use crate::render_service::{Lane, RenderAnswer, RenderRequest, RenderService, RenderStats};
 
 /// Largest pixmap edge we are willing to allocate.
 const MAX_EDGE: f32 = 12_000.0;
@@ -36,7 +35,7 @@ pub struct Renderer {
     pdf: Pdf,
 }
 
-fn load_pdf(bytes: Arc<Vec<u8>>) -> Result<Pdf> {
+pub(crate) fn load_pdf(bytes: Arc<Vec<u8>>) -> Result<Pdf> {
     Pdf::new(bytes).map_err(|e| Error::Render(format!("cannot parse document for rendering: {e:?}")))
 }
 
@@ -95,11 +94,28 @@ fn render_with_opts<'a>(
 /// for files a little larger, which suits pictures that only go to the
 /// window or the clipboard.
 fn encode_png(pixmap: Pixmap, compression: png::Compression) -> Result<Vec<u8>> {
+    let (width, height, color, pixels) = pixels_of(pixmap);
+    encode_pixels(width, height, color, &pixels, compression)
+}
+
+/// The pixels of a pixmap, not premultiplied: RGB when the page is opaque,
+/// RGBA otherwise.
+pub(crate) fn pixels_of(pixmap: Pixmap) -> (u32, u32, png::ColorType, Vec<u8>) {
     let (width, height) = (u32::from(pixmap.width()), u32::from(pixmap.height()));
-    let (color, pixels) = match pixmap.try_take_rgb8(ImageAlphaType::Alpha) {
-        Pixels::Rgb8(p) => (png::ColorType::Rgb, p),
-        Pixels::Rgba8(p) => (png::ColorType::Rgba, p),
-    };
+    match pixmap.try_take_rgb8(ImageAlphaType::Alpha) {
+        Pixels::Rgb8(p) => (width, height, png::ColorType::Rgb, p),
+        Pixels::Rgba8(p) => (width, height, png::ColorType::Rgba, p),
+    }
+}
+
+/// PNG bytes of RGB or RGBA pixels.
+pub(crate) fn encode_pixels(
+    width: u32,
+    height: u32,
+    color: png::ColorType,
+    pixels: &[u8],
+    compression: png::Compression,
+) -> Result<Vec<u8>> {
     let failed = |e: png::EncodingError| Error::Render(format!("PNG encoding failed: {e}"));
     let mut data = Vec::with_capacity(pixels.len() / 8);
     let mut encoder = png::Encoder::new(&mut data, width, height);
@@ -107,18 +123,50 @@ fn encode_png(pixmap: Pixmap, compression: png::Compression) -> Result<Vec<u8>> 
     encoder.set_depth(png::BitDepth::Eight);
     encoder.set_compression(compression);
     let mut writer = encoder.write_header().map_err(failed)?;
-    writer.write_image_data(&pixels).map_err(failed)?;
+    writer.write_image_data(pixels).map_err(failed)?;
     writer.finish().map_err(failed)?;
     Ok(data)
 }
 
-fn render_pixmap<'a>(
+pub(crate) fn render_pixmap<'a>(
     pdf: &'a Pdf,
     cache: &RenderCache<'a>,
     page: usize,
     scale: f32,
     opts: RenderOpts,
 ) -> Result<Pixmap> {
+    render_pixmap_with(pdf, cache, page, scale, opts, 0)
+}
+
+/// Rasterize a page with `threads` threads of the rasterizer besides the
+/// calling one (0: on the calling thread only). Every picture is made here
+/// with these explicit settings: the rasterizer's own default would use as
+/// many threads as the processors.
+pub(crate) fn render_pixmap_with<'a>(
+    pdf: &'a Pdf,
+    cache: &RenderCache<'a>,
+    page: usize,
+    scale: f32,
+    opts: RenderOpts,
+    threads: u16,
+) -> Result<Pixmap> {
+    render_region(pdf, cache, page, scale, opts, None, threads)
+}
+
+/// Rasterize a part of the page picture at `scale` (`x`, `y`, width and
+/// height in its pixels; `None`: the whole picture) with `threads` threads
+/// of the rasterizer besides the calling one.
+pub(crate) fn render_region<'a>(
+    pdf: &'a Pdf,
+    cache: &RenderCache<'a>,
+    page: usize,
+    scale: f32,
+    opts: RenderOpts,
+    region: Option<(u32, u32, u32, u32)>,
+    threads: u16,
+) -> Result<Pixmap> {
+    use hayro::hayro_interpret::TransformExt;
+    use hayro::vello_cpu::{RasterizerSettings, RenderContext, Resources, TargetInit};
     let annotations = opts.annotations;
     let interpreter = InterpreterSettings {
         render_annotations: annotations,
@@ -128,13 +176,47 @@ fn render_pixmap<'a>(
     let p = pages.get(page).ok_or(Error::InvalidPage(page))?;
     let (w, h) = p.render_dimensions();
     let scale = scale.max(0.05).min(MAX_EDGE / w.max(h).max(1.0));
-    let settings = PixmapSettings {
-        x_scale: scale,
-        y_scale: scale,
-        bg_color: if opts.transparent { TRANSPARENT } else { WHITE },
+    let (full_w, full_h) = ((w * scale) as u16, (h * scale) as u16);
+    let (x, y, rw, rh) = match region {
+        Some((x, y, rw, rh)) => {
+            let (fw, fh) = (u32::from(full_w), u32::from(full_h));
+            if x >= fw || y >= fh || rw == 0 || rh == 0 {
+                return Err(Error::Render(format!("no such part of page {}", page + 1)));
+            }
+            (x, y, rw.min(fw - x) as u16, rh.min(fh - y) as u16)
+        }
+        None => (0, 0, full_w, full_h),
     };
+    let background = if opts.transparent { TRANSPARENT } else { WHITE };
     let result = catch_unwind(AssertUnwindSafe(|| {
-        render(p, cache, &interpreter, &RenderSettings::default(), &settings)
+        // As `hayro::render` does, with the settings of the rasterizer given.
+        let settings = hayro::vello_cpu::RenderSettings {
+            num_threads: threads,
+            ..Default::default()
+        };
+        let mut ctx = RenderContext::new_with(rw, rh, settings);
+        let transform = hayro::kurbo::Affine::translate((-(x as f64), -(y as f64)))
+            * hayro::kurbo::Affine::scale(scale as f64)
+            * p.initial_transform(true).to_kurbo();
+        hayro::render_into(
+            p,
+            cache,
+            &interpreter,
+            &RenderSettings::default(),
+            &mut ctx,
+            transform,
+        );
+        ctx.flush();
+        let mut pixmap = Pixmap::new(ctx.width(), ctx.height());
+        ctx.render_with(
+            &mut pixmap,
+            &mut Resources::default(),
+            RasterizerSettings {
+                target_init: TargetInit::Clear(background),
+                ..Default::default()
+            },
+        );
+        pixmap
     }));
     result.map_err(|_| Error::Render(format!("the renderer failed on page {}", page + 1)))
 }
@@ -250,7 +332,13 @@ impl Renderer {
             * Affine::scale_non_uniform(f64::from(dpi.0) / 72.0, f64::from(dpi.1) / 72.0)
             * p.initial_transform(true).to_kurbo();
         let drawn = catch_unwind(AssertUnwindSafe(|| {
-            let mut ctx = RenderContext::new(width as u16, rows as u16);
+            // Explicit settings: with the threads of the rasterizer built
+            // in, a context made without them would start its own pool.
+            let settings = hayro::vello_cpu::RenderSettings {
+                num_threads: 0,
+                ..Default::default()
+            };
+            let mut ctx = RenderContext::new_with(width as u16, rows as u16, settings);
             hayro::render_into(
                 p,
                 &cache,
@@ -300,182 +388,6 @@ impl Renderer {
             bits,
             data,
         })
-    }
-}
-
-type Reply<T> = Box<dyn FnOnce(T) + Send + 'static>;
-
-enum Msg {
-    Replace(Arc<Vec<u8>>),
-    Render {
-        page: usize,
-        scale: f32,
-        opts: RenderOpts,
-        reply: Reply<Result<RenderedPage>>,
-    },
-    Sizes(Reply<Result<Vec<(f32, f32)>>>),
-    Stop,
-}
-
-/// Render threads of one document. Each owns its own parse of the document,
-/// render cache and memo of recent renders; a page always goes to the same
-/// thread (page number modulo the threads), so the pages on the screen are
-/// drawn side by side and each page still finds its cache.
-pub struct RenderService {
-    workers: Vec<(Sender<Msg>, Option<JoinHandle<()>>)>,
-}
-
-/// Render threads per document: half the processors, from one to three.
-fn worker_count() -> usize {
-    std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(2)
-        .div_ceil(2)
-        .clamp(1, 3)
-}
-
-fn scale_key(scale: f32) -> u32 {
-    (scale * 1000.0).round() as u32
-}
-
-fn worker(rx: Receiver<Msg>, initial: Arc<Vec<u8>>) {
-    let mut bytes = initial;
-    'outer: loop {
-        let pdf = load_pdf(bytes.clone());
-        let cache = RenderCache::new();
-        let mut memo: HashMap<(usize, u32, RenderOpts), Arc<RenderedPage>> = HashMap::new();
-        loop {
-            let Ok(msg) = rx.recv() else { return };
-            match msg {
-                Msg::Stop => return,
-                Msg::Replace(new_bytes) => {
-                    bytes = new_bytes;
-                    continue 'outer;
-                }
-                Msg::Sizes(reply) => reply(
-                    pdf.as_ref()
-                        .map(|p| p.pages().iter().map(|pg| pg.render_dimensions()).collect())
-                        .map_err(|e| Error::Render(e.to_string())),
-                ),
-                Msg::Render {
-                    page,
-                    scale,
-                    opts,
-                    reply,
-                } => {
-                    let key = (page, scale_key(scale), opts);
-                    if let Some(hit) = memo.get(&key) {
-                        reply(Ok(hit.as_ref().clone()));
-                        continue;
-                    }
-                    let result = match &pdf {
-                        Ok(pdf) => render_with_opts(pdf, &cache, page, scale, opts),
-                        Err(e) => Err(Error::Render(e.to_string())),
-                    };
-                    if let Ok(rendered) = &result {
-                        if memo.len() >= 48 {
-                            memo.clear();
-                        }
-                        memo.insert(key, Arc::new(rendered.clone()));
-                    }
-                    reply(result);
-                }
-            }
-        }
-    }
-}
-
-impl RenderService {
-    /// Start the render threads for the given document bytes.
-    pub fn new(bytes: Arc<Vec<u8>>) -> Self {
-        Self::with_workers(bytes, worker_count())
-    }
-
-    /// Start `n` render threads (at least one).
-    pub fn with_workers(bytes: Arc<Vec<u8>>, n: usize) -> Self {
-        let workers = (0..n.max(1))
-            .map(|i| {
-                let (tx, rx) = channel();
-                let bytes = bytes.clone();
-                let handle = std::thread::Builder::new()
-                    .name(format!("folitecta-render-{i}"))
-                    .spawn(move || worker(rx, bytes))
-                    .expect("spawn render thread");
-                (tx, Some(handle))
-            })
-            .collect();
-        RenderService { workers }
-    }
-
-    fn send(&self, page: usize, msg: Msg) {
-        let _ = self.workers[page % self.workers.len()].0.send(msg);
-    }
-
-    /// Replace the document bytes (after an edit). Cached renders are dropped.
-    pub fn replace(&self, bytes: Arc<Vec<u8>>) {
-        for (tx, _) in &self.workers {
-            let _ = tx.send(Msg::Replace(bytes.clone()));
-        }
-    }
-
-    /// Render asynchronously; `reply` runs on the render thread.
-    pub fn render(&self, page: usize, scale: f32, reply: impl FnOnce(Result<RenderedPage>) + Send + 'static) {
-        self.render_ext(page, scale, RenderOpts::default(), reply);
-    }
-
-    /// Render asynchronously with explicit options.
-    pub fn render_ext(
-        &self,
-        page: usize,
-        scale: f32,
-        opts: RenderOpts,
-        reply: impl FnOnce(Result<RenderedPage>) + Send + 'static,
-    ) {
-        self.send(
-            page,
-            Msg::Render {
-                page,
-                scale,
-                opts,
-                reply: Box::new(reply),
-            },
-        );
-    }
-
-    /// Render and wait for the result.
-    pub fn render_blocking(&self, page: usize, scale: f32) -> Result<RenderedPage> {
-        let (tx, rx) = channel();
-        self.render(page, scale, move |r| {
-            let _ = tx.send(r);
-        });
-        rx.recv()
-            .map_err(|_| Error::Render("render thread stopped".into()))?
-    }
-
-    /// Page display sizes as seen by the renderer.
-    pub fn page_sizes_blocking(&self) -> Result<Vec<(f32, f32)>> {
-        let (tx, rx) = channel();
-        self.send(
-            0,
-            Msg::Sizes(Box::new(move |r| {
-                let _ = tx.send(r);
-            })),
-        );
-        rx.recv()
-            .map_err(|_| Error::Render("render thread stopped".into()))?
-    }
-}
-
-impl Drop for RenderService {
-    fn drop(&mut self) {
-        for (tx, _) in &self.workers {
-            let _ = tx.send(Msg::Stop);
-        }
-        for (_, handle) in &mut self.workers {
-            if let Some(h) = handle.take() {
-                let _ = h.join();
-            }
-        }
     }
 }
 

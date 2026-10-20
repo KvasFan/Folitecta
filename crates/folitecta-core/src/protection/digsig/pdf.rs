@@ -1088,6 +1088,7 @@ impl Document {
     /// and the form no longer says it holds signatures to append to. Returns
     /// how many signatures were removed.
     pub(crate) fn clear_signatures_inner(&mut self) -> usize {
+        self.changing();
         let signed = self.signed_fields();
         if signed.is_empty() {
             return 0;

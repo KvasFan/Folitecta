@@ -304,12 +304,12 @@ pub fn extract_all(bytes: Arc<Vec<u8>>) -> Result<Vec<PageText>> {
 
 /// Extract the text layers of some pages of a serialized document (pages
 /// that do not exist are left out).
-pub(crate) fn extract_some(bytes: Arc<Vec<u8>>, pages: &[usize]) -> Result<Vec<(usize, PageText)>> {
+pub fn extract_pages(bytes: Arc<Vec<u8>>, pages: &[usize]) -> Result<Vec<(usize, PageText)>> {
     let pdf = Pdf::new(bytes).map_err(|e| Error::Render(format!("cannot parse document: {e:?}")))?;
     let all = pdf.pages();
     Ok(pages
         .iter()
-        .filter_map(|p| all.get(*p).map(|page| (*p, extract_page(page))))
+        .filter_map(|&p| all.get(p).map(|page| (p, extract_page(page))))
         .collect())
 }
 

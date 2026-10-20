@@ -1847,6 +1847,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "webkit2gtk",
  "windows",
 ]
 
@@ -1898,6 +1899,7 @@ dependencies = [
  "tract-onnx",
  "unicode-bidi",
  "unicode-normalization",
+ "vello_cpu",
  "x509-cert",
 ]
 
@@ -4028,6 +4030,15 @@ name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
+
+[[package]]
+name = "ordered-channel"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95be4d57809897b5a7539fc15a7dfe0e84141bc3dfaa2e9b1b27caa90acf61ab"
+dependencies = [
+ "crossbeam-channel",
+]
 
 [[package]]
 name = "p256"
@@ -6610,9 +6621,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed1fec424fbba6acf6cbc78bb526447eb77590d95f40419d598870fe37535212"
 dependencies = [
  "bytemuck",
+ "crossbeam-channel",
  "glifo",
  "hashbrown 0.17.1",
+ "ordered-channel",
  "png 0.18.1",
+ "rayon",
+ "thread_local",
  "vello_common",
 ]
 

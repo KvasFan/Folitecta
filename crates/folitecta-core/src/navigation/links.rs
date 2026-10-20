@@ -49,16 +49,38 @@ pub struct NamedDestination {
 }
 
 impl Document {
-    fn page_index_map(&self) -> HashMap<ObjectId, usize> {
-        self.page_ids()
-            .into_iter()
-            .enumerate()
-            .map(|(i, id)| (id, i))
-            .collect()
+    /// The index of every page object id.
+    fn page_indices(&self) -> std::sync::Arc<HashMap<ObjectId, usize>> {
+        self.page_index_map().unwrap_or_else(|| {
+            std::sync::Arc::new(
+                self.page_ids()
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, id)| (id, i))
+                    .collect(),
+            )
+        })
     }
 
     /// Raw named destination table (name -> destination object).
     pub(crate) fn named_dest_map(&self) -> Vec<(Vec<u8>, Object)> {
+        self.kept("named_dest_map", || self.read_named_dest_map())
+            .as_ref()
+            .clone()
+    }
+
+    /// The named destinations by name (the first of a name when it repeats).
+    fn named_dest_index(&self) -> std::sync::Arc<HashMap<Vec<u8>, Object>> {
+        self.kept("named_dest_index", || {
+            let mut map = HashMap::new();
+            for (k, v) in self.kept("named_dest_map", || self.read_named_dest_map()).iter() {
+                map.entry(k.clone()).or_insert_with(|| v.clone());
+            }
+            map
+        })
+    }
+
+    fn read_named_dest_map(&self) -> Vec<(Vec<u8>, Object)> {
         let doc = &self.inner;
         let mut out = Vec::new();
         let Ok(catalog) = doc.catalog() else { return out };
@@ -105,7 +127,7 @@ impl Document {
             Object::Array(arr) => {
                 let first = arr.first()?;
                 match first {
-                    Object::Reference(r) => self.page_index_map().get(r).copied(),
+                    Object::Reference(r) => self.page_indices().get(r).copied(),
                     Object::Integer(i) if *i >= 0 => Some(*i as usize),
                     _ => None,
                 }
@@ -120,8 +142,8 @@ impl Document {
                     Object::Name(n) => n.clone(),
                     _ => return None,
                 };
-                let map = self.named_dest_map();
-                let (_, target) = map.iter().find(|(k, _)| *k == key)?;
+                let map = self.named_dest_index();
+                let target = map.get(&key)?;
                 self.resolve_destination_inner(target, depth + 1)
             }
             _ => None,
@@ -150,10 +172,7 @@ impl Document {
             Object::Name(n) => n.clone(),
             _ => return None,
         };
-        self.named_dest_map()
-            .into_iter()
-            .find(|(k, _)| *k == key)
-            .map(|(_, v)| v)
+        self.named_dest_index().get(&key).cloned()
     }
 
     /// Entries of the `/Names /Dests` name tree.
@@ -505,10 +524,14 @@ impl Document {
 
     /// Links of the whole document.
     pub fn all_links(&self) -> Vec<Link> {
-        (0..self.page_count())
-            .filter_map(|p| self.links(p).ok())
-            .flatten()
-            .collect()
+        self.kept("all_links", || {
+            (0..self.page_count())
+                .filter_map(|p| self.links(p).ok())
+                .flatten()
+                .collect::<Vec<_>>()
+        })
+        .as_ref()
+        .clone()
     }
 
     fn push_link(&mut self, page: usize, rect: [f32; 4], action: Dictionary) -> Result<ObjectId> {

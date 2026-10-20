@@ -5,7 +5,7 @@ use dioxus::desktop::use_asset_handler;
 use dioxus::desktop::wry::http::Response;
 use dioxus::html::ModifiersInteraction;
 use dioxus::prelude::*;
-use folitecta_core::RenderOpts;
+use folitecta_core::{Lane, RenderAnswer, RenderOpts, RenderRequest};
 
 use crate::commands;
 use crate::files;
@@ -22,16 +22,41 @@ pub fn icon_data_url() -> String {
     )
 }
 
-/// Parse `/page/{tab}/{page}/{revision}/{scale_milli}.png`.
-fn parse_page_path(path: &str) -> Option<(u64, usize, f32)> {
+/// A page picture asked for: `/page/{tab}/{page}/{revision}/{scale_milli}.png`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct PagePath {
+    tab: u64,
+    page: usize,
+    rev: u64,
+    scale: f32,
+}
+
+fn parse_page_path(path: &str) -> Option<PagePath> {
     let parts: Vec<&str> = path.trim_start_matches('/').split('/').collect();
     if parts.len() < 5 {
         return None;
     }
-    let id: u64 = parts[1].parse().ok()?;
+    let tab: u64 = parts[1].parse().ok()?;
     let page: usize = parts[2].parse().ok()?;
+    let rev: u64 = parts[3].parse().ok()?;
     let scale_m: u32 = parts[4].trim_end_matches(".png").parse().ok()?;
-    Some((id, page, (scale_m as f32 / 1000.0).clamp(0.05, 8.0)))
+    Some(PagePath {
+        tab,
+        page,
+        rev,
+        scale: (scale_m as f32 / 1000.0).clamp(0.05, 8.0),
+    })
+}
+
+/// An answer without a picture: never kept by the page, so the same address
+/// asked again is asked again.
+fn no_picture(status: u16, text: &str) -> Response<Vec<u8>> {
+    Response::builder()
+        .status(status)
+        .header("Content-Type", "text/plain")
+        .header("Cache-Control", "no-store")
+        .body(text.as_bytes().to_vec())
+        .unwrap_or_else(|_| Response::new(Vec::new()))
 }
 
 /// Move the chosen comments (the selected one, its group and those added
@@ -90,9 +115,44 @@ const VIEWPORT_SCRIPT: &str = r#"
 /// already ran") when the page collected the script's channel before the
 /// program read the result: the page tells the program to forget a channel
 /// once it is garbage. The channels of the last scripts are kept a while.
+///
+/// The events the program listens to on some element go to one listener at
+/// the root of the page, which sends every such event to the program and
+/// waits for its answer, even when no element on the event's way listens to
+/// it; and a listener goes on counting after its element is removed, so
+/// once any element had listened to mouse moves, every mouse move of the
+/// window waited for the program. Mouse moves, pointer moves and wheel
+/// events now reach the program only when an element on their way listens
+/// to them (the elements are marked when their listeners are made).
 const PAGE_FIXES_SCRIPT: &str = r#"
 (function(){
   const it = window.interpreter;
+  if (it && !it.__foliFiltered && it.root && ['createListener', 'removeListener'].every(f => typeof it[f] === 'function') && typeof it.handler === 'function') {
+    it.__foliFiltered = true;
+    const FILTERED = new Set(['mousemove', 'mouseover', 'mouseout', 'pointermove', 'pointerover', 'pointerout', 'wheel', 'touchmove', 'drag', 'dragover']);
+    // Kinds already listened to before this point: their elements are not
+    // marked, so they keep reaching the program as before.
+    const before = new Set(Object.keys(it.global || {}));
+    const marks = new WeakMap();
+    const mark = (el, name, by) => { if (!el || !FILTERED.has(name)) return; const m = marks.get(el) || {}; m[name] = Math.max(0, (m[name] || 0) + by); marks.set(el, m); };
+    const create = it.createListener, remove = it.removeListener;
+    it.createListener = function (name, el, bubbles) { if (bubbles) mark(el, name, 1); return create.call(this, name, el, bubbles); };
+    it.removeListener = function (el, name, bubbles) { if (bubbles) mark(el, name, -1); return remove.call(this, el, name, bubbles); };
+    const listened = e => {
+      for (let n = e.target; n; n = n.parentNode) {
+        const m = marks.get(n);
+        if (m && m[e.type] > 0) return true;
+        if (n === it.root) break;
+      }
+      return false;
+    };
+    const original = it.handler;
+    const filtered = function (e) {
+      if (FILTERED.has(e.type) && !before.has(e.type) && !listened(e)) return;
+      return original.call(this, e);
+    };
+    it.handler = filtered;
+  }
   if (it && !it.__foliEdits && ['rafEdits', 'enqueueBytes', 'flushQueuedBytes', 'markEditsFinished'].every(f => typeof it[f] === 'function')) {
     it.__foliEdits = true;
     it.rafEdits = function (bytes) {
@@ -136,6 +196,9 @@ pub fn App() -> Element {
         }
     });
 
+    // Hardware acceleration of the web view.
+    use_hook(|| crate::gpu::apply(&dioxus::desktop::window()));
+
     // Copies of the documents with unsaved changes, and the ones left behind.
     use_hook(|| crate::recovery::start(st));
     // Decrypted files left by windows that ended without Exit.
@@ -149,6 +212,11 @@ pub fn App() -> Element {
                 files::open_path(st, f, None);
             }
         }
+    });
+
+    // Scrolling and Ctrl+wheel zoom of the page views, handled in the page.
+    use_future(move || async move {
+        ui::canvas::follow_canvas_events(st).await;
     });
 
     // Track the window size and pixel ratio (initially and on every resize).
@@ -170,39 +238,90 @@ pub fn App() -> Element {
         }
     });
 
-    // Serve page renders at /page/{tab}/{page}/{revision}/{scale_milli}.png[?bg=0][&annots=0]
+    // Serve page renders at /page/{tab}/{page}/{revision}/{scale_milli}.png[?bg=0][&annots=0][&lane=view|preview|thumb][&tile=column,row].
+    // A picture is only given for the revision the tab shows (an address of
+    // another revision gets 409, never kept), drawn from the document of that
+    // revision or refused when it changed meanwhile.
     let docs = st.docs;
     use_asset_handler("page", move |request, responder| {
+        crate::perf::PAGE_REQUESTS.bump();
+        let asked = std::time::Instant::now();
         let uri = request.uri();
         let query = uri.query().unwrap_or("");
+        let has = |kv: &str| query.split('&').any(|q| q == kv);
         let opts = RenderOpts {
-            annotations: !query.split('&').any(|kv| kv == "annots=0"),
-            transparent: query.split('&').any(|kv| kv == "bg=0"),
+            annotations: !has("annots=0"),
+            transparent: has("bg=0"),
         };
-        let Some((id, page, scale)) = parse_page_path(uri.path()) else {
-            responder.respond(Response::builder().status(404).body(Vec::new()).unwrap());
+        // The pages of the views say so; their pictures are dropped once
+        // the views no longer hold them.
+        let lane = if has("lane=view") {
+            Lane::View
+        } else if has("lane=thumb") {
+            Lane::Thumb
+        } else if has("lane=preview") {
+            Lane::Preview
+        } else {
+            Lane::Other
+        };
+        let Some(path) = parse_page_path(uri.path()) else {
+            crate::perf::PAGE_OTHER.bump();
+            responder.respond(no_picture(404, "no such page picture"));
             return;
         };
-        let service = docs.peek().iter().find(|t| t.id == id).map(|t| t.render.clone());
-        match service {
-            Some(svc) => svc.render_ext(page, scale, opts, move |res| {
-                let resp = match res {
-                    Ok(r) => Response::builder()
+        let found = docs
+            .peek()
+            .iter()
+            .find(|t| t.id == path.tab)
+            .map(|t| (t.render.clone(), t.page_rev(path.page)));
+        let Some((service, shown)) = found else {
+            crate::perf::PAGE_OTHER.bump();
+            responder.respond(no_picture(404, "the document is closed"));
+            return;
+        };
+        if path.rev != shown {
+            crate::perf::PAGE_OTHER.bump();
+            responder.respond(no_picture(409, "the document changed"));
+            return;
+        }
+        // A tile of the picture: `tile=column,row`.
+        let tile = query
+            .split('&')
+            .find_map(|q| q.strip_prefix("tile="))
+            .and_then(|t| t.split_once(','))
+            .and_then(|(c, r)| Some((c.parse().ok()?, r.parse().ok()?)));
+        let req = RenderRequest {
+            page: path.page,
+            scale: path.scale,
+            opts,
+            lane,
+            rev: Some(path.rev),
+            tile,
+        };
+        service.request(req, move |answer| {
+            crate::perf::PAGE_WAIT_US.add(asked.elapsed().as_micros() as u64);
+            let resp = match answer {
+                RenderAnswer::Picture(r) => {
+                    crate::perf::PAGE_PICTURES.bump();
+                    crate::perf::PAGE_BYTES.add(r.png.len() as u64);
+                    Response::builder()
                         .status(200)
                         .header("Content-Type", "image/png")
                         .header("Cache-Control", "max-age=31536000, immutable")
-                        .body(r.png)
-                        .unwrap(),
-                    Err(e) => Response::builder()
-                        .status(500)
-                        .header("Content-Type", "text/plain")
-                        .body(e.to_string().into_bytes())
-                        .unwrap(),
-                };
-                responder.respond(resp);
-            }),
-            None => responder.respond(Response::builder().status(404).body(Vec::new()).unwrap()),
-        }
+                        .body(r.png.clone())
+                        .unwrap_or_else(|_| Response::new(Vec::new()))
+                }
+                RenderAnswer::Stale => {
+                    crate::perf::PAGE_OTHER.bump();
+                    no_picture(409, "no longer shown")
+                }
+                RenderAnswer::Failed(e) => {
+                    crate::perf::PAGE_OTHER.bump();
+                    no_picture(500, &e)
+                }
+            };
+            responder.respond(resp);
+        });
     });
 
     // The sheets of the print window's preview at /sheet/p/{generation}.png and
@@ -380,7 +499,7 @@ pub fn App() -> Element {
                 evt.prevent_default();
                 st.with_active(|t| {
                     let p = t.page;
-                    let n = t.doc.text_layers().get(p).map(|l| l.chars().len()).unwrap_or(0);
+                    let n = t.doc.page_text_layer(p).map(|l| l.chars().len()).unwrap_or(0);
                     if n > 0 {
                         t.text_sel = Some(crate::state::TextSel {
                             page: p,
@@ -502,7 +621,15 @@ mod tests {
 
     #[test]
     fn page_paths_parse() {
-        assert_eq!(parse_page_path("/page/3/7/12/1500.png"), Some((3, 7, 1.5)));
+        assert_eq!(
+            parse_page_path("/page/3/7/12/1500.png"),
+            Some(super::PagePath {
+                tab: 3,
+                page: 7,
+                rev: 12,
+                scale: 1.5
+            })
+        );
         assert_eq!(parse_page_path("/page/3/7"), None);
         assert_eq!(parse_page_path("/page/x/7/1/1000.png"), None);
     }

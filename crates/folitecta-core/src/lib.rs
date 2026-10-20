@@ -12,12 +12,18 @@
 //! helpers ([`util`], [`geom`], [`xml`], [`zip`], [`fonts`]) stay at the root. Every
 //! module is also reachable from the root (`folitecta_core::pages`, ...).
 
+pub(crate) mod changes;
 pub mod commands;
 pub mod document;
 pub mod error;
 pub mod fonts;
 pub mod geom;
 pub mod render;
+pub mod render_service;
+/// Documents generated in memory for the render benchmark and the
+/// performance step of the interface self-test.
+#[doc(hidden)]
+pub mod testdocs;
 pub mod util;
 pub mod xml;
 pub mod zip;
@@ -74,7 +80,9 @@ pub use markup_tools::{MeasureKind, MeasureScale};
 pub use ocr::{OcrEngine, OcrLine, OcrModels, OcrOptions, OcrWord, PageOcr};
 pub use outline::{BookmarkTarget, DestView, OutlineItem};
 pub use pagetools::{Sides, TRANSITIONS};
-pub use render::{RenderOpts, RenderService, RenderedPage, Renderer};
+pub use render::{
+    Lane, RenderAnswer, RenderOpts, RenderRequest, RenderService, RenderStats, RenderedPage, Renderer,
+};
 pub use scripts::ScriptInfo;
 pub use security::{EncryptionInfo, EncryptionProfile, PasswordIssue, Protection, SecurityPermissions};
 pub use signmarks::SignatureMark;

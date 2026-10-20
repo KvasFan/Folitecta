@@ -260,6 +260,7 @@ fn title_width(label: &str) -> f64 {
 
 #[component]
 pub fn Ribbon() -> Element {
+    crate::perf::RIBBONS.bump();
     let st = use_context::<AppState>();
     let lang = st.lang();
     let reg = registry();

@@ -82,8 +82,8 @@ pub struct Document {
     /// signatures are validated against. For a protected document only when
     /// that file is signed.
     pub(crate) source: Option<Source>,
-    /// Positioned text of every page, keyed by revision.
-    pub(crate) text_cache: std::sync::Mutex<Option<(u64, Arc<Vec<crate::textlayer::PageText>>)>>,
+    /// Positioned text of the pages, kept per page for the revision of its text.
+    pub(crate) text_cache: std::sync::Mutex<crate::text::TextCache>,
     /// Marked content of the pages already measured, keyed by revision.
     pub(crate) marked_cache: std::sync::Mutex<crate::structure::MarkedCache>,
     /// Structure tree read for a revision (for views, never while editing).
@@ -97,6 +97,38 @@ pub struct Document {
     pub(crate) layer_drawn: Option<ObjectId>,
     /// What hidden layers hide and the bytes of views, for one revision.
     pub(crate) layer_cache: std::sync::Mutex<crate::layer_drawing::LayerCache>,
+    /// The object ids of the pages of a revision, kept while no edit is under way.
+    page_cache: std::sync::Mutex<PageCache>,
+    /// What the views read from a revision (comments, bookmarks, links, form
+    /// fields), kept while no edit is under way.
+    derived: std::sync::Mutex<Derived>,
+    /// An edit is under way (from `begin_edit`, `inner_mut` or a change of the
+    /// page tree until `commit`, an undo or a redo): the pages are looked up
+    /// in the page tree itself, never in `page_cache`.
+    editing: bool,
+    /// The objects and pages of the last revision, to find the pages the next
+    /// change touches (made before the first change).
+    baseline: Option<crate::changes::Baseline>,
+    /// For every page, the revision at which its picture last changed, and
+    /// its text (empty until the first change: every page at revision 0).
+    page_revs: Vec<u64>,
+    text_revs: Vec<u64>,
+}
+
+/// Values read from one revision, by name.
+#[derive(Default)]
+struct Derived {
+    revision: u64,
+    slots: std::collections::HashMap<&'static str, Arc<dyn std::any::Any + Send + Sync>>,
+}
+
+/// The pages of one revision: their object ids in order and, once asked
+/// for, the index of each id.
+#[derive(Default)]
+struct PageCache {
+    revision: u64,
+    ids: Option<Arc<Vec<ObjectId>>>,
+    index: Option<Arc<std::collections::HashMap<ObjectId, usize>>>,
 }
 
 impl std::fmt::Debug for Document {
@@ -609,6 +641,12 @@ impl Document {
             drawing_layer: None,
             layer_drawn: None,
             layer_cache: Default::default(),
+            page_cache: Default::default(),
+            derived: Default::default(),
+            editing: false,
+            baseline: None,
+            page_revs: Vec::new(),
+            text_revs: Vec::new(),
         };
         if doc.page_count() == 0 {
             return Err(Error::Invalid("the file contains no pages".into()));
@@ -668,6 +706,13 @@ impl Document {
             drawing_layer: None,
             layer_drawn: None,
             layer_cache: Default::default(),
+            page_cache: Default::default(),
+            derived: Default::default(),
+            // Changed in place and never committed: nothing is kept.
+            editing: true,
+            baseline: None,
+            page_revs: Vec::new(),
+            text_revs: Vec::new(),
         }
     }
 
@@ -728,6 +773,12 @@ impl Document {
             drawing_layer: None,
             layer_drawn: None,
             layer_cache: Default::default(),
+            page_cache: Default::default(),
+            derived: Default::default(),
+            editing: false,
+            baseline: None,
+            page_revs: Vec::new(),
+            text_revs: Vec::new(),
         })
     }
 
@@ -1168,7 +1219,114 @@ impl Document {
     /// Mutable access to the underlying object model. Call [`Document::commit`]
     /// afterwards so the serialized snapshot and revision stay in sync.
     pub fn inner_mut(&mut self) -> &mut lopdf::Document {
+        self.start_changes();
         &mut self.inner
+    }
+
+    /// The object model is about to change: the pages are looked up in the
+    /// page tree until the next commit, undo or redo.
+    fn start_changes(&mut self) {
+        if self.baseline.is_none() && !self.editing {
+            // What the document is before its first change.
+            let pages: Vec<ObjectId> = self.inner.get_pages().into_values().collect();
+            self.page_revs = vec![self.revision; pages.len()];
+            self.text_revs = vec![self.revision; pages.len()];
+            self.baseline = Some(crate::changes::Baseline::of(&self.inner, pages));
+        }
+        self.editing = true;
+        self.forget_kept();
+    }
+
+    /// The object model changes in place without `begin_edit` (a working
+    /// copy that is never committed, or a part of an edit): nothing read
+    /// before is kept, and nothing is kept until the next commit.
+    pub(crate) fn changing(&mut self) {
+        self.editing = true;
+        self.forget_kept();
+    }
+
+    /// After a commit, an undo or a redo: the pages whose picture and text
+    /// changed get the new revision.
+    fn note_changes(&mut self) {
+        let pages: Vec<ObjectId> = self.inner.get_pages().into_values().collect();
+        let n = pages.len();
+        let now = crate::changes::Baseline::of(&self.inner, pages);
+        let touched = match &self.baseline {
+            Some(old) => crate::changes::touched(&self.inner, old, &now),
+            None => crate::changes::Touched::everything(),
+        };
+        let rev = self.revision;
+        if touched.all || self.page_revs.len() != n {
+            self.page_revs = vec![rev; n];
+            self.text_revs = vec![rev; n];
+        } else {
+            for p in touched.pictures {
+                self.page_revs[p] = rev;
+            }
+            for p in touched.text {
+                self.text_revs[p] = rev;
+            }
+        }
+        self.baseline = Some(now);
+    }
+
+    /// The revision at which the picture of `page` last changed (pages that
+    /// do not exist: the current revision).
+    pub fn page_revision(&self, page: usize) -> u64 {
+        self.page_revs.get(page).copied().unwrap_or(self.revision)
+    }
+
+    /// The revision at which the text of `page` last changed.
+    pub fn text_revision(&self, page: usize) -> u64 {
+        self.text_revs.get(page).copied().unwrap_or(self.revision)
+    }
+
+    /// Drop the lists kept for the current revision.
+    fn forget_kept(&self) {
+        *self.page_cache.lock().unwrap_or_else(|e| e.into_inner()) = PageCache::default();
+        *self.derived.lock().unwrap_or_else(|e| e.into_inner()) = Derived::default();
+    }
+
+    /// A value read from the document (`make`), kept for the revision while
+    /// no edit is under way and made again otherwise.
+    pub(crate) fn kept<T: std::any::Any + Send + Sync>(
+        &self,
+        name: &'static str,
+        make: impl FnOnce() -> T,
+    ) -> Arc<T> {
+        if self.editing {
+            return Arc::new(make());
+        }
+        {
+            let cache = self.derived.lock().unwrap_or_else(|e| e.into_inner());
+            if cache.revision == self.revision {
+                if let Some(v) = cache
+                    .slots
+                    .get(name)
+                    .cloned()
+                    .and_then(|v| v.downcast::<T>().ok())
+                {
+                    return v;
+                }
+            }
+        }
+        // Made without the lock: making it may read other kept values.
+        let value = Arc::new(make());
+        let mut cache = self.derived.lock().unwrap_or_else(|e| e.into_inner());
+        if cache.revision != self.revision {
+            *cache = Derived {
+                revision: self.revision,
+                slots: Default::default(),
+            };
+        }
+        cache.slots.insert(name, value.clone());
+        value
+    }
+
+    /// The object model matches `bytes` and `revision` again.
+    fn end_changes(&mut self) {
+        self.editing = false;
+        self.forget_kept();
     }
 
     // ------------------------------------------------------------------
@@ -1186,6 +1344,7 @@ impl Document {
 
     /// Record the current state before a mutation.
     pub fn begin_edit(&mut self) {
+        self.start_changes();
         let snapshot = self.snapshot_now();
         self.undo.push(snapshot.clone());
         let dropped = (self.undo.len() > UNDO_LIMIT).then(|| self.undo.remove(0));
@@ -1229,6 +1388,8 @@ impl Document {
                 self.dirty = true;
             }
             self.helv_font = None;
+            self.end_changes();
+            self.note_changes();
             return;
         };
         while self
@@ -1254,6 +1415,8 @@ impl Document {
         }
         self.helv_font = None;
         self.layer_drawn = None;
+        // Back to the state of the last commit: the same pages as before.
+        self.end_changes();
     }
 
     /// Run `f` as one undo step: committed when it succeeds, abandoned (the
@@ -1287,6 +1450,8 @@ impl Document {
         self.revision += 1;
         self.dirty = true;
         self.helv_font = None;
+        self.end_changes();
+        self.note_changes();
         self.edit_backup = None;
         self.forget_lost_drawing_layer();
         Ok(())
@@ -1294,6 +1459,7 @@ impl Document {
 
     fn restore(&mut self, snapshot: Snapshot) -> Result<()> {
         // Snapshots are plain; the protection of the document stays as it is.
+        self.start_changes();
         // Object numbers never go back (a saved file may use the higher ones).
         let max_id = self.inner.max_id;
         self.inner = load_inner(&snapshot.bytes, None)?.doc;
@@ -1328,6 +1494,8 @@ impl Document {
         self.revision += 1;
         self.dirty = true;
         self.helv_font = None;
+        self.end_changes();
+        self.note_changes();
         self.edit_backup = None;
         self.forget_lost_drawing_layer();
         Ok(())
@@ -1350,25 +1518,84 @@ impl Document {
     // ------------------------------------------------------------------
 
     pub fn page_count(&self) -> usize {
-        self.inner.get_pages().len()
+        match self.cached_pages() {
+            Some(ids) => ids.len(),
+            None => self.inner.get_pages().len(),
+        }
+    }
+
+    /// The number of pages the root of the page tree declares.
+    fn declared_page_count(&self) -> Option<usize> {
+        let catalog = self.inner.catalog().ok()?;
+        let pages = deref(&self.inner, catalog.get(b"Pages").ok()?).as_dict().ok()?;
+        usize::try_from(pages.get(b"Count").ok()?.as_i64().ok()?).ok()
+    }
+
+    /// The object ids of the pages, walked once per revision while no edit is
+    /// under way (`None` during an edit: the page tree may be changing). A
+    /// list whose length no longer matches the count of the page tree is
+    /// walked again.
+    fn cached_pages(&self) -> Option<Arc<Vec<ObjectId>>> {
+        if self.editing {
+            return None;
+        }
+        let mut cache = self.page_cache.lock().unwrap_or_else(|e| e.into_inner());
+        if cache.revision == self.revision {
+            if let Some(ids) = &cache.ids {
+                if self.declared_page_count().is_none_or(|n| n == ids.len()) {
+                    return Some(ids.clone());
+                }
+            }
+        }
+        let ids = Arc::new(self.inner.get_pages().into_values().collect::<Vec<_>>());
+        *cache = PageCache {
+            revision: self.revision,
+            ids: Some(ids.clone()),
+            index: None,
+        };
+        Some(ids)
     }
 
     /// Object ids of all pages in document order.
     pub fn page_ids(&self) -> Vec<ObjectId> {
-        self.inner.get_pages().into_values().collect()
+        match self.cached_pages() {
+            Some(ids) => ids.as_ref().clone(),
+            None => self.inner.get_pages().into_values().collect(),
+        }
     }
 
     /// Object id of a zero-based page index.
     pub fn page_id(&self, index: usize) -> Result<ObjectId> {
-        self.page_ids()
-            .get(index)
-            .copied()
-            .ok_or(Error::InvalidPage(index))
+        let id = match self.cached_pages() {
+            Some(ids) => ids.get(index).copied(),
+            None => self.inner.get_pages().into_values().nth(index),
+        };
+        id.ok_or(Error::InvalidPage(index))
     }
 
     /// Zero-based index of a page object id.
     pub fn page_index(&self, id: ObjectId) -> Option<usize> {
-        self.page_ids().iter().position(|p| *p == id)
+        match self.page_index_map() {
+            Some(map) => map.get(&id).copied(),
+            None => self.page_ids().iter().position(|p| *p == id),
+        }
+    }
+
+    /// The index of every page object id, kept with the page ids (`None`
+    /// during an edit).
+    pub(crate) fn page_index_map(&self) -> Option<Arc<std::collections::HashMap<ObjectId, usize>>> {
+        let ids = self.cached_pages()?;
+        let mut cache = self.page_cache.lock().unwrap_or_else(|e| e.into_inner());
+        if cache.revision == self.revision && cache.ids.as_ref().is_some_and(|c| Arc::ptr_eq(c, &ids)) {
+            if let Some(map) = &cache.index {
+                return Some(map.clone());
+            }
+            let map: Arc<std::collections::HashMap<ObjectId, usize>> =
+                Arc::new(ids.iter().enumerate().map(|(i, id)| (*id, i)).collect());
+            cache.index = Some(map.clone());
+            return Some(map);
+        }
+        Some(Arc::new(ids.iter().enumerate().map(|(i, id)| (*id, i)).collect()))
     }
 
     /// Look up a page attribute, following the `/Parent` chain for inheritable keys.
@@ -1471,6 +1698,8 @@ impl Document {
         if ids.is_empty() {
             return Err(Error::LastPage);
         }
+        // The page tree changes: no list of pages kept until the commit.
+        self.start_changes();
         self.inherit_attributes(ids);
         let pages_ref = {
             let catalog = self.inner.catalog()?;

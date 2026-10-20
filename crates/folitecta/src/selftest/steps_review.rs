@@ -168,8 +168,15 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     cx.record("promote it back", titles(st) == before, String::new());
     // Drag the third bookmark onto the lower part of the first: it goes after it.
     pause(300).await;
+    // The press, then the moves a moment later, as a hand would do them (the
+    // rows follow the moves only once a drag has started).
     let _ = eval(
-        "const items = [...document.querySelectorAll('.bookmark-tree .tree-item')]; const src = items[2], dst = items[0]; if (src && dst) { const s = src.getBoundingClientRect(), d = dst.getBoundingClientRect(); src.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: s.left + 30, clientY: s.top + 10 })); dst.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: d.left + 30, clientY: d.top + 20 })); }",
+        "const items = [...document.querySelectorAll('.bookmark-tree .tree-item')]; const src = items[2]; if (src) { const s = src.getBoundingClientRect(); src.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: s.left + 30, clientY: s.top + 10 })); }",
+    )
+    .await;
+    pause(300).await;
+    let _ = eval(
+        "const dst = document.querySelectorAll('.bookmark-tree .tree-item')[0]; if (dst) { const d = dst.getBoundingClientRect(); dst.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: d.left + 30, clientY: d.top + 20 })); }",
     )
     .await;
     pause(300).await;

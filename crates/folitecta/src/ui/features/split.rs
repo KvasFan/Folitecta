@@ -75,7 +75,7 @@ pub fn SplitPagesDialog() -> Element {
     let (pw, ph) = page_size(st, page);
     let z = s.zoom.unwrap_or_else(|| fit_zoom((pw, ph), s.stage));
     let (cw, ch) = (pw * z, ph * z);
-    let (tab, rev) = st.read_active(|t| (t.id, t.view_rev())).unwrap_or((0, 0));
+    let (tab, rev) = st.read_active(|t| (t.id, t.page_rev(page))).unwrap_or((0, 0));
     let scale = (((z * 1500.0) / 50.0).round() * 50.0).clamp(150.0, 3000.0) as u32;
     let (unit, unit_pt) = units(st);
     let rulers = option_on(st, "split.rulers");

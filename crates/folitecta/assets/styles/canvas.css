@@ -67,7 +67,12 @@ textarea.field-input { resize: none; padding: 2px 3px; }
 .field-option { padding: 1px 6px; cursor: pointer; white-space: nowrap; }
 .field-option:hover { background: #e0f2fe; }
 .field-option.on { background: #9ec3f5; }
-.page-img { display: block; width: 100%; height: 100%; -webkit-user-drag: none; }
+.page-img { display: block; position: absolute; inset: 0; width: 100%; height: 100%; -webkit-user-drag: none; }
+/* The small picture of a page, seen under the sharp one until it comes. */
+.page-preview { display: block; position: absolute; inset: 0; width: 100%; height: 100%; -webkit-user-drag: none; }
+.page-inner[data-sharp] > .page-preview { display: none; }
+/* The tiles of a page drawn in parts at a high zoom, over its picture. */
+.page-tile { display: block; position: absolute; -webkit-user-drag: none; }
 .grid-overlay { position: absolute; inset: 0; background-image: linear-gradient(to right, rgba(79,70,229,.18) 1px, transparent 1px), linear-gradient(to bottom, rgba(79,70,229,.18) 1px, transparent 1px); }
 .guide { position: absolute; background: #06b6d4; opacity: .85; }
 .guide.h { left: 0; right: 0; height: 1px; }
@@ -107,6 +112,8 @@ textarea.field-input { resize: none; padding: 2px 3px; }
 .ruler.rx span { top: 1px; }
 .ruler.ry span { left: 1px; writing-mode: vertical-rl; transform: rotate(180deg); }
 .loupe { position: fixed; border: 2px solid var(--accent); border-radius: 12px; box-shadow: var(--shadow); background-color: white; background-repeat: no-repeat; pointer-events: none; z-index: 400; }
+.loupe { overflow: hidden; }
+.loupe > img { position: absolute; display: block; }
 .canvas .spinner { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); color: var(--muted); }
 
 /* Horizontal scrolling layout */
@@ -122,6 +129,7 @@ textarea.field-input { resize: none; padding: 2px 3px; }
 .panzoom-page { position: relative; background: #fff; box-shadow: var(--shadow-sm); cursor: crosshair; align-self: center; overflow: hidden; }
 .panzoom-page img { display: block; pointer-events: none; }
 .panzoom-view { position: absolute; border: 2px solid var(--accent); background: rgba(79,70,229,.12); pointer-events: none; }
+.panzoom-capture { position: absolute; inset: 0; z-index: 1; }
 .panzoom-foot { display: flex; align-items: center; justify-content: center; gap: 4px; }
 .zoom-presets { display: flex; flex-wrap: wrap; gap: 6px; }
 

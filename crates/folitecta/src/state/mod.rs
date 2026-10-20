@@ -91,6 +91,11 @@ pub struct AppState {
     pub editing_field: Signal<Option<(usize, usize)>>,
     /// Radio group that new radio buttons join while the radio tool stays active.
     pub radio_group: Signal<Option<String>>,
+    /// The pages each view holds with their content (the others are empty
+    /// boxes of the same size): document tab, first and last page, for the
+    /// focused view (0) and the other view of a split window (1); `None`
+    /// until the view has told which pages it shows.
+    pub windows: Signal<[Option<(u64, usize, usize)>; 2]>,
 }
 
 /// Where state was written while the interface was rendering a component.
@@ -156,6 +161,7 @@ impl AppState {
             style_clip: use_signal(|| None),
             editing_field: use_signal(|| None),
             radio_group: use_signal(|| None),
+            windows: use_signal(|| [None, None]),
         }
     }
 
@@ -403,6 +409,19 @@ impl AppState {
             );
         }
         Some(out)
+    }
+
+    /// Read-only access to the active tab without following it: a component
+    /// reading it this way is not drawn again when the documents change, so
+    /// what it shows must come through its properties.
+    pub fn peek_active<T>(&self, f: impl FnOnce(&DocTab) -> T) -> Option<T> {
+        let docs = self.docs.peek();
+        let n = docs.len();
+        if n == 0 {
+            return None;
+        }
+        let idx = (*self.active.peek()).min(n - 1);
+        docs.get(idx).map(f)
     }
 
     /// Read-only access to the active tab.

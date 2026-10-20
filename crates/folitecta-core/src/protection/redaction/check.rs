@@ -778,7 +778,7 @@ pub fn check_redacted_bytes(
         // page still shows them outside the marks.
         let page_ids = doc.page_ids();
         let marked: Vec<usize> = data.marks.keys().copied().collect();
-        let layers: HashMap<usize, PageText> = crate::textlayer::extract_some(doc.bytes(), &marked)
+        let layers: HashMap<usize, PageText> = crate::textlayer::extract_pages(doc.bytes(), &marked)
             .unwrap_or_default()
             .into_iter()
             .collect();
@@ -980,7 +980,7 @@ impl Document {
                 .filter(|p| !marked.contains(p))
                 .take(QUOTE_PAGES.saturating_sub(marked.len()))
                 .collect();
-            let more = crate::textlayer::extract_some(self.bytes(), &first).unwrap_or_default();
+            let more = crate::textlayer::extract_pages(self.bytes(), &first).unwrap_or_default();
             let read = layers.len() + more.len();
             for layer in layers.values().chain(more.iter().map(|(_, l)| l)) {
                 n += count_terms(&layer.text, terms);

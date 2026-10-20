@@ -2,17 +2,36 @@
 
 use super::*;
 
+/// The size of the thumbnails (CSS pixels of their longer edge).
+fn thumb_box(st: AppState) -> f32 {
+    st.ui
+        .read()
+        .value("thumb.size")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(150.0f32)
+        .clamp(80.0, 320.0)
+}
+
+/// The scale (milli) of the thumbnails' pictures; the pages of the canvas
+/// show the same small pictures while their sharp ones are made.
+pub(crate) fn thumb_render_scale(st: AppState) -> u32 {
+    ((thumb_box(st) * 1.6 / 842.0) * 1000.0)
+        .round()
+        .clamp(120.0, 900.0) as u32
+}
+
 #[component]
 pub(super) fn ThumbnailsPane() -> Element {
+    crate::perf::THUMBNAIL_PANES.bump();
     let st = use_context::<AppState>();
     let lang = st.lang();
     let mut drag_src = use_signal(|| None::<usize>);
     let mut drag_over = use_signal(|| None::<usize>);
-    let mut dragged = use_signal(|| false);
-    let Some((tab_id, rev, page, count, sizes, selected, rotation)) = st.read_active(|t| {
+    let dragged = use_signal(|| false);
+    let Some((tab_id, revs, page, count, sizes, selected, rotation)) = st.read_active(|t| {
         (
             t.id,
-            t.view_rev(),
+            t.page_shown.clone(),
             t.page,
             t.doc.page_count(),
             t.page_sizes.clone(),
@@ -22,20 +41,14 @@ pub(super) fn ThumbnailsPane() -> Element {
     }) else {
         return rsx! {};
     };
-    let box_px: f32 = st
-        .ui
-        .read()
-        .value("thumb.size")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(150.0f32)
-        .clamp(80.0, 320.0);
+    let box_px = thumb_box(st);
     let logical = option_on(st, "thumbnailsView.logicalVisible");
     let labels = if logical {
         st.read_active(|t| t.doc.page_labels()).unwrap_or_default()
     } else {
         Vec::new()
     };
-    let render_scale = ((box_px * 1.6 / 842.0) * 1000.0).round().clamp(120.0, 900.0) as u32;
+    let render_scale = thumb_render_scale(st);
     // The part of the current page the canvas shows, outlined on its
     // thumbnail (Highlight Visible), followed while the pages scroll.
     let mut visible: Signal<Option<[f64; 4]>> = use_signal(|| None);
@@ -113,52 +126,80 @@ pub(super) fn ThumbnailsPane() -> Element {
                         if is_sel { " selected" } else { "" },
                         if is_target { if drag_src().map(|s| s < p).unwrap_or(false) { " drop-after" } else { " drop-before" } } else { "" }
                     );
-                    let src = format!("/page/{tab_id}/{p}/{rev}/{render_scale}.png");
+                    let rev = revs.get(p).copied().unwrap_or_default();
+                    let src = format!("/page/{tab_id}/{p}/{rev}/{render_scale}.png?lane=thumb");
                     let label = if logical { labels.get(p).cloned().unwrap_or_else(|| (p + 1).to_string()) } else { (p + 1).to_string() };
                     let img_style = if rotation != 0 { format!("width:{wpx}px;height:{hpx}px;transform:rotate({rotation}deg)") } else { format!("width:{wpx}px;height:{hpx}px") };
                     let (iw, ih) = if rotation % 180 != 0 { (hpx, wpx) } else { (wpx, hpx) };
+                    let title = format!("{} {}", t(lang, "status.page"), p + 1);
+                    let shown = if p == page { outline.clone() } else { None };
                     rsx! {
-                        div { class: "{class}", key: "{p}", title: "{t(lang, \"status.page\")} {p + 1}",
-                            onmousedown: move |e| {
-                                if e.trigger_button() == Some(MouseButton::Primary) {
-                                    drag_src.set(Some(p));
-                                    dragged.set(false);
-                                }
-                            },
-                            onmouseenter: move |_| {
-                                if drag_src.peek().is_some() {
-                                    drag_over.set(Some(p));
-                                    dragged.set(true);
-                                }
-                            },
-                            onclick: move |e| {
-                                if *dragged.peek() {
-                                    dragged.set(false);
-                                    return;
-                                }
-                                if e.modifiers().ctrl() || e.modifiers().meta() {
-                                    st.with_active(|t| { if let Some(i) = t.selected_pages.iter().position(|x| *x == p) { t.selected_pages.remove(i); } else { t.selected_pages.push(p); } });
-                                } else if e.modifiers().shift() {
-                                    st.with_active(|t| { let (a, b) = (t.page.min(p), t.page.max(p)); t.selected_pages = (a..=b).collect(); });
-                                } else {
-                                    st.with_active(|t| t.selected_pages = vec![p]);
-                                    st.go_to_page(p);
-                                }
-                            },
-                            ondoubleclick: move |_| st.go_to_page(p),
-                            div { class: "thumb-img", style: "width:{wpx.max(iw)}px;height:{hpx.max(ih)}px",
-                                img { src: "{src}", alt: "", loading: "lazy", draggable: "false", width: "{wpx}", height: "{hpx}", style: "{img_style}" }
-                                if p == page {
-                                    if let Some(style) = outline.clone() {
-                                        div { class: "thumb-visible", style: "{style}" }
-                                    }
-                                }
-                            }
-                            span { class: "num", "{label}" }
-                        }
+                        Thumb { key: "{p}", page: p, class, title, src, label, img_style, wpx, hpx, iw, ih, shown, drag_src, drag_over, dragged }
                     }
                 }
             }
+        }
+    }
+}
+
+/// One thumbnail: a component of its own, drawn again only when what it
+/// shows changes (not at every change of the documents).
+#[component]
+fn Thumb(
+    page: usize,
+    class: String,
+    title: String,
+    src: String,
+    label: String,
+    img_style: String,
+    wpx: i32,
+    hpx: i32,
+    iw: i32,
+    ih: i32,
+    /// The outline of the part the canvas shows (current page only).
+    shown: Option<String>,
+    drag_src: Signal<Option<usize>>,
+    drag_over: Signal<Option<usize>>,
+    dragged: Signal<bool>,
+) -> Element {
+    let st = use_context::<AppState>();
+    let p = page;
+    rsx! {
+        div { class: "{class}", title: "{title}",
+            onmousedown: move |e| {
+                if e.trigger_button() == Some(MouseButton::Primary) {
+                    drag_src.set(Some(p));
+                    dragged.set(false);
+                }
+            },
+            onmouseenter: move |_| {
+                if drag_src.peek().is_some() {
+                    drag_over.set(Some(p));
+                    dragged.set(true);
+                }
+            },
+            onclick: move |e| {
+                if *dragged.peek() {
+                    dragged.set(false);
+                    return;
+                }
+                if e.modifiers().ctrl() || e.modifiers().meta() {
+                    st.with_active(|t| { if let Some(i) = t.selected_pages.iter().position(|x| *x == p) { t.selected_pages.remove(i); } else { t.selected_pages.push(p); } });
+                } else if e.modifiers().shift() {
+                    st.with_active(|t| { let (a, b) = (t.page.min(p), t.page.max(p)); t.selected_pages = (a..=b).collect(); });
+                } else {
+                    st.with_active(|t| t.selected_pages = vec![p]);
+                    st.go_to_page(p);
+                }
+            },
+            ondoubleclick: move |_| st.go_to_page(p),
+            div { class: "thumb-img", style: "width:{wpx.max(iw)}px;height:{hpx.max(ih)}px",
+                img { src: "{src}", alt: "", loading: "lazy", decoding: "async", draggable: "false", width: "{wpx}", height: "{hpx}", style: "{img_style}" }
+                if let Some(style) = shown {
+                    div { class: "thumb-visible", style: "{style}" }
+                }
+            }
+            span { class: "num", "{label}" }
         }
     }
 }

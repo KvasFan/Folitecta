@@ -32,7 +32,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev pkg-config
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev pkg-config
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
@@ -53,3 +53,11 @@ jobs:
             while IFS= read -r m; do echo "::error title=Failing test::$m"; done
       - name: Build
         run: cargo build --workspace
+      - name: The Linux program starts without libxdo
+        if: runner.os == 'Linux'
+        run: |
+          readelf -d target/debug/folitecta | grep NEEDED
+          if readelf -d target/debug/folitecta | grep -qi 'libxdo'; then
+            echo "::error::The program links libxdo again, so it would not start where libxdo 3 is missing (see crates/libxdo)."
+            exit 1
+          fi

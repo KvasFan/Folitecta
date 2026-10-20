@@ -1,12 +1,21 @@
 # Architecture
 
-Folitecta is a two-crate Cargo workspace.
+Folitecta is a two-crate Cargo workspace, with one small crate that replaces a dependency.
 
 ```
 crates/
   folitecta-core/   library: document model, operations, rendering, command registry
   folitecta/        binary: Dioxus desktop user interface
+  libxdo/           the libxdo bindings, loading the library when first used
 ```
+
+`crates/libxdo` takes the place of the crates.io bindings of the same name through
+`[patch.crates-io]`. The menu library of the interface toolkit uses libxdo for the predefined
+Copy, Cut, Paste and Select All items of native menus on Linux; Folitecta shows no native menu,
+but the original bindings linked the library, so the program did not start where `libxdo.so.3`
+was missing. The replacement has the same interface and opens `libxdo.so.3` with `dlopen` the
+first time it is used (never, in Folitecta); without it, `XDo::new` fails as when no display can
+be opened. The CI checks that the Linux program does not link libxdo.
 
 ## folitecta-core
 
@@ -339,5 +348,5 @@ Mouse coordinates on a page image are converted to PDF user space with
 - Protection: no certificate (public-key) encryption; changing or removing the protection needs
   only the password to open; permissions other than printing are not enforced in Folitecta.
 - Speed and memory were measured on Linux only, at pixel ratio 1 (no HiDPI screen, no pinch
-  zoom). The Linux package needs libxdo 3 to start, though it never calls it (see the README).
+  zoom).
 - Commands marked *planned* in [FEATURES.md](FEATURES.md) open a roadmap notice.

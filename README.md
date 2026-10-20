@@ -208,7 +208,7 @@ Requirements: Rust 1.92 or newer (stable) and the platform toolchain.
 
 - **Windows**: Visual Studio Build Tools with the "Desktop development with C++" workload;
   the WebView2 runtime (preinstalled on Windows 10 and 11).
-- **Linux**: `libwebkit2gtk-4.1-dev libgtk-3-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev pkg-config`.
+- **Linux**: `libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev pkg-config`.
 - **macOS**: Xcode command line tools.
 
 ```sh
@@ -244,6 +244,7 @@ talks to are the time stamp and revocation servers it starts on the same compute
 |---|---|
 | `crates/folitecta-core` | Document model (lopdf), page operations, comments and review, bookmarks, forms, attachments, layers, portfolios, links, text and search, spell checking, text recognition, page marks, stamps, tables, barcodes, comparison, tags and accessibility check, digital signatures and revocation, encryption, redaction, print sheets, e-mail messages, hayro render service, command registry |
 | `crates/folitecta` | Dioxus desktop application: ribbon, menus, panes, canvas with drawing tools, dialogs, print window, palette, localization, interface self-test; `assets/styles` holds the theme tokens and one style sheet per part, `assets/i18n` the translations |
+| `crates/libxdo` | The libxdo bindings used by the menu library of the interface toolkit, replaced so that libxdo is opened only when used: the Linux program starts without it |
 | `dictionaries` | Hunspell spelling dictionaries (English, Italian), data files read at run time, each with its licence |
 | `ocr` | Text recognition models (PaddleOCR, ONNX), data files read at run time, with their licence |
 | `fonts` | GNU FreeFont FreeSans, the font of generated text beyond Western European characters, read at run time, with its licence and its signed source in `fonts/source` |

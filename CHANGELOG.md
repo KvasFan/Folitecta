@@ -6,6 +6,13 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- The Linux program starts without libxdo. It needed `libxdo.so.3` only because the menu library
+  of the interface toolkit linked it (Folitecta never calls it), so it did not start on systems
+  that have only libxdo 4 (Arch, Manjaro, CachyOS) or no libxdo at all (Ubuntu desktops); the
+  library is now opened only when it is used, and the compatibility link of 0.2.1 is no longer
+  needed. Building from source no longer needs `libxdo-dev`.
+
 ## [0.2.1] - 2026-10-20
 
 ### Added

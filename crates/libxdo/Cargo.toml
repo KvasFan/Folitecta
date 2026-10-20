@@ -1,0 +1,19 @@
+[package]
+# Takes the place of the crates.io bindings of the same name (see
+# `[patch.crates-io]` in the workspace manifest): the same interface, with
+# the library loaded when it is first used.
+name = "libxdo"
+version = "0.6.0"
+description = "libxdo loaded when first used, so that the program starts without it"
+publish = false
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+libc = "0.2"
+
+[lints]
+workspace = true

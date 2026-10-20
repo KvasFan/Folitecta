@@ -237,6 +237,15 @@ struct Job {
     wanted_outside: bool,
 }
 
+/// The askers of a picture.
+#[derive(Default)]
+struct Waiting {
+    replies: Vec<Reply>,
+    /// One of them wants it whatever the views hold (a thumbnail, a picture
+    /// for another use): known whether the job is queued or already taken.
+    wanted_outside: bool,
+}
+
 struct Kept {
     picture: Arc<RenderedPage>,
     used: u64,
@@ -263,8 +272,8 @@ struct State {
     page_revs: Vec<u64>,
     queue: Vec<Job>,
     seq: u64,
-    /// The replies waiting for each picture asked (queued or being drawn).
-    waiting: HashMap<Key, Vec<Reply>>,
+    /// The askers waiting for each picture (queued, taken or being drawn).
+    waiting: HashMap<Key, Waiting>,
     /// The pictures that failed lately, with why: asked again (the page
     /// script tries a picture again after an error) they fail at once
     /// instead of being drawn again.
@@ -296,7 +305,11 @@ impl State {
         let page = job.key.page;
         let told = self.views.iter().any(Option::is_some);
         let held = self.views.iter().flatten().any(|&(a, b)| page >= a && page <= b);
-        matches!(job.lane, Lane::View | Lane::Preview) && !job.wanted_outside && told && !held
+        // Wanted whatever the views hold by its first asker or by any asker
+        // since, whether the job is queued or already taken.
+        let wanted_outside =
+            job.wanted_outside || self.waiting.get(&job.key).is_some_and(|w| w.wanted_outside);
+        matches!(job.lane, Lane::View | Lane::Preview) && !wanted_outside && told && !held
     }
 
     /// The order of a job: lower first. Without a view telling what it
@@ -542,9 +555,10 @@ impl RenderService {
             reply(RenderAnswer::Stale);
             return;
         }
-        let replies = s.waiting.entry(key).or_default();
-        let new = replies.is_empty();
-        replies.push(Box::new(reply));
+        let waiting = s.waiting.entry(key).or_default();
+        let new = waiting.replies.is_empty();
+        waiting.replies.push(Box::new(reply));
+        waiting.wanted_outside |= job.wanted_outside;
         if new {
             s.queue.push(job);
         } else if let Some(j) = s.queue.iter_mut().find(|j| j.key == key) {
@@ -556,7 +570,6 @@ impl RenderService {
             if matches!(job.lane, Lane::View | Lane::Other) && j.lane != Lane::Other {
                 j.lane = job.lane;
             }
-            j.wanted_outside |= job.wanted_outside;
         }
         drop(s);
         self.shared.wake.notify_one();
@@ -617,7 +630,7 @@ impl Drop for RenderService {
             s.stop = true;
             let keys: Vec<Key> = s.queue.drain(..).map(|j| j.key).collect();
             keys.into_iter()
-                .flat_map(|k| s.waiting.remove(&k).unwrap_or_default())
+                .flat_map(|k| s.waiting.remove(&k).map(|w| w.replies).unwrap_or_default())
                 .collect::<Vec<_>>()
         };
         answer_stale(&self.shared, stale);
@@ -637,7 +650,7 @@ fn take_stale(s: &mut State) -> Vec<Reply> {
     while i < s.queue.len() {
         if s.stale(&s.queue[i]) {
             let job = s.queue.swap_remove(i);
-            out.extend(s.waiting.remove(&job.key).unwrap_or_default());
+            out.extend(s.waiting.remove(&job.key).map(|w| w.replies).unwrap_or_default());
         } else {
             i += 1;
         }
@@ -745,6 +758,24 @@ fn shrink(pixels: &[u8], w: u32, h: u32, channels: usize, tw: u32, th: u32) -> V
     out
 }
 
+/// A job taken for an older document than the one a thread parsed, decided
+/// under the lock: answered as no longer wanted (its replies returned) when
+/// its page changed, no asker wants it any longer or the service stops;
+/// otherwise kept, to be drawn from the document just read.
+fn settle_taken(s: &mut State, held: &mut Option<Taken>) -> Vec<Reply> {
+    let Some(taken) = held.as_mut() else {
+        return Vec::new();
+    };
+    if s.stop || s.stale(&taken.job) {
+        let key = taken.job.key;
+        *held = None;
+        s.running = s.running.saturating_sub(1);
+        return s.waiting.remove(&key).map(|w| w.replies).unwrap_or_default();
+    }
+    taken.generation = s.generation;
+    Vec::new()
+}
+
 fn worker(shared: Arc<Shared>) {
     let mut held: Option<Taken> = None;
     loop {
@@ -754,17 +785,7 @@ fn worker(shared: Arc<Shared>) {
         // its page changed (or the service stops), else drawn from this one.
         let (generation, bytes, dropped) = {
             let mut s = shared.lock();
-            let mut dropped = Vec::new();
-            if let Some(taken) = held.as_mut() {
-                if s.stop || s.stale(&taken.job) {
-                    let key = taken.job.key;
-                    held = None;
-                    s.running = s.running.saturating_sub(1);
-                    dropped = s.waiting.remove(&key).unwrap_or_default();
-                } else {
-                    taken.generation = s.generation;
-                }
-            }
+            let dropped = settle_taken(&mut s, &mut held);
             (s.generation, s.bytes.clone(), dropped)
         };
         answer_stale(&shared, dropped);
@@ -865,7 +886,7 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
             }
             _ => {}
         }
-        s.waiting.remove(&key).unwrap_or_default()
+        s.waiting.remove(&key).map(|w| w.replies).unwrap_or_default()
     };
     for r in replies {
         r(answer.clone());
@@ -910,7 +931,10 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
         shared.pool.keep(shared.id, small_key, picture.clone());
         // Requests of it waiting in the queue are answered now.
         s.queue.retain(|j| j.key != small_key);
-        s.waiting.remove(&small_key).unwrap_or_default()
+        s.waiting
+            .remove(&small_key)
+            .map(|w| w.replies)
+            .unwrap_or_default()
     };
     bump(&shared.stats.reused, replies.len() as u64);
     for r in replies {
@@ -1173,6 +1197,56 @@ mod tests {
         let mut got: Vec<(u8, bool)> = (0..3).map(|_| rx.recv().unwrap()).collect();
         got.sort();
         assert_eq!(got, vec![(0, true), (1, true), (2, true)]);
+    }
+
+    #[test]
+    fn a_thumbnail_asked_while_its_job_is_set_aside_stays_wanted() {
+        let svc = RenderService::with_workers(doc(6), 1);
+        let (tx, rx) = std::sync::mpsc::channel();
+        let preview = tx.clone();
+        let mut s = svc.shared.lock();
+        // A thread took the small picture of page 5 for the canvas, then saw
+        // that the document changed and set it aside to parse it again.
+        let key = Key {
+            page: 5,
+            scale: scale_key(0.2),
+            opts: RenderOpts::default(),
+            rev: s.rev_of(5),
+            tile: None,
+        };
+        s.waiting.entry(key).or_default().replies.push(Box::new(move |a| {
+            let _ = preview.send((1, matches!(a, RenderAnswer::Stale)));
+        }));
+        s.running += 1;
+        let mut held = Some(Taken {
+            job: Job {
+                key,
+                scale: 0.2,
+                lane: Lane::Preview,
+                seq: 1,
+                wanted_outside: false,
+            },
+            generation: s.generation,
+            thumb_scale: None,
+            threads: 0,
+        });
+        drop(s);
+        // Meanwhile the thumbnails pane asks for the same picture, and the
+        // views move away from page 5.
+        svc.request(req(5, 0.2, Lane::Thumb, None), move |a| {
+            let _ = tx.send((2, matches!(a, RenderAnswer::Stale)));
+        });
+        svc.set_held_view(0, Some((0, 2)));
+        // The thread decides the job: still wanted, by the thumbnail.
+        let mut s = svc.shared.lock();
+        let dropped = settle_taken(&mut s, &mut held);
+        let kept = held.is_some();
+        s.running -= usize::from(kept);
+        let left = s.waiting.remove(&key);
+        drop(s);
+        assert!(dropped.is_empty() && kept, "the job set aside was dropped");
+        assert_eq!(left.map(|w| w.replies.len()), Some(2));
+        assert!(rx.try_recv().is_err(), "an asker was answered no longer wanted");
     }
 
     #[test]

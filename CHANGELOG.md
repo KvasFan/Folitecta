@@ -11,6 +11,9 @@ All notable changes to Folitecta are documented here. The format follows
   a page copied as a picture, the snapshot of an area and a stamp made of the page leave out what
   a layer hidden in the view hides, comments included (before, they followed the default
   visibility of the document).
+- Messages that count say "1 page deleted", "1 comment" or "1 file" for one, in English and
+  Italian, instead of "1 page(s)" or "1 files"; messages with several numbers are written as
+  labels ("Pages: 6 · sides: 4 · sheets of paper: 2"), right for any number.
 
 ## [0.2.1] - 2026-10-20
 

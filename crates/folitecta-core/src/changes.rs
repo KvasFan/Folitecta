@@ -80,15 +80,25 @@ fn hash_object(o: &Object, h: &mut impl Hasher) {
     // A number by its value: one made as a real in the program (300.0) is
     // read back from the saved file as an integer (300); the page is the
     // same.
+    // Integers and whole reals by their integer value (exact for every
+    // integer), other reals by their bits.
+    const WHOLE: u8 = 0xA5;
+    const FRACTION: u8 = 0xA6;
     match o {
         Object::Integer(i) => {
-            0xA5u8.hash(h);
-            (*i as f64).to_bits().hash(h);
+            WHOLE.hash(h);
+            i.hash(h);
             return;
         }
         Object::Real(r) => {
-            0xA5u8.hash(h);
-            f64::from(*r).to_bits().hash(h);
+            let r = f64::from(*r);
+            if r.fract() == 0.0 && r.abs() < 9.2e18 {
+                WHOLE.hash(h);
+                (r as i64).hash(h);
+            } else {
+                FRACTION.hash(h);
+                r.to_bits().hash(h);
+            }
             return;
         }
         _ => std::mem::discriminant(o).hash(h),
@@ -304,5 +314,36 @@ pub(crate) fn touched(doc: &lopdf::Document, old: &Baseline, new: &Baseline) -> 
         all: false,
         pictures: spread(false),
         text: spread(true),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hash(o: &Object) -> u64 {
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        hash_object(o, &mut h);
+        h.finish()
+    }
+
+    #[test]
+    fn numbers_are_compared_by_their_value() {
+        // A real made by the program and the integer read back from the file.
+        assert_eq!(hash(&Object::Integer(300)), hash(&Object::Real(300.0)));
+        assert_eq!(hash(&Object::Integer(-12)), hash(&Object::Real(-12.0)));
+        assert_eq!(hash(&Object::Integer(0)), hash(&Object::Real(-0.0)));
+        // Different values stay different, integers past 2^53 too.
+        let big = 1i64 << 53;
+        assert_ne!(hash(&Object::Integer(big)), hash(&Object::Integer(big + 1)));
+        assert_ne!(
+            hash(&Object::Integer(i64::MAX)),
+            hash(&Object::Integer(i64::MAX - 1))
+        );
+        assert_ne!(hash(&Object::Real(0.5)), hash(&Object::Integer(0)));
+        assert_ne!(hash(&Object::Real(0.5)), hash(&Object::Real(0.25)));
+        assert_ne!(hash(&Object::Real(1e30)), hash(&Object::Integer(i64::MAX)));
+        // Not a number of another kind.
+        assert_ne!(hash(&Object::Integer(1)), hash(&Object::Boolean(true)));
     }
 }

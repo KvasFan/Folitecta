@@ -1199,6 +1199,179 @@ mod tests {
         assert_eq!(got, vec![(0, true), (1, true), (2, true)]);
     }
 
+    /// The pictures a store keeps and their bytes, checking that the bytes
+    /// it counts are those of its pictures.
+    fn store_of(pool: &KeptPool) -> (usize, usize) {
+        let k = pool.lock();
+        let bytes: usize = k.pictures.values().map(|p| p.picture.png.len()).sum();
+        assert_eq!(bytes, k.bytes, "the bytes counted are not those of the pictures");
+        (k.pictures.len(), k.bytes)
+    }
+
+    #[test]
+    fn under_every_change_each_request_is_answered_and_the_store_holds() {
+        use std::sync::atomic::{AtomicBool, AtomicUsize};
+        use std::time::{Duration, Instant};
+        let budget = 3 * 1024 * 1024;
+        let pool = Arc::new(KeptPool::new(budget));
+        let (eight, six) = (doc(8), doc(6));
+        let services: Vec<Arc<RenderService>> = (0..3)
+            .map(|_| Arc::new(RenderService::with_pool(eight.clone(), 3, pool.clone())))
+            .collect();
+        let stop = StopOnDrop(Arc::new(AtomicBool::new(false)));
+        let (asked, answered) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicUsize::new(0)));
+        let mut threads = Vec::new();
+        // Each document changes in every way, at random.
+        for (n, svc) in services.iter().enumerate() {
+            let (svc, stop, eight, six) = (svc.clone(), stop.0.clone(), eight.clone(), six.clone());
+            threads.push(std::thread::spawn(move || {
+                let mut r = crate::testdocs::Rng(0x9E37_79B9 + n as u64);
+                let mut below = |n: u64| r.next_u64() % n;
+                let mut rev = 0u64;
+                while !stop.load(Ordering::Relaxed) {
+                    match below(5) {
+                        0 => svc.replace(if below(2) == 0 { eight.clone() } else { six.clone() }),
+                        1 | 2 => {
+                            rev += 1;
+                            let revs: Vec<u64> = (0..8).map(|_| rev.saturating_sub(below(3))).collect();
+                            if below(2) == 0 {
+                                svc.replace_pages(eight.clone(), revs);
+                            } else {
+                                svc.set_page_revs(revs);
+                            }
+                        }
+                        3 => {
+                            let a = below(8) as usize;
+                            let held = (below(4) != 0).then(|| (a, (a + below(3) as usize).min(7)));
+                            svc.set_held_view(below(3) as usize, held);
+                        }
+                        _ => {
+                            let a = below(8) as usize;
+                            svc.set_focus(Some((a, a)), below(2) == 0);
+                        }
+                    }
+                    std::thread::sleep(Duration::from_micros(200 + below(800)));
+                }
+            }));
+        }
+        // Pictures of every lane, tiles, revisions and pages past the end.
+        for n in 0..4 {
+            let (services, stop) = (services.clone(), stop.0.clone());
+            let (asked, answered) = (asked.clone(), answered.clone());
+            threads.push(std::thread::spawn(move || {
+                let mut r = crate::testdocs::Rng(0xDEAD_BEEF + n as u64);
+                let mut below = |n: u64| r.next_u64() % n;
+                while !stop.load(Ordering::Relaxed) {
+                    let svc = &services[below(services.len() as u64) as usize];
+                    let lane = [Lane::View, Lane::Preview, Lane::Thumb, Lane::Other][below(4) as usize];
+                    let mut asked_for = req(
+                        below(9) as usize,
+                        [0.1f32, 0.2, 0.3, 1.0][below(4) as usize],
+                        lane,
+                        None,
+                    );
+                    asked_for.rev = (below(3) == 0).then(|| below(20));
+                    asked_for.tile = (below(5) == 0).then(|| (below(2) as u32, below(2) as u32));
+                    asked.fetch_add(1, Ordering::SeqCst);
+                    let answered = answered.clone();
+                    svc.request(asked_for, move |_| {
+                        answered.fetch_add(1, Ordering::SeqCst);
+                    });
+                    if below(4) == 0 {
+                        std::thread::sleep(Duration::from_micros(below(2000)));
+                    }
+                }
+            }));
+        }
+        let started = Instant::now();
+        while started.elapsed() < Duration::from_millis(1500) {
+            std::thread::sleep(Duration::from_millis(50));
+            let (n, bytes) = store_of(&pool);
+            assert!(bytes <= budget || n <= 1, "{bytes} bytes kept in {n} pictures");
+        }
+        drop(stop);
+        for t in threads {
+            t.join().unwrap();
+        }
+        // Once the changes stop, every request is answered.
+        let started = Instant::now();
+        while answered.load(Ordering::SeqCst) < asked.load(Ordering::SeqCst)
+            && started.elapsed() < Duration::from_secs(20)
+        {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(asked.load(Ordering::SeqCst), answered.load(Ordering::SeqCst));
+        // Each document closes at once and gives its pictures back.
+        for svc in services {
+            let started = Instant::now();
+            drop(Arc::try_unwrap(svc).ok().expect("the only owner"));
+            assert!(started.elapsed() < Duration::from_secs(5));
+            store_of(&pool);
+        }
+        assert_eq!(store_of(&pool), (0, 0));
+    }
+
+    #[test]
+    fn a_document_closed_with_requests_in_flight_answers_them_all() {
+        use std::sync::atomic::{AtomicBool, AtomicUsize};
+        use std::time::{Duration, Instant};
+        for round in 0..10 {
+            let pool = Arc::new(KeptPool::new(64 * 1024 * 1024));
+            let svc = Arc::new(RenderService::with_pool(doc(6), 4, pool.clone()));
+            let answered = Arc::new(AtomicUsize::new(0));
+            let stop = StopOnDrop(Arc::new(AtomicBool::new(false)));
+            let changer = {
+                let (svc, stop) = (svc.clone(), stop.0.clone());
+                std::thread::spawn(move || {
+                    let bytes = doc(6);
+                    while !stop.load(Ordering::Relaxed) {
+                        svc.replace(bytes.clone());
+                        svc.replace(bytes.clone());
+                        std::thread::sleep(Duration::from_micros(100));
+                    }
+                })
+            };
+            for i in 0..200 {
+                let answered = answered.clone();
+                svc.request(
+                    req(i % 6, 0.3 + (i % 5) as f32 * 0.1, Lane::Other, None),
+                    move |_| {
+                        answered.fetch_add(1, Ordering::SeqCst);
+                    },
+                );
+            }
+            std::thread::sleep(Duration::from_millis(round % 7));
+            drop(stop);
+            changer.join().unwrap();
+            let started = Instant::now();
+            drop(Arc::try_unwrap(svc).ok().expect("the only owner"));
+            assert!(started.elapsed() < Duration::from_secs(5), "round {round}");
+            assert_eq!(answered.load(Ordering::SeqCst), 200, "round {round}");
+            assert_eq!(store_of(&pool), (0, 0), "round {round}");
+        }
+    }
+
+    #[test]
+    fn a_store_too_small_for_one_picture_still_answers_every_page() {
+        let pool = Arc::new(KeptPool::new(1));
+        let svc = RenderService::with_pool(doc(10), 2, pool.clone());
+        svc.set_held_view(0, Some((0, 9)));
+        svc.set_focus(Some((0, 9)), true);
+        for round in 0..3 {
+            for page in 0..10 {
+                assert!(
+                    matches!(
+                        ask(&svc, req(page, 1.0, Lane::View, None)),
+                        RenderAnswer::Picture(_)
+                    ),
+                    "round {round}, page {page}"
+                );
+            }
+        }
+        // It keeps the last picture alone.
+        assert_eq!(store_of(&pool).0, 1);
+    }
+
     #[test]
     fn a_thumbnail_asked_while_its_job_is_set_aside_stays_wanted() {
         let svc = RenderService::with_workers(doc(6), 1);

@@ -43,6 +43,11 @@ pub static PAGE_OTHER: Counter = Counter::new();
 pub static PAGE_BYTES: Counter = Counter::new();
 pub static PAGE_WAIT_US: Counter = Counter::new();
 
+/// Freed memory given back to the system (`memory`): times and the time it
+/// took (microseconds, summed).
+pub static TRIMS: Counter = Counter::new();
+pub static TRIM_US: Counter = Counter::new();
+
 /// The counters at one moment.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize)]
 pub struct Snapshot {

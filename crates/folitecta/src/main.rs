@@ -11,6 +11,7 @@ mod http;
 mod i18n;
 mod icons;
 mod mail;
+mod memory;
 mod perf;
 mod printing;
 mod private_files;
@@ -93,6 +94,8 @@ fn main() {
     // Hardware acceleration of the web view: decided before the window and
     // its web process start.
     gpu::prepare_environment();
+    // Freed memory goes back to the system (Linux).
+    memory::set_up();
     let icon = icon_from_memory::<Icon>(ICON_PNG).ok();
     let window = WindowBuilder::new()
         .with_title("Folitecta")

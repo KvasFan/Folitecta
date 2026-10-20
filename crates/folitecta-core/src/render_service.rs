@@ -206,6 +206,25 @@ pub fn kept_bytes() -> usize {
     kept_pool().bytes()
 }
 
+/// What the program does when the render threads of a document have drawn
+/// and have nothing more to do, and when a document closes (on Linux, give
+/// the memory freed back to the system): set once by [`on_idle`].
+static IDLE_HOOK: std::sync::OnceLock<fn()> = std::sync::OnceLock::new();
+
+/// Set what the program does when the render threads of a document go idle
+/// after drawing or a document closes. It runs on a render thread (or the
+/// thread closing the document) and must be quick; set once, later calls
+/// are ignored.
+pub fn on_idle(hook: fn()) {
+    let _ = IDLE_HOOK.set(hook);
+}
+
+fn idle() {
+    if let Some(hook) = IDLE_HOOK.get() {
+        hook();
+    }
+}
+
 /// How long a picture that failed fails at once when asked again.
 const FAILED_FOR: std::time::Duration = std::time::Duration::from_secs(10);
 
@@ -291,6 +310,8 @@ struct State {
     /// Jobs being drawn.
     running: usize,
     stop: bool,
+    /// Pictures were drawn since the threads last had nothing to do.
+    drawn_since_idle: bool,
 }
 
 impl State {
@@ -408,6 +429,7 @@ impl RenderService {
                 thumb_scale: None,
                 running: 0,
                 stop: false,
+                drawn_since_idle: false,
             }),
             wake: Condvar::new(),
             stats: StatCounters::default(),
@@ -646,6 +668,7 @@ impl Drop for RenderService {
         }
         // The document closed: its pictures leave the pool.
         self.shared.pool.retain(self.shared.id, |_| false);
+        idle();
     }
 }
 
@@ -720,6 +743,15 @@ fn next_job(shared: &Shared) -> Option<Taken> {
                 thumb_scale: s.thumb_scale,
                 threads: if alone { extra_threads() } else { 0 },
             });
+        }
+        // Nothing more to draw after drawing: the program may give the
+        // memory freed back to the system.
+        if s.running == 0 && s.drawn_since_idle {
+            s.drawn_since_idle = false;
+            drop(s);
+            idle();
+            s = shared.lock();
+            continue;
         }
         s = shared.wake.wait(s).unwrap_or_else(|e| e.into_inner());
     }
@@ -886,6 +918,7 @@ fn draw<'a>(shared: &Shared, pdf: &'a Result<Pdf>, cache: &RenderCache<'a>, take
     let replies = {
         let mut s = shared.lock();
         s.running = s.running.saturating_sub(1);
+        s.drawn_since_idle = true;
         match &answer {
             RenderAnswer::Picture(p) if key.rev == s.rev_of(key.page) => {
                 shared.pool.keep(shared.id, key, p.clone());
@@ -1455,6 +1488,45 @@ mod tests {
             RenderAnswer::Failed(_)
         ));
         assert_eq!(svc.stats().rendered, before + 1);
+    }
+
+    /// The times the idle hook ran (one hook for the whole process).
+    static IDLE_CALLS: AtomicU64 = AtomicU64::new(0);
+
+    #[test]
+    fn the_program_hears_when_the_threads_go_idle_and_when_a_document_closes() {
+        on_idle(|| {
+            IDLE_CALLS.fetch_add(1, Ordering::SeqCst);
+        });
+        let svc = RenderService::with_workers(doc(3), 2);
+        let before = IDLE_CALLS.load(Ordering::SeqCst);
+        // A burst of pictures: told once it is drawn (other tests' services
+        // may tell too, so at least once).
+        let (tx, rx) = std::sync::mpsc::channel();
+        for p in 0..3 {
+            let tx = tx.clone();
+            svc.request(req(p, 0.4, Lane::Other, None), move |_| {
+                let _ = tx.send(());
+            });
+        }
+        for _ in 0..3 {
+            rx.recv().unwrap();
+        }
+        let started = std::time::Instant::now();
+        while IDLE_CALLS.load(Ordering::SeqCst) == before && started.elapsed().as_secs() < 5 {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(
+            IDLE_CALLS.load(Ordering::SeqCst) > before,
+            "not told after the burst"
+        );
+        // Pictures kept are answered without drawing: no new burst.
+        let after_burst = IDLE_CALLS.load(Ordering::SeqCst);
+        drop(svc);
+        assert!(
+            IDLE_CALLS.load(Ordering::SeqCst) > after_burst,
+            "not told when it closed"
+        );
     }
 
     #[test]

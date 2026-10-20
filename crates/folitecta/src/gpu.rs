@@ -258,6 +258,8 @@ fn graphics_libraries(pid: &str) -> Vec<String> {
 /// What was chosen, the web view's settings and, on Linux, the graphics
 /// libraries the web processes of this program loaded.
 pub fn report() -> serde_json::Value {
+    // Changed only on Linux.
+    #[cfg_attr(not(target_os = "linux"), allow(unused_mut))]
     let mut out = serde_json::json!({
         "choice": format!("{:?}", choose()),
         "settings": SETTINGS.get().cloned().unwrap_or_default(),

@@ -332,7 +332,9 @@ fn parse_answer(data: &[u8], closed: bool) -> Result<Option<Answer>, String> {
 
 /// Read the answer to a request sent on `stream` (any connection: a local
 /// socket of the print server, TCP), at most `MAX_ANSWER` bytes; the
-/// connection's own timeouts bound the wait.
+/// connection's own timeouts bound the wait. Used by the print server
+/// client, which Windows does not have.
+#[cfg_attr(not(unix), allow(dead_code))]
 pub(crate) fn read_answer(stream: &mut dyn Read) -> Result<Answer, String> {
     let mut incoming = Incoming::default();
     let mut buf = [0u8; 16 * 1024];

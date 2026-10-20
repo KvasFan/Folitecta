@@ -151,6 +151,8 @@ fn check_owner(meta: &std::fs::Metadata, path: &Path) -> io::Result<()> {
 fn ensure_private_dir(path: &Path) -> io::Result<()> {
     match std::fs::symlink_metadata(path) {
         Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            // Changed only on Unix.
+            #[cfg_attr(not(unix), allow(unused_mut))]
             let mut builder = std::fs::DirBuilder::new();
             #[cfg(unix)]
             {

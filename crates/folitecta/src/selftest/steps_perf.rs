@@ -16,7 +16,8 @@
 //!   the longest stall), how long a page in the window was blank or not
 //!   sharp, then the time until the pages are sharp;
 //! - scrolling 120 px a frame for 2 s: frame intervals, the events sent
-//!   synchronously to the program; a jump far down; wheel events;
+//!   synchronously to the program; a jump far down (the scroll bar); Go To
+//!   Page to a far page (as a bookmark or a search result); wheel events;
 //! - zooming: six Ctrl+wheel steps 30 ms apart, a dynamic zoom drag, a drag
 //!   of the pane edge at fit-width zoom: time from the last input until the
 //!   pages have their final size and sharp pictures;
@@ -764,6 +765,34 @@ async fn document_scenarios(p: &mut Probe<'_, '_>, doc: &str, pages: usize, byte
                 "rendered",
                 "pictures_asked",
             ],
+        );
+
+        // 3b. Go To Page to a far page (as the page number box, a bookmark, a
+        // search result and a thumbnail do), then until the page is in the
+        // window and every page there is sharp.
+        let mut runs = Vec::new();
+        let mut ok = true;
+        for r in 0..reps {
+            reset_view(st, 0).await;
+            let target = (mid + 50 + r * 11).min(pages - 1);
+            let before = mark(st);
+            let _ =
+                eval("window.__foliPerf.reset(); window.__foliGoT0 = performance.now(); return true;").await;
+            st.navigate(target, true);
+            let mut m = obj(&format!(
+                "const P = window.__foliPerf, t0 = window.__foliGoT0; const there = () => {{ const c = document.getElementById('canvas'), el = document.getElementById('pg-{target}'); if (!c || !el) return false; const v = c.getBoundingClientRect(), r = el.getBoundingClientRect(); return r.bottom > v.top && r.top < v.bottom; }}; const shown = await P.waitFor(t0, 20000, there); const sharp = shown < 0 ? -1 : await P.waitSharp(t0, 20000, 0, 0); return Object.assign(P.stats(), {{ sharp_after_ms: sharp }});"
+            ))
+            .await;
+            m.extend(counted(st, before));
+            ok &= num(&Value::Object(m.clone()), "sharp_after_ms") >= 0.0;
+            runs.push(m);
+        }
+        p.record(
+            doc,
+            "go to a far page",
+            runs,
+            ok,
+            &["sharp_after_ms", "pictures_asked", "rendered", "answers_other"],
         );
 
         // 4. Wheel events (they do not scroll: the cost of their listeners).

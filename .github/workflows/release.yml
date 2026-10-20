@@ -6,8 +6,12 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing tag to build and publish (for example v0.0.1)"
+        description: "Existing tag to build and publish (for example v0.0.1), or a branch to build only"
         required: true
+      publish:
+        description: "Publish the release (off: the packages stay as artifacts of the run, a check before a tag)"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -38,7 +42,7 @@ jobs:
       - name: Package
         shell: pwsh
         run: |
-          $version = $env:RELEASE_TAG.TrimStart('v')
+          $version = $env:RELEASE_TAG.TrimStart('v').Replace('/', '-')
           $name = "folitecta-$version-windows-x64"
           New-Item -ItemType Directory -Force "dist/$name" | Out-Null
           Copy-Item "target/release/folitecta.exe" "dist/$name/"
@@ -91,6 +95,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${RELEASE_TAG#v}"
+          VERSION="${VERSION//\//-}"
           NAME="folitecta-${VERSION}-linux-x64"
           mkdir -p "dist/${NAME}"
           cp target/release/folitecta "dist/${NAME}/"
@@ -145,6 +150,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${RELEASE_TAG#v}"
+          VERSION="${VERSION//\//-}"
           NAME="folitecta-${VERSION}-macos-universal"
           mkdir -p dist
           lipo -create -output dist/folitecta \
@@ -221,6 +227,7 @@ jobs:
   release:
     name: Publish GitHub release
     needs: [windows, linux, macos]
+    if: github.event_name == 'push' || inputs.publish
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -249,6 +256,7 @@ jobs:
   gitlab:
     name: Publish GitLab release
     needs: [release]
+    if: github.event_name == 'push' || inputs.publish
     runs-on: ubuntu-latest
     env:
       GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
@@ -272,6 +280,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${RELEASE_TAG#v}"
+          VERSION="${VERSION//\//-}"
           PROJECT="${GITLAB_PROJECT//\//%2F}"
           for f in artifacts/*windows* artifacts/*macos*; do
             curl --fail --silent --show-error --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \

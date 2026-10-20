@@ -182,3 +182,18 @@ fn the_saved_file_looks_as_the_pages_shown() {
     assert!(pictures(&reopened) == shown);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn a_state_worked_away_from_the_document_redraws_the_pages_it_changed() {
+    // Applying redaction works on a copy on another thread, then the
+    // document takes its state as one edit.
+    let mut doc = Document::from_bytes(long_doc(6), None, None).unwrap();
+    let changed = check(&mut doc, "an adopted state", |d| {
+        let mut work = d.snapshot().open().unwrap();
+        work.add_note(3, 300.0, 300.0, "A note", "Reviewer", [1.0, 0.8, 0.2])
+            .unwrap();
+        d.adopt_state(work).unwrap();
+    });
+    assert!(changed.contains(&3), "{changed:?}");
+    assert!(!changed.contains(&0), "{changed:?}");
+}

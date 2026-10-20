@@ -898,6 +898,10 @@ impl Document {
         self.revision += 1;
         self.dirty = true;
         self.helv_font = None;
+        // The pages the worked state changed get the new revision, so their
+        // pictures are drawn again.
+        self.end_changes();
+        self.note_changes();
         self.edit_backup = None;
         Ok(())
     }

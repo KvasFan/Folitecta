@@ -1,7 +1,9 @@
 # cargo-deny configuration. Run `cargo deny check licenses`.
 #
 # Policy: every dependency Folitecta chooses directly is free Rust under the MIT, Apache-2.0,
-# GNU (GPL, LGPL) or Mozilla Public License 2.0 licences. The user-interface stack (Dioxus →
+# GNU (GPL, LGPL) or Mozilla Public License 2.0 licences. One exception is chosen on purpose (see
+# CONTRIBUTING.md): the global allocator of the program, mimalloc (MIT), compiled from C by
+# libmimalloc-sys (MIT). The user-interface stack (Dioxus →
 # wry/tao → OS web view bindings, url/idna, image) brings a small number of transitive crates under
 # other permissive free licences (also subtle, used by the RustCrypto signature crates), listed
 # below so the audit stays explicit; option-ext (MPL-2.0) comes through Dioxus on Linux and macOS.

@@ -4,7 +4,13 @@ Thanks for helping. A few rules keep the project coherent:
 
 1. **Free software only.** New dependencies must be written in Rust and licensed under MIT,
    Apache-2.0, MPL-2.0 or a GNU licence (dual licences qualify through any matching alternative).
-   `cargo deny check licenses` enforces the list in `deny.toml`.
+   `cargo deny check licenses` enforces the list in `deny.toml`. One exception, chosen on purpose:
+   the program's memory allocator, [mimalloc](https://github.com/microsoft/mimalloc) (MIT),
+   compiled from C by the `libmimalloc-sys` crate (MIT) and used only as the global allocator of
+   the `folitecta` binary. The system allocator kept the memory of the pictures drawn by the
+   render threads, so the interface used about twice the memory of 0.2.0 (see `ai/PROGRESS.md`,
+   0.2.1). Do not add other exceptions without the same kind of measurement and an explicit
+   decision.
 2. **Implement commands, don't invent them.** The command surface lives in
    `crates/folitecta-core/assets/commands.json`. To implement one, add a handler to the
    `handlers!` table of its area module under `crates/folitecta/src/commands/` (a new module also

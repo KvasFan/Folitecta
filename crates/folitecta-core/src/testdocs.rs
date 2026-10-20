@@ -468,6 +468,31 @@ pub fn long_doc(pages: usize) -> Vec<u8> {
     b.finish()
 }
 
+/// A document of `pages` pages of text where `word` is on page `marked`
+/// only (what a search finds on one far page).
+pub fn marked_doc(pages: usize, marked: usize, word: &str) -> Vec<u8> {
+    let mut b = Builder::new();
+    let mut rng = Rng(9);
+    for p in 0..pages {
+        let mut c = String::from("BT /F1 11 Tf 13 TL 60 780 Td\n");
+        c.push_str(&format!("(Page {}) '\n", p + 1));
+        for _ in 0..10 {
+            c.push_str(&format!("({}) '\n", line_text(&mut rng, 70)));
+        }
+        if p == marked {
+            c.push_str(&format!("(The {word} is here.) '\n"));
+        }
+        c.push_str("ET\n");
+        b.page(
+            (595.0, 842.0),
+            c.into_bytes(),
+            dictionary! { "Font" => standard_fonts() },
+            Vec::new(),
+        );
+    }
+    b.finish()
+}
+
 /// A long document as [`long_doc`] with, in addition, a bookmark for every
 /// page pointing to a named destination, and on every page a link to the
 /// named destination of the next page (what the bookmarks and links panes

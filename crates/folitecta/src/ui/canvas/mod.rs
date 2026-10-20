@@ -439,16 +439,46 @@ pub(crate) const CANVAS_EVENTS_SCRIPT: &str = r#"
     const img = e.target;
     if (img && img.classList && img.classList.contains('page-img') && img.parentNode) img.parentNode.setAttribute('data-sharp', '');
   }, true);
-  // A view that is resized, or whose pages change size (zoom), reports too.
+  // A picture of a view that comes without one (refused or failed) is
+  // asked again a little later, three times at most.
+  document.addEventListener('error', e => {
+    const img = e.target;
+    if (!img || img.tagName !== 'IMG' || !img.closest || !img.closest('.canvas')) return;
+    const src = img.getAttribute('src');
+    if (!src) return;
+    const base = src.replace(/[?&]retry=\d+$/, '');
+    if (img.dataset.retryOf !== base) { img.dataset.retryOf = base; img.dataset.retries = '0'; }
+    const n = +img.dataset.retries || 0;
+    if (n >= 3) return;
+    img.dataset.retries = String(n + 1);
+    setTimeout(() => {
+      if (!img.isConnected || img.getAttribute('src') !== src) return;
+      img.setAttribute('src', base + (base.indexOf('?') >= 0 ? '&' : '?') + 'retry=' + (n + 1));
+    }, 150 * (n + 1));
+  }, true);
+  // A view that is resized, or whose pages change size (zoom), reports too;
+  // so does a view whose pages change (another page in the single page
+  // layout, the pages of a far page mounted), once they are there.
   const sized = new ResizeObserver(entries => {
     const views = new Set(entries.map(en => en.target.closest('.canvas')).filter(Boolean));
     for (const c of views) report(c);
   });
+  const queued = new Set();
+  const later = c => { if (queued.has(c)) return; queued.add(c); soon(() => { queued.delete(c); report(c); }); };
   const watch = () => {
     for (const c of document.querySelectorAll('.canvas')) {
       if (!c.__foliWatched) { c.__foliWatched = true; sized.observe(c); report(c); }
       const pages = c.querySelector(':scope > .pages');
-      if (pages && c.__foliPages !== pages) { c.__foliPages = pages; sized.observe(pages); }
+      if (pages && c.__foliPages !== pages) {
+        c.__foliPages = pages;
+        sized.observe(pages);
+        new MutationObserver(recs => {
+          for (const r of recs) {
+            const t = r.target;
+            if (t === pages || (t.classList && t.classList.contains('page-row'))) { later(c); return; }
+          }
+        }).observe(pages, { childList: true, subtree: true });
+      }
     }
   };
   new MutationObserver(watch).observe(document.body, { childList: true, subtree: true });
@@ -527,24 +557,12 @@ pub(crate) async fn follow_canvas_events(st: AppState) {
                     let b = (last + margin).min(n - 1);
                     st.windows.write_unchecked()[pane] = Some((tab, a, b));
                 }
-                // What the render threads draw first, and what they no longer need.
+                // What the render threads draw first. (What they no longer need
+                // is told by the views themselves, as they draw their pages.)
                 let forward = top < 0 || top as usize >= page;
-                let windows = *st.windows.peek();
-                let held_all =
-                    windows
-                        .iter()
-                        .flatten()
-                        .filter(|w| w.0 == tab)
-                        .fold(None::<(usize, usize)>, |acc, w| match acc {
-                            Some((a, b)) => Some((a.min(w.1), b.max(w.2))),
-                            None => Some((w.1, w.2)),
-                        });
-                st.read_active(|t| {
-                    if focused {
-                        t.render.set_focus(Some((first, last)), forward);
-                    }
-                    t.render.set_held(held_all);
-                });
+                if focused {
+                    st.read_active(|t| t.render.set_focus(Some((first, last)), forward));
+                }
                 if top >= 0 && layout != Layout::Single && top as usize != page && (top as usize) < n {
                     let i = top as usize;
                     st.with_active(|t| match t.split.as_mut().filter(|_| !focused) {
@@ -670,6 +688,9 @@ fn Canvas(pane: u8) -> Element {
             let _ = document::eval(PAN_SCRIPT).await;
         });
     });
+    use_drop(move || {
+        st.peek_active(|t| t.render.set_held_view(usize::from(pane.min(1)), None));
+    });
     let dpr = (st.dpr)();
     let tool = (st.tool)();
     let rulers = option_on(st, "view.showRulers");
@@ -764,6 +785,20 @@ fn Canvas(pane: u8) -> Element {
     let cover = option_on(st, "view.layout.showCover");
     let horizontal = option_on(st, "view.layout.ribbon") && layout != Layout::Single;
     let rows = page_rows(layout, page, count, cover, horizontal, r2l);
+    // The render threads learn the pages this view holds with their pictures
+    // now, as it draws them and before their pictures are asked for (a jump
+    // to a far page, another page in the single page layout), not from the
+    // view's later report: a picture of a page held is never refused.
+    let held = rows
+        .iter()
+        .flatten()
+        .copied()
+        .filter(|p| *p >= wa && *p <= wb)
+        .fold(None, |acc: Option<(usize, usize)>, p| match acc {
+            Some((a, b)) => Some((a.min(p), b.max(p))),
+            None => Some((p, p)),
+        });
+    st.peek_active(|t| t.render.set_held_view(usize::from(pane.min(1)), held));
     let canvas_id = if focused { "canvas" } else { "canvas-other" };
     let tool_class = match tool {
         _ if !focused => "other",

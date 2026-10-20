@@ -152,7 +152,9 @@ another revision. The text of the pages is kept per page in the same way (`text_
 so editing comments does not extract the text again.
 
 A view holds the content of the pages near what it shows only (the others are empty boxes of
-their size). Scrolling, the pages shown and Ctrl+wheel zoom are followed by a script in the page
+their size); it tells the render threads the pages it holds as it draws them, before their
+pictures are asked for (`set_held_view`), and a picture of a view that comes without one is asked
+again, three times at most. Scrolling, the pages shown and Ctrl+wheel zoom are followed by a script in the page
 that tells the program asynchronously; the events the program listens to synchronously (every
 DOM listener of Dioxus answers before the page goes on) are kept off the scrolling and hovering
 paths. On Linux the web view composites on the graphics card (`gpu`: the shared-buffer renderer

@@ -239,9 +239,6 @@ struct Focus {
     shown: Option<(usize, usize)>,
     /// The pages scroll towards higher page numbers.
     forward: bool,
-    /// The pages the views hold (with their pictures); a view picture of a
-    /// page outside is no longer shown anywhere.
-    held: Option<(usize, usize)>,
 }
 
 struct State {
@@ -259,6 +256,10 @@ struct State {
     /// The replies waiting for each picture asked (queued or being drawn).
     waiting: HashMap<Key, Vec<Reply>>,
     focus: Focus,
+    /// The pages each view (of a split window: two) holds with their
+    /// pictures, as the views draw them: a view picture of a page that no
+    /// view holds is no longer shown anywhere (no view told: every page).
+    views: [Option<(usize, usize)>; 2],
     /// The scale of the thumbnails (milli), the size of the small pictures
     /// made with each page drawn for the window.
     thumb_scale: Option<u32>,
@@ -278,12 +279,10 @@ impl State {
         if job.key.rev != self.rev_of(job.key.page) {
             return true;
         }
-        match (job.lane, self.focus.held) {
-            (Lane::View | Lane::Preview, Some((a, b))) if !job.wanted_outside => {
-                job.key.page < a || job.key.page > b
-            }
-            _ => false,
-        }
+        let page = job.key.page;
+        let told = self.views.iter().any(Option::is_some);
+        let held = self.views.iter().flatten().any(|&(a, b)| page >= a && page <= b);
+        matches!(job.lane, Lane::View | Lane::Preview) && !job.wanted_outside && told && !held
     }
 
     /// The order of a job: lower first. Without a view telling what it
@@ -374,6 +373,7 @@ impl RenderService {
                 seq: 0,
                 waiting: HashMap::new(),
                 focus: Focus::default(),
+                views: [None; 2],
                 thumb_scale: None,
                 running: 0,
                 stop: false,
@@ -460,12 +460,20 @@ impl RenderService {
         s.focus.forward = forward;
     }
 
-    /// Tell which pages the views hold with their pictures: a view picture
-    /// of a page outside is no longer wanted (`None`: every page).
-    pub fn set_held(&self, held: Option<(usize, usize)>) {
+    /// Tell which pages view `view` (0, or 1 in a split window) holds with
+    /// their pictures (`None`: none), when it draws them and before their
+    /// pictures are asked for: a view picture of a page that no view holds
+    /// is no longer wanted.
+    pub fn set_held_view(&self, view: usize, held: Option<(usize, usize)>) {
         let stale = {
             let mut s = self.shared.lock();
-            s.focus.held = held;
+            let Some(slot) = s.views.get_mut(view) else {
+                return;
+            };
+            if *slot == held {
+                return;
+            }
+            *slot = held;
             take_stale(&mut s)
         };
         answer_stale(&self.shared, stale);
@@ -992,7 +1000,7 @@ mod tests {
     fn pages_outside_the_views_are_not_drawn() {
         let svc = RenderService::with_workers(doc(6), 1);
         svc.set_focus(Some((2, 3)), true);
-        svc.set_held(Some((1, 4)));
+        svc.set_held_view(0, Some((1, 4)));
         assert!(matches!(
             ask(&svc, req(0, 0.3, Lane::View, None)),
             RenderAnswer::Stale
@@ -1128,10 +1136,47 @@ mod tests {
             let _ = tx.send((2, matches!(a, RenderAnswer::Picture(_))));
         });
         // The views no longer hold page 5; the pane still shows it.
-        svc.set_held(Some((0, 2)));
+        svc.set_held_view(0, Some((0, 2)));
         let mut got: Vec<(u8, bool)> = (0..3).map(|_| rx.recv().unwrap()).collect();
         got.sort();
         assert_eq!(got, vec![(0, true), (1, true), (2, true)]);
+    }
+
+    #[test]
+    fn the_pages_held_are_those_of_every_view() {
+        let svc = RenderService::with_workers(doc(12), 1);
+        svc.set_held_view(0, Some((5, 9)));
+        assert!(matches!(
+            ask(&svc, req(2, 0.3, Lane::View, None)),
+            RenderAnswer::Stale
+        ));
+        assert!(matches!(
+            ask(&svc, req(7, 0.3, Lane::View, None)),
+            RenderAnswer::Picture(_)
+        ));
+        // The other view of a split window holds pages 0 to 3.
+        svc.set_held_view(1, Some((0, 3)));
+        assert!(matches!(
+            ask(&svc, req(2, 0.3, Lane::View, None)),
+            RenderAnswer::Picture(_)
+        ));
+        // The first view jumped to page 11: its old pages are no longer held.
+        svc.set_held_view(0, Some((10, 11)));
+        assert!(matches!(
+            ask(&svc, req(7, 0.31, Lane::View, None)),
+            RenderAnswer::Stale
+        ));
+        assert!(matches!(
+            ask(&svc, req(11, 0.3, Lane::View, None)),
+            RenderAnswer::Picture(_)
+        ));
+        // Neither view holds anything: no page is refused.
+        svc.set_held_view(0, None);
+        svc.set_held_view(1, None);
+        assert!(matches!(
+            ask(&svc, req(7, 0.32, Lane::View, None)),
+            RenderAnswer::Picture(_)
+        ));
     }
 
     #[test]

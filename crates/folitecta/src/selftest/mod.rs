@@ -426,6 +426,7 @@ mod steps_features;
 mod steps_field_items;
 mod steps_files;
 mod steps_frames;
+mod steps_jumps;
 mod steps_layout;
 mod steps_links;
 mod steps_note_icon;
@@ -512,6 +513,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "frames" => Box::pin(steps_frames::run(cx)),
             "print" => Box::pin(steps_print::run(cx)),
             "unicode" => Box::pin(steps_unicode::run(cx)),
+            "jumps" => Box::pin(steps_jumps::run(cx)),
             "perf" => Box::pin(steps_perf::run(cx)),
             _ => Box::pin(async { cx.record("unknown step", false, name.to_string()) }),
         };
@@ -566,6 +568,7 @@ const STEPS: &[&str] = &[
     "print",
     "frames",
     "unicode",
+    "jumps",
     "perf",
 ];
 

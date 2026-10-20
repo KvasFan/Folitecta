@@ -127,7 +127,11 @@ of its characters), and a drawing made again with the same characters uses it ag
 needs right-to-left order, joining or combining marks, and characters the font lacks, are refused
 before an edit begins (`check_text`, `appearance::text_problem`); a failed edit is abandoned with
 its undo and redo history as it was (`Document::edit_step`). The font is a data file, never built
-into the program (see `fonts/README.md`).
+into the program (see `fonts/README.md`). Text drawn into the content of pages (watermarks,
+headers and footers, page and Bates numbers) has one subset for all the pages of a mark, under a
+resource name none of those pages uses yet (`FoliUni1`, `FoliUni2`, ...: pages often share their
+resources, and an earlier mark keeps its font); documents Folitecta makes (comment summaries,
+documents from text or e-mail) have one subset for all their pages.
 
 Encrypted files are decrypted in memory (password-protected files prompt for the password); the
 encryption of the file — its key, passwords and permissions — is kept aside (`security::Protection`)
@@ -315,15 +319,15 @@ Mouse coordinates on a page image are converted to PDF user space with
   written as 8-bit RGB, gray, palette or black and white pictures (CMYK, ICC profiles and 16-bit
   samples are not kept, and stencil masks become black and white pictures).
 - Text boxes, typewriter text, callouts, measurement labels, text stamps, designed stamps,
-  tables and calculator tapes draw text beyond WinAnsi with the embedded FreeSans subset (one
-  subset for all the text of a drawing; FreeSans has no bold, so bold text in it is filled and
-  stroked); right-to-left text, letters that join or combine (Arabic, Hebrew, Indic scripts,
-  Thai marks) and characters FreeSans lacks (Chinese, Japanese, Korean, ...) are refused, with no
-  choice of another font yet; `/DA` still names Helvetica. The other generated text (form
-  fields, watermarks, headers and footers, page numbers, Bates numbers, comment summaries,
-  documents made from text or e-mail, signature appearances, typed signature marks, media
-  captions, barcode captions, redaction overlay text) still uses Helvetica with WinAnsi encoding,
-  where characters the encoding lacks appear as `?`.
+  tables, calculator tapes, watermarks, headers and footers, page and Bates numbers, comment
+  summaries and documents made from text or e-mail draw text beyond WinAnsi with the embedded
+  FreeSans subset (one subset for all the text of a drawing, a mark or a made document; FreeSans
+  has no bold, so bold text in it is filled and stroked); right-to-left text, letters that join
+  or combine (Arabic, Hebrew, Indic scripts, Thai marks) and characters FreeSans lacks (Chinese,
+  Japanese, Korean, ...) are refused, with no choice of another font yet; `/DA` still names
+  Helvetica. The other generated text (form fields, signature appearances, typed signature
+  marks, media captions, barcode captions, redaction overlay text) still uses Helvetica with
+  WinAnsi encoding, where characters the encoding lacks appear as `?`.
 - Text recognition reads the Latin script, written left to right (lines turned up to about 45
   degrees); the invisible text uses WinAnsi, so letters it lacks (such as Polish `ł`) are written
   without their accent.

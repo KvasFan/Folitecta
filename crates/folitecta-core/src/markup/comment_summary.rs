@@ -8,8 +8,10 @@ use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 use crate::document::Document;
 use crate::error::{Error, Result};
 use crate::flatten::FlattenScope;
-use crate::textdoc::wrap_text;
+use crate::fonts::{GlyphProblem, TextWriter};
 use crate::util::{self, color_of, dict_text, fmt_num, helvetica_width, pdf_literal};
+
+type Drawn<T = ()> = std::result::Result<T, GlyphProblem>;
 
 /// How the summary is laid out.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -128,15 +130,10 @@ fn rgb(c: [f32; 3], op: &str) -> String {
     format!("{} {} {} {op} ", fmt_num(c[0]), fmt_num(c[1]), fmt_num(c[2]))
 }
 
-/// Shorten `text` with an ellipsis so it fits `width` at `size`.
-fn fit(text: &str, size: f32, width: f32, bold: bool) -> String {
-    let w = |s: &str| {
-        if bold {
-            bold_width(s, size)
-        } else {
-            helvetica_width(s, size)
-        }
-    };
+/// Shorten `text` with an ellipsis so it fits `width` at `size`, measured
+/// with the font of `writer` (bold a little wider).
+fn fit(writer: &TextWriter, text: &str, size: f32, width: f32, bold: bool) -> String {
+    let w = |s: &str| writer.width(s, size) * if bold { 1.07 } else { 1.0 };
     if w(text) <= width {
         return text.to_string();
     }
@@ -227,18 +224,20 @@ fn marker(x: f32, y: f32, n: usize, color: [f32; 3], rot: i32) -> String {
     )
 }
 
-/// Text pages written top to bottom.
-struct Flow {
+/// Text pages written top to bottom, with the font of `writer` (one for the
+/// whole summary).
+struct Flow<'w> {
     pages: Vec<String>,
     x0: f32,
     x1: f32,
     top: f32,
     bottom: f32,
     y: f32,
+    writer: &'w mut TextWriter,
 }
 
-impl Flow {
-    fn new(x0: f32, x1: f32, top: f32, bottom: f32) -> Self {
+impl<'w> Flow<'w> {
+    fn new(x0: f32, x1: f32, top: f32, bottom: f32, writer: &'w mut TextWriter) -> Self {
         Flow {
             pages: vec![String::new()],
             x0,
@@ -246,6 +245,7 @@ impl Flow {
             top,
             bottom,
             y: top,
+            writer,
         }
     }
 
@@ -269,18 +269,17 @@ impl Flow {
         self.pages.last_mut().expect("a page")
     }
 
-    fn line(&mut self, x: f32, font: &str, size: f32, color: [f32; 3], text: &str) {
+    /// One line of text; `bold` uses `FB` (or the stroked Unicode font).
+    fn line(&mut self, x: f32, bold: bool, size: f32, color: [f32; 3], text: &str) -> Drawn {
         let y = self.y - size;
-        let s = format!(
-            "BT /{font} {} Tf {}{} {} Td {} Tj ET\n",
-            fmt_num(size),
-            rgb(color, "rg"),
-            fmt_num(x),
-            fmt_num(y),
-            lit(text)
-        );
+        let at = format!("{} {} Td", fmt_num(x), fmt_num(y));
+        let mut s = self
+            .writer
+            .text_object(text, size, Some(color), &at, bold, ("F1", "FB"))?;
+        s.push('\n');
         self.out().push_str(&s);
         self.y -= size * 1.25;
+        Ok(())
     }
 
     fn rule(&mut self, color: [f32; 3]) {
@@ -295,13 +294,15 @@ impl Flow {
         self.out().push_str(&s);
     }
 
-    fn heading(&mut self, text: &str, size: f32) {
+    fn heading(&mut self, text: &str, size: f32) -> Drawn {
         self.need(size * 2.2);
         let w = self.width();
-        self.line(self.x0, "FB", size, [0.1, 0.1, 0.12], &fit(text, size, w, true));
+        let text = fit(self.writer, &self.writer.piece(text), size, w, true);
+        self.line(self.x0, true, size, [0.1, 0.1, 0.12], &text)?;
         self.y += size * 0.1;
         self.rule([0.6, 0.6, 0.65]);
         self.y -= size * 0.5;
+        Ok(())
     }
 
     /// Write a comment entry; returns the page index and the y of its first line.
@@ -312,11 +313,13 @@ impl Flow {
         page_word: &str,
         show_page: bool,
         fs: f32,
-    ) -> (usize, f32) {
+    ) -> Drawn<(usize, f32)> {
         let sub = fs * 0.92;
         let indent = fs * 1.6;
         let text_w = self.width() - indent;
-        let mut lines = wrap_text(&e.contents, fs, text_w);
+        let mut lines = self
+            .writer
+            .wrap_piece(&self.writer.piece(&e.contents), fs, text_w);
         while lines.last().map(|l| l.is_empty()).unwrap_or(false) {
             lines.pop();
         }
@@ -345,11 +348,11 @@ impl Flow {
         if !e.date.is_empty() {
             header.push_str(&format!(" · {}", e.date));
         }
-        let header = fit(&header, fs, text_w, true);
-        self.line(self.x0 + indent, "FB", fs, [0.1, 0.1, 0.12], &header);
+        let header = fit(self.writer, &self.writer.piece(&header), fs, text_w, true);
+        self.line(self.x0 + indent, true, fs, [0.1, 0.1, 0.12], &header)?;
         for l in &lines {
             self.need(fs * 1.25);
-            self.line(self.x0 + indent, "F1", fs, [0.15, 0.15, 0.18], l);
+            self.line(self.x0 + indent, false, fs, [0.15, 0.15, 0.18], l)?;
         }
         for (author, date, text) in &e.replies {
             let head = if date.is_empty() {
@@ -357,17 +360,20 @@ impl Flow {
             } else {
                 format!("» {author} ({date}): ")
             };
-            for (i, l) in wrap_text(&format!("{head}{text}"), sub, text_w - indent)
+            let reply = self.writer.piece(&format!("{head}{text}"));
+            for (i, l) in self
+                .writer
+                .wrap_piece(&reply, sub, text_w - indent)
                 .iter()
                 .enumerate()
             {
                 self.need(sub * 1.25);
                 let x = self.x0 + indent * if i == 0 { 2.0 } else { 2.6 };
-                self.line(x, "F1", sub, [0.35, 0.35, 0.4], l);
+                self.line(x, false, sub, [0.35, 0.35, 0.4], l)?;
             }
         }
         self.y -= fs * 0.6;
-        (page_index, start)
+        Ok((page_index, start))
     }
 }
 
@@ -512,11 +518,33 @@ impl Document {
         let file = self.display_name();
         let title = opts.labels.title.replace("{file}", &file);
         let fs = opts.font_size.clamp(6.0, 18.0);
+        // One font for all the text of the summary, chosen from everything it
+        // may show: text that cannot be drawn is refused before anything is made.
+        let mut pieces = vec![
+            title.clone(),
+            opts.labels.page.clone(),
+            opts.labels.no_comments.clone(),
+            "0123456789 .·»…():".to_string(),
+        ];
+        for e in &entries {
+            pieces.extend([
+                type_name(&e.subtype),
+                e.author.clone(),
+                e.date.clone(),
+                e.contents.clone(),
+            ]);
+            for (author, date, text) in &e.replies {
+                pieces.extend([author.clone(), date.clone(), text.clone()]);
+            }
+        }
+        let mut writer = TextWriter::for_pieces(pieces.iter().map(String::as_str))?;
+        // The pages that show text of the summary (they get its Unicode font).
+        let mut text_pages = Vec::new();
         let mut out = match opts.layout {
             SummaryLayout::CommentsOnly => {
                 let (w, h) = (opts.paper.0.max(200.0), opts.paper.1.max(200.0));
-                let mut flow = Flow::new(MARGIN, w - MARGIN, h - MARGIN, MARGIN);
-                flow.heading(&title, fs * 1.5);
+                let mut flow = Flow::new(MARGIN, w - MARGIN, h - MARGIN, MARGIN, &mut writer);
+                flow.heading(&title, fs * 1.5)?;
                 flow.y -= fs * 0.4;
                 let mut group = String::new();
                 for e in &entries {
@@ -527,7 +555,7 @@ impl Document {
                         SummarySort::Date => e.date.split(' ').next().unwrap_or_default().to_string(),
                     };
                     if key != group {
-                        flow.heading(&key, fs * 1.15);
+                        flow.heading(&key, fs * 1.15)?;
                         group = key;
                     }
                     flow.entry(
@@ -536,12 +564,13 @@ impl Document {
                         &opts.labels.page,
                         opts.sort != SummarySort::Page,
                         fs,
-                    );
+                    )?;
                 }
                 let mut doc = Document::new_blank(flow.pages.len(), w, h)?;
                 let ids = doc.page_ids();
                 for (id, content) in ids.iter().zip(flow.pages) {
                     doc.write_summary_page(*id, content)?;
+                    text_pages.push(*id);
                 }
                 doc
             }
@@ -580,24 +609,36 @@ impl Document {
                         doc.add_summary_fonts(page_id)?;
                         doc.append_page_content(page_id, marks.into_bytes(), Some("Summary"))?;
                         let (w, h) = (size.width.max(300.0), size.height.max(300.0));
-                        let mut flow = Flow::new(MARGIN, w - MARGIN, h - MARGIN, MARGIN);
-                        flow.heading(&format!("{} {}", opts.labels.page, p + 1), fs * 1.3);
+                        let mut flow = Flow::new(MARGIN, w - MARGIN, h - MARGIN, MARGIN, &mut writer);
+                        flow.heading(&format!("{} {}", opts.labels.page, p + 1), fs * 1.3)?;
                         for e in list {
-                            flow.entry(e, &type_name(&e.subtype), &opts.labels.page, false, fs);
+                            flow.entry(e, &type_name(&e.subtype), &opts.labels.page, false, fs)?;
                         }
                         for content in flow.pages {
                             let id = doc.new_summary_page(w, h)?;
                             doc.write_summary_page(id, content)?;
                             order.push(id);
+                            text_pages.push(id);
                         }
                     } else {
-                        order.extend(doc.side_by_side_page(page_id, list, &type_name, &opts.labels, fs)?);
+                        let ids =
+                            doc.side_by_side_page(page_id, list, &type_name, &opts.labels, fs, &mut writer)?;
+                        order.extend(ids.iter().copied());
+                        text_pages.extend(ids);
                     }
                 }
                 doc.set_page_order(order)?;
                 doc
             }
         };
+        if !writer.is_standard() {
+            // One subset of the characters of the whole summary.
+            let name = writer.resource_name();
+            let font = writer.finish(&mut out, None)?;
+            for id in text_pages {
+                out.add_page_resource(id, "Font", &name, Object::Reference(font))?;
+            }
+        }
         out.set_path(None);
         let _ = out.set_info(&title, "", "", "");
         out.commit()?;
@@ -648,6 +689,7 @@ impl Document {
         type_name: &dyn Fn(&str) -> String,
         labels: &SummaryLabels,
         fs: f32,
+        writer: &mut TextWriter,
     ) -> Result<Vec<ObjectId>> {
         let size = self.page_size_of(page_id);
         let (pw, ph) = (size.width, size.height);
@@ -693,7 +735,7 @@ impl Document {
             f(pw),
             f(h)
         );
-        let mut flow = Flow::new(pw + 16.0, w - 16.0, h - 24.0, 24.0);
+        let mut flow = Flow::new(pw + 16.0, w - 16.0, h - 24.0, 24.0, writer);
         flow.heading(
             &format!(
                 "{} {}",
@@ -701,14 +743,15 @@ impl Document {
                 list.first().map(|e| e.page + 1).unwrap_or(0)
             ),
             fs * 1.2,
-        );
+        )?;
         if list.is_empty() {
             let gray = [0.45, 0.45, 0.5];
-            flow.line(flow.x0, "F1", fs, gray, &labels.no_comments);
+            let none = flow.writer.piece(&labels.no_comments);
+            flow.line(flow.x0, false, fs, gray, &none)?;
         }
         let mut connectors = Vec::new();
         for e in list {
-            let (page_index, y) = flow.entry(e, &type_name(&e.subtype), &labels.page, false, fs);
+            let (page_index, y) = flow.entry(e, &type_name(&e.subtype), &labels.page, false, fs)?;
             if page_index == 0 {
                 let (ax, ay) = apply(m, e.rect[0], e.rect[3]);
                 connectors.push((ax, ay, pw + 16.0, y - fs * 0.45, e.color, e.number));
@@ -765,8 +808,20 @@ mod tests {
 
     #[test]
     fn long_titles_are_shortened() {
-        let s = fit("A very long heading that does not fit", 12.0, 80.0, true);
-        assert!(s.ends_with('…') && bold_width(&s, 12.0) <= 80.0 + 12.0);
-        assert_eq!(fit("short", 12.0, 200.0, false), "short");
+        let standard = TextWriter::new("A very long heading that does not fit…").unwrap();
+        let s = fit(
+            &standard,
+            "A very long heading that does not fit",
+            12.0,
+            80.0,
+            true,
+        );
+        assert!(s.ends_with('…') && bold_width(&s, 12.0) <= 80.0);
+        assert_eq!(fit(&standard, "short", 12.0, 200.0, false), "short");
+        // Measured with the Unicode font when the text needs it.
+        let unicode = TextWriter::new("Заголовок, который не помещается…").unwrap();
+        assert!(!unicode.is_standard());
+        let s = fit(&unicode, "Заголовок, который не помещается", 12.0, 80.0, false);
+        assert!(s.ends_with('…') && unicode.width(&s, 12.0) <= 80.0);
     }
 }

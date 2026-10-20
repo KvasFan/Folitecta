@@ -37,6 +37,8 @@ pub(crate) struct TextWriter {
     /// The text was prepared (line breaks, invisible characters, NFC): the
     /// pieces drawn with this writer are prepared the same way.
     prepared: bool,
+    /// The name of the Unicode font in the resources of the drawing.
+    unicode_resource: String,
 }
 
 /// Format characters that change the order or the joining of letters.
@@ -97,6 +99,7 @@ impl TextWriter {
                 text: text.to_string(),
                 face: Face::Standard,
                 prepared: false,
+                unicode_resource: UNICODE_RESOURCE.to_string(),
             });
         }
         let text = prepare(text);
@@ -105,6 +108,7 @@ impl TextWriter {
                 text,
                 face: Face::Standard,
                 prepared: true,
+                unicode_resource: UNICODE_RESOURCE.to_string(),
             });
         }
         let layout = distinct(text.chars().filter(|c| needs_layout(*c)));
@@ -134,6 +138,7 @@ impl TextWriter {
                 codes: HashMap::new(),
             },
             prepared: true,
+            unicode_resource: UNICODE_RESOURCE.to_string(),
         })
     }
 
@@ -188,6 +193,7 @@ impl TextWriter {
         let fill = color
             .map(|c| format!("{} {} {} rg ", f(c[0]), f(c[1]), f(c[2])))
             .unwrap_or_default();
+        let name = &self.unicode_resource;
         Ok(match self.face {
             Face::Standard => {
                 let name = if bold { standard.1 } else { standard.0 };
@@ -198,15 +204,12 @@ impl TextWriter {
                     .map(|c| format!("{} {} {} RG ", f(c[0]), f(c[1]), f(c[2])))
                     .unwrap_or_default();
                 format!(
-                    "q {stroke}{} w BT /{UNICODE_RESOURCE} {} Tf 2 Tr {fill}{position} {shown} Tj ET Q",
+                    "q {stroke}{} w BT /{name} {} Tf 2 Tr {fill}{position} {shown} Tj ET Q",
                     f(size * 0.04),
                     f(size)
                 )
             }
-            Face::Unicode { .. } => format!(
-                "BT /{UNICODE_RESOURCE} {} Tf {fill}{position} {shown} Tj ET",
-                f(size)
-            ),
+            Face::Unicode { .. } => format!("BT /{name} {} Tf {fill}{position} {shown} Tj ET", f(size)),
         })
     }
 
@@ -221,11 +224,18 @@ impl TextWriter {
     }
 
     /// Name of the font in the resources of the drawing.
-    pub(crate) fn resource_name(&self) -> &'static str {
+    pub(crate) fn resource_name(&self) -> String {
         match self.face {
-            Face::Standard => "Helv",
-            Face::Unicode { .. } => UNICODE_RESOURCE,
+            Face::Standard => "Helv".to_string(),
+            Face::Unicode { .. } => self.unicode_resource.clone(),
         }
+    }
+
+    /// Name the Unicode font `name` in the resources instead of
+    /// [`UNICODE_RESOURCE`]: drawings into the content of a page, whose
+    /// resources other drawings share, take a name no other font there has.
+    pub(crate) fn use_resource_name(&mut self, name: &str) {
+        self.unicode_resource = name.to_string();
     }
 
     /// Width of one line at `size` points, with the widths written in the font.

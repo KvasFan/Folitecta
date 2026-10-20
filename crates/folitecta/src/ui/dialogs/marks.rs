@@ -40,6 +40,7 @@ pub(super) fn Watermark() -> Element {
                 Err(e) => st.error(e),
             },
             Text { label: t(lang, "dialog.watermark.text"), value: text, autofocus: true }
+            super::tools::GlyphHint { text }
             crate::ui::features::macros::MacroPicker {}
             div { class: "field-grid three",
                 Num { label: t(lang, "dialog.watermark.size"), value: size, min: "6", max: "400" }
@@ -73,6 +74,10 @@ pub(super) fn HeaderFooter() -> Element {
     let fr = use_signal(String::new);
     let size = use_signal(|| "10".to_string());
     let margin = use_signal(|| "28".to_string());
+    // What the six texts cannot draw, before OK is pressed.
+    let problem = folitecta_core::fonts::check_text(&[hl(), hc(), hr(), fl(), fc(), fr()].join("\n"))
+        .err()
+        .map(|p| crate::i18n::glyph_problem(lang, &p));
     rsx! {
         Frame { title: t(lang, "dialog.hf.title"), wide: true,
             on_ok: move |_| match scope_pages(st, mode(), &range()) {
@@ -89,6 +94,9 @@ pub(super) fn HeaderFooter() -> Element {
             div { class: "field-grid three", Text { label: t(lang, "dialog.hf.left"), value: hl } Text { label: t(lang, "dialog.hf.center"), value: hc } Text { label: t(lang, "dialog.hf.right"), value: hr } }
             b { "{t(lang, \"dialog.hf.footer\")}" }
             div { class: "field-grid three", Text { label: t(lang, "dialog.hf.left"), value: fl } Text { label: t(lang, "dialog.hf.center"), value: fc } Text { label: t(lang, "dialog.hf.right"), value: fr } }
+            if let Some(p) = problem {
+                p { class: "hint warn glyph-hint", "{p}" }
+            }
             div { class: "field-grid", Num { label: t(lang, "dialog.watermark.size"), value: size, min: "5", max: "72" } Num { label: t(lang, "dialog.margin.pt"), value: margin, min: "0", max: "200" } }
             crate::ui::features::macros::MacroPicker {}
             PageScope { mode, range }
@@ -148,6 +156,7 @@ pub(super) fn PageNumbers(bates: bool) -> Element {
                 Err(e) => st.error(e),
             },
             Text { label: t(lang, "dialog.numbers.format"), value: format, autofocus: true }
+            super::tools::GlyphHint { text: format }
             div { class: "hint", "{t(lang, \"dialog.hf.hint\")}" }
             crate::ui::features::macros::MacroPicker {}
             div { class: "field-grid three",

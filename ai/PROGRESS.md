@@ -4,6 +4,30 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-21 — FOL-L018/S03: Unicode in page marks, summaries, text and e-mail documents
+
+- **Current state before:** watermarks, headers and footers, page and Bates numbers, comment
+  summaries and documents made from text or e-mail wrote the standard Helvetica in WinAnsi, so
+  other characters became `?`.
+- **Changed:** page marks draw through `TextWriter` (`text_object` with a rotation matrix): the
+  macros are filled in first, the font is chosen for all the texts of a mark before the edit
+  begins, and the Unicode subset goes on every marked page under a name none of them uses yet
+  (`FoliUni1`, `FoliUni2`, ...; `resource_name`, `use_resource_name`), so an earlier mark keeps
+  its font when pages share resources; a failure after the edit begins abandons it. Summaries
+  (all three layouts), text documents and e-mail documents use one writer for the whole
+  document and one subset on all its text pages; their bold is stroked in the Unicode font. Text
+  documents split pages at form feeds before the text is prepared. The watermark, header and
+  footer and numbering dialogs name text the font cannot draw while it is typed.
+- **Checked:** `tests/unicode_drawings.rs` (11 new: marks shared by every page, a later mark with
+  its own font name and removal of one mark leaving the other, page and Bates numbers, WinAnsi
+  marks kept, refusals before any change including a macro that expands to Hebrew; summaries in
+  the three layouts with a reply, saved and reopened; WinAnsi summaries; refused summaries; text
+  documents over two pages, WinAnsi kept, refused; e-mail documents with stroked bold, WinAnsi
+  kept, refused); `fit` unit test with the Unicode font; self-test step `unicode` with a watermark
+  typed in Polish and Greek (undone) and a refused one.
+- **Open:** right-to-left text and shaping still refused; S04 (form fields) and S05 (OCR,
+  barcodes, signatures, media, redaction text) still write WinAnsi.
+
 ## 2026-10-20 — FOL-L018/S02: Unicode in tables, calculator tapes and stamps
 
 - **Current state before:** designed stamps, tables and calculator tapes wrote their text with the

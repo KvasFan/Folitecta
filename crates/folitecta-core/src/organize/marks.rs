@@ -4,7 +4,11 @@ use lopdf::{Object, ObjectId, dictionary};
 
 use crate::document::{Document, PageSize};
 use crate::error::{Error, Result};
-use crate::util::{self, approx_text_width, fmt_num, pdf_literal};
+use crate::fonts::{GlyphProblem, TextWriter};
+use crate::util::{self, fmt_num};
+
+/// Name of the standard Helvetica of page marks in the resources of the pages.
+const MARK_FONT: &str = "FoliHelv";
 
 /// Mark kinds removed by "remove all page marks". Flattened comments, applied
 /// redactions, placed images and overlays are page content and stay.
@@ -125,7 +129,11 @@ fn anchor(size: &PageSize, position: MarkPosition, w: f32, s: f32, margin: f32) 
     }
 }
 
+/// The drawing of one mark text, from its baseline start `(x, y)` turned by
+/// `angle_deg`: the standard Helvetica for WinAnsi text (as before), else the
+/// Unicode font of `writer`.
 fn text_op(
+    writer: &mut TextWriter,
     x: f32,
     y: f32,
     angle_deg: f32,
@@ -133,29 +141,25 @@ fn text_op(
     color: [f32; 3],
     gs: Option<&str>,
     text: &str,
-) -> String {
+) -> std::result::Result<String, GlyphProblem> {
     let f = fmt_num;
     let (sin, cos) = angle_deg.to_radians().sin_cos();
     let mut s = String::from("q ");
     if let Some(g) = gs {
         s.push_str(&format!("/{g} gs "));
     }
-    s.push_str(&format!(
-        "BT /FoliHelv {} Tf {} {} {} rg {} {} {} {} {} {} Tm ",
-        f(font_size),
-        f(color[0]),
-        f(color[1]),
-        f(color[2]),
+    let at = format!(
+        "{} {} {} {} {} {} Tm",
         f(cos),
         f(sin),
         f(-sin),
         f(cos),
         f(x),
         f(y)
-    ));
-    s.push_str(&String::from_utf8_lossy(&pdf_literal(text)));
-    s.push_str(" Tj ET Q\n");
-    s
+    );
+    s.push_str(&writer.text_object(text, font_size, Some(color), &at, false, (MARK_FONT, MARK_FONT))?);
+    s.push_str(" Q\n");
+    Ok(s)
 }
 
 /// Watermarks, running headers and page numbers are artifacts: screen
@@ -384,9 +388,56 @@ impl Document {
         best.map(|(_, t)| t).unwrap_or_default()
     }
 
-    fn prepare_mark_resources(&mut self, page_id: ObjectId, opacity: f32) -> Result<Option<String>> {
-        let font = self.helvetica_font_id();
-        self.add_page_resource(page_id, "Font", "FoliHelv", Object::Reference(font))?;
+    /// A writer for the texts of a mark on the pages `page_ids`: text that
+    /// cannot be drawn is refused here, before anything changes. Its Unicode
+    /// font gets a name that no font of those pages has (other marks of the
+    /// pages keep theirs).
+    fn mark_writer(&self, texts: &[String], page_ids: &[ObjectId]) -> Result<TextWriter> {
+        let mut writer = TextWriter::for_pieces(texts.iter().map(String::as_str))?;
+        if !writer.is_standard() {
+            let mut taken = std::collections::HashSet::new();
+            for &id in page_ids {
+                let res = crate::page_text::probe::page_resources(&self.inner, id);
+                if let Some(fonts) = res.get(b"Font").ok().map(|f| util::deref(&self.inner, f)) {
+                    if let Ok(fonts) = fonts.as_dict() {
+                        taken.extend(fonts.iter().map(|(k, _)| k.clone()));
+                    }
+                }
+            }
+            let name = (1..)
+                .map(|n| format!("FoliUni{n}"))
+                .find(|n| !taken.contains(n.as_bytes()))
+                .unwrap_or_else(|| "FoliUni".into());
+            writer.use_resource_name(&name);
+        }
+        Ok(writer)
+    }
+
+    /// The Unicode font of a mark, once every text is drawn: added to the
+    /// resources of the pages it was drawn on (the standard Helvetica is
+    /// added page by page).
+    fn finish_mark_font(&mut self, writer: TextWriter, page_ids: &[ObjectId]) -> Result<()> {
+        if writer.is_standard() {
+            return Ok(());
+        }
+        let name = writer.resource_name();
+        let font = writer.finish(self, None)?;
+        for &id in page_ids {
+            self.add_page_resource(id, "Font", &name, Object::Reference(font))?;
+        }
+        Ok(())
+    }
+
+    fn prepare_mark_resources(
+        &mut self,
+        page_id: ObjectId,
+        opacity: f32,
+        standard: bool,
+    ) -> Result<Option<String>> {
+        if standard {
+            let font = self.helvetica_font_id();
+            self.add_page_resource(page_id, "Font", MARK_FONT, Object::Reference(font))?;
+        }
         if opacity < 0.999 {
             let name = format!("FoliGS{}", (opacity.clamp(0.0, 1.0) * 100.0).round() as i32);
             let gs = dictionary! { "Type" => "ExtGState", "CA" => opacity, "ca" => opacity };
@@ -408,28 +459,63 @@ impl Document {
                 return Err(Error::InvalidPage(p));
             }
         }
+        // The texts first: macros read the document before it changes.
+        let texts: Vec<String> = pages
+            .iter()
+            .map(|&p| self.expand_macros(&opts.text, p, 1))
+            .collect();
+        let targets: Vec<ObjectId> = pages.iter().map(|&p| ids[p]).collect();
+        let mut writer = self.mark_writer(&texts, &targets)?;
         self.begin_edit();
-        for &p in pages {
-            let id = ids[p];
-            let size = self.page_size_of(id);
-            let gs = self.prepare_mark_resources(id, opts.opacity)?;
-            let text = self.expand_macros(&opts.text, p, 1);
-            let w = approx_text_width(&text, opts.font_size);
-            let (u, v) = if opts.position == MarkPosition::Center && opts.rotation.abs() > 0.1 {
-                // rotate around the page centre
-                let (cx, cy) = (size.width / 2.0, size.height / 2.0);
-                let (sin, cos) = opts.rotation.to_radians().sin_cos();
-                let (ox, oy) = (-w / 2.0, -opts.font_size * 0.35);
-                (cx + ox * cos - oy * sin, cy + ox * sin + oy * cos)
-            } else {
-                anchor(&size, opts.position, w, opts.font_size, opts.margin)
-            };
-            let (x, y) = display_to_pdf(&size, u, v);
-            let angle = opts.rotation + size.rotation as f32;
-            let content = text_op(x, y, angle, opts.font_size, opts.color, gs.as_deref(), &text);
-            self.append_page_content(id, pagination(content, Some("Watermark")), Some("Watermark"))?;
+        let drawn = (|| -> Result<()> {
+            for (&p, text) in pages.iter().zip(&texts) {
+                self.add_watermark_to(&mut writer, ids[p], text, opts)?;
+            }
+            Ok(())
+        })();
+        let drawn = drawn.and_then(|()| self.finish_mark_font(writer, &targets));
+        if let Err(e) = drawn {
+            self.abandon_edit();
+            return Err(e);
         }
         self.commit()
+    }
+
+    /// One text watermark on page `id`.
+    fn add_watermark_to(
+        &mut self,
+        writer: &mut TextWriter,
+        id: ObjectId,
+        text: &str,
+        opts: &TextMarkOptions,
+    ) -> Result<()> {
+        let size = self.page_size_of(id);
+        let gs = self.prepare_mark_resources(id, opts.opacity, writer.is_standard())?;
+        let text = writer.piece(text);
+        let w = writer.width(&text, opts.font_size);
+        let (u, v) = if opts.position == MarkPosition::Center && opts.rotation.abs() > 0.1 {
+            // rotate around the page centre
+            let (cx, cy) = (size.width / 2.0, size.height / 2.0);
+            let (sin, cos) = opts.rotation.to_radians().sin_cos();
+            let (ox, oy) = (-w / 2.0, -opts.font_size * 0.35);
+            (cx + ox * cos - oy * sin, cy + ox * sin + oy * cos)
+        } else {
+            anchor(&size, opts.position, w, opts.font_size, opts.margin)
+        };
+        let (x, y) = display_to_pdf(&size, u, v);
+        let angle = opts.rotation + size.rotation as f32;
+        let content = text_op(
+            writer,
+            x,
+            y,
+            angle,
+            opts.font_size,
+            opts.color,
+            gs.as_deref(),
+            &text,
+        )?;
+        self.append_page_content(id, pagination(content, Some("Watermark")), Some("Watermark"))?;
+        Ok(())
     }
 
     /// Add header (left/center/right) and footer (left/center/right) texts. Empty
@@ -452,7 +538,6 @@ impl Document {
         if header.iter().chain(footer.iter()).all(|s| s.trim().is_empty()) {
             return Err(Error::Invalid("header and footer are empty".into()));
         }
-        self.begin_edit();
         let slots = [
             (header[0], MarkPosition::TopLeft),
             (header[1], MarkPosition::TopCenter),
@@ -461,30 +546,50 @@ impl Document {
             (footer[1], MarkPosition::BottomCenter),
             (footer[2], MarkPosition::BottomRight),
         ];
-        for &p in pages {
-            let id = ids[p];
-            let size = self.page_size_of(id);
-            self.prepare_mark_resources(id, 1.0)?;
-            let mut content = String::new();
-            for (template, pos) in slots {
-                if template.trim().is_empty() {
-                    continue;
+        // The texts first: macros read the document before it changes.
+        let texts: Vec<Vec<(String, MarkPosition)>> = pages
+            .iter()
+            .map(|&p| {
+                slots
+                    .iter()
+                    .filter(|(template, _)| !template.trim().is_empty())
+                    .map(|(template, pos)| (self.expand_macros(template, p, 1), *pos))
+                    .collect()
+            })
+            .collect();
+        let all: Vec<String> = texts.iter().flatten().map(|(t, _)| t.clone()).collect();
+        let targets: Vec<ObjectId> = pages.iter().map(|&p| ids[p]).collect();
+        let mut writer = self.mark_writer(&all, &targets)?;
+        self.begin_edit();
+        let drawn = (|| -> Result<()> {
+            for (&id, page_texts) in targets.iter().zip(&texts) {
+                let size = self.page_size_of(id);
+                self.prepare_mark_resources(id, 1.0, writer.is_standard())?;
+                let mut content = String::new();
+                for (text, pos) in page_texts {
+                    let text = writer.piece(text);
+                    let w = writer.width(&text, font_size);
+                    let (u, v) = anchor(&size, *pos, w, font_size, margin);
+                    let (x, y) = display_to_pdf(&size, u, v);
+                    content.push_str(&text_op(
+                        &mut writer,
+                        x,
+                        y,
+                        size.rotation as f32,
+                        font_size,
+                        color,
+                        None,
+                        &text,
+                    )?);
                 }
-                let text = self.expand_macros(template, p, 1);
-                let w = approx_text_width(&text, font_size);
-                let (u, v) = anchor(&size, pos, w, font_size, margin);
-                let (x, y) = display_to_pdf(&size, u, v);
-                content.push_str(&text_op(
-                    x,
-                    y,
-                    size.rotation as f32,
-                    font_size,
-                    color,
-                    None,
-                    &text,
-                ));
+                self.append_page_content(id, pagination(content, None), Some("HeaderFooter"))?;
             }
-            self.append_page_content(id, pagination(content, None), Some("HeaderFooter"))?;
+            Ok(())
+        })();
+        let drawn = drawn.and_then(|()| self.finish_mark_font(writer, &targets));
+        if let Err(e) = drawn {
+            self.abandon_edit();
+            return Err(e);
         }
         self.commit()
     }
@@ -510,18 +615,42 @@ impl Document {
         if template.trim().is_empty() {
             return Err(Error::Invalid("page number format is empty".into()));
         }
+        // The texts first: macros read the document before it changes. Numbers
+        // are relative to the selection so Bates numbering is contiguous.
+        let texts: Vec<String> = pages
+            .iter()
+            .enumerate()
+            .map(|(ordinal, &p)| self.expand_macros_numbered(template, p, start + ordinal as i64))
+            .collect();
+        let targets: Vec<ObjectId> = pages.iter().map(|&p| ids[p]).collect();
+        let mut writer = self.mark_writer(&texts, &targets)?;
         self.begin_edit();
-        for (ordinal, &p) in pages.iter().enumerate() {
-            let id = ids[p];
-            let size = self.page_size_of(id);
-            self.prepare_mark_resources(id, 1.0)?;
-            // Number relative to the selection so Bates numbering is contiguous.
-            let text = self.expand_macros_numbered(template, p, start + ordinal as i64);
-            let w = approx_text_width(&text, font_size);
-            let (u, v) = anchor(&size, position, w, font_size, margin);
-            let (x, y) = display_to_pdf(&size, u, v);
-            let content = text_op(x, y, size.rotation as f32, font_size, color, None, &text);
-            self.append_page_content(id, pagination(content, None), Some("PageNumber"))?;
+        let drawn = (|| -> Result<()> {
+            for (&id, text) in targets.iter().zip(&texts) {
+                let size = self.page_size_of(id);
+                self.prepare_mark_resources(id, 1.0, writer.is_standard())?;
+                let text = writer.piece(text);
+                let w = writer.width(&text, font_size);
+                let (u, v) = anchor(&size, position, w, font_size, margin);
+                let (x, y) = display_to_pdf(&size, u, v);
+                let content = text_op(
+                    &mut writer,
+                    x,
+                    y,
+                    size.rotation as f32,
+                    font_size,
+                    color,
+                    None,
+                    &text,
+                )?;
+                self.append_page_content(id, pagination(content, None), Some("PageNumber"))?;
+            }
+            Ok(())
+        })();
+        let drawn = drawn.and_then(|()| self.finish_mark_font(writer, &targets));
+        if let Err(e) = drawn {
+            self.abandon_edit();
+            return Err(e);
         }
         self.commit()
     }

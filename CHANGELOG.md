@@ -15,6 +15,12 @@ All notable changes to Folitecta are documented here. The format follows
   joining or combining letters, characters the font lacks) is refused before any change; the
   table editor names it while it is typed and stays open with what was typed. WinAnsi text keeps
   the standard Helvetica, written as before.
+- Watermarks, headers and footers, page numbers, Bates numbers, comment summaries and documents
+  made from text files or e-mail messages draw text beyond Western European characters the same
+  way: one subset for all the pages a mark is added to, one for a whole summary or document, bold
+  headings and labels filled and stroked. Text they cannot draw is refused before any change (for
+  marks after macros such as `{title}` are filled in), and the watermark, header and footer and
+  numbering dialogs name it while it is typed. WinAnsi text keeps the standard Helvetica.
 - Every release package carries `THIRD-PARTY-LICENSES.txt`: the libraries built into the program
   for that system, each with its licence and the address of its source, and their licence texts
   (written by `crates/notices` from the published sources; a library without a text stops the

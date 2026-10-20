@@ -9,8 +9,9 @@ use mail_parser::{Address, MessageParser, MimeHeaders};
 
 use crate::document::Document;
 use crate::error::{Error, Result};
-use crate::textdoc::{TextLayout, wrap_text};
-use crate::util::{fmt_num, helvetica_width, pdf_literal};
+use crate::fonts::TextWriter;
+use crate::textdoc::TextLayout;
+use crate::util::fmt_num;
 
 /// A message read from a file.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -378,16 +379,6 @@ impl Document {
             msg.subject.as_str()
         };
         let subject_size = (fs * 1.45).round();
-        for l in wrap_text(subject, subject_size * BOLD, width) {
-            lines.push(Line::Text {
-                text: l,
-                x: 0.0,
-                bold: true,
-                size: subject_size,
-                grey: 0.0,
-            });
-        }
-        lines.push(Line::Gap(fs * 0.5));
         let names: Vec<&str> = msg.attachments.iter().map(|(n, _)| n.as_str()).collect();
         let attached = names.join(", ");
         let header: Vec<(&str, &str)> = [
@@ -400,18 +391,40 @@ impl Document {
         .into_iter()
         .filter(|(_, v)| !v.trim().is_empty())
         .collect();
+        // One font for all the text of the message: text that cannot be drawn
+        // is refused before anything is made.
+        let mut writer = TextWriter::for_pieces(
+            [subject, msg.body.as_str()]
+                .into_iter()
+                .chain(header.iter().flat_map(|(k, v)| [*k, *v])),
+        )?;
+        for l in writer.wrap_piece(&writer.piece(subject), subject_size * BOLD, width) {
+            lines.push(Line::Text {
+                text: l,
+                x: 0.0,
+                bold: true,
+                size: subject_size,
+                grey: 0.0,
+            });
+        }
+        lines.push(Line::Gap(fs * 0.5));
         let hs = (fs * 0.9).max(6.0);
         // The values start where the longest label ends.
         let column = header
             .iter()
-            .map(|(k, _)| helvetica_width(&format!("{k}:"), hs) * BOLD)
+            .map(|(k, _)| writer.width(&format!("{}:", writer.piece(k)), hs) * BOLD)
             .fold(0.0, f32::max)
             + hs;
         for (label, value) in &header {
-            for (i, l) in wrap_text(value, hs, width - column).into_iter().enumerate() {
+            let value = writer.piece(value);
+            for (i, l) in writer
+                .wrap_piece(&value, hs, width - column)
+                .into_iter()
+                .enumerate()
+            {
                 if i == 0 {
                     lines.push(Line::Text {
-                        text: format!("{label}:"),
+                        text: format!("{}:", writer.piece(label)),
                         x: 0.0,
                         bold: true,
                         size: hs,
@@ -430,7 +443,7 @@ impl Document {
             }
         }
         lines.push(Line::Rule);
-        for l in wrap_text(&msg.body, fs, width) {
+        for l in writer.wrap_piece(&writer.piece(&msg.body), fs, width) {
             lines.push(Line::Text {
                 text: l,
                 x: 0.0,
@@ -457,14 +470,20 @@ impl Document {
             }
         }
         let mut doc = Document::new_blank(pages.len(), pw, ph)?;
-        let regular = doc.helvetica_font_id();
-        let bold = doc.inner.add_object(dictionary! {
-            "Type" => "Font",
-            "Subtype" => "Type1",
-            "BaseFont" => "Helvetica-Bold",
-            "Encoding" => "WinAnsiEncoding",
+        // The standard Helvetica for WinAnsi text, as before; else the
+        // Unicode font of the writer, added once every page is written.
+        let standard = writer.is_standard().then(|| {
+            let regular = doc.helvetica_font_id();
+            let bold = doc.inner.add_object(dictionary! {
+                "Type" => "Font",
+                "Subtype" => "Type1",
+                "BaseFont" => "Helvetica-Bold",
+                "Encoding" => "WinAnsiEncoding",
+            });
+            (regular, bold)
         });
         let f = fmt_num;
+        let mut written = Vec::new();
         for (page, page_id) in pages.iter().zip(doc.page_ids()) {
             let mut content = Vec::new();
             for (y, line) in page {
@@ -476,19 +495,18 @@ impl Document {
                         size,
                         grey,
                     } if !text.is_empty() => {
-                        let font = if *bold { "FoliHelvB" } else { "FoliHelv" };
-                        content.extend_from_slice(
-                            format!(
-                                "BT /{font} {} Tf {} g 1 0 0 1 {} {} Tm ",
-                                f(*size),
-                                f(*grey),
-                                f(margin + x),
-                                f(y + size * 0.3)
-                            )
-                            .as_bytes(),
-                        );
-                        content.extend_from_slice(&pdf_literal(text));
-                        content.extend_from_slice(b" Tj ET\n");
+                        let place = format!("1 0 0 1 {} {} Tm", f(margin + x), f(y + size * 0.3));
+                        // The grey as written before for the standard font; the
+                        // Unicode font strokes its bold letters in it too.
+                        let (color, at) = if writer.is_standard() {
+                            (None, format!("{} g {place}", f(*grey)))
+                        } else {
+                            (Some([*grey; 3]), place)
+                        };
+                        let shown =
+                            writer.text_object(text, *size, color, &at, *bold, ("FoliHelv", "FoliHelvB"))?;
+                        content.extend_from_slice(shown.as_bytes());
+                        content.extend_from_slice(b"\n");
                     }
                     Line::Rule => content.extend_from_slice(
                         format!(
@@ -503,9 +521,19 @@ impl Document {
                     _ => {}
                 }
             }
-            doc.add_page_resource(page_id, "Font", "FoliHelv", Object::Reference(regular))?;
-            doc.add_page_resource(page_id, "Font", "FoliHelvB", Object::Reference(bold))?;
+            if let Some((regular, bold)) = standard {
+                doc.add_page_resource(page_id, "Font", "FoliHelv", Object::Reference(regular))?;
+                doc.add_page_resource(page_id, "Font", "FoliHelvB", Object::Reference(bold))?;
+            }
             doc.append_page_content(page_id, content, None)?;
+            written.push(page_id);
+        }
+        if standard.is_none() {
+            let name = writer.resource_name();
+            let font = writer.finish(&mut doc, None)?;
+            for page_id in written {
+                doc.add_page_resource(page_id, "Font", &name, Object::Reference(font))?;
+            }
         }
         for (name, data) in &msg.attachments {
             doc.insert_attachment(name.as_bytes().to_vec(), name, data.clone(), "", None)?;

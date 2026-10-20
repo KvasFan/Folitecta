@@ -6,7 +6,9 @@
 //! whose comments cannot all be drawn names them and imports the others on
 //! request. Tables and calculator tapes typed beyond WinAnsi are drawn with
 //! the subset too; a table the font cannot draw is named in its editor and
-//! refused on OK, which keeps the editor open with what was typed.
+//! refused on OK, which keeps the editor open with what was typed. A
+//! watermark typed beyond WinAnsi is drawn into the page and found in its
+//! text; one the font cannot draw is named, refused, and nothing changes.
 
 use super::*;
 use crate::state::ToastKind;
@@ -162,6 +164,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             .unwrap_or_default()
     };
     tables_and_tapes(cx).await;
+    watermarks(cx).await;
 
     let count = annots_on(st, 0).len();
     crate::files::import_comment_data(st, xfdf);
@@ -319,5 +322,55 @@ async fn tables_and_tapes(cx: &mut Ctx<'_>) {
         "a calculator comment beyond WinAnsi is drawn with an embedded font subset",
         place.is_some() && commented && embedded,
         format!("tape {place:?}, commented {commented}, embedded {embedded}"),
+    );
+}
+
+/// Type `value` into the first text field of the open dialog.
+async fn type_field(value: &str) {
+    let js = format!(
+        "const a = document.querySelector('.dialog .field input'); if (a) {{ a.value = {}; a.dispatchEvent(new Event('input', {{ bubbles: true }})); }}",
+        serde_json::to_string(value).unwrap_or_default()
+    );
+    let _ = eval(&js).await;
+    pause(400).await;
+}
+
+/// Watermarks typed beyond WinAnsi (FOL-L018/S03); the drawn one is undone.
+async fn watermarks(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    let text = "Łódź — Ελληνικά";
+    let page_text = || st.read_active(|t| t.doc.page_text(0)).unwrap_or_default();
+    st.set_dialog(Dialog::Watermark);
+    pause(500).await;
+    type_field(text).await;
+    let warned = hint().await;
+    press_ok().await;
+    let closed = (st.dialog)() == Dialog::None;
+    let drawn = page_text().contains(text);
+    crate::commands::dispatch(st, "undo");
+    pause(500).await;
+    let undone = !page_text().contains(text);
+    cx.record(
+        "a watermark typed beyond WinAnsi is drawn into the page and found in its text",
+        warned.is_empty() && closed && drawn && undone,
+        format!("hint {warned:?}, closed {closed}, drawn {drawn}, undone {undone}"),
+    );
+
+    let rev = revision(st);
+    st.set_dialog(Dialog::Watermark);
+    pause(500).await;
+    type_field("漢字").await;
+    let warned = hint().await;
+    press_ok().await;
+    let kept_open = (st.dialog)() == Dialog::Watermark;
+    let toast = error_toast_with(st, "漢");
+    let unchanged = revision(st) == rev && !page_text().contains('漢');
+    let _ = capture_window(&cx.dir.join("interaction-unicode-watermark.png"));
+    st.set_dialog(Dialog::None);
+    pause(300).await;
+    cx.record(
+        "a watermark the font cannot draw: named while typing, refused on OK, nothing changed",
+        warned.contains('漢') && kept_open && toast && unchanged,
+        format!("hint {warned:?}, kept open {kept_open}, toast {toast}, unchanged {unchanged}"),
     );
 }

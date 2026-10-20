@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::document::Document;
 use crate::error::{Error, Result};
-use crate::util::{fmt_num, helvetica_width, pdf_literal};
+use crate::fonts::{GlyphProblem, TextWriter, previous_font};
+use crate::util::fmt_num;
 
 /// Name of the stamp comments holding tables.
 pub const TABLE_STAMP: &str = "FolitectaTable";
@@ -240,14 +241,23 @@ impl Table {
         out
     }
 
-    /// Content stream drawing the table inside `rect` (PDF space).
-    pub fn content(&self, rect: [f32; 4]) -> String {
+    /// Content stream drawing the table inside `rect` (PDF space), and the
+    /// writer of its text, whose font goes in the resources of the drawing
+    /// ([`Document::drawing_resources`]). The font is chosen for the text of
+    /// all the cells drawn; text that cannot be drawn is refused before
+    /// anything is drawn.
+    pub(crate) fn drawing(&self, rect: [f32; 4]) -> std::result::Result<(String, TextWriter), GlyphProblem> {
         let f = fmt_num;
+        let cells = self.layout();
+        let mut writer = TextWriter::for_pieces(
+            cells
+                .iter()
+                .map(|(r, col, ..)| self.cells[*r][*col].text.as_str()),
+        )?;
         let (x0, y1) = (rect[0], rect[3]);
         let (w, h) = (rect[2] - rect[0], rect[3] - rect[1]);
         let mut c = String::new();
         let lc = self.line_color;
-        let cells = self.layout();
         // Fills first, then text, then lines over them.
         for (r, col, cx, cy, cw, ch) in &cells {
             if let Some(fill) = self.cells[*r][*col].fill {
@@ -268,33 +278,26 @@ impl Table {
         let tc = self.text_color;
         for (r, col, cx, cy, cw, _ch) in &cells {
             let cell = &self.cells[*r][*col];
-            if cell.text.trim().is_empty() {
+            let text = writer.piece(&cell.text);
+            if text.trim().is_empty() {
                 continue;
             }
-            let font = if cell.bold { "TB" } else { "TR" };
             let factor = if cell.bold { 1.06 } else { 1.0 };
             let left = x0 + cx * w;
             let top = y1 - cy * h;
             let inner = (cw * w - 2.0 * pad).max(1.0);
-            let lines = crate::textdoc::wrap_text(&cell.text, size * factor, inner);
+            let lines = writer.wrap_piece(&text, size * factor, inner);
             for (k, line) in lines.iter().enumerate() {
-                let lw = helvetica_width(line, size) * factor;
+                let lw = writer.width(line, size) * factor;
                 let x = match cell.align.as_str() {
                     "center" => left + (cw * w - lw) / 2.0,
                     "right" => left + cw * w - pad - lw,
                     _ => left + pad,
                 };
                 let y = top - pad - size * (0.8 + 1.2 * k as f32);
-                c.push_str(&format!(
-                    "BT /{font} {} Tf {} {} {} rg {} {} Td {} Tj ET\n",
-                    f(size),
-                    f(tc[0]),
-                    f(tc[1]),
-                    f(tc[2]),
-                    f(x),
-                    f(y),
-                    String::from_utf8_lossy(&pdf_literal(line))
-                ));
+                let at = format!("{} {} Td", f(x), f(y));
+                c.push_str(&writer.text_object(line, size, Some(tc), &at, cell.bold, ("TR", "TB"))?);
+                c.push('\n');
             }
         }
         if self.line_width > 0.0 {
@@ -315,7 +318,7 @@ impl Table {
                 ));
             }
         }
-        c
+        Ok((c, writer))
     }
 }
 
@@ -328,6 +331,22 @@ impl Document {
             "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica-Bold", "Encoding" => "WinAnsiEncoding",
         });
         dictionary! { "Font" => dictionary! { "TR" => regular, "TB" => bold } }
+    }
+
+    /// The resources of a drawing of a table or a tape: its standard fonts
+    /// (`TR`, `TB`), or the Unicode font of `writer`; `previous` is used
+    /// again when it is the same subset (a drawing made again).
+    pub(crate) fn drawing_resources(
+        &mut self,
+        writer: TextWriter,
+        previous: Option<ObjectId>,
+    ) -> Result<lopdf::Dictionary> {
+        if writer.is_standard() {
+            return Ok(self.table_resources());
+        }
+        let name = writer.resource_name();
+        let font = writer.finish(self, previous)?;
+        Ok(dictionary! { "Font" => dictionary! { name => font } })
     }
 
     /// Add a table inside `rect` (PDF space) as an editable comment.
@@ -344,13 +363,21 @@ impl Document {
             return Err(Error::Invalid("the table is too small".into()));
         }
         let json = serde_json::to_string(table).map_err(|e| Error::Invalid(e.to_string()))?;
+        // Text that cannot be drawn is refused before the document changes.
+        let (content, writer) = table.drawing(r)?;
         self.begin_edit();
         let mut annot = self.base_annotation(page_id, "Stamp", r, author, "", table.line_color);
         annot.set("Name", Object::Name(TABLE_STAMP.as_bytes().to_vec()));
         annot.set("Subj", lopdf::text_string("Table"));
         annot.set("FolitectaTable", Object::string_literal(json));
-        let res = self.table_resources();
-        self.add_appearance(&mut annot, r, table.content(r), res);
+        let res = match self.drawing_resources(writer, None) {
+            Ok(res) => res,
+            Err(e) => {
+                self.abandon_edit();
+                return Err(e);
+            }
+        };
+        self.add_appearance(&mut annot, r, content, res);
         let id = self.push_drawn_annotation(page_id, annot)?;
         self.commit()?;
         Ok(id)
@@ -378,11 +405,20 @@ impl Document {
             .map(|a| a.rect)
             .ok_or_else(|| Error::Invalid("table not found".into()))?;
         let json = serde_json::to_string(table).map_err(|e| Error::Invalid(e.to_string()))?;
-        self.begin_edit();
-        let res = self.table_resources();
+        // Text that cannot be drawn is refused before the document changes.
+        let (content, writer) = table.drawing(rect)?;
         let mut annot = self.inner.get_dictionary(id)?.clone();
+        let previous = previous_font(&self.inner, &annot, &writer);
+        self.begin_edit();
+        let res = match self.drawing_resources(writer, previous) {
+            Ok(res) => res,
+            Err(e) => {
+                self.abandon_edit();
+                return Err(e);
+            }
+        };
         annot.set("FolitectaTable", Object::string_literal(json));
-        self.add_appearance(&mut annot, rect, table.content(rect), res);
+        self.add_appearance(&mut annot, rect, content, res);
         *self.inner.get_dictionary_mut(id)? = annot;
         self.commit()
     }

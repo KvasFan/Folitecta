@@ -39,8 +39,7 @@ pub fn RecoveryDialog() -> Element {
                     for e in entries.into_iter() {
                         {
                             let place = e.path.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| t(lang, "recovery.unsaved"));
-                            let key = if e.pages == 1 { "recovery.meta_one" } else { "recovery.meta" };
-                            let meta = tf(lang, key, &[("pages", &e.pages.to_string()), ("when", &when(e.saved))]);
+                            let meta = tf(lang, "recovery.meta", &[("pages", &e.pages.to_string()), ("when", &when(e.saved))]);
                             let (open, drop) = (e.clone(), e.clone());
                             rsx! {
                                 div { class: "recovery-row", key: "{e.session}-{e.tab}",

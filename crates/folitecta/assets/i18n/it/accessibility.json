@@ -98,6 +98,7 @@
   "alt.no_preview": "Nessuna anteprima: la figura non ha contenuto sulle pagine",
   "content.artifact": "Artefatti",
   "content.count": "{count} elementi",
+  "content.count_one": "{count} elemento",
   "content.drawing": "Disegno",
   "content.empty": "La pagina non disegna nulla.",
   "content.image": "Immagine",

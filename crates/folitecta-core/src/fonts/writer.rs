@@ -34,6 +34,9 @@ enum Face {
 pub(crate) struct TextWriter {
     text: String,
     face: Face,
+    /// The text was prepared (line breaks, invisible characters, NFC): the
+    /// pieces drawn with this writer are prepared the same way.
+    prepared: bool,
 }
 
 /// Format characters that change the order or the joining of letters.
@@ -93,6 +96,7 @@ impl TextWriter {
             return Ok(TextWriter {
                 text: text.to_string(),
                 face: Face::Standard,
+                prepared: false,
             });
         }
         let text = prepare(text);
@@ -100,6 +104,7 @@ impl TextWriter {
             return Ok(TextWriter {
                 text,
                 face: Face::Standard,
+                prepared: true,
             });
         }
         let layout = distinct(text.chars().filter(|c| needs_layout(*c)));
@@ -128,6 +133,80 @@ impl TextWriter {
                 chars: Vec::new(),
                 codes: HashMap::new(),
             },
+            prepared: true,
+        })
+    }
+
+    /// A writer for a drawing of several pieces of text (the cells of a
+    /// table, the lines of a tape, the texts of a stamp): the font is chosen
+    /// for all of them together, and each piece is then drawn from
+    /// [`TextWriter::piece`].
+    pub(crate) fn for_pieces<'a>(
+        pieces: impl IntoIterator<Item = &'a str>,
+    ) -> std::result::Result<TextWriter, GlyphProblem> {
+        TextWriter::new(&pieces.into_iter().collect::<Vec<_>>().join("\n"))
+    }
+
+    /// One piece of the text, as this writer draws it: as given when the
+    /// whole text is drawn as given, else prepared like the whole.
+    pub(crate) fn piece(&self, text: &str) -> String {
+        if self.prepared {
+            prepare(text)
+        } else {
+            text.to_string()
+        }
+    }
+
+    /// The lines of a piece of the text, no wider than `max_width` at `size`
+    /// points, measured with this writer's font.
+    pub(crate) fn wrap_piece(&self, text: &str, size: f32, max_width: f32) -> Vec<String> {
+        match self.face {
+            Face::Standard => wrap_text(text, size, max_width),
+            Face::Unicode { .. } => wrap_text_by(text, max_width.max(size), &|s| self.width(s, size)),
+        }
+    }
+
+    /// A text object showing `line`: `BT`, the font in `size` points, the
+    /// fill colour when given, `position` (the `Td` or `Tm` that places the
+    /// text), the string and `ET`. With the standard face the font is
+    /// `standard.0`, or `standard.1` for bold, exactly as drawings wrote it
+    /// before. The Unicode font has no bold: its bold letters are filled and
+    /// stroked (a line of 4 % of the size, in the fill colour when given,
+    /// else in the stroke colour of the drawing), inside `q`/`Q` so that what
+    /// follows is drawn as before.
+    pub(crate) fn text_object(
+        &mut self,
+        line: &str,
+        size: f32,
+        color: Option<[f32; 3]>,
+        position: &str,
+        bold: bool,
+        standard: (&str, &str),
+    ) -> std::result::Result<String, GlyphProblem> {
+        let f = crate::util::fmt_num;
+        let shown = self.show(line)?;
+        let fill = color
+            .map(|c| format!("{} {} {} rg ", f(c[0]), f(c[1]), f(c[2])))
+            .unwrap_or_default();
+        Ok(match self.face {
+            Face::Standard => {
+                let name = if bold { standard.1 } else { standard.0 };
+                format!("BT /{name} {} Tf {fill}{position} {shown} Tj ET", f(size))
+            }
+            Face::Unicode { .. } if bold => {
+                let stroke = color
+                    .map(|c| format!("{} {} {} RG ", f(c[0]), f(c[1]), f(c[2])))
+                    .unwrap_or_default();
+                format!(
+                    "q {stroke}{} w BT /{UNICODE_RESOURCE} {} Tf 2 Tr {fill}{position} {shown} Tj ET Q",
+                    f(size * 0.04),
+                    f(size)
+                )
+            }
+            Face::Unicode { .. } => format!(
+                "BT /{UNICODE_RESOURCE} {} Tf {fill}{position} {shown} Tj ET",
+                f(size)
+            ),
         })
     }
 
@@ -314,6 +393,71 @@ mod tests {
         // Latin letters are close to their Helvetica widths (about 2 % narrower).
         let ratio = w.width("Hello world", 12.0) / helvetica_width("Hello world", 12.0);
         assert!((0.96..1.0).contains(&ratio), "{ratio}");
+    }
+
+    #[test]
+    fn standard_text_objects_are_written_as_before() {
+        let mut w = TextWriter::for_pieces(["Total", "Città"]).unwrap();
+        assert!(w.is_standard());
+        assert_eq!(w.piece("Città"), "Città");
+        assert_eq!(
+            w.text_object(
+                "Città",
+                10.0,
+                Some([0.0, 0.5, 1.0]),
+                "12 34 Td",
+                false,
+                ("TR", "TB")
+            )
+            .unwrap(),
+            "BT /TR 10 Tf 0 0.5 1 rg 12 34 Td (Citt\\340) Tj ET"
+        );
+        assert_eq!(
+            w.text_object("x", 8.0, None, "1 0 0 -1 2 3 Tm", true, ("H", "HB"))
+                .unwrap(),
+            "BT /HB 8 Tf 1 0 0 -1 2 3 Tm (x) Tj ET"
+        );
+    }
+
+    #[test]
+    fn unicode_bold_is_stroked_and_kept_apart() {
+        let mut w = TextWriter::for_pieces(["Łódź", "total"]).unwrap();
+        assert!(!w.is_standard());
+        let plain = w
+            .text_object(
+                "total",
+                10.0,
+                Some([1.0, 0.0, 0.0]),
+                "5 6 Td",
+                false,
+                ("TR", "TB"),
+            )
+            .unwrap();
+        assert_eq!(
+            plain,
+            "BT /FoliUni 10 Tf 1 0 0 rg 5 6 Td <00010002000100030004> Tj ET"
+        );
+        let bold = w
+            .text_object("Łódź", 10.0, Some([1.0, 0.0, 0.0]), "5 6 Td", true, ("TR", "TB"))
+            .unwrap();
+        assert!(
+            bold.starts_with("q 1 0 0 RG 0.4 w BT /FoliUni 10 Tf 2 Tr 1 0 0 rg 5 6 Td <"),
+            "{bold}"
+        );
+        assert!(bold.ends_with("> Tj ET Q"), "{bold}");
+    }
+
+    #[test]
+    fn pieces_are_prepared_like_the_whole() {
+        // Invisible characters make the whole text prepared, though it then
+        // fits WinAnsi: every piece leaves them out too (no '?').
+        let w = TextWriter::for_pieces(["a\u{200B}b", "c"]).unwrap();
+        assert!(w.is_standard());
+        assert_eq!(w.piece("a\u{200B}b"), "ab");
+        let w = TextWriter::for_pieces(["Łó\u{200B}dź"]).unwrap();
+        assert_eq!(w.piece("Łó\u{200B}dź"), "Łódź");
+        let lines = w.wrap_piece("Łódź Łódź Łódź", 12.0, 40.0);
+        assert!(lines.len() > 1, "{lines:?}");
     }
 
     #[test]

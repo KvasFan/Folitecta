@@ -314,11 +314,12 @@ Mouse coordinates on a page image are converted to PDF user space with
   draws them itself (pictures inside forms and inline pictures are not found); edited pictures are
   written as 8-bit RGB, gray, palette or black and white pictures (CMYK, ICC profiles and 16-bit
   samples are not kept, and stencil masks become black and white pictures).
-- Text boxes, typewriter text, callouts and measurement labels draw text beyond WinAnsi with the
-  embedded FreeSans subset; right-to-left text, letters that join or combine (Arabic, Hebrew,
-  Indic scripts, Thai marks) and characters FreeSans lacks (Chinese, Japanese, Korean, ...) are
-  refused, with no choice of another font yet; `/DA` still names Helvetica. Text stamps refuse
-  text beyond WinAnsi. The other generated text (designed stamps, tables, calculator tapes, form
+- Text boxes, typewriter text, callouts, measurement labels, text stamps, designed stamps,
+  tables and calculator tapes draw text beyond WinAnsi with the embedded FreeSans subset (one
+  subset for all the text of a drawing; FreeSans has no bold, so bold text in it is filled and
+  stroked); right-to-left text, letters that join or combine (Arabic, Hebrew, Indic scripts,
+  Thai marks) and characters FreeSans lacks (Chinese, Japanese, Korean, ...) are refused, with no
+  choice of another font yet; `/DA` still names Helvetica. The other generated text (form
   fields, watermarks, headers and footers, page numbers, Bates numbers, comment summaries,
   documents made from text or e-mail, signature appearances, typed signature marks, media
   captions, barcode captions, redaction overlay text) still uses Helvetica with WinAnsi encoding,
@@ -354,10 +355,8 @@ Mouse coordinates on a page image are converted to PDF user space with
 - Printing has not been tried on real printers yet (order, scale, margins, counts); on Windows the
   sheets are sent as pictures (up to 600 dpi), not as vector data, and a booklet printed on both
   sides needs a printer that turns the paper itself.
-- Hiding a layer in the view hides its comments on the pages, thumbnails, prints, summaries and in
-  the Comments pane, but pictures exported from the pages follow the document's default layer
-  visibility. XFDF carries no layer, and a comment whose layer is a membership dictionary loses
-  it on export and paste.
+- XFDF carries no layer, and a comment whose layer is a membership dictionary loses it on export
+  and paste.
 - The hand-over of files to mail programs (Simple MAPI, Mail, `xdg-email`) has been tried only
   with stand-in programs. Time stamp and revocation servers on the internet have not been tried.
 - Protection: no certificate (public-key) encryption; changing or removing the protection needs

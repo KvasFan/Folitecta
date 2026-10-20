@@ -1,10 +1,10 @@
 //! Export: page images, text and embedded images.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
-use lopdf::Object;
+use lopdf::{Object, ObjectId};
 
 use image::RgbaImage;
 
@@ -52,15 +52,44 @@ pub(crate) fn to_jpeg(page: RgbaImage, quality: u8) -> Result<Vec<u8>> {
 }
 
 impl Document {
+    /// A renderer of the document as a view shows it: the default visibility
+    /// of the layers changed by `view` (empty: the document's own), the
+    /// comments of hidden layers hidden.
+    fn view_renderer(&self, view: &HashMap<ObjectId, bool>) -> Result<Renderer> {
+        Renderer::new(self.view_bytes(&HashSet::new(), view)?)
+    }
+
     /// Render a page at `scale` (1.0 = 72 dpi) to PNG.
     pub fn render_page_png(&self, page: usize, scale: f32) -> Result<RenderedPage> {
-        Renderer::new(self.render_bytes()?)?.render_page(page, scale)
+        self.render_page_png_with_view(page, scale, &HashMap::new())
+    }
+
+    /// [`Document::render_page_png`] as a view shows the page: the layers
+    /// `view` changes are shown or hidden as there.
+    pub fn render_page_png_with_view(
+        &self,
+        page: usize,
+        scale: f32,
+        view: &HashMap<ObjectId, bool>,
+    ) -> Result<RenderedPage> {
+        self.view_renderer(view)?.render_page(page, scale)
     }
 
     /// Render a rectangular area of a page (display points, origin top-left,
     /// y down) at `scale` and return it as PNG.
     pub fn render_region_png(&self, page: usize, rect: [f32; 4], scale: f32) -> Result<Vec<u8>> {
-        let img = image::DynamicImage::ImageRgba8(Renderer::new(self.render_bytes()?)?.render_rgba(
+        self.render_region_png_with_view(page, rect, scale, &HashMap::new())
+    }
+
+    /// [`Document::render_region_png`] as a view shows the page.
+    pub fn render_region_png_with_view(
+        &self,
+        page: usize,
+        rect: [f32; 4],
+        scale: f32,
+        view: &HashMap<ObjectId, bool>,
+    ) -> Result<Vec<u8>> {
+        let img = image::DynamicImage::ImageRgba8(self.view_renderer(view)?.render_rgba(
             page,
             scale,
             RenderOpts::default(),
@@ -106,9 +135,24 @@ impl Document {
         format: ImageFormat,
         prefix: &str,
     ) -> Result<Vec<PathBuf>> {
+        self.export_pages_images_with_view(pages, dir, dpi, format, prefix, &HashMap::new())
+    }
+
+    /// [`Document::export_pages_images`] as a view shows the pages: the
+    /// layers `view` changes are shown or hidden as there, with their
+    /// comments.
+    pub fn export_pages_images_with_view(
+        &self,
+        pages: &[usize],
+        dir: impl AsRef<Path>,
+        dpi: f32,
+        format: ImageFormat,
+        prefix: &str,
+        view: &HashMap<ObjectId, bool>,
+    ) -> Result<Vec<PathBuf>> {
         let dir = dir.as_ref();
         std::fs::create_dir_all(dir).map_err(|e| Error::io(dir, e))?;
-        let renderer = Renderer::new(self.render_bytes()?)?;
+        let renderer = self.view_renderer(view)?;
         let mut out = Vec::new();
         for &p in pages {
             let rendered = renderer.render_rgba(p, dpi.max(18.0) / 72.0, RenderOpts::default())?;

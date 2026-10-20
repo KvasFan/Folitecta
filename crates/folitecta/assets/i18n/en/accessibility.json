@@ -98,6 +98,7 @@
   "alt.no_preview": "No preview: the figure has no content on the pages",
   "content.artifact": "Artifacts",
   "content.count": "{count} items",
+  "content.count_one": "{count} item",
   "content.drawing": "Drawing",
   "content.empty": "The page draws nothing.",
   "content.image": "Picture",

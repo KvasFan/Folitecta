@@ -23,7 +23,11 @@ pub fn export_images(st: AppState, pages: Vec<usize>, dpi: f32, format: ImageFor
             })
             .unwrap_or_else(|| "page".into());
         st.set_busy(true);
-        let result = st.read_active(|t| t.doc.export_pages_images(&pages, &dir, dpi, format, &prefix));
+        // The pages as the view shows them (the layers it hides left out).
+        let result = st.read_active(|t| {
+            t.doc
+                .export_pages_images_with_view(&pages, &dir, dpi, format, &prefix, &t.view_layer_states())
+        });
         st.set_busy(false);
         match result {
             Some(Ok(files)) => st.toast(

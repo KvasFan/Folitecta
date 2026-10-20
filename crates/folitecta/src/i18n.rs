@@ -229,8 +229,17 @@ pub fn annot_name(lang: Lang, subtype: &str) -> String {
     }
 }
 
-/// Translate with `{name}` placeholders.
+/// Translate with `{name}` placeholders. When `count` is 1, the singular
+/// form `<key>_one` is used where the language has one (English and Italian
+/// use it for one only; zero takes the plural).
 pub fn tf(lang: Lang, key: &str, args: &[(&str, &str)]) -> String {
+    let singular = format!("{key}_one");
+    let one = args.iter().any(|(k, v)| *k == "count" && *v == "1");
+    let key = if one && table(lang).contains_key(&singular) {
+        singular.as_str()
+    } else {
+        key
+    };
     let mut s = t(lang, key);
     for (k, v) in args {
         s = s.replace(&format!("{{{k}}}"), v);
@@ -518,6 +527,52 @@ mod tests {
             core_error(Lang::It, &folitecta_core::Error::NoPath),
             folitecta_core::Error::NoPath.to_string()
         );
+    }
+
+    #[test]
+    fn counted_messages_take_their_singular_for_one() {
+        let n = |lang, count: &str| tf(lang, "toast.pages_deleted", &[("count", count)]);
+        assert_eq!(n(Lang::En, "1"), "1 page deleted");
+        assert_eq!(n(Lang::En, "0"), "0 pages deleted");
+        assert_eq!(n(Lang::En, "2"), "2 pages deleted");
+        assert_eq!(n(Lang::It, "1"), "1 pagina eliminata");
+        assert_eq!(n(Lang::It, "3"), "3 pagine eliminate");
+        // Messages without a singular form keep theirs.
+        assert_eq!(
+            tf(Lang::En, "dialog.print.side_label", &[("n", "1"), ("count", "1")]),
+            "Side 1 of 1"
+        );
+    }
+
+    #[test]
+    fn singular_forms_stand_next_to_their_message() {
+        let placeholders = |s: &str| -> std::collections::BTreeSet<String> {
+            s.split('{')
+                .skip(1)
+                .filter_map(|p| p.split_once('}').map(|(name, _)| name.to_string()))
+                .collect()
+        };
+        for (lang, files) in [("en", &EN_FILES), ("it", &IT_FILES)] {
+            for (area, src) in files.iter() {
+                let table: HashMap<String, String> = serde_json::from_str(src).unwrap();
+                for (key, one) in &table {
+                    let Some(base) = key.strip_suffix("_one") else {
+                        continue;
+                    };
+                    let plural = table
+                        .get(base)
+                        .unwrap_or_else(|| panic!("{lang}/{area}: {key} without {base}"));
+                    assert!(plural.contains("{count}"), "{lang}/{area}: {base} counts nothing");
+                    assert!(
+                        placeholders(one).is_subset(&placeholders(plural)),
+                        "{lang}/{area}: {key} has other placeholders than {base}"
+                    );
+                }
+            }
+        }
+        for key in EN.keys().filter(|k| k.ends_with("_one")) {
+            assert!(IT.contains_key(key), "{key} has no Italian singular");
+        }
     }
 
     #[test]

@@ -45,7 +45,10 @@ fn stamp_from_page(st: AppState) {
     let r = st.read_active(|t| {
         let size = t.doc.page_size(t.page)?;
         let scale = (600.0 / size.width.max(size.height)).clamp(0.2, 3.0);
-        let png = t.doc.render_page_png(t.page, scale)?.png;
+        let png = t
+            .doc
+            .render_page_png_with_view(t.page, scale, &t.view_layer_states())?
+            .png;
         Ok::<_, folitecta_core::Error>((png, format!("{} {}", t.doc.display_name(), t.page + 1)))
     });
     match r {

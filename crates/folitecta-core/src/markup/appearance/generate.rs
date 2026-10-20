@@ -9,17 +9,8 @@ use super::shapes::*;
 use super::*;
 use crate::document::Document;
 use crate::error::Result;
-use crate::fonts::{GlyphProblem, TextWriter, appearance_font};
-use crate::util::{deref, fmt_num, helvetica_width, pdf_literal, rect_of, winansi_code};
-
-/// The embedded font of the present appearance of `d`, which a drawing made
-/// again with the same characters uses again (none for the standard font).
-fn previous_font(doc: &lopdf::Document, d: &Dictionary, writer: &TextWriter) -> Option<lopdf::ObjectId> {
-    if writer.is_standard() {
-        return None;
-    }
-    appearance_font(doc, d, writer.resource_name().as_bytes()).and_then(|(id, _)| id)
-}
+use crate::fonts::{GlyphProblem, TextWriter, previous_font};
+use crate::util::{deref, fmt_num, rect_of};
 
 /// Text box contents: background, border and wrapped text inside `bx`.
 fn free_text_body(
@@ -90,18 +81,6 @@ fn free_text_body(
     Ok(body)
 }
 
-/// The characters of `text` that WinAnsi lacks (once each), for the text
-/// drawn only with the standard Helvetica (text stamps).
-fn beyond_winansi(text: &str) -> Vec<char> {
-    let mut out: Vec<char> = Vec::new();
-    for c in text.chars().filter(|c| winansi_code(*c).is_none()) {
-        if !out.contains(&c) {
-            out.push(c);
-        }
-    }
-    out
-}
-
 /// The text of `d` that its appearance cannot draw, if any: what
 /// [`Document::generate_appearance`] would refuse, found without changing
 /// anything (operations check it before their edit). `doc` resolves the
@@ -137,8 +116,7 @@ pub(crate) fn text_problem(doc: &lopdf::Document, d: &Dictionary) -> Option<Glyp
             } else {
                 stamp_label(&name)
             };
-            let beyond = beyond_winansi(&text);
-            (!beyond.is_empty()).then_some(GlyphProblem::StampText(beyond))
+            crate::fonts::check_text(&text).err()
         }
         _ => None,
     }
@@ -526,10 +504,12 @@ impl Document {
                         _ => None,
                     };
                     let Some(table) = table else { return Ok(false) };
-                    for (k, v) in self.table_resources().iter() {
+                    let (content, writer) = table.drawing(rect)?;
+                    let previous = previous_font(doc, d, &writer);
+                    for (k, v) in self.drawing_resources(writer, previous)?.iter() {
                         resources.set(k.clone(), v.clone());
                     }
-                    body.push_str(&table.content(rect));
+                    body.push_str(&content);
                 } else if name == crate::calculator::CALC_STAMP {
                     // Calculator tapes are drawn again from their data.
                     let tape: Option<crate::calculator::Tape> = match d.get(b"FolitectaCalc") {
@@ -537,10 +517,12 @@ impl Document {
                         _ => None,
                     };
                     let Some(tape) = tape else { return Ok(false) };
-                    for (k, v) in self.table_resources().iter() {
+                    let (content, writer) = tape.drawing(rect)?;
+                    let previous = previous_font(doc, d, &writer);
+                    for (k, v) in self.drawing_resources(writer, previous)?.iter() {
                         resources.set(k.clone(), v.clone());
                     }
-                    body.push_str(&tape.content(rect));
+                    body.push_str(&content);
                 } else if name == "FolitectaImage" {
                     // Keep the picture of the existing appearance, change only the opacity.
                     let img = d
@@ -576,19 +558,17 @@ impl Document {
                     } else {
                         stamp_label(&name)
                     };
-                    // Text stamps are drawn with Helvetica only, for now: text
-                    // beyond WinAnsi is refused, never drawn as `?`.
-                    let beyond = beyond_winansi(&text);
-                    if !beyond.is_empty() {
-                        return Err(GlyphProblem::StampText(beyond).into());
-                    }
-                    let font = self.helvetica_font_id();
-                    resources.set("Font", dictionary! { "Helv" => font });
+                    // WinAnsi text with the standard Helvetica, as before; other
+                    // text with the embedded Unicode font; text that cannot be
+                    // drawn is refused, never drawn as `?`.
+                    let mut writer = TextWriter::new(&text)?;
+                    let previous = previous_font(doc, d, &writer);
+                    let text = writer.text().to_string();
                     let c = style.color.unwrap_or([0.8, 0.1, 0.1]);
                     let (bw, bh) = (rect[2] - rect[0], rect[3] - rect[1]);
-                    let unit_w = helvetica_width(&text, 1.0).max(1.0);
+                    let unit_w = writer.width(&text, 1.0).max(1.0);
                     let fs = (bh * 0.55).min((bw - 16.0).max(4.0) / unit_w).max(4.0);
-                    let tw = helvetica_width(&text, fs);
+                    let tw = writer.width(&text, fs);
                     body.push_str(&rgb(c, "RG"));
                     body.push_str(&rgb(c, "rg"));
                     if let Some(fc) = style.fill {
@@ -611,13 +591,17 @@ impl Document {
                         f(bh - 2.0)
                     ));
                     body.push_str(&format!(
-                        "BT /Helv {} Tf {} {} Td ",
+                        "BT /{} {} Tf {} {} Td ",
+                        writer.resource_name(),
                         f(fs),
                         f(rect[0] + (bw - tw) / 2.0),
                         f(rect[1] + (bh - fs * 0.72) / 2.0)
                     ));
-                    body.push_str(&String::from_utf8_lossy(&pdf_literal(&text)));
+                    body.push_str(&writer.show(&text)?);
                     body.push_str(" Tj ET ");
+                    let name = writer.resource_name();
+                    let font = writer.finish(self, previous)?;
+                    resources.set("Font", dictionary! { name => font });
                 } else {
                     return Ok(false);
                 }
@@ -679,6 +663,7 @@ impl Document {
 mod tests {
     use super::*;
     use crate::textdoc::wrap_text;
+    use crate::util::{helvetica_width, pdf_literal};
 
     /// The text box drawing of Folitecta 0.2.0, kept to prove WinAnsi text is
     /// drawn exactly as before.

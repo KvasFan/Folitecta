@@ -189,6 +189,19 @@ fn has_font_file(doc: &lopdf::Document, font: &Dictionary) -> bool {
         .is_some_and(|d| d.has(b"FontFile") || d.has(b"FontFile2") || d.has(b"FontFile3"))
 }
 
+/// The embedded font of the present appearance of `d`, which a drawing made
+/// again with the same characters uses again (none for the standard font).
+pub(crate) fn previous_font(
+    doc: &lopdf::Document,
+    d: &Dictionary,
+    writer: &TextWriter,
+) -> Option<lopdf::ObjectId> {
+    if writer.is_standard() {
+        return None;
+    }
+    appearance_font(doc, d, writer.resource_name().as_bytes()).and_then(|(id, _)| id)
+}
+
 /// The font dictionary `name` of the resources of the normal appearance of `annot`.
 pub(crate) fn appearance_font<'a>(
     doc: &'a lopdf::Document,

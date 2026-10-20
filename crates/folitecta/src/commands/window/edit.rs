@@ -40,7 +40,8 @@ fn copy(st: AppState) {
         return;
     }
     let (_, _, page) = sel;
-    let png = st.read_active(|t| t.doc.render_page_png(page, 2.0));
+    // The page as the view shows it.
+    let png = st.read_active(|t| t.doc.render_page_png_with_view(page, 2.0, &t.view_layer_states()));
     match png {
         Some(Ok(img)) => match crate::clipboard::set_png(&img.png) {
             Ok(()) => st.toast(ToastKind::Ok, t(st.lang(), "toast.page_copied"), ""),

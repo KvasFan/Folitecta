@@ -401,7 +401,11 @@ pub(super) fn finish_create(
             }
         }
         Tool::Snapshot if !tiny => {
-            let png = st.read_active(|t| t.doc.render_region_png(page, [x0, y0, x1, y1], 2.0));
+            // The area as the view shows it.
+            let png = st.read_active(|t| {
+                t.doc
+                    .render_region_png_with_view(page, [x0, y0, x1, y1], 2.0, &t.view_layer_states())
+            });
             // "New stamp from selection" keeps the area as a stamp.
             let to_stamp = st.ui.read().value("snapshot.target") == Some("stamp");
             match png {

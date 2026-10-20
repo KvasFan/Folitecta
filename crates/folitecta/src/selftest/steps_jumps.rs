@@ -40,18 +40,24 @@ fn wait_js(target: usize) -> String {
 }
 
 /// Wait until every page in the window of view `view` (`canvas`, or
-/// `canvas-other` for the other view of a split window) shows its picture:
-/// `{ ms, pages }` as [`wait_js`].
-fn wait_view_js(view: &str) -> String {
+/// `canvas-other` for the other view of a split window) is a page of the
+/// active document (tab `tab`, `count` pages: the address of its picture
+/// names the tab) and shows its picture: `{ ms, pages }` as [`wait_js`],
+/// with the tab each picture is of.
+fn wait_view_js(view: &str, tab: u64, count: usize) -> String {
     format!(
-        "const t0 = performance.now(); const vis = () => {{ const c = document.getElementById('{view}'); if (!c) return null; const v = c.getBoundingClientRect(); const out = []; for (const pg of c.getElementsByClassName('page')) {{ const r = pg.getBoundingClientRect(); if (r.bottom <= v.top || r.top >= v.bottom || r.right <= v.left || r.left >= v.right) continue; const img = pg.querySelector('.page-img'); out.push([+pg.dataset.page, pg.classList.contains('placeholder') ? 1 : 0, img ? img.naturalWidth : -1]); }} return out; }}; while (performance.now() - t0 < 6000) {{ const s = vis(); if (s && s.length && s.every(p => p[1] === 0 && p[2] > 0)) return {{ ms: performance.now() - t0, pages: s }}; await new Promise(r => setTimeout(r, 20)); }} return {{ ms: -1, pages: vis() }};"
+        "const t0 = performance.now(); const vis = () => {{ const c = document.getElementById('{view}'); if (!c) return null; const v = c.getBoundingClientRect(); const out = []; for (const pg of c.getElementsByClassName('page')) {{ const r = pg.getBoundingClientRect(); if (r.bottom <= v.top || r.top >= v.bottom || r.right <= v.left || r.left >= v.right) continue; const img = pg.querySelector('.page-img'); const src = img ? (img.getAttribute('src') || '') : ''; const m = src.match(/\\/page\\/(\\d+)\\//); out.push([+pg.dataset.page, pg.classList.contains('placeholder') ? 1 : 0, img ? img.naturalWidth : -1, m ? +m[1] : -1]); }} return out; }}; const mine = p => p[3] === {tab} && p[0] >= 0 && p[0] < {count}; while (performance.now() - t0 < 6000) {{ const s = vis(); if (s && s.length && s.every(p => mine(p) && p[1] === 0 && p[2] > 0)) return {{ ms: performance.now() - t0, pages: s }}; await new Promise(r => setTimeout(r, 20)); }} return {{ ms: -1, pages: vis() }};"
     )
 }
 
-/// Record whether every page in the window of view `view` shows its
-/// picture, none of them refused.
+/// Record whether every page in the window of view `view` is one of the
+/// active document and shows its picture, none of them refused.
 async fn check_view(cx: &mut Ctx<'_>, name: &str, view: &str) {
-    let got = eval(&wait_view_js(view)).await.unwrap_or_default();
+    let (tab, count) = cx
+        .st
+        .read_active(|t| (t.id, t.doc.page_count()))
+        .unwrap_or_default();
+    let got = eval(&wait_view_js(view, tab, count)).await.unwrap_or_default();
     pause(150).await;
     let errors = eval(ERRORS_JS).await.unwrap_or_default();
     let ms = got.get("ms").and_then(Value::as_f64).unwrap_or(-1.0);
@@ -77,7 +83,7 @@ async fn check_view(cx: &mut Ctx<'_>, name: &str, view: &str) {
         name,
         ms >= 0.0 && refused.is_empty(),
         format!(
-            "sharp after {ms:.0} ms; window [page, placeholder, naturalWidth] = {}; refused {refused:?}",
+            "tab {tab} of {count} pages; sharp after {ms:.0} ms; window [page, placeholder, naturalWidth, tab] = {}; refused {refused:?}",
             got.get("pages").cloned().unwrap_or_default()
         ),
     );
@@ -437,14 +443,14 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             st.set_active(index_of(st, b));
             check_view(
                 cx,
-                "jumps tabs: the second document after quick switching",
+                "jumps tabs: the window shows the second document after quick switching",
                 "canvas",
             )
             .await;
             st.set_active(index_of(st, a));
             check_view(
                 cx,
-                "jumps tabs: the first document after quick switching",
+                "jumps tabs: the window shows the first document after quick switching",
                 "canvas",
             )
             .await;
@@ -454,14 +460,19 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             st.set_active(index_of(st, b));
             check_view(
                 cx,
-                "jumps tabs: the second document after a jump in the first",
+                "jumps tabs: the window shows the second document after a jump in the first",
                 "canvas",
             )
             .await;
             // (The tabs share one scroll position, as in 0.2.0: the first
             // document shows the pages at that position, not its page.)
             st.set_active(index_of(st, a));
-            check_view(cx, "jumps tabs: the first document again", "canvas").await;
+            check_view(
+                cx,
+                "jumps tabs: the window shows the first document again",
+                "canvas",
+            )
+            .await;
             close_tab(st, b, index_of(st, a));
         }
         close_tab(st, a, back_to);

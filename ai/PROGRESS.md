@@ -4,6 +4,27 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-21 — FOL-L005/S01: Markdown and CSV documents
+
+- **Current state before:** text files became documents as plain text, so Markdown showed its
+  marks and CSV its separators.
+- **Changed:** `organize/typeset.rs`, a small typesetter (spans in five faces, lines broken by
+  the widths of their faces, letters cut only when a word is longer than a line; paragraphs,
+  markers, rules, code boxes and tables over pages; links and bookmarks), with the metrics of
+  Helvetica-Bold (`util::helvetica_bold_width`); `markdown.rs` (`Document::from_markdown`,
+  pulldown-cmark 0.13, MIT, without its HTML writer) and `csvdoc.rs` (`Document::from_csv`,
+  `parse_csv`, `guess_separator`). File › Open, dropped files and New › From Text File make
+  `.md`/`.markdown`/`.csv`/`.tsv` files into these documents.
+- **Checked:** `tests/markdown_csv.rs` (6: styles, faces, bookmarks nested, the title, a link
+  over its words, right-aligned prices; forty sections over many pages inside the margins; text
+  beyond WinAnsi in FreeSans and CJK refused; a CSV of 150 records with its header on every page
+  and amounts aligned; a wide CSV sideways; empty and undrawable CSV refused), 8 unit tests
+  (blocks, task lists and pictures, wrapping, faces, nesting of headings, quoted fields,
+  separators, local numbers); pages rendered and looked at; self-test step `email` opens a
+  Markdown and a CSV file.
+- **Open:** RTF (S02); Markdown pictures, CSS and formulas; options for CSV (separator, header,
+  paper) in the interface; code in the Unicode font is not monospaced.
+
 ## 2026-10-21 — FOL-L012/S01: Clean Up Scans
 
 - **Current state before:** blank pages could be deleted (pages that draw nothing) and a picture

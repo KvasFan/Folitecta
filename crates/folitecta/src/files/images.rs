@@ -200,40 +200,83 @@ pub fn new_from_email(st: AppState) {
     });
 }
 
-/// New document from a plain text file (UTF-8, or Latin-1 when not valid UTF-8).
+/// The extensions of the text files made into documents: Markdown, CSV
+/// (tab-separated too) and plain text.
+pub(crate) const TEXT_FILES: [&str; 10] = [
+    "md", "markdown", "csv", "tsv", "txt", "text", "log", "ini", "json", "xml",
+];
+
+/// Whether a file is a Markdown or CSV file (opened as a document made from it).
+pub(crate) fn made_from_text(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| ["md", "markdown", "csv", "tsv"].contains(&e.to_ascii_lowercase().as_str()))
+}
+
+/// A new document made from the text file `name` (UTF-8, or Latin-1 when
+/// not valid UTF-8): Markdown set with its styles, CSV as a table, other
+/// text as it is.
+pub(crate) fn document_from_text(name: &str, bytes: Vec<u8>) -> folitecta_core::Result<Document> {
+    let text = match String::from_utf8(bytes) {
+        Ok(s) => s.trim_start_matches('\u{feff}').to_string(),
+        Err(e) => e.into_bytes().iter().map(|b| *b as char).collect(),
+    };
+    let (stem, ext) = name.rsplit_once('.').unwrap_or((name, ""));
+    let layout = folitecta_core::TextLayout::default();
+    let mut doc = match ext.to_ascii_lowercase().as_str() {
+        "md" | "markdown" => Document::from_markdown(&text, layout, "")?,
+        "csv" => Document::from_csv(&text, None, layout, stem)?,
+        "tsv" => Document::from_csv(&text, Some('\t'), layout, stem)?,
+        _ => Document::from_text(&text, layout)?,
+    };
+    if doc.info().title.is_empty() {
+        let _ = doc.set_info(stem, "", "", "");
+    }
+    doc.set_path(None);
+    doc.set_name_hint(&format!("{stem}.pdf"));
+    doc.clear_history();
+    Ok(doc)
+}
+
+/// Open a Markdown or CSV file as a new document made from it.
+pub fn open_text_file(st: AppState, path: &Path) {
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    match std::fs::read(path) {
+        Ok(data) => match document_from_text(&name, data) {
+            Ok(doc) => {
+                open_document_tab(st, doc);
+                st.toast(
+                    ToastKind::Ok,
+                    tf(st.lang(), "toast.opened", &[("name", &name)]),
+                    "",
+                );
+            }
+            Err(e) => st.error(format!("{name}: {}", st.core_error_text(&e))),
+        },
+        Err(e) => st.error(format!("{}: {e}", path.display())),
+    }
+}
+
+/// New document from a text file: Markdown, CSV or plain text.
 pub fn new_from_text_file(st: AppState) {
     spawn(async move {
         let Some(file) = rfd::AsyncFileDialog::new()
             .set_title("Create a PDF from a text file")
-            .add_filter("Text", &["txt", "text", "md", "csv", "log", "ini", "json", "xml"])
+            .add_filter("Text, Markdown and CSV", &TEXT_FILES)
             .add_filter("All files", &["*"])
             .pick_file()
             .await
         else {
             return;
         };
+        let name = file.file_name();
         let bytes = file.read().await;
-        let text = match String::from_utf8(bytes) {
-            Ok(s) => s.trim_start_matches('\u{feff}').to_string(),
-            Err(e) => e.into_bytes().iter().map(|b| *b as char).collect(),
-        };
-        match Document::from_text(&text, folitecta_core::TextLayout::default()) {
-            Ok(mut doc) => {
-                let stem = file
-                    .path()
-                    .file_stem()
-                    .map(|s| s.to_string_lossy().to_string())
-                    .unwrap_or_else(|| "text".into());
-                doc.set_path(None);
-                let _ = doc.set_info(&stem, "", "", "");
-                doc.clear_history();
-                let id = st.alloc_id();
-                st.docs_mut().push(DocTab::new(id, doc));
-                let n = st.docs.read().len();
-                st.set_active(n - 1);
-                set_window_title(st);
-            }
-            Err(e) => st.error(e),
+        match document_from_text(&name, bytes) {
+            Ok(doc) => open_document_tab(st, doc),
+            Err(e) => st.error(format!("{name}: {}", st.core_error_text(&e))),
         }
     });
 }

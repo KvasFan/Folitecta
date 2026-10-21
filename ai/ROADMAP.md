@@ -104,7 +104,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L005 | P1 | 🟡 | blank pages, from images, from text files, from the clipboard, combine files | CSV (local separators), Markdown with CSS and formulas, RTF with styles. |
+| FOL-L005 | P1 | 🟡 | blank pages, from images, from text files, from the clipboard, combine files; Markdown (CommonMark, tables, task lists; headings as bookmarks, links, code, quotes) and CSV (separator guessed, local numbers right-aligned, header repeated, wide tables sideways) set by a small typesetter | RTF with styles; Markdown pictures, CSS and formulas; a choice of separator, header and paper in the interface. |
 | FOL-L006 | P2 | 🟡 | e-mail messages (EML) made into documents: header lines, text, attachments embedded | Mail archives; office formats and HTML need a local engine decision. |
 | FOL-L007 | P2 | ⬜ | — | File associations (`help.fileAssoc`), virtual printer, office add-ins. |
 | FOL-L008 | P2 | ⬜ | — | XPS/OXPS, metafiles, CAD: engine decision first. |

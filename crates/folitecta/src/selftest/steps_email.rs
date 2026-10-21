@@ -3,7 +3,9 @@
 //! file embedded; the e-mail dialog prepares two pages of a protected
 //! document without its comments, reports a mail program that cannot take
 //! the files, and saves the draft, which holds that copy still protected.
-//! A stand-in takes the place of the mail program: nothing is started.
+//! A stand-in takes the place of the mail program: nothing is started. A
+//! Markdown file and a CSV file opened the same way become documents too:
+//! the Markdown set with its headings as bookmarks, the CSV as a table.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -86,7 +88,58 @@ async fn opens_as_document(cx: &mut Ctx<'_>) {
     );
 }
 
+/// Markdown and CSV files opened like PDFs.
+async fn text_files_open_as_documents(cx: &mut Ctx<'_>) {
+    let (st, dir) = (cx.st, cx.dir);
+    let md = "# Report\n\nSome **bold** text and a [link](https://example.org).\n\n## Figures\n\n| Item | Amount |\n|---|--:|\n| A | 1.234,50 |\n";
+    let csv = "Nome;Importo\nRossi;1.234,50\nBianchi;20,00\n";
+    let (md_path, csv_path) = (dir.join("report.md"), dir.join("ledger.csv"));
+    let written = std::fs::write(&md_path, md).is_ok() && std::fs::write(&csv_path, csv).is_ok();
+    let mut seen = Vec::new();
+    for path in [md_path, csv_path] {
+        let before = st.docs.read().len();
+        crate::files::open_path(st, path, None);
+        pause(600).await;
+        let opened = st.docs.read().len() == before + 1;
+        let (title, text, outline, id) = st
+            .read_active(|t| {
+                (
+                    t.title(),
+                    t.doc.page_text(0),
+                    t.doc
+                        .outline()
+                        .iter()
+                        .map(|o| o.title.clone())
+                        .collect::<Vec<_>>(),
+                    t.id,
+                )
+            })
+            .unwrap_or_default();
+        if opened {
+            crate::files::close_tab(st, id, true, AfterUnsaved::Close);
+            pause(300).await;
+        }
+        seen.push((opened, title, text, outline));
+    }
+    let ok = written
+        && seen.len() == 2
+        && seen[0].0
+        && seen[0].1 == "report.pdf"
+        && seen[0].2.contains("Some bold text and a link.")
+        && seen[0].3 == ["Report"]
+        && seen[1].0
+        && seen[1].1 == "ledger.pdf"
+        && seen[1].2.contains("Rossi")
+        && seen[1].2.contains("1.234,50");
+    cx.record(
+        "a Markdown file and a CSV file open as documents: the Markdown with its styles and headings as bookmarks, the CSV as a table",
+        ok,
+        format!("{seen:?}"),
+    );
+}
+
 pub(super) async fn run(cx: &mut Ctx<'_>) {
+    text_files_open_as_documents(cx).await;
     opens_as_document(cx).await;
     let (st, dir) = (cx.st, cx.dir);
     let lang = st.lang();

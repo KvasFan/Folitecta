@@ -32,6 +32,14 @@ All notable changes to Folitecta are documented here. The format follows
   the sheet, specks and show-through) and the sheets fed askew (from an angle you set) are listed
   with their thumbnails; each can be left out or shown, and the clean-up deletes the blank pages
   and straightens the others in one undo step.
+- Markdown and CSV files become documents (File › Open, dragged onto the window, or New › From
+  Text File). Markdown is set with its headings (which become bookmarks), bold, italic, code,
+  struck text, links that work, lists, task lists, quotes, code blocks, rules and tables;
+  pictures are shown by their description. A CSV file becomes a table: its separator guessed
+  (comma, semicolon, tab or bar), quoted fields kept whole, numbers aligned right in their local
+  forms, the header repeated on every page and the pages turned sideways when the table is
+  wide. Western European text is set in Helvetica, its bold and italic and Courier; other text in
+  the embedded Unicode font.
 - Every release package carries `THIRD-PARTY-LICENSES.txt`: the libraries built into the program
   for that system, each with its licence and the address of its source, and their licence texts
   (written by `crates/notices` from the published sources; a library without a text stops the

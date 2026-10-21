@@ -48,6 +48,9 @@ quick-xml.workspace = true
 base64.workspace = true
 # Document comparison: linear-space Myers diff with a deadline (Apache-2.0)
 similar = { version = "2", default-features = false }
+# Markdown read into documents: the CommonMark parser of rustdoc (MIT),
+# without its HTML writer and command line
+pulldown-cmark = { version = "0.13", default-features = false }
 # Palettes of 256 colours for indexed pictures, NeuQuant (MIT)
 color_quant = "1.1"
 # Digital signatures (RustCrypto, MIT/Apache-2.0)

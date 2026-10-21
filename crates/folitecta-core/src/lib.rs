@@ -44,9 +44,10 @@ pub use markup::{
     flatten, grouping, markup_tools, media, signmarks, smooth, stamp_design, stamps, tables,
 };
 pub use navigation::{layer_drawing, layers, links, outline};
+pub(crate) use organize::typeset;
 pub use organize::{
-    attachments, combine, compare, delivery, doctools, email, export, marks, metadata, pages, pagetools,
-    portfolio, print, scans, textdoc,
+    attachments, combine, compare, csvdoc, delivery, doctools, email, export, markdown, marks, metadata,
+    pages, pagetools, portfolio, print, scans, textdoc,
 };
 pub(crate) use page_text::{content_edit, content_lex};
 pub use page_text::{ocr, search, spelling, text, textedit, textlayer, textops};

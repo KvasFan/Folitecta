@@ -558,7 +558,12 @@ impl Document {
     }
 
     /// Add a link annotation, without an undo step of its own.
-    fn push_link_raw(&mut self, page: usize, rect: [f32; 4], action: Dictionary) -> Result<ObjectId> {
+    pub(crate) fn push_link_raw(
+        &mut self,
+        page: usize,
+        rect: [f32; 4],
+        action: Dictionary,
+    ) -> Result<ObjectId> {
         let page_id = self.page_id(page)?;
         let annot = dictionary! {
             "Type" => "Annot",

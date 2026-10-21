@@ -70,6 +70,13 @@ word with a letter read with less than 0.8 probability is written inside a marke
 sequence `/FolitectaDoubt <</Confidence c>> BDC ... EMC`, which the review lists from the page
 and removes when the word is kept, corrected (the run stretched to the same length) or taken
 away),
+`typeset` (the documents made from Markdown and CSV: styled spans broken into lines with the
+metrics of their faces, the standard Helvetica family and Courier for WinAnsi text or the
+Unicode font of `TextWriter` for the whole document, bold stroked and italic slanted there;
+pages filled top to bottom with paragraphs, list markers, quote bars, code boxes split across
+pages and tables whose header repeats; links as link annotations, headings as nested
+bookmarks), `markdown` (pulldown-cmark events read into blocks), `csvdoc` (fields in quotes,
+the separator that splits the first records alike, number columns aligned right),
 `scans` (Clean Up Scans: a page is a scan when one picture covers 85% of it; its ink is the
 share of pixels darker than half grey on a copy at most 1000 pixels long, leaving out 4% of each
 side, so specks, show-through and the shadows of the scanner do not count; its skew comes from

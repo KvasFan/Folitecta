@@ -2,11 +2,17 @@
 
 use super::*;
 
-/// Open a document from disk and show it in a new tab.
+/// Open a document from disk and show it in a new tab. An e-mail message,
+/// a Markdown or a CSV file opens as a new document made from it.
 pub fn open_path(st: AppState, path: PathBuf, password: Option<&str>) {
     // An e-mail message opens as a new document made from it.
     if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("eml")) {
         open_email(st, &path);
+        return;
+    }
+    // So do Markdown and CSV files.
+    if made_from_text(&path) {
+        open_text_file(st, &path);
         return;
     }
     // Already open? Just activate it.

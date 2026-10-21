@@ -34,10 +34,12 @@ pub(crate) fn pdf_dialog() -> rfd::AsyncFileDialog {
         .add_filter("All files", &["*"])
 }
 
-/// The dialog of File › Open: PDF documents, and e-mail messages made into documents.
+/// The dialog of File › Open: PDF documents, and e-mail messages, Markdown
+/// and CSV files made into documents.
 pub(crate) fn open_file_dialog() -> rfd::AsyncFileDialog {
     rfd::AsyncFileDialog::new()
         .add_filter("PDF documents", &["pdf"])
         .add_filter("E-mail messages", &["eml"])
+        .add_filter("Markdown and CSV", &["md", "markdown", "csv", "tsv"])
         .add_filter("All files", &["*"])
 }

@@ -55,6 +55,10 @@ pub struct Comparison {
     pub new_pages: usize,
     pub old_words: usize,
     pub new_words: usize,
+    /// For every page of the new document, the page of the old one to show
+    /// beside it: where its first word that both documents share is (pages
+    /// without one follow the page before them).
+    pub page_map: Vec<usize>,
 }
 
 impl Comparison {
@@ -153,6 +157,28 @@ fn spans(doc: &Document, words: &[Word]) -> Vec<PageSpan> {
     out
 }
 
+/// The old page beside every new page, from the pages of the words both
+/// documents share (new page, old page, in order).
+fn page_map(shared: &[(usize, usize)], new_pages: usize, old_pages: usize) -> Vec<usize> {
+    let mut first: Vec<Option<usize>> = vec![None; new_pages];
+    for &(np, op) in shared {
+        if let Some(slot) = first.get_mut(np) {
+            slot.get_or_insert(op);
+        }
+    }
+    let last = old_pages.saturating_sub(1);
+    let mut prev: Option<usize> = None;
+    first
+        .into_iter()
+        .enumerate()
+        .map(|(p, m)| {
+            let v = m.unwrap_or_else(|| prev.map(|q| q + 1).unwrap_or(p)).min(last);
+            prev = Some(v);
+            v
+        })
+        .collect()
+}
+
 impl Document {
     /// Compare the words of this (old) document with `new`. `ignore_case`
     /// treats "Word" and "word" as equal.
@@ -191,6 +217,7 @@ impl Document {
                 new_page: near(&wb, j0),
             });
         };
+        let pages: Vec<(usize, usize)> = pairs.iter().map(|&(pi, pj)| (wb[pj].page, wa[pi].page)).collect();
         for (pi, pj) in pairs {
             emit(i, pi, j, pj);
             i = pi + 1;
@@ -203,6 +230,7 @@ impl Document {
             new_pages: new.page_count(),
             old_words: wa.len(),
             new_words: wb.len(),
+            page_map: page_map(&pages, new.page_count(), self.page_count()),
         }
     }
 }
@@ -227,6 +255,16 @@ mod tests {
         let p = common_pairs(&a, &b);
         assert!(p.windows(2).all(|w| w[0].0 < w[1].0 && w[0].1 < w[1].1));
         assert!(p.iter().all(|(i, j)| a[*i] == b[*j]));
+    }
+
+    #[test]
+    fn pages_follow_the_words_they_share() {
+        // New page 1 is inserted (no shared word), new page 2 holds old page 1.
+        let shared = [(0, 0), (0, 0), (2, 1), (3, 2), (3, 3)];
+        assert_eq!(page_map(&shared, 5, 4), vec![0, 1, 1, 2, 3]);
+        // No shared word at all: page beside page, within the old document.
+        assert_eq!(page_map(&[], 3, 2), vec![0, 1, 1]);
+        assert!(page_map(&[], 0, 2).is_empty());
     }
 
     #[test]

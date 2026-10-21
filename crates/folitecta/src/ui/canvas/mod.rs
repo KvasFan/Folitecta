@@ -422,11 +422,36 @@ pub(crate) const CANVAS_EVENTS_SCRIPT: &str = r#"
     return [best >= 0 && n > 1 ? num(pages[best]) : -1, Math.min(a, b), Math.max(a, b)];
   };
   const report = c => { const s = shown(c); if (s) send(['view', c.id].concat(s)); };
+  // A comparison side by side: the other view follows the focused one, the
+  // page window.folitectaSync gives beside the page at the top, as far into
+  // it (only when the other view is marked to follow).
+  const follow = c => {
+    const map = window.folitectaSync;
+    if (!map || c.id !== 'canvas') return;
+    const o = document.getElementById('canvas-other');
+    if (!o || o.dataset.follow !== '1' || c.querySelector('.pages.horizontal')) return;
+    const pages = c.getElementsByClassName('page'); const n = pages.length;
+    if (!n) return;
+    const v = c.getBoundingClientRect();
+    let lo = 0, hi = n;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (pages[m].getBoundingClientRect().bottom <= v.top) lo = m + 1; else hi = m; }
+    const pg = pages[Math.min(lo, n - 1)];
+    const p = num(pg);
+    const q = p >= 0 && p < map.length ? map[p] : p;
+    const t = document.getElementById('spg-' + q);
+    if (!t) return;
+    const r = pg.getBoundingClientRect();
+    const f = Math.min(1, Math.max(0, (v.top - r.top) / Math.max(1, r.height)));
+    const tr = t.getBoundingClientRect();
+    o.scrollTop += (tr.top - o.getBoundingClientRect().top) + f * tr.height;
+  };
+  window.folitectaFollow = () => { const c = document.getElementById('canvas'); if (c) follow(c); };
   // At the first scroll event, then at most every 100 ms and once after the last.
   const waiting = new Map();
   document.addEventListener('scroll', e => {
     const c = e.target;
     if (!c || !c.classList || !c.classList.contains('canvas')) return;
+    follow(c);
     if (waiting.has(c)) { waiting.set(c, true); return; }
     report(c);
     waiting.set(c, false);
@@ -526,11 +551,31 @@ pub(crate) async fn follow_canvas_events(st: AppState) {
                 let (Some(top), Some(first), Some(last)) = (num(2), num(3), num(4)) else {
                     continue;
                 };
+                // The other view of a comparison side by side shows the other document.
+                let source = st
+                    .read_active(|t| t.split.as_ref().filter(|_| !focused).and_then(|s| s.source))
+                    .flatten();
+                let source_pages = source.and_then(|id| {
+                    st.docs
+                        .peek()
+                        .iter()
+                        .find(|t| t.id == id)
+                        .map(|t| t.doc.page_count())
+                });
+                if source.is_some() && source_pages.is_none() {
+                    continue;
+                }
                 let Some((tab, pane, layout, page, n)) = st.read_active(|t| {
                     let n = t.doc.page_count();
                     let focus = t.split.as_ref().map(|s| s.focus.min(1)).unwrap_or(0) as usize;
                     match t.split.as_ref().filter(|_| !focused) {
-                        Some(s) => (t.id, 1 - focus, s.other.layout, s.other.page, n),
+                        Some(s) => (
+                            s.source.unwrap_or(t.id),
+                            1 - focus,
+                            s.other.layout,
+                            s.other.page,
+                            source_pages.unwrap_or(n),
+                        ),
                         None => (t.id, focus, t.layout, t.page, n),
                     }
                 }) else {
@@ -694,25 +739,26 @@ fn Canvas(pane: u8) -> Element {
     let dpr = (st.dpr)();
     let tool = (st.tool)();
     let rulers = option_on(st, "view.showRulers");
-    let Some((tab_id, revs, count, split, stamps)) = st.read_active(|t| {
-        let count = t.doc.page_count();
-        (
-            t.id,
-            t.page_shown.clone(),
-            count,
-            t.split.clone(),
-            page_stamps(t, count),
-        )
-    }) else {
+    let Some(split) = st.read_active(|t| t.split.clone()) else {
         return rsx! {};
     };
     let split_on = split.is_some();
     let focused = split.as_ref().is_none_or(|s| s.focus == pane);
+    // The other document of a comparison side by side, for the view not focused.
+    let source = split.as_ref().filter(|_| !focused).and_then(|s| s.source);
+    let Some((tab_id, revs, count, stamps)) = read_tab(st, source, |t| {
+        let count = t.doc.page_count();
+        (t.id, t.page_shown.clone(), count, page_stamps(t, count))
+    }) else {
+        return rsx! {};
+    };
     let (view, zoom) = match split.as_ref().filter(|_| !focused) {
         Some(s) => (
             s.other,
-            st.read_active(|t| commands::zoom_for(t, &s.other, s.other_size, rulers))
-                .unwrap_or(1.0),
+            read_tab(st, source, |t| {
+                commands::zoom_for(t, &s.other, s.other_size, rulers)
+            })
+            .unwrap_or(1.0),
         ),
         None => match st.read_active(|t| t.view_state()) {
             Some(v) => (v, current_zoom(st)),
@@ -763,23 +809,22 @@ fn Canvas(pane: u8) -> Element {
         Some((_, a, b)) if page >= a && page <= b => (a, b),
         _ => (page.saturating_sub(4), (page + 4).min(count.saturating_sub(1))),
     };
-    let sizes: Vec<(f32, f32)> = st
-        .read_active(|t| {
-            (0..count)
-                .map(|p| {
-                    let s = t.page_sizes.get(p);
-                    let (w, h) = s.map(|s| (s.width, s.height)).unwrap_or((595.0, 842.0));
-                    if rotation % 180 != 0 {
-                        (h * zoom, w * zoom)
-                    } else {
-                        (w * zoom, h * zoom)
-                    }
-                })
-                .collect()
-        })
-        .unwrap_or_default();
+    let sizes: Vec<(f32, f32)> = read_tab(st, source, |t| {
+        (0..count)
+            .map(|p| {
+                let s = t.page_sizes.get(p);
+                let (w, h) = s.map(|s| (s.width, s.height)).unwrap_or((595.0, 842.0));
+                if rotation % 180 != 0 {
+                    (h * zoom, w * zoom)
+                } else {
+                    (w * zoom, h * zoom)
+                }
+            })
+            .collect()
+    })
+    .unwrap_or_default();
     let preview = crate::ui::panes::thumb_render_scale(st);
-    let labels = st.read_active(|t| t.doc.page_labels()).unwrap_or_default();
+    let labels = read_tab(st, source, |t| t.doc.page_labels()).unwrap_or_default();
     let gaps = option_on(st, "view.layout.showGaps");
     let r2l = option_on(st, "view.layout.r2l");
     let cover = option_on(st, "view.layout.showCover");
@@ -798,7 +843,16 @@ fn Canvas(pane: u8) -> Element {
             Some((a, b)) => Some((a.min(p), b.max(p))),
             None => Some((p, p)),
         });
-    st.peek_active(|t| t.render.set_held_view(usize::from(pane.min(1)), held));
+    match source {
+        Some(id) => {
+            if let Some(t) = st.docs.peek().iter().find(|t| t.id == id) {
+                t.render.set_held_view(usize::from(pane.min(1)), held);
+            }
+        }
+        None => {
+            st.peek_active(|t| t.render.set_held_view(usize::from(pane.min(1)), held));
+        }
+    }
     let canvas_id = if focused { "canvas" } else { "canvas-other" };
     let tool_class = match tool {
         _ if !focused => "other",
@@ -830,6 +884,8 @@ fn Canvas(pane: u8) -> Element {
         div {
             id: canvas_id,
             class: "{canvas_class}",
+            // Followed by the focused view (see CANVAS_EVENTS_SCRIPT).
+            "data-follow": if source.is_some() { "1" } else { "" },
             onresize: move |evt| {
                 if let Ok(size) = evt.data().get_content_box_size() {
                     let size = (size.width, size.height);
@@ -891,9 +947,16 @@ fn StillPage(
 ) -> Element {
     let st = use_context::<AppState>();
     // Read without following the documents: the page changes with its properties.
-    let Some(size) = st.peek_active(|t| t.page_sizes.get(page).copied()).flatten() else {
+    let Some(size) = st
+        .docs
+        .peek()
+        .iter()
+        .find(|t| t.id == tab_id)
+        .and_then(|t| t.page_sizes.get(page).copied())
+    else {
         return rsx! {};
     };
+    let marks = page::compare_marks(st, tab_id, page, size.width);
     let mut filter = String::new();
     if option_on(st, "view.darkPageMode") {
         filter.push_str("invert(1) hue-rotate(180deg) ");
@@ -927,9 +990,20 @@ fn StillPage(
         div { id: "spg-{page}", class: "page", "data-page": "{page}", style: "width:{outer_w}px;height:{outer_h}px",
             div { class: "page-inner", style: "width:{inner_w}px;height:{inner_h}px;transform:{transform}",
                 img { class: "page-img", src: (scale > 0).then(|| format!("/page/{tab_id}/{page}/{rev}/{scale}.png?lane=view")), alt: "", decoding: "async", draggable: "false", style: "{img_style}" }
+                for (i, (class, r)) in marks.iter().enumerate() {
+                    div { key: "c{i}", class: "{class}", style: "left:{r[0] * zoom}px;top:{r[1] * zoom}px;width:{((r[2] - r[0]) * zoom).max(2.0)}px;height:{((r[3] - r[1]) * zoom).max(2.0)}px" }
+                }
             }
             div { class: "page-label", "{number}" }
         }
+    }
+}
+
+/// Read the tab `id` (None: the active one).
+fn read_tab<T>(st: AppState, id: Option<u64>, f: impl FnOnce(&crate::state::DocTab) -> T) -> Option<T> {
+    match id {
+        None => st.read_active(f),
+        Some(id) => st.docs.read().iter().find(|t| t.id == id).map(f),
     }
 }
 

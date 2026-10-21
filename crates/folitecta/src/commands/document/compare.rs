@@ -7,7 +7,7 @@ use folitecta_core::compare::DiffKind;
 
 use crate::commands::{handlers, no_doc};
 use crate::i18n::{t, tf};
-use crate::state::{AppState, CompareState, Dialog, Pane, ToastKind};
+use crate::state::{AppState, CompareState, Dialog, Pane, SplitView, ToastKind};
 
 fn need_comparison(st: AppState) -> Option<CompareState> {
     let c = st.comparison.peek().clone();
@@ -46,6 +46,8 @@ pub fn run(st: AppState, old: u64, new: u64, ignore_case: bool) {
         st.set_busy(false);
         match result {
             Ok(Ok(result)) => {
+                // A comparison side by side shown before ends: its pages were matched by that one.
+                end_side_by_side(st);
                 let n = result.differences.len();
                 *st.comparison.write_unchecked() = Some(CompareState {
                     old_tab: old,
@@ -92,8 +94,18 @@ pub fn goto(st: AppState, i: usize) {
     if let Some(cs) = st.comparison.write_unchecked().as_mut() {
         cs.current = i;
     }
-    // Deletions are only visible in the old document.
-    let (tab, page, rects) = if d.kind == DiffKind::Deleted {
+    // Deletions are only visible in the old document: shown there, unless
+    // the documents are side by side (the old one follows the new one).
+    let (tab, page, rects) = if side_by_side(st, &c) {
+        (
+            c.new_tab,
+            d.new_page,
+            d.new
+                .first()
+                .map(|s| s.rects.clone())
+                .filter(|_| d.kind != DiffKind::Deleted),
+        )
+    } else if d.kind == DiffKind::Deleted {
         (c.old_tab, d.old_page, d.old.first().map(|s| s.rects.clone()))
     } else {
         (c.new_tab, d.new_page, d.new.first().map(|s| s.rects.clone()))
@@ -151,18 +163,73 @@ fn show_doc(st: AppState, old: bool) {
     }
 }
 
-/// Switch between the two documents.
+/// The documents of the comparison are side by side.
+fn side_by_side(st: AppState, c: &CompareState) -> bool {
+    st.docs
+        .peek()
+        .iter()
+        .find(|t| t.id == c.new_tab)
+        .is_some_and(|t| t.split.as_ref().is_some_and(|s| s.source == Some(c.old_tab)))
+}
+
+/// Tell the views which page of the old document goes beside each page of
+/// the new one (None: they no longer follow each other), and line them up.
+fn set_follow(map: Option<&[usize]>) {
+    let js = match map {
+        Some(m) => format!(
+            "window.folitectaSync = {}; setTimeout(() => window.folitectaFollow && window.folitectaFollow(), 400);",
+            serde_json::to_string(m).unwrap_or_else(|_| "null".into())
+        ),
+        None => "window.folitectaSync = null;".to_string(),
+    };
+    spawn(async move {
+        let _ = document::eval(&js).await;
+    });
+}
+
+/// End every comparison side by side.
+fn end_side_by_side(st: AppState) {
+    let mut ended = false;
+    for t in st.docs_mut().iter_mut() {
+        if t.split.as_ref().is_some_and(|s| s.source.is_some()) {
+            t.split = None;
+            ended = true;
+        }
+    }
+    if ended {
+        set_follow(None);
+    }
+}
+
+/// The two documents side by side: the new one on the right, with every
+/// tool, the old one on the left following it page for page, both with
+/// their differences marked. Again: the new document alone.
 fn show_both(st: AppState) {
     let Some(c) = need_comparison(st) else { return };
-    let active = st.read_active(|t| t.id);
-    let other = if active == Some(c.new_tab) {
-        c.old_tab
-    } else {
-        c.new_tab
+    let (Some(new), Some(_)) = (tab_index(st, c.new_tab), tab_index(st, c.old_tab)) else {
+        st.toast(ToastKind::Info, t(st.lang(), "toast.compare_closed"), "");
+        return;
     };
-    if let Some(i) = tab_index(st, other) {
-        st.set_active(i);
+    st.set_active(new);
+    if side_by_side(st, &c) {
+        st.with_active(|t| t.split = None);
+        set_follow(None);
+        return;
     }
+    let size = *st.canvas_size.peek();
+    let map = c.result.page_map.clone();
+    st.with_active(|t| {
+        let mut other = t.view_state();
+        other.page = map.get(t.page).copied().unwrap_or(0);
+        t.split = Some(SplitView {
+            side_by_side: true,
+            focus: 1,
+            other,
+            other_size: (size.0 / 2.0, size.1),
+            source: Some(c.old_tab),
+        });
+    });
+    set_follow(Some(&map));
 }
 
 /// A new document listing every difference.
@@ -252,6 +319,7 @@ pub fn compare_state(st: AppState, id: &str) -> Option<bool> {
         "cmpDocs.filter.list" => Some(filter == "list"),
         "cmpDocs.filter.none" => Some(filter == "none"),
         "cmpDocs.show.rowHighlights" => Some(c.as_ref().is_some_and(|c| c.rows)),
+        "cmpDocs.show.both" => Some(c.as_ref().is_some_and(|c| side_by_side(st, c))),
         _ => None,
     }
 }

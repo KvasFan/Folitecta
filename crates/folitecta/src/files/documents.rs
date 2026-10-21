@@ -287,6 +287,12 @@ pub fn close_tab(st: AppState, id: u64, force: bool, then: AfterUnsaved) {
         return;
     }
     let tab = st.docs_mut().remove(idx);
+    // A comparison side by side with this document ends.
+    for t in st.docs_mut().iter_mut() {
+        if t.split.as_ref().is_some_and(|s| s.source == Some(id)) {
+            t.split = None;
+        }
+    }
     if let Some(p) = path {
         crate::commands::history::record_close(st, &p, tab.page, &tab.doc);
         st.closed_mut().push(p);

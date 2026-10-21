@@ -330,7 +330,11 @@ impl AppState {
         let swapped = self
             .with_active(|t| {
                 let mine = t.view_state();
-                let s = t.split.as_mut().filter(|s| s.focus != pane)?;
+                // The other document of a comparison is shown, not worked on.
+                let s = t
+                    .split
+                    .as_mut()
+                    .filter(|s| s.focus != pane && s.source.is_none())?;
                 let other = std::mem::replace(&mut s.other, mine);
                 let other_size = std::mem::replace(&mut s.other_size, size);
                 s.focus = pane;

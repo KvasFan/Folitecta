@@ -36,6 +36,16 @@ fn split(st: AppState, side_by_side: bool) {
     }
     let size = *st.canvas_size.peek();
     st.with_active(|t| match t.split.as_mut() {
+        // A comparison side by side ends: a split of the document starts.
+        Some(s) if s.source.is_some() => {
+            t.split = Some(SplitView {
+                side_by_side,
+                focus: 0,
+                other: t.view_state(),
+                other_size: size,
+                source: None,
+            })
+        }
         Some(s) if s.side_by_side == side_by_side => t.split = None,
         Some(s) => s.side_by_side = side_by_side,
         None => {
@@ -44,6 +54,7 @@ fn split(st: AppState, side_by_side: bool) {
                 focus: 0,
                 other: t.view_state(),
                 other_size: size,
+                source: None,
             })
         }
     });
@@ -60,10 +71,15 @@ fn remove(st: AppState) {
 
 /// Check states of the split commands.
 pub fn split_state(st: AppState, id: &str) -> Option<bool> {
-    let side = |s: &SplitView| s.side_by_side;
+    // A comparison side by side is not a split of the document.
+    let side = |s: &SplitView| s.source.is_none() && s.side_by_side;
     match id {
         "window.split.vert" => st.read_active(|t| t.split.as_ref().is_some_and(side)),
-        "window.split.horz" => st.read_active(|t| t.split.as_ref().is_some_and(|s| !side(s))),
+        "window.split.horz" => st.read_active(|t| {
+            t.split
+                .as_ref()
+                .is_some_and(|s| s.source.is_none() && !s.side_by_side)
+        }),
         _ => None,
     }
 }

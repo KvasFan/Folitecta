@@ -136,7 +136,7 @@ already in 0.2.0.
 | Navigation data | Bookmark tree editing (drag and drop, styles, destinations, import and export), named destinations, links; attachments (columns, open, save, edit); form fields (name groups, sorting, selection by type, manual tab order); signature fields |
 | Portfolios | Portfolios made from files, folders, details or tiles, with columns and sorting, preview, file information, initial file and cover |
 | Accessibility | Automatic tagging; a tags pane with full editing (role map, class map, tags from a selection, artifacts); reading order with numbered boxes on the page; content pane; alternate text of figures; a 32-rule accessibility check with automatic fixes and a report |
-| Compare | Two documents compared word by word, the differences highlighted on both, listed and visited, with a report document |
+| Compare | Two documents compared word by word, the differences highlighted on both, listed and visited, with a report document; shown side by side, the old document following the new one page for page as it scrolls |
 | Stamps and tables | A stamps pane with collections and favourites, a stamp designer with templates and fields filled in at placement; tables drawn on the page and edited cell by cell |
 | History and sessions | Documents opened before, with thumbnails and pins; sessions of open documents saved and opened again |
 | Calculator, scripts and media | Accounting calculator tapes on the page; a JavaScript console with snippets and named document scripts; sound and video comments with a media player |

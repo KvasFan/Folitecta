@@ -502,44 +502,7 @@ pub(super) fn PageView(
     let (unit_pt, minor, major, unit_name) = unit_info(&units);
     let grid_px = grid_step(st) * z;
     let sel_first = view.sel.first().copied();
-    // Differences of a comparison this document is part of.
-    let cmp_marks: Vec<(String, [f32; 4])> = {
-        let c = st.comparison.read();
-        match c.as_ref() {
-            Some(c) if c.filter != "none" && (tab_id == c.old_tab || tab_id == c.new_tab) => {
-                let old = tab_id == c.old_tab;
-                let mut out = Vec::new();
-                for (i, d) in c.result.differences.iter().enumerate() {
-                    if c.filter == "list" && i != c.current {
-                        continue;
-                    }
-                    let spans = if old { &d.old } else { &d.new };
-                    let kind = match d.kind {
-                        folitecta_core::compare::DiffKind::Inserted => "ins",
-                        folitecta_core::compare::DiffKind::Deleted => "del",
-                        folitecta_core::compare::DiffKind::Changed => "chg",
-                    };
-                    let class = if i == c.current {
-                        format!("cmp {kind} current")
-                    } else {
-                        format!("cmp {kind}")
-                    };
-                    for s in spans.iter().filter(|s| s.page == page) {
-                        for r in &s.rects {
-                            let r = if c.rows {
-                                [0.0, r[1], view.size.width, r[3]]
-                            } else {
-                                *r
-                            };
-                            out.push((class.clone(), r));
-                        }
-                    }
-                }
-                out
-            }
-            _ => Vec::new(),
-        }
-    };
+    let cmp_marks = compare_marks(st, tab_id, page, view.size.width);
     // In-progress multi-click shape on this page: points string and vertex dots.
     let drawing_here = (st.drawing)().filter(|(p, _)| *p == page).map(|(_, v)| v);
     let multi_vertices: Vec<(f32, f32)> = drawing_here
@@ -1091,4 +1054,42 @@ pub(super) fn PageView(
             }
         }
     }
+}
+
+/// The differences of a comparison that tab `tab_id` is part of, on `page`
+/// of its document: the class and rectangle (display points) of each mark;
+/// whole rows `width` wide when rows are highlighted.
+pub(super) fn compare_marks(st: AppState, tab_id: u64, page: usize, width: f32) -> Vec<(String, [f32; 4])> {
+    let c = st.comparison.read();
+    let Some(c) = c
+        .as_ref()
+        .filter(|c| c.filter != "none" && (tab_id == c.old_tab || tab_id == c.new_tab))
+    else {
+        return Vec::new();
+    };
+    let old = tab_id == c.old_tab;
+    let mut out = Vec::new();
+    for (i, d) in c.result.differences.iter().enumerate() {
+        if c.filter == "list" && i != c.current {
+            continue;
+        }
+        let spans = if old { &d.old } else { &d.new };
+        let kind = match d.kind {
+            folitecta_core::compare::DiffKind::Inserted => "ins",
+            folitecta_core::compare::DiffKind::Deleted => "del",
+            folitecta_core::compare::DiffKind::Changed => "chg",
+        };
+        let class = if i == c.current {
+            format!("cmp {kind} current")
+        } else {
+            format!("cmp {kind}")
+        };
+        for s in spans.iter().filter(|s| s.page == page) {
+            for r in &s.rects {
+                let r = if c.rows { [0.0, r[1], width, r[3]] } else { *r };
+                out.push((class.clone(), r));
+            }
+        }
+    }
+    out
 }

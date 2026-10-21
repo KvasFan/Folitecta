@@ -564,4 +564,88 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         st.ui_mut().left_pane = "thumbnails".into();
         pause(400).await;
     }
+    side_by_side(cx).await;
+}
+
+/// 34b. The compared documents side by side: the old one beside the new one,
+/// its differences marked, following the new one page for page across a
+/// page inserted in the new one; Both again shows the new one alone.
+async fn side_by_side(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    let page = |i: usize| {
+        format!("Page {i} of the report. The quick brown fox jumps over the lazy dog, number {i}.")
+    };
+    let old_text = (0..6).map(page).collect::<Vec<_>>().join("\u{c}");
+    let mut new_pages: Vec<String> = (0..6).map(page).collect();
+    new_pages.insert(
+        2,
+        "An inserted page with entirely new words about something else.".into(),
+    );
+    new_pages[5] = new_pages[5].replace("lazy", "sleepy");
+    let make = |text: &str| folitecta_core::Document::from_text(text, Default::default());
+    let (Ok(a), Ok(b)) = (make(&old_text), make(&new_pages.join("\u{c}"))) else {
+        cx.record(
+            "comparison side by side",
+            false,
+            "the documents could not be made".into(),
+        );
+        return;
+    };
+    crate::files::open_document_tab(st, a);
+    let old = st.read_active(|t| t.id).unwrap_or(0);
+    crate::files::open_document_tab(st, b);
+    let new = st.read_active(|t| t.id).unwrap_or(0);
+    crate::commands::compare::run(st, old, new, false);
+    for _ in 0..40 {
+        pause(150).await;
+        if st.comparison.read().is_some() {
+            break;
+        }
+    }
+    let map = st
+        .comparison
+        .read()
+        .as_ref()
+        .map(|c| c.result.page_map.clone())
+        .unwrap_or_default();
+    crate::commands::dispatch(st, "cmpDocs.show.both");
+    pause(900).await;
+    let number = |js: &'static str| async move { eval(js).await.ok().and_then(|v| v.as_i64()).unwrap_or(-1) };
+    let follows = number(
+        "const o = document.getElementById('canvas-other'); return o && o.dataset.follow === '1' ? 1 : 0;",
+    )
+    .await
+        == 1;
+    let old_pages = number("return document.querySelectorAll('#canvas-other [id^=spg-]').length;").await;
+    let checked = crate::commands::compare::compare_state(st, "cmpDocs.show.both") == Some(true);
+    // The new document scrolled to its page 5 (index 4): the old one shows page 4.
+    let _ = eval("document.getElementById('pg-4')?.scrollIntoView({ block: 'start' });").await;
+    pause(900).await;
+    let top_old = number(
+        "const o = document.getElementById('canvas-other'); if (!o) return -1; const v = o.getBoundingClientRect(); for (const p of o.querySelectorAll('[id^=spg-]')) { if (p.getBoundingClientRect().bottom > v.top + 24) return +p.dataset.page; } return -1;",
+    )
+    .await;
+    let marks = number("return document.querySelectorAll('#canvas-other .cmp').length;").await;
+    let _ = capture_window(&cx.dir.join("interaction-compare-side-by-side.png"));
+    crate::commands::dispatch(st, "cmpDocs.show.both");
+    pause(500).await;
+    let ended = st.read_active(|t| t.split.is_none()).unwrap_or(false)
+        && number("return document.getElementById('canvas-other') ? 1 : 0;").await == 0;
+    *st.comparison.write_unchecked() = None;
+    st.docs_mut().retain(|t| t.id != old && t.id != new);
+    st.set_active(0);
+    pause(400).await;
+    cx.record(
+        "compared documents side by side: the old one follows the new one page for page across an inserted page, with its differences marked",
+        map == [0, 1, 2, 2, 3, 4, 5]
+            && follows
+            && checked
+            && old_pages == 6
+            && top_old == 3
+            && marks > 0
+            && ended,
+        format!(
+            "map {map:?}, follows {follows}, checked {checked}, old pages {old_pages}, old page at the top {top_old}, marks {marks}, ended {ended}"
+        ),
+    );
 }

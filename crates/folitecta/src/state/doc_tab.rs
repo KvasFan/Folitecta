@@ -96,7 +96,9 @@ pub struct ViewState {
 /// A second view of the document, beside or below the first (Window ›
 /// Split). The focused view is the one of the tab (`page`, `zoom`, ...), so
 /// every command acts on it; the other one is kept here, and they change
-/// places when the other one is clicked.
+/// places when the other one is clicked. In a comparison side by side the
+/// other view shows the other document, follows the focused one and is not
+/// focused.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SplitView {
     /// Side by side, or one above the other.
@@ -106,6 +108,8 @@ pub struct SplitView {
     /// The view not focused, and the size of its canvas.
     pub other: ViewState,
     pub other_size: (f64, f64),
+    /// The tab whose document the other view shows (None: this one).
+    pub source: Option<u64>,
 }
 
 /// One open document tab.

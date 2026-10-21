@@ -272,7 +272,10 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
     split window shows two views of a tab: the focused one keeps its state in the tab (`page`,
     `zoom`, `layout`, `view_rotation`) and the ids `canvas` and `pg-N` the commands look for;
     the other one (`SplitView`) shows the pictures of its pages, and the two change places when
-    it is clicked;
+    it is clicked. In a comparison side by side the other view shows the old document
+    (`SplitView::source`) with its differences marked and is never focused; the canvas script
+    scrolls it with the focused view, the page `Comparison::page_map` gives beside the page at
+    the top (the old page of its first word both documents share), as far into it;
   - `dialogs/` and `features/` — dialogs, and the windows and editors of the features
     (pictures, stamps, signatures, forms, tables, media, calculator, scripts, …).
 - `theme.rs` and `assets/styles/` — `theme.css` holds the colour tokens of every theme (light,

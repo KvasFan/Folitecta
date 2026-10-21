@@ -40,6 +40,12 @@ All notable changes to Folitecta are documented here. The format follows
   forms, the header repeated on every page and the pages turned sideways when the table is
   wide. Western European text is set in Helvetica, its bold and italic and Courier; other text in
   the embedded Unicode font.
+- Compared documents side by side (Compare Documents › Show › Both): the new document on the
+  right with every tool, the old one on the left with its differences marked, following the new
+  one as it scrolls; each page of the new document is matched with the page of the old one that
+  holds its first word both share, so pages inserted or removed do not put them out of step.
+  Moving between the differences keeps the new document in front. Both again shows the new
+  document alone.
 - Every release package carries `THIRD-PARTY-LICENSES.txt`: the libraries built into the program
   for that system, each with its licence and the address of its source, and their licence texts
   (written by `crates/notices` from the published sources; a library without a text stops the

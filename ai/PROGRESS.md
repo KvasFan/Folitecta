@@ -4,6 +4,25 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-21 — FOL-L035/S01: compared documents side by side
+
+- **Current state before:** the differences were marked on both documents, but only one was
+  shown at a time; Show › Both switched between them.
+- **Changed:** `Comparison::page_map` (the old page beside each new page: where its first word
+  both documents share is, pages without one after the page before them). `SplitView::source`:
+  the other view of a split shows another tab's document (its sizes, pictures, labels and the
+  pages its render service holds), with the difference marks of the page view (now
+  `compare_marks`), and is not focused. Show › Both puts the new document on the right and the
+  old one on the left; the canvas script scrolls the old view with the new one (the matched page
+  at the top, as far into it); moving between differences stays in the new document; a new
+  comparison, closing either document or a split of the window ends it; Both again ends it.
+- **Checked:** unit test of the page matching (inserted pages, no shared words, empty);
+  self-test step `panes`: seven pages against six with one inserted and one word changed, the
+  map, the other view marked to follow with six pages and its marks, the old page 4 beside the
+  new page 5 after scrolling, Both again back to one view; the render-write check.
+- **Open:** geometry and picture differences; following in the horizontal layout, and the new
+  document following the old one.
+
 ## 2026-10-21 — FOL-L005/S01: Markdown and CSV documents
 
 - **Current state before:** text files became documents as plain text, so Markdown showed its

@@ -1102,6 +1102,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("ocr", Dialog::Ocr { pictures_only: false }),
         ("ocr-pictures", Dialog::Ocr { pictures_only: true }),
         ("clean-up-scans", Dialog::CleanUpScans),
+        ("tick-marks", Dialog::TickMarks),
         ("bookmarks-from-headings", Dialog::BookmarksFromHeadings),
         ("insert-contents", Dialog::InsertContents),
         (

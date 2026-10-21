@@ -75,6 +75,8 @@ pub enum Tool {
     /// Draw the area of a page whose barcodes are read.
     BarcodeScan,
     Calculator,
+    /// Place tick marks with clicks.
+    Tick,
     ZoomDyn,
     Sound,
     Video,
@@ -173,6 +175,7 @@ impl Tool {
             Tool::Barcode => "tool.selBarcodePlace",
             Tool::BarcodeScan => "document.detectBarcodes",
             Tool::Calculator => "comments.accountingCalc",
+            Tool::Tick => "tool.annot.tickMark",
             Tool::ZoomDyn => "tool.zoomDyn",
             Tool::Sound => "tool.annot.sound",
             Tool::Video => "tool.annot.editVideo",
@@ -237,6 +240,7 @@ impl Tool {
             Tool::Barcode => "tool.barcode",
             Tool::BarcodeScan => "tool.barcode_scan",
             Tool::Calculator => "tool.calculator",
+            Tool::Tick => "tool.tick",
             Tool::ZoomDyn => "tool.zoom_dyn",
             Tool::Sound => "tool.sound",
             Tool::Video => "tool.video",

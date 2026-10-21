@@ -106,6 +106,7 @@ pub(crate) fn text_problem(doc: &lopdf::Document, d: &Dictionary) -> Option<Glyp
                 || name.starts_with("FolitectaDesign")
                 || name == crate::tables::TABLE_STAMP
                 || name == crate::calculator::CALC_STAMP
+                || name == crate::ticks::TICK_STAMP
                 || name == "FolitectaImage";
             if drawing_kept || !(name.starts_with("Folitecta") || !d.has(b"AP") || appearance_is_ours(doc, d))
             {
@@ -522,6 +523,21 @@ impl Document {
                     let previous = previous_font(doc, d, &writer);
                     for (k, v) in self.drawing_resources(writer, previous)?.iter() {
                         resources.set(k.clone(), v.clone());
+                    }
+                    body.push_str(&content);
+                } else if name == crate::ticks::TICK_STAMP {
+                    // Tick marks are drawn again from their mark for the new rectangle.
+                    let mark: Option<crate::ticks::TickMark> = match d.get(b"FolitectaTick") {
+                        Ok(Object::String(s, _)) => serde_json::from_slice(s).ok(),
+                        _ => None,
+                    };
+                    let Some(mark) = mark else { return Ok(false) };
+                    let (content, writer) = mark.drawing(rect)?;
+                    if let Some(writer) = writer {
+                        let previous = previous_font(doc, d, &writer);
+                        for (k, v) in self.drawing_resources(writer, previous)?.iter() {
+                            resources.set(k.clone(), v.clone());
+                        }
                     }
                     body.push_str(&content);
                 } else if name == crate::calculator::CALC_STAMP {

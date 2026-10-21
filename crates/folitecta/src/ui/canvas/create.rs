@@ -178,9 +178,9 @@ pub fn finish_drawing(st: AppState) {
 
 pub fn after_create(st: AppState) {
     files::set_window_title(st);
-    // A freehand drawing takes many strokes: the pencil and the free
-    // highlighter stay chosen.
-    let freehand = matches!(*st.tool.peek(), Tool::Ink | Tool::FreeHighlight);
+    // A freehand drawing takes many strokes, tick marks go one after the
+    // other: the pencil, the free highlighter and the tick marks stay chosen.
+    let freehand = matches!(*st.tool.peek(), Tool::Ink | Tool::FreeHighlight | Tool::Tick);
     if !freehand && !option_on(st, "tool.keepSelected") {
         st.set_tool(Tool::Hand);
     }
@@ -218,6 +218,8 @@ pub(super) fn finish_create(
             .collect()
     };
     let result: Option<folitecta_core::Result<()>> = match tool {
+        // A tick mark where the click was.
+        Tool::Tick => Some(crate::commands::ticks::place(st, page, point)),
         Tool::Note => {
             st.set_dialog(Dialog::Note {
                 page,

@@ -17,3 +17,4 @@ pub mod smooth;
 pub mod stamp_design;
 pub mod stamps;
 pub mod tables;
+pub mod ticks;

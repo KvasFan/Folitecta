@@ -4,6 +4,22 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-21 — FOL-L029/S01: tick marks
+
+- **Current state before:** marks had to be drawn as shapes or stamps one by one, numbers typed.
+- **Changed:** `markup/ticks.rs`: `TickMark` (shape, text, size, colour), `TickShape` (check,
+  cross, dot, text, circled), `Sequence` (numbers, upper and lower letters like spreadsheet
+  columns, roman numerals), `add_tick_mark` (a `/FolitectaTick` stamp keeping its mark as JSON,
+  its rectangle centred on the click, wider for long texts) and `tick_mark_at`; the appearance
+  draws it again from its mark when resized. Tool Tick Mark… (Comment › Drawing): a dialog for
+  the mark, then each click places one and the sequence goes on; the tool stays chosen, the
+  next mark is shown in the status bar.
+- **Checked:** `tests/ticks.rs` (3: five kinds placed and listed, the mark kept, found after
+  flattening; redrawn when resized; text beyond WinAnsi, undrawable and empty texts refused
+  with nothing changed); unit tests of the sequences and sizes; marks rendered and looked at;
+  self-test step `tools` (circled numbers 3 and 4 by two clicks, next 5) and the dialog state.
+- **Open:** saved sets of tick styles; counting the marks of a document.
+
 ## 2026-10-21 — FOL-L028/S01: angles, radii and volumes
 
 - **Current state before:** distances, perimeters and areas only.

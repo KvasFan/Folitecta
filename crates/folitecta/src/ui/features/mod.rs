@@ -33,3 +33,4 @@ pub mod split;
 pub mod stamps;
 pub mod style_editor;
 pub mod tables;
+pub mod ticks;

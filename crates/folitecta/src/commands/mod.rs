@@ -25,7 +25,7 @@ pub(crate) use document::{
 };
 pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
-    arrange, calculator, comment_styles, comments, format, media, review, stamps, tables,
+    arrange, calculator, comment_styles, comments, format, media, review, stamps, tables, ticks,
 };
 pub(crate) use navigation::{attachments, bookmarks, explorer, history, layers, panes, portfolio, sessions};
 pub(crate) use protection::{policies, protect, redaction, revocation, signatures, signs};
@@ -90,6 +90,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     arrange::HANDLERS,
     accessibility::HANDLERS,
     calculator::HANDLERS,
+    ticks::HANDLERS,
     fileops::HANDLERS,
     javascript::HANDLERS,
     media::HANDLERS,

@@ -399,6 +399,8 @@ pub enum Dialog {
         page: usize,
         points: Vec<(f32, f32)>,
     },
+    /// The mark the tick mark tool places.
+    TickMarks,
     /// Bookmarks made of the headings found in the text.
     BookmarksFromHeadings,
     /// Pages listing the bookmarks inserted into the document.

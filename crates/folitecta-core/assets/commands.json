@@ -21169,6 +21169,20 @@
    "status": "planned"
   },
   {
+   "id": "tool.annot.tickMark",
+   "label": "Tick Mark…",
+   "parent": "tool.annot",
+   "menu": "comments",
+   "ribbon": {
+    "tab": "comment",
+    "group": "drawing"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "tool.annot.typeWriter",
    "label": "Typewriter",
    "parent": "tool.annot",

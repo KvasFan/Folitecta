@@ -259,7 +259,8 @@ pub const RIBBON: &[RTab] = &[
                     "tool.annot.pencil",
                     "tool.annot.highlightArea",
                     "tool.annot.eraser",
-                    "tool.annot.stamp"
+                    "tool.annot.stamp",
+                    "tool.annot.tickMark"
                 ]
             ),
             group!(

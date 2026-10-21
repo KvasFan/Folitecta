@@ -323,6 +323,32 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     );
     st.set_tool(Tool::Hand);
 
+    // 14c. Tick marks: circled numbers going on by one with each click.
+    crate::commands::dispatch(st, "tool.annot.tickMark");
+    pause(400).await;
+    let asked = (st.dialog)() == Dialog::TickMarks;
+    let _ = eval("[...document.querySelectorAll('.dialog .tick-shape')][4]?.click();").await;
+    pause(200).await;
+    let _ = eval("const i = document.querySelector('.dialog .tick-next'); if (i) { i.value = '3'; i.dispatchEvent(new Event('input', { bubbles: true })); }").await;
+    pause(200).await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(400).await;
+    let chosen = *st.tool.peek() == Tool::Tick;
+    let before = annots_on(st, 0).len();
+    for p in [(60.0, 780.0), (100.0, 780.0)] {
+        let _ = pointer_path(0, z, &[p, p], false).await;
+        pause(300).await;
+    }
+    let after = annots_on(st, 0);
+    let ticks: Vec<String> = after.iter().skip(before).map(|a| a.contents.clone()).collect();
+    let next = crate::commands::ticks::settings(st).next;
+    st.set_tool(Tool::Hand);
+    cx.record(
+        "tick marks: the mark chosen, then circled numbers going on with each click",
+        asked && chosen && ticks == ["3", "4"] && next == 5,
+        format!("dialog {asked}, tool {chosen}, marks {ticks:?}, next {next}"),
+    );
+
     // 15. Callout: drag from the pointed spot to where the box goes, then type.
     crate::commands::dispatch(st, "tool.annot.callout");
     pause(300).await;

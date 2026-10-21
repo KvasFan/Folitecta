@@ -1,4 +1,4 @@
-//! Comments and what is placed on the pages: comment tools, arranging them, review, styles and format, stamps, tables, calculator tapes and media.
+//! Comments and what is placed on the pages: comment tools, arranging them, review, styles and format, stamps, tables, calculator tapes, tick marks and media.
 
 pub(crate) mod arrange;
 pub(crate) mod calculator;
@@ -9,3 +9,4 @@ pub(crate) mod media;
 pub(crate) mod review;
 pub(crate) mod stamps;
 pub(crate) mod tables;
+pub(crate) mod ticks;

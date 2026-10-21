@@ -57,6 +57,10 @@ All notable changes to Folitecta are documented here. The format follows
   labelled with its radius and diameter) and Volume (an area drawn, then the depth asked; labelled
   in cubic units). They use the measurement scale and its separators and are listed in the CSV
   export of the measures.
+- Tick marks (Comment › Drawing › Tick Mark…): choose a check, a cross, a dot, or a number,
+  letter or roman numeral plain or in a circle, its size and colour; then each click on a page
+  places one, the numbers and letters going on by one (the next one shown in the status bar),
+  until another tool is chosen. They are kept as data and drawn again when resized.
 - Every release package carries `THIRD-PARTY-LICENSES.txt`: the libraries built into the program
   for that system, each with its licence and the address of its source, and their licence texts
   (written by `crates/notices` from the published sources; a library without a text stops the

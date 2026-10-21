@@ -438,6 +438,7 @@ pub fn Dialogs() -> Element {
         Dialog::Ocr { pictures_only } => rsx! { crate::ui::features::ocr::OcrDialog { pictures_only } },
         Dialog::OcrText { text } => rsx! { crate::ui::features::ocr::OcrTextDialog { text } },
         Dialog::VolumeDepth { page, points } => rsx! { VolumeDepthDialog { page, points } },
+        Dialog::TickMarks => rsx! { crate::ui::features::ticks::TickMarksDialog {} },
         Dialog::BookmarksFromHeadings => rsx! { crate::ui::features::contents::HeadingsDialog {} },
         Dialog::InsertContents => rsx! { crate::ui::features::contents::ContentsDialog {} },
         Dialog::OcrReview { skipped } => rsx! { crate::ui::features::ocr::OcrReviewDialog { skipped } },

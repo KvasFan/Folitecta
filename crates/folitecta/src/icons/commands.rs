@@ -98,6 +98,7 @@ const BY_ID: &[(&str, &str)] = &[
     ("tool.annot.polyline", "polyline"),
     ("tool.annot.pencil", "pencil"),
     ("tool.annot.stamp", "stamp"),
+    ("tool.annot.tickMark", "check"),
     ("tool.annot.distance", "measure"),
     ("tool.annot.perimeter", "measure"),
     ("tool.annot.area", "measure"),

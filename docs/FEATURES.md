@@ -4,10 +4,10 @@ Generated from the command registry for version 0.2.1. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1452 |
+| ✅ available | 1453 |
 | 🟡 partial | 59 |
 | ⬜ planned | 477 |
-| total | 1988 |
+| total | 1989 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -400,6 +400,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Line | `tool.annot.line` | ✅ available |
 | Polygon | `tool.annot.polygon` | ✅ available |
 | Polyline | `tool.annot.polyline` | ✅ available |
+| Tick Mark… | `tool.annot.tickMark` | ✅ available |
 
 **Measure**
 

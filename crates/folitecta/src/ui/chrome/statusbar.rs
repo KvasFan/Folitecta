@@ -98,6 +98,18 @@ pub fn StatusBar() -> Element {
         page_input()
     };
 
+    // The mark the tick mark tool places next.
+    let tick_next = if tool == Tool::Tick {
+        let next = crate::commands::ticks::next_mark(&crate::commands::ticks::settings(st));
+        let mark = if next.shape.has_text() {
+            next.text
+        } else {
+            next.description()
+        };
+        tf(lang, "status.tick_next", &[("mark", &mark)])
+    } else {
+        String::new()
+    };
     rsx! {
         div { class: "statusbar",
             span { class: "chip tool-chip", title: "{tool_label}", Icon { name: tool_icon } span { class: "ellipsis", "{tool_label}" } }
@@ -125,6 +137,9 @@ pub fn StatusBar() -> Element {
                 span { class: "chip sb-opt ellipsis", title: "{t(lang, \"status.angle_hint\")}", "{t(lang, \"status.angle_hint\")}" }
             } else if tool.is_multi_click() {
                 span { class: "chip sb-opt ellipsis", title: "{t(lang, \"status.multi_hint\")}", "{t(lang, \"status.multi_hint\")}" }
+            }
+            if tool == Tool::Tick {
+                span { class: "chip sb-opt", "{tick_next}" }
             }
             if has_doc && show_measure {
                 if show_wh {

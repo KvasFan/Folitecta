@@ -4,6 +4,28 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-21 — FOL-L014/S01: review of the words read with doubt
+
+- **Current state before:** text recognition wrote every word alike; nothing told which words
+  might be wrong, and a wrong word could only be fixed by reading the page again.
+- **Changed:** each word keeps the probability of its least sure letter (`OcrWord::confidence`);
+  words below `DOUBTFUL_BELOW` (0.8) are written inside `/FolitectaDoubt <</Confidence c>> BDC
+  ... EMC`, so the doubt survives saving and follows undo. `Document::doubtful_words` reads them
+  back from the page (text, confidence, place from the text matrix and stretch, turned pages
+  included); `Document::review_ocr_word` keeps, corrects (the run stretched to the same length)
+  or removes one in one undo step. `Renderer::render_area_png` draws only an area of a page. The
+  dialog Review Recognized Text (beside the page, the word marked on it) shows the picture of
+  the word and its line, a text field (Enter corrects), Keep, Remove and Skip; it opens after
+  OCR Pages when there are doubtful words (an option of the OCR dialog), and the message counts
+  them.
+- **Checked:** `tests/ocr.rs` (4 new: doubtful words listed where they were read, on a turned
+  page too; corrected, kept and removed, one undo step each; kept doubtful in a saved file; the
+  words a 45 dpi scan reads wrong are doubtful, a clean scan has none); a renderer test of an
+  area against the whole page; self-test step `ocr` with a page of three doubtful words (one
+  corrected with Enter, one kept, one skipped, shown again and removed) and the dialog state.
+- **Open:** field recognition proposals (S02); no threshold to choose; the spell check does not
+  look at doubtful words first.
+
 ## 2026-10-21 — FOL-L018/S03: Unicode in page marks, summaries, text and e-mail documents
 
 - **Current state before:** watermarks, headers and footers, page and Bates numbers, comment

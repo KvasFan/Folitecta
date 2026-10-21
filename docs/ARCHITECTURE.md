@@ -65,7 +65,11 @@ the lines as connected areas of its probability map, each fitted with a turned r
 moments of its pixels; a recognition model reads each line cut out straight at 48 pixels high,
 and the steps of its CTC output where each character is read place the words; both models run
 with tract, the plans cached per input size and the lines read in parallel; the text is written
-as invisible Helvetica text, one stretched run per word, in a content stream tagged `OCR`),
+as invisible Helvetica text, one stretched run per word, in a content stream tagged `OCR`; a
+word with a letter read with less than 0.8 probability is written inside a marked-content
+sequence `/FolitectaDoubt <</Confidence c>> BDC ... EMC`, which the review lists from the page
+and removes when the word is kept, corrected (the run stretched to the same length) or taken
+away),
 `spelling` (the words of the page text, comments and text
 fields that Hunspell dictionaries do not know, checked with spellbook against every dictionary
 loaded; suggestions ranked by typing distance and by the language of the text around the word;

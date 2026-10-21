@@ -4,10 +4,10 @@ Generated from the command registry for version 0.2.1. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1445 |
+| ✅ available | 1446 |
 | 🟡 partial | 59 |
 | ⬜ planned | 477 |
-| total | 1981 |
+| total | 1982 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -965,6 +965,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | OCR Image… | `OCRImage` | ✅ available |
 | OCR Pages… | `document.OCRPages` | ✅ available |
 | OCR Selected Region… | `document.OCRSelRgn` | ✅ available |
+| Review Recognized Text… | `document.ocrReview` | ✅ available |
 
 **Enhance Pages**
 
@@ -1618,6 +1619,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Redaction | `redaction` | ✅ available |
 | Remove All Web Links | `removeAllWebLinks` | ✅ available |
 | Remove Cropped Content | `document.removeCroppedContent` | 🟡 partial |
+| Review Recognized Text… | `document.ocrReview` | ✅ available |
 | Security Policies | `secPoliciesList` | ✅ available |
 | Show Problem Details… | `document.showProblems` | ⬜ planned |
 | Sign Markup | `signMarkup` | ✅ available |

@@ -7145,6 +7145,20 @@
    "status": "planned"
   },
   {
+   "id": "document.ocrReview",
+   "label": "Review Recognized Text…",
+   "parent": "document",
+   "menu": "document",
+   "ribbon": {
+    "tab": "convert",
+    "group": "ocr"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "document.options",
    "label": "Options…",
    "parent": "document",

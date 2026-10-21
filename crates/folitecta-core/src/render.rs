@@ -400,6 +400,30 @@ impl Renderer {
             data,
         })
     }
+
+    /// The area `rect` of `page` (display points, y down) drawn at `scale`
+    /// (1.0 = 72 dpi) on white, as a PNG picture: only the area is drawn, so
+    /// a small piece of a large page is quick.
+    pub fn render_area_png(&self, page: usize, rect: [f32; 4], scale: f32) -> Result<Vec<u8>> {
+        let s = scale.clamp(0.05, 16.0);
+        let origin = (
+            (rect[0].min(rect[2]) * s).floor(),
+            (rect[1].min(rect[3]) * s).floor(),
+        );
+        let side = |a: f32, b: f32| (((a - b).abs() * s).ceil() as u32).clamp(1, 4096);
+        let (width, rows) = (side(rect[0], rect[2]), side(rect[1], rect[3]));
+        let band = self.render_band(page, (72.0 * s, 72.0 * s), origin, width, 0, rows, false)?;
+        let mut img = image::RgbImage::new(width, rows);
+        for (y, row) in band.data.chunks_exact(band.stride).enumerate() {
+            for (x, px) in row[..width as usize * 3].as_chunks::<3>().0.iter().enumerate() {
+                img.put_pixel(x as u32, y as u32, image::Rgb([px[2], px[1], px[0]]));
+            }
+        }
+        let mut out = std::io::Cursor::new(Vec::new());
+        img.write_to(&mut out, image::ImageFormat::Png)
+            .map_err(|e| Error::Image(e.to_string()))?;
+        Ok(out.into_inner())
+    }
 }
 
 #[cfg(test)]
@@ -455,6 +479,26 @@ mod tests {
             assert_eq!((png.width, png.height), direct.dimensions());
             assert!(decoded == direct, "transparent {transparent}");
         }
+    }
+
+    #[test]
+    fn an_area_is_drawn_as_the_page_shows_it() {
+        let r = Renderer::new(text_pages(1)).unwrap();
+        let whole = r.render_rgba(0, 2.0, RenderOpts::default()).unwrap();
+        let rect = [72.0, 72.0, 172.0, 102.0];
+        let png = r.render_area_png(0, rect, 2.0).unwrap();
+        let area = image::load_from_memory(&png).unwrap().to_rgba8();
+        assert_eq!(area.dimensions(), (200, 60));
+        let mut worst = 0u8;
+        for (x, y, px) in area.enumerate_pixels() {
+            let page = whole.get_pixel(x + 144, y + 144);
+            for c in 0..3 {
+                worst = worst.max(px[c].abs_diff(page[c]));
+            }
+        }
+        assert!(worst <= 2, "{worst}");
+        // The first line of text is there.
+        assert!(area.pixels().any(|p| p[0] < 128));
     }
 
     #[test]

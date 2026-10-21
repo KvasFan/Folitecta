@@ -538,6 +538,7 @@
   "cmd.document.nextBookm": "Segnalibro successivo",
   "cmd.document.normalizePages": "Normalizza pagine…",
   "cmd.document.ocrImages": "OCR immagini…",
+  "cmd.document.ocrReview": "Rivedi testo riconosciuto…",
   "cmd.document.options": "Opzioni…",
   "cmd.document.overlayPages": "Sovrapponi pagine…",
   "cmd.document.pageNumbering": "Numerazione pagine…",

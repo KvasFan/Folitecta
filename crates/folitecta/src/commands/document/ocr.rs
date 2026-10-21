@@ -3,16 +3,17 @@
 //! be searched, selected and copied; an area read and its text shown to
 //! copy; pictures made into a searchable document. Pages are read away from
 //! the interface thread, one at a time, with the progress shown and a way
-//! to stop.
+//! to stop. The words read with doubt are reviewed one by one afterwards.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+use base64::Engine;
 use dioxus::prelude::*;
 use folitecta_core::marks::pdf_rect_to_display;
 use folitecta_core::ocr::find_models;
-use folitecta_core::{Document, OcrEngine, OcrModels, OcrOptions, PageOcr};
+use folitecta_core::{Document, DoubtfulWord, OcrEngine, OcrModels, OcrOptions, PageOcr, Renderer};
 
 use crate::commands::{handlers, no_doc, select_tool};
 use crate::files;
@@ -218,6 +219,14 @@ pub fn run(st: AppState, pages: Vec<usize>, quality: Quality, skip_text: bool, p
         } else {
             with_tab(st, tab, |t| t.doc.add_ocr_text(&results))
         };
+        // The words read with doubt on the pages just read.
+        let doubtful = with_tab(st, tab, |t| {
+            results
+                .iter()
+                .map(|r| t.doc.doubtful_words(r.page).len())
+                .sum::<usize>()
+        })
+        .unwrap_or(0);
         *JOB.write() = OcrJob::default();
         if matches!(*st.dialog.peek(), Dialog::Ocr { .. }) {
             st.set_dialog(Dialog::None);
@@ -233,15 +242,28 @@ pub fn run(st: AppState, pages: Vec<usize>, quality: Quality, skip_text: bool, p
                 } else {
                     "toast.ocr_done"
                 };
-                st.toast(
-                    ToastKind::Ok,
-                    tf(
-                        lang,
-                        key,
-                        &[("pages", &pages.to_string()), ("lines", &lines.to_string())],
-                    ),
-                    "",
+                let mut message = tf(
+                    lang,
+                    key,
+                    &[("pages", &pages.to_string()), ("lines", &lines.to_string())],
                 );
+                if doubtful > 0 {
+                    message.push(' ');
+                    message.push_str(&tf(
+                        lang,
+                        "toast.ocr_doubtful",
+                        &[("count", &doubtful.to_string())],
+                    ));
+                }
+                st.toast(ToastKind::Ok, message, "");
+                let active = st.read_active(|t| t.id) == Some(tab);
+                if doubtful > 0
+                    && active
+                    && st.value("ocr.review") != "0"
+                    && *st.dialog.peek() == Dialog::None
+                {
+                    st.set_dialog(Dialog::OcrReview { skipped: 0 });
+                }
             }
             Some(Err(e)) => st.error(e),
             None => {}
@@ -305,6 +327,88 @@ pub fn write_area(st: AppState) {
     }
 }
 
+/// The words of the active document read with doubt and not checked yet,
+/// page by page.
+pub fn doubtful_words(st: AppState) -> Vec<DoubtfulWord> {
+    st.read_active(|t| {
+        (0..t.doc.page_count())
+            .filter(|p| t.doc.has_ocr_text(*p))
+            .flat_map(|p| t.doc.doubtful_words(p))
+            .collect()
+    })
+    .unwrap_or_default()
+}
+
+/// The area of a doubtful word with some of its line around it (display
+/// points, within the page) and the scale it is drawn at.
+fn word_area(st: AppState, word: &DoubtfulWord) -> Option<([f32; 4], f32)> {
+    let (pw, ph) = st.read_active(|t| t.page_sizes.get(word.page).map(|s| (s.width, s.height)))??;
+    let r = word.rect;
+    let h = (r[3] - r[1]).max(4.0);
+    let area = [
+        (r[0] - 2.0 * h).max(0.0),
+        (r[1] - 0.8 * h).max(0.0),
+        (r[2] + 2.0 * h).min(pw),
+        (r[3] + 0.8 * h).min(ph),
+    ];
+    let (w, h) = ((area[2] - area[0]).max(1.0), (area[3] - area[1]).max(1.0));
+    // About 90 pixels high, at most 1200 wide.
+    let scale = (90.0 / h).clamp(1.5, 8.0).min(1200.0 / w);
+    Some((area, scale))
+}
+
+/// The picture of a doubtful word, drawn away from the interface thread, as
+/// a data URL.
+pub async fn word_picture(st: AppState, word: &DoubtfulWord) -> Option<String> {
+    let (area, scale) = word_area(st, word)?;
+    let bytes = st.read_active(|t| t.doc.bytes())?;
+    let page = word.page;
+    let png = tokio::task::spawn_blocking(move || {
+        Renderer::new(bytes).and_then(|r| r.render_area_png(page, area, scale))
+    })
+    .await
+    .ok()?
+    .ok()?;
+    Some(format!(
+        "data:image/png;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(png)
+    ))
+}
+
+/// Go to a doubtful word and show where it is.
+pub fn reveal_word(st: AppState, word: &DoubtfulWord) {
+    if st.current_page() != word.page {
+        st.navigate(word.page, true);
+    }
+    let (page, rect) = (word.page, word.rect);
+    st.with_active(|t| t.flash = Some((page, rect)));
+    // The page may have to be laid out before the mark can be scrolled to.
+    dioxus::core::spawn_forever(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(90)).await;
+        let _ = document::eval(
+            "const m = document.querySelector('#canvas .dest-flash'); if (m) { m.scrollIntoView({ block: 'center', inline: 'nearest' }); }",
+        )
+        .await;
+    });
+}
+
+/// Check a doubtful word: keep it (`None`), write `text` in its place, or
+/// take it away (an empty text).
+pub fn review(st: AppState, page: usize, index: usize, text: Option<&str>) {
+    match st.with_active(|t| t.doc.review_ocr_word(page, index, text)) {
+        Some(Ok(())) => files::set_window_title(st),
+        Some(Err(e)) => st.core_error(&e),
+        None => {}
+    }
+}
+
+fn open_review(st: AppState) {
+    if no_doc(st) {
+        return;
+    }
+    st.set_dialog(Dialog::OcrReview { skipped: 0 });
+}
+
 /// Choose pictures and make a document of them with their text read.
 fn pictures(st: AppState) {
     spawn(async move {
@@ -334,5 +438,6 @@ handlers! {
     "document.OCRPages" => |st| open(st, false),
     "document.ocrImages" => |st| open(st, true),
     "document.OCRSelRgn" => |st| select_tool(st, Tool::OcrRegion),
+    "document.ocrReview" => open_review,
     "OCRImage" => pictures,
 }

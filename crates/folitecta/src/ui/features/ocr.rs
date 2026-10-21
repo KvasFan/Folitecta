@@ -1,13 +1,14 @@
 //! Text recognition: the dialog that reads pages (which pages, how
-//! carefully, leaving out pages that have text) with its progress, and the
-//! dialog with the text read in an area.
+//! carefully, leaving out pages that have text) with its progress, the
+//! dialog with the text read in an area, and the review of the words read
+//! with doubt.
 
 use dioxus::prelude::*;
-use folitecta_core::registry;
+use folitecta_core::{DoubtfulWord, registry};
 
 use crate::commands::ocr::{self, JOB, Quality};
 use crate::i18n::{cmd_label, t, tf};
-use crate::state::AppState;
+use crate::state::{AppState, Dialog};
 use crate::ui::dialogs::Frame;
 use crate::util::parse_page_range;
 
@@ -29,6 +30,7 @@ pub fn OcrDialog(pictures_only: bool) -> Element {
     let mut range = use_signal(move || format!("1-{}", n.max(1)));
     let mut quality = use_signal(|| Quality::from_id(&st.value("ocr.quality")));
     let mut skip = use_signal(|| st.value("ocr.skipText") != "0");
+    let mut review = use_signal(|| st.value("ocr.review") != "0");
     let has_models = use_hook(|| ocr::models().is_some());
     let job = JOB.read().clone();
     let pages = move || -> Result<Vec<usize>, String> {
@@ -47,6 +49,7 @@ pub fn OcrDialog(pictures_only: bool) -> Element {
             Ok(list) => {
                 st.set_value("ocr.quality", quality().id());
                 st.set_value("ocr.skipText", if skip() { "1" } else { "0" });
+                st.set_value("ocr.review", if review() { "1" } else { "0" });
                 ocr::run(st, list, quality(), skip(), pictures_only);
             }
             Err(e) => st.error(e),
@@ -100,6 +103,10 @@ pub fn OcrDialog(pictures_only: bool) -> Element {
                     span { "{t(lang, \"ocr.skip_text\")}" }
                 }
             }
+            label { class: "check",
+                input { r#type: "checkbox", class: "ocr-review-after", checked: review(), onchange: move |_| review.toggle() }
+                span { "{t(lang, \"ocr.review_after\")}" }
+            }
             if job.running {
                 div { class: "ocr-progress",
                     div { class: "ocr-bar", div { class: "ocr-fill", style: "width:{percent}%" } }
@@ -132,6 +139,120 @@ pub fn OcrTextDialog(text: String) -> Element {
                 button { class: "tbtn ocr-write", onclick: move |_| ocr::write_area(st), "{t(lang, \"ocr.write\")}" }
             }
             p { class: "hint", "{t(lang, \"ocr.write_hint\")}" }
+        }
+    }
+}
+
+/// The doubtful words of text recognition, one at a time (FOL-L014): the
+/// picture of the word and its text, to correct, keep or take away. Words
+/// skipped stay doubtful; `skipped` of them come before the one shown.
+#[component]
+pub fn OcrReviewDialog(skipped: usize) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let title = registry()
+        .get("document.ocrReview")
+        .map(|c| cmd_label(lang, c).trim_end_matches('…').to_string())
+        .unwrap_or_default();
+    // Read again when the document changes (not while typing).
+    let words = use_memo(move || ocr::doubtful_words(st));
+    let list = words.read();
+    let Some(word) = list.get(skipped).cloned() else {
+        let message = if skipped > 0 {
+            t(lang, "ocr.review_skipped")
+        } else {
+            t(lang, "ocr.review_none")
+        };
+        return rsx! {
+            Frame { title, side: true,
+                p { class: "ocr-review-status", "{message}" }
+            }
+        };
+    };
+    let count = list.len();
+    // Made again for every word (a key counts in a list): its text field,
+    // picture and mark on the page are those of the word.
+    rsx! {
+        for word in std::iter::once(word) {
+            ReviewWord {
+                key: "{word.page}-{word.index}-{word.text}-{count}",
+                title: title.clone(),
+                word,
+                position: skipped,
+                count,
+            }
+        }
+    }
+}
+
+#[component]
+fn ReviewWord(title: String, word: DoubtfulWord, position: usize, count: usize) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let mut text = use_signal(|| word.text.clone());
+    let picture = {
+        let word = word.clone();
+        use_resource(move || {
+            let word = word.clone();
+            async move { ocr::word_picture(st, &word).await }
+        })
+    };
+    // The word on its page, beside the dialog (after this render: showing
+    // it changes the state of the window).
+    use_hook({
+        let word = word.clone();
+        move || {
+            spawn(async move { ocr::reveal_word(st, &word) });
+        }
+    });
+    let (page, index, read) = (word.page, word.index, word.text.clone());
+    let correct = move |_| {
+        let typed = text();
+        let change = (typed.trim() != read.trim()).then_some(typed);
+        ocr::review(st, page, index, change.as_deref());
+    };
+    let counter = tf(
+        lang,
+        "ocr.review_count",
+        &[
+            ("n", &(position + 1).to_string()),
+            ("count", &count.to_string()),
+            ("page", &(page + 1).to_string()),
+        ],
+    );
+    let sure = tf(
+        lang,
+        "ocr.review_confidence",
+        &[("percent", &format!("{:.0}", word.confidence * 100.0))],
+    );
+    rsx! {
+        Frame { title, side: true, ok_label: Some(t(lang, "ocr.review_correct")), on_ok: correct,
+            div { class: "ocr-review-head",
+                span { class: "muted ocr-review-count", "{counter}" }
+                span { class: "grow" }
+                span { class: "muted", "{sure}" }
+            }
+            div { class: "ocr-review-picture",
+                match picture.read().as_ref() {
+                    Some(Some(url)) => rsx! { img { src: "{url}", alt: "{word.text}" } },
+                    Some(None) => rsx! { span { class: "muted", "—" } },
+                    None => rsx! { span { class: "muted", "…" } },
+                }
+            }
+            div { class: "field", label { "{t(lang, \"ocr.review_text\")}" }
+                input { class: "ocr-review-text", value: "{text}", spellcheck: "false", autofocus: true,
+                    oninput: move |e| text.set(e.value()) }
+            }
+            p { class: "hint", "{t(lang, \"ocr.review_hint\")}" }
+            div { class: "ocr-review-actions",
+                button { class: "tbtn ocr-review-keep",
+                    onclick: move |_| ocr::review(st, page, index, None), "{t(lang, \"ocr.review_keep\")}" }
+                button { class: "tbtn ocr-review-remove",
+                    onclick: move |_| ocr::review(st, page, index, Some("")), "{t(lang, \"ocr.review_remove\")}" }
+                button { class: "tbtn ocr-review-skip",
+                    onclick: move |_| st.set_dialog(Dialog::OcrReview { skipped: position + 1 }),
+                    "{t(lang, \"ocr.review_skip\")}" }
+            }
         }
     }
 }

@@ -394,6 +394,11 @@ pub enum Dialog {
     OcrText {
         text: String,
     },
+    /// The words text recognition read with doubt, one at a time, after
+    /// `skipped` words left doubtful.
+    OcrReview {
+        skipped: usize,
+    },
     /// The items of the chosen combo box or list box.
     FieldItems,
     /// The list of security policies.

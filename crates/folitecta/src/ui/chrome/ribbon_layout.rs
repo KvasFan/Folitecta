@@ -463,7 +463,12 @@ pub const RIBBON: &[RTab] = &[
             group!(
                 "ocr",
                 "OCR",
-                ["document.OCRPages", "document.OCRSelRgn", "document.ocrImages"]
+                [
+                    "document.OCRPages",
+                    "document.OCRSelRgn",
+                    "document.ocrImages",
+                    "document.ocrReview"
+                ]
             ),
             group!(
                 "enhancePages",

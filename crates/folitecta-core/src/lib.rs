@@ -77,7 +77,7 @@ pub use layers::{Layer, LayerNode};
 pub use links::{Link, LinkTarget, NamedDestination};
 pub use marks::{MACROS, MarkPosition, TextMarkOptions};
 pub use markup_tools::{MeasureKind, MeasureScale};
-pub use ocr::{OcrEngine, OcrLine, OcrModels, OcrOptions, OcrWord, PageOcr};
+pub use ocr::{DOUBTFUL_BELOW, DoubtfulWord, OcrEngine, OcrLine, OcrModels, OcrOptions, OcrWord, PageOcr};
 pub use outline::{BookmarkTarget, DestView, OutlineItem};
 pub use pagetools::{Sides, TRANSITIONS};
 pub use render::{

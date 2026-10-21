@@ -118,7 +118,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L011 | P1 | ⬜ | — | Scanner acquisition through the system imaging API (Windows first), presets, interleave fronts/backs. |
 | FOL-L012 | P1 | 🟡 | picture tools: turn, crop, straighten, filters, black and white; delete blank pages | One clean-up workflow for scanned pages with preview of the candidates and thresholds. |
 | FOL-L013 | P1 | 🟡 | local OCR (PaddleOCR models run by tract): pages, a selected area, pictures; invisible text tagged `OCR`, removed or replaced on demand; Latin-script languages | Editable text output; exclusions (existing text, fields, comments, logos); batches of files; more scripts (models). |
-| FOL-L014 | P1 | ⬜ | — | Review of suspect words (crop + text + accept/correct); field recognition proposals. |
+| FOL-L014 | P1 | 🟡 | words read with doubt (a letter below 0.8 probability) kept in the page as marked content and reviewed one by one: picture of the word, its place marked on the page, correct, keep, remove or skip, one undo step each; the review opens after recognition | Field recognition proposals; a threshold to choose; doubtful words in the search and in the spell check. |
 
 ### Pages and composition
 

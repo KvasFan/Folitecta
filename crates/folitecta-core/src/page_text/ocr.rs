@@ -11,6 +11,12 @@
 //! (CTC); the steps where each character is read give the place of every
 //! word. The models are files read at run time (see `ocr/README.md` in the
 //! source tree).
+//!
+//! Words read with doubt (a letter whose probability stays below
+//! [`DOUBTFUL_BELOW`]) are written inside a marked-content sequence
+//! `/FolitectaDoubt <</Confidence c>> BDC ... EMC`, so they can be checked
+//! later, after saving too: [`Document::doubtful_words`] lists them and
+//! [`Document::review_ocr_word`] keeps, corrects or removes one.
 
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -21,11 +27,15 @@ use image::RgbaImage;
 use rayon::prelude::*;
 use tract_onnx::prelude::*;
 
+use lopdf::ObjectId;
+use lopdf::content::{Content, Operation};
+
+use crate::content_lex::{self, name_of};
 use crate::document::{Document, PageSize};
 use crate::error::{Error, Result};
-use crate::marks::display_to_pdf;
+use crate::marks::{display_to_pdf, pdf_to_display};
 use crate::render::{RenderOpts, Renderer};
-use crate::util::{fmt_num, helvetica_width, pdf_literal, winansi_byte};
+use crate::util::{clean_text, fmt_num, helvetica_width, pdf_literal, winansi_byte};
 
 /// Tag of the content streams that hold recognized text.
 pub const OCR_MARK: &str = "OCR";
@@ -57,6 +67,27 @@ pub struct OcrWord {
     pub text: String,
     /// Corners in pixels: upper-left, upper-right, lower-right, lower-left.
     pub quad: [[f32; 2]; 4],
+    /// Probability of its least sure letter (0 to 1).
+    pub confidence: f32,
+}
+
+/// Words with a letter read with less probability than this are doubtful.
+pub const DOUBTFUL_BELOW: f32 = 0.8;
+
+/// Tag of the marked-content sequences of doubtful words.
+const DOUBT_TAG: &str = "FolitectaDoubt";
+
+/// A recognized word written with doubt, waiting to be checked.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DoubtfulWord {
+    pub page: usize,
+    /// Its place among the doubtful words of its page, in writing order.
+    pub index: usize,
+    pub text: String,
+    /// Probability of its least sure letter (0 to 1).
+    pub confidence: f32,
+    /// Where it was read (display points, y down).
+    pub rect: [f32; 4],
 }
 
 /// A line of text read in a picture.
@@ -495,14 +526,14 @@ impl OcrEngine {
         }
         let confidence = chars.iter().map(|c| c.3.clamp(0.0, 1.0)).sum::<f32>() / chars.len().max(1) as f32;
         let mut words = Vec::new();
-        let mut cur: Option<(String, usize, usize)> = None;
-        for (s, a, b, _) in chars
+        let mut cur: Option<(String, usize, usize, f32)> = None;
+        for (s, a, b, p) in chars
             .iter()
             .cloned()
             .chain(std::iter::once((" ".to_string(), steps, steps, 0.0)))
         {
             if s.trim().is_empty() {
-                if let Some((w, a0, b0)) = cur.take() {
+                if let Some((w, a0, b0, least)) = cur.take() {
                     let (t0, t1) = (along(a0 as f32), along(b0 as f32 + 1.0));
                     words.push(OcrWord {
                         text: w,
@@ -512,15 +543,18 @@ impl OcrEngine {
                             line.at(t1, 1.0),
                             line.at(t0, 1.0),
                         ],
+                        confidence: least,
                     });
                 }
             } else {
+                let p = p.clamp(0.0, 1.0);
                 match cur.as_mut() {
                     Some(c) => {
                         c.0.push_str(&s);
                         c.2 = b;
+                        c.3 = c.3.min(p);
                     }
-                    None => cur = Some((s, a, b)),
+                    None => cur = Some((s, a, b, p)),
                 }
             }
         }
@@ -612,6 +646,174 @@ fn writable(text: &str) -> String {
         .collect()
 }
 
+/// Text written in WinAnsi bytes.
+fn winansi_text(bytes: &[u8]) -> String {
+    const HIGH: &str = "€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ";
+    bytes
+        .iter()
+        .map(|&b| {
+            if !(0x80..0xA0).contains(&b) {
+                b as char
+            } else {
+                HIGH.chars().find(|&c| winansi_byte(c) == b).unwrap_or('?')
+            }
+        })
+        .collect()
+}
+
+/// A recognized word as written: font, size, horizontal stretch (percent),
+/// text matrix (unit directions along and across the line, start of the
+/// baseline) and text.
+#[derive(Debug, Clone, PartialEq)]
+struct Placed {
+    font: String,
+    size: f32,
+    stretch: f32,
+    matrix: [f32; 6],
+    text: String,
+}
+
+impl Placed {
+    /// Its length along the line (points).
+    fn length(&self) -> f32 {
+        helvetica_width(&self.text, self.size) * self.stretch / 100.0
+    }
+
+    /// The same place with `text`, stretched to `len` points.
+    fn with_text(&self, text: &str, len: f32) -> Placed {
+        let natural = helvetica_width(text, self.size).max(0.01);
+        Placed {
+            stretch: (100.0 * len / natural).clamp(5.0, 2000.0),
+            text: text.to_string(),
+            ..self.clone()
+        }
+    }
+
+    /// The operations that write it.
+    fn ops(&self) -> String {
+        let (f, m) = (fmt_num, self.matrix);
+        format!(
+            "/{} {} Tf {} Tz {} {} {} {} {} {} Tm {} Tj",
+            self.font,
+            f(self.size),
+            f(self.stretch),
+            f(m[0]),
+            f(m[1]),
+            f(m[2]),
+            f(m[3]),
+            f(m[4]),
+            f(m[5]),
+            String::from_utf8_lossy(&pdf_literal(&self.text)).replace('\n', " ")
+        )
+    }
+
+    /// Its box on the page (PDF points), as the word was read: the size is
+    /// most of the height of the box and the baseline a fifth of it up.
+    fn corners(&self) -> [(f32, f32); 4] {
+        let [ux, uy, nx, ny, ox, oy] = self.matrix;
+        let height = self.size / 0.72;
+        let lift = height * 0.22;
+        let len = self.length();
+        let ll = (ox - nx * lift, oy - ny * lift);
+        let ul = (ll.0 + nx * height, ll.1 + ny * height);
+        [
+            ll,
+            (ll.0 + ux * len, ll.1 + uy * len),
+            (ul.0 + ux * len, ul.1 + uy * len),
+            ul,
+        ]
+    }
+
+    /// Read back from the operations that write one word.
+    fn parse(ops: &[Operation]) -> Option<Placed> {
+        let num = |o: &Operation, i: usize| o.operands.get(i).and_then(|v| v.as_float().ok());
+        let (mut font, mut size, mut stretch, mut matrix, mut text) = (None, None, 100.0, None, None);
+        for o in ops {
+            match o.operator.as_str() {
+                "Tf" => {
+                    font = o
+                        .operands
+                        .first()
+                        .and_then(|n| n.as_name().ok())
+                        .map(|n| String::from_utf8_lossy(n).to_string());
+                    size = num(o, 1);
+                }
+                "Tz" => stretch = num(o, 0)?,
+                "Tm" => {
+                    let m: Vec<f32> = (0..6).filter_map(|i| num(o, i)).collect();
+                    matrix = <[f32; 6]>::try_from(m).ok();
+                }
+                "Tj" => text = o.operands.first().and_then(|t| t.as_str().ok()).map(winansi_text),
+                _ => {}
+            }
+        }
+        Some(Placed {
+            font: font?,
+            size: size?,
+            stretch,
+            matrix: matrix?,
+            text: text?,
+        })
+    }
+}
+
+/// A doubtful word in a stream of recognized text: the bytes of its
+/// marked-content sequence, those of the operations inside it, how sure the
+/// reading was and the word as written.
+struct Doubt {
+    span: (usize, usize),
+    inner: (usize, usize),
+    confidence: f32,
+    placed: Placed,
+}
+
+/// The doubtful words of a stream of recognized text, in writing order.
+fn doubts(data: &[u8]) -> Vec<Doubt> {
+    let ops = content_lex::operations(data);
+    let mut out = Vec::new();
+    let mut open = None;
+    for (i, op) in ops.iter().enumerate() {
+        match op.operator {
+            b"BDC" => {
+                let tag = op.operands.first().and_then(|r| name_of(data, *r));
+                open = (tag.as_deref() == Some(DOUBT_TAG.as_bytes())).then_some(i);
+            }
+            b"EMC" => {
+                let Some(b) = open.take() else { continue };
+                if b + 1 >= i {
+                    continue;
+                }
+                let (first, last) = (&ops[b + 1], &ops[i - 1]);
+                let Ok(bdc) = Content::decode(&data[ops[b].start..ops[b].end]) else {
+                    continue;
+                };
+                let confidence = bdc
+                    .operations
+                    .first()
+                    .and_then(|o| o.operands.get(1))
+                    .and_then(|d| d.as_dict().ok())
+                    .and_then(|d| d.get(b"Confidence").ok())
+                    .and_then(|c| c.as_float().ok())
+                    .unwrap_or(0.0);
+                let Some(placed) = Content::decode(&data[first.start..last.end])
+                    .ok()
+                    .and_then(|c| Placed::parse(&c.operations))
+                else {
+                    continue;
+                };
+                out.push(Doubt {
+                    span: (ops[b].start, op.end),
+                    inner: (first.start, last.end),
+                    confidence,
+                    placed,
+                });
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
 /// Content stream operations that write `words` invisibly (text render
 /// mode 3) over a page, each word stretched to the place it was read at.
 fn ocr_content(size: &PageSize, scale: f32, lines: &[OcrLine], font: &str) -> Vec<u8> {
@@ -623,6 +825,7 @@ fn ocr_content(size: &PageSize, scale: f32, lines: &[OcrLine], font: &str) -> Ve
             vec![OcrWord {
                 text: line.text.clone(),
                 quad: line.quad,
+                confidence: line.confidence,
             }]
         } else {
             line.words.clone()
@@ -645,21 +848,22 @@ fn ocr_content(size: &PageSize, scale: f32, lines: &[OcrLine], font: &str) -> Ve
             let size_pt = (height * 0.72).max(1.0);
             let lift = height * 0.22;
             let (ox, oy) = (ll.0 - uy * lift, ll.1 + ux * lift);
-            let natural = helvetica_width(&text, size_pt).max(0.01);
-            let stretch = (100.0 * len / natural).clamp(5.0, 2000.0);
-            out.push_str(&format!(
-                "/{font} {} Tf {} Tz {} {} {} {} {} {} Tm ",
-                f(size_pt),
-                f(stretch),
-                f(ux),
-                f(uy),
-                f(-uy),
-                f(ux),
-                f(ox),
-                f(oy)
-            ));
-            out.push_str(&String::from_utf8_lossy(&pdf_literal(&text)).replace('\n', " "));
-            out.push_str(" Tj\n");
+            let doubtful = w.confidence < DOUBTFUL_BELOW;
+            if doubtful {
+                out.push_str(&format!(
+                    "/{DOUBT_TAG} <</Confidence {}>> BDC ",
+                    f(w.confidence.clamp(0.0, 1.0))
+                ));
+            }
+            let placed = Placed {
+                font: font.to_string(),
+                size: size_pt,
+                stretch: 0.0,
+                matrix: [ux, uy, -uy, ux, ox, oy],
+                text: String::new(),
+            };
+            out.push_str(&placed.with_text(&text, len).ops());
+            out.push_str(if doubtful { " EMC\n" } else { "\n" });
         }
     }
     out.push_str("ET\n");
@@ -714,6 +918,94 @@ impl Document {
         }
         self.commit()?;
         Ok(written)
+    }
+
+    /// The streams of text written by text recognition on page `page`.
+    fn ocr_streams(&self, page: usize) -> Vec<(ObjectId, Vec<u8>)> {
+        let Ok(id) = self.page_id(page) else {
+            return Vec::new();
+        };
+        self.page_content_ids(id)
+            .into_iter()
+            .filter_map(|cid| {
+                let stream = self.inner.get_object(cid).ok()?.as_stream().ok()?;
+                let mark = stream.dict.get(b"FolitectaMark").ok()?.as_name().ok()?;
+                (mark == OCR_MARK.as_bytes())
+                    .then(|| stream.get_plain_content().ok())
+                    .flatten()
+                    .map(|data| (cid, data))
+            })
+            .collect()
+    }
+
+    /// The words text recognition wrote with doubt on page `page` and that
+    /// are not checked yet, in writing order.
+    pub fn doubtful_words(&self, page: usize) -> Vec<DoubtfulWord> {
+        let Ok(id) = self.page_id(page) else {
+            return Vec::new();
+        };
+        let size = self.page_size_of(id);
+        let mut out = Vec::new();
+        for (_, data) in self.ocr_streams(page) {
+            for d in doubts(&data) {
+                let points = d.placed.corners().map(|(x, y)| pdf_to_display(&size, x, y));
+                let (xs, ys) = (points.map(|p| p.0), points.map(|p| p.1));
+                let min = |v: [f32; 4]| v.into_iter().fold(f32::MAX, f32::min);
+                let max = |v: [f32; 4]| v.into_iter().fold(f32::MIN, f32::max);
+                out.push(DoubtfulWord {
+                    page,
+                    index: out.len(),
+                    text: d.placed.text,
+                    confidence: d.confidence,
+                    rect: [min(xs), min(ys), max(xs), max(ys)],
+                });
+            }
+        }
+        out
+    }
+
+    /// Check doubtful word `index` of page `page`: `None` keeps its text,
+    /// `Some(text)` writes that text in its place (accents WinAnsi lacks
+    /// taken off), and an empty text takes the word away. Either way it is
+    /// no longer doubtful. One undo step.
+    pub fn review_ocr_word(&mut self, page: usize, index: usize, text: Option<&str>) -> Result<()> {
+        let mut seen = 0;
+        for (cid, data) in self.ocr_streams(page) {
+            let found = doubts(&data);
+            let Some(d) = index.checked_sub(seen).and_then(|i| found.get(i)) else {
+                seen += found.len();
+                continue;
+            };
+            let replacement = match text {
+                None => data[d.inner.0..d.inner.1].to_vec(),
+                Some(t) => {
+                    let t = writable(&clean_text(t));
+                    let t = t.split_whitespace().collect::<Vec<_>>().join(" ");
+                    if t.is_empty() {
+                        Vec::new()
+                    } else {
+                        d.placed.with_text(&t, d.placed.length()).ops().into_bytes()
+                    }
+                }
+            };
+            let mut content = data[..d.span.0].to_vec();
+            content.extend(replacement);
+            content.extend_from_slice(&data[d.span.1..]);
+            self.begin_edit();
+            match self.inner.get_object_mut(cid).and_then(|o| o.as_stream_mut()) {
+                Ok(stream) => stream.set_plain_content(content),
+                Err(e) => {
+                    self.abandon_edit();
+                    return Err(e.into());
+                }
+            }
+            return self.commit();
+        }
+        Err(Error::Invalid(format!(
+            "page {} has no doubtful word {}",
+            page + 1,
+            index + 1
+        )))
     }
 
     /// Take away the text written by text recognition (one undo step).

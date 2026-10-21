@@ -1101,6 +1101,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
                 text: "The quick brown fox jumps over the lazy dog.\nIl gatto \u{e8} sul tavolo.".into(),
             },
         ),
+        ("ocr-review", Dialog::OcrReview { skipped: 0 }),
         (
             "barcode",
             Dialog::Barcode {

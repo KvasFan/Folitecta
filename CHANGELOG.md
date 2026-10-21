@@ -21,6 +21,12 @@ All notable changes to Folitecta are documented here. The format follows
   headings and labels filled and stroked. Text they cannot draw is refused before any change (for
   marks after macros such as `{title}` are filled in), and the watermark, header and footer and
   numbering dialogs name it while it is typed. WinAnsi text keeps the standard Helvetica.
+- Review of recognized text: words text recognition read with doubt (a letter it was less than
+  80% sure of) are listed one by one beside the page, with a picture of the word and its line
+  and the word marked on the page, to correct (Enter), keep or remove (specks and lines read as
+  text), or skip; each check is one undo step. The doubt is kept in the page, so a saved document
+  can be checked later with Review Recognized Text. After OCR Pages the review opens by
+  itself when there are doubtful words (an option of the dialog), and the message counts them.
 - Every release package carries `THIRD-PARTY-LICENSES.txt`: the libraries built into the program
   for that system, each with its licence and the address of its source, and their licence texts
   (written by `crates/notices` from the published sources; a library without a text stops the

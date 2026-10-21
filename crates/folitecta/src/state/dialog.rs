@@ -399,6 +399,8 @@ pub enum Dialog {
     OcrReview {
         skipped: usize,
     },
+    /// Clean Up Scans: blank and askew scanned pages.
+    CleanUpScans,
     /// The items of the chosen combo box or list box.
     FieldItems,
     /// The list of security policies.

@@ -1,4 +1,4 @@
-//! Organising documents: pages and page tools, document tools, combining, comparing, exporting, text documents, e-mail messages and the copies prepared to send, portfolios, attachments, metadata and page marks.
+//! Organising documents: pages and page tools, document tools, combining, comparing, exporting, text documents, e-mail messages and the copies prepared to send, portfolios, attachments, metadata, page marks and the clean-up of scanned pages.
 
 pub mod attachments;
 pub mod combine;
@@ -13,4 +13,5 @@ pub mod pages;
 pub mod pagetools;
 pub mod portfolio;
 pub mod print;
+pub mod scans;
 pub mod textdoc;

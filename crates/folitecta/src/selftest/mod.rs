@@ -444,6 +444,7 @@ mod steps_recovery;
 mod steps_redaction;
 mod steps_review;
 mod steps_revocation;
+mod steps_scans;
 mod steps_spelling;
 mod steps_split;
 mod steps_split_view;
@@ -506,6 +507,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "arrange" => Box::pin(steps_arrange::run(cx)),
             "spelling" => Box::pin(steps_spelling::run(cx)),
             "ocr" => Box::pin(steps_ocr::run(cx)),
+            "scans" => Box::pin(steps_scans::run(cx)),
             "field_items" => Box::pin(steps_field_items::run(cx)),
             "policies" => Box::pin(steps_policies::run(cx)),
             "qat" => Box::pin(steps_qat::run(cx)),
@@ -564,6 +566,7 @@ const STEPS: &[&str] = &[
     "arrange",
     "spelling",
     "ocr",
+    "scans",
     "field_items",
     "policies",
     "qat",
@@ -1095,6 +1098,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("print", Dialog::Print(crate::state::PrintTarget::Active)),
         ("ocr", Dialog::Ocr { pictures_only: false }),
         ("ocr-pictures", Dialog::Ocr { pictures_only: true }),
+        ("clean-up-scans", Dialog::CleanUpScans),
         (
             "ocr-text",
             Dialog::OcrText {

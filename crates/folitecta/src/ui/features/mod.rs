@@ -23,6 +23,7 @@ pub mod print;
 pub mod recovery;
 pub mod redaction;
 pub mod revocation;
+pub mod scans;
 pub mod signatures;
 pub mod signs;
 pub mod sources;

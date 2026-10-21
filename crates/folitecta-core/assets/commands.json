@@ -7131,6 +7131,20 @@
    "status": "planned"
   },
   {
+   "id": "document.cleanUpScans",
+   "label": "Clean Up Scans…",
+   "parent": "document",
+   "menu": "document",
+   "ribbon": {
+    "tab": "convert",
+    "group": "enhancePages"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "document.ocrImages",
    "label": "OCR Images…",
    "parent": "document",

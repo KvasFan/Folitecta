@@ -182,6 +182,7 @@
   "toast.ocr_nothing": "No page to read: the pages chosen already have text.",
   "toast.ocr_stopped": "Stopped. Text recognized — pages: {pages}, lines: {lines}.",
   "toast.ocr_doubtful": "Doubtful words to check: {count}.",
+  "toast.scans_done": "Scanned pages cleaned up — straightened: {straightened}, deleted: {deleted}.",
   "toast.opened": "Opened {name}",
   "toast.page_copied": "Page copied as a picture",
   "toast.page_size": "Page {page}: {w} × {h} mm ({wpt} × {hpt} pt) · file {size}",

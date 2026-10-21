@@ -473,7 +473,12 @@ pub const RIBBON: &[RTab] = &[
             group!(
                 "enhancePages",
                 "Enhance Pages",
-                ["imageEditor", "replaceImage", "document.rasterizePages"]
+                [
+                    "imageEditor",
+                    "replaceImage",
+                    "document.rasterizePages",
+                    "document.cleanUpScans"
+                ]
             ),
         ],
     },

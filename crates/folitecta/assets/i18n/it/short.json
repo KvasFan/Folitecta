@@ -51,6 +51,7 @@
   "short.document.audit": "Spazio",
   "short.document.background": "Sfondo",
   "short.document.batesNumbering": "Bates",
+  "short.document.cleanUpScans": "Pulisci scan",
   "short.document.cropPages": "Ritaglia",
   "short.document.cropToWhiteMargins": "Ritaglio auto",
   "short.document.deleteEmptyPages": "Elim. vuote",

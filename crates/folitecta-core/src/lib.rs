@@ -46,7 +46,7 @@ pub use markup::{
 pub use navigation::{layer_drawing, layers, links, outline};
 pub use organize::{
     attachments, combine, compare, delivery, doctools, email, export, marks, metadata, pages, pagetools,
-    portfolio, print, textdoc,
+    portfolio, print, scans, textdoc,
 };
 pub(crate) use page_text::{content_edit, content_lex};
 pub use page_text::{ocr, search, spelling, text, textedit, textlayer, textops};
@@ -83,6 +83,7 @@ pub use pagetools::{Sides, TRANSITIONS};
 pub use render::{
     Lane, RenderAnswer, RenderOpts, RenderRequest, RenderService, RenderStats, RenderedPage, Renderer,
 };
+pub use scans::{ScanFix, ScanLook, ScanThresholds, scan_fixes};
 pub use scripts::ScriptInfo;
 pub use security::{EncryptionInfo, EncryptionProfile, PasswordIssue, Protection, SecurityPermissions};
 pub use signmarks::SignatureMark;

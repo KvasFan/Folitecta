@@ -4,10 +4,10 @@ Generated from the command registry for version 0.2.1. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1446 |
+| ✅ available | 1447 |
 | 🟡 partial | 59 |
 | ⬜ planned | 477 |
-| total | 1982 |
+| total | 1983 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -971,6 +971,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
+| Clean Up Scans… | `document.cleanUpScans` | ✅ available |
 | Edit Image | `editImage` | ✅ available |
 | ↳ Apply to All | `editImage.applyToAll` | ✅ available |
 | ↳ Builtin | `editImage.builtin` | ✅ available |
@@ -1569,6 +1570,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Apply All Redactions | `document.applyRedactions` | ✅ available |
 | Audit Space Usage | `document.audit` | ✅ available |
 | Bookmarks | `bookmarks` | ✅ available |
+| Clean Up Scans… | `document.cleanUpScans` | ✅ available |
 | Create Web Links from Barcodes | `createWebLinksFromBarcodes` | ✅ available |
 | Create Web Links from URLs | `createWebLinksFromText` | ✅ available |
 | Crop to White Margins | `document.cropToWhiteMargins` | ✅ available |

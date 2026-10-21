@@ -51,6 +51,7 @@
   "short.document.audit": "Space",
   "short.document.background": "Background",
   "short.document.batesNumbering": "Bates",
+  "short.document.cleanUpScans": "Clean scans",
   "short.document.cropPages": "Crop",
   "short.document.cropToWhiteMargins": "Auto crop",
   "short.document.deleteEmptyPages": "Del. blank",

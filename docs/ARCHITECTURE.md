@@ -70,6 +70,11 @@ word with a letter read with less than 0.8 probability is written inside a marke
 sequence `/FolitectaDoubt <</Confidence c>> BDC ... EMC`, which the review lists from the page
 and removes when the word is kept, corrected (the run stretched to the same length) or taken
 away),
+`scans` (Clean Up Scans: a page is a scan when one picture covers 85% of it; its ink is the
+share of pixels darker than half grey on a copy at most 1000 pixels long, leaving out 4% of each
+side, so specks, show-through and the shadows of the scanner do not count; its skew comes from
+`imaging::skew_angle`; the clean-up straightens the pictures with `put_page_image` and deletes
+the pages in one `edit_step`),
 `spelling` (the words of the page text, comments and text
 fields that Hunspell dictionaries do not know, checked with spellbook against every dictionary
 loaded; suggestions ranked by typing distance and by the language of the text around the word;

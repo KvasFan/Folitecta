@@ -4,6 +4,26 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-21 — FOL-L012/S01: Clean Up Scans
+
+- **Current state before:** blank pages could be deleted (pages that draw nothing) and a picture
+  straightened one at a time; a blank scanned side is a picture, so it was never found, and every
+  askew sheet had to be straightened by hand.
+- **Changed:** `organize/scans.rs`: `Document::scan_picture` (one picture covering 85% of the
+  page), `look_at_scan` (`ScanLook`: ink share away from the edges, specks and show-through left
+  out; skew angle), `scan_fixes` with `ScanThresholds`, `clean_up_scans` (straighten, then
+  delete, one undo step; every page cannot be deleted). The Clean Up Scans dialog (Convert,
+  beside the page) looks at the pages away from the interface thread with progress and Stop,
+  lists the blank and askew pages with thumbnails, thresholds and kinds to choose, each page to
+  leave out or show, and refuses to apply once the document has changed (Look Again).
+- **Checked:** `tests/scans.rs` (3: a blank sheet, a sheet turned 2 degrees and a page that is
+  not a scan found as such; cleaned in one step and undone; every page refused, a missing page
+  refused, nothing changed), 2 unit tests (ink without edges, specks and show-through; fixes by
+  thresholds); self-test step `scans` (found with pictures, a stricter angle, applied, undone)
+  and the dialog state.
+- **Open:** dark borders, orientation, despeckle and black and white in the workflow; fronts and
+  backs interleaved (with the scanner, FOL-L011).
+
 ## 2026-10-21 — FOL-L014/S01: review of the words read with doubt
 
 - **Current state before:** text recognition wrote every word alike; nothing told which words

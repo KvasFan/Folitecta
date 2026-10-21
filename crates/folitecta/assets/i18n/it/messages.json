@@ -182,6 +182,7 @@
   "toast.ocr_nothing": "Nessuna pagina da leggere: le pagine scelte hanno già del testo.",
   "toast.ocr_stopped": "Interrotto. Testo riconosciuto — pagine: {pages}, righe: {lines}.",
   "toast.ocr_doubtful": "Parole incerte da controllare: {count}.",
+  "toast.scans_done": "Pagine scansionate pulite — raddrizzate: {straightened}, eliminate: {deleted}.",
   "toast.opened": "Aperto {name}",
   "toast.page_copied": "Pagina copiata come immagine",
   "toast.page_size": "Pagina {page}: {w} × {h} mm ({wpt} × {hpt} pt) · file {size}",

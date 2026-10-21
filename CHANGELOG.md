@@ -27,6 +27,11 @@ All notable changes to Folitecta are documented here. The format follows
   text), or skip; each check is one undo step. The doubt is kept in the page, so a saved document
   can be checked later with Review Recognized Text. After OCR Pages the review opens by
   itself when there are doubtful words (an option of the dialog), and the message counts them.
+- Clean Up Scans: the pages that are a picture of paper are looked at in the background (with
+  progress and Stop), and the blank sides (ink below a share you set, leaving out the edges of
+  the sheet, specks and show-through) and the sheets fed askew (from an angle you set) are listed
+  with their thumbnails; each can be left out or shown, and the clean-up deletes the blank pages
+  and straightens the others in one undo step.
 - Every release package carries `THIRD-PARTY-LICENSES.txt`: the libraries built into the program
   for that system, each with its licence and the address of its source, and their licence texts
   (written by `crates/notices` from the published sources; a library without a text stops the

@@ -16,6 +16,7 @@ mod generate;
 mod measure;
 
 pub(crate) use generate::text_problem;
+pub(crate) use measure::{ANGLE, RADIUS, VOLUME};
 mod note_icons;
 mod shapes;
 

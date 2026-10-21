@@ -3,7 +3,7 @@
 
 use lopdf::{Dictionary, Object, Stream, dictionary};
 
-use super::measure::measure_label;
+use super::measure::{measure_extra, measure_label};
 use super::note_icons::note_icon;
 use super::shapes::*;
 use super::*;
@@ -223,6 +223,12 @@ impl Document {
                 } else {
                     "S "
                 });
+                // The arc of an angle, the circle of a radius.
+                let extra = measure_extra(d, &pts);
+                if let Some((path, _)) = &extra {
+                    body.push_str(path);
+                    body.push_str("S ");
+                }
                 if !closed {
                     body.push_str("[] 0 d ");
                     let n = pts.len();
@@ -243,6 +249,14 @@ impl Document {
                     ));
                 }
                 rect = bounds(&pts, pad);
+                if let Some((_, b)) = extra {
+                    rect = [
+                        rect[0].min(b[0] - pad),
+                        rect[1].min(b[1] - pad),
+                        rect[2].max(b[2] + pad),
+                        rect[3].max(b[3] + pad),
+                    ];
+                }
                 if let Some((text, at)) = label {
                     let mut writer = TextWriter::new(&text)?;
                     let previous = previous_font(doc, d, &writer);

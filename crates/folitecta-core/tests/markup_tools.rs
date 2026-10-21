@@ -225,3 +225,63 @@ fn eraser_splits_and_removes_strokes() {
     assert_eq!(doc.annotations(0).unwrap().len(), 1);
     assert_eq!(doc.erase_ink(0, &[(390.0, 390.0)], 3.0).unwrap(), 0);
 }
+
+#[test]
+fn angles_radii_and_volumes_are_measured() {
+    let mut doc = blank();
+    let mm = MeasureScale::default();
+    // A right angle and a 45 degree one.
+    doc.add_angle_measure(
+        0,
+        [(200.0, 100.0), (100.0, 100.0), (100.0, 200.0)],
+        &style(),
+        &mm,
+        "t",
+    )
+    .unwrap();
+    doc.add_angle_measure(
+        0,
+        [(200.0, 300.0), (100.0, 300.0), (150.0, 350.0)],
+        &style(),
+        &mm,
+        "t",
+    )
+    .unwrap();
+    // A circle of 36 pt radius: 12.7 mm, 25.4 mm across.
+    doc.add_radius_measure(0, (300.0, 300.0), (300.0, 336.0), &style(), &mm, "t")
+        .unwrap();
+    // 72 x 72 pt at 1 cm = 1 m is 6.45 m²; 2 m deep: 12.90 m³.
+    let m = MeasureScale::from_ratio(1.0, "cm", 1.0, "m", 2).with_separators(",", ".");
+    let square = [(250.0, 50.0), (322.0, 50.0), (322.0, 122.0), (250.0, 122.0)];
+    doc.add_volume_measure(0, &square, 2.0, &style(), &m, "t")
+        .unwrap();
+    let annots = doc.annotations(0).unwrap();
+    let texts: Vec<&str> = annots.iter().map(|a| a.contents.as_str()).collect();
+    assert_eq!(
+        texts,
+        [
+            "90.0\u{b0}",
+            "45.0\u{b0}",
+            "R 12.7 mm \u{b7} \u{d8} 25.4 mm",
+            "12,90 m\u{b3}"
+        ]
+    );
+    // The circle is inside the comment's rectangle.
+    let r = annots[2].rect;
+    assert!(
+        r[0] <= 264.0 && r[1] <= 264.0 && r[2] >= 336.0 && r[3] >= 336.0,
+        "{r:?}"
+    );
+    let kinds: Vec<String> = doc.measurements().into_iter().map(|m| m.1).collect();
+    assert_eq!(kinds, ["Angle", "Angle", "Radius", "Volume"]);
+    // A circle without size and a volume without depth are refused, nothing added.
+    assert!(
+        doc.add_radius_measure(0, (10.0, 10.0), (10.0, 10.2), &style(), &mm, "t")
+            .is_err()
+    );
+    assert!(
+        doc.add_volume_measure(0, &square, 0.0, &style(), &m, "t")
+            .is_err()
+    );
+    assert_eq!(doc.annotations(0).unwrap().len(), 4);
+}

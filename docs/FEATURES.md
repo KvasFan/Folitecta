@@ -4,10 +4,10 @@ Generated from the command registry for version 0.2.1. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1449 |
+| ✅ available | 1452 |
 | 🟡 partial | 59 |
 | ⬜ planned | 477 |
-| total | 1985 |
+| total | 1988 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -405,6 +405,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
+| Angle | `tool.annot.angle` | ✅ available |
 | Area | `tool.annot.area` | ✅ available |
 | Calibrate Measurement | `tool.calibrate` | ✅ available |
 | Distance | `tool.annot.distance` | ✅ available |
@@ -420,6 +421,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Measures | `measures` | ⬜ planned |
 | ↳ Manage… | `measures.manage` | ⬜ planned |
 | Perimeter | `tool.annot.perimeter` | ✅ available |
+| Radius | `tool.annot.radius` | ✅ available |
+| Volume | `tool.annot.volume` | ✅ available |
 
 **Manage Comments**
 

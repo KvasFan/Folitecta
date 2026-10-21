@@ -121,7 +121,9 @@ pub fn StatusBar() -> Element {
                 span { class: "chip", "{t(lang, \"status.rendering\")}" }
             }
             PrintChip {}
-            if tool.is_multi_click() {
+            if tool == Tool::Angle {
+                span { class: "chip sb-opt ellipsis", title: "{t(lang, \"status.angle_hint\")}", "{t(lang, \"status.angle_hint\")}" }
+            } else if tool.is_multi_click() {
                 span { class: "chip sb-opt ellipsis", title: "{t(lang, \"status.multi_hint\")}", "{t(lang, \"status.multi_hint\")}" }
             }
             if has_doc && show_measure {

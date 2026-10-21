@@ -666,7 +666,12 @@ pub(super) fn PageView(
                 .map(|(_, v)| v)
                 .unwrap_or_default();
             pts.push((sx, sy));
+            // An angle is finished by its third point.
+            let done = tool == Tool::Angle && pts.len() >= 3;
             st.set_drawing(Some((page, pts)));
+            if done {
+                finish_drawing(st);
+            }
             return;
         }
         if tool == Tool::InsertText {

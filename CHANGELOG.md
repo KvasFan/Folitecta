@@ -52,6 +52,11 @@ All notable changes to Folitecta are documented here. The format follows
   after them. Insert Table of Contents: pages listing the bookmarks, indented by level, with
   dotted leaders to the numbers the pages have once the contents are in, every entry a link,
   inserted at the start or before the current page. Each is one undo step.
+- Three measuring tools: Angle (three clicks: the end of one line, the corner, the end of the
+  other; drawn with an arc and labelled in degrees), Radius (a circle dragged from its centre,
+  labelled with its radius and diameter) and Volume (an area drawn, then the depth asked; labelled
+  in cubic units). They use the measurement scale and its separators and are listed in the CSV
+  export of the measures.
 - Every release package carries `THIRD-PARTY-LICENSES.txt`: the libraries built into the program
   for that system, each with its licence and the address of its source, and their licence texts
   (written by `crates/notices` from the published sources; a library without a text stops the

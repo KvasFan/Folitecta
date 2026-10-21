@@ -53,7 +53,7 @@ The modules are grouped in folders by area — `organize` (pages and documents),
 shared helpers (`util`, `geom`, `xml`) stay at the root; the root re-exports every module, so
 paths such as `folitecta_core::pages` stay short. The larger modules are folders of their own:
 `appearance` (the style of comments, the shapes and line endings, the note icons, measurement
-labels and the drawing of each kind of comment) and `comment_exchange` (XFDF, FDF); the drawing
+labels and the drawing of each kind of comment; angles, radii and volumes are measurements of Folitecta's own `/IT` names, `FolitectaAngle` on a three-point polyline with an arc, `FolitectaRadius` on a line from the centre with its circle and `FolitectaVolume` on a polygon with `/FolitectaDepth`, which other readers show from their appearance) and `comment_exchange` (XFDF, FDF); the drawing
 of form fields is `form_appearance`, next to `form_design`.
 
 Operations are grouped by module, for example `pages` and `pagetools` (page tree edits, crop,

@@ -3,7 +3,7 @@
 
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
-use crate::appearance::{AnnotStyle, apply_style};
+use crate::appearance::{ANGLE, AnnotStyle, RADIUS, VOLUME, apply_style};
 use crate::document::Document;
 use crate::error::{Error, Result};
 use crate::util::{self, deref, num};
@@ -226,6 +226,23 @@ impl Document {
         };
         let page_id = self.page_id(page)?;
         self.begin_edit();
+        let annot = self.measure_annotation(page_id, subtype, intent, points, style, scale, author);
+        self.finish_annotation(page_id, annot)
+    }
+
+    /// A measurement comment of `subtype` with the intent `intent` over
+    /// `points`, with the measure dictionary of `scale`.
+    #[allow(clippy::too_many_arguments)]
+    fn measure_annotation(
+        &self,
+        page_id: ObjectId,
+        subtype: &str,
+        intent: &str,
+        points: &[(f32, f32)],
+        style: &AnnotStyle,
+        scale: &MeasureScale,
+        author: &str,
+    ) -> lopdf::Dictionary {
         let mut annot = self.base_annotation(
             page_id,
             subtype,
@@ -261,6 +278,67 @@ impl Document {
                 f(c[2])
             )),
         );
+        annot
+    }
+
+    /// Add an angle measurement: the lines from `vertex` to `a` and to `b`,
+    /// an arc between them and the angle in degrees.
+    pub fn add_angle_measure(
+        &mut self,
+        page: usize,
+        [a, vertex, b]: [(f32, f32); 3],
+        style: &AnnotStyle,
+        scale: &MeasureScale,
+        author: &str,
+    ) -> Result<ObjectId> {
+        let page_id = self.page_id(page)?;
+        self.begin_edit();
+        let annot =
+            self.measure_annotation(page_id, "PolyLine", ANGLE, &[a, vertex, b], style, scale, author);
+        self.finish_annotation(page_id, annot)
+    }
+
+    /// Add a radius measurement: the circle around `center` through `edge`,
+    /// its radius drawn, labelled with the radius and the diameter.
+    pub fn add_radius_measure(
+        &mut self,
+        page: usize,
+        center: (f32, f32),
+        edge: (f32, f32),
+        style: &AnnotStyle,
+        scale: &MeasureScale,
+        author: &str,
+    ) -> Result<ObjectId> {
+        if (edge.0 - center.0).hypot(edge.1 - center.1) < 0.5 {
+            return Err(Error::Invalid("the circle has no size".into()));
+        }
+        let page_id = self.page_id(page)?;
+        self.begin_edit();
+        let annot = self.measure_annotation(page_id, "Line", RADIUS, &[center, edge], style, scale, author);
+        self.finish_annotation(page_id, annot)
+    }
+
+    /// Add a volume measurement: the area of the polygon `points` times
+    /// `depth` (in the unit of `scale`), in cubic units.
+    pub fn add_volume_measure(
+        &mut self,
+        page: usize,
+        points: &[(f32, f32)],
+        depth: f32,
+        style: &AnnotStyle,
+        scale: &MeasureScale,
+        author: &str,
+    ) -> Result<ObjectId> {
+        if points.len() < 3 {
+            return Err(Error::Invalid("not enough points for the measurement".into()));
+        }
+        if !depth.is_finite() || depth <= 0.0 {
+            return Err(Error::Invalid("the depth must be more than zero".into()));
+        }
+        let page_id = self.page_id(page)?;
+        self.begin_edit();
+        let mut annot = self.measure_annotation(page_id, "Polygon", VOLUME, points, style, scale, author);
+        annot.set("FolitectaDepth", depth);
         self.finish_annotation(page_id, annot)
     }
 
@@ -283,6 +361,9 @@ impl Document {
                     "LineDimension" => "Distance",
                     "PolyLineDimension" => "Perimeter",
                     "PolygonDimension" => "Area",
+                    ANGLE => "Angle",
+                    RADIUS => "Radius",
+                    VOLUME => "Volume",
                     _ => continue,
                 };
                 out.push((p, kind.to_string(), a.contents.clone()));

@@ -155,6 +155,18 @@ pub fn finish_drawing(st: AppState) {
                 &author,
             )
             .map(|_| ()),
+        Tool::Angle if pdf.len() >= 3 => t
+            .doc
+            .add_angle_measure(page, [pdf[0], pdf[1], pdf[2]], &style("Angle"), &scale, &author)
+            .map(|_| ()),
+        // Its depth is asked first.
+        Tool::Volume if pdf.len() >= 3 => {
+            st.set_dialog(Dialog::VolumeDepth {
+                page,
+                points: pdf.clone(),
+            });
+            Ok(())
+        }
         _ => Ok(()),
     });
     match r {
@@ -164,7 +176,7 @@ pub fn finish_drawing(st: AppState) {
     }
 }
 
-pub(super) fn after_create(st: AppState) {
+pub fn after_create(st: AppState) {
     files::set_window_title(st);
     // A freehand drawing takes many strokes: the pencil and the free
     // highlighter stay chosen.
@@ -280,6 +292,14 @@ pub(super) fn finish_create(
             st.with_active(|t| {
                 t.doc
                     .add_polyline(page, &[start_pdf, point], false, &s, &author, "")
+                    .map(|_| ())
+            })
+        }
+        Tool::Radius if !tiny => {
+            let scale = crate::ui::dialogs::measure_scale(st);
+            st.with_active(|t| {
+                t.doc
+                    .add_radius_measure(page, start_pdf, point, &style("Radius"), &scale, &author)
                     .map(|_| ())
             })
         }

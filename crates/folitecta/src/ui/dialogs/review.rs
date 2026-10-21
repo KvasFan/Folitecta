@@ -362,6 +362,41 @@ pub fn measure_scale(st: AppState) -> folitecta_core::MeasureScale {
     .with_separators(&get("measure.decimal_sep", "."), &get("measure.group_sep", ""))
 }
 
+/// The depth of a volume measured over `points` of `page`, in the unit of
+/// the scale (the last one given is offered again).
+#[component]
+pub(super) fn VolumeDepthDialog(page: usize, points: Vec<(f32, f32)>) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let scale = measure_scale(st);
+    let depth = use_signal(|| {
+        let v = st.value("measure.depth");
+        if v.is_empty() { "1".to_string() } else { v }
+    });
+    let unit = scale.unit.clone();
+    rsx! {
+        Frame { title: t(lang, "dialog.volume.title"),
+            on_ok: move |_| {
+                let d: f32 = depth().trim().replace(',', ".").parse().unwrap_or(0.0);
+                let style = crate::state::comment_styles::default_style(st, "Volume");
+                let author = st.ui.peek().author.clone();
+                let scale = measure_scale(st);
+                match st.with_active(|t| t.doc.add_volume_measure(page, &points, d, &style, &scale, &author)) {
+                    Some(Ok(_)) => {
+                        st.set_value("measure.depth", depth());
+                        st.set_dialog(Dialog::None);
+                        crate::ui::canvas::after_create(st);
+                    }
+                    Some(Err(e)) => st.core_error(&e),
+                    None => {}
+                }
+            },
+            p { class: "hint", "{t(lang, \"dialog.volume.hint\")}" }
+            Num { label: tf(lang, "dialog.volume.depth", &[("unit", &unit)]), value: depth, min: "0", step: "any" }
+        }
+    }
+}
+
 /// Separators offered for the decimals and the thousands of measurements: value and label key.
 const DECIMAL_SEPS: [(&str, &str); 2] = [(".", "measure.sep.point"), (",", "measure.sep.comma")];
 const GROUP_SEPS: [(&str, &str); 5] = [

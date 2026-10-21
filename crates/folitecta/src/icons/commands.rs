@@ -101,6 +101,9 @@ const BY_ID: &[(&str, &str)] = &[
     ("tool.annot.distance", "measure"),
     ("tool.annot.perimeter", "measure"),
     ("tool.annot.area", "measure"),
+    ("tool.annot.angle", "measure"),
+    ("tool.annot.radius", "measure"),
+    ("tool.annot.volume", "measure"),
     ("tool.calibrate", "ruler"),
     // Links and protection.
     ("addLink", "link"),

@@ -4,6 +4,24 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-21 — FOL-L028/S01: angles, radii and volumes
+
+- **Current state before:** distances, perimeters and areas only.
+- **Changed:** `add_angle_measure` (a polyline of three points, `/IT /FolitectaAngle`),
+  `add_radius_measure` (a line from the centre, `/FolitectaRadius`; the comment's rectangle holds
+  the circle), `add_volume_measure` (a polygon, `/FolitectaVolume`, `/FolitectaDepth` in the
+  unit of the scale; refused without depth), sharing the measure dictionary of the others
+  (`measure_annotation`). The appearance draws the arc of an angle and the circle of a radius
+  (`measure_extra`) and their labels: degrees on the bisector (farther out for narrow angles),
+  `R … · Ø …`, cubic units. `measurements()` lists them for the CSV export. Tools in the Measure
+  group: Angle (finished by its third click, with its own status hint), Radius (a drag with the
+  circle previewed), Volume (an area, then the depth asked, the last one offered again).
+- **Checked:** `tests/markup_tools.rs` (a right and a 45 degree angle, a radius with its
+  diameter and its circle inside the rectangle, a volume with comma decimals, the kinds listed,
+  refusals); measurements rendered and looked at; self-test step `tools` (90.0° by three clicks,
+  `R 12.7 mm · Ø 25.4 mm` by a drag, a volume with its depth asked).
+- **Open:** snapping profile, a measure info pane, editing the depth afterwards.
+
 ## 2026-10-21 — FOL-L022/S01: bookmarks from headings, tables of contents
 
 - **Current state before:** bookmarks were made by hand (or from the tags of a tagged

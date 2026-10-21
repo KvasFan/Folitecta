@@ -45,6 +45,12 @@ pub enum Tool {
     Distance,
     Perimeter,
     Area,
+    /// Three clicks: the angle at the middle one.
+    Angle,
+    /// A drag from the centre of a circle to its edge.
+    Radius,
+    /// An area, then its depth.
+    Volume,
     FreeHighlight,
     Eraser,
     InsertText,
@@ -145,6 +151,9 @@ impl Tool {
             Tool::Distance => "tool.annot.distance",
             Tool::Perimeter => "tool.annot.perimeter",
             Tool::Area => "tool.annot.area",
+            Tool::Angle => "tool.annot.angle",
+            Tool::Radius => "tool.annot.radius",
+            Tool::Volume => "tool.annot.volume",
             Tool::FreeHighlight => "tool.annot.freeHighlight",
             Tool::Eraser => "tool.annot.eraser",
             Tool::InsertText => "tool.annot.insertText",
@@ -206,6 +215,9 @@ impl Tool {
             Tool::Distance => "tool.distance",
             Tool::Perimeter => "tool.perimeter",
             Tool::Area => "tool.area",
+            Tool::Angle => "tool.angle",
+            Tool::Radius => "tool.radius",
+            Tool::Volume => "tool.volume",
             Tool::FreeHighlight => "tool.free_highlight",
             Tool::Eraser => "tool.eraser",
             Tool::InsertText => "tool.insert_text",
@@ -254,7 +266,13 @@ impl Tool {
     pub fn is_multi_click(&self) -> bool {
         matches!(
             self,
-            Tool::Polygon | Tool::Polyline | Tool::Cloud | Tool::Perimeter | Tool::Area
+            Tool::Polygon
+                | Tool::Polyline
+                | Tool::Cloud
+                | Tool::Perimeter
+                | Tool::Area
+                | Tool::Angle
+                | Tool::Volume
         )
     }
 }

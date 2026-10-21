@@ -269,6 +269,9 @@ pub const RIBBON: &[RTab] = &[
                     "tool.annot.distance",
                     "tool.annot.perimeter",
                     "tool.annot.area",
+                    "tool.annot.angle",
+                    "tool.annot.radius",
+                    "tool.annot.volume",
                     "tool.calibrate",
                     "exportMeasuresToCSV"
                 ]

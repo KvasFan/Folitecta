@@ -152,7 +152,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L025 | P1 | ✅ | every markup and drawing comment, styles and named styles, lock, grouping, align/distribute/order, eraser, clouds | Pressure-sensitive pen; check appearances in a second reader. |
 | FOL-L026 | P1 | ✅ | comments pane with filters, replies, review states, XFDF/FDF/PDF exchange, comment summaries | CSV summary; history of a comment. |
 | FOL-L027 | P1/P2 | 🟡 | text stamps, stamp designer with dynamic values, favourites and recent stamps | Sequential stamps; symbol libraries with fields asked when placed. |
-| FOL-L028 | P2 | 🟡 | distance, perimeter, area, calibration, CSV export of measures | Angle, radius/diameter, volume; snapping profile; measure info pane. |
+| FOL-L028 | P2 | 🟡 | distance, perimeter, area, angle, radius and diameter, volume (area by a depth), calibration, CSV export of measures | Snapping profile; measure info pane; editing the depth of a volume. |
 | FOL-L029 | P2 | 🟡 | calculator with an editable tape placed as a comment | Tick marks with sequences and styles. |
 | FOL-L030 | P1/P2 | ✅ | barcodes written (vector) and read (rxing), tables as generated objects | Table extraction from PDF pages (P2). |
 

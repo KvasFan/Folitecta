@@ -275,6 +275,54 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         String::new(),
     );
 
+    // 14b. An angle finished by its third click, a radius dragged from the
+    // centre, a volume: an area and the depth asked for it.
+    crate::commands::dispatch(st, "tool.annot.angle");
+    pause(300).await;
+    for p in [(580.0, 800.0), (480.0, 800.0), (480.0, 740.0)] {
+        let _ = pointer_path(0, z, &[p, p], false).await;
+        pause(150).await;
+    }
+    pause(500).await;
+    let angle = annots_on(st, 0)
+        .last()
+        .map(|a| (a.subtype.clone(), a.contents.clone()));
+    crate::commands::dispatch(st, "tool.annot.radius");
+    pause(300).await;
+    let _ = pointer_path(0, z, &line((530.0, 560.0), (530.0, 596.0), 5), false).await;
+    pause(600).await;
+    let radius = annots_on(st, 0)
+        .last()
+        .map(|a| a.contents.clone())
+        .unwrap_or_default();
+    crate::commands::dispatch(st, "tool.annot.volume");
+    pause(300).await;
+    let before = annots_on(st, 0).len();
+    for p in [(420.0, 560.0), (492.0, 560.0), (492.0, 632.0), (420.0, 632.0)] {
+        let _ = pointer_path(0, z, &[p, p], false).await;
+        pause(120).await;
+    }
+    let _ = eval("document.querySelector('.app').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));").await;
+    pause(500).await;
+    let asked = matches!((st.dialog)(), Dialog::VolumeDepth { page: 0, .. });
+    let _ = eval("const i = document.querySelector('.dialog input[type=number]'); if (i) { i.value = '2'; i.dispatchEvent(new Event('input', { bubbles: true })); }").await;
+    pause(300).await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(600).await;
+    let after = annots_on(st, 0);
+    let volume = after.last().map(|a| a.contents.clone()).unwrap_or_default();
+    cx.record(
+        "angle by three clicks, radius by a drag, volume with its depth asked",
+        angle == Some(("PolyLine".into(), "90.0\u{b0}".into()))
+            && radius.starts_with("R 12.7 mm")
+            && asked
+            && after.len() == before + 1
+            && volume.ends_with('\u{b3}')
+            && matches!((st.dialog)(), Dialog::None),
+        format!("angle {angle:?}, radius {radius:?}, depth asked {asked}, volume {volume:?}"),
+    );
+    st.set_tool(Tool::Hand);
+
     // 15. Callout: drag from the pointed spot to where the box goes, then type.
     crate::commands::dispatch(st, "tool.annot.callout");
     pause(300).await;

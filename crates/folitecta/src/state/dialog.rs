@@ -394,6 +394,11 @@ pub enum Dialog {
     OcrText {
         text: String,
     },
+    /// The depth of a volume measured over `points` (PDF user space) of `page`.
+    VolumeDepth {
+        page: usize,
+        points: Vec<(f32, f32)>,
+    },
     /// Bookmarks made of the headings found in the text.
     BookmarksFromHeadings,
     /// Pages listing the bookmarks inserted into the document.

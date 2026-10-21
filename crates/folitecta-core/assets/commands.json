@@ -20721,8 +20721,50 @@
    "status": "planned"
   },
   {
+   "id": "tool.annot.angle",
+   "label": "Angle",
+   "parent": "tool.annot",
+   "menu": "comments",
+   "ribbon": {
+    "tab": "comment",
+    "group": "measure"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "tool.annot.area",
    "label": "Area",
+   "parent": "tool.annot",
+   "menu": "comments",
+   "ribbon": {
+    "tab": "comment",
+    "group": "measure"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
+   "id": "tool.annot.radius",
+   "label": "Radius",
+   "parent": "tool.annot",
+   "menu": "comments",
+   "ribbon": {
+    "tab": "comment",
+    "group": "measure"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
+   "id": "tool.annot.volume",
+   "label": "Volume",
    "parent": "tool.annot",
    "menu": "comments",
    "ribbon": {

@@ -29,7 +29,7 @@ pub(super) fn constrained(tool: Tool, start: (f64, f64), current: (f64, f64)) ->
             let side = dx.abs().max(dy.abs());
             (start.0 + side * dx.signum(), start.1 + side * dy.signum())
         }
-        Tool::Line | Tool::Arrow | Tool::Distance => {
+        Tool::Line | Tool::Arrow | Tool::Distance | Tool::Radius => {
             let len = dx.hypot(dy);
             let step = std::f64::consts::FRAC_PI_4;
             let angle = (dy.atan2(dx) / step).round() * step;
@@ -66,6 +66,7 @@ pub(super) fn shape_preview(st: AppState, tool: Tool, d: Drag, z: f32) -> Option
         Tool::Typewriter => "Typewriter",
         Tool::Line | Tool::Arrow => "Line",
         Tool::Distance => "Distance",
+        Tool::Radius => "Radius",
         Tool::Callout => "Callout",
         _ => return None,
     };
@@ -134,6 +135,10 @@ pub(super) fn shape_preview(st: AppState, tool: Tool, d: Drag, z: f32) -> Option
             };
             rsx! {
                 line { x1: "{bx}", y1: "{by}", x2: "{ax}", y2: "{ay}", stroke: "{color}", stroke_width: "{width.max(1.0)}", stroke_dasharray: "{dash}", opacity: "{opacity}", stroke_linecap: "round" }
+                // A radius: the circle it measures.
+                if tool == Tool::Radius {
+                    circle { cx: "{bx}", cy: "{by}", r: "{len}", fill: "none", stroke: "{color}", stroke_width: "{width.max(1.0)}", stroke_dasharray: "{dash}", opacity: "{opacity}" }
+                }
                 if arrow && len > size {
                     polyline { points: "{head}", fill: "none", stroke: "{color}", stroke_width: "{width.max(1.0)}", opacity: "{opacity}", stroke_linejoin: "round", stroke_linecap: "round" }
                 }

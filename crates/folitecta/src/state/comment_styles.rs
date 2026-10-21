@@ -85,6 +85,9 @@ pub fn tool_subtype(tool: Tool) -> Option<&'static str> {
         Tool::Distance => "Distance",
         Tool::Perimeter => "Perimeter",
         Tool::Area => "Area",
+        Tool::Angle => "Angle",
+        Tool::Radius => "Radius",
+        Tool::Volume => "Volume",
         Tool::FreeHighlight => "FreeHighlight",
         _ => return None,
     })
@@ -186,7 +189,7 @@ pub fn builtin(kind: &str) -> AnnotStyle {
             line_end: "OpenArrow".into(),
             ..base
         },
-        "Distance" | "Perimeter" | "Area" => AnnotStyle {
+        "Distance" | "Perimeter" | "Area" | "Angle" | "Radius" | "Volume" => AnnotStyle {
             color: Some([0.85, 0.1, 0.1]),
             width: 1.0,
             line_start: if kind == "Distance" {
@@ -252,6 +255,9 @@ pub const KINDS: &[&str] = &[
     "Distance",
     "Perimeter",
     "Area",
+    "Angle",
+    "Radius",
+    "Volume",
     "FreeHighlight",
     "Caret",
     "FileAttachment",

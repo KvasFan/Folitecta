@@ -437,6 +437,8 @@ pub fn Dialogs() -> Element {
         Dialog::SpellCheck => rsx! { crate::ui::features::spelling::SpellCheckDialog {} },
         Dialog::Ocr { pictures_only } => rsx! { crate::ui::features::ocr::OcrDialog { pictures_only } },
         Dialog::OcrText { text } => rsx! { crate::ui::features::ocr::OcrTextDialog { text } },
+        Dialog::BookmarksFromHeadings => rsx! { crate::ui::features::contents::HeadingsDialog {} },
+        Dialog::InsertContents => rsx! { crate::ui::features::contents::ContentsDialog {} },
         Dialog::OcrReview { skipped } => rsx! { crate::ui::features::ocr::OcrReviewDialog { skipped } },
         Dialog::CleanUpScans => rsx! { crate::ui::features::scans::CleanUpScansDialog {} },
         Dialog::FieldItems => rsx! { crate::ui::features::field_editor::FieldItemsDialog {} },

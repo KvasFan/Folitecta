@@ -4,10 +4,10 @@ Generated from the command registry for version 0.2.1. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1447 |
+| ✅ available | 1449 |
 | 🟡 partial | 59 |
 | ⬜ planned | 477 |
-| total | 1983 |
+| total | 1985 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -745,6 +745,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
+| Bookmarks from Headings… | `document.bookmarksFromHeadings` | ✅ available |
 | Delete Empty Pages… | `document.deleteEmptyPages` | ✅ available |
 | Delete Pages… | `document.deletePages` | ✅ available |
 | Duplicate Pages… | `document.duplicatePages` | ✅ available |
@@ -756,6 +757,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Insert Pages… | `document.insertPages` | ✅ available |
 | Insert Rich Text… | `document.insertRTF` | ✅ available |
 | Insert Scanned Pages… | `document.insertScannedPages` | ⬜ planned |
+| Insert Table of Contents… | `document.insertContents` | ✅ available |
 | Insert Text… | `document.insertText` | ✅ available |
 | Merge Pages… | `document.mergePages` | ✅ available |
 | More Page Tools | `document.pagesMore` | ⬜ planned |
@@ -1570,6 +1572,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Apply All Redactions | `document.applyRedactions` | ✅ available |
 | Audit Space Usage | `document.audit` | ✅ available |
 | Bookmarks | `bookmarks` | ✅ available |
+| Bookmarks from Headings… | `document.bookmarksFromHeadings` | ✅ available |
 | Clean Up Scans… | `document.cleanUpScans` | ✅ available |
 | Create Web Links from Barcodes | `createWebLinksFromBarcodes` | ✅ available |
 | Create Web Links from URLs | `createWebLinksFromText` | ✅ available |
@@ -1591,6 +1594,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Insert Pages from Clipboard… | `document.insertPagesFromClipboard` | ✅ available |
 | Insert Rich Text… | `document.insertRTF` | ✅ available |
 | Insert Scanned Pages… | `document.insertScannedPages` | ⬜ planned |
+| Insert Table of Contents… | `document.insertContents` | ✅ available |
 | Insert Text… | `document.insertText` | ✅ available |
 | Java Script | `javaScript` | ✅ available |
 | JavaScript Edit Snippets | `jsEditSnippets` | ✅ available |

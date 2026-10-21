@@ -181,6 +181,7 @@
   "toast.ocr_no_text": "Nell'area non è stato trovato testo.",
   "toast.ocr_nothing": "Nessuna pagina da leggere: le pagine scelte hanno già del testo.",
   "toast.ocr_stopped": "Interrotto. Testo riconosciuto — pagine: {pages}, righe: {lines}.",
+  "toast.contents_inserted": "Indice inserito — pagine: {count}.",
   "toast.ocr_doubtful": "Parole incerte da controllare: {count}.",
   "toast.scans_done": "Pagine scansionate pulite — raddrizzate: {straightened}, eliminate: {deleted}.",
   "toast.opened": "Aperto {name}",

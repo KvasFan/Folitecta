@@ -58,7 +58,7 @@ of form fields is `form_appearance`, next to `form_design`.
 
 Operations are grouped by module, for example `pages` and `pagetools` (page tree edits, crop,
 resize, split), `annots` and `appearance` (comments with generated appearance streams), `outline`
-(bookmarks), `forms`, `form_design` and `form_calc` (simple field calculations, written as
+(bookmarks), `contents` (headings found by the size most of a line's letters have against the size most of the text has, running heads left out, lines of one heading joined, levels by size; bookmarks made of them; contents pages set with `typeset` and inserted with GoTo links in one undo step), `forms`, `form_design` and `form_calc` (simple field calculations, written as
 `AFSimple_Calculate` actions and computed in Rust in the `/CO` order), `attachments`, `layers`, `links`, `text` and `textlayer`
 (extraction, selection and search), `ocr` (text recognition: a PaddleOCR detection model finds
 the lines as connected areas of its probability map, each fitted with a turned rectangle from the

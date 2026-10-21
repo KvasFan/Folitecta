@@ -152,7 +152,7 @@ impl Fonts {
     }
 
     /// Put the fonts in the resources of `pages`.
-    fn finish(self, doc: &mut Document, pages: &[ObjectId]) -> Result<()> {
+    pub fn finish(self, doc: &mut Document, pages: &[ObjectId]) -> Result<()> {
         if self.standard() {
             let ids: Vec<ObjectId> = BASES
                 .iter()
@@ -190,6 +190,10 @@ struct Word {
     link: Option<String>,
     space: bool,
 }
+
+/// A page set to be put into another document: its content, and its links
+/// (rectangle in PDF user space, target).
+pub(crate) type PageParts = (String, Vec<([f32; 4], String)>);
 
 /// A line made of words, set left to right.
 pub(crate) type Line = Vec<Span>;
@@ -562,6 +566,37 @@ impl Typeset {
         self.lines(&lines, size, leading, x0, width, color, align)
     }
 
+    /// `text` drawn from `x` on the line just set (`leading` high), after
+    /// its text (the cursor stays).
+    #[allow(clippy::too_many_arguments)]
+    pub fn put(
+        &mut self,
+        text: &str,
+        style: Style,
+        size: f32,
+        leading: f32,
+        x: f32,
+        color: [f32; 3],
+    ) -> Result<()> {
+        let text = self.fonts.piece(text);
+        let y = self.y + leading - (leading + size * 0.7) / 2.0;
+        let ops = self.fonts.show(&text, style, size, (x, y), color)?;
+        self.out().push_str(&ops);
+        Ok(())
+    }
+
+    /// The top of the next line (PDF user space) and the page it goes on.
+    pub fn cursor(&self) -> (usize, f32) {
+        (self.pages.len() - 1, self.y)
+    }
+
+    /// A link over `rect` (PDF user space) of page `page` (of these pages).
+    pub fn link(&mut self, page: usize, rect: [f32; 4], target: String) {
+        if let Some(p) = self.pages.get_mut(page) {
+            p.links.push((rect, target));
+        }
+    }
+
     /// Text drawn at a place of the line about to be set (a list marker),
     /// once room for the line is made.
     pub fn marker(
@@ -769,6 +804,13 @@ impl Typeset {
         Ok(())
     }
 
+    /// The pages set so far, to be put into another document: their content,
+    /// their links (rectangle and target), and the fonts they use.
+    pub fn into_pages(self) -> (Fonts, Vec<PageParts>) {
+        let pages = self.pages.into_iter().map(|p| (p.content, p.links)).collect();
+        (self.fonts, pages)
+    }
+
     /// The document: its pages, fonts, links and bookmarks (headings nested
     /// by level).
     pub fn finish(self, title: &str) -> Result<Document> {
@@ -874,7 +916,7 @@ pub(crate) fn column_widths(
 
 /// Bookmarks in order with their levels, nested: each under the last one of
 /// a lower level before it.
-fn nest(items: Vec<(u8, OutlineItem)>) -> Vec<OutlineItem> {
+pub(crate) fn nest(items: Vec<(u8, OutlineItem)>) -> Vec<OutlineItem> {
     fn take(
         items: &mut std::iter::Peekable<std::vec::IntoIter<(u8, OutlineItem)>>,
         above: u8,

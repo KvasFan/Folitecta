@@ -141,7 +141,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L022 | P1 | 🟡 | bookmarks (hierarchy, editing, export), links, named destinations, web links from text and barcodes | Table of contents generation, bookmarks from headings, article threads, duplicate cleanup. |
+| FOL-L022 | P1 | 🟡 | bookmarks (hierarchy, editing, export), links, named destinations, web links from text and barcodes; bookmarks from the headings found by text size (levels, running heads left out); a table of contents inserted from the bookmarks (leaders, page numbers, links) | Article threads; duplicate cleanup; page labels in the contents; headings found by font weight. |
 | FOL-L023 | P1/P2 | ✅ | attachments, layers (visibility, properties, drawing and writing on the selected layer, comments and pictures moved between layers, comments of hidden layers hidden in the view, thumbnails, printing, summaries, the Comments pane and the pictures made of the pages (export, copy, snapshot), visibility expressions), audio/video with playback | Codec list and unsupported media report; layers given by membership dictionaries lost on export and paste; XFDF carries no layer; pictures inside reused drawings on layers. |
 | FOL-L024 | P2 | 🟡 | PDF portfolios: create, view, extract, print | Binder project with sources and regeneration. |
 

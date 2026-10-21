@@ -43,7 +43,7 @@ pub use markup::{
     annot_copy, annots, appearance, arrange, calculator, comment_exchange, comment_review, comment_summary,
     flatten, grouping, markup_tools, media, signmarks, smooth, stamp_design, stamps, tables,
 };
-pub use navigation::{layer_drawing, layers, links, outline};
+pub use navigation::{contents, layer_drawing, layers, links, outline};
 pub(crate) use organize::typeset;
 pub use organize::{
     attachments, combine, compare, csvdoc, delivery, doctools, email, export, markdown, marks, metadata,
@@ -64,6 +64,7 @@ pub use commands::{Command, CommandKind, Registry, Status, registry};
 pub use comment_exchange::{CommentFormat, LeftOutReply, UndrawableComment};
 pub use comment_review::{CommentInfo, REVIEW_STATES, StateChange};
 pub use comment_summary::{SummaryEntry, SummaryLabels, SummaryLayout, SummaryOptions, SummarySort};
+pub use contents::Heading;
 pub use delivery::{CopyComments, CopyFacts, CopyOptions, CopySignatures, CopySource, LeftOut, PreparedCopy};
 pub use document::{DocInfo, DocSnapshot, Document, PageSize, PreparedSave, ProtectionKey};
 pub use error::{Error, Result};

@@ -4,6 +4,29 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-21 — FOL-L022/S01: bookmarks from headings, tables of contents
+
+- **Current state before:** bookmarks were made by hand (or from the tags of a tagged
+  document); no table of contents could be made.
+- **Changed:** `navigation/contents.rs`: `find_headings` (each line with the size most of its
+  letters have; the body size is the one most letters have; headings are at least 15% and a
+  point larger, short, with letters, not on three pages and a quarter of them when their digits
+  are left out; consecutive lines of one heading joined; levels by size, at most 4),
+  `bookmarks_from_headings` (nested, opening the page at the heading, replacing or appending),
+  `insert_contents` (set with `typeset`: title, entries indented by level, dotted leaders, the
+  numbers the pages have once the contents are in, found in up to three passes; pages inserted,
+  their fonts and a GoTo link per entry in one undo step). `Typeset` gains `put`, `cursor`,
+  `link` and `into_pages`. Organize › Pages: Insert Table of Contents… and Bookmarks from
+  Headings… (the headings listed by level, each can be left out or shown).
+- **Checked:** `tests/contents.rs` (4: headings and levels with a heading on two lines and a
+  running head; nested bookmarks, appended, undone; contents with the new page numbers, reading
+  order, six links to the right pages, bookmarks still right, undone; no bookmarks refused);
+  unit tests (page shift, running heads); contents page rendered and looked at; self-test step
+  `contents` (five headings listed, one left out, nested bookmarks, a contents page with four
+  links, both undone) and the two dialog states.
+- **Open:** article threads; duplicate bookmarks; page labels in the contents; bold text of the
+  body size as headings.
+
 ## 2026-10-21 — FOL-L035/S01: compared documents side by side
 
 - **Current state before:** the differences were marked on both documents, but only one was

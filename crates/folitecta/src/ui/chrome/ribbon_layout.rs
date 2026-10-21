@@ -381,6 +381,8 @@ pub const RIBBON: &[RTab] = &[
                 [
                     "document.insertPages",
                     "document.insertEmptyPages",
+                    "document.insertContents",
+                    "document.bookmarksFromHeadings",
                     "document.deletePages",
                     "document.extractPages",
                     "document.insertImages",

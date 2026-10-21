@@ -1,0 +1,10 @@
+/* Tables of contents: the headings found. */
+.contents-list { display: flex; flex-direction: column; gap: 2px; max-height: 50vh; overflow: auto; }
+.contents-row { display: flex; align-items: center; gap: 8px; padding: 2px 4px; border-radius: var(--radius-sm); }
+.contents-row:hover { background: var(--surface-2); }
+.contents-row.off { opacity: .5; }
+.contents-go { flex: 1; min-width: 0; text-align: left; }
+.contents-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.contents-title.top { font-weight: 600; }
+.contents-page { flex: none; font-size: 12px; }
+.contents-count { margin: 0; }

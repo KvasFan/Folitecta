@@ -46,6 +46,12 @@ All notable changes to Folitecta are documented here. The format follows
   holds its first word both share, so pages inserted or removed do not put them out of step.
   Moving between the differences keeps the new document in front. Both again shows the new
   document alone.
+- Bookmarks from Headings: the lines set clearly larger than the text are found (running heads
+  left out, a heading on two lines joined), listed by level so any can be left out, and made into
+  nested bookmarks that open their pages at the heading, in place of the bookmarks there are or
+  after them. Insert Table of Contents: pages listing the bookmarks, indented by level, with
+  dotted leaders to the numbers the pages have once the contents are in, every entry a link,
+  inserted at the start or before the current page. Each is one undo step.
 - Every release package carries `THIRD-PARTY-LICENSES.txt`: the libraries built into the program
   for that system, each with its licence and the address of its source, and their licence texts
   (written by `crates/notices` from the published sources; a library without a text stops the

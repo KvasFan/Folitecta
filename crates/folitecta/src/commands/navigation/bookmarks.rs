@@ -653,6 +653,8 @@ handlers! {
     "bookmarksView.textSize.medium" => |st| st.set_value("bookmarks.text_size", "medium"),
     "bookmarksView.textSize.large" => |st| st.set_value("bookmarks.text_size", "large"),
     "bookmarksView.createOptions" => |st| st.set_dialog(Dialog::BookmarkOptions),
+    "document.bookmarksFromHeadings" => |st| { if !no_doc(st) { st.set_dialog(Dialog::BookmarksFromHeadings) } },
+    "document.insertContents" => |st| { if !no_doc(st) { st.set_dialog(Dialog::InsertContents) } },
     "bookmarksView.options" => |st| st.set_dialog(Dialog::BookmarkOptions),
     "bookmarksView.prefs" => |st| st.set_dialog(Dialog::BookmarkOptions),
     "bookmarksView.viewOptions" => |st| st.set_dialog(Dialog::BookmarkOptions),

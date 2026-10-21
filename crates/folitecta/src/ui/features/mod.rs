@@ -5,6 +5,7 @@ pub mod acc_dialogs;
 pub mod barcodes;
 pub mod calculator;
 pub mod compare;
+pub mod contents;
 pub mod doctools;
 pub mod field_editor;
 pub mod fileops;

@@ -181,6 +181,7 @@
   "toast.ocr_no_text": "No text was found in the area.",
   "toast.ocr_nothing": "No page to read: the pages chosen already have text.",
   "toast.ocr_stopped": "Stopped. Text recognized — pages: {pages}, lines: {lines}.",
+  "toast.contents_inserted": "Table of contents inserted — pages: {count}.",
   "toast.ocr_doubtful": "Doubtful words to check: {count}.",
   "toast.scans_done": "Scanned pages cleaned up — straightened: {straightened}, deleted: {deleted}.",
   "toast.opened": "Opened {name}",

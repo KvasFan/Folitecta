@@ -22,6 +22,7 @@ pub const CSS: &str = concat!(
     include_str!("../assets/styles/features/stamps.css"),
     include_str!("../assets/styles/features/doctools.css"),
     include_str!("../assets/styles/features/compare.css"),
+    include_str!("../assets/styles/features/contents.css"),
     include_str!("../assets/styles/features/tables.css"),
     include_str!("../assets/styles/features/forms.css"),
     include_str!("../assets/styles/features/accessibility.css"),

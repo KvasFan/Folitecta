@@ -394,6 +394,10 @@ pub enum Dialog {
     OcrText {
         text: String,
     },
+    /// Bookmarks made of the headings found in the text.
+    BookmarksFromHeadings,
+    /// Pages listing the bookmarks inserted into the document.
+    InsertContents,
     /// The words text recognition read with doubt, one at a time, after
     /// `skipped` words left doubtful.
     OcrReview {

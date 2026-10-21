@@ -6994,6 +6994,20 @@
    "status": "planned"
   },
   {
+   "id": "document.insertContents",
+   "label": "Insert Table of Contents…",
+   "parent": "document",
+   "menu": "document",
+   "ribbon": {
+    "tab": "organize",
+    "group": "pages"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "document.insertPages",
    "label": "Insert Pages…",
    "parent": "document",
@@ -7124,6 +7138,20 @@
    "ribbon": {
     "tab": "organize",
     "group": "transformPages"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
+   "id": "document.bookmarksFromHeadings",
+   "label": "Bookmarks from Headings…",
+   "parent": "document",
+   "menu": "document",
+   "ribbon": {
+    "tab": "organize",
+    "group": "pages"
    },
    "pane": null,
    "kind": "command",

@@ -1,9 +1,9 @@
 //! View menu: zoom, navigation, layouts, rotation, panes, themes, rulers and guides.
 
-use crate::commands::{current_zoom, doc_dialog, handlers, no_doc, set_zoom, toggle_pane};
+use crate::commands::{current_zoom, doc_dialog, handlers, no_doc, option_on, set_zoom, toggle_pane};
 use crate::files;
 use crate::state::{AppState, Dialog, Layout, Pane, Theme, Tool, Zoom};
-use dioxus::prelude::ReadableExt;
+use dioxus::prelude::*;
 
 fn zoom_step(st: AppState, factor: f32) {
     let next = (current_zoom(st) * factor).clamp(0.1, 8.0);
@@ -58,7 +58,30 @@ fn set_ui(st: AppState, ribbon: bool) {
     st.save_prefs();
 }
 
+/// The reflow view on or off. The page shown stays: back to the pages, they
+/// are scrolled to it once drawn.
+fn toggle_reflow(st: AppState) {
+    if no_doc(st) {
+        return;
+    }
+    let on = !option_on(st, "view.reflow");
+    st.set_option("view.reflow", on);
+    if !on {
+        let page = st.current_page();
+        spawn(async move {
+            for wait in [120, 400] {
+                tokio::time::sleep(std::time::Duration::from_millis(wait)).await;
+                let _ = document::eval(&format!(
+                    "document.getElementById('pg-{page}')?.scrollIntoView({{ block: 'start' }});"
+                ))
+                .await;
+            }
+        });
+    }
+}
+
 handlers! {
+    "view.reflow" => toggle_reflow,
     "zoomIn" => |st| zoom_step(st, 1.25),
     "zoomOut" => |st| zoom_step(st, 0.8),
     "view.zoom" => |st| doc_dialog(st, Dialog::GoToPage),

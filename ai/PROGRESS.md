@@ -4,6 +4,34 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-22 — FOL-L042/S01: reflow and reading aloud
+
+- **Current state before:** the pages could only be read as pages; nothing was read aloud.
+- **Changed:** `page_text/reading.rs` (`reading_blocks`: the paragraphs of the pages in order with
+  their characters, headings by size like `find_headings`, running heads and page numbers left
+  out, words broken at a line end joined, compounds kept). The reflow view (a view option,
+  `Ctrl+4`): the blocks page by page in a readable column, text sizes, the page at the top
+  reported as the current page and a page gone to scrolled to. Read Aloud (`Ctrl+Shift+Y`): a bar
+  and `commands/text/read_aloud.rs` reading paragraph by paragraph (the text selected, else from
+  the current page), the paragraph marked on its page (`DocTab::reading`, kept in view) or in the
+  reflow view, pause, previous, next, stop, voice and speed; `speech/`: the Web Speech API when
+  the web view has voices, else speech-dispatcher over its socket (`speech/ssip.rs`, written
+  from the protocol as the server implements it: CR LF, events at any time demultiplexed, the
+  dummy module alone meaning no voice, `--spawn` once when the socket is missing; pause by
+  cutting the paragraph), else the stand-in of the self-test. WebKitGTK here has no
+  `speechSynthesis` and the machine has no speech-dispatcher, so the Linux path was tested
+  against a fake service only.
+- **Checked:** `tests/reading.rs` (headings, running foot left out, whole paragraphs in order with
+  their characters, some pages); `reading.rs` unit tests (lines joined, broken words mended,
+  compounds kept); `speech/ssip.rs` tests (blocks, messages and dot escaping, rates, voices and the
+  dummy module, a whole session against a fake service: client name, notifications, voices,
+  rate, language before voice, the other client's event ignored, the end told once, QUIT); self-
+  test step `reading` (reflow: four pages, headings, a larger text, the current page followed
+  both ways; reading with the stand-in: paragraphs in order, marked in the reflow view and on
+  the page, a pause that holds, next, stop).
+- **Open:** words marked as they are spoken; reading from a paragraph clicked; trying the Linux
+  path with a real speech-dispatcher; a keyboard and screen reader pass.
+
 ## 2026-10-21 — FOL-L029/S01: tick marks
 
 - **Current state before:** marks had to be drawn as shapes or stamps one by one, numbers typed.

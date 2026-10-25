@@ -65,6 +65,8 @@ pub(super) fn PageView(
         widgets: Vec<(folitecta_core::PageWidget, [f32; 4])>,
         popups: Vec<PopupView>,
         flash: Option<[f32; 4]>,
+        /// The lines of the paragraph read aloud.
+        reading: Vec<[f32; 4]>,
         /// Tab order and calculation order numbers of the form fields: label, calculation, rectangle.
         field_marks: Vec<(String, bool, [f32; 4])>,
         /// Reading order boxes: label, selected, rectangle (display space).
@@ -288,6 +290,12 @@ pub(super) fn PageView(
                 widgets,
                 popups,
                 flash: t.flash.filter(|(p, _)| *p == page).map(|(_, r)| r),
+                reading: t
+                    .reading
+                    .as_ref()
+                    .filter(|(p, _)| *p == page)
+                    .map(|(_, r)| r.clone())
+                    .unwrap_or_default(),
                 images,
                 image_sel: t.image_sel.filter(|(p, _)| *p == page).map(|(_, i)| i),
                 field_marks,
@@ -984,6 +992,9 @@ pub(super) fn PageView(
                 }
                 if let Some(r) = view.flash {
                     div { class: "dest-flash", style: "{css(r)}" }
+                }
+                for (i, r) in view.reading.iter().enumerate() {
+                    div { key: "rd{i}", class: "reading-mark", style: "{css(*r)}" }
                 }
                 for pv in view.popups.iter().cloned() {
                     PopupNote { key: "pn{pv.index}", page, view: pv, zoom: z, size, view_rotation, area_w: inner_w, area_h: inner_h }

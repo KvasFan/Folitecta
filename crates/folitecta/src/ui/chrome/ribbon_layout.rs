@@ -173,6 +173,8 @@ pub const RIBBON: &[RTab] = &[
                     "view.showGrid",
                     "view.showGuides",
                     "view.darkPageMode",
+                    "view.reflow",
+                    "view.readAloud",
                     "view.fullScreen"
                 ]
             ),

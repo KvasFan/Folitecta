@@ -17,6 +17,7 @@ mod printing;
 mod private_files;
 mod recovery;
 mod selftest;
+mod speech;
 mod state;
 mod theme;
 mod ui;

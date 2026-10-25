@@ -181,7 +181,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
 | FOL-L041 | P1 | 🟡 | accessibility check and report, auto-tagging of the document and of form fields, tags pane, reading order, alternate text | Table repair (headers, spans); manual checks listed in the report. |
-| FOL-L042 | P1 | 🟡 | English and Italian interface, keyboard shortcuts, themes (light, white, dark, black), short tool names with full tooltips | Reading reflow, local text to speech, a keyboard-only and screen reader pass. |
+| FOL-L042 | P1 | 🟡 | English and Italian interface, keyboard shortcuts, themes (light, white, dark, black), short tool names with full tooltips; a reflow view; reading aloud with the voices of the system (web view, speech-dispatcher on Linux) | A keyboard-only and screen reader pass; words marked as they are read; reading from a paragraph clicked. |
 | FOL-L043 | P2 | ⬜ | enable editing of PDF/A files | Preflight profiles, PDF/A validation and conversion. |
 | FOL-L044 | P2 | ⬜ | — | Colour conversion, output preview. |
 | FOL-L045 | P2 | 🟡 | space usage audit, recompression of the pictures of pages | One selected picture, presets, size comparison report. |

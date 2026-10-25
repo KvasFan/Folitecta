@@ -25,7 +25,7 @@ serde.workspace = true
 serde_json.workspace = true
 base64.workspace = true
 open = "5"
-tokio = { version = "1", features = ["time", "rt"] }
+tokio = { version = "1", features = ["time", "rt", "sync"] }
 image.workspace = true
 # TLS of the system for the requests to time stamp servers (MIT/Apache-2.0).
 native-tls = "0.2"

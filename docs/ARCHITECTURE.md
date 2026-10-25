@@ -82,7 +82,9 @@ share of pixels darker than half grey on a copy at most 1000 pixels long, leavin
 side, so specks, show-through and the shadows of the scanner do not count; its skew comes from
 `imaging::skew_angle`; the clean-up straightens the pictures with `put_page_image` and deletes
 the pages in one `edit_step`),
-`spelling` (the words of the page text, comments and text
+`reading` (the paragraphs of the pages as they are read: headings by the size most of their
+letters have, running heads and page numbers left out, words broken by a hyphen at a line end
+joined), `spelling` (the words of the page text, comments and text
 fields that Hunspell dictionaries do not know, checked with spellbook against every dictionary
 loaded; suggestions ranked by typing distance and by the language of the text around the word;
 corrections through the page text editor, the comment text or the field value, several in one
@@ -276,6 +278,13 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
     (`SplitView::source`) with its differences marked and is never focused; the canvas script
     scrolls it with the focused view, the page `Comparison::page_map` gives beside the page at
     the top (the old page of its first word both documents share), as far into it;
+  - `features/reflow.rs` and `features/read_aloud.rs` — the reflow view and the reading bar;
+    `speech/` speaks: the Web Speech API of the web view when it has voices (`speechSynthesis`,
+    one utterance per paragraph, kept referenced until it ends), else speech-dispatcher over its
+    Unix socket in SSIP (`speech/ssip.rs`: one thread reads every block and passes it to the
+    thread of the connection, which takes the 7xx events apart from the replies; pausing cuts
+    the paragraph and speaks it again, since `PAUSE` waits for the end of a sentence), else a
+    stand-in in the self-test that speaks nothing;
   - `dialogs/` and `features/` — dialogs, and the windows and editors of the features
     (pictures, stamps, signatures, forms, tables, media, calculator, scripts, …).
 - `theme.rs` and `assets/styles/` — `theme.css` holds the colour tokens of every theme (light,

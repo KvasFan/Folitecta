@@ -29,7 +29,7 @@ pub(crate) use markup::{
 };
 pub(crate) use navigation::{attachments, bookmarks, explorer, history, layers, panes, portfolio, sessions};
 pub(crate) use protection::{policies, protect, redaction, revocation, signatures, signs};
-pub(crate) use text::{find_replace, search, spelling, textedit};
+pub(crate) use text::{find_replace, read_aloud, search, spelling, textedit};
 pub(crate) use window::{edit, help, interface, qat, split_view, view};
 
 use std::collections::{HashMap, HashSet};
@@ -100,6 +100,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     textedit::HANDLERS,
     find_replace::HANDLERS,
     spelling::HANDLERS,
+    read_aloud::HANDLERS,
     comment_styles::HANDLERS,
     redaction::HANDLERS,
     split::HANDLERS,
@@ -340,6 +341,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| redaction::redaction_state(st, id))
         .or_else(|| split::split_state(st, id))
         .or_else(|| qat::qat_state(st, id))
+        .or_else(|| read_aloud::reading_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

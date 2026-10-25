@@ -441,6 +441,7 @@ mod steps_policies;
 mod steps_print;
 mod steps_protection;
 mod steps_qat;
+mod steps_reading;
 mod steps_recovery;
 mod steps_redaction;
 mod steps_review;
@@ -508,6 +509,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "arrange" => Box::pin(steps_arrange::run(cx)),
             "spelling" => Box::pin(steps_spelling::run(cx)),
             "ocr" => Box::pin(steps_ocr::run(cx)),
+            "reading" => Box::pin(steps_reading::run(cx)),
             "contents" => Box::pin(steps_contents::run(cx)),
             "scans" => Box::pin(steps_scans::run(cx)),
             "field_items" => Box::pin(steps_field_items::run(cx)),
@@ -569,6 +571,7 @@ const STEPS: &[&str] = &[
     "spelling",
     "ocr",
     "scans",
+    "reading",
     "contents",
     "field_items",
     "policies",

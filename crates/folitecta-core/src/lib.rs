@@ -50,7 +50,7 @@ pub use organize::{
     pages, pagetools, portfolio, print, scans, textdoc,
 };
 pub(crate) use page_text::{content_edit, content_lex};
-pub use page_text::{ocr, search, spelling, text, textedit, textlayer, textops};
+pub use page_text::{ocr, reading, search, spelling, text, textedit, textlayer, textops};
 pub use protection::{digsig, redaction, security};
 pub use tags::{accessibility, structure};
 
@@ -82,6 +82,7 @@ pub use markup_tools::{MeasureKind, MeasureScale};
 pub use ocr::{DOUBTFUL_BELOW, DoubtfulWord, OcrEngine, OcrLine, OcrModels, OcrOptions, OcrWord, PageOcr};
 pub use outline::{BookmarkTarget, DestView, OutlineItem};
 pub use pagetools::{Sides, TRANSITIONS};
+pub use reading::ReadBlock;
 pub use render::{
     Lane, RenderAnswer, RenderOpts, RenderRequest, RenderService, RenderStats, RenderedPage, Renderer,
 };

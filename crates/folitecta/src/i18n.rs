@@ -102,6 +102,8 @@ const AREAS: &[(&str, &[&str])] = &[
             "barcode",
             "contents",
             "ocr",
+            "read",
+            "reflow",
             "scans",
         ],
     ),

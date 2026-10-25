@@ -111,7 +111,7 @@ already in 0.2.0.
 
 | Area | Status |
 |---|---|
-| Viewing | Tabs; continuous, single-page and two-page layouts; fit width, fit page and free zoom (`Ctrl`+wheel); view rotation; a split window with two views of a document; full screen; light, white, dark and black themes; dark and high-contrast page modes; rulers (mm, cm, in, pt, pc), grid and guides with snapping; a loupe with adjustable enlargement; a pan and zoom window; the visible area outlined on the thumbnails; link and form-field highlighting; transparency grid; document info bar; page labels; view history |
+| Viewing | Tabs; continuous, single-page and two-page layouts; fit width, fit page and free zoom (`Ctrl`+wheel); view rotation; a split window with two views of a document; full screen; light, white, dark and black themes; dark and high-contrast page modes; rulers (mm, cm, in, pt, pc), grid and guides with snapping; a loupe with adjustable enlargement; a pan and zoom window; the visible area outlined on the thumbnails; link and form-field highlighting; transparency grid; document info bar; page labels; view history; a reflow view with the text of the document in the width of the window, at a size of one's choosing; reading aloud with the voices of the system, paragraph by paragraph, the one read marked |
 | Interface | Ribbon or classic menus and toolbars that adapt to any window size; short tool names under the ribbon icons (View › Tool Names hides them) and the whole names in the tooltips; a Quick Access Toolbar of your own commands (a right click on a tool adds it), next to the tabs or below the ribbon; side panes, ribbon rows and the width of each ribbon group changed by dragging their edges; properties pane; touch mode; command palette; undo and redo of every edit; pages drawn on several threads; recovery of documents after a window ended with unsaved changes; English and Italian |
 | Large documents | *New in 0.2.1:* faster scrolling and zoom: pages are drawn in the order the window needs them, in tiles when zoomed in, and scrolling never waits for the program |
 | Text and search | Text layer with mouse selection, copy and select all; search with match case, whole words and accents ignored, words near each other (adjacent, same paragraph, page or document) in separate colours, also in comments, bookmarks, form fields, document information, attachments and links, or through the PDF files of a folder; grouped results with previous and next (`F3`); every result marked as highlight, underline, strikeout or redaction; word count; export to `.txt` |
@@ -180,6 +180,11 @@ it; 0.3.0 is planned to start without it.
   ln -sf /usr/lib/libxdo.so.4 ~/.local/lib/folitecta-compat/libxdo.so.3
   LD_LIBRARY_PATH=~/.local/lib/folitecta-compat ./folitecta
   ```
+
+Reading aloud (View › Read Aloud) uses speech-dispatcher, the speech service screen readers use;
+it is optional, and many desktops have it already. To have voices, install it with a voice, for
+example `sudo apt install speech-dispatcher espeak-ng` (Debian, Ubuntu), `sudo dnf install
+speech-dispatcher espeak-ng` (Fedora) or `sudo pacman -S speech-dispatcher espeak-ng` (Arch).
 
 To start Folitecta from the menu, run these lines in the unpacked folder. The menu entry gets the
 full path of `~/.local/bin/folitecta`, because the desktop session does not always search

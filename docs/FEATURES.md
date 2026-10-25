@@ -4,10 +4,10 @@ Generated from the command registry for version 0.2.1. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1453 |
+| ✅ available | 1455 |
 | 🟡 partial | 59 |
 | ⬜ planned | 477 |
-| total | 1989 |
+| total | 1991 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -209,6 +209,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Units | `view.pageMeasureInfo.units` | ✅ available |
 | ↳ Width/Height | `view.pageMeasureInfo.WH` | ✅ available |
 | Page Size Popup | `view.showPageSizePopup` | ✅ available |
+| Read Aloud | `view.readAloud` | ✅ available |
+| Reflow | `view.reflow` | ✅ available |
 | Rotate View | `view.rotate` | ✅ available |
 | ↳ Reset Rotation | `view.rotate.reset` | ✅ available |
 | ↳ Rotate Clockwise | `view.rotate.CW` | ✅ available |
@@ -1495,7 +1497,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Panes | `view.panesGroup` | ⬜ planned |
 | Portfolio | `view.portfolio` | ✅ available |
 | Portfolio Tools | `view.portfolioTools` | ✅ available |
+| Read Aloud | `view.readAloud` | ✅ available |
 | Recovery Pane | `recoveryView` | ⬜ planned |
+| Reflow | `view.reflow` | ✅ available |
 | Restore Cmd Bars Visibility | `view.restoreCmdBarsVisibility` | ✅ available |
 | Ribbon / Classic UI | `view.ribbonClassicUI` | ✅ available |
 | Ribbon UI | `view.switchToRibbonUI` | ✅ available |

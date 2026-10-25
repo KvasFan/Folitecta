@@ -38,6 +38,7 @@ pub const CSS: &str = concat!(
     include_str!("../assets/styles/features/barcodes.css"),
     include_str!("../assets/styles/features/spelling.css"),
     include_str!("../assets/styles/features/ocr.css"),
+    include_str!("../assets/styles/features/reflow.css"),
     include_str!("../assets/styles/features/scans.css"),
     include_str!("../assets/styles/features/policies.css"),
     include_str!("../assets/styles/features/mail.css"),

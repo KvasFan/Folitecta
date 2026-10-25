@@ -61,6 +61,15 @@ All notable changes to Folitecta are documented here. The format follows
   letter or roman numeral plain or in a circle, its size and colour; then each click on a page
   places one, the numbers and letters going on by one (the next one shown in the status bar),
   until another tool is chosen. They are kept as data and drawn again when resized.
+- Reflow (View › Reflow, `Ctrl+4`): the text of the document as it is read, in paragraphs and
+  headings filling the width of the window at a size of one's choosing, each page's part marked
+  with its number; running heads, page numbers and words broken at the end of a line are mended.
+  The page at the top becomes the current page and a page gone to is scrolled to.
+- Read Aloud (View › Read Aloud, `Ctrl+Shift+Y`): a bar that reads the paragraphs from the current
+  page (or the text selected) with a voice of the system, marking the one being read on its page
+  or in the reflow view; pause, previous and next paragraph, stop, the voice and the speed. On
+  Windows and macOS the voices of the system are those of the web view; on Linux reading goes
+  through speech-dispatcher (optional), spoken to over its socket and started when needed.
 - Every release package carries `THIRD-PARTY-LICENSES.txt`: the libraries built into the program
   for that system, each with its licence and the address of its source, and their licence texts
   (written by `crates/notices` from the published sources; a library without a text stops the

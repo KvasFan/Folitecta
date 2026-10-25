@@ -286,6 +286,10 @@ pub fn close_tab(st: AppState, id: u64, force: bool, then: AfterUnsaved) {
         st.set_dialog(Dialog::Unsaved { tab: id, then });
         return;
     }
+    // Its reading aloud stops.
+    if crate::commands::read_aloud::READ.peek().tab == id {
+        crate::commands::read_aloud::stop(st);
+    }
     let tab = st.docs_mut().remove(idx);
     // A comparison side by side with this document ends.
     for t in st.docs_mut().iter_mut() {

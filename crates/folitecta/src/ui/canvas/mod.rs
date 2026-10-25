@@ -64,14 +64,21 @@ pub fn CanvasArea() -> Element {
                 if st.read_active(|t| t.doc.is_portfolio()).unwrap_or(false) {
                     crate::ui::features::portfolio::CoverBar {}
                 }
-                match split {
-                    None => rsx! { Canvas { pane: 0 } },
-                    Some(side) => rsx! {
-                        div { class: if side { "canvas-split side" } else { "canvas-split stacked" },
-                            Canvas { pane: 0 }
-                            Canvas { pane: 1 }
-                        }
-                    },
+                if option_on(st, "view.reflow") {
+                    crate::ui::features::reflow::ReflowView {}
+                } else {
+                    match split {
+                        None => rsx! { Canvas { pane: 0 } },
+                        Some(side) => rsx! {
+                            div { class: if side { "canvas-split side" } else { "canvas-split stacked" },
+                                Canvas { pane: 0 }
+                                Canvas { pane: 1 }
+                            }
+                        },
+                    }
+                }
+                if option_on(st, "view.readAloud") {
+                    crate::ui::features::read_aloud::ReadAloudBar {}
                 }
                 Loupe {}
                 if option_on(st, "view.panzoom") { PanZoomWindow {} }
@@ -663,6 +670,14 @@ fn page_stamps(t: &crate::state::DocTab, count: usize) -> Vec<u64> {
     }
     if let Some((page, r)) = t.flash {
         on(page, &|h| (4u8, r.map(f32::to_bits)).hash(h));
+    }
+    if let Some((page, rects)) = &t.reading {
+        on(*page, &|h| {
+            7u8.hash(h);
+            for r in rects {
+                r.map(f32::to_bits).hash(h);
+            }
+        });
     }
     for (i, hit) in t.search.hits.iter().enumerate() {
         on(hit.page, &|h| {

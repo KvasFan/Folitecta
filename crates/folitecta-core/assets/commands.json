@@ -23131,6 +23131,34 @@
    "status": "planned"
   },
   {
+   "id": "view.readAloud",
+   "label": "Read Aloud",
+   "parent": "view",
+   "menu": "view",
+   "ribbon": {
+    "tab": "view",
+    "group": "pageDisplay"
+   },
+   "pane": null,
+   "kind": "toggle",
+   "shortcut": "Ctrl+Shift+Y",
+   "status": "planned"
+  },
+  {
+   "id": "view.reflow",
+   "label": "Reflow",
+   "parent": "view",
+   "menu": "view",
+   "ribbon": {
+    "tab": "view",
+    "group": "pageDisplay"
+   },
+   "pane": null,
+   "kind": "toggle",
+   "shortcut": "Ctrl+4",
+   "status": "planned"
+  },
+  {
    "id": "view.darkPageMode",
    "label": "Dark Page Mode",
    "parent": "view",

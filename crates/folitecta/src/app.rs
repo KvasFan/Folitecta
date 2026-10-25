@@ -268,6 +268,9 @@ pub fn App() -> Element {
         ui::canvas::follow_canvas_events(st).await;
     });
 
+    // The ends of what is read aloud.
+    use_hook(move || crate::commands::read_aloud::follow(st));
+
     // Track the window size and pixel ratio (initially and on every resize).
     use_future(move || async move {
         // Changes reach the page also when no frame is drawn; script results are kept.

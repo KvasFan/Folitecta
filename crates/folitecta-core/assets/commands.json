@@ -13118,6 +13118,20 @@
    "status": "planned"
   },
   {
+   "id": "newDocTemplate",
+   "label": "From Template…",
+   "parent": null,
+   "menu": "file",
+   "ribbon": {
+    "tab": "convert",
+    "group": "create"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "newDocText",
    "label": "From Text…",
    "parent": null,

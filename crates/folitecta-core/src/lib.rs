@@ -47,7 +47,7 @@ pub use navigation::{contents, layer_drawing, layers, links, outline};
 pub(crate) use organize::typeset;
 pub use organize::{
     attachments, combine, compare, csvdoc, delivery, doctools, email, export, markdown, marks, metadata,
-    pages, pagetools, portfolio, print, scans, textdoc,
+    pages, pagetools, portfolio, print, scans, templates, textdoc,
 };
 pub(crate) use page_text::{content_edit, content_lex};
 pub use page_text::{ocr, reading, search, spelling, text, textedit, textlayer, textops};
@@ -92,6 +92,7 @@ pub use security::{EncryptionInfo, EncryptionProfile, PasswordIssue, Protection,
 pub use signmarks::SignatureMark;
 pub use spelling::{DictionaryFile, Misspelling, SpellOptions, SpellPlace, SpellScope, Speller};
 pub use stamps::STAMP_PRESETS;
+pub use templates::{Template, TemplateGroup, TemplateOptions};
 pub use text::{SearchHit, SearchOptions};
 pub use textdoc::TextLayout;
 pub use textlayer::{PageText, TextGlyph, TextLine};

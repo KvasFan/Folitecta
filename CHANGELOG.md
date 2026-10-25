@@ -74,6 +74,13 @@ All notable changes to Folitecta are documented here. The format follows
   for that system, each with its licence and the address of its source, and their licence texts
   (written by `crates/notices` from the published sources; a library without a text stops the
   release). The macOS app also carries Folitecta's own `LICENSE`.
+- New documents from templates (File › From Template…): ruled, squared, dotted and graph paper,
+  music staves, Cornell notes and handwriting lines; a week, months with their days in the right
+  columns (from the month chosen, weeks from Monday or Sunday) and a to-do list with boxes to
+  tick; a letter, meeting notes and an invoice that works out its amounts, subtotal and total.
+  The gallery shows the first page of each on the paper chosen (upright or sideways); the to-do
+  list and the office papers are forms to fill in, sized to the paper; their words follow the
+  language of the interface (text beyond Western European characters in the embedded font).
 
 ### Changed
 - Pictures made of the pages follow the layers of the view, as printing does: Export to Images,

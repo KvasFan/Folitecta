@@ -450,6 +450,7 @@ mod steps_scans;
 mod steps_spelling;
 mod steps_split;
 mod steps_split_view;
+mod steps_templates;
 mod steps_text;
 mod steps_timestamp;
 mod steps_tools;
@@ -512,6 +513,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "reading" => Box::pin(steps_reading::run(cx)),
             "contents" => Box::pin(steps_contents::run(cx)),
             "scans" => Box::pin(steps_scans::run(cx)),
+            "templates" => Box::pin(steps_templates::run(cx)),
             "field_items" => Box::pin(steps_field_items::run(cx)),
             "policies" => Box::pin(steps_policies::run(cx)),
             "qat" => Box::pin(steps_qat::run(cx)),
@@ -573,6 +575,7 @@ const STEPS: &[&str] = &[
     "scans",
     "reading",
     "contents",
+    "templates",
     "field_items",
     "policies",
     "qat",

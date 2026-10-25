@@ -116,7 +116,7 @@ impl Fonts {
     }
 
     /// The operations that draw `text` with its baseline starting at `(x, y)`.
-    fn show(
+    pub(crate) fn show(
         &mut self,
         text: &str,
         style: Style,

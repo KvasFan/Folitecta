@@ -289,7 +289,7 @@ pub(super) fn MergeFile(path: String) -> Element {
 }
 
 /// Standard paper sizes in points (portrait).
-pub(super) const PAPER: &[(&str, &str, f32, f32)] = &[
+pub(crate) const PAPER: &[(&str, &str, f32, f32)] = &[
     ("a4", "A4 (210 × 297 mm)", 595.28, 841.89),
     ("a3", "A3 (297 × 420 mm)", 841.89, 1190.55),
     ("a5", "A5 (148 × 210 mm)", 419.53, 595.28),
@@ -299,7 +299,7 @@ pub(super) const PAPER: &[(&str, &str, f32, f32)] = &[
     ("tabloid", "Tabloid (11 × 17 in)", 792.0, 1224.0),
 ];
 
-pub(super) fn paper_size(id: &str) -> Option<(f32, f32)> {
+pub(crate) fn paper_size(id: &str) -> Option<(f32, f32)> {
     PAPER.iter().find(|p| p.0 == id).map(|p| (p.2, p.3))
 }
 

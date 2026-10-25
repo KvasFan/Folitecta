@@ -4,10 +4,10 @@ Generated from the command registry for version 0.2.1. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1455 |
+| ✅ available | 1456 |
 | 🟡 partial | 59 |
 | ⬜ planned | 477 |
-| total | 1991 |
+| total | 1992 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -907,6 +907,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | From Rich Text… | `newDocRTF` | ⬜ planned |
 | From Scanner… | `newDocScanner` | ⬜ planned |
 | From Selection… | `newDocSelection` | ⬜ planned |
+| From Template… | `newDocTemplate` | ✅ available |
 | From Text… | `newDocText` | ✅ available |
 | From Web Page… | `newDocHtml` | ⬜ planned |
 | New Document | `newDoc` | ✅ available |
@@ -1260,6 +1261,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | From Rich Text… | `newDocRTF` | ⬜ planned |
 | From Scanner… | `newDocScanner` | ⬜ planned |
 | From Selection… | `newDocSelection` | ⬜ planned |
+| From Template… | `newDocTemplate` | ✅ available |
 | From Text… | `newDocText` | ✅ available |
 | From Web Page… | `newDocHtml` | ⬜ planned |
 | History | `historyList` | ✅ available |

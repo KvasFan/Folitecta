@@ -4,6 +4,25 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-26 — FOL-L010/S01: template gallery
+
+- **Current state before:** new documents were blank pages or made from files.
+- **Changed:** `organize/templates.rs`: `Template` (13, in three groups), `TemplateOptions`
+  (paper, pages or months, first month and year, first day of the week, words by key),
+  `Document::from_template`: papers drawn as vector lines and dots; a week; months with the
+  days in their columns; a to-do list, a letter, meeting notes and an invoice as forms whose
+  fields and rows fit the paper; the invoice's amounts (`PRD`), subtotal and total (`SUM`)
+  calculated. `place_form_field` adds a field without a commit (`add_form_field` = place +
+  commit), so a form of hundreds of fields is one serialization. File › From Template…: the
+  gallery with the picture of each template's first page (drawn in the background), the paper,
+  sideways, pages or months, the first month and year, the first day of the week; double click
+  creates. Words of the templates in `pages.json` (`templates.word.*`).
+- **Checked:** `tests/templates.rs` (6: every template on Letter paper with fields only where
+  meant; three months from November 2026 with 1 November under Sunday, also with weeks from
+  Sunday; Italian and Cyrillic words; the invoice saved, opened, filled and summed; the to-do
+  list and meeting fields on the page; A6 and a low wide paper keep every field on the page);
+  unit tests of the calendar; self-test step `templates`.
+- **Open:** the user's own templates (save as template, a folder shown in the gallery).
 ## 2026-10-22 — FOL-L042/S01: reflow and reading aloud
 
 - **Current state before:** the pages could only be read as pages; nothing was read aloud.

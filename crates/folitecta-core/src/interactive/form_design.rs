@@ -222,6 +222,21 @@ impl Document {
         rect: [f32; 4],
         props: &FieldProps,
     ) -> Result<ObjectId> {
+        let id = self.place_form_field(page, kind, rect, props, false)?;
+        self.commit()?;
+        Ok(id)
+    }
+
+    /// [`add_form_field`](Self::add_form_field) without the commit; with
+    /// `named` the name (not empty) is known to be new and not looked up.
+    pub(crate) fn place_form_field(
+        &mut self,
+        page: usize,
+        kind: NewField,
+        rect: [f32; 4],
+        props: &FieldProps,
+        named: bool,
+    ) -> Result<ObjectId> {
         let page_id = self.page_id(page)?;
         let rect = crate::geom::normalize(rect);
         if rect[2] - rect[0] < 4.0 || rect[3] - rect[1] < 4.0 {
@@ -241,7 +256,7 @@ impl Document {
         } else {
             props.name.trim().to_string()
         };
-        let existing_group = if kind == NewField::RadioButton {
+        let existing_group = if kind == NewField::RadioButton && !named {
             self.form_fields()
                 .into_iter()
                 .find(|f| f.name == name && f.kind == crate::forms::FieldKind::RadioButton)
@@ -249,7 +264,7 @@ impl Document {
         } else {
             None
         };
-        if kind != NewField::RadioButton && self.form_fields().iter().any(|f| f.name == name) {
+        if !named && kind != NewField::RadioButton && self.form_fields().iter().any(|f| f.name == name) {
             return Err(Error::Invalid(format!("a field named \"{name}\" already exists")));
         }
         self.begin_edit();
@@ -399,7 +414,6 @@ impl Document {
         }
         self.push_page_annot(page_id, id)?;
         self.refresh_widget(id)?;
-        self.commit()?;
         Ok(id)
     }
 

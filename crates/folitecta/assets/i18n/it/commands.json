@@ -986,6 +986,7 @@
   "cmd.newDocRTF": "Da testo formattato…",
   "cmd.newDocScanner": "Da scanner…",
   "cmd.newDocSelection": "Dalla selezione…",
+  "cmd.newDocTemplate": "Da modello…",
   "cmd.newDocText": "Da testo…",
   "cmd.newDocumentList": "File di origine",
   "cmd.newDocumentList.addFile": "Aggiungi file…",

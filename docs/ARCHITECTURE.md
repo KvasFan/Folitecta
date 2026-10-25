@@ -77,6 +77,10 @@ pages filled top to bottom with paragraphs, list markers, quote bars, code boxes
 pages and tables whose header repeats; links as link annotations, headings as nested
 bookmarks), `markdown` (pulldown-cmark events read into blocks), `csvdoc` (fields in quotes,
 the separator that splits the first records alike, number columns aligned right),
+`templates` (File › From Template…: papers, planners and office forms drawn as vector content on
+the paper chosen, sized to it; the forms' fields added with `place_form_field`, one commit for
+all of them, the invoice's amounts and sums as `AFSimple_Calculate` calculations; words by key,
+English unless the interface gives its own; the month grid from Zeller's congruence),
 `scans` (Clean Up Scans: a page is a scan when one picture covers 85% of it; its ink is the
 share of pixels darker than half grey on a copy at most 1000 pixels long, leaving out 4% of each
 side, so specks, show-through and the shadows of the scanner do not count; its skew comes from

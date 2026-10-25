@@ -412,6 +412,8 @@ pub enum Dialog {
     },
     /// Clean Up Scans: blank and askew scanned pages.
     CleanUpScans,
+    /// The gallery of templates of new documents.
+    Templates,
     /// The items of the chosen combo box or list box.
     FieldItems,
     /// The list of security policies.

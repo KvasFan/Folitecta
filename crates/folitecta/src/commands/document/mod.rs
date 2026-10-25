@@ -16,3 +16,4 @@ pub(crate) mod print;
 pub(crate) mod scans;
 pub(crate) mod sources;
 pub(crate) mod split;
+pub(crate) mod templates;

@@ -1,0 +1,11 @@
+/* The gallery of templates: groups of cards, each with the picture of its first page. */
+.tpl-gallery { display: flex; flex-direction: column; gap: 10px; max-height: 52vh; overflow: auto; padding-right: 4px; }
+.tpl-group-title { margin: 0 0 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.tpl-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+.tpl-card { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 7px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text); cursor: pointer; }
+.tpl-card:hover { border-color: var(--accent); }
+.tpl-card.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.tpl-picture { width: 100%; max-height: 150px; object-fit: contain; background: #fff; border: 1px solid var(--border); }
+.tpl-picture.empty { background: #fff; opacity: .6; }
+.tpl-name { font-size: 12px; text-align: center; line-height: 1.25; }
+.tpl-hint { margin: 2px 0 0; }

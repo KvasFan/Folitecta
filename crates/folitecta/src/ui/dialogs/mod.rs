@@ -21,6 +21,7 @@ mod app;
 mod marks;
 mod navigation;
 mod pages;
+pub(crate) use pages::{PAPER, paper_size};
 mod review;
 mod tools;
 
@@ -443,6 +444,7 @@ pub fn Dialogs() -> Element {
         Dialog::InsertContents => rsx! { crate::ui::features::contents::ContentsDialog {} },
         Dialog::OcrReview { skipped } => rsx! { crate::ui::features::ocr::OcrReviewDialog { skipped } },
         Dialog::CleanUpScans => rsx! { crate::ui::features::scans::CleanUpScansDialog {} },
+        Dialog::Templates => rsx! { crate::ui::features::templates::TemplateGallery {} },
         Dialog::FieldItems => rsx! { crate::ui::features::field_editor::FieldItemsDialog {} },
         Dialog::SecurityPolicies => rsx! { crate::ui::features::policies::SecurityPoliciesDialog {} },
         Dialog::CustomizeQat => rsx! { crate::ui::chrome::qat::CustomizeQatDialog {} },

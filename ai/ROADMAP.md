@@ -109,7 +109,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L007 | P2 | ⬜ | — | File associations (`help.fileAssoc`), virtual printer, office add-ins. |
 | FOL-L008 | P2 | ⬜ | — | XPS/OXPS, metafiles, CAD: engine decision first. |
 | FOL-L009 | P1/P2 | 🟡 | export to pictures (PNG, JPEG, TIFF, …), text, embedded pictures, attachments, split and extracted documents | Accessible text export; office formats (P2). |
-| FOL-L010 | P1 | ⬜ | stamps have categories and favourites | Template gallery for documents. |
+| FOL-L010 | P1 | 🟡 | stamps have categories and favourites; a gallery of document templates (papers, week and month planners, a to-do list, a letter, meeting notes, an invoice that adds itself up) on any paper, in the language of the interface | The user's own templates (save a document as a template, a folder of them in the gallery). |
 
 ### Scanning and OCR
 

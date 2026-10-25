@@ -16,5 +16,6 @@ pub mod pagetools;
 pub mod portfolio;
 pub mod print;
 pub mod scans;
+pub mod templates;
 pub mod textdoc;
 pub(crate) mod typeset;

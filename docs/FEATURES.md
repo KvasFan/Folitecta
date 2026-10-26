@@ -1,6 +1,6 @@
 # Folitecta feature matrix
 
-Generated from the command registry for version 0.2.1. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
+Generated from the command registry for version 0.3.0. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
 
 | Status | Count |
 |---|---:|

@@ -6,6 +6,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-26
+
 ### Added
 - Tables, calculator tapes, designed stamps and text stamps draw text beyond Western European
   characters (Polish, Czech, Greek, Cyrillic, symbols and more) with the embedded subset of GNU

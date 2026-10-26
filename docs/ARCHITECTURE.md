@@ -374,6 +374,11 @@ Mouse coordinates on a page image are converted to PDF user space with
 - Text recognition reads the Latin script, written left to right (lines turned up to about 45
   degrees); the invisible text uses WinAnsi, so letters it lacks (such as Polish `ł`) are written
   without their accent.
+- Reading aloud needs a voice of the system: the Web Speech API of the web view on Windows and
+  macOS, speech-dispatcher with a voice on Linux (WebKitGTK has no speech of its own); it has
+  been tried only with a stand-in engine and a stand-in speech-dispatcher service. Scanning has
+  been tried only with a stand-in scanner; it is not available on macOS, and a scan under way
+  cannot be stopped. Tabs form at most two groups, and are moved by command, not dragged.
 - Revocation is checked from OCSP answers and from complete revocation lists of the
   certificate's own issuer; indirect, delta and partitioned lists are not read, missing issuers
   are not fetched and certificate policies are not checked. Revocation data are asked online

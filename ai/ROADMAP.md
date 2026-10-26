@@ -1,7 +1,7 @@
 # Folitecta roadmap and progress
 
 State of every requirement of [REQUIREMENTS.md](REQUIREMENTS.md) on the `main` branch at
-Folitecta 0.2.1, reviewed on **20 October 2026** against the code (not only the command
+Folitecta 0.3.0, reviewed on **26 October 2026** against the code (not only the command
 registry). Update the row of a requirement whenever a sub-task changes it, and log the work in
 [PROGRESS.md](PROGRESS.md).
 
@@ -12,7 +12,7 @@ registry). Update the row of a requirement whenever a sub-task changes it, and l
 | 🔵 | In progress on `main` (some parts committed, not finished). |
 | ⬜ | Not started. |
 
-Command-level detail (1981 registry commands: 1445 available, 59 partial, 477 planned) is in
+Command-level detail (1992 registry commands: 1465 available, 59 partial, 468 planned) is in
 [docs/FEATURES.md](../docs/FEATURES.md), generated with
 `cargo run -p folitecta -- --features-md docs/FEATURES.md`.
 
@@ -62,9 +62,9 @@ FOL-L046/S01 (print window with sheet preview, pages per sheet, booklet, poster,
 printing), FOL-L023/S02 (drawing and writing on the selected layer), the speed of scrolling and
 zoom (FOL-L001), and the interface self-test on Linux.
 
-### 0.3.0 — daily work
+### 0.3.0 — daily work (released 26 October 2026)
 
-FOL-L014 (OCR review), FOL-L012 (scan clean-up workflow), FOL-L005 (CSV, Markdown, RTF), FOL-L035
+Released as planned, each item at its first sub-task: FOL-L014 (OCR review), FOL-L012 (scan clean-up workflow), FOL-L005 (CSV, Markdown, RTF), FOL-L035
 (synchronized side-by-side comparison), FOL-L018/S02–S03 (Unicode in stamps, tables, tapes and
 page marks), packaging found by the 0.2.1 release check (the Linux program starts without libxdo,
 licence notices of the libraries in every package, the Visual C++ runtime built into the Windows
@@ -74,7 +74,8 @@ following the layers of the view, singular forms of counted messages, FOL-L042 (
 speech with the system voices, reading reflow), FOL-L022 (table of contents from bookmarks or
 headings, article threads), FOL-L028 (angle, radius, volume), FOL-L029 (tick marks), FOL-L002
 (tab groups and windows), FOL-L010 (template gallery), FOL-L011 (scanner through the system
-imaging API).
+imaging API). Left for later: RTF with styles (FOL-L005), article threads (FOL-L022), scanning
+on macOS (FOL-L011).
 
 ### 0.4.0 — professional tools
 

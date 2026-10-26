@@ -1,7 +1,7 @@
 # Folitecta roadmap and progress
 
 State of every requirement of [REQUIREMENTS.md](REQUIREMENTS.md) on the `main` branch at
-Folitecta 0.3.0, reviewed on **26 October 2026** against the code (not only the command
+Folitecta 0.3.1, reviewed on **26 October 2026** against the code (not only the command
 registry). Update the row of a requirement whenever a sub-task changes it, and log the work in
 [PROGRESS.md](PROGRESS.md).
 
@@ -77,7 +77,7 @@ headings, article threads), FOL-L028 (angle, radius, volume), FOL-L029 (tick mar
 imaging API). Left for later: RTF with styles (FOL-L005), article threads (FOL-L022), scanning
 on macOS (FOL-L011).
 
-### 0.3.1 — interface (next)
+### 0.3.1 — interface (released 26 October 2026)
 
 Asked after the 0.3.0 release:
 

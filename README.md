@@ -46,7 +46,7 @@
 </p>
 
 > [!NOTE]
-> **Folitecta 0.3.0 is a pre-release.** Every command of the full feature set is already in the
+> **Folitecta 0.3.1 is a pre-release.** Every command of the full feature set is already in the
 > interface; each release turns more of them into working operations, and the ones that are not
 > done yet open a roadmap notice. [docs/FEATURES.md](docs/FEATURES.md) lists the state of every
 > command; the limits of what works are written below and in
@@ -106,8 +106,9 @@
 
 ## What works today
 
-Version 0.3.0. The parts marked *new in 0.3.0* come with this release; everything else was
-already in 0.2.1.
+Version 0.3.1. The parts marked *new in 0.3.0* came with 0.3.0, which 0.3.1 completes with
+shorter menus and a pencil pointer of the right size on Linux; everything else was already in
+0.2.1.
 
 | Area | Status |
 |---|---|
@@ -149,7 +150,7 @@ already in 0.2.1.
 the newest version is at the top, with the packages listed below and its notes, followed by the
 earlier versions. Versions up to 0.0.12 are also on the
 [GitLab releases](https://gitlab.com/tirael8308/folitecta/-/releases); later versions are published
-on GitHub only. `<version>` in the file names is the version number, for example `0.3.0`.
+on GitHub only. `<version>` in the file names is the version number, for example `0.3.1`.
 
 | System | File | Notes |
 |---|---|---|

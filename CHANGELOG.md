@@ -6,6 +6,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-26
+
 ### Changed
 - Shorter menus: each menu of the menu bar keeps the commands used most at the top (at most 22
   rows; File and Edit had over 80 and 110) and puts the others in submenus by subject — File ›

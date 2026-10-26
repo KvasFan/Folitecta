@@ -4,6 +4,24 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-26 — FOL-L009/S02: export to Word, RTF and HTML
+
+- **Current state before:** export to pictures, text, embedded images and attachments.
+- **Changed:** core `organize/office.rs`: `OfficeFormat` (DOCX, RTF, HTML), `export_office`
+  (the paragraphs and headings of `reading_blocks`; DOCX as a package of `[Content_Types].xml`,
+  relationships, `word/document.xml` with Heading1–3 styles, `word/styles.xml` and
+  `docProps/core.xml`; RTF with `\uN?` escapes; HTML with `h1`–`h3` and `p`; page breaks on
+  request; pictures and comments counted as left out). `PageText::paragraphs` ends a paragraph
+  where the line size changes by more than a fifth, so a small heading above its text is found
+  as a heading (it was joined to the text). Export to Office Formats… with a dialog (format,
+  pages, page breaks) writing where the user chooses, never over the document.
+- **Checked:** `tests/office.rs` (2: a DOCX whose parts are well-formed XML with the headings
+  styled, in order, and a page break, the report of a picture and a comment left out; RTF with
+  Unicode escaped and no page breaks when not asked; HTML of the first page only; pages out of
+  range and a page without text refused); unit tests of the RTF escapes; all core tests after the
+  change of paragraphs; self-test step `office`.
+- **Open:** pictures, tables to XLSX with their columns and types, PPTX, page fidelity.
+
 ## 2026-10-26 — FOL-L047/S01: action sequences, batches, command line
 
 - **Current state before:** macros of page marks; `--features-md` and `--version`.

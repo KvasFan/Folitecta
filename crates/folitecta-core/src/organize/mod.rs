@@ -13,6 +13,7 @@ pub mod greyscale;
 pub mod markdown;
 pub mod marks;
 pub mod metadata;
+pub mod office;
 pub mod pages;
 pub mod pagetools;
 pub mod pdfa;

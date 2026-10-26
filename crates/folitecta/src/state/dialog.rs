@@ -418,6 +418,8 @@ pub enum Dialog {
     Scan,
     /// Action sequences: editing them and running them.
     Actions,
+    /// Export to office formats.
+    ExportOffice,
     /// Preflight against PDF/A-2b and conversion.
     Preflight,
     /// Converting the colours of the document to grey.

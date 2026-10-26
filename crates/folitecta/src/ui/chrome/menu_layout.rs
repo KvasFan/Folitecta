@@ -117,6 +117,7 @@ pub const MENUS: &[(&str, &[Item])] = &[
             ),
             Sep,
             Cmd("export"),
+            Cmd("document.exportOffice"),
             Group(
                 "send",
                 &[

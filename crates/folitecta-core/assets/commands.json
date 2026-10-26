@@ -6736,6 +6736,20 @@
    "status": "planned"
   },
   {
+   "id": "document.exportOffice",
+   "label": "Export to Office Formats…",
+   "parent": "document",
+   "menu": "file",
+   "ribbon": {
+    "tab": "convert",
+    "group": "export"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "document.exportBookmarks",
    "label": "Export All Bookmarks…",
    "parent": "document",

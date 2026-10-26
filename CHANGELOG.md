@@ -7,6 +7,11 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Export to Office Formats… (File, and Convert › Export): the text of all pages or of the current
+  page as a Word document (DOCX), rich text (RTF) or a web page (HTML) — headings (as heading
+  styles) and paragraphs in reading order, each page beginning on a new page when asked — written
+  where you choose and never over the document; the report counts the paragraphs and headings
+  and what is not exported yet (pictures, comments).
 - Action Sequences (Tools › Action Sequences…): named sequences of steps — rotate pages, delete
   empty pages, recompress pictures, colours to grey, flatten or delete comments, remove scripts,
   watermark, page numbers, document information, PDF/A — kept in the settings, imported and
@@ -35,6 +40,8 @@ All notable changes to Folitecta are documented here. The format follows
   no rule checked is left broken. Fonts that are not embedded are not embedded yet.
 
 ### Fixed
+- A heading directly above its text is a paragraph of its own (lines of a clearly different size
+  are no longer joined), for the reflow view, reading aloud and exports.
 - Saving keeps the XMP metadata in step with the document information (the modification date
   and the producer saving writes), so a PDF/A document stays conformant once saved again.
 

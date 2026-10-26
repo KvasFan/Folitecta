@@ -19,6 +19,7 @@ pub mod macros;
 pub mod mail;
 pub mod media;
 pub mod ocr;
+pub mod office;
 pub mod pictures;
 pub mod policies;
 pub mod portfolio;

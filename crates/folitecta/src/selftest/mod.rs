@@ -437,6 +437,7 @@ mod steps_layout;
 mod steps_links;
 mod steps_note_icon;
 mod steps_ocr;
+mod steps_office;
 mod steps_panes;
 mod steps_perf;
 mod steps_pictures;
@@ -521,6 +522,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "contents" => Box::pin(steps_contents::run(cx)),
             "scans" => Box::pin(steps_scans::run(cx)),
             "actions" => Box::pin(steps_actions::run(cx)),
+            "office" => Box::pin(steps_office::run(cx)),
             "grey" => Box::pin(steps_grey::run(cx)),
             "recompress" => Box::pin(steps_recompress::run(cx)),
             "preflight" => Box::pin(steps_preflight::run(cx)),
@@ -587,6 +589,7 @@ const STEPS: &[&str] = &[
     "ocr",
     "scans",
     "actions",
+    "office",
     "grey",
     "recompress",
     "preflight",
@@ -1069,6 +1072,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("fields-options", Dialog::FieldsOptions),
         ("space-audit", Dialog::SpaceAudit),
         ("recompress", Dialog::Recompress(false)),
+        ("export-office", Dialog::ExportOffice),
         ("preflight", Dialog::Preflight),
         ("convert-grey", Dialog::ConvertGrey),
         ("insert-text", Dialog::InsertTextPages),

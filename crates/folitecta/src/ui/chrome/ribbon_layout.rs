@@ -458,7 +458,12 @@ pub const RIBBON: &[RTab] = &[
             group!(
                 "export",
                 "Export",
-                ["document.export.toImages", "export", "document.exportBookmarks"]
+                [
+                    "document.export.toImages",
+                    "document.exportOffice",
+                    "export",
+                    "document.exportBookmarks"
+                ]
             ),
             group!(
                 "modify",

@@ -47,8 +47,8 @@ pub use navigation::{contents, layer_drawing, layers, links, outline};
 pub(crate) use organize::typeset;
 pub use organize::{
     actions, attachments, combine, compare, csvdoc, delivery, doctools, email, export, greyscale, markdown,
-    marks, metadata, pages, pagetools, pdfa, portfolio, print, recompress, scanning, scans, templates,
-    textdoc,
+    marks, metadata, office, pages, pagetools, pdfa, portfolio, print, recompress, scanning, scans,
+    templates, textdoc,
 };
 pub(crate) use page_text::{content_edit, content_lex};
 pub use page_text::{ocr, reading, search, spelling, text, textedit, textlayer, textops};
@@ -83,6 +83,7 @@ pub use links::{Link, LinkTarget, NamedDestination};
 pub use marks::{MACROS, MarkPosition, TextMarkOptions};
 pub use markup_tools::{MeasureKind, MeasureScale};
 pub use ocr::{DOUBTFUL_BELOW, DoubtfulWord, OcrEngine, OcrLine, OcrModels, OcrOptions, OcrWord, PageOcr};
+pub use office::{OfficeExport, OfficeFormat};
 pub use outline::{BookmarkTarget, DestView, OutlineItem};
 pub use pagetools::{Sides, TRANSITIONS};
 pub use pdfa::{Conversion, Finding, Preflight};

@@ -447,6 +447,7 @@ pub fn Dialogs() -> Element {
         Dialog::Templates => rsx! { crate::ui::features::templates::TemplateGallery {} },
         Dialog::Scan => rsx! { crate::ui::features::scanning::ScanDialog {} },
         Dialog::Actions => rsx! { crate::ui::features::actions::ActionsDialog {} },
+        Dialog::ExportOffice => rsx! { crate::ui::features::office::ExportOfficeDialog {} },
         Dialog::Preflight => rsx! { crate::ui::features::preflight::PreflightDialog {} },
         Dialog::ConvertGrey => rsx! { crate::ui::features::greyscale::ConvertGreyDialog {} },
         Dialog::FieldItems => rsx! { crate::ui::features::field_editor::FieldItemsDialog {} },

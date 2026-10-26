@@ -4,10 +4,10 @@ Generated from the command registry for version 0.3.1. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1471 |
+| ✅ available | 1472 |
 | 🟡 partial | 58 |
 | ⬜ planned | 468 |
-| total | 1997 |
+| total | 1998 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -938,6 +938,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Export All Bookmarks… | `document.exportBookmarks` | ✅ available |
 | Export Selected Bookmarks… | `document.exportSelBookmarks` | ✅ available |
 | Export to CSV… | `linksView.exportToCSV` | ✅ available |
+| Export to Office Formats… | `document.exportOffice` | ✅ available |
 | Export… | `linksView.export` | ✅ available |
 | Save Image As… | `saveImage` | ✅ available |
 
@@ -1257,6 +1258,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Email Methods | `emailMethods` | ⬜ planned |
 | Email as ZIP… | `sendByEmailZip` | ✅ available |
 | Explorer | `explorer` | ✅ available |
+| Export to Office Formats… | `document.exportOffice` | ✅ available |
 | Folder Filters | `folderExts` | ✅ available |
 | From Clipboard… | `newDocClipboard` | ✅ available |
 | From Email… | `newDocEmail` | ✅ available |

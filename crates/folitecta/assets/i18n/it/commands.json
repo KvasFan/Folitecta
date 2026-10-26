@@ -508,6 +508,7 @@
   "cmd.document.export": "Esporta",
   "cmd.document.export.toImages": "Esporta come immagini…",
   "cmd.document.exportBookmarks": "Esporta tutti i segnalibri…",
+  "cmd.document.exportOffice": "Esporta in formati da ufficio…",
   "cmd.document.exportSelBookmarks": "Esporta segnalibri selezionati…",
   "cmd.document.extractPages": "Estrai pagine…",
   "cmd.document.find": "Trova",

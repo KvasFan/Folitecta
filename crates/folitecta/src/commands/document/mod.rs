@@ -12,6 +12,7 @@ pub(crate) mod macros;
 pub(crate) mod mail;
 pub(crate) mod mail_draft;
 pub(crate) mod ocr;
+pub(crate) mod office;
 pub(crate) mod pages;
 pub(crate) mod pictures;
 pub(crate) mod preflight;

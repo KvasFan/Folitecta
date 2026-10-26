@@ -503,7 +503,11 @@ impl PageText {
                 Some(p) => {
                     let h = (p.bbox[3] - p.bbox[1]).max(1.0);
                     let gap = l.bbox[1] - p.bbox[3];
-                    gap > h * 0.7 || l.bbox[1] < p.bbox[1] - h
+                    // Lines of a clearly different size (a heading and the
+                    // text under it) are paragraphs of their own.
+                    let lh = (l.bbox[3] - l.bbox[1]).max(1.0);
+                    let resized = lh > h * 1.2 || h > lh * 1.2;
+                    gap > h * 0.7 || l.bbox[1] < p.bbox[1] - h || resized
                 }
             };
             match out.last_mut() {

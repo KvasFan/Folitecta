@@ -91,6 +91,10 @@ with their colour spaces — RGB, CMYK, ICC-based of 3 or 4 components — made 
 to DeviceGray; pictures and palettes in those colours made grey (JPEG stays JPEG); the colours
 of comments and fields; patterns, spot colours, Lab, shadings and inline pictures counted and
 left; View › Grey Preview is a CSS filter on the page pictures and changes nothing),
+`office` (Export to Office Formats: the paragraphs and headings of `reading_blocks` written as
+Word (a DOCX package of document, styles and core properties made with `zip::write`), RTF
+(Unicode as `\uN?`) or HTML, with page breaks on request; pictures and comments counted as
+left out),
 `pdfa` (Preflight PDF/A and Convert to PDF/A: the rules of `RULES`, a subset of PDF/A-2b, each
 finding with its page or object and whether conversion fixes it; conversion works on a copy —
 file identifier, XMP written from the document information with dates converted, an sRGB

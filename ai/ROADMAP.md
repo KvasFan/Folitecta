@@ -64,8 +64,8 @@ zoom (FOL-L001), and the interface self-test on Linux.
 
 ### 0.3.0 — daily work (released 26 October 2026)
 
-Released as planned, each item at its first sub-task: FOL-L014 (OCR review), FOL-L012 (scan clean-up workflow), FOL-L005 (CSV, Markdown, RTF), FOL-L035
-(synchronized side-by-side comparison), FOL-L018/S02–S03 (Unicode in stamps, tables, tapes and
+Released as planned, each item at its first sub-task: FOL-L014 (OCR review), FOL-L012 (scan
+clean-up workflow), FOL-L005 (CSV, Markdown, RTF), FOL-L035 (synchronized side-by-side comparison), FOL-L018/S02–S03 (Unicode in stamps, tables, tapes and
 page marks), packaging found by the 0.2.1 release check (the Linux program starts without libxdo,
 licence notices of the libraries in every package, the Visual C++ runtime built into the Windows
 program with its icon and version, an ad hoc signature of the macOS app, LF in the Windows
@@ -77,12 +77,28 @@ headings, article threads), FOL-L028 (angle, radius, volume), FOL-L029 (tick mar
 imaging API). Left for later: RTF with styles (FOL-L005), article threads (FOL-L022), scanning
 on macOS (FOL-L011).
 
+### 0.3.1 — interface (next)
+
+Asked after the 0.3.0 release:
+
+1. **FOL-L025 — a smaller pencil pointer on Linux.** The pointer of the Pencil tool is drawn too
+   large on Linux; it gets the size of the other pointers of the system.
+2. **FOL-L050 — shorter menus.** The menus of the menu bar (File and Edit first) and the context
+   menus are too long: in every menu the rarer commands go into submenus by subject, and the
+   commands used most stay at the top level.
+
 ### 0.4.0 — professional tools
 
 FOL-L045 (recompress one picture, presets), FOL-L043 (PDF/A validation and conversion), FOL-L044
 (colour conversion, output preview), FOL-L021 (vector path editing), FOL-L047 (action sequences,
 batch, command line), FOL-L034 (sandboxed JavaScript engine, console), FOL-L039 (system
 certificate store, PKCS#11), FOL-L009 (office exports).
+
+### 0.5.0 — drawing at hand
+
+1. **FOL-L025 — the pencil's quick panel.** Choosing the Pencil opens a small panel by the tool
+   with six buttons: the thickness of the stroke, four standard colours (black, green, blue and
+   red) and one that opens the colour palette to choose any other colour.
 
 ### Later
 
@@ -150,7 +166,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L025 | P1 | ✅ | every markup and drawing comment, styles and named styles, lock, grouping, align/distribute/order, eraser, clouds | Pressure-sensitive pen; check appearances in a second reader. |
+| FOL-L025 | P1 | ✅ | every markup and drawing comment, styles and named styles, lock, grouping, align/distribute/order, eraser, clouds | A smaller pencil pointer on Linux (0.3.1); the pencil's quick panel of thickness and colours (0.5.0); pressure-sensitive pen; check appearances in a second reader. |
 | FOL-L026 | P1 | ✅ | comments pane with filters, replies, review states, XFDF/FDF/PDF exchange, comment summaries | CSV summary; history of a comment. |
 | FOL-L027 | P1/P2 | 🟡 | text stamps, stamp designer with dynamic values, favourites and recent stamps | Sequential stamps; symbol libraries with fields asked when placed. |
 | FOL-L028 | P2 | 🟡 | distance, perimeter, area, angle, radius and diameter, volume (area by a depth), calibration, CSV export of measures | Snapping profile; measure info pane; editing the depth of a volume. |
@@ -195,7 +211,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L047 | P2 | ⬜ | page-mark macros only; a minimal command line (`--features-md`, `--version`) | Action sequences, batches over files, command line with structured results. |
 | FOL-L048 | P2 | ⬜ | — | On-device AI engine decision. |
 | FOL-L049 | P2 | ⬜ | — | 3D viewer and authoring. |
-| FOL-L050 | P1/P2 | 🟡 | preferences, shortcuts, ribbon and classic interface, Quick Access Toolbar, command palette, settings export/import/reset, resizable panes and ribbon | Toolbox profiles, plug-ins, portable/administrative settings. |
+| FOL-L050 | P1/P2 | 🟡 | preferences, shortcuts, ribbon and classic interface, Quick Access Toolbar, command palette, settings export/import/reset, resizable panes and ribbon | Shorter menus with submenus (0.3.1); toolbox profiles, plug-ins, portable/administrative settings. |
 
 ### Integrity contracts and sharing
 

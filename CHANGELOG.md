@@ -6,6 +6,15 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- The rectangle, ellipse, line, arrow, polygon, polyline and cloud tools stay chosen after a
+  shape, like the pencil, so several shapes are drawn one after the other; Escape goes back to
+  the hand. The other tools follow Tools › Keep Tool Selected as before.
+
+### Fixed
+- Export to Office Formats… wrote nothing: closing its dialog also ended the export before the
+  save window opened. Word, RTF and web pages are written again.
+
 ## [0.4.0] - 2026-10-26
 
 ### Added

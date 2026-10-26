@@ -30,12 +30,19 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     pause(400).await;
     let formats =
         text("return String(document.querySelectorAll('.dialog .office-format option').length);").await;
-    st.set_dialog(crate::state::Dialog::None);
     let docx = cx.dir.join("report.docx");
     let html = cx.dir.join("report.html");
     let _ = std::fs::remove_file(&docx);
     let _ = std::fs::remove_file(&html);
-    crate::commands::office::write_export(st, folitecta_core::OfficeFormat::Docx, true, true, docx.clone());
+    // Word through the dialog itself: chosen, Export pressed, the save
+    // window answered.
+    let _ = text(
+        "const s = document.querySelector('.dialog .office-format'); if (s) { s.value = 'docx'; s.dispatchEvent(new Event('change', { bubbles: true })); } return '';",
+    )
+    .await;
+    pause(300).await;
+    crate::commands::office::answer_save(docx.clone());
+    let _ = text("document.querySelector('.dialog-foot .tbtn.primary')?.click(); return '';").await;
     crate::commands::office::write_export(st, folitecta_core::OfficeFormat::Html, true, false, html.clone());
     for _ in 0..40 {
         pause(150).await;

@@ -43,14 +43,26 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     st.set_tool(Tool::Rect);
     pause(300).await;
     let before = annots_on(st, 0).len();
+    let r2 = pointer_path(0, z, &line((380.0, 180.0), (470.0, 230.0), 6), false).await;
+    pause(600).await;
+    // The tool stays chosen: a second rectangle right away (the one the
+    // next steps move and resize).
+    let kept = (st.tool)() == Tool::Rect;
     let r = pointer_path(0, z, &line((100.0, 300.0), (260.0, 380.0), 6), false).await;
     pause(600).await;
     let after = annots_on(st, 0);
-    let rect_ok = after.len() == before + 1 && after.last().map(|a| a.subtype == "Square").unwrap_or(false);
+    let rect_ok = kept
+        && after.len() == before + 2
+        && after.iter().rev().take(2).all(|a| a.subtype == "Square")
+        && (st.tool)() == Tool::Rect;
     cx.record(
-        "draw a rectangle",
+        "draw two rectangles one after the other, the tool staying chosen",
         rect_ok,
-        format!("{r}; {before} -> {}; tool now {:?}", after.len(), (st.tool)()),
+        format!(
+            "{r}; {r2}; {before} -> {}; kept {kept}, tool now {:?}",
+            after.len(),
+            (st.tool)()
+        ),
     );
 
     // 4. Move it with the comment editing tool.

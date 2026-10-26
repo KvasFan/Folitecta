@@ -3,13 +3,21 @@
 //! the document itself; the report says what it holds and what it left out.
 
 use std::path::PathBuf;
+use std::sync::Mutex;
 
-use dioxus::prelude::*;
 use folitecta_core::OfficeFormat;
 
 use crate::commands::{doc_dialog, handlers};
 use crate::i18n::{t, tf};
 use crate::state::{AppState, Dialog, ToastKind};
+
+/// The answer the self-test gives to the next save window.
+static ANSWER: Mutex<Option<PathBuf>> = Mutex::new(None);
+
+/// Let the next export be written to `path` without asking (the self-test).
+pub fn answer_save(path: PathBuf) {
+    *ANSWER.lock().unwrap_or_else(|e| e.into_inner()) = Some(path);
+}
 
 /// Export the active document (its pages `all` or the current one) in `format`.
 pub fn export(st: AppState, format: OfficeFormat, all: bool, page_breaks: bool) {
@@ -23,16 +31,25 @@ pub fn export(st: AppState, format: OfficeFormat, all: bool, page_breaks: bool) 
         return;
     };
     st.set_dialog(Dialog::None);
-    spawn(async move {
-        let Some(file) = rfd::AsyncFileDialog::new()
-            .add_filter(format.id().to_uppercase(), &[format.extension()])
-            .set_file_name(format!("{stem}.{}", format.extension()))
-            .save_file()
-            .await
-        else {
-            return;
+    // The dialog that asked has closed: the work is not tied to it (a task
+    // of the dialog would end with it, before the save window opens).
+    dioxus::core::spawn_forever(async move {
+        let answer = ANSWER.lock().unwrap_or_else(|e| e.into_inner()).take();
+        let target = match answer {
+            Some(path) => path,
+            None => {
+                let Some(file) = rfd::AsyncFileDialog::new()
+                    .add_filter(format.id().to_uppercase(), &[format.extension()])
+                    .set_file_name(format!("{stem}.{}", format.extension()))
+                    .save_file()
+                    .await
+                else {
+                    return;
+                };
+                file.path().to_path_buf()
+            }
         };
-        write_export(st, format, all, page_breaks, file.path().to_path_buf());
+        write_export(st, format, all, page_breaks, target);
     });
 }
 
@@ -54,7 +71,7 @@ pub fn write_export(st: AppState, format: OfficeFormat, all: bool, page_breaks: 
         st.toast(ToastKind::Warn, t(lang, "toast.office_not_over"), "");
         return;
     }
-    spawn(async move {
+    dioxus::core::spawn_forever(async move {
         let range = if all { 0..n } else { page..page + 1 };
         let made = tokio::task::spawn_blocking(move || {
             let out = copy.export_office(format, range, page_breaks)?;

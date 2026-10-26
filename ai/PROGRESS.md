@@ -4,6 +4,22 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-26 — FOL-L009, FOL-L025: the office export from its dialog; shape tools stay chosen
+
+- **Current state before:** Export to Office Formats… closed its dialog and then waited for the
+  save window in a task of that dialog, which ended with it: nothing was written (the self-test
+  called the writing directly and did not see it). Shape tools went back to the hand after one
+  shape.
+- **Changed:** `commands/document/office.rs` runs the save window and the writing with
+  `spawn_forever`, and takes the self-test's answer to the save window (`answer_save`). The
+  other dialogs of 0.3.0 and 0.4.0 close only after their work, without waiting after it.
+  `ui/canvas/create.rs`: `stays_chosen` — the pencil, the free highlighter, the tick marks and
+  the rectangle, ellipse, line, arrow, polygon, polyline and cloud tools.
+- **Checked:** the office step now goes through the dialog (Word chosen, Export pressed); with
+  the old code it found no Word file, with the fix the file holds the headings and text. The
+  tools step draws two rectangles one after the other without choosing the tool again.
+- **Open:** a test of every dialog through its own buttons.
+
 ## 2026-10-26 — FOL-L039/S02: digital IDs on cards, tokens and the system store
 
 - **Current state before:** only PKCS #12 digital IDs kept by Folitecta could sign.

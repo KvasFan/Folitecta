@@ -176,12 +176,30 @@ pub fn finish_drawing(st: AppState) {
     }
 }
 
+/// The tools that stay chosen after what they draw.
+pub fn stays_chosen(tool: Tool) -> bool {
+    matches!(
+        tool,
+        Tool::Ink
+            | Tool::FreeHighlight
+            | Tool::Tick
+            | Tool::Rect
+            | Tool::Ellipse
+            | Tool::Line
+            | Tool::Arrow
+            | Tool::Polygon
+            | Tool::Polyline
+            | Tool::Cloud
+    )
+}
+
 pub fn after_create(st: AppState) {
     files::set_window_title(st);
     // A freehand drawing takes many strokes, tick marks go one after the
-    // other: the pencil, the free highlighter and the tick marks stay chosen.
-    let freehand = matches!(*st.tool.peek(), Tool::Ink | Tool::FreeHighlight | Tool::Tick);
-    if !freehand && !option_on(st, "tool.keepSelected") {
+    // other, shapes are drawn several at a time: the pencil, the free
+    // highlighter, the tick marks and the shapes stay chosen (Escape goes
+    // back to the hand).
+    if !stays_chosen(*st.tool.peek()) && !option_on(st, "tool.keepSelected") {
         st.set_tool(Tool::Hand);
     }
 }

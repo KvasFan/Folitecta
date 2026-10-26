@@ -257,4 +257,45 @@ return (el.querySelector('.label')?.textContent || 'submenu');
             "rows {sub_row:?} / {leaf_row:?}: open {opened} (drawn {drawn}), crossing {crossing}, inside {kept}, resting {closed}"
         ),
     );
+
+    // The menus are short: the commands used most at the top of a menu, the
+    // others in submenus by subject (File › New holds From Template…).
+    let lang = st.lang();
+    let new_label = crate::i18n::t(lang, "menu.group.new");
+    let template = folitecta_core::registry()
+        .get("newDocTemplate")
+        .map(|c| crate::i18n::cmd_label(lang, c))
+        .unwrap_or_default();
+    st.close_menus();
+    st.set_open_menu(Some("file".into()));
+    pause(400).await;
+    let top = number("return document.querySelectorAll('.menu-dropdown > .menu-item').length;").await;
+    let js = format!(
+        r#"
+const row = [...document.querySelectorAll('.menu-dropdown > .menu-item')].find(e => e.querySelector('.label')?.textContent === {label});
+if (!row) return '';
+const r = row.getBoundingClientRect();
+row.dispatchEvent(new MouseEvent('click', {{ bubbles: true, clientX: r.left + 20, clientY: r.top + 8 }}));
+return 'opened';
+"#,
+        label = serde_json::to_string(&new_label).unwrap_or_default()
+    );
+    let opened = eval(&js)
+        .await
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default();
+    pause(400).await;
+    let inside = eval("return [...document.querySelectorAll('.submenu .menu-item .label')].map(e => e.textContent).join('|');")
+        .await
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default();
+    st.close_menus();
+    pause(200).await;
+    cx.record(
+        "the menus are short: File has its most used commands at the top, the others in submenus (New holds From Template…)",
+        top > 0.0 && top <= 22.0 && opened == "opened" && inside.split('|').any(|l| l == template),
+        format!("File rows {top}, New {opened:?}, inside {inside:?}"),
+    );
 }

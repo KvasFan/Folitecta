@@ -127,6 +127,26 @@ pub fn dropdown(st: AppState, lang: Lang, cmds: Vec<&'static Command>) -> Elemen
     }
 }
 
+/// [`dropdown`] of the entries of a submenu laid out by
+/// [`crate::ui::chrome::menu_layout`].
+pub fn dropdown_nodes(st: AppState, lang: Lang, nodes: Vec<crate::ui::chrome::menu_layout::Node>) -> Element {
+    let (x, y) = (st.dropdown_pos)();
+    let (vw, vh) = (st.viewport)();
+    let left = x.min(vw - MENU_W - 8.0).max(4.0);
+    let room = vh - y - 10.0;
+    let (top, max_h) = if room < 180.0 {
+        ((vh - 260.0).max(4.0), 250.0)
+    } else {
+        (y, room)
+    };
+    rsx! {
+        div { class: "rbtn-menu", style: "left:{left}px;top:{top}px;max-height:{max_h}px",
+            onclick: move |e| e.stop_propagation(),
+            {crate::ui::menu_nodes(st, lang, &nodes, 0, "ribbon")}
+        }
+    }
+}
+
 fn toggle_dropdown(st: AppState, key: &str, pos: (f64, f64)) {
     let cur = st.open_dropdown.peek().clone();
     if cur.as_deref() == Some(key) {
@@ -200,7 +220,7 @@ pub fn ribbon_button(st: AppState, lang: Lang, cmd: &'static Command, style: Btn
                 if planned { span { class: "dot" } }
             }
             if has_menu && open {
-                {dropdown(st, lang, reg.children(&id))}
+                {dropdown_nodes(st, lang, crate::ui::chrome::menu_layout::submenu_nodes(&id))}
             }
         }
     }

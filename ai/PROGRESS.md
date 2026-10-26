@@ -4,6 +4,27 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-26 — FOL-L025, FOL-L050: a smaller pencil pointer on Linux, shorter menus (0.3.1)
+
+- **Asked after the 0.3.0 release:** the pencil symbol is too large on Linux; the menus (File and
+  Edit first) are too long and want submenus.
+- **Changed:** the pencil pointer was an SVG of 24 CSS pixels; WebKitGTK up to 2.54 draws an SVG
+  pointer at the scale of a HiDPI screen without setting the scale of the cursor surface
+  (WebKit bug 328226, fixed upstream on 21 October 2026), so on the user's screens (scale 1.5
+  and 2, both 2 for GTK3) it came out twice as large. On Linux (`assets/styles/linux.css`,
+  `theme::PLATFORM_CSS`) it is now a 20-pixel PNG, which keeps its size with every WebKitGTK.
+  `ui/chrome/menu_layout.rs`: the layout of the menus of the menu bar and of long submenus of
+  the registry (`Item::Cmd`, `Sep`, `Group`, `More`), resolved against the registry
+  (`menu_nodes`, `submenu_nodes`); `ui::menu_nodes` draws them (submenus of the layout open like
+  the registry's), also in the ribbon dropdowns and the pane menus. Top rows: File 21 (was 81),
+  Edit 22 (111), View 19 (121), Document 21 (107), Comments 17 (65), Tools 10, Window 10.
+- **Checked:** unit tests (every name of a layout is a command; every menu at most 22 rows, each
+  submenu of a layout at most 20, More at most 16; every command a menu held is still in it,
+  none twice; separators only between entries; every submenu labelled in English and Italian);
+  self-test steps `layout` (File has 21 rows, its New submenu holds From Template…; the submenu
+  delay) and `text` (the pencil pointer is a PNG on Linux).
+- **Open:** the pencil's quick panel (0.5.0).
+
 ## 2026-10-26 — FOL-L011/S01: scanning
 
 - **Current state before:** From Scanner… and Custom Scan… were planned.

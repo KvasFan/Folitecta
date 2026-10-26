@@ -1,0 +1,6 @@
+/* Linux only. The pencil pointer is a 20-pixel picture: WebKitGTK up to 2.54 draws an SVG pointer
+   at the scale of a HiDPI screen without telling the toolkit, which then enlarges it again, so it
+   came out twice as large as the other pointers; a picture keeps its size with every version. */
+.canvas.tool-pencil, .canvas.tool-pencil .page-inner, .canvas.tool-pencil .annot-hit {
+  cursor: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABmJLR0QA/wD/AP+gvaeTAAACKklEQVQ4jWNgoDJgJEeTioqKKAf7/5n//v6zYGBk2PvrN3P2nTt3PoHkmEg1TFFRUZyV5d8pZ1Nu70Ut8pLm2tyhrCz/jigpKfGD5JlJNYydjfG8myWvxIQSGTYpUVYGbzs+lvPXvwu8evNL/vXbD+uZSDGMg53xhLwkq9i1uz9Y33z4AxZnYWZkyAoXYWdgYnAh2ssww/zs+KS2TVZmttLnZoioeMDw8u1vhv//GRiWbH33i+E/4zGiIgXiTYbjfvb8Uh15UuyMjAxgQxpmvGA4cv4Lg7YKx+89J788/f2HyezOnTuv8RqorKwsxs7CcNzTlke6K1+KnYkJofzfPwYG77y7fx88/fX6+89/Rg8fPnyO18v4DAO5sHba818Pn/16imwYTi8TMqxm6vNf6/d9ePHtxz8LZMOwGkiJYRgGUmoYCLAgZycW5n+nfOz5JGCxiWxY5aRnvzYd+vTsxy8GkGEvGXAAFhjj79+/aYwM/+XcLHkZcRr287/F/fv3cRqGEss8nEw2oa6CjAXdTxn2nPyM4s1NBz+++Pb9rxUhw1Bc+Ovvf0t/B34GN0tehpyOJwx9xdIMB858IRhm6ABcOMjKykr9/89Y+eTlL0ZrfW6wy3oWvfp/69HvZz9+/Td78ODBCwYiAQuYYGEx/v//P8OJy9/+n7vx+CMbC+PxP38Zj/5nYJx1//7918QaBgLg4JeWlhZmZ2e3/P3797nHjx8/I8UAmgMAV+MmQXKe7E4AAAAASUVORK5CYII=") 2 18, crosshair;
+}

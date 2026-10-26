@@ -205,21 +205,107 @@ fn submenu_position(st: AppState, evt: &Event<MouseData>, rows: usize) -> (f64, 
     st.clamp_menu_pos(left, row_top - 6.0, MENU_W, height)
 }
 
-/// A menu entry (leaf or nested submenu). Submenus open on hover next to the
-/// row with fixed positioning, so scrolling containers never clip them; an
-/// open submenu stays a moment when the pointer crosses other rows towards it.
+/// A row that opens a submenu: `sid` tells it apart in the stack of open
+/// submenus, `rows` sizes it, `content` fills it. Submenus open on hover
+/// next to the row with fixed positioning, so scrolling containers never
+/// clip them; an open submenu stays a moment when the pointer crosses other
+/// rows towards it.
+fn submenu_row(
+    st: AppState,
+    depth: usize,
+    sid: String,
+    label: String,
+    rows: usize,
+    content: Element,
+) -> Element {
+    let open_pos = st
+        .submenus
+        .read()
+        .get(depth)
+        .filter(|(s, _, _)| *s == sid)
+        .map(|(_, x, y)| (*x, *y));
+    let id_hover = sid.clone();
+    let id_click = sid;
+    rsx! {
+        div { class: if open_pos.is_some() { "menu-item open" } else { "menu-item" },
+            onmouseenter: move |evt| {
+                if st.submenus.peek().get(depth).is_some_and(|(s, _, _)| *s == id_hover) {
+                    // Back on the row of the open submenu: it stays.
+                    keep_submenus();
+                    return;
+                }
+                let pos = submenu_position(st, &evt, rows);
+                switch_submenu(st, depth, Some((id_hover.clone(), pos.0, pos.1)));
+            },
+            onclick: move |evt| {
+                evt.stop_propagation();
+                // Keyboard and touch users: a click opens the submenu (the row's
+                // children ignore the pointer, so the position is the row's).
+                keep_submenus();
+                if st.submenus.peek().get(depth).is_some_and(|(s, _, _)| *s == id_click) {
+                    return;
+                }
+                let pos = submenu_position(st, &evt, rows);
+                let mut stack = st.submenus_mut();
+                stack.truncate(depth);
+                stack.push((id_click.clone(), pos.0, pos.1));
+            },
+            span { class: "check-mark" }
+            span { class: "label", "{label}" }
+            span { class: "chev", "›" }
+            if let Some((left, top)) = open_pos {
+                div { class: "submenu", style: "left:{left}px;top:{top}px",
+                    onmouseenter: move |_| keep_submenus(),
+                    onclick: move |e| e.stop_propagation(),
+                    {content}
+                }
+            }
+        }
+    }
+}
+
+/// The entries of a menu laid out by [`chrome::menu_layout`]: commands,
+/// separators and the submenus of the layout. `path` names the menu, so
+/// the submenus of different menus are told apart.
+pub fn menu_nodes(
+    st: AppState,
+    lang: Lang,
+    nodes: &[chrome::menu_layout::Node],
+    depth: usize,
+    path: &str,
+) -> Element {
+    use chrome::menu_layout::Node;
+    let rows: Vec<Element> = nodes
+        .iter()
+        .map(|node| match node {
+            Node::Cmd(c) => menu_entry(st, lang, c, depth),
+            Node::Sep => rsx! { div { class: "menu-sep" } },
+            Node::Group { key, nodes } => {
+                let sid = format!("group:{path}/{key}");
+                let label = crate::i18n::t(lang, &format!("menu.group.{key}"));
+                let content = menu_nodes(st, lang, nodes, depth + 1, &sid);
+                submenu_row(st, depth, sid, label, chrome::menu_layout::rows(nodes), content)
+            }
+        })
+        .collect();
+    rsx! {
+        for row in rows {
+            {row}
+        }
+    }
+}
+
+/// A menu entry (leaf or nested submenu): a command with a submenu shows it
+/// laid out by [`chrome::menu_layout::submenu_nodes`].
 pub fn menu_entry(st: AppState, lang: Lang, cmd: &'static Command, depth: usize) -> Element {
-    let reg = folitecta_core::registry();
     let label = cmd_label(lang, cmd);
     let id = cmd.id.clone();
     let is_recent = cmd.id == "recentFiles" || cmd.id == "recentsList";
-    let children: Vec<&'static Command> = if is_recent {
-        Vec::new()
-    } else if commands::is_implemented(&cmd.id) {
+    let children = if is_recent || commands::is_implemented(&cmd.id) {
         // An implemented command runs directly; its children stay reachable elsewhere.
         Vec::new()
     } else {
-        reg.children(&cmd.id)
+        chrome::menu_layout::submenu_nodes(&cmd.id)
     };
     let filter_kind = filter_kind(&cmd.id);
     let has_sub = (is_recent || !children.is_empty()) && depth < 6;
@@ -227,60 +313,19 @@ pub fn menu_entry(st: AppState, lang: Lang, cmd: &'static Command, depth: usize)
         let rows = if is_recent {
             st.ui.read().recent.len().max(1)
         } else {
-            children.len() + filter_kind.map(|k| filter_items(st, lang, k).len()).unwrap_or(0)
+            chrome::menu_layout::rows(&children)
+                + filter_kind.map(|k| filter_items(st, lang, k).len()).unwrap_or(0)
         };
-        let open_pos = st
-            .submenus
-            .read()
-            .get(depth)
-            .filter(|(sid, _, _)| *sid == cmd.id)
-            .map(|(_, x, y)| (*x, *y));
-        let id_hover = id.clone();
-        let id_click = id.clone();
-        return rsx! {
-            div { class: if open_pos.is_some() { "menu-item open" } else { "menu-item" },
-                onmouseenter: move |evt| {
-                    if st.submenus.peek().get(depth).is_some_and(|(s, _, _)| *s == id_hover) {
-                        // Back on the row of the open submenu: it stays.
-                        keep_submenus();
-                        return;
-                    }
-                    let pos = submenu_position(st, &evt, rows);
-                    switch_submenu(st, depth, Some((id_hover.clone(), pos.0, pos.1)));
-                },
-                onclick: move |evt| {
-                    evt.stop_propagation();
-                    // Keyboard and touch users: a click opens the submenu (the row's
-                    // children ignore the pointer, so the position is the row's).
-                    keep_submenus();
-                    if st.submenus.peek().get(depth).is_some_and(|(s, _, _)| *s == id_click) {
-                        return;
-                    }
-                    let pos = submenu_position(st, &evt, rows);
-                    let mut stack = st.submenus_mut();
-                    stack.truncate(depth);
-                    stack.push((id_click.clone(), pos.0, pos.1));
-                },
-                span { class: "check-mark" }
-                span { class: "label", "{label}" }
-                span { class: "chev", "›" }
-                if let Some((left, top)) = open_pos {
-                    div { class: "submenu", style: "left:{left}px;top:{top}px",
-                        onmouseenter: move |_| keep_submenus(),
-                        onclick: move |e| e.stop_propagation(),
-                        if is_recent {
-                            {recent_entries(st)}
-                        }
-                        for child in children.iter() {
-                            {menu_entry(st, lang, child, depth + 1)}
-                        }
-                        if let Some(kind) = filter_kind {
-                            {filter_entries(st, lang, kind)}
-                        }
-                    }
-                }
+        let content = rsx! {
+            if is_recent {
+                {recent_entries(st)}
+            }
+            {menu_nodes(st, lang, &children, depth + 1, &id)}
+            if let Some(kind) = filter_kind {
+                {filter_entries(st, lang, kind)}
             }
         };
+        return submenu_row(st, depth, id, label, rows, content);
     }
     let shortcut = cmd.shortcut.clone().unwrap_or_default();
     let checked = commands::toggle_state(st, &cmd.id)

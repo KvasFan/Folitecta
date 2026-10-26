@@ -6,6 +6,19 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Shorter menus: each menu of the menu bar keeps the commands used most at the top (at most 22
+  rows; File and Edit had over 80 and 110) and puts the others in submenus by subject — File ›
+  New, Save in Other Ways, History and Sessions, File on Disk, Send and Share, Places; Edit ›
+  Paste Special, Select, Page Text, Arrange, Format, Pictures and Objects, Layers, Interface; and
+  so on in View, Document, Comments, Tools and Window. The long submenus (Tools › Tool,
+  Annotation, the macros, the Bookmarks and Layers pane menus, path editing) are split the same
+  way, also in the ribbon dropdowns and the pane menus. Commands not placed yet are under More.
+
+### Fixed
+- On Linux the pencil pointer is no longer twice as large as the other pointers on HiDPI screens
+  (WebKitGTK up to 2.54 enlarged SVG pointers twice): it is a 20-pixel picture.
+
 ## [0.3.0] - 2026-10-26
 
 ### Added

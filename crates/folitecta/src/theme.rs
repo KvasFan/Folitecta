@@ -49,6 +49,12 @@ pub const CSS: &str = concat!(
     include_str!("../assets/styles/responsive.css"),
 );
 
+/// The rules of one system only, after all the others.
+#[cfg(target_os = "linux")]
+pub const PLATFORM_CSS: &str = include_str!("../assets/styles/linux.css");
+#[cfg(not(target_os = "linux"))]
+pub const PLATFORM_CSS: &str = "";
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -57,7 +63,9 @@ mod tests {
     /// default has its tokens.
     #[test]
     fn braces_balance_and_every_theme_defines_its_tokens() {
-        assert_eq!(CSS.matches('{').count(), CSS.matches('}').count());
+        for sheet in [CSS, include_str!("../assets/styles/linux.css")] {
+            assert_eq!(sheet.matches('{').count(), sheet.matches('}').count());
+        }
         let theme = include_str!("../assets/styles/theme.css");
         for t in crate::state::Theme::ALL {
             let sel = format!("[data-theme=\"{}\"]", t.attr());

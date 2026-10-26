@@ -349,7 +349,10 @@ return shown;
     let two = inks(st) == before + 2 && *st.tool.peek() == Tool::Ink;
     cx.record(
         "the pencil: its cursor, a smooth stroke, still chosen after a stroke",
-        cursor.contains("url(") && curved && pieces >= 2 * (wave.len() - 1) && kept && two,
+        cursor.contains("url(")
+            // On Linux a picture, which WebKitGTK does not enlarge on HiDPI screens.
+            && (!cfg!(target_os = "linux") || cursor.contains("image/png"))
+            && curved && pieces >= 2 * (wave.len() - 1) && kept && two,
         format!(
             "cursor {}, curve {curved}, pieces {pieces}, kept {kept}, two strokes {two}",
             !cursor.is_empty()

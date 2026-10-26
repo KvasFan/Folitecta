@@ -107,7 +107,11 @@ fn main() {
     let mut config = Config::new()
         .with_window(window)
         .with_menu(None::<dioxus::desktop::muda::Menu>)
-        .with_custom_head(format!("<meta charset=\"utf-8\"><style>{}</style>", theme::CSS))
+        .with_custom_head(format!(
+            "<meta charset=\"utf-8\"><style>{}{}</style>",
+            theme::CSS,
+            theme::PLATFORM_CSS
+        ))
         .with_disable_context_menu(!cfg!(debug_assertions))
         .with_background_color((238, 240, 246, 255))
         // The environment of the web view is set by `gpu`, which leaves it

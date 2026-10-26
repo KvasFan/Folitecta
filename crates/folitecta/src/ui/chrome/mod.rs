@@ -2,6 +2,7 @@
 //! status bar, command palette, messages, the sizes the user drags and the start page.
 
 pub mod layout;
+pub mod menu_layout;
 pub mod menubar;
 pub mod palette;
 pub mod qat;

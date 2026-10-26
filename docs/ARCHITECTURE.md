@@ -266,7 +266,11 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
   pages), `forms` (form data), `comments` (XFDF and FDF exchange), `print`, `pages` (pages from
   another PDF, Bates numbering) and `settings`.
 - `ui/` — the interface, in four parts:
-  - `chrome/` — the frame of the window: `menubar` (classic menus generated from the registry),
+  - `chrome/` — the frame of the window: `menubar` (classic menus generated from the registry)
+    and `menu_layout` (how they are laid out: the commands used most at the top of each menu,
+    the others in submenus by subject, long submenus of the registry split the same way, and
+    what a layout does not place in a More submenu; tests keep every menu short and every
+    command reachable; the ribbon dropdowns and the pane menus use the same submenus),
     `ribbon` and `ribbon_layout` (tabs, groups, the fitting of the buttons to the width, overflow
     menus, contextual tabs; the tools are icons with a short name under each, hidden by the
     View › Tool Names option, and the whole name in the tooltips), `toolbars`, `statusbar`, `palette`, `toasts`, `welcome`, and

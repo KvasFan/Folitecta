@@ -2,20 +2,18 @@
 
 use dioxus::prelude::*;
 use folitecta_core::commands::MENUS;
-use folitecta_core::registry;
 
 use crate::app::icon_data_url;
 use crate::i18n::{Lang, t, ui_label};
 use crate::icons::Icon;
 use crate::state::AppState;
-use crate::ui::menu_entry;
+use crate::ui::menu_nodes;
 
 #[component]
 pub fn Menubar() -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
     let open = (st.open_menu)();
-    let reg = registry();
     let icon = icon_data_url();
     let theme = st.ui.read().theme;
     let theme_icon: &'static str = if theme.is_dark() { "sun" } else { "moon" };
@@ -54,13 +52,7 @@ pub fn Menubar() -> Element {
                             }
                             if is_open {
                                 div { class: "menu-dropdown",
-                                    for entry in reg.menu_entries(&id_s) {
-                                        if let Some(cmd) = entry {
-                                            {menu_entry(st, lang, cmd, 0)}
-                                        } else {
-                                            div { class: "menu-sep" }
-                                        }
-                                    }
+                                    {menu_nodes(st, lang, &crate::ui::chrome::menu_layout::menu_nodes(&id_s), 0, &id_s)}
                                 }
                             }
                         }

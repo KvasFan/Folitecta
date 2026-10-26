@@ -6,6 +6,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-26
+
 ### Added
 - Digital IDs on smart cards and tokens, in the certificate store of Windows and in the keychain
   of macOS: Digital IDs lists them (cards and tokens through their PKCS #11 module — on Linux the

@@ -1,7 +1,7 @@
 # Folitecta roadmap and progress
 
 State of every requirement of [REQUIREMENTS.md](REQUIREMENTS.md) on the `main` branch at
-Folitecta 0.3.1, reviewed on **26 October 2026** against the code (not only the command
+Folitecta 0.4.0, reviewed on **26 October 2026** against the code (not only the command
 registry). Update the row of a requirement whenever a sub-task changes it, and log the work in
 [PROGRESS.md](PROGRESS.md).
 
@@ -87,14 +87,18 @@ Asked after the 0.3.0 release:
    the commands used most at the top and the others in submenus by subject; long submenus of
    the registry are split the same way (`ui/chrome/menu_layout.rs`).
 
-### 0.4.0 — professional tools
+### 0.4.0 — professional tools (released 26 October 2026)
 
-FOL-L045 (recompress one picture, presets), FOL-L043 (PDF/A validation and conversion), FOL-L044
-(colour conversion, output preview), FOL-L021 (vector path editing), FOL-L047 (action sequences,
-batch, command line), FOL-L034 (sandboxed JavaScript engine, console), FOL-L039 (system
-certificate store, PKCS#11), FOL-L009 (office exports).
+FOL-L045 (recompress one picture, presets), FOL-L043 (PDF/A-2b preflight and conversion of a
+copy), FOL-L044 (grey conversion, grey preview), FOL-L021 (vector path editing), FOL-L047 (action
+sequences, batch, command line), FOL-L034 (sandboxed JavaScript engine, field scripts, console),
+FOL-L039 (smart cards and tokens through PKCS #11, the Windows certificate store, the macOS
+keychain), FOL-L009 (Word, RTF and HTML exports). Left for later: embedding fonts in PDF/A
+conversion (FOL-L043), colour profiles beyond grey (FOL-L044), clipping and reused drawings in
+path editing (FOL-L021), keystroke and page scripts (FOL-L034), real cards and stores tried
+(FOL-L039).
 
-### 0.5.0 — drawing at hand
+### 0.5.0 — drawing at hand (next)
 
 1. **FOL-L025 — the pencil's quick panel.** Choosing the Pencil opens a small panel by the tool
    with six buttons: the thickness of the stroke, four standard colours (black, green, blue and

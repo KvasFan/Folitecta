@@ -46,7 +46,7 @@
 </p>
 
 > [!NOTE]
-> **Folitecta 0.3.1 is a pre-release.** Every command of the full feature set is already in the
+> **Folitecta 0.4.0 is a pre-release.** Every command of the full feature set is already in the
 > interface; each release turns more of them into working operations, and the ones that are not
 > done yet open a roadmap notice. [docs/FEATURES.md](docs/FEATURES.md) lists the state of every
 > command; the limits of what works are written below and in
@@ -106,9 +106,9 @@
 
 ## What works today
 
-Version 0.3.1. The parts marked *new in 0.3.0* came with 0.3.0, which 0.3.1 completes with
-shorter menus and a pencil pointer of the right size on Linux; everything else was already in
-0.2.1.
+Version 0.4.0. The parts marked *new in 0.4.0* come with this release; those marked *new in
+0.3.0* came with 0.3.0, which 0.3.1 completed with shorter menus and a pencil pointer of the
+right size on Linux; everything else was already in 0.2.1.
 
 | Area | Status |
 |---|---|
@@ -130,9 +130,9 @@ shorter menus and a pencil pointer of the right size on Linux; everything else w
 | Measure | Distance, perimeter and area, angles (three clicks), radius and diameter (a circle dragged from its centre) and volumes (an area times a depth) (*new in 0.3.0*) with a calibrated scale, precision and separators, labels on the page, CSV export |
 | Forms | Text, check box, radio button, combo box, list box, button and signature fields drawn on the page; their properties, the items of choice fields (sorted or in any order) and the pictures of push buttons for each state; filling on the page; fields calculated from others (sum, product, average, smallest, largest) in a chosen order; calculate, format and validate scripts of fields typed in their properties and run as the values change (*new in 0.4.0*); import and export of values (XFDF, FDF, CSV, text); one filled copy per row of a table (Populate Forms); reset; tab order; field highlighting by kind |
 | Pages | Insert blank pages, pages of another PDF or pictures; delete (also empty pages), duplicate, extract, move by dragging thumbnails, swap, reverse, replace with pages of another file; rotate, crop by margins or to the visible content, resize, add margins, normalise sizes; cut along lines drawn over a page (split pages editor); rasterise; find duplicates; split a document; combine PDF files, pictures and text files from a list of source files |
-| Pictures | The vector paths of a page chosen on the page (Edit Content › Shapes), their nodes dragged, their colours and line width changed or the path deleted, in the page content; the pictures of a page selected on the page and edited in place or in a picture editor (quarter turns, mirroring, cropping, straightening of tilted scans, filters, gray, black and white, 256 colours) or in another program, once or everywhere the picture is drawn; replaced with a picture file or the clipboard. *New in 0.3.0:* Clean Up Scans finds the blank and the askew scanned pages, lists them with their thumbnails and deletes or straightens them in one step |
+| Pictures | The vector paths of a page chosen on the page (Edit Content › Shapes), their nodes dragged, their colours and line width changed or the path deleted, in the page content (*new in 0.4.0*); the pictures of a page selected on the page and edited in place or in a picture editor (quarter turns, mirroring, cropping, straightening of tilted scans, filters, gray, black and white, 256 colours) or in another program, once or everywhere the picture is drawn; replaced with a picture file or the clipboard. *New in 0.3.0:* Clean Up Scans finds the blank and the askew scanned pages, lists them with their thumbnails and deletes or straightens them in one step |
 | Page marks | Watermarks, backgrounds, headers and footers with macros (`{page}`, `{pages}`, `{label}`, `{date}`, `{time}`, `{title}`, `{file}`, `{author}`, `{bookmark}` and more, with a macro guide); page numbering and Bates numbering (`{bates:6}`, continued across runs and several files); page labels (roman, letters, prefixes); page transitions; overlays and underlays from another PDF; removal of any mark Folitecta added. *New in 0.3.0:* watermarks, headers and footers, page and Bates numbers write text beyond Western European characters with the embedded font |
-| Create and convert | Blank documents of any paper size, documents from pictures, from text files and from the clipboard; Markdown files set with their styles, links and tables (headings become bookmarks) and CSV files as tables (local separators and numbers, header on every page) (*new in 0.3.0*); pages from a scanner at the size of the paper (scanners and their settings chosen in Folitecta on Linux, the system's scanning window on Windows), with presets and the backs of the sheets scanned as a second stack put between the fronts (*new in 0.3.0*); a gallery of templates (ruled, squared, dotted and graph paper, music staves, Cornell notes, week and month planners, a to-do list, a letter, meeting notes and an invoice that adds itself up) (*new in 0.3.0*); pages exported to PNG and JPEG, embedded images extracted; the text exported as Word (DOCX), rich text (RTF) or web page (HTML) with its headings and paragraphs; snapshot of an area to the clipboard; pictures pasted onto pages and text pasted as text boxes |
+| Create and convert | Blank documents of any paper size, documents from pictures, from text files and from the clipboard; Markdown files set with their styles, links and tables (headings become bookmarks) and CSV files as tables (local separators and numbers, header on every page) (*new in 0.3.0*); pages from a scanner at the size of the paper (scanners and their settings chosen in Folitecta on Linux, the system's scanning window on Windows), with presets and the backs of the sheets scanned as a second stack put between the fronts (*new in 0.3.0*); a gallery of templates (ruled, squared, dotted and graph paper, music staves, Cornell notes, week and month planners, a to-do list, a letter, meeting notes and an invoice that adds itself up) (*new in 0.3.0*); pages exported to PNG and JPEG, embedded images extracted; the text exported as Word (DOCX), rich text (RTF) or web page (HTML) with its headings and paragraphs (*new in 0.4.0*); snapshot of an area to the clipboard; pictures pasted onto pages and text pasted as text boxes |
 | Barcodes | QR Code, Data Matrix, PDF417, Aztec and linear barcodes (Code 128, Code 39, Code 93, EAN, UPC, ITF, Codabar) drawn on the pages; the barcodes of a document or of an area read and listed; web links made over the barcodes that hold an address |
 | Navigation data | Bookmark tree editing (drag and drop, styles, destinations, import and export), bookmarks made from the headings found in the text, a table of contents inserted from the bookmarks (dotted leaders, page numbers, every entry a link) (*new in 0.3.0*), named destinations, links; attachments (columns, open, save, edit); form fields (name groups, sorting, selection by type, manual tab order); signature fields |
 | Portfolios | Portfolios made from files, folders, details or tiles, with columns and sorting, preview, file information, initial file and cover |
@@ -142,7 +142,7 @@ shorter menus and a pencil pointer of the right size on Linux; everything else w
 | History and sessions | Documents opened before, with thumbnails and pins; sessions of open documents saved and opened again |
 | Calculator, scripts and media | Accounting calculator tapes on the page; a JavaScript console with snippets and named document scripts, run by a sandboxed engine with a documented API (*new in 0.4.0*); sound and video comments with a media player |
 | Files and metadata | An explorer pane with places, folder filters, thumbnails of PDF files and lists of files; the document file renamed, moved or recycled; metadata templates and XMP; guides saved to files |
-| Document tools | Action sequences (rotating, deleting empty pages, recompressing, grey, comments, scripts, watermarks, page numbers, document information, PDF/A) run on the open document as one undo step or on files and folders with a result for each, also from the command line; typed or RTF text as pages, a space usage audit, conversion of the colours to grey (pages, drawings, pictures, comments; spot colours and patterns reported and left), a PDF/A-2b preflight with conversion of a copy (declared PDF/A only when every rule checked is met), picture recompression (the whole document, a page or one selected picture; presets for the screen, e-books, print and archives that scale pictures down to a resolution; an estimate picture by picture before anything changes), document scripts, pages split at guides or cut to the crop box, leaving PDF/A |
+| Document tools | Action sequences (rotating, deleting empty pages, recompressing, grey, comments, scripts, watermarks, page numbers, document information, PDF/A) run on the open document as one undo step or on files and folders with a result for each, also from the command line (*new in 0.4.0*); typed or RTF text as pages, a space usage audit, conversion of the colours to grey (pages, drawings, pictures, comments; spot colours and patterns reported and left), a PDF/A-2b preflight with conversion of a copy (declared PDF/A only when every rule checked is met), picture recompression (the whole document, a page or one selected picture; presets for the screen, e-books, print and archives that scale pictures down to a resolution; an estimate picture by picture before anything changes) (grey, PDF/A and recompression *new in 0.4.0*), document scripts, pages split at guides or cut to the crop box, leaving PDF/A |
 
 ## Downloads
 
@@ -150,7 +150,7 @@ shorter menus and a pencil pointer of the right size on Linux; everything else w
 the newest version is at the top, with the packages listed below and its notes, followed by the
 earlier versions. Versions up to 0.0.12 are also on the
 [GitLab releases](https://gitlab.com/tirael8308/folitecta/-/releases); later versions are published
-on GitHub only. `<version>` in the file names is the version number, for example `0.3.1`.
+on GitHub only. `<version>` in the file names is the version number, for example `0.4.0`.
 
 | System | File | Notes |
 |---|---|---|
@@ -296,10 +296,12 @@ limitations, and [docs/FEATURES.md](docs/FEATURES.md) the state of every command
 ## Roadmap
 
 [ai/ROADMAP.md](ai/ROADMAP.md) has the state of every requirement and the planned releases. The
-next one, **0.4.0 — professional tools**, is planned around fuller PDF/A
-conversion, colour conversion with colour profiles and output preview, fuller editing of vector paths, and further office exports. Text recognition of scripts other than Latin, article
-threads, scanning on macOS, remote services and the other commands still marked as *planned*
-come later.
+next one, **0.5.0 — drawing at hand**, gives the Pencil a quick panel: choosing it opens a small
+panel by the tool with the thickness of the stroke, four standard colours (black, green, blue and
+red) and a button that opens the colour palette for any other colour. Fuller PDF/A conversion
+(embedding fonts), colour profiles beyond grey, fuller editing of vector paths, text recognition
+of scripts other than Latin, article threads, scanning on macOS, remote services and the other
+commands still marked as *planned* come later.
 
 ## License and credits
 

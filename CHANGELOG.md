@@ -27,6 +27,10 @@ All notable changes to Folitecta are documented here. The format follows
   in a new tab — with an sRGB output intent of Folitecta's own — and declares PDF/A-2b only when
   no rule checked is left broken. Fonts that are not embedded are not embedded yet.
 
+### Fixed
+- Saving keeps the XMP metadata in step with the document information (the modification date
+  and the producer saving writes), so a PDF/A document stays conformant once saved again.
+
 ## [0.3.1] - 2026-10-26
 
 ### Changed

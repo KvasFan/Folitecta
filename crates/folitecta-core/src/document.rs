@@ -1793,9 +1793,12 @@ impl Document {
         let date = util::pdf_date_now();
         let producer = lopdf::text_string(&format!("{} {}", crate::APP_NAME, crate::VERSION));
         if let Ok(info) = self.info_dict_mut() {
-            info.set("ModDate", Object::string_literal(date));
+            info.set("ModDate", Object::string_literal(date.clone()));
             info.set("Producer", producer);
         }
+        // XMP metadata repeat both (PDF/A asks them to agree).
+        let producer = format!("{} {}", crate::APP_NAME, crate::VERSION);
+        self.sync_xmp_on_save(&date, &producer);
     }
 
     /// Update the standard metadata fields. Empty strings remove the entry.

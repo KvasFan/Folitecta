@@ -94,6 +94,18 @@ fn a_document_with_embedded_fonts_becomes_pdfa_2b() {
             .render_page(0, 0.3)
             .is_ok()
     );
+    // Saved to a file (a new modification date and producer) and opened: still PDF/A.
+    let dir = std::env::temp_dir().join(format!("folitecta-pdfa-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("converted.pdf");
+    let mut saved = reopened;
+    // A modification date later than the conversion's.
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    saved.save_as(&path).unwrap();
+    let from_disk = Document::open(&path).unwrap();
+    let after_save = from_disk.preflight_pdfa();
+    std::fs::remove_dir_all(&dir).ok();
+    assert!(after_save.passed(), "{:?}", after_save.findings);
 }
 
 #[test]

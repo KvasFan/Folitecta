@@ -424,7 +424,62 @@ impl DeviceColours {
     }
 }
 
+/// `packet` with the property `name` (in `namespace`) set to `value`: the
+/// element or attribute replaced, or an element added to the first
+/// description.
+fn set_xmp_property(packet: &str, name: &str, namespace: &str, value: &str) -> String {
+    let v = escape_text(value);
+    let open = format!("<{name}>");
+    let close = format!("</{name}>");
+    if let (Some(a), Some(b)) = (packet.find(&open), packet.find(&close)) {
+        if a < b {
+            return format!("{}{open}{v}{}", &packet[..a], &packet[b..]);
+        }
+    }
+    let attr = format!("{name}=\"");
+    if let Some(a) = packet.find(&attr) {
+        let start = a + attr.len();
+        if let Some(len) = packet[start..].find('"') {
+            return format!("{}{v}{}", &packet[..start], &packet[start + len..]);
+        }
+    }
+    match packet.find("</rdf:Description>") {
+        Some(at) => format!(
+            "{}<{name} xmlns:{prefix}=\"{namespace}\">{v}</{name}>{}",
+            &packet[..at],
+            &packet[at..],
+            prefix = name.split(':').next().unwrap_or_default()
+        ),
+        None => packet.to_string(),
+    }
+}
+
 impl Document {
+    /// Saving changes the modification date and the producer of the document
+    /// information: the XMP metadata, when the document has them, follow.
+    pub(crate) fn sync_xmp_on_save(&mut self, pdf_date: &str, producer: &str) {
+        let Some(packet) = self.xmp_packet() else { return };
+        let Some(date) = xmp_date(pdf_date) else { return };
+        let packet = set_xmp_property(&packet, "xmp:ModifyDate", "http://ns.adobe.com/xap/1.0/", &date);
+        let packet = set_xmp_property(&packet, "pdf:Producer", "http://ns.adobe.com/pdf/1.3/", producer);
+        let doc = &mut self.inner;
+        let Some(id) = doc
+            .catalog()
+            .ok()
+            .and_then(|c| c.get(b"Metadata").ok())
+            .and_then(|m| m.as_reference().ok())
+        else {
+            return;
+        };
+        // In place and unfiltered (PDF/A wants the metadata readable as they are).
+        if let Ok(Object::Stream(s)) = doc.get_object_mut(id) {
+            s.dict.remove(b"Filter");
+            s.dict.remove(b"DecodeParms");
+            s.set_plain_content(packet.into_bytes());
+            s.allows_compression = false;
+        }
+    }
+
     /// Check the document against the PDF/A-2b rules of [`RULES`].
     pub fn preflight_pdfa(&self) -> Preflight {
         let doc = &self.inner;

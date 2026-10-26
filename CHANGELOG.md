@@ -89,6 +89,13 @@ All notable changes to Folitecta are documented here. The format follows
   group worked in. Move to New Window opens a saved document in another Folitecta window and
   closes its tab; New Blank Window opens an empty one.
 
+- Scanning (File › From Scanner…): on Linux through SANE (`scanimage`), with the scanner, its
+  source (flatbed or feeder), colours and resolution chosen in Folitecta and kept as named
+  presets; on Windows through the system's scanning window. Each page is the size of the paper
+  scanned; colour and grey scans are kept as JPEG. Sheets printed on both sides can be scanned
+  as two stacks, the backs put between the fronts (also with the stack turned over), and Clean
+  Up Scans can open on the new document.
+
 ### Changed
 - Pictures made of the pages follow the layers of the view, as printing does: Export to Images,
   a page copied as a picture, the snapshot of an area and a stamp made of the page leave out what

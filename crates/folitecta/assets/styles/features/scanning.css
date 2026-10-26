@@ -1,0 +1,5 @@
+/* The scan dialog: presets saved by name, the call to turn the stack over. */
+.scan-preset-save { display: flex; gap: 6px; align-items: center; margin: 4px 0 6px; }
+.scan-preset-name { flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 5px 8px; background: var(--surface-2); color: var(--text); }
+.check.sub { margin-left: 22px; }
+.scan-turn { display: flex; align-items: center; justify-content: space-between; gap: 10px; }

@@ -292,6 +292,46 @@ impl Document {
         Ok(count)
     }
 
+    /// Insert one page per picture before index `at`, each page `(width,
+    /// height)` points large with the picture filling it (scanned paper).
+    pub(crate) fn insert_sized_image_pages(
+        &mut self,
+        at: usize,
+        images: Vec<(Vec<u8>, f32, f32)>,
+    ) -> Result<usize> {
+        if at > self.page_count() {
+            return Err(Error::InvalidPage(at));
+        }
+        let mut streams = Vec::with_capacity(images.len());
+        for (data, w, h) in images {
+            streams.push((image_stream(data)?.0, w, h));
+        }
+        if streams.is_empty() {
+            return Ok(0);
+        }
+        self.begin_edit();
+        let mut ids = self.page_ids();
+        let mut new_ids = Vec::with_capacity(streams.len());
+        for (stream, pw, ph) in streams {
+            let content_id = self.inner.add_object(Stream::new(dictionary! {}, Vec::new()));
+            let page_id = self.inner.add_object(dictionary! {
+                "Type" => "Page",
+                "MediaBox" => vec![0.into(), 0.into(), pw.into(), ph.into()],
+                "Contents" => content_id,
+                "Resources" => dictionary! {},
+            });
+            new_ids.push(page_id);
+            self.pending_image_pages_placeholder(page_id, stream, [0.0, 0.0, pw, ph])?;
+        }
+        let tail = ids.split_off(at);
+        let count = new_ids.len();
+        ids.extend(new_ids);
+        ids.extend(tail);
+        self.set_page_order(ids)?;
+        self.commit()?;
+        Ok(count)
+    }
+
     fn pending_image_pages_placeholder(
         &mut self,
         page_id: ObjectId,

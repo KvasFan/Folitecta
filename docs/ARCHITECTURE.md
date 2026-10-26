@@ -292,6 +292,14 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
     thread of the connection, which takes the 7xx events apart from the replies; pausing cuts
     the paragraph and speaks it again, since `PAUSE` waits for the end of a sentence), else a
     stand-in in the self-test that speaks nothing;
+  - `features/scanning.rs` — the scan dialog; `scanner/` scans away from the interface: SANE's
+    `scanimage` on Linux (`-f` lists the devices, `-A` their sources, modes and resolutions, a
+    flatbed picture on its output, a feeder's sheets as files of `--batch`), the WIA dialogs
+    on Windows (`SelectDeviceDlgID`, then `GetImageDlg` writing one file per page, on a thread
+    of its own in a single-threaded apartment), a stand-in in the self-test; colour and grey
+    pictures are kept as JPEG. `Document::from_scans` makes each page the size of the paper
+    (pixels at the resolution of the scan, else the one in the picture), `interleave_backs`
+    puts a second stack of backs between the fronts;
   - `dialogs/` and `features/` — dialogs, and the windows and editors of the features
     (pictures, stamps, signatures, forms, tables, media, calculator, scripts, …).
 - `theme.rs` and `assets/styles/` — `theme.css` holds the colour tokens of every theme (light,

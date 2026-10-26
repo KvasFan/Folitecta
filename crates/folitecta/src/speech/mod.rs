@@ -28,7 +28,8 @@ pub struct Voice {
 pub enum EngineKind {
     /// The speech of the web view.
     Web,
-    /// speech-dispatcher, over its socket.
+    /// speech-dispatcher, over its socket (Linux and the BSDs).
+    #[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
     SpeechDispatcher,
     /// Nothing is spoken (the self-test).
     StandIn,

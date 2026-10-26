@@ -15,6 +15,7 @@ pub mod pages;
 pub mod pagetools;
 pub mod portfolio;
 pub mod print;
+pub mod scanning;
 pub mod scans;
 pub mod templates;
 pub mod textdoc;

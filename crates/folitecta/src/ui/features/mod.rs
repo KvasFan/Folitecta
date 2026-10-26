@@ -26,6 +26,7 @@ pub mod recovery;
 pub mod redaction;
 pub mod reflow;
 pub mod revocation;
+pub mod scanning;
 pub mod scans;
 pub mod signatures;
 pub mod signs;

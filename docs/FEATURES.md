@@ -4,9 +4,9 @@ Generated from the command registry for version 0.2.1. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1463 |
+| ✅ available | 1465 |
 | 🟡 partial | 59 |
-| ⬜ planned | 470 |
+| ⬜ planned | 468 |
 | total | 1992 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -899,13 +899,13 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Blank Pages… | `newDocBlank` | ✅ available |
 | Combine Files into One PDF… | `newDocCombine` | ✅ available |
 | Configure Scan Presets… | `configureScanPresets` | ⬜ planned |
-| Custom Scan… | `newDocCustomScan` | ⬜ planned |
+| Custom Scan… | `newDocCustomScan` | ✅ available |
 | From Clipboard… | `newDocClipboard` | ✅ available |
 | From Email… | `newDocEmail` | ✅ available |
 | From Files… | `newDocFromFiles` | ✅ available |
 | From Images… | `newDocImage` | ✅ available |
 | From Rich Text… | `newDocRTF` | ⬜ planned |
-| From Scanner… | `newDocScanner` | ⬜ planned |
+| From Scanner… | `newDocScanner` | ✅ available |
 | From Selection… | `newDocSelection` | ⬜ planned |
 | From Template… | `newDocTemplate` | ✅ available |
 | From Text… | `newDocText` | ✅ available |
@@ -1245,7 +1245,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Combine Files into One PDF… | `newDocCombine` | ✅ available |
 | Copy File | `copySrcFile` | 🟡 partial |
 | Copy Full Path | `copySrcFileName` | ✅ available |
-| Custom Scan… | `newDocCustomScan` | ⬜ planned |
+| Custom Scan… | `newDocCustomScan` | ✅ available |
 | E-Signature Service | `document.esign` | ⬜ planned |
 | E-Signature Service | `esign` | ⬜ planned |
 | Email All Open Documents as ZIP… | `sendByEmailOpenAllZip` | ✅ available |
@@ -1259,7 +1259,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | From Files… | `newDocFromFiles` | ✅ available |
 | From Images… | `newDocImage` | ✅ available |
 | From Rich Text… | `newDocRTF` | ⬜ planned |
-| From Scanner… | `newDocScanner` | ⬜ planned |
+| From Scanner… | `newDocScanner` | ✅ available |
 | From Selection… | `newDocSelection` | ⬜ planned |
 | From Template… | `newDocTemplate` | ✅ available |
 | From Text… | `newDocText` | ✅ available |

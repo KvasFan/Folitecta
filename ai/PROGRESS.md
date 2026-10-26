@@ -4,6 +4,26 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-26 — FOL-L011/S01: scanning
+
+- **Current state before:** From Scanner… and Custom Scan… were planned.
+- **Changed:** core `organize/scanning.rs`: `ScannedPicture`, `picture_dpi` (PNG `pHYs`, JPEG
+  JFIF density, BMP), `duplex_order`, `Document::from_scans` and `append_scans` (pages the size
+  of the paper through `insert_sized_image_pages`), `interleave_backs`. App `scanner/`: SANE's
+  `scanimage` (devices, options of `-A`, flatbed to its output, feeder with `--batch`), WIA
+  (`SelectDeviceDlgID` + `GetImageDlg` on an STA thread), a stand-in for the self-test; colour
+  and grey kept as JPEG. `commands/document/scanning.rs` and the scan dialog: devices and
+  capabilities asked in the background, presets (`scan.presets`), backs as a second stack
+  (`scan.turn_over`, No Backs), Clean Up Scans afterwards. A Windows-only warning of
+  FOL-L042 (`EngineKind::SpeechDispatcher` unused there) silenced.
+- **Checked:** `tests/scanning.rs` (3: resolutions read from PNG, JPEG and BMP; page sizes from
+  the resolution given, written or 300; backs interleaved both ways, undone); unit tests of the
+  order and of the `scanimage` output; self-test step `scanning` (stand-in device listed, preset
+  saved, three fronts and three backs made into six Letter pages, one flatbed page); clippy
+  with `-D warnings` for the Windows (clang-cl, llvm-lib) and macOS targets. Not tried with a
+  real scanner: none here, and SANE is not installed.
+- **Open:** macOS (Image Capture), scanning into the open document, stopping a scan.
+
 ## 2026-10-26 — FOL-L002/S01: tab groups and windows
 
 - **Current state before:** one strip of tabs, a split window of one document; New Blank Window

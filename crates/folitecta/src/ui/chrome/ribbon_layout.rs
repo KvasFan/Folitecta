@@ -448,6 +448,7 @@ pub const RIBBON: &[RTab] = &[
                     "newDocCombine",
                     "newDocImage",
                     "newDocText",
+                    "newDocScanner",
                     "newDocClipboard",
                     "newDocEmail",
                     "newPortfolio"

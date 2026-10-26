@@ -445,6 +445,7 @@ pub fn Dialogs() -> Element {
         Dialog::OcrReview { skipped } => rsx! { crate::ui::features::ocr::OcrReviewDialog { skipped } },
         Dialog::CleanUpScans => rsx! { crate::ui::features::scans::CleanUpScansDialog {} },
         Dialog::Templates => rsx! { crate::ui::features::templates::TemplateGallery {} },
+        Dialog::Scan => rsx! { crate::ui::features::scanning::ScanDialog {} },
         Dialog::FieldItems => rsx! { crate::ui::features::field_editor::FieldItemsDialog {} },
         Dialog::SecurityPolicies => rsx! { crate::ui::features::policies::SecurityPoliciesDialog {} },
         Dialog::CustomizeQat => rsx! { crate::ui::chrome::qat::CustomizeQatDialog {} },

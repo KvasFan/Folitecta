@@ -47,7 +47,7 @@ pub use navigation::{contents, layer_drawing, layers, links, outline};
 pub(crate) use organize::typeset;
 pub use organize::{
     attachments, combine, compare, csvdoc, delivery, doctools, email, export, markdown, marks, metadata,
-    pages, pagetools, portfolio, print, scans, templates, textdoc,
+    pages, pagetools, portfolio, print, scanning, scans, templates, textdoc,
 };
 pub(crate) use page_text::{content_edit, content_lex};
 pub use page_text::{ocr, reading, search, spelling, text, textedit, textlayer, textops};
@@ -86,6 +86,7 @@ pub use reading::ReadBlock;
 pub use render::{
     Lane, RenderAnswer, RenderOpts, RenderRequest, RenderService, RenderStats, RenderedPage, Renderer,
 };
+pub use scanning::{ScannedPicture, duplex_order, picture_dpi};
 pub use scans::{ScanFix, ScanLook, ScanThresholds, scan_fixes};
 pub use scripts::ScriptInfo;
 pub use security::{EncryptionInfo, EncryptionProfile, PasswordIssue, Protection, SecurityPermissions};

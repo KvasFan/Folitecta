@@ -16,6 +16,7 @@ mod perf;
 mod printing;
 mod private_files;
 mod recovery;
+mod scanner;
 mod selftest;
 mod speech;
 mod state;

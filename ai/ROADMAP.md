@@ -152,7 +152,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L018 | P0 | 🟡 | text boxes, typewriter text, callouts, measurement labels, text stamps, designed stamps, tables, calculator tapes, page marks (watermarks, headers and footers, page and Bates numbers), comment summaries, text and e-mail documents: an embedded subset of GNU FreeFont FreeSans with ToUnicode for text beyond WinAnsi (bold stroked), refusals named before the change and while typing; other generated text uses the standard Helvetica with WinAnsi | Right-to-left text and shaping (refused today); a choice of substitute font; the `/DA` font; font inspection and replacement; the other producers: S04 form fields; S05 OCR, barcodes, signatures, media, redaction text. |
 | FOL-L019 | P1 | 🟡 | Edit Text tool (content stream editing), insert/replace/delete page text, find and replace in page text, spell checking with corrections | Paragraph reflow inside an area, joining/splitting blocks, scope for shared form objects. |
 | FOL-L020 | P1/P2 | 🟡 | pictures pane and editor: replace, crop, turn, filters, export | Inline and nested pictures, colour profile preservation report, raster editor mode. |
-| FOL-L021 | P2 | ⬜ | — | Vector path editing (nodes, clipping, gradients). |
+| FOL-L021 | P2 | 🟡 | the vector paths a page draws chosen with a click (Edit Content › Shapes), their nodes dragged, their stroke and fill colours and line width changed, deleted — in the page content, one undo step each | Paths inside reused drawings, adding and removing nodes, clipping paths, gradients and shadings, transparency, numeric transforms of several paths. |
 
 ### Navigation, containers and embedded content
 

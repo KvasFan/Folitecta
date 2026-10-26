@@ -703,6 +703,9 @@ fn page_stamps(t: &crate::state::DocTab, count: usize) -> Vec<u64> {
     if let Some((page, i)) = t.image_sel {
         on(page, &|h| (3u8, i).hash(h));
     }
+    if let Some((page, i)) = t.path_sel {
+        on(page, &|h| (8u8, i).hash(h));
+    }
     if let Some((page, r)) = t.flash {
         on(page, &|h| (4u8, r.map(f32::to_bits)).hash(h));
     }

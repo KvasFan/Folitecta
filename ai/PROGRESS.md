@@ -4,6 +4,25 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-26 — FOL-L021/S01: editing the vector paths of a page
+
+- **Current state before:** pictures and text of the page could be edited; vector paths could not.
+- **Changed:** core `graphics/paths.rs`: `page_paths` (decoded content walked with `q`/`Q`, `cm`,
+  `w` and device colours; every painted path with its nodes — each point of `m`, `l`, `c`, `v`,
+  `y`, the origin and far corner of `re` — bounds, stroke and fill, colours, width and the
+  inverse matrix; clipping paths and text left out), `path_at`, `move_path_node`,
+  `set_path_style` (the path wrapped in `q` … `Q` with `RG`/`rg`/`w`), `delete_path`, all
+  written back as one content stream in one undo step. App: `Tool::EditPaths` on Edit Content ›
+  Shapes; the paths' boxes on the page, the chosen one's nodes (dragged over a layer that follows
+  the pointer and drops the node on release) and `PathToolbar` (colour inputs, width, delete);
+  the chosen path in the page stamps so the page draws again when it changes.
+- **Checked:** `tests/paths.rs` (4: paths, nodes and colours found, the topmost under a point; a
+  node moved and the far corner of a rectangle resized, kept after opening the file again, drawn,
+  undone; colours, width and deletion; the lines of a template are paths found by a click); unit
+  test of the graphics state; self-test step `paths` (a rectangle chosen by a press, its two
+  nodes and bar shown, a node dragged 40 points, filled green, deleted, all undone).
+- **Open:** reused drawings, adding and removing nodes, clipping, gradients, transparency.
+
 ## 2026-10-26 — FOL-L009/S02: export to Word, RTF and HTML
 
 - **Current state before:** export to pictures, text, embedded images and attachments.

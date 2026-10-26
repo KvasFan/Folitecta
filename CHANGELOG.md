@@ -7,6 +7,11 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Edit Paths (Edit Content › Shapes, also in Edit Content of the ribbon): a click chooses a
+  vector path the page draws — a line, a curve, a rectangle — and shows its nodes and a bar with
+  its line and fill colours and line width; a node dragged, a colour or width changed or the path
+  deleted changes the page content itself (one undo step each), so it stays when the file is
+  opened again. Clipping paths and the paths of reused drawings are not offered yet.
 - Export to Office Formats… (File, and Convert › Export): the text of all pages or of the current
   page as a Word document (DOCX), rich text (RTF) or a web page (HTML) — headings (as heading
   styles) and paragraphs in reading order, each page beginning on a new page when asked — written

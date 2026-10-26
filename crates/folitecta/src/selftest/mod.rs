@@ -439,6 +439,7 @@ mod steps_note_icon;
 mod steps_ocr;
 mod steps_office;
 mod steps_panes;
+mod steps_paths;
 mod steps_perf;
 mod steps_pictures;
 mod steps_policies;
@@ -521,6 +522,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "reading" => Box::pin(steps_reading::run(cx)),
             "contents" => Box::pin(steps_contents::run(cx)),
             "scans" => Box::pin(steps_scans::run(cx)),
+            "paths" => Box::pin(steps_paths::run(cx)),
             "actions" => Box::pin(steps_actions::run(cx)),
             "office" => Box::pin(steps_office::run(cx)),
             "grey" => Box::pin(steps_grey::run(cx)),
@@ -588,6 +590,7 @@ const STEPS: &[&str] = &[
     "spelling",
     "ocr",
     "scans",
+    "paths",
     "actions",
     "office",
     "grey",

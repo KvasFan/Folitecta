@@ -3,4 +3,5 @@
 pub mod barcodes;
 pub mod images;
 pub mod imaging;
+pub mod paths;
 pub mod pictures;

@@ -82,6 +82,9 @@ pub enum Tool {
     Video,
     /// Select the pictures of the pages to edit them.
     EditImages,
+    /// Select the vector paths of the pages to move their nodes, recolour
+    /// or delete them.
+    EditPaths,
     /// Select the text of the pages to change it (delete, type over, insert).
     EditText,
     /// Select text to suggest corrections with comments.
@@ -103,6 +106,7 @@ impl Tool {
                 | Tool::Loupe
                 | Tool::EditFields
                 | Tool::EditImages
+                | Tool::EditPaths
                 | Tool::EditText
                 | Tool::TextCorrection
         )
@@ -180,6 +184,7 @@ impl Tool {
             Tool::Sound => "tool.annot.sound",
             Tool::Video => "tool.annot.editVideo",
             Tool::EditImages => "tool.editContent.images",
+            Tool::EditPaths => "tool.editContent.shapes",
             Tool::EditText => "tool.editContent.text",
             Tool::TextCorrection => "tool.textCorrectionMarkup",
             Tool::OcrRegion => "document.OCRSelRgn",
@@ -245,6 +250,7 @@ impl Tool {
             Tool::Sound => "tool.sound",
             Tool::Video => "tool.video",
             Tool::EditImages => "tool.edit_images",
+            Tool::EditPaths => "tool.edit_paths",
             Tool::EditText => "tool.edit_text",
             Tool::TextCorrection => "tool.text_correction",
             Tool::OcrRegion => "tool.ocr_region",

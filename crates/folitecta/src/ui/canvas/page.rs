@@ -76,6 +76,10 @@ pub(super) fn PageView(
         images: Vec<(usize, [f32; 4])>,
         /// The picture selected on this page.
         image_sel: Option<usize>,
+        /// Paths of the page for Edit Paths: index and rectangle (display space).
+        paths: Vec<(usize, [f32; 4])>,
+        /// The path chosen on this page and its nodes (display space).
+        path_sel: Option<(folitecta_core::PagePath, Vec<[f32; 2]>, [f32; 4])>,
         /// Words the dictionaries do not know, and the one Spell Check and
         /// Replace shows (rectangles, display space).
         spell_words: Vec<[f32; 4]>,
@@ -261,6 +265,32 @@ pub(super) fn PageView(
             } else {
                 Vec::new()
             };
+            let (paths, path_sel) = if tool == Tool::EditPaths {
+                let list = t.doc.page_paths(page).unwrap_or_default();
+                let shown: Vec<(usize, [f32; 4])> = list
+                    .iter()
+                    .map(|p| (p.index, pdf_rect_to_display(&size, p.bounds)))
+                    .collect();
+                let chosen = t
+                    .path_sel
+                    .filter(|(p, _)| *p == page)
+                    .and_then(|(_, i)| list.get(i).cloned())
+                    .map(|p| {
+                        let nodes: Vec<[f32; 2]> = p
+                            .nodes
+                            .iter()
+                            .map(|n| {
+                                let (x, y) = folitecta_core::marks::pdf_to_display(&size, n.at[0], n.at[1]);
+                                [x, y]
+                            })
+                            .collect();
+                        let rect = pdf_rect_to_display(&size, p.bounds);
+                        (p, nodes, rect)
+                    });
+                (shown, chosen)
+            } else {
+                (Vec::new(), None)
+            };
             let images = if tool == Tool::EditImages {
                 t.doc
                     .page_images(page)
@@ -299,6 +329,8 @@ pub(super) fn PageView(
                     .unwrap_or_default(),
                 images,
                 image_sel: t.image_sel.filter(|(p, _)| *p == page).map(|(_, i)| i),
+                paths,
+                path_sel,
                 field_marks,
                 order_boxes: match &order_mode {
                     Some(mode) => t
@@ -411,6 +443,8 @@ pub(super) fn PageView(
             ((r[3] - r[1]) * z).max(2.0)
         )
     };
+    // A path's box a little larger than its bounds (lines have no height).
+    let grown = |r: [f32; 4]| css([r[0] - 2.0, r[1] - 2.0, r[2] + 2.0, r[3] + 2.0]);
 
     // ---- finishing a creation drag -------------------------------------------------
     let finish_create =
@@ -728,6 +762,10 @@ pub(super) fn PageView(
             }
             return;
         }
+        if tool == Tool::EditPaths {
+            crate::commands::paths::clear(st);
+            return;
+        }
         if tool.is_drawing() {
             let (sx, sy) = snap(st, page, x, y, z);
             let start = ((sx * z) as f64, (sy * z) as f64);
@@ -868,6 +906,60 @@ pub(super) fn PageView(
                             st.with_active(|t| t.image_sel = Some((page, i)));
                             crate::commands::pictures::edit_selected(st);
                         },
+                    }
+                }
+                for (i, r) in view.paths.iter().copied() {
+                    div { key: "pa{i}", class: if view.path_sel.as_ref().is_some_and(|(p, _, _)| p.index == i) { "path-box selected" } else { "path-box" },
+                        style: "{grown(r)}",
+                        onmousedown: move |e| {
+                            e.stop_propagation();
+                            crate::commands::paths::choose(st, page, i);
+                        },
+                    }
+                }
+                if let Some((path, nodes, rect)) = view.path_sel.clone() {
+                    {
+                        let dragged = crate::commands::paths::NODE_DRAG.read().filter(|d| d.page == page && d.path == path.index);
+                        let index = path.index;
+                        rsx! {
+                            for (k, pt) in nodes.iter().copied().enumerate() {
+                                {
+                                    let at = dragged.filter(|d| d.node == k).map(|d| d.at).unwrap_or(pt);
+                                    rsx! {
+                                        div { key: "pn{k}", class: "path-node", style: "left:{at[0] * z - 5.0}px;top:{at[1] * z - 5.0}px",
+                                            onmousedown: move |e| {
+                                                e.stop_propagation();
+                                                *crate::commands::paths::NODE_DRAG.write() = Some(crate::commands::paths::NodeDrag { page, path: index, node: k, at: pt });
+                                            },
+                                        }
+                                    }
+                                }
+                            }
+                            if dragged.is_some() {
+                                // The pointer is followed over the whole page while a node moves.
+                                div { class: "path-drag-layer",
+                                    onmousemove: move |e| {
+                                        let p = e.element_coordinates();
+                                        let at = [(p.x as f32) / z, (p.y as f32) / z];
+                                        if let Some(d) = crate::commands::paths::NODE_DRAG.write().as_mut() {
+                                            d.at = at;
+                                        }
+                                    },
+                                    onmouseup: move |_| crate::commands::paths::drop_node(st),
+                                    onmouseleave: move |_| crate::commands::paths::drop_node(st),
+                                }
+                            } else {
+                                crate::ui::features::paths::PathToolbar {
+                                    left: rect[0] * z,
+                                    top: (rect[1] * z - 40.0).max(2.0),
+                                    stroke: path.stroke,
+                                    fill: path.fill,
+                                    stroked: path.stroked,
+                                    filled: path.filled,
+                                    width: path.width,
+                                }
+                            }
+                        }
                     }
                 }
                 if let Some(r) = view.image_sel.and_then(|i| view.images.iter().find(|(k, _)| *k == i).map(|(_, r)| *r)) {

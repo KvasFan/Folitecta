@@ -143,3 +143,12 @@ textarea.field-input { resize: none; padding: 2px 3px; }
 .text-caret { position: absolute; background: var(--accent); width: 2px !important; animation: caret-blink 1s steps(1) infinite; pointer-events: none; }
 @keyframes caret-blink { 50% { opacity: 0; } }
 .sel-toolbar .sep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 2px; }
+/* Edit Paths: the paths of a page, the one chosen with its nodes. */
+.path-box { position: absolute; cursor: pointer; border: 1px dashed transparent; border-radius: 2px; }
+.path-box:hover { border-color: var(--accent); }
+.path-box.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.path-node { position: absolute; width: 10px; height: 10px; border: 2px solid var(--accent); background: #fff; border-radius: 2px; cursor: move; z-index: 6; }
+.path-drag-layer { position: absolute; inset: 0; cursor: move; z-index: 7; }
+.path-toolbar label.path-colour { display: inline-flex; align-items: center; gap: 2px; }
+.path-toolbar input[type=color] { width: 26px; height: 22px; padding: 0; border: none; background: none; }
+.path-toolbar .path-width { width: 52px; }

@@ -204,6 +204,8 @@ pub struct DocTab {
     pub acc: AccState,
     /// Picture selected with the pictures tool: page and index among the
     /// pictures of the page.
+    /// The path chosen with Edit Paths: page and order among its paths.
+    pub path_sel: Option<(usize, usize)>,
     pub image_sel: Option<(usize, usize)>,
     /// The spell check under way.
     pub spell: Option<SpellRun>,
@@ -361,6 +363,7 @@ impl DocTab {
             portfolio: PortfolioState::default(),
             acc: AccState::default(),
             image_sel: None,
+            path_sel: None,
             spell: None,
             redacting: false,
             redaction: None,

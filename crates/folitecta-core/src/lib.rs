@@ -37,7 +37,7 @@ pub mod page_text;
 pub mod protection;
 pub mod tags;
 
-pub use graphics::{barcodes, images, imaging, pictures};
+pub use graphics::{barcodes, images, imaging, paths, pictures};
 pub use interactive::{buttons, form_calc, form_data, form_design, forms, scripts};
 pub use markup::{
     annot_copy, annots, appearance, arrange, calculator, comment_exchange, comment_review, comment_summary,
@@ -86,6 +86,7 @@ pub use ocr::{DOUBTFUL_BELOW, DoubtfulWord, OcrEngine, OcrLine, OcrModels, OcrOp
 pub use office::{OfficeExport, OfficeFormat};
 pub use outline::{BookmarkTarget, DestView, OutlineItem};
 pub use pagetools::{Sides, TRANSITIONS};
+pub use paths::{PagePath, PathNode};
 pub use pdfa::{Conversion, Finding, Preflight};
 pub use reading::ReadBlock;
 pub use recompress::{

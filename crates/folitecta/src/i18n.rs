@@ -106,6 +106,7 @@ const AREAS: &[(&str, &[&str])] = &[
             "reflow",
             "scans",
             "scan",
+            "paths",
             "sequence",
             "office",
             "templates",

@@ -21,7 +21,7 @@ pub(crate) mod text;
 pub(crate) mod window;
 pub(crate) use document::{
     actions, barcodes, compare, convert, doctools, file, fileops, greyscale, macros, mail, ocr, office,
-    pages, pictures, preflight, print, scanning, scans, sources, split, templates,
+    pages, paths, pictures, preflight, print, scanning, scans, sources, split, templates,
 };
 pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
@@ -90,6 +90,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     greyscale::HANDLERS,
     actions::HANDLERS,
     office::HANDLERS,
+    paths::HANDLERS,
     scanning::HANDLERS,
     scans::HANDLERS,
     templates::HANDLERS,
@@ -335,6 +336,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| stamps::stamps_state(st, id))
         .or_else(|| compare::compare_state(st, id))
         .or_else(|| tables::tables_state(st, id))
+        .or_else(|| paths::paths_state(st, id))
         .or_else(|| forms::forms_state(st, id))
         .or_else(|| split_view::split_state(st, id))
         .or_else(|| arrange::arrange_state(st, id))

@@ -20,6 +20,7 @@ pub mod mail;
 pub mod media;
 pub mod ocr;
 pub mod office;
+pub mod paths;
 pub mod pictures;
 pub mod policies;
 pub mod portfolio;

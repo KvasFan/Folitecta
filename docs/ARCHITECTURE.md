@@ -91,6 +91,11 @@ with their colour spaces — RGB, CMYK, ICC-based of 3 or 4 components — made 
 to DeviceGray; pictures and palettes in those colours made grey (JPEG stays JPEG); the colours
 of comments and fields; patterns, spot colours, Lab, shadings and inline pictures counted and
 left; View › Grey Preview is a CSS filter on the page pictures and changes nothing),
+`graphics/paths` (Edit Paths: the content of a page decoded and walked with its graphics state —
+matrix, colours, line width — each painted path with its nodes on the page, bounds and the
+operations it spans; a node moved writes its operands back through the inverse matrix (the far
+corner of a rectangle its width and height), a new style wraps the path in `q`/`Q`, a deletion
+removes its operations; the content is written back as one stream, one undo step),
 `office` (Export to Office Formats: the paragraphs and headings of `reading_blocks` written as
 Word (a DOCX package of document, styles and core properties made with `zip::write`), RTF
 (Unicode as `\uN?`) or HTML, with page breaks on request; pictures and comments counted as

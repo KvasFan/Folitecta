@@ -14,6 +14,7 @@ pub(crate) mod mail_draft;
 pub(crate) mod ocr;
 pub(crate) mod office;
 pub(crate) mod pages;
+pub(crate) mod paths;
 pub(crate) mod pictures;
 pub(crate) mod preflight;
 pub(crate) mod print;

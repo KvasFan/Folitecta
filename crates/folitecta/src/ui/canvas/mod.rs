@@ -93,6 +93,7 @@ pub fn CanvasArea() -> Element {
                     crate::ui::features::read_aloud::ReadAloudBar {}
                 }
                 Loupe {}
+                if *st.tool.read() == Tool::Ink { crate::ui::features::pencil::PencilPanel {} }
                 if option_on(st, "view.panzoom") { PanZoomWindow {} }
                 if option_on(st, "view.commentStyles") { crate::ui::panes::comment_styles::StylesPalette {} }
             }

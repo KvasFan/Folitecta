@@ -4,6 +4,19 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-26 — FOL-L025: the Pencil's quick panel (0.5.0)
+
+- **Current state before:** the thickness and colour of the Pencil were set in the comment
+  styles (the Format pane or the styles palette).
+- **Changed:** app `ui/features/pencil.rs`: `PencilPanel`, shown in the canvas area while the
+  tool is `Tool::Ink`, with a thickness button (a list of 0.5, 1, 2, 3, 5 and 8 points), the four
+  colours and a palette button over a colour input; `set_pencil` writes the default ink style, so
+  the next strokes and the Format pane follow. Labels in English and Italian (`pencil.*`).
+- **Checked:** self-test step `pencil` (six buttons with the Pencil; green and 5 points chosen,
+  a stroke drawn in green 5 points wide; a colour of the palette taken; the panel gone with the
+  Hand tool) and the tool steps unchanged.
+- **Open:** the panel for the highlighter pen; a pressure-sensitive pen.
+
 ## 2026-10-26 — FOL-L009, FOL-L025: the office export from its dialog; shape tools stay chosen
 
 - **Current state before:** Export to Office Formats… closed its dialog and then waited for the

@@ -21,6 +21,7 @@ pub mod media;
 pub mod ocr;
 pub mod office;
 pub mod paths;
+pub mod pencil;
 pub mod pictures;
 pub mod policies;
 pub mod portfolio;

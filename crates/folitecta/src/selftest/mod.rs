@@ -442,6 +442,7 @@ mod steps_ocr;
 mod steps_office;
 mod steps_panes;
 mod steps_paths;
+mod steps_pencil;
 mod steps_perf;
 mod steps_pictures;
 mod steps_policies;
@@ -527,6 +528,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "contents" => Box::pin(steps_contents::run(cx)),
             "scans" => Box::pin(steps_scans::run(cx)),
             "paths" => Box::pin(steps_paths::run(cx)),
+            "pencil" => Box::pin(steps_pencil::run(cx)),
             "actions" => Box::pin(steps_actions::run(cx)),
             "office" => Box::pin(steps_office::run(cx)),
             "grey" => Box::pin(steps_grey::run(cx)),
@@ -597,6 +599,7 @@ const STEPS: &[&str] = &[
     "ocr",
     "scans",
     "paths",
+    "pencil",
     "actions",
     "office",
     "grey",

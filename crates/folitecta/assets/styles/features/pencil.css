@@ -1,0 +1,12 @@
+/* The Pencil's quick panel: thickness, four colours and the palette */
+.pencil-panel { position: absolute; top: 44px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); z-index: 20; }
+.pencil-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 30px; height: 30px; padding: 0 5px; border: 1px solid transparent; border-radius: 7px; background: none; color: var(--text); cursor: pointer; }
+.pencil-btn:hover { background: var(--surface-3); }
+.pencil-btn.active { border-color: var(--active-border); background: var(--active-bg); color: var(--active-fg); }
+.pencil-swatch { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, .25); }
+.pencil-line { display: inline-block; width: 18px; min-height: 1px; border-radius: 3px; background: currentColor; }
+.pencil-width-text { font-size: 11px; font-variant-numeric: tabular-nums; }
+.pencil-width-wrap { position: relative; }
+.pencil-widths { position: absolute; top: 36px; left: 0; display: flex; flex-direction: column; gap: 2px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); }
+.pencil-widths .pencil-btn { width: 40px; }
+.pencil-palette input[type=color] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }

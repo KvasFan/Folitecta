@@ -6,6 +6,12 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- The Pencil's quick panel: choosing the Pencil opens a small panel over the pages with the
+  thickness of the stroke (0.5 to 8 points), four standard colours — black, green, blue and red —
+  and a button that opens the colour palette for any other colour. They set the style of the
+  next strokes, which the Pencil keeps; the panel goes with another tool.
+
 ## [0.4.1] - 2026-10-26
 
 ### Changed

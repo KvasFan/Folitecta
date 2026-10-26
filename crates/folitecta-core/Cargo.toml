@@ -35,6 +35,10 @@ mail-parser = { version = "0.11", features = ["full_encoding"] }
 # Barcodes written and read: the Rust port of ZXing (Apache-2.0), without its
 # picture loading (pages are rendered here)
 rxing = { version = "0.9", default-features = false, features = ["encoders", "decoders", "full_barcode_format_support", "encoding_rs"] }
+# The JavaScript of documents (form calculations, formats, validations, the
+# console) run by Boa, an engine written in Rust (MIT), without its
+# internationalization and time zone data; Annex B for older scripts
+boa_engine = { version = "0.22", default-features = false, features = ["annex-b"] }
 # Pages searched side by side (MIT/Apache-2.0)
 rayon = "1"
 # Spell checking with Hunspell dictionaries (MPL-2.0); the dictionaries are

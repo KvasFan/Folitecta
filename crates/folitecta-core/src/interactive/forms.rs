@@ -281,6 +281,20 @@ impl Document {
                 field.name
             )));
         }
+        // A validation script may refuse the value, saying why.
+        if field.kind == FieldKind::Text || field.kind == FieldKind::ComboBox {
+            if let Some(run) = self.run_field_script(field.id, b"V", value) {
+                if run.ok && !run.event_rc {
+                    let why = run
+                        .out
+                        .iter()
+                        .find(|(k, _)| k == "alert")
+                        .map(|(_, t)| t.clone())
+                        .unwrap_or_else(|| format!("the value of \"{}\" was not accepted", field.name));
+                    return Err(Error::Invalid(why));
+                }
+            }
+        }
         self.begin_edit();
         self.write_field_value(&field, value)?;
         self.recalculate()?;

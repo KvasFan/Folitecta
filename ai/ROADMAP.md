@@ -180,7 +180,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L031 | P1 | 🟡 | form designer for every field type, items of choice fields, pictures of push buttons, tab order, align/duplicate, fill & sign | A real date field (format, picker, validation); same-name policy when duplicating/merging. |
 | FOL-L032 | P1 | 🟡 | XFDF/FDF/CSV/TXT import and export, filling copies from table rows, calculation order, simple calculations computed in Rust | Named XML profiles, number/date formats and validation, page templates. |
 | FOL-L033 | P2 | ⬜ | — | XFA engine decision. |
-| FOL-L034 | P2 | 🟡 | document scripts and actions listed and edited | A sandboxed JavaScript engine with a documented API, console, time-outs. |
+| FOL-L034 | P2 | 🟡 | document scripts and actions listed and edited; a sandboxed engine (Boa, loop and recursion limits, nothing of the system in reach) with a documented API for the console, the calculate, format and validate scripts of fields (typed in their properties) and the `AF…` functions of forms; console time limit | Keystroke scripts while typing, page and document events, action chains, a database bridge. |
 
 ### Comparison, encryption, redaction and signatures
 

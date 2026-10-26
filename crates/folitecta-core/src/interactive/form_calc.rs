@@ -161,18 +161,63 @@ pub fn format_number(n: f64) -> String {
 impl Document {
     /// The calculate script of a field (`/AA /C /JS`).
     pub fn calculate_script(&self, id: ObjectId) -> Option<String> {
+        self.field_script(id, b"C")
+    }
+
+    /// The script a field runs on `trigger` (`/AA /<trigger> /JS`: `C`
+    /// calculate, `F` format, `V` validate, `K` keystroke), looked for on
+    /// `id` (a field or a widget) and on the fields above it.
+    pub fn field_script(&self, id: ObjectId, trigger: &[u8]) -> Option<String> {
         let doc = &self.inner;
-        let aa = doc.get_dictionary(id).ok()?.get(b"AA").ok()?;
-        let c = deref(doc, aa).as_dict().ok()?.get(b"C").ok()?;
-        let js = deref(doc, c).as_dict().ok()?.get(b"JS").ok()?;
-        match deref(doc, js) {
-            Object::Stream(s) => s
-                .decompressed_content()
+        let mut cur = Some(id);
+        for _ in 0..32 {
+            let d = doc.get_dictionary(cur?).ok()?;
+            let action = d
+                .get(b"AA")
                 .ok()
-                .or_else(|| Some(s.content.clone()))
-                .map(|b| String::from_utf8_lossy(&b).into_owned()),
-            other => text_of(doc, other),
+                .and_then(|aa| deref(doc, aa).as_dict().ok())
+                .and_then(|aa| aa.get(trigger).ok())
+                .and_then(|a| deref(doc, a).as_dict().ok());
+            if let Some(js) = action.and_then(|a| a.get(b"JS").ok()) {
+                return match deref(doc, js) {
+                    Object::Stream(s) => s
+                        .decompressed_content()
+                        .ok()
+                        .or_else(|| Some(s.content.clone()))
+                        .map(|b| String::from_utf8_lossy(&b).into_owned()),
+                    other => text_of(doc, other),
+                };
+            }
+            cur = d.get(b"Parent").ok().and_then(|p| p.as_reference().ok());
         }
+        None
+    }
+
+    /// Run the script of `trigger` of field `id` with the value `value`: the
+    /// value it leaves and whether it accepts it, with its alerts; `None`
+    /// when the field has no such script.
+    pub fn run_field_script(
+        &self,
+        id: ObjectId,
+        trigger: &[u8],
+        value: &str,
+    ) -> Option<crate::js::ScriptRun> {
+        let code = self.field_script(id, trigger)?;
+        let fields: Vec<(String, String)> = self
+            .form_fields()
+            .into_iter()
+            .map(|f| (f.name, f.value))
+            .collect();
+        let name = self
+            .form_fields()
+            .into_iter()
+            .find(|f| f.id == id || f.widgets.contains(&id))
+            .map(|f| f.name)
+            .unwrap_or_default();
+        let ctx = crate::js::field_context(&fields);
+        let event =
+            serde_json::json!({ "value": value, "target": name, "name": String::from_utf8_lossy(trigger) });
+        Some(crate::js::run_script(&code, &ctx, Some(&event)))
     }
 
     /// The simple calculation of a field, if it has one.
@@ -265,6 +310,61 @@ impl Document {
         self.commit()
     }
 
+    /// Set (or remove, with `None`) the script field `id` runs on `trigger`:
+    /// `C` calculate, `F` format, `V` validate, `K` keystroke. The field is
+    /// calculated and drawn again with it. One undo step.
+    pub fn set_field_script(&mut self, id: ObjectId, trigger: &str, script: Option<&str>) -> Result<()> {
+        if !matches!(trigger, "C" | "F" | "V" | "K") {
+            return Err(Error::Invalid(format!("unknown trigger {trigger:?}")));
+        }
+        let field = self
+            .form_fields()
+            .into_iter()
+            .find(|f| f.id == id)
+            .ok_or_else(|| Error::Invalid("field not found".into()))?;
+        let mut order: Vec<ObjectId> = self.calculated_fields().iter().map(|f| f.id).collect();
+        let mut aa = self
+            .inner
+            .get_dictionary(id)?
+            .get(b"AA")
+            .ok()
+            .and_then(|a| deref(&self.inner, a).as_dict().ok())
+            .cloned()
+            .unwrap_or_default();
+        self.begin_edit();
+        match script.filter(|s| !s.trim().is_empty()) {
+            Some(js) => {
+                aa.set(
+                    trigger,
+                    dictionary! { "S" => "JavaScript", "JS" => Object::string_literal(js) },
+                );
+                if trigger == "C" && !order.contains(&id) {
+                    order.push(id);
+                }
+            }
+            None => {
+                aa.remove(trigger.as_bytes());
+                if trigger == "C" {
+                    order.retain(|o| *o != id);
+                }
+            }
+        }
+        let dict = self.inner.get_dictionary_mut(id)?;
+        if aa.is_empty() {
+            dict.remove(b"AA");
+        } else {
+            dict.set("AA", aa);
+        }
+        if trigger == "C" {
+            self.set_co(order)?;
+        }
+        self.recalculate()?;
+        for w in field.widgets {
+            self.refresh_widget(w)?;
+        }
+        self.commit()
+    }
+
     /// Set the order in which the calculated fields are calculated. One undo step.
     pub fn set_calculation_order(&mut self, order: &[ObjectId]) -> Result<()> {
         self.begin_edit();
@@ -285,6 +385,24 @@ impl Document {
         let mut changed = 0;
         for target in calculated {
             let Some(calc) = self.field_calculation(target.id) else {
+                // A calculation of its own: the script gives the value.
+                let current = fields
+                    .iter()
+                    .find(|f| f.id == target.id)
+                    .map(|f| f.value.clone())
+                    .unwrap_or_default();
+                let Some(run) = self.run_field_script(target.id, b"C", &current) else {
+                    continue;
+                };
+                if let (true, Some(value)) = (run.ok, run.event_value) {
+                    if let Some(f) = fields.iter_mut().find(|f| f.id == target.id) {
+                        if f.value != value {
+                            self.write_field_value(f, &value)?;
+                            f.value = value;
+                            changed += 1;
+                        }
+                    }
+                }
                 continue;
             };
             let values: Vec<f64> = fields

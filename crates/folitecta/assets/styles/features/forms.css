@@ -5,6 +5,7 @@
 /* The fields a calculation uses, and the order of the calculated fields */
 .calc-fields { display: flex; flex-direction: column; gap: 2px; max-height: 160px; overflow: auto; padding: 2px 0 6px; }
 .calc-fields .check span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.script-box { width: 100%; box-sizing: border-box; font-family: var(--mono, monospace); font-size: 12px; resize: vertical; }
 .calc-order { display: flex; flex-direction: column; gap: 4px; max-height: 46vh; overflow: auto; }
 .calc-order-row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); min-width: 0; }
 .calc-order-num { min-width: 22px; color: var(--muted); font-variant-numeric: tabular-nums; }

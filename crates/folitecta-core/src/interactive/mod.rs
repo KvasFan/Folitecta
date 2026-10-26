@@ -6,4 +6,5 @@ pub mod form_calc;
 pub mod form_data;
 pub mod form_design;
 pub mod forms;
+pub mod js;
 pub mod scripts;

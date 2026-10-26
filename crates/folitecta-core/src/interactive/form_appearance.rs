@@ -179,9 +179,19 @@ impl Document {
 
     /// Regenerate the appearance of one widget from its field data.
     pub(crate) fn refresh_widget(&mut self, id: ObjectId) -> Result<()> {
-        let Some(w) = self.widget_info(id) else {
+        let Some(mut w) = self.widget_info(id) else {
             return Ok(());
         };
+        // A format script shows the value its way (the value itself stays).
+        if w.ft == "Tx" {
+            if let Some(shown) = w.value.first().cloned() {
+                if let Some(run) = self.run_field_script(id, b"F", &shown) {
+                    if let (true, Some(v)) = (run.ok, run.event_value) {
+                        w.value = vec![v];
+                    }
+                }
+            }
+        }
         let font = self.helvetica_font_id();
         let (bw, bh) = (w.rect[2] - w.rect[0], w.rect[3] - w.rect[1]);
         let f = fmt_num;

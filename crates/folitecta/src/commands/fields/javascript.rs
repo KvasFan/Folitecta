@@ -1,11 +1,11 @@
 //! JavaScript console, snippets and the named scripts of the document.
 //!
-//! Code runs in a Web Worker of the interface: a thread of its own without
-//! access to the window, stopped when it takes too long. It sees a small
-//! document API (`this.numPages`, `this.pageNum`, `this.getField(name).value`,
-//! `this.info`, `app.alert`, `console.println`, `util.printf`); the changes it
-//! asks for (field values, current page, document information, form reset)
-//! are applied to the document afterwards.
+//! Code runs in the sandboxed engine of the core (the same one the scripts
+//! of fields, the action sequences and the command line use), on a thread
+//! of its own and given up when it takes too long. It sees the document API
+//! of `folitecta_core::js::API`; the changes it asks for (field values,
+//! current page, document information, form reset) are applied to the
+//! document afterwards.
 
 use std::path::PathBuf;
 
@@ -28,89 +28,6 @@ pub struct ConsoleState {
 }
 
 pub static CONSOLE: GlobalSignal<ConsoleState> = Signal::global(ConsoleState::default);
-
-const RUNNER: &str = r#"
-const payload = __PAYLOAD__;
-const src = `self.onmessage = (e) => {
-  const { code, ctx } = e.data;
-  const out = [], ops = [];
-  const str = (v) => { if (typeof v === 'string') return v; try { const j = JSON.stringify(v); return j === undefined ? String(v) : j; } catch (_) { return String(v); } };
-  const console = {
-    println: (s) => out.push(['out', String(s)]),
-    log: (...a) => out.push(['out', a.map(str).join(' ')]),
-    clear: () => ops.push({ op: 'clear' }),
-    show() {}, hide() {},
-  };
-  const app = {
-    alert: (m) => { const text = m && typeof m === 'object' ? m.cMsg : m; out.push(['alert', String(text)]); return 1; },
-    beep() {}, response: () => null,
-    viewerType: 'Folitecta', viewerVariation: 'Full', viewerVersion: ctx.version, platform: ctx.platform, language: ctx.lang,
-  };
-  const fields = ctx.fields;
-  const names = Object.keys(fields);
-  const field = (name) => {
-    const f = fields[name];
-    if (!f) return null;
-    return {
-      name, type: f.type, readonly: f.readonly, required: f.required,
-      get value() { return f.value; },
-      set value(v) { f.value = v == null ? '' : String(v); ops.push({ op: 'field', name, value: f.value }); },
-      get valueAsString() { return String(f.value); },
-    };
-  };
-  const info = new Proxy(Object.assign({}, ctx.info), {
-    set(t, k, v) { t[k] = String(v); ops.push({ op: 'info', key: String(k), value: String(v) }); return true; },
-  });
-  const doc = {
-    numPages: ctx.numPages,
-    get pageNum() { return ctx.page; },
-    set pageNum(n) { const p = Math.max(0, Math.min(ctx.numPages - 1, Math.trunc(Number(n) || 0))); ctx.page = p; ops.push({ op: 'page', page: p }); },
-    numFields: names.length,
-    getField: field,
-    getNthFieldName: (i) => names[i] ?? null,
-    info,
-    get title() { return info.Title || ''; }, set title(v) { info.Title = v; },
-    get author() { return info.Author || ''; }, set author(v) { info.Author = v; },
-    get subject() { return info.Subject || ''; }, set subject(v) { info.Subject = v; },
-    get keywords() { return info.Keywords || ''; }, set keywords(v) { info.Keywords = v; },
-    documentFileName: ctx.fileName, path: ctx.path, filesize: ctx.size, dirty: ctx.dirty,
-    resetForm() { ops.push({ op: 'reset' }); },
-  };
-  const util = {
-    printf(fmt, ...args) {
-      let i = 0;
-      return String(fmt).replace(/%(\.(\d+))?([sdf%])/g, (m, _p, digits, k) => {
-        if (k === '%') return '%';
-        const v = args[i++];
-        if (k === 's') return String(v);
-        if (k === 'd') return String(Math.trunc(Number(v)));
-        return Number(v).toFixed(digits === undefined ? 6 : Number(digits));
-      });
-    },
-    printd: (fmt, d) => (d instanceof Date ? d : new Date(d)).toISOString().slice(0, 19).replace('T', ' '),
-    scand: (fmt, s) => new Date(s),
-  };
-  const event = { value: '', rc: true };
-  let result, ok = true, error = null;
-  try {
-    result = (function (app, console, util, event) { return eval(code); }).call(doc, app, console, util, event);
-  } catch (err) {
-    ok = false;
-    error = err && err.name ? err.name + ': ' + err.message : String(err);
-  }
-  self.postMessage({ ok, error, result: result === undefined ? null : str(result), out, ops });
-};`;
-const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
-return await new Promise((resolve) => {
-  let w;
-  try { w = new Worker(url); } catch (err) { resolve({ ok: false, error: String(err), out: [], ops: [] }); return; }
-  const done = (r) => { clearTimeout(timer); w.terminate(); URL.revokeObjectURL(url); resolve(r); };
-  const timer = setTimeout(() => done({ ok: false, error: 'timeout', out: [], ops: [] }), payload.timeout);
-  w.onmessage = (e) => done(e.data);
-  w.onerror = (e) => { e.preventDefault(); done({ ok: false, error: e.message || 'error', out: [], ops: [] }); };
-  w.postMessage({ code: payload.code, ctx: payload.ctx });
-});
-"#;
 
 /// Field types as scripts name them.
 fn kind_code(k: &folitecta_core::FieldKind) -> &'static str {
@@ -263,12 +180,8 @@ pub fn run(st: AppState, code: String) {
     if code.trim().is_empty() || CONSOLE.peek().running {
         return;
     }
-    let payload = json!({
-        "code": code,
-        "ctx": context(st),
-        "timeout": timeout_secs(st) * 1000,
-    });
-    let js = RUNNER.replace("__PAYLOAD__", &payload.to_string());
+    let ctx = context(st);
+    let limit = std::time::Duration::from_secs(timeout_secs(st));
     let shown = code.trim().to_string();
     {
         let mut c = CONSOLE.write();
@@ -276,18 +189,29 @@ pub fn run(st: AppState, code: String) {
         c.output.push(("in".into(), shown));
     }
     spawn(async move {
-        let r = document::eval(&js).await.unwrap_or(Value::Null);
+        // A script past the time limit is left to the engine, whose loop
+        // limit ends it; its outcome is no longer wanted.
+        let job = tokio::task::spawn_blocking(move || folitecta_core::js::run_script(&code, &ctx, None));
+        let r = match tokio::time::timeout(limit, job).await {
+            Ok(Ok(r)) => r,
+            Ok(Err(e)) => folitecta_core::js::ScriptRun {
+                error: Some(e.to_string()),
+                ..Default::default()
+            },
+            Err(_) => folitecta_core::js::ScriptRun {
+                error: Some("timeout".into()),
+                ..Default::default()
+            },
+        };
         CONSOLE.write().running = false;
-        for line in r["out"].as_array().cloned().unwrap_or_default() {
-            let kind = line[0].as_str().unwrap_or("out").to_string();
-            let text = line[1].as_str().unwrap_or("").to_string();
+        for (kind, text) in r.out {
             if kind == "alert" && st.value("js.alerts") != "0" {
                 st.toast(ToastKind::Info, text.clone(), "");
             }
             push(&kind, text);
         }
-        if r["ok"].as_bool() == Some(true) {
-            let ops = r["ops"].as_array().cloned().unwrap_or_default();
+        if r.ok {
+            let ops = r.ops;
             if !ops.is_empty() {
                 if changes_allowed(st) && st.has_doc() {
                     let n = apply_ops(st, &ops);
@@ -301,11 +225,11 @@ pub fn run(st: AppState, code: String) {
                     CONSOLE.write().output.clear();
                 }
             }
-            if let Some(res) = r["result"].as_str() {
+            if let Some(res) = r.result {
                 push("result", res);
             }
         } else {
-            let err = r["error"].as_str().unwrap_or("error").to_string();
+            let err = r.error.unwrap_or_else(|| "error".into());
             let err = if err == "timeout" {
                 tf(
                     st.lang(),

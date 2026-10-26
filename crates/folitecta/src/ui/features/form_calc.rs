@@ -95,6 +95,59 @@ pub fn FieldCalculation(field: (u32, u16), page: usize, index: usize) -> Element
     }
 }
 
+/// The scripts a field runs: calculate, format and validate, one at a time
+/// in a text box, applied with a button (a script half typed is not run).
+#[component]
+pub fn FieldScripts(field: (u32, u16), page: usize, index: usize) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let mut trigger = use_signal(|| "C");
+    let load = move |tr: &str| {
+        st.read_active(|t| t.doc.field_script(field, tr.as_bytes()))
+            .flatten()
+            .unwrap_or_default()
+    };
+    let mut draft = use_signal(|| load("C"));
+    let apply = move |_| {
+        let code = draft();
+        let tr = trigger();
+        let r = st.with_active(|t| t.doc.set_field_script(field, tr, Some(code.as_str())));
+        st.with_active(|t| t.selected_annot = Some((page, index)));
+        match r {
+            Some(Err(e)) => st.error(e),
+            _ => files::set_window_title(st),
+        }
+    };
+    let saved = load(trigger());
+    let changed = saved != draft();
+    rsx! {
+        div { class: "prop-head", "{t(lang, \"field.scripts\")}" }
+        div { class: "style-row",
+            select { class: "wide",
+                onchange: move |e| {
+                    let tr = match e.value().as_str() {
+                        "F" => "F",
+                        "V" => "V",
+                        _ => "C",
+                    };
+                    trigger.set(tr);
+                    draft.set(load(tr));
+                },
+                for tr in ["C", "F", "V"] {
+                    {
+                        let name = t(lang, &format!("field.script.{tr}"));
+                        rsx! { option { key: "{tr}", value: "{tr}", selected: trigger() == tr, "{name}" } }
+                    }
+                }
+            }
+        }
+        textarea { class: "script-box", rows: "6", spellcheck: "false",
+            value: "{draft}", oninput: move |e| draft.set(e.value()) }
+        p { class: "hint", "{t(lang, \"field.scripts.hint\")}" }
+        button { class: "tbtn script-apply", disabled: !changed, onclick: apply, "{t(lang, \"field.script.apply\")}" }
+    }
+}
+
 /// The calculated fields, moved up and down to set the order in which they
 /// are calculated: a field sees the values calculated before it.
 #[component]

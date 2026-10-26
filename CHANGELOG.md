@@ -7,6 +7,16 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Field scripts: the properties of a text field or combo box have its calculate, format and
+  validate scripts, typed and applied one at a time. A calculate script sets the field's value
+  as the others change (in the calculation order); a format script changes only the text shown
+  (`AFNumber_Format`, `AFPercent_Format`, `AFSpecial_Format` and the other functions of forms are
+  there); a validate script refuses a value with its alert. The scripts of opened documents run
+  the same way.
+- A sandboxed JavaScript engine runs the console, the scripts of fields and the scripts of
+  opened forms: a fresh engine for every run, stopped after too many loop rounds or too deep a
+  recursion, with no network, files, databases or programs in reach, and the documented API of
+  the document, `event`, `app`, `console`, `util` and the `AF…` functions of forms.
 - Edit Paths (Edit Content › Shapes, also in Edit Content of the ribbon): a click chooses a
   vector path the page draws — a line, a curve, a rectangle — and shows its nodes and a bar with
   its line and fill colours and line width; a node dragged, a colour or width changed or the path

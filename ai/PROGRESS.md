@@ -4,6 +4,29 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-26 — FOL-L034/S02: a sandboxed JavaScript engine and the scripts of fields
+
+- **Current state before:** the console ran code in a Web Worker of the interface; the scripts
+  of fields were kept in the file but only `AFSimple_Calculate` was understood.
+- **Changed:** core `interactive/js.rs` with Boa (`boa_engine`, MIT/Unlicense, approved): `run_script`
+  in a fresh context (loop limit 5 000 000, recursion limit 400), a prelude with the document,
+  `event`, `app`, `console`, `util` and the `AF…` functions (simple calculations, number, percent
+  and special formats and keystrokes, ranges), the outcome as `ScriptRun` (console lines, result,
+  operations, event value and `rc`); `API` lists what scripts can use. `form_calc`:
+  `field_script`, `run_field_script`, `set_field_script` (one undo step, `/CO` kept), custom
+  calculate scripts run by `recalculate`; `set_field_value` asks the validate script; the
+  appearance of a text field shows what its format script gives. App: `FieldScripts` in the field
+  properties; the console runs `run_script` on a blocking thread and gives up after its time
+  limit.
+- **Checked:** unit tests of `js` (operations, `AF…` functions, errors and endless scripts);
+  `tests/js.rs` (4: a calculate script of its own kept in the file, removed and undone; a format
+  script changes only the text shown; a validate script refuses a value with its alert and with
+  `AFRange_Validate`; endless loops and recursion stopped, nothing of the system in reach); the
+  form, template and script tests unchanged; self-test step `field_scripts` (three scripts typed
+  in the properties, the field calculated, formatted and a value refused) and the console step.
+- **Open:** keystroke scripts while typing, page and document events, action chains, a database
+  bridge.
+
 ## 2026-10-26 — FOL-L021/S01: editing the vector paths of a page
 
 - **Current state before:** pictures and text of the page could be edited; vector paths could not.

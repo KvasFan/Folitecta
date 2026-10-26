@@ -38,7 +38,7 @@ pub mod protection;
 pub mod tags;
 
 pub use graphics::{barcodes, images, imaging, paths, pictures};
-pub use interactive::{buttons, form_calc, form_data, form_design, forms, scripts};
+pub use interactive::{buttons, form_calc, form_data, form_design, forms, js, scripts};
 pub use markup::{
     annot_copy, annots, appearance, arrange, calculator, comment_exchange, comment_review, comment_summary,
     flatten, grouping, markup_tools, media, signmarks, smooth, stamp_design, stamps, tables, ticks,

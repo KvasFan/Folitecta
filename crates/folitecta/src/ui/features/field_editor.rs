@@ -117,6 +117,8 @@ pub fn FieldEditor() -> Element {
             }
             if matches!(kind, FieldKind::Text | FieldKind::ComboBox) {
                 crate::ui::features::form_calc::FieldCalculation { field: id, page, index }
+                // Its own key: another field starts with its own scripts.
+                {rsx! { crate::ui::features::form_calc::FieldScripts { key: "{id.0}-{id.1}", field: id, page, index } }}
             }
             div { class: "prop-head", "{t(lang, \"field.appearance\")}" }
             div { class: "style-row",

@@ -427,6 +427,7 @@ mod steps_effects;
 mod steps_email;
 mod steps_features;
 mod steps_field_items;
+mod steps_field_scripts;
 mod steps_files;
 mod steps_frames;
 mod steps_grey;
@@ -512,6 +513,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "recovery" => Box::pin(steps_recovery::run(cx)),
             "barcodes" => Box::pin(steps_barcodes::run(cx)),
             "calc" => Box::pin(steps_calc::run(cx)),
+            "field_scripts" => Box::pin(steps_field_scripts::run(cx)),
             "split_view" => Box::pin(steps_split_view::run(cx)),
             "groups" => Box::pin(steps_groups::run(cx)),
             "links" => Box::pin(steps_links::run(cx)),
@@ -582,6 +584,7 @@ const STEPS: &[&str] = &[
     "recovery",
     "barcodes",
     "calc",
+    "field_scripts",
     "split_view",
     "groups",
     "links",

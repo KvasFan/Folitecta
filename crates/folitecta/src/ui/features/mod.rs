@@ -2,6 +2,7 @@
 //! the calculator, scripts, the e-mail attachments and the other tools.
 
 pub mod acc_dialogs;
+pub mod actions;
 pub mod barcodes;
 pub mod calculator;
 pub mod compare;

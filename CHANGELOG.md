@@ -7,6 +7,13 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Action Sequences (Tools › Action Sequences…): named sequences of steps — rotate pages, delete
+  empty pages, recompress pictures, colours to grey, flatten or delete comments, remove scripts,
+  watermark, page numbers, document information, PDF/A — kept in the settings, imported and
+  exported as JSON, run on the open document as one undo step (a step that fails leaves the
+  document as it was) or on files and folders: the outputs and collisions shown first, then a
+  result and a log for every file, with Cancel. The same sequences run from the command line
+  with `folitecta --run-actions`, one line of JSON per file.
 - Convert Colours to Grey… (Document and Convert › Modify): the colours of the page content,
   drawings and comment appearances (RGB, CMYK and ICC-based), the pictures in those colours and
   the colours of comments and form fields become grey in one undo step; the dialog first tells

@@ -22910,6 +22910,17 @@
    "status": "planned"
   },
   {
+   "id": "tools.actionSequences",
+   "label": "Action Sequences…",
+   "parent": null,
+   "menu": "tools",
+   "ribbon": null,
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "tools.basic",
    "label": "Basic Tools",
    "parent": "tools",

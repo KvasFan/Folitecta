@@ -4,10 +4,10 @@ Generated from the command registry for version 0.3.1. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1470 |
+| ✅ available | 1471 |
 | 🟡 partial | 58 |
 | ⬜ planned | 468 |
-| total | 1996 |
+| total | 1997 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -1752,6 +1752,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Zoom Tools | `tools.zoom` | ⬜ planned |
 | Compare Documents… | `compareDocs` | ✅ available |
 | Launch Application | `launchExternalApp` | ✅ available |
+| Action Sequences… | `tools.actionSequences` | ✅ available |
 | Allow/Block List | `bwList` | ⬜ planned |
 | Metadata | `msp` | ✅ available |
 | Other Tools | `otherToolsGroup` | ⬜ planned |

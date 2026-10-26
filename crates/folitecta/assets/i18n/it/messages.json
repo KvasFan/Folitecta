@@ -1,5 +1,8 @@
 {
   "toast.action_saved": "Azione del documento salvata",
+  "toast.actions_done": "{name}: completata",
+  "toast.actions_exported": "Sequenza esportata",
+  "toast.actions_failed": "{name}: un passo non è riuscito, il documento è com'era",
   "toast.add_guides_first": "Aggiungi guide dove tagliare le pagine",
   "toast.annotations_tagged": "Annotazioni con tag: {count}",
   "toast.attachment_replaced": "Contenuto dell'allegato sostituito",

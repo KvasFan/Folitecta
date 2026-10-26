@@ -142,7 +142,7 @@ shorter menus and a pencil pointer of the right size on Linux; everything else w
 | History and sessions | Documents opened before, with thumbnails and pins; sessions of open documents saved and opened again |
 | Calculator, scripts and media | Accounting calculator tapes on the page; a JavaScript console with snippets and named document scripts; sound and video comments with a media player |
 | Files and metadata | An explorer pane with places, folder filters, thumbnails of PDF files and lists of files; the document file renamed, moved or recycled; metadata templates and XMP; guides saved to files |
-| Document tools | Typed or RTF text as pages, a space usage audit, conversion of the colours to grey (pages, drawings, pictures, comments; spot colours and patterns reported and left), a PDF/A-2b preflight with conversion of a copy (declared PDF/A only when every rule checked is met), picture recompression (the whole document, a page or one selected picture; presets for the screen, e-books, print and archives that scale pictures down to a resolution; an estimate picture by picture before anything changes), document scripts, pages split at guides or cut to the crop box, leaving PDF/A |
+| Document tools | Action sequences (rotating, deleting empty pages, recompressing, grey, comments, scripts, watermarks, page numbers, document information, PDF/A) run on the open document as one undo step or on files and folders with a result for each, also from the command line; typed or RTF text as pages, a space usage audit, conversion of the colours to grey (pages, drawings, pictures, comments; spot colours and patterns reported and left), a PDF/A-2b preflight with conversion of a copy (declared PDF/A only when every rule checked is met), picture recompression (the whole document, a page or one selected picture; presets for the screen, e-books, print and archives that scale pictures down to a resolution; an estimate picture by picture before anything changes), document scripts, pages split at guides or cut to the crop box, leaving PDF/A |
 
 ## Downloads
 
@@ -202,6 +202,33 @@ rm -f ~/.local/bin/folitecta
 printf '#!/bin/sh\nLD_LIBRARY_PATH="$HOME/.local/lib/folitecta-compat" exec "%s/folitecta" "$@"\n' "$PWD" > ~/.local/bin/folitecta
 chmod +x ~/.local/bin/folitecta
 ```
+
+## Command line
+
+Action sequences (Tools › Action Sequences…, exported as JSON) also run without a window, the
+same way they run in it:
+
+```sh
+folitecta --run-actions review.json --output reviewed --suffix -review documents/ extra.pdf
+```
+
+Folders are searched with their subfolders for PDF files. Every file gets one line of JSON with
+its input, output, status (`done`, `failed` or `skipped`), message and log, then a summary line;
+existing outputs are skipped unless `--overwrite` is given. The exit status is 0 when every file
+is done, 1 otherwise, 2 when the command is wrong. A sequence file looks like:
+
+```json
+{"name": "Review copy", "steps": [
+  {"action": "rotate", "degrees": 90, "pages": "odd"},
+  {"action": "watermark", "text": "REVIEW"},
+  {"action": "page-numbers", "format": "Page {page} of {pages}", "position": "bottom-right"},
+  {"action": "recompress", "preset": "ebook"}
+]}
+```
+
+The steps are `rotate`, `delete-empty-pages`, `recompress` (presets `screen`, `ebook`, `print`,
+`archive`), `grey`, `flatten-comments`, `delete-comments`, `remove-scripts`, `watermark`,
+`page-numbers`, `info` (`title`, `author`, `subject`, `keywords`) and `pdf-a`.
 
 ## Building from source
 
@@ -270,8 +297,7 @@ limitations, and [docs/FEATURES.md](docs/FEATURES.md) the state of every command
 
 [ai/ROADMAP.md](ai/ROADMAP.md) has the state of every requirement and the planned releases. The
 next one, **0.4.0 — professional tools**, is planned around fuller PDF/A
-conversion, colour conversion with colour profiles and output preview, editing of vector paths, action
-sequences and batch processing, a sandboxed JavaScript engine, the system certificate store and
+conversion, colour conversion with colour profiles and output preview, editing of vector paths, a sandboxed JavaScript engine, the system certificate store and
 PKCS#11 devices, and office exports. Text recognition of scripts other than Latin, article
 threads, scanning on macOS, remote services and the other commands still marked as *planned*
 come later.

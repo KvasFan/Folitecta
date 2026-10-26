@@ -2,6 +2,7 @@
 //! Folitecta desktop application.
 
 mod app;
+mod cli;
 mod clipboard;
 mod commands;
 mod features;
@@ -42,13 +43,21 @@ pub struct SelfTest(pub Option<selftest::SelfTestConfig>);
 
 fn print_usage() {
     println!(
-        "Folitecta {}\n\nUsage: folitecta [FILE.pdf ...]\n       folitecta --features-md <output.md>\n       folitecta --ui-selftest <output-dir>\n       folitecta --version\n       folitecta --help",
+        "Folitecta {}\n\nUsage: folitecta [FILE.pdf ...]\n       folitecta --features-md <output.md>\n       folitecta --run-actions <sequence.json> [--output <folder>] [--suffix <text>] [--overwrite] <file or folder> ...\n       folitecta --ui-selftest <output-dir>\n       folitecta --version\n       folitecta --help",
         folitecta_core::VERSION
     );
 }
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| {
+        matches!(
+            a.as_str(),
+            "--version" | "-V" | "--help" | "-h" | "--features-md" | "--run-actions"
+        )
+    }) {
+        cli::attach_console();
+    }
     if args.iter().any(|a| a == "--version" || a == "-V") {
         println!("Folitecta {}", folitecta_core::VERSION);
         return;
@@ -56,6 +65,9 @@ fn main() {
     if args.iter().any(|a| a == "--help" || a == "-h") {
         print_usage();
         return;
+    }
+    if let Some(i) = args.iter().position(|a| a == "--run-actions") {
+        std::process::exit(cli::run_actions(&args, i));
     }
     if let Some(i) = args.iter().position(|a| a == "--features-md") {
         let Some(path) = args.get(i + 1) else {

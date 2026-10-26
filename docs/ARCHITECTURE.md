@@ -81,6 +81,11 @@ the separator that splits the first records alike, number columns aligned right)
 scaled down to the resolution asked for where it is drawn largest, from the sides of its
 matrix on the pages in scope, then JPEG at a quality; replaced only when smaller; an estimate
 runs the same plan without replacing, on a copy away from the interface),
+`actions` (Action Sequences: `ActionSequence` of `Step`s serialized as JSON with an `action` tag,
+each step a call of the document; `run_actions` joins them into one undo step and undoes them
+all when one fails; `batch_inputs`, `plan_batch` with the collisions `exists`, `same-file`,
+`twice`, and `run_batch_item` writing each output with `save_as`; the dialog and the command
+line of `cli.rs` call the same functions),
 `greyscale` (Convert Colours to Grey: the colour operators of page contents and drawings read
 with their colour spaces — RGB, CMYK, ICC-based of 3 or 4 components — made grey, the spaces set
 to DeviceGray; pictures and palettes in those colours made grey (JPEG stays JPEG); the colours

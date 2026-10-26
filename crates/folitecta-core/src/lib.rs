@@ -46,14 +46,16 @@ pub use markup::{
 pub use navigation::{contents, layer_drawing, layers, links, outline};
 pub(crate) use organize::typeset;
 pub use organize::{
-    attachments, combine, compare, csvdoc, delivery, doctools, email, export, greyscale, markdown, marks,
-    metadata, pages, pagetools, pdfa, portfolio, print, recompress, scanning, scans, templates, textdoc,
+    actions, attachments, combine, compare, csvdoc, delivery, doctools, email, export, greyscale, markdown,
+    marks, metadata, pages, pagetools, pdfa, portfolio, print, recompress, scanning, scans, templates,
+    textdoc,
 };
 pub(crate) use page_text::{content_edit, content_lex};
 pub use page_text::{ocr, reading, search, spelling, text, textedit, textlayer, textops};
 pub use protection::{digsig, redaction, security};
 pub use tags::{accessibility, structure};
 
+pub use actions::{ActionSequence, BatchItem, FileResult, OutputRule, PageSet, Step};
 pub use annot_copy::AnnotSnapshot;
 pub use annots::{Annotation, Markup, Shape};
 pub use appearance::{AnnotStyle, LINE_ENDINGS, NOTE_ICONS};

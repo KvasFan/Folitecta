@@ -1,5 +1,8 @@
 {
   "toast.action_saved": "Document action saved",
+  "toast.actions_done": "{name}: done",
+  "toast.actions_exported": "Sequence exported",
+  "toast.actions_failed": "{name}: a step failed, the document is as it was",
   "toast.add_guides_first": "Add guides where the pages are cut",
   "toast.annotations_tagged": "Annotations tagged: {count}",
   "toast.attachment_replaced": "Attachment contents replaced",

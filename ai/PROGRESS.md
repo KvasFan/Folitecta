@@ -4,6 +4,26 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-26 — FOL-L047/S01: action sequences, batches, command line
+
+- **Current state before:** macros of page marks; `--features-md` and `--version`.
+- **Changed:** core `organize/actions.rs`: `ActionSequence` and `Step` (11 kinds, JSON with an
+  `action` tag and defaults), `run_actions` (one undo step; all undone when a step fails, with
+  the log so far), `batch_inputs` (folders with their subfolders), `plan_batch` (outputs in a
+  folder or next to the inputs with a suffix; `exists`, `same-file`, `twice`), `run_batch_item`
+  (open, run, `save_as`; protected files fail with their reason, collisions skip unless
+  overwriting); `make_pdfa` converts in place (one undo step) for the PDF/A step. App: Tools ›
+  Action Sequences… (sequences in the settings, steps edited with their settings, import and
+  export, run on the document, on files or a folder with the plan, results, Cancel) and
+  `cli.rs` (`--run-actions`, JSON lines, exit status 0/1/2; on Windows the console of the
+  parent is attached for the commands of the command line).
+- **Checked:** `tests/actions.rs` (3: a sequence as one undo step; a failing step leaves the
+  document as it was; a batch over a folder with a subfolder, a protected file and an existing
+  output gives done, failed, skipped and leaves the inputs untouched; overwrite, same-file and
+  twice); unit tests of the JSON; the command line run by hand on files; self-test step
+  `actions`.
+- **Open:** interactive steps, more steps, portfolios as inputs, scheduling.
+
 ## 2026-10-26 — FOL-L044/S01: colours to grey, grey preview
 
 - **Current state before:** pictures could be made grey one by one in the picture editor.

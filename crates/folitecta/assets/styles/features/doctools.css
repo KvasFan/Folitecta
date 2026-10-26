@@ -19,3 +19,16 @@ textarea.code { font-family: ui-monospace, Consolas, monospace; font-size: 12px;
 .preflight-rules .audit-row.broken span:nth-child(3) { color: var(--danger); font-weight: 600; }
 .preflight-findings { max-height: 20vh; overflow: auto; font-size: 12px; margin-top: 6px; }
 .preflight-finding { padding: 2px 0; border-bottom: 1px solid var(--border); }
+/* Action Sequences: the steps with their settings, the plan of a batch. */
+.actions-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.actions-name, .actions-text, .actions-suffix { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 8px; background: var(--surface-2); color: var(--text); min-width: 0; }
+.actions-name { flex: 1; min-width: 140px; }
+.actions-steps { display: flex; flex-direction: column; gap: 4px; max-height: 34vh; overflow: auto; }
+.actions-step { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+.actions-step-name { min-width: 170px; font-weight: 600; }
+.actions-step-settings { flex: 1; display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.actions-add, .actions-run { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.actions-batch { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+.actions-output { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.actions-plan { max-height: 26vh; overflow: auto; }
+.actions-plan .audit-row { grid-template-columns: minmax(120px, 1.4fr) minmax(120px, 1.4fr) minmax(90px, .9fr) minmax(100px, 1.4fr); }

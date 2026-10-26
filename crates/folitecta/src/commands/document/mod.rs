@@ -1,5 +1,6 @@
 //! The document and its pages: files, e-mail (the attachment dialog and its model), page organisation, pictures, the clean-up of scanned pages, barcodes, text recognition, sources of combined documents, comparison and page-mark macros.
 
+pub(crate) mod actions;
 pub(crate) mod barcodes;
 pub(crate) mod compare;
 pub(crate) mod convert;

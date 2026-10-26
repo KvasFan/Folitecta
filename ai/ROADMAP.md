@@ -208,7 +208,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L047 | P2 | ⬜ | page-mark macros only; a minimal command line (`--features-md`, `--version`) | Action sequences, batches over files, command line with structured results. |
+| FOL-L047 | P2 | 🟡 | page-mark macros; action sequences of 11 kinds of steps kept as JSON, run on the open document as one undo step or on files and folders (a plan with collisions, a result and a log per file, cancel), and from the command line (`--run-actions`, a line of JSON per file, exit status) with the same code | Interactive steps, portfolios as inputs, more steps (OCR, splitting, protection), scheduling through the system. |
 | FOL-L048 | P2 | ⬜ | — | On-device AI engine decision. |
 | FOL-L049 | P2 | ⬜ | — | 3D viewer and authoring. |
 | FOL-L050 | P1/P2 | 🟡 | preferences, shortcuts, ribbon and classic interface with short menus (submenus by subject), Quick Access Toolbar, command palette, settings export/import/reset, resizable panes and ribbon | Toolbox profiles, plug-ins, portable/administrative settings. |

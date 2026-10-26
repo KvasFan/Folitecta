@@ -957,36 +957,49 @@ impl Document {
     /// A copy of the document converted to PDF/A-2b: what can be fixed is
     /// fixed, and PDF/A-2b is declared only when no rule is left broken.
     pub fn convert_to_pdfa(&self) -> Result<(Document, Conversion)> {
+        if self.is_protected() {
+            return Err(Error::Invalid(
+                "a protected document cannot become PDF/A: save an unrestricted copy first".into(),
+            ));
+        }
+        let mut copy = self.duplicate()?;
+        let outcome = copy.make_pdfa()?;
+        copy.set_path(None);
+        copy.clear_history();
+        Ok((copy, outcome))
+    }
+
+    /// Convert this document to PDF/A-2b (one undo step), as
+    /// [`convert_to_pdfa`](Self::convert_to_pdfa) does a copy.
+    pub fn make_pdfa(&mut self) -> Result<Conversion> {
         let before = self.preflight_pdfa();
         if before.findings.iter().any(|f| f.rule == "encryption") {
             return Err(Error::Invalid(
                 "a protected document cannot become PDF/A: save an unrestricted copy first".into(),
             ));
         }
-        let mut copy = self.duplicate()?;
-        copy.fix_pdfa(&before)?;
+        self.begin_edit();
+        let mark = self.undo_mark();
+        self.fix_pdfa(&before)?;
         // The metadata of the document information, then the rules again:
         // PDF/A-2b is declared only when nothing else is left.
-        let entries = info_entries(&copy.inner);
-        copy.write_xmp_raw(&pdfa_xmp(&entries, false))?;
-        copy.commit()?;
-        let checked = copy.preflight_pdfa();
+        let entries = info_entries(&self.inner);
+        self.write_xmp_raw(&pdfa_xmp(&entries, false))?;
+        self.commit()?;
+        let checked = self.preflight_pdfa();
         if checked.findings.iter().all(|f| f.rule == "identification") {
-            copy.write_xmp_raw(&pdfa_xmp(&entries, true))?;
-            copy.commit()?;
+            self.begin_edit();
+            self.write_xmp_raw(&pdfa_xmp(&entries, true))?;
+            self.commit()?;
         }
-        let after = copy.preflight_pdfa();
+        self.squash_undo(&mark);
+        let after = self.preflight_pdfa();
         let claimed = after.passed();
-        copy.set_path(None);
-        copy.clear_history();
-        Ok((
-            copy,
-            Conversion {
-                before,
-                after,
-                claimed,
-            },
-        ))
+        Ok(Conversion {
+            before,
+            after,
+            claimed,
+        })
     }
 
     fn write_xmp_raw(&mut self, packet: &str) -> Result<()> {

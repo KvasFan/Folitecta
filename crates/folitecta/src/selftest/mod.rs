@@ -418,6 +418,7 @@ fn annots_on(st: AppState, page: usize) -> Vec<folitecta_core::Annotation> {
 
 mod progress;
 /// Exercise the canvas tools with simulated input; returns the number of failures.
+mod steps_actions;
 mod steps_arrange;
 mod steps_barcodes;
 mod steps_calc;
@@ -519,6 +520,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "reading" => Box::pin(steps_reading::run(cx)),
             "contents" => Box::pin(steps_contents::run(cx)),
             "scans" => Box::pin(steps_scans::run(cx)),
+            "actions" => Box::pin(steps_actions::run(cx)),
             "grey" => Box::pin(steps_grey::run(cx)),
             "recompress" => Box::pin(steps_recompress::run(cx)),
             "preflight" => Box::pin(steps_preflight::run(cx)),
@@ -584,6 +586,7 @@ const STEPS: &[&str] = &[
     "spelling",
     "ocr",
     "scans",
+    "actions",
     "grey",
     "recompress",
     "preflight",

@@ -416,6 +416,8 @@ pub enum Dialog {
     Templates,
     /// Scanning pages into a new document.
     Scan,
+    /// Action sequences: editing them and running them.
+    Actions,
     /// Preflight against PDF/A-2b and conversion.
     Preflight,
     /// Converting the colours of the document to grey.

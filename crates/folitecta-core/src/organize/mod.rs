@@ -1,5 +1,6 @@
 //! Organising documents: pages and page tools, document tools, combining, comparing, exporting, text, Markdown and CSV documents, e-mail messages and the copies prepared to send, portfolios, attachments, metadata, page marks and the clean-up of scanned pages.
 
+pub mod actions;
 pub mod attachments;
 pub mod combine;
 pub mod compare;

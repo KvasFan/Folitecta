@@ -1692,6 +1692,7 @@
   "cmd.tool.zoomDyn": "Zoom continuo",
   "cmd.toolStylesList": "Elenco stili strumenti",
   "cmd.tools": "Strumenti",
+  "cmd.tools.actionSequences": "Sequenze di azioni…",
   "cmd.tools.basic": "Strumenti di base",
   "cmd.tools.editContent": "Strumenti di modifica contenuto",
   "cmd.tools.editLinks": "Strumenti collegamento",

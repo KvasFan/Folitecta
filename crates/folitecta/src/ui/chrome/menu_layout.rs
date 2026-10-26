@@ -803,6 +803,7 @@ pub const MENUS: &[(&str, &[Item])] = &[
         &[
             Cmd("tool"),
             Sep,
+            Cmd("tools.actionSequences"),
             Cmd("compareDocs"),
             Cmd("quickLaunch"),
             Cmd("launchExternalApp"),

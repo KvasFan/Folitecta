@@ -11,6 +11,7 @@ mod gpu;
 mod http;
 mod i18n;
 mod icons;
+mod keystore;
 mod mail;
 mod memory;
 mod perf;

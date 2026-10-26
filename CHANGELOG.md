@@ -7,6 +7,12 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Digital IDs on smart cards and tokens, in the certificate store of Windows and in the keychain
+  of macOS: Digital IDs lists them (cards and tokens through their PKCS #11 module — on Linux the
+  modules the system has registered, and modules added there), and the signing dialog offers
+  them with the IDs kept by Folitecta. Their keys never leave the card or the system; the PIN is
+  asked when signing (or by the system, or on the reader's own keypad) and never kept; every
+  signature is checked against the certificate before it is written.
 - Field scripts: the properties of a text field or combo box have its calculate, format and
   validate scripts, typed and applied one at a time. A calculate script sets the field's value
   as the others change (in the calculation order); a format script changes only the text shown

@@ -3,14 +3,14 @@
 
 use dioxus::prelude::*;
 use folitecta_core::digsig::{
-    CertInfo, Check, IdentityInfo, KeyKind, SigAppearance, SignOptions, SignPlacement, SignatureStatus,
-    parse_certificates,
+    CertInfo, Check, DigitalId, IdentityInfo, KeyKind, SigAppearance, SignOptions, SignPlacement,
+    SignatureStatus, parse_certificates,
 };
 
 use crate::commands::signatures::{
-    add_trusted, create_id, delete_id, import_id, invalidate_status, load_id, open_signed_revision,
-    remove_trusted, signature_status, signatures_checking, start_sign, stored_ids, time_stamp_document,
-    trusted_certs,
+    OUTSIDE, add_trusted, added_modules, create_id, delete_id, import_id, invalidate_status, load_id,
+    look_outside, open_signed_revision, outside_id, remove_trusted, set_module, signature_status,
+    signatures_checking, start_sign, stored_ids, time_stamp_document, trusted_certs, unlock_outside,
 };
 use crate::i18n::{Lang, t, tf};
 use crate::icons::Icon;
@@ -309,9 +309,19 @@ pub fn SignDialog(certify: u8, invisible: bool, field: Option<String>) -> Elemen
         .read_active(|t| t.doc.empty_signature_fields())
         .unwrap_or_default();
     let get = |k: &str| st.ui.read().value(k).unwrap_or("").to_string();
+    use_hook(|| {
+        if OUTSIDE.peek().is_none() {
+            look_outside(st);
+        }
+    });
+    let outside = OUTSIDE.read().clone();
+    let outside_ids = outside.as_ref().map(|f| f.ids.clone()).unwrap_or_default();
     let mut selected = use_signal(|| {
         let last = get("sign.id");
-        if ids.iter().any(|i| i.file.display().to_string() == last) {
+        let kept_outside = ["p11:", "system:", "standin:"]
+            .iter()
+            .any(|p| last.starts_with(p));
+        if kept_outside || ids.iter().any(|i| i.file.display().to_string() == last) {
             last
         } else {
             ids.first()
@@ -319,6 +329,15 @@ pub fn SignDialog(certify: u8, invisible: bool, field: Option<String>) -> Elemen
                 .unwrap_or_default()
         }
     });
+    // Nothing chosen yet and the outside IDs found: the first of them.
+    if selected.peek().is_empty() {
+        if let Some(first) = outside_ids.first() {
+            selected.set(first.key());
+        }
+    }
+    let chosen_outside = outside_ids.iter().find(|i| i.key() == selected()).cloned();
+    let asks_pin = chosen_outside.as_ref().map(|i| i.needs_pin());
+    let mut busy = use_signal(|| false);
     let mut password = use_signal(String::new);
     let mut reason = use_signal(|| get("sign.reason"));
     let mut location = use_signal(|| get("sign.location"));
@@ -345,55 +364,79 @@ pub fn SignDialog(certify: u8, invisible: bool, field: Option<String>) -> Elemen
     } else {
         t(lang, "cmd.document.signatures.sign")
     };
-    let has_ids = !ids.is_empty();
+    let has_ids = !ids.is_empty() || !outside_ids.is_empty();
     let protected = st.read_active(|t| t.doc.is_protected()).unwrap_or(false);
     rsx! {
         crate::ui::dialogs::Frame { title: title.trim_end_matches('…').to_string(), wide: true, ok_label: Some(t(lang, "sig.sign")),
             on_ok: move |_| {
-                let Some(stored) = stored_ids().into_iter().find(|i| i.file.display().to_string() == selected()) else {
+                if busy() {
+                    return;
+                }
+                let key = selected();
+                let outside = outside_id(&key);
+                let stored = stored_ids().into_iter().find(|i| i.file.display().to_string() == key);
+                if outside.is_none() && stored.is_none() {
                     error.set(t(lang, "sig.choose_id"));
                     return;
-                };
+                }
                 let server = tsa().trim().to_string();
                 if stamp() && server.is_empty() {
                     error.set(t(lang, "sig.tsa_needed"));
                     return;
                 }
-                let id = match load_id(&stored, &password()) {
-                    Ok(id) => id,
-                    Err(e) => { error.set(e); return; }
+                let go = move |id: DigitalId| {
+                    st.set_value("sign.id", selected());
+                    st.set_value("sign.reason", reason());
+                    st.set_value("sign.location", location());
+                    st.set_value("sign.contact", contact());
+                    st.set_value("sign.stamp", if stamp() { "1" } else { "" }.to_string());
+                    if !server.is_empty() {
+                        st.set_value("sign.tsa", server.clone());
+                    }
+                    let placement = match place().as_str() {
+                        "invisible" => SignPlacement::Invisible,
+                        p if p.starts_with("field:") => SignPlacement::Field(p[6..].to_string()),
+                        _ => SignPlacement::New { page: st.current_page(), rect: [0.0; 4] },
+                    };
+                    let opts = SignOptions {
+                        reason: reason(),
+                        location: location(),
+                        contact: contact(),
+                        certify: level(),
+                        placement,
+                        appearance: SigAppearance {
+                            show_reason: show_reason(),
+                            show_location: show_location(),
+                            show_labels: show_labels(),
+                            image: image().map(|(_, d)| d),
+                            ..SigAppearance::default()
+                        },
+                        labels: [t(lang, "sig.label_by"), t(lang, "sig.time"), t(lang, "sig.reason"), t(lang, "sig.location")],
+                        ..SignOptions::default()
+                    };
+                    st.set_dialog(Dialog::None);
+                    start_sign(st, id, opts, stamp().then_some(server));
                 };
-                st.set_value("sign.id", selected());
-                st.set_value("sign.reason", reason());
-                st.set_value("sign.location", location());
-                st.set_value("sign.contact", contact());
-                st.set_value("sign.stamp", if stamp() { "1" } else { "" }.to_string());
-                if !server.is_empty() {
-                    st.set_value("sign.tsa", server.clone());
-                }
-                let placement = match place().as_str() {
-                    "invisible" => SignPlacement::Invisible,
-                    p if p.starts_with("field:") => SignPlacement::Field(p[6..].to_string()),
-                    _ => SignPlacement::New { page: st.current_page(), rect: [0.0; 4] },
-                };
-                let opts = SignOptions {
-                    reason: reason(),
-                    location: location(),
-                    contact: contact(),
-                    certify: level(),
-                    placement,
-                    appearance: SigAppearance {
-                        show_reason: show_reason(),
-                        show_location: show_location(),
-                        show_labels: show_labels(),
-                        image: image().map(|(_, d)| d),
-                        ..SigAppearance::default()
+                match (stored, outside) {
+                    (Some(stored), _) => match load_id(&stored, &password()) {
+                        Ok(id) => go(id),
+                        Err(e) => error.set(e),
                     },
-                    labels: [t(lang, "sig.label_by"), t(lang, "sig.time"), t(lang, "sig.reason"), t(lang, "sig.location")],
-                    ..SignOptions::default()
-                };
-                st.set_dialog(Dialog::None);
-                start_sign(st, id, opts, stamp().then_some(server));
+                    (None, Some(o)) => {
+                        busy.set(true);
+                        error.set(String::new());
+                        spawn(async move {
+                            match unlock_outside(o, password()).await {
+                                Ok(id) => go(id),
+                                Err(e) => {
+                                    error.set(e);
+                                    busy.set(false);
+                                }
+                            }
+                        });
+                    }
+                    (None, None) => {}
+                }
             },
             if protected {
                 p { class: "hint sig-protected-note", "{t(lang, \"sig.protected_note\")}" }
@@ -406,15 +449,32 @@ pub fn SignDialog(certify: u8, invisible: bool, field: Option<String>) -> Elemen
             div { class: "field-grid",
                 div { class: "field",
                     label { "{t(lang, \"sig.id\")}" }
-                    select { onchange: move |e| selected.set(e.value()),
+                    select { onchange: move |e| { selected.set(e.value()); password.set(String::new()); },
                         for i in ids.iter() {
                             option { key: "{i.file.display()}", value: "{i.file.display()}", selected: selected() == i.file.display().to_string(), "{i.info.common_name} ({i.info.not_after})" }
                         }
+                        for i in outside_ids.iter() {
+                            option { key: "{i.key()}", value: "{i.key()}", selected: selected() == i.key(), "{i.info.common_name} — {i.place} ({i.info.not_after})" }
+                        }
+                    }
+                    if outside.is_none() {
+                        span { class: "hint", "{t(lang, \"sig.looking_outside\")}" }
                     }
                 }
-                div { class: "field",
-                    label { "{t(lang, \"sig.password\")}" }
-                    input { r#type: "password", value: "{password}", autofocus: has_ids, oninput: move |e| password.set(e.value()) }
+                match asks_pin {
+                    Some(false) => rsx! { div { class: "field", label { "PIN" } span { class: "hint", "{t(lang, \"sig.system_asks\")}" } } },
+                    Some(true) => rsx! {
+                        div { class: "field",
+                            label { "PIN" }
+                            input { class: "sig-pin", r#type: "password", value: "{password}", autocomplete: "off", oninput: move |e| password.set(e.value()) }
+                        }
+                    },
+                    None => rsx! {
+                        div { class: "field",
+                            label { "{t(lang, \"sig.password\")}" }
+                            input { r#type: "password", value: "{password}", autofocus: has_ids, oninput: move |e| password.set(e.value()) }
+                        }
+                    },
                 }
                 div { class: "field", label { "{t(lang, \"sig.reason\")}" } input { value: "{reason}", oninput: move |e| reason.set(e.value()) } }
                 div { class: "field", label { "{t(lang, \"sig.location\")}" } input { value: "{location}", oninput: move |e| location.set(e.value()) } }
@@ -537,6 +597,24 @@ pub fn DigitalIdsDialog() -> Element {
     let mut pw1 = use_signal(String::new);
     let mut pw2 = use_signal(String::new);
     let mut message = use_signal(String::new);
+    use_hook(|| {
+        if OUTSIDE.peek().is_none() {
+            look_outside(st);
+        }
+    });
+    let outside = OUTSIDE.read().clone();
+    let modules = added_modules(st);
+    let add_module = move |_| {
+        spawn(async move {
+            if let Some(f) = rfd::AsyncFileDialog::new()
+                .add_filter("PKCS #11", &["so", "dll", "dylib"])
+                .pick_file()
+                .await
+            {
+                set_module(st, f.path().to_path_buf(), true);
+            }
+        });
+    };
     let import = move |_| {
         spawn(async move {
             let Some(f) = rfd::AsyncFileDialog::new()
@@ -559,6 +637,7 @@ pub fn DigitalIdsDialog() -> Element {
     };
     rsx! {
         crate::ui::dialogs::Frame { title: t(lang, "cmd.signs.digitalIDs").trim_end_matches('…').to_string(), wide: true,
+            div { class: "prop-head", "{t(lang, \"sig.ids_here\")}" }
             if ids.is_empty() {
                 div { class: "hint", "{t(lang, \"sig.no_ids\")}" }
             }
@@ -605,6 +684,53 @@ pub fn DigitalIdsDialog() -> Element {
                         }
                     }
                 }
+            }
+            div { class: "prop-head", "{t(lang, \"sig.outside\")}" }
+            match outside {
+                None => rsx! { div { class: "hint", "{t(lang, \"sig.looking_outside\")}" } },
+                Some(found) => rsx! {
+                    if found.ids.is_empty() {
+                        div { class: "hint", "{t(lang, \"sig.outside_none\")}" }
+                    }
+                    div { class: "id-list outside-ids",
+                        for o in found.ids.iter().cloned() {
+                            div { class: "list-item", key: "{o.key()}",
+                                div { class: "title", Icon { name: "lock" } span { class: "ellipsis", "{o.info.common_name}" } span { class: "chip", "{o.place}" } span { class: "chip", "{o.info.key}" } }
+                                div { class: "meta",
+                                    if !o.info.organization.is_empty() { span { "{o.info.organization}" } }
+                                    span { "{t(lang, \"sig.valid_to\")}: {o.info.not_after}" }
+                                }
+                                div { class: "row", style: "gap:6px",
+                                    button { class: "tbtn",
+                                        onclick: move |_| {
+                                            let der = o.der.clone();
+                                            spawn(async move {
+                                                if let Some(dst) = rfd::AsyncFileDialog::new().set_file_name("certificate.cer").add_filter("Certificate", &["cer"]).save_file().await {
+                                                    if let Err(e) = std::fs::write(dst.path(), &der) { st.error(e); }
+                                                }
+                                            });
+                                        },
+                                        "{t(lang, \"sig.export_cert\")}"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    for p in found.problems.iter() {
+                        div { class: "hint warn", key: "{p}", "{p}" }
+                    }
+                },
+            }
+            div { class: "hint", "{t(lang, \"sig.modules_hint\")}" }
+            for m in modules.iter().cloned() {
+                div { class: "list-item row", key: "{m.display()}",
+                    span { class: "ellipsis mono", "{m.display()}" }
+                    button { class: "ibtn danger", title: "{t(lang, \"label.delete\")}", onclick: move |_| set_module(st, m.clone(), false), Icon { name: "delete" } }
+                }
+            }
+            div { class: "row",
+                button { class: "tbtn", onclick: add_module, Icon { name: "insert" } "{t(lang, \"sig.add_module\")}" }
+                button { class: "tbtn", onclick: move |_| look_outside(st), "{t(lang, \"sig.look_again\")}" }
             }
             div { class: "row",
                 button { class: "tbtn", onclick: import, Icon { name: "import" } "{t(lang, \"sig.import_id\")}" }

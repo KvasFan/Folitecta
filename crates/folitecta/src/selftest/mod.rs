@@ -422,6 +422,7 @@ mod steps_actions;
 mod steps_arrange;
 mod steps_barcodes;
 mod steps_calc;
+mod steps_cards;
 mod steps_contents;
 mod steps_effects;
 mod steps_email;
@@ -514,6 +515,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "barcodes" => Box::pin(steps_barcodes::run(cx)),
             "calc" => Box::pin(steps_calc::run(cx)),
             "field_scripts" => Box::pin(steps_field_scripts::run(cx)),
+            "cards" => Box::pin(steps_cards::run(cx)),
             "split_view" => Box::pin(steps_split_view::run(cx)),
             "groups" => Box::pin(steps_groups::run(cx)),
             "links" => Box::pin(steps_links::run(cx)),
@@ -585,6 +587,7 @@ const STEPS: &[&str] = &[
     "barcodes",
     "calc",
     "field_scripts",
+    "cards",
     "split_view",
     "groups",
     "links",
@@ -660,6 +663,8 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
     let _ = std::fs::create_dir_all(&dir);
     // Windows are noted, never started.
     crate::commands::tab_groups::set_noting(true);
+    // Cards and tokens: the stand-in card, never the devices of the system.
+    crate::keystore::set_stand_in(true);
     progress::open(&dir);
     let mut log: Vec<serde_json::Value> = Vec::new();
     let mut total = 0;

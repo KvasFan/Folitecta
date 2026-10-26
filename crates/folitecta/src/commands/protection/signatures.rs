@@ -83,6 +83,67 @@ fn store_id(id: &DigitalId, pfx: &[u8]) -> Result<StoredId, String> {
     Ok(StoredId { file, info })
 }
 
+/// The IDs on cards, tokens and the system store, once looked for (`None`
+/// while looking or before the first look).
+pub static OUTSIDE: GlobalSignal<Option<crate::keystore::Found>> = Signal::global(|| None);
+
+/// The PKCS #11 modules the user added, one path per line of the setting.
+pub fn added_modules(st: AppState) -> Vec<PathBuf> {
+    st.value("sign.modules")
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .map(PathBuf::from)
+        .collect()
+}
+
+/// Look again for the IDs kept outside (away from the interface thread: a
+/// module may take its time).
+pub fn look_outside(st: AppState) {
+    *OUTSIDE.write() = None;
+    let modules = added_modules(st);
+    dioxus::core::spawn_forever(async move {
+        let found = tokio::task::spawn_blocking(move || crate::keystore::find(&modules))
+            .await
+            .unwrap_or_default();
+        *OUTSIDE.write() = Some(found);
+    });
+}
+
+/// Add or remove a PKCS #11 module, then look again.
+pub fn set_module(st: AppState, path: PathBuf, add: bool) {
+    let mut modules = added_modules(st);
+    modules.retain(|m| *m != path);
+    if add {
+        modules.push(path);
+    }
+    let text: Vec<String> = modules.iter().map(|m| m.display().to_string()).collect();
+    st.set_value("sign.modules", text.join("\n"));
+    look_outside(st);
+}
+
+/// An ID kept outside by its key, among those found.
+pub fn outside_id(key: &str) -> Option<crate::keystore::OutsideId> {
+    OUTSIDE
+        .peek()
+        .as_ref()?
+        .ids
+        .iter()
+        .find(|i| i.key() == key)
+        .cloned()
+}
+
+/// Unlock an ID kept outside with its PIN (away from the interface thread:
+/// the device or the system may take its time or ask itself).
+pub async fn unlock_outside(id: crate::keystore::OutsideId, pin: String) -> Result<DigitalId, String> {
+    tokio::task::spawn_blocking(move || {
+        let pin = id.needs_pin().then_some(pin);
+        crate::keystore::unlock(&id, pin.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Add a PKCS#12 file to the store (the password is checked).
 pub fn import_id(data: &[u8], password: &str) -> Result<StoredId, String> {
     let id = DigitalId::from_pkcs12(data, password).map_err(|e| e.to_string())?;

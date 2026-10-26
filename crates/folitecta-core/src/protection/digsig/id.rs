@@ -26,6 +26,7 @@ use x509_cert::name::Name;
 use x509_cert::serial_number::SerialNumber;
 use x509_cert::time::Validity;
 
+use super::external::{ExternalKind, Held};
 use crate::error::{Error, Result};
 
 pub(crate) const ID_DATA: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.113549.1.7.1");
@@ -55,6 +56,10 @@ const OID_EMAIL: ObjectIdentifier = ObjectIdentifier::new_unwrap("1.2.840.113549
 
 fn bad(e: impl std::fmt::Display) -> Error {
     Error::Invalid(format!("invalid certificate data: {e}"))
+}
+
+fn kept_outside() -> Error {
+    Error::Invalid("the private key stays on its device and cannot be read or exported".into())
 }
 
 /// Algorithm identifier with NULL parameters (RSA and digests).
@@ -90,6 +95,8 @@ pub(crate) enum IdKey {
     Rsa(Box<rsa::RsaPrivateKey>),
     P256(p256::ecdsa::SigningKey),
     P384(p384::ecdsa::SigningKey),
+    /// Kept outside: a device or the system store.
+    External(super::external::Held),
 }
 
 impl IdKey {
@@ -115,6 +122,7 @@ impl IdKey {
             IdKey::Rsa(k) => k.to_pkcs8_der().map_err(bad)?,
             IdKey::P256(k) => p256::SecretKey::from(k).to_pkcs8_der().map_err(bad)?,
             IdKey::P384(k) => p384::SecretKey::from(k).to_pkcs8_der().map_err(bad)?,
+            IdKey::External(_) => return Err(kept_outside()),
         };
         Ok(doc.as_bytes().to_vec())
     }
@@ -125,6 +133,7 @@ impl IdKey {
             IdKey::Rsa(k) => k.to_public_key().to_public_key_der().map_err(bad)?,
             IdKey::P256(k) => k.verifying_key().to_public_key_der().map_err(bad)?,
             IdKey::P384(k) => k.verifying_key().to_public_key_der().map_err(bad)?,
+            IdKey::External(_) => return Err(kept_outside()),
         };
         SubjectPublicKeyInfoOwned::from_der(der.as_bytes()).map_err(bad)
     }
@@ -133,6 +142,7 @@ impl IdKey {
     pub(crate) fn digest_oid(&self) -> ObjectIdentifier {
         match self {
             IdKey::P384(_) => SHA384_OID,
+            IdKey::External(h) => h.kind.digest_oid(),
             _ => SHA256_OID,
         }
     }
@@ -141,18 +151,42 @@ impl IdKey {
     /// lists and OCSP answers).
     pub(crate) fn cert_signature_alg(&self) -> AlgorithmIdentifierOwned {
         match self {
-            IdKey::Rsa(_) => alg_null(SHA256_WITH_RSA),
-            IdKey::P256(_) => alg(ECDSA_SHA256),
-            IdKey::P384(_) => alg(ECDSA_SHA384),
+            IdKey::Rsa(_)
+            | IdKey::External(Held {
+                kind: ExternalKind::Rsa,
+                ..
+            }) => alg_null(SHA256_WITH_RSA),
+            IdKey::P256(_)
+            | IdKey::External(Held {
+                kind: ExternalKind::EcP256,
+                ..
+            }) => alg(ECDSA_SHA256),
+            IdKey::P384(_)
+            | IdKey::External(Held {
+                kind: ExternalKind::EcP384,
+                ..
+            }) => alg(ECDSA_SHA384),
         }
     }
 
     /// Signature algorithm as written in CMS signer infos.
     pub(crate) fn cms_signature_alg(&self) -> AlgorithmIdentifierOwned {
         match self {
-            IdKey::Rsa(_) => alg_null(RSA_ENCRYPTION),
-            IdKey::P256(_) => alg(ECDSA_SHA256),
-            IdKey::P384(_) => alg(ECDSA_SHA384),
+            IdKey::Rsa(_)
+            | IdKey::External(Held {
+                kind: ExternalKind::Rsa,
+                ..
+            }) => alg_null(RSA_ENCRYPTION),
+            IdKey::P256(_)
+            | IdKey::External(Held {
+                kind: ExternalKind::EcP256,
+                ..
+            }) => alg(ECDSA_SHA256),
+            IdKey::P384(_)
+            | IdKey::External(Held {
+                kind: ExternalKind::EcP384,
+                ..
+            }) => alg(ECDSA_SHA384),
         }
     }
 
@@ -172,6 +206,11 @@ impl IdKey {
             IdKey::P384(k) => {
                 let sig: p384::ecdsa::Signature = k.try_sign(message).map_err(bad)?;
                 sig.to_der().as_bytes().to_vec()
+            }
+            IdKey::External(h) => {
+                let digest = crate::digsig::cms_sig::digest_with(h.kind.digest_oid(), &[message])
+                    .ok_or_else(|| bad("digest"))?;
+                h.key.sign_digest(&digest)?
             }
         })
     }

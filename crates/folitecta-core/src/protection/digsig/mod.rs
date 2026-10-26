@@ -7,6 +7,7 @@ pub mod cms_sig;
 pub mod crl;
 mod der_walk;
 pub(crate) mod dss;
+pub mod external;
 pub mod id;
 pub mod ocsp;
 pub mod pdf;
@@ -14,6 +15,7 @@ pub mod revocation;
 pub mod timestamp;
 
 pub use dss::{Dss, DssVri, MaterialPlan, MaterialReport};
+pub use external::{ExternalKey, ExternalKind, SoftKey, ecdsa_der, rsa_digest_info};
 pub use id::{
     CertInfo, CertProfile, DigitalId, ExtendedUsage, IdentityInfo, KeyKind, cert_info, parse_certificates,
 };

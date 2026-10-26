@@ -177,6 +177,20 @@ pub(crate) fn sign_content(
     // The signature covers the DER of the attributes as a SET OF.
     let to_sign = signed_attrs.to_der().map_err(bad)?;
     let signature = id.key.sign(&to_sign)?;
+    // A key outside is trusted only once its signature is checked.
+    if id.is_external()
+        && !verify_with_cert(
+            &id.certificate,
+            &id.key.cms_signature_alg(),
+            digest_oid,
+            &to_sign,
+            &signature,
+        )
+    {
+        return Err(Error::Invalid(
+            "the device signed with a key that does not belong to the certificate".into(),
+        ));
+    }
     // The time stamp of a signature is given for its value.
     let unsigned_attrs = match tsa {
         Some(send) => {

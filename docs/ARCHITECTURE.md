@@ -130,7 +130,9 @@ corrections through the page text editor, the comment text or the field value, s
 undo step; the dictionaries are files read at run time, not built in), `marks` (watermarks,
 headers and footers, page numbering),
 `structure` and `accessibility` (tags, reading order, the accessibility check), `digsig`
-(signatures; `timestamp` builds RFC 3161 requests, checks the answers and tokens and holds a
+(signatures; `external` lets a digital ID's key stay on its device — an `ExternalKey` signs the
+digest it is given, RSA PKCS #1 v1.5 or ECDSA, and every signature it makes is checked against
+the certificate before it is used; `timestamp` builds RFC 3161 requests, checks the answers and tokens and holds a
 small authority for the tests, while the interface's `http` module carries the requests; `ocsp`
 and `crl` read OCSP answers and revocation lists from the bytes as received and hold a small
 responder and list issuer for the tests; `revocation` decides the state of each certificate of a
@@ -331,6 +333,13 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
     thread of the connection, which takes the 7xx events apart from the replies; pausing cuts
     the paragraph and speaks it again, since `PAUSE` waits for the end of a sentence), else a
     stand-in in the self-test that speaks nothing;
+  - `keystore/` — digital IDs kept outside: PKCS #11 modules through `cryptoki` (each loaded
+    once for the life of the program; on Linux p11-kit's proxy of the modules the system has
+    registered, and modules the user adds; certificates found by their objects, the key by the
+    id of its certificate after `C_Login`, `CKM_RSA_PKCS` over a `DigestInfo` or `CKM_ECDSA`),
+    the personal store of Windows (CNG: `CryptAcquireCertificatePrivateKey`, `NCryptSignHash`)
+    and the keychain of macOS (identities, `SecKeyCreateSignature`); the PIN is passed to the
+    login and never kept; a stand-in card (PIN 1234) for the whole self-test;
   - `features/scanning.rs` — the scan dialog; `scanner/` scans away from the interface: SANE's
     `scanimage` on Linux (`-f` lists the devices, `-A` their sources, modes and resolutions, a
     flatbed picture on its output, a feeder's sheets as files of `--batch`), the WIA dialogs
@@ -417,7 +426,9 @@ Mouse coordinates on a page image are converted to PDF user space with
   macOS, speech-dispatcher with a voice on Linux (WebKitGTK has no speech of its own); it has
   been tried only with a stand-in engine and a stand-in speech-dispatcher service. Scanning has
   been tried only with a stand-in scanner; it is not available on macOS, and a scan under way
-  cannot be stopped. Tabs form at most two groups, and are moved by command, not dragged.
+  cannot be stopped. Cards and tokens have been tried only with a stand-in card and the loading
+  of the system's trust module; the certificate store of Windows and the keychain of macOS only
+  by building for them. Tabs form at most two groups, and are moved by command, not dragged.
 - Preflight checks a subset of PDF/A-2b (the rules listed in the dialog and in `pdfa::RULES`):
   transparency, the inside of fonts (beyond being embedded), ICC-based colour spaces, the
   structure of the file beyond its identifier and the XMP schemas are not checked, and the

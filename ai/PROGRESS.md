@@ -4,6 +4,28 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-26 — FOL-L039/S02: digital IDs on cards, tokens and the system store
+
+- **Current state before:** only PKCS #12 digital IDs kept by Folitecta could sign.
+- **Changed:** core `digsig/external.rs`: `ExternalKey` (signs a digest: RSA PKCS #1 v1.5, or
+  ECDSA as DER, `ecdsa_der` for devices that give `r ‖ s`), `ExternalKind` from the certificate,
+  `rsa_digest_info`, `DigitalId::from_external`, `SoftKey` for tests and the stand-in card; `IdKey`
+  gets an external variant (no PKCS #12 export, no issuing), and a signature made outside is
+  checked against the certificate before it is used. App `keystore/`: `pkcs11.rs` with `cryptoki`
+  (Apache-2.0, approved; modules loaded once, tokens listed without logging in, the key found
+  by the certificate's id after `C_Login`), `windows.rs` (personal store, CNG) and `macos.rs`
+  (keychain identities, Security framework, approved), a stand-in card for the self-test. Digital
+  IDs lists the IDs outside and the added modules (add, remove, look again); the signing dialog
+  offers them with a PIN field, or says the system asks.
+- **Checked:** unit tests of `external` (RSA and P-256 keys outside sign and are checked; no
+  export; a device signing with another key is caught; `DigestInfo` and `r ‖ s`) and of
+  `keystore::pkcs11` (a file that is no module refused; the system's trust module loaded and
+  listed twice); Windows and macOS builds linted from Linux; self-test step `cards` (the card
+  listed, its PIN field, a wrong PIN refused in the dialog, the document signed by the card and
+  valid).
+- **Open:** tried with real cards and stores; the issuers' certificates of a token carried in
+  the signature; batches with confirmed scope.
+
 ## 2026-10-26 — FOL-L034/S02: a sandboxed JavaScript engine and the scripts of fields
 
 - **Current state before:** the console ran code in a Web Worker of the interface; the scripts

@@ -6,6 +6,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-26
+
 ### Changed
 - The rectangle, ellipse, line, arrow, polygon, polyline and cloud tools stay chosen after a
   shape, like the pencil, so several shapes are drawn one after the other; Escape goes back to

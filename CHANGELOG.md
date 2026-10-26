@@ -6,6 +6,14 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Recompress Pictures works on the whole document, the current page or the picture selected on
+  the page (Recompress Image…), with presets — screen (96 dpi), e-book (150 dpi), print (300 dpi),
+  archive (resolution kept) — or settings of one's own: each picture is scaled down to the
+  resolution chosen where it is drawn largest, then kept as JPEG if that makes it smaller. An
+  estimate lists, picture by picture, its page, resolution, size in pixels and bytes before and
+  after, or why it stays (transparent, its colours, not smaller), before anything changes.
+
 ## [0.3.1] - 2026-10-26
 
 ### Changed

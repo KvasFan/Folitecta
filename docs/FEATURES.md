@@ -4,8 +4,8 @@ Generated from the command registry for version 0.3.1. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1465 |
-| 🟡 partial | 59 |
+| ✅ available | 1466 |
+| 🟡 partial | 58 |
 | ⬜ planned | 468 |
 | total | 1992 |
 
@@ -1004,7 +1004,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Recompress Images | `recompressImages` | ⬜ planned |
 | ↳ Edit… | `recompressImages.edit` | ⬜ planned |
 | Recompress Images… | `document.recompressImages` | ✅ available |
-| Recompress Image… | `document.recompressImage` | 🟡 partial |
+| Recompress Image… | `document.recompressImage` | ✅ available |
 | Replace Image | `replaceImage` | ✅ available |
 | Replace Image Clipboard | `replaceImageClipboard` | ✅ available |
 
@@ -1631,7 +1631,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Public Key Security | `pubsec` | ✅ available |
 | Rasterize Pages… | `document.rasterizePages` | ✅ available |
 | Recompress Images | `recompressImages` | ⬜ planned |
-| Recompress Image… | `document.recompressImage` | 🟡 partial |
+| Recompress Image… | `document.recompressImage` | ✅ available |
 | Redaction | `redaction` | ✅ available |
 | Remove All Web Links | `removeAllWebLinks` | ✅ available |
 | Remove Cropped Content | `document.removeCroppedContent` | 🟡 partial |

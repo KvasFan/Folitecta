@@ -77,6 +77,10 @@ pages filled top to bottom with paragraphs, list markers, quote bars, code boxes
 pages and tables whose header repeats; links as link annotations, headings as nested
 bookmarks), `markdown` (pulldown-cmark events read into blocks), `csvdoc` (fields in quotes,
 the separator that splits the first records alike, number columns aligned right),
+`recompress` (Recompress Pictures: the whole document, some pages or one picture; each picture
+scaled down to the resolution asked for where it is drawn largest, from the sides of its
+matrix on the pages in scope, then JPEG at a quality; replaced only when smaller; an estimate
+runs the same plan without replacing, on a copy away from the interface),
 `templates` (File › From Template…: papers, planners and office forms drawn as vector content on
 the paper chosen, sized to it; the forms' fields added with `place_form_field`, one commit for
 all of them, the invoice's amounts and sums as `AFSimple_Calculate` calculations; words by key,

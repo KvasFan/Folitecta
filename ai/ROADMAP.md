@@ -201,7 +201,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L042 | P1 | 🟡 | English and Italian interface, keyboard shortcuts, themes (light, white, dark, black), short tool names with full tooltips; a reflow view; reading aloud with the voices of the system (web view, speech-dispatcher on Linux) | A keyboard-only and screen reader pass; words marked as they are read; reading from a paragraph clicked. |
 | FOL-L043 | P2 | ⬜ | enable editing of PDF/A files | Preflight profiles, PDF/A validation and conversion. |
 | FOL-L044 | P2 | ⬜ | — | Colour conversion, output preview. |
-| FOL-L045 | P2 | 🟡 | space usage audit, recompression of the pictures of pages | One selected picture, presets, size comparison report. |
+| FOL-L045 | P2 | 🟡 | space usage audit; recompression of the pictures of the document, of pages or of one selected picture, with presets (screen, e-book, print, archive) scaling pictures down to a resolution where they are drawn largest, an estimate picture by picture and a size report; never a larger picture | Fonts and other objects; MRC for scans; quality checks on the reopened file. |
 | FOL-L046 | P1/P2 | 🟡 | a print window of its own with a sheet preview and the printers of the computer: ranges by number or label, odd/even, reverse, copies and collation, comments and fields, fit/actual/shrink/custom scale, paper by page, 2–16 pages per sheet, booklet, poster, two-sided order, colour; jobs sent directly (IPP with a vector print file on Linux and macOS, GDI pictures up to 600 dpi on Windows); Save as PDF; print permissions; portfolio printing of its own files | Verification on real printers (order, scale, margins, counts); vector output on Windows; booklets on both sides without a duplex printer. |
 
 ### Automation, AI and specialist functions

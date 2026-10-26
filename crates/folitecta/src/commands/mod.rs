@@ -146,8 +146,6 @@ pub const PARTIAL: &[&str] = &[
     "stampCustom.recentsMenu",
     // The content outside the crop box is clipped, not deleted from the file.
     "document.removeCroppedContent",
-    // The pictures of the current page (a single picture cannot be selected).
-    "document.recompressImage",
     // There is no side-by-side view: it switches between the two documents.
     "cmpDocs.show.both",
     // The system decides where the browser opens a link.

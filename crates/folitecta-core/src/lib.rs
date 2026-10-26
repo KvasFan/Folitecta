@@ -47,7 +47,7 @@ pub use navigation::{contents, layer_drawing, layers, links, outline};
 pub(crate) use organize::typeset;
 pub use organize::{
     attachments, combine, compare, csvdoc, delivery, doctools, email, export, markdown, marks, metadata,
-    pages, pagetools, portfolio, print, scanning, scans, templates, textdoc,
+    pages, pagetools, portfolio, print, recompress, scanning, scans, templates, textdoc,
 };
 pub(crate) use page_text::{content_edit, content_lex};
 pub use page_text::{ocr, reading, search, spelling, text, textedit, textlayer, textops};
@@ -83,6 +83,9 @@ pub use ocr::{DOUBTFUL_BELOW, DoubtfulWord, OcrEngine, OcrLine, OcrModels, OcrOp
 pub use outline::{BookmarkTarget, DestView, OutlineItem};
 pub use pagetools::{Sides, TRANSITIONS};
 pub use reading::ReadBlock;
+pub use recompress::{
+    Kept, RecompressItem, RecompressPreset, RecompressReport, RecompressScope, RecompressSettings,
+};
 pub use render::{
     Lane, RenderAnswer, RenderOpts, RenderRequest, RenderService, RenderStats, RenderedPage, Renderer,
 };

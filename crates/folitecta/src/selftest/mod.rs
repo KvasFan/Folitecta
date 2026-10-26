@@ -443,6 +443,7 @@ mod steps_print;
 mod steps_protection;
 mod steps_qat;
 mod steps_reading;
+mod steps_recompress;
 mod steps_recovery;
 mod steps_redaction;
 mod steps_review;
@@ -516,6 +517,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "reading" => Box::pin(steps_reading::run(cx)),
             "contents" => Box::pin(steps_contents::run(cx)),
             "scans" => Box::pin(steps_scans::run(cx)),
+            "recompress" => Box::pin(steps_recompress::run(cx)),
             "scanning" => Box::pin(steps_scanning::run(cx)),
             "templates" => Box::pin(steps_templates::run(cx)),
             "field_items" => Box::pin(steps_field_items::run(cx)),
@@ -578,6 +580,7 @@ const STEPS: &[&str] = &[
     "spelling",
     "ocr",
     "scans",
+    "recompress",
     "scanning",
     "reading",
     "contents",

@@ -21,14 +21,6 @@ pub struct SpaceItem {
     pub objects: usize,
 }
 
-/// What image recompression did.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct RecompressReport {
-    pub images: usize,
-    pub before: u64,
-    pub after: u64,
-}
-
 /// Document-level script events: `/AA` key and a readable name.
 pub const DOCUMENT_EVENTS: &[(&str, &str)] = &[
     ("Open", "When the document opens"),
@@ -193,7 +185,7 @@ pub fn rtf_to_text(rtf: &str) -> String {
     out.trim_end().to_string()
 }
 
-fn stream_bytes(s: &Stream) -> Option<Vec<u8>> {
+pub(crate) fn stream_bytes(s: &Stream) -> Option<Vec<u8>> {
     if s.dict.has(b"Filter") {
         s.decompressed_content().ok()
     } else {
@@ -452,151 +444,6 @@ impl Document {
                 })
             })
             .collect()
-    }
-
-    /// Recompress the pictures of some pages (all when `None`) as JPEG with
-    /// `quality`, scaling down those larger than `max_px` pixels. Pictures
-    /// are replaced only when the result is smaller; masks, transparent
-    /// pictures and unusual colour spaces are left alone.
-    pub fn recompress_images(
-        &mut self,
-        pages: Option<&[usize]>,
-        quality: u8,
-        max_px: Option<u32>,
-    ) -> Result<RecompressReport> {
-        let ids = self.page_ids();
-        let wanted: Vec<ObjectId> = match pages {
-            Some(p) => {
-                self.check(p)?;
-                p.iter().map(|i| ids[*i]).collect()
-            }
-            None => ids.clone(),
-        };
-        // Images drawn by the pages (and the forms they draw).
-        let mut images: Vec<ObjectId> = Vec::new();
-        let mut masks: HashSet<ObjectId> = HashSet::new();
-        for obj in self.inner.objects.values() {
-            if let Object::Stream(s) = obj {
-                if let Ok(Object::Reference(m)) = s.dict.get(b"SMask") {
-                    masks.insert(*m);
-                }
-                if let Ok(Object::Reference(m)) = s.dict.get(b"Mask") {
-                    masks.insert(*m);
-                }
-            }
-        }
-        for pid in &wanted {
-            if let Ok(list) = self.inner.get_page_images(*pid) {
-                for img in list {
-                    if !images.contains(&img.id) && !masks.contains(&img.id) {
-                        images.push(img.id);
-                    }
-                }
-            }
-        }
-        let mut report = RecompressReport::default();
-        let mut replacements: Vec<(ObjectId, Stream)> = Vec::new();
-        for id in images {
-            let Ok(Object::Stream(s)) = self.inner.get_object(id) else {
-                continue;
-            };
-            let d = &s.dict;
-            let bpc = d
-                .get(b"BitsPerComponent")
-                .ok()
-                .and_then(|b| b.as_i64().ok())
-                .unwrap_or(8);
-            if d.has(b"SMask")
-                || d.has(b"Mask")
-                || d.get(b"ImageMask").ok().and_then(|b| b.as_bool().ok()) == Some(true)
-                || bpc != 8
-                || d.has(b"Decode")
-            {
-                continue;
-            }
-            let cs = d.get(b"ColorSpace").ok().map(|c| deref(&self.inner, c));
-            let comps = match cs.and_then(|c| c.as_name().ok()) {
-                Some(b"DeviceRGB") => 3,
-                Some(b"DeviceGray") => 1,
-                _ => continue,
-            };
-            let w = d.get(b"Width").ok().and_then(|v| v.as_i64().ok()).unwrap_or(0) as u32;
-            let h = d.get(b"Height").ok().and_then(|v| v.as_i64().ok()).unwrap_or(0) as u32;
-            if w == 0 || h == 0 {
-                continue;
-            }
-            let filters: Vec<Vec<u8>> = match d.get(b"Filter") {
-                Ok(Object::Name(n)) => vec![n.clone()],
-                Ok(Object::Array(a)) => a
-                    .iter()
-                    .filter_map(|x| x.as_name().ok().map(|n| n.to_vec()))
-                    .collect(),
-                _ => Vec::new(),
-            };
-            let decoded: Option<image::DynamicImage> =
-                if filters.last().map(|f| f.as_slice()) == Some(b"DCTDecode") {
-                    let raw = if filters.len() == 1 {
-                        Some(s.content.clone())
-                    } else {
-                        None
-                    };
-                    raw.and_then(|r| image::load_from_memory_with_format(&r, image::ImageFormat::Jpeg).ok())
-                } else {
-                    let Some(px) = stream_bytes(s) else { continue };
-                    if px.len() < (w * h * comps) as usize {
-                        continue;
-                    }
-                    if comps == 3 {
-                        image::RgbImage::from_raw(w, h, px[..(w * h * 3) as usize].to_vec())
-                            .map(image::DynamicImage::ImageRgb8)
-                    } else {
-                        image::GrayImage::from_raw(w, h, px[..(w * h) as usize].to_vec())
-                            .map(image::DynamicImage::ImageLuma8)
-                    }
-                };
-            let Some(mut img) = decoded else { continue };
-            if let Some(m) = max_px {
-                if img.width().max(img.height()) > m {
-                    img = img.resize(m, m, image::imageops::FilterType::Triangle);
-                }
-            }
-            let mut out = std::io::Cursor::new(Vec::new());
-            let enc = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, quality.clamp(10, 100));
-            let ok = if comps == 3 {
-                img.to_rgb8().write_with_encoder(enc).is_ok()
-            } else {
-                img.to_luma8().write_with_encoder(enc).is_ok()
-            };
-            if !ok {
-                continue;
-            }
-            let jpeg = out.into_inner();
-            let before = s.content.len() as u64;
-            if (jpeg.len() as u64) >= before {
-                continue;
-            }
-            let mut dict = d.clone();
-            dict.set("Filter", Object::Name(b"DCTDecode".to_vec()));
-            dict.remove(b"DecodeParms");
-            dict.set("Width", img.width() as i64);
-            dict.set("Height", img.height() as i64);
-            dict.set("Length", jpeg.len() as i64);
-            report.images += 1;
-            report.before += before;
-            report.after += jpeg.len() as u64;
-            let mut stream = Stream::new(dict, jpeg);
-            stream.allows_compression = false;
-            replacements.push((id, stream));
-        }
-        if replacements.is_empty() {
-            return Ok(report);
-        }
-        self.begin_edit();
-        for (id, s) in replacements {
-            self.inner.objects.insert(id, Object::Stream(s));
-        }
-        self.commit()?;
-        Ok(report)
     }
 
     /// Whether the document says it follows PDF/A.

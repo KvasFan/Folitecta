@@ -9,3 +9,7 @@
 .audit-bar .pct { position: relative; font-size: 10.5px; padding-left: 6px; line-height: 14px; }
 textarea.tall { min-height: 200px; }
 textarea.code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+/* Recompress Pictures: the estimate, picture by picture. */
+.recompress-estimate { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.recompress-list { max-height: 34vh; overflow: auto; }
+.recompress-list .audit-row { grid-template-columns: minmax(50px, .5fr) minmax(70px, .7fr) minmax(140px, 1.6fr) minmax(140px, 1.6fr); }

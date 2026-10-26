@@ -2,6 +2,7 @@
 
 use dioxus::prelude::*;
 use folitecta_core::doctools::DOCUMENT_EVENTS;
+use folitecta_core::{Kept, RecompressPreset, RecompressReport, RecompressScope, RecompressSettings};
 
 use crate::i18n::{t, tf, ui_label};
 use crate::state::{AppState, Dialog, ToastKind};
@@ -115,26 +116,130 @@ pub fn SpaceAuditDialog() -> Element {
 }
 
 /// Recompress the pictures of the document or of the current page.
+/// Recompress Pictures (FOL-L045): the pictures of the document, of the
+/// current page or the one selected on the page; a preset or settings of
+/// one's own; an estimate, picture by picture, before anything changes.
 #[component]
 pub fn RecompressDialog(current: bool) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
+    let selected = st.read_active(|t| t.image_sel).flatten();
+    let page = st.current_page();
+    let mut scope = use_signal(move || {
+        match (current, selected) {
+            (true, Some(_)) => "picture",
+            (true, None) => "page",
+            _ => "all",
+        }
+        .to_string()
+    });
+    let mut preset = use_signal(|| {
+        let v = st.value("recompress.preset");
+        if v.is_empty() { "ebook".to_string() } else { v }
+    });
     let mut quality = use_signal(|| "70".to_string());
-    let mut max_px = use_signal(|| "2000".to_string());
-    let title = if current {
-        t(lang, "recompress.title_page")
-    } else {
-        t(lang, "recompress.title")
+    let mut dpi = use_signal(|| "150".to_string());
+    let mut max_px = use_signal(|| "0".to_string());
+    let mut estimate: Signal<Option<Result<RecompressReport, String>>> = use_signal(|| None);
+    let mut busy = use_signal(|| false);
+    let num = |s: String, d: u32| s.trim().parse::<u32>().unwrap_or(d);
+    let chosen_scope = move || match scope().as_str() {
+        "picture" => selected
+            .map(|(page, index)| RecompressScope::Picture { page, index })
+            .unwrap_or(RecompressScope::Pages(vec![page])),
+        "page" => RecompressScope::Pages(vec![page]),
+        _ => RecompressScope::All,
     };
+    let settings = move || match RecompressPreset::from_id(&preset()) {
+        Some(p) => p.settings(),
+        None => RecompressSettings {
+            quality: num(quality(), 70).clamp(10, 100) as u8,
+            max_dpi: num(dpi(), 0) as f32,
+            max_px: num(max_px(), 0),
+        },
+    };
+    let presets: Vec<(String, String)> = RecompressPreset::ALL
+        .iter()
+        .map(|p| {
+            (
+                p.id().to_string(),
+                t(lang, &format!("recompress.preset.{}", p.id())),
+            )
+        })
+        .chain(std::iter::once((
+            "custom".to_string(),
+            t(lang, "recompress.preset.custom"),
+        )))
+        .collect();
+    let scopes: Vec<(&'static str, String, bool)> = vec![
+        ("all", t(lang, "recompress.scope_all"), true),
+        ("page", t(lang, "recompress.scope_page"), true),
+        ("picture", t(lang, "recompress.scope_picture"), selected.is_some()),
+    ];
+    // The estimate, its summary and its rows.
+    let (summary, rows, more) = match estimate().as_ref() {
+        Some(Ok(rep)) => {
+            let summary = if rep.images == 0 {
+                t(lang, "recompress.estimate_none")
+            } else {
+                let less = 100 - (rep.after * 100 / rep.before.max(1)).min(100);
+                tf(
+                    lang,
+                    "recompress.estimate",
+                    &[
+                        ("count", &rep.images.to_string()),
+                        ("before", &human_size(rep.before)),
+                        ("after", &human_size(rep.after)),
+                        ("percent", &less.to_string()),
+                    ],
+                )
+            };
+            let rows: Vec<(String, String, String, String)> = rep
+                .items
+                .iter()
+                .take(12)
+                .map(|i| {
+                    let page = i
+                        .page
+                        .map(|p| tf(lang, "recompress.page", &[("page", &(p + 1).to_string())]))
+                        .unwrap_or_default();
+                    let size = if i.size_after == i.size_before {
+                        format!("{}×{}", i.size_before.0, i.size_before.1)
+                    } else {
+                        format!(
+                            "{}×{} → {}×{}",
+                            i.size_before.0, i.size_before.1, i.size_after.0, i.size_after.1
+                        )
+                    };
+                    let dpi = i.dpi.map(|d| format!("{} dpi", d.round())).unwrap_or_default();
+                    let bytes = match i.kept {
+                        None => format!("{} → {}", human_size(i.before), human_size(i.after)),
+                        Some(k) => t(
+                            lang,
+                            match k {
+                                Kept::Mask => "recompress.kept.mask",
+                                Kept::Colors => "recompress.kept.colors",
+                                Kept::Unreadable => "recompress.kept.unreadable",
+                                Kept::NotSmaller => "recompress.kept.smaller",
+                            },
+                        ),
+                    };
+                    (page, size, dpi, bytes)
+                })
+                .collect();
+            let more = rep.items.len().saturating_sub(12);
+            (Some(summary), rows, more)
+        }
+        Some(Err(e)) => (Some(e.clone()), Vec::new(), 0),
+        None => (None, Vec::new(), 0),
+    };
+    let more_text = tf(lang, "recompress.more", &[("count", &more.to_string())]);
     rsx! {
-        Frame { title,
+        Frame { title: t(lang, "recompress.title"), wide: true,
             on_ok: move |_| {
-                let q: u8 = quality().trim().parse::<u32>().unwrap_or(70).clamp(10, 100) as u8;
-                let m: u32 = max_px().trim().parse().unwrap_or(0);
-                let r = st.with_active(|t| {
-                    let page = [t.page];
-                    t.doc.recompress_images(current.then_some(&page[..]), q, (m > 0).then_some(m))
-                });
+                let (sc, se) = (chosen_scope(), settings());
+                st.set_value("recompress.preset", preset());
+                let r = st.with_active(|t| t.doc.recompress(&sc, se));
                 match r {
                     Some(Ok(rep)) => {
                         crate::files::set_window_title(st);
@@ -151,10 +256,67 @@ pub fn RecompressDialog(current: bool) -> Element {
                 }
             },
             div { class: "field-grid",
-                div { class: "field", label { "{t(lang, \"recompress.quality\")}" }
-                    input { r#type: "number", min: "10", max: "100", value: "{quality}", oninput: move |e| quality.set(e.value()) } }
-                div { class: "field", label { "{t(lang, \"recompress.max\")}" }
-                    input { r#type: "number", min: "0", step: "100", value: "{max_px}", oninput: move |e| max_px.set(e.value()) } }
+                div { class: "field", label { "{t(lang, \"recompress.scope\")}" }
+                    select { class: "recompress-scope", onchange: move |e| { scope.set(e.value()); estimate.set(None); },
+                        for (id, label, on) in scopes.iter() {
+                            option { key: "{id}", value: "{id}", disabled: !on, selected: *id == scope(), "{label}" }
+                        }
+                    }
+                }
+                div { class: "field", label { "{t(lang, \"recompress.preset\")}" }
+                    select { class: "recompress-preset", onchange: move |e| { preset.set(e.value()); estimate.set(None); },
+                        for (id, label) in presets.iter() {
+                            option { key: "{id}", value: "{id}", selected: *id == preset(), "{label}" }
+                        }
+                    }
+                }
+            }
+            if preset() == "custom" {
+                div { class: "field-grid",
+                    div { class: "field", label { "{t(lang, \"recompress.quality\")}" }
+                        input { r#type: "number", min: "10", max: "100", value: "{quality}", oninput: move |e| { quality.set(e.value()); estimate.set(None); } } }
+                    div { class: "field", label { "{t(lang, \"recompress.dpi\")}" }
+                        input { r#type: "number", min: "0", step: "25", value: "{dpi}", oninput: move |e| { dpi.set(e.value()); estimate.set(None); } } }
+                    div { class: "field", label { "{t(lang, \"recompress.max\")}" }
+                        input { r#type: "number", min: "0", step: "100", value: "{max_px}", oninput: move |e| { max_px.set(e.value()); estimate.set(None); } } }
+                }
+            }
+            div { class: "recompress-estimate",
+                button { class: "tbtn recompress-estimate-btn", disabled: busy(),
+                    onclick: move |_| {
+                        let (sc, se) = (chosen_scope(), settings());
+                        let Some(Ok(copy)) = st.read_active(|t| t.doc.duplicate()) else { return };
+                        busy.set(true);
+                        estimate.set(None);
+                        spawn(async move {
+                            let r = tokio::task::spawn_blocking(move || {
+                                copy.estimate_recompress(&sc, se).map_err(|e| e.to_string())
+                            })
+                            .await;
+                            busy.set(false);
+                            if let Ok(r) = r {
+                                estimate.set(Some(r));
+                            }
+                        });
+                    },
+                    "{t(lang, \"recompress.estimate_button\")}"
+                }
+                if busy() {
+                    span { class: "hint", "{t(lang, \"recompress.estimating\")}" }
+                }
+            }
+            if let Some(summary) = summary {
+                div { class: "callout recompress-summary", "{summary}" }
+            }
+            if !rows.is_empty() {
+                div { class: "audit-table recompress-list",
+                    for (i, (page, size, dpi, bytes)) in rows.into_iter().enumerate() {
+                        div { key: "{i}", class: "audit-row", span { "{page}" } span { "{dpi}" } span { "{size}" } span { "{bytes}" } }
+                    }
+                }
+                if more > 0 {
+                    div { class: "hint", "{more_text}" }
+                }
             }
             div { class: "hint", "{t(lang, \"recompress.hint\")}" }
         }

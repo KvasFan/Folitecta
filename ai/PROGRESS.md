@@ -4,6 +4,25 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-26 — FOL-L045/S01: recompression of one picture, presets, estimate
+
+- **Current state before:** the pictures of all pages or of the current page as JPEG at a quality
+  and a largest side in pixels; one picture could not be chosen; no estimate.
+- **Changed:** core `organize/recompress.rs`: `RecompressScope` (all, pages, one picture of
+  `page_images`), `RecompressSettings` (quality, highest dpi, largest side), `RecompressPreset`
+  (screen 96 dpi q60, e-book 150 q72, print 300 q85, archive q92), `estimate_recompress` and
+  `recompress` sharing one plan; the resolution of each picture where it is drawn largest from
+  the sides of its matrix; `RecompressItem` per picture (page, dpi, pixels and bytes before and
+  after, `Kept` reason); `recompress_images` kept as a wrapper. The dialog: scope (the selected
+  picture chosen by Recompress Image…), preset or own settings, Estimate on a copy away from the
+  interface, a table of the pictures. Recompress Image… is no longer partial.
+- **Checked:** `tests/recompress.rs` (4: an estimate changes nothing and scales to 96 dpi, archive
+  keeps the pixels; one picture changes without the other, undone, a wrong index refused; pages
+  recompressed open again with JPEG pictures of the new size and draw; transparent pictures and
+  larger results left alone, the file unchanged); `tests/doctools.rs` unchanged; self-test step
+  `recompress`.
+- **Open:** fonts and other objects, MRC for scans, quality measured on the reopened file.
+
 ## 2026-10-26 — FOL-L025, FOL-L050: a smaller pencil pointer on Linux, shorter menus (0.3.1)
 
 - **Asked after the 0.3.0 release:** the pencil symbol is too large on Linux; the menus (File and

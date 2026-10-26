@@ -20,8 +20,8 @@ pub(crate) mod protection;
 pub(crate) mod text;
 pub(crate) mod window;
 pub(crate) use document::{
-    barcodes, compare, convert, doctools, file, fileops, macros, mail, ocr, pages, pictures, preflight,
-    print, scanning, scans, sources, split, templates,
+    barcodes, compare, convert, doctools, file, fileops, greyscale, macros, mail, ocr, pages, pictures,
+    preflight, print, scanning, scans, sources, split, templates,
 };
 pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
@@ -87,6 +87,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     barcodes::HANDLERS,
     ocr::HANDLERS,
     preflight::HANDLERS,
+    greyscale::HANDLERS,
     scanning::HANDLERS,
     scans::HANDLERS,
     templates::HANDLERS,
@@ -194,6 +195,8 @@ pub const VIEW_OPTIONS: &[&str] = &[
     "commentsView.showCommentsFromHiddenLayers",
     "view.darkPageMode",
     "view.overrideDocumentColors",
+    // A preview of the pages in grey: the document keeps its colours.
+    "view.greyPreview",
     "view.showGrid",
     "view.showRulers",
     "view.showGuides",

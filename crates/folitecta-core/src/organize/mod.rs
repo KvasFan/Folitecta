@@ -8,6 +8,7 @@ pub mod delivery;
 pub mod doctools;
 pub mod email;
 pub mod export;
+pub mod greyscale;
 pub mod markdown;
 pub mod marks;
 pub mod metadata;

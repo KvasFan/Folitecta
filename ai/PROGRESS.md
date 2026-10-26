@@ -4,6 +4,24 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-26 — FOL-L044/S01: colours to grey, grey preview
+
+- **Current state before:** pictures could be made grey one by one in the picture editor.
+- **Changed:** core `organize/greyscale.rs`: `convert_to_grey` and `estimate_grey` (on a copy):
+  content streams decoded and re-encoded with the colour state followed through `q`/`Q`, `cs`/`CS`
+  and the colour spaces of the resources (`rg`, `RG`, `k`, `K` and `sc`/`scn` in RGB, CMYK and
+  ICC-based spaces become `g`/`G`, their spaces DeviceGray); pictures (8 bits, Flate or JPEG) and
+  palettes made grey; `/C`, `/IC`, `/MK` colours and `/DA` of comments and fields;
+  `GreyReport` with what was converted and what was left. Commands Convert Colours to Grey…
+  (a dialog with the estimate) and View › Grey Preview (a `grayscale(1)` filter on the page
+  pictures).
+- **Checked:** `tests/greyscale.rs` (2: an invoice with pictures and a red note drawn with grey
+  pixels only after the conversion, also opened again, coloured again after Undo, nothing left
+  to convert a second time; a spot colour left and counted while an RGB fill becomes grey);
+  unit tests of the grey of colours and of a content stream; self-test step `grey`.
+- **Open:** ICC profiles and rendering intents, CMYK, spot colours, output preview of
+  separations and overprint.
+
 ## 2026-10-26 — FOL-L043/S01: PDF/A-2b preflight and conversion
 
 - **Current state before:** only Enable Editing (Discard PDF/A).

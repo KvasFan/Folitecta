@@ -4,10 +4,10 @@ Generated from the command registry for version 0.3.1. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1468 |
+| ✅ available | 1470 |
 | 🟡 partial | 58 |
 | ⬜ planned | 468 |
-| total | 1994 |
+| total | 1996 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -186,6 +186,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Dark Page Mode | `view.darkPageMode` | ✅ available |
 | Exit Full Screen | `view.fullScreenExit` | ✅ available |
 | Full Screen | `view.fullScreen` | ✅ available |
+| Grey Preview | `view.greyPreview` | ✅ available |
 | Grid | `view.showGrid` | ✅ available |
 | Guides | `view.showGuides` | ✅ available |
 | Highlight Links | `view.highlightLinks` | ✅ available |
@@ -945,6 +946,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Command | Id | Status |
 |---|---|---|
 | Audit Space Usage | `document.audit` | ✅ available |
+| Convert Colours to Grey… | `document.convertToGrey` | ✅ available |
 | Convert to PDF/A… | `document.convertToPDFA` | ✅ available |
 | Detect Barcodes in Region… | `document.detectBarcodes` | ✅ available |
 | Detect Barcodes… | `document.detectImageBarcode` | ✅ available |
@@ -1470,6 +1472,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Expand All | `expandAll` | ✅ available |
 | Expand All Descendants | `expandAllDescendants` | ✅ available |
 | Fields Pane | `fieldsView` | ✅ available |
+| Grey Preview | `view.greyPreview` | ✅ available |
 | Highlight | `highlight` | ✅ available |
 | Highlight Links | `view.highlightLinks` | ✅ available |
 | History | `view.history` | ✅ available |
@@ -1586,6 +1589,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Bookmarks | `bookmarks` | ✅ available |
 | Bookmarks from Headings… | `document.bookmarksFromHeadings` | ✅ available |
 | Clean Up Scans… | `document.cleanUpScans` | ✅ available |
+| Convert Colours to Grey… | `document.convertToGrey` | ✅ available |
 | Convert to PDF/A… | `document.convertToPDFA` | ✅ available |
 | Create Web Links from Barcodes | `createWebLinksFromBarcodes` | ✅ available |
 | Create Web Links from URLs | `createWebLinksFromText` | ✅ available |

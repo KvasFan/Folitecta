@@ -7,6 +7,12 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Convert Colours to Grey… (Document and Convert › Modify): the colours of the page content,
+  drawings and comment appearances (RGB, CMYK and ICC-based), the pictures in those colours and
+  the colours of comments and form fields become grey in one undo step; the dialog first tells
+  what would change and what would be left (patterns, spot colours, Lab colours, shadings,
+  pictures inline in the content). View › Grey Preview shows the pages in grey without changing
+  the document.
 - Recompress Pictures works on the whole document, the current page or the picture selected on
   the page (Recompress Image…), with presets — screen (96 dpi), e-book (150 dpi), print (300 dpi),
   archive (resolution kept) — or settings of one's own: each picture is scaled down to the

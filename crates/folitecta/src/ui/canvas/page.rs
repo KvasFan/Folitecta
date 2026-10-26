@@ -45,6 +45,7 @@ pub(super) fn PageView(
     let transparent = option_on(st, "view.showTranspGrid");
     let dark = option_on(st, "view.darkPageMode");
     let contrast = option_on(st, "view.overrideDocumentColors");
+    let grey = option_on(st, "view.greyPreview");
     let track_pointer = option_on(st, "view.showPageMeasureInfo");
     let show_size = option_on(st, "view.showPageSizePopup");
     let colored = option_on(st, "document.find.coloredResults");
@@ -392,6 +393,10 @@ pub(super) fn PageView(
     let mut img_filter = String::new();
     if dark {
         img_filter.push_str("invert(1) hue-rotate(180deg) ");
+    }
+    if grey && !contrast {
+        // A preview: the document keeps its colours.
+        img_filter.push_str("grayscale(1) ");
     }
     if contrast {
         img_filter.push_str("grayscale(1) contrast(1.6) ");

@@ -6599,6 +6599,20 @@
    "status": "planned"
   },
   {
+   "id": "document.convertToGrey",
+   "label": "Convert Colours to Grey…",
+   "parent": "document",
+   "menu": "document",
+   "ribbon": {
+    "tab": "convert",
+    "group": "modify"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "document.convertToPDFA",
    "label": "Convert to PDF/A…",
    "parent": "document",
@@ -23198,6 +23212,20 @@
    "pane": null,
    "kind": "toggle",
    "shortcut": "Ctrl+4",
+   "status": "planned"
+  },
+  {
+   "id": "view.greyPreview",
+   "label": "Grey Preview",
+   "parent": "view",
+   "menu": "view",
+   "ribbon": {
+    "tab": "view",
+    "group": "pageDisplay"
+   },
+   "pane": null,
+   "kind": "toggle",
+   "shortcut": null,
    "status": "planned"
   },
   {

@@ -1011,6 +1011,9 @@ fn StillPage(
     if option_on(st, "view.darkPageMode") {
         filter.push_str("invert(1) hue-rotate(180deg) ");
     }
+    if option_on(st, "view.greyPreview") && !option_on(st, "view.overrideDocumentColors") {
+        filter.push_str("grayscale(1) ");
+    }
     if option_on(st, "view.overrideDocumentColors") {
         filter.push_str("grayscale(1) contrast(1.6) ");
     }

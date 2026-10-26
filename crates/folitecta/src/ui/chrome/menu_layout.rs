@@ -420,6 +420,7 @@ pub const MENUS: &[(&str, &[Item])] = &[
                 "pageDisplay",
                 &[
                     Cmd("view.darkPageMode"),
+                    Cmd("view.greyPreview"),
                     Cmd("view.overrideDocumentColors"),
                     Cmd("view.showTranspGrid"),
                     Cmd("view.thinLines"),
@@ -591,6 +592,7 @@ pub const MENUS: &[(&str, &[Item])] = &[
                     Sep,
                     Cmd("document.preflight"),
                     Cmd("document.convertToPDFA"),
+                    Cmd("document.convertToGrey"),
                     Cmd("document.discardPDFA"),
                     Sep,
                     Cmd("document.options"),

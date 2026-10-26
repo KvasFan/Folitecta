@@ -418,6 +418,8 @@ pub enum Dialog {
     Scan,
     /// Preflight against PDF/A-2b and conversion.
     Preflight,
+    /// Converting the colours of the document to grey.
+    ConvertGrey,
     /// The items of the chosen combo box or list box.
     FieldItems,
     /// The list of security policies.

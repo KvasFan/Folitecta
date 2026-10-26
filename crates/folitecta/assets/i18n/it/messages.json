@@ -94,6 +94,8 @@
   "toast.glyphs_layout": "{chars}: il testo da destra a sinistra e le lettere che si uniscono o si combinano non si possono ancora disegnare nel testo generato.",
   "toast.glyphs_missing": "Il carattere {font} non ha i glifi per {chars}.",
   "toast.glyphs_stamp": "{chars}: i timbri di testo per ora possono disegnare solo i caratteri dell'Europa occidentale.",
+  "toast.grey_done": "Il documento è in grigio",
+  "toast.grey_nothing": "Niente da convertire: il documento è già in grigio",
   "toast.grouped": "Elementi uniti: {count}",
   "toast.groups_need_two": "Per due gruppi servono almeno due documenti aperti",
   "toast.guides_copied": "Guide copiate nelle altre pagine: {count}",

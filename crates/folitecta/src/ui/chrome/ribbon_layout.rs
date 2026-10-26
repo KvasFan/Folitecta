@@ -173,6 +173,7 @@ pub const RIBBON: &[RTab] = &[
                     "view.showGrid",
                     "view.showGuides",
                     "view.darkPageMode",
+                    "view.greyPreview",
                     "view.reflow",
                     "view.readAloud",
                     "view.fullScreen"
@@ -466,6 +467,7 @@ pub const RIBBON: &[RTab] = &[
                     "document.recompressImages",
                     "document.preflight",
                     "document.convertToPDFA",
+                    "document.convertToGrey",
                     "document.discardPDFA",
                     "document.replaceFonts",
                     "document.audit",

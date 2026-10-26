@@ -6,6 +6,7 @@ pub(crate) mod convert;
 pub(crate) mod doctools;
 pub(crate) mod file;
 pub(crate) mod fileops;
+pub(crate) mod greyscale;
 pub(crate) mod macros;
 pub(crate) mod mail;
 pub(crate) mod mail_draft;

@@ -81,6 +81,11 @@ the separator that splits the first records alike, number columns aligned right)
 scaled down to the resolution asked for where it is drawn largest, from the sides of its
 matrix on the pages in scope, then JPEG at a quality; replaced only when smaller; an estimate
 runs the same plan without replacing, on a copy away from the interface),
+`greyscale` (Convert Colours to Grey: the colour operators of page contents and drawings read
+with their colour spaces — RGB, CMYK, ICC-based of 3 or 4 components — made grey, the spaces set
+to DeviceGray; pictures and palettes in those colours made grey (JPEG stays JPEG); the colours
+of comments and fields; patterns, spot colours, Lab, shadings and inline pictures counted and
+left; View › Grey Preview is a CSS filter on the page pictures and changes nothing),
 `pdfa` (Preflight PDF/A and Convert to PDF/A: the rules of `RULES`, a subset of PDF/A-2b, each
 finding with its page or object and whether conversion fixes it; conversion works on a copy —
 file identifier, XMP written from the document information with dates converted, an sRGB

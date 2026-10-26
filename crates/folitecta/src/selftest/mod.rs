@@ -428,6 +428,7 @@ mod steps_features;
 mod steps_field_items;
 mod steps_files;
 mod steps_frames;
+mod steps_grey;
 mod steps_groups;
 mod steps_jumps;
 mod steps_layer_drawing;
@@ -518,6 +519,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "reading" => Box::pin(steps_reading::run(cx)),
             "contents" => Box::pin(steps_contents::run(cx)),
             "scans" => Box::pin(steps_scans::run(cx)),
+            "grey" => Box::pin(steps_grey::run(cx)),
             "recompress" => Box::pin(steps_recompress::run(cx)),
             "preflight" => Box::pin(steps_preflight::run(cx)),
             "scanning" => Box::pin(steps_scanning::run(cx)),
@@ -582,6 +584,7 @@ const STEPS: &[&str] = &[
     "spelling",
     "ocr",
     "scans",
+    "grey",
     "recompress",
     "preflight",
     "scanning",
@@ -1064,6 +1067,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("space-audit", Dialog::SpaceAudit),
         ("recompress", Dialog::Recompress(false)),
         ("preflight", Dialog::Preflight),
+        ("convert-grey", Dialog::ConvertGrey),
         ("insert-text", Dialog::InsertTextPages),
         ("document-actions", Dialog::DocumentActions),
         ("manage-marks", Dialog::ManageMarks("Watermark".into())),

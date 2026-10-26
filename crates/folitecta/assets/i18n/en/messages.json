@@ -94,6 +94,8 @@
   "toast.glyphs_layout": "{chars}: right-to-left text and letters that join or combine cannot be drawn in generated text yet.",
   "toast.glyphs_missing": "The font {font} has no glyphs for {chars}.",
   "toast.glyphs_stamp": "{chars}: text stamps can draw only Western European characters for now.",
+  "toast.grey_done": "The document is in grey",
+  "toast.grey_nothing": "Nothing to convert: the document is already grey",
   "toast.grouped": "Items joined: {count}",
   "toast.groups_need_two": "Two groups need at least two open documents",
   "toast.guides_copied": "Guides copied to the other pages: {count}",

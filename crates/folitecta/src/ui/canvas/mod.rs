@@ -54,9 +54,10 @@ pub fn CanvasArea() -> Element {
     let split = st
         .read_active(|t| t.split.as_ref().map(|s| s.side_by_side))
         .flatten();
+    let grouped = st.groups.read().is_some();
     rsx! {
         div { class: "canvas-wrap",
-            DocTabs {}
+            if !grouped { DocTabs {} }
             if info_bar { DocInfoBar {} }
             if files {
                 crate::ui::features::portfolio::PortfolioView {}
@@ -68,6 +69,17 @@ pub fn CanvasArea() -> Element {
                     crate::ui::features::reflow::ReflowView {}
                 } else {
                     match split {
+                        // Two groups of tabs: each with its tab strip over its view.
+                        Some(side) if grouped => rsx! {
+                            div { class: if side { "canvas-split side groups" } else { "canvas-split stacked groups" },
+                                for pane in [0u8, 1] {
+                                    div { key: "{pane}", class: "tab-group", "data-group": "{pane}",
+                                        DocTabs { group: Some(pane as usize) }
+                                        Canvas { pane }
+                                    }
+                                }
+                            }
+                        },
                         None => rsx! { Canvas { pane: 0 } },
                         Some(side) => rsx! {
                             div { class: if side { "canvas-split side" } else { "canvas-split stacked" },
@@ -227,10 +239,27 @@ fn tab_label(name: &str, mid: bool) -> String {
     format!("{head}…{tail}")
 }
 
+/// The tab strip: of every tab, or of one group of tabs.
 #[component]
-fn DocTabs() -> Element {
+fn DocTabs(#[props(default)] group: Option<usize>) -> Element {
     let st = use_context::<AppState>();
     let active = st.active_index().unwrap_or(0);
+    let groups = st.groups.read().clone();
+    let grouped = groups.is_some();
+    let in_group = |id: u64| match (&groups, group) {
+        (Some(g), Some(i)) => g.tabs[i.min(1)].contains(&id),
+        _ => true,
+    };
+    // The tab a group shows is marked in its strip; the group worked in is
+    // marked as a whole.
+    let shown = match (&groups, group) {
+        (Some(g), Some(i)) => Some(g.shown[i.min(1)]),
+        _ => None,
+    };
+    let focused = match (&groups, group) {
+        (Some(g), Some(i)) => g.focus == i,
+        _ => true,
+    };
     let (mode, mid) = {
         let ui = st.ui.read();
         (
@@ -238,14 +267,16 @@ fn DocTabs() -> Element {
             ui.value("tabs.ellipsis") == Some("mid"),
         )
     };
-    let tabs: Vec<(u64, String, String, bool)> = st
+    let tabs: Vec<(usize, u64, String, String, bool)> = st
         .docs
         .read()
         .iter()
-        .map(|t| {
+        .enumerate()
+        .filter(|(_, t)| in_group(t.id))
+        .map(|(i, t)| {
             let file = t.title();
             let doc_title = t.doc.title();
-            let shown = match mode.as_str() {
+            let label = match mode.as_str() {
                 "filename" => file.clone(),
                 "title" if !doc_title.is_empty() => doc_title.clone(),
                 "title" => file.clone(),
@@ -257,14 +288,18 @@ fn DocTabs() -> Element {
             } else {
                 format!("{doc_title}\n{file}")
             };
-            (t.id, tab_label(&shown, mid), tip, t.doc.is_dirty())
+            (i, t.id, tab_label(&label, mid), tip, t.doc.is_dirty())
         })
         .collect();
     rsx! {
-        div { class: "doc-tabs",
-            for (i, (id, title, tip, dirty)) in tabs.into_iter().enumerate() {
-                button { class: if i == active { "doc-tab active" } else { "doc-tab" }, key: "{id}", title: "{tip}",
-                    onclick: move |_| { st.set_active(i); files::set_window_title(st); },
+        div { class: if focused { "doc-tabs" } else { "doc-tabs unfocused" },
+            for (i, id, title, tip, dirty) in tabs.into_iter() {
+                button { class: if shown.map_or(i == active, |s| s == id) { "doc-tab active" } else { "doc-tab" }, key: "{id}", title: "{tip}",
+                    onclick: move |_| {
+                        st.set_active(i);
+                        files::set_window_title(st);
+                        if grouped { commands::split_view::show_pages(st); }
+                    },
                     span { class: "name", "{title}" }
                     if dirty { span { class: "dirty", "•" } }
                     span { class: "close", title: "Close", onclick: move |e| { e.stop_propagation(); files::close_tab(st, id, false, AfterUnsaved::Close); }, "×" }

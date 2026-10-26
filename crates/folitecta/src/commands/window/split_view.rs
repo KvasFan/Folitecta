@@ -9,7 +9,7 @@ use crate::state::{AppState, SplitView};
 /// Scroll the views to their pages once they are drawn again: again after
 /// the canvases took their new size, which changes the zoom of a view that
 /// fits the width or the page.
-fn show_pages(st: AppState) {
+pub(crate) fn show_pages(st: AppState) {
     let page = st.current_page();
     let other = st
         .read_active(|t| t.split.as_ref().map(|s| s.other.page))
@@ -34,6 +34,7 @@ fn split(st: AppState, side_by_side: bool) {
     if no_doc(st) {
         return;
     }
+    crate::commands::tab_groups::end(st);
     let size = *st.canvas_size.peek();
     st.with_active(|t| match t.split.as_mut() {
         // A comparison side by side ends: a split of the document starts.
@@ -63,6 +64,11 @@ fn split(st: AppState, side_by_side: bool) {
 
 /// End the split: the focused view stays.
 fn remove(st: AppState) {
+    if st.groups.peek().is_some() {
+        crate::commands::tab_groups::end(st);
+        show_pages(st);
+        return;
+    }
     if st.read_active(|t| t.split.is_some()).unwrap_or(false) {
         st.with_active(|t| t.split = None);
         show_pages(st);

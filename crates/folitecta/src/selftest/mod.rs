@@ -428,6 +428,7 @@ mod steps_features;
 mod steps_field_items;
 mod steps_files;
 mod steps_frames;
+mod steps_groups;
 mod steps_jumps;
 mod steps_layer_drawing;
 mod steps_layout;
@@ -505,6 +506,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "barcodes" => Box::pin(steps_barcodes::run(cx)),
             "calc" => Box::pin(steps_calc::run(cx)),
             "split_view" => Box::pin(steps_split_view::run(cx)),
+            "groups" => Box::pin(steps_groups::run(cx)),
             "links" => Box::pin(steps_links::run(cx)),
             "note_icon" => Box::pin(steps_note_icon::run(cx)),
             "arrange" => Box::pin(steps_arrange::run(cx)),
@@ -567,6 +569,7 @@ const STEPS: &[&str] = &[
     "barcodes",
     "calc",
     "split_view",
+    "groups",
     "links",
     "note_icon",
     "arrange",
@@ -631,6 +634,8 @@ async fn interactions(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_j
 pub async fn run(st: AppState, cfg: SelfTestConfig) {
     let dir = cfg.dir.clone();
     let _ = std::fs::create_dir_all(&dir);
+    // Windows are noted, never started.
+    crate::commands::tab_groups::set_noting(true);
     progress::open(&dir);
     let mut log: Vec<serde_json::Value> = Vec::new();
     let mut total = 0;

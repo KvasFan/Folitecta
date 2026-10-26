@@ -96,6 +96,30 @@ pub struct AppState {
     /// focused view (0) and the other view of a split window (1); `None`
     /// until the view has told which pages it shows.
     pub windows: Signal<[Option<(u64, usize, usize)>; 2]>,
+    /// Two groups of tabs (Window › New Vertical Tab Group…), if any.
+    pub groups: Signal<Option<TabGroups>>,
+}
+
+/// The tabs in two groups side by side or one above the other, each group
+/// showing one of its documents with its own tab strip. The tab of the
+/// group worked in is the active tab; the other group's document is the
+/// other view of its split window (`SplitView::source`).
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TabGroups {
+    pub side_by_side: bool,
+    /// The tabs of each group, by id.
+    pub tabs: [Vec<u64>; 2],
+    /// The tab each group shows.
+    pub shown: [u64; 2],
+    /// The group worked in (new tabs join it).
+    pub focus: usize,
+}
+
+impl TabGroups {
+    /// The group of tab `id`.
+    pub fn group_of(&self, id: u64) -> Option<usize> {
+        (0..2).find(|&g| self.tabs[g].contains(&id))
+    }
 }
 
 /// Where state was written while the interface was rendering a component.
@@ -162,6 +186,7 @@ impl AppState {
             editing_field: use_signal(|| None),
             radio_group: use_signal(|| None),
             windows: use_signal(|| [None, None]),
+            groups: use_signal(|| None),
         }
     }
 
@@ -285,6 +310,7 @@ impl AppState {
     pub fn set_active(&self, v: usize) {
         note_write();
         *self.active.write_unchecked() = v;
+        crate::commands::tab_groups::sync(*self);
     }
     #[track_caller]
     pub fn set_fullscreen(&self, v: bool) {
@@ -326,6 +352,10 @@ impl AppState {
     /// become those of the tab (and its canvas size the canvas size), the
     /// other view keeps those of before.
     pub fn focus_view(&self, pane: u8) {
+        // The other group of tabs: its document becomes the active one.
+        if crate::commands::tab_groups::focus_group(*self, usize::from(pane.min(1))) {
+            return;
+        }
         let size = *self.canvas_size.peek();
         let swapped = self
             .with_active(|t| {

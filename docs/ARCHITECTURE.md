@@ -279,7 +279,10 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
     `zoom`, `layout`, `view_rotation`) and the ids `canvas` and `pg-N` the commands look for;
     the other one (`SplitView`) shows the pictures of its pages, and the two change places when
     it is clicked. In a comparison side by side the other view shows the old document
-    (`SplitView::source`) with its differences marked and is never focused; the canvas script
+    (`SplitView::source`) with its differences marked and is never focused. Two tab groups
+    (`AppState::groups`, `commands/window/tab_groups.rs`) are drawn the same way: the active tab
+    shows the other group's document as its other view, each view under its group's tab strip,
+    and a press in the other view makes that document the active tab; the canvas script
     scrolls it with the focused view, the page `Comparison::page_map` gives beside the page at
     the top (the old page of its first word both documents share), as far into it;
   - `features/reflow.rs` and `features/read_aloud.rs` — the reflow view and the reading bar;

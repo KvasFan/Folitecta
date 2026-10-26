@@ -4,9 +4,9 @@ Generated from the command registry for version 0.2.1. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1456 |
+| ✅ available | 1463 |
 | 🟡 partial | 59 |
-| ⬜ planned | 477 |
+| ⬜ planned | 470 |
 | total | 1992 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -333,22 +333,22 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | View | `view.toolbar.view` | ✅ available |
 | Window | `window` | 🟡 partial |
 | ↳ Distribute Tabs | `window.distributeTabs` | ⬜ planned |
-| ↳ Horizontally | `window.distributeDocsHorz` | ⬜ planned |
-| ↳ Merge All Tabs into One Group | `window.allDocsToOneTabGroup` | ⬜ planned |
+| ↳ Distribute Tabs One Above the Other | `window.distributeDocsHorz` | ✅ available |
+| ↳ Distribute Tabs Side by Side | `window.distributeDocsVert` | ✅ available |
+| ↳ Merge All Tabs into One Group | `window.allDocsToOneTabGroup` | ✅ available |
 | ↳ Merge All Tabs into This Window | `window.allDocsToActiveWindow` | ⬜ planned |
-| ↳ Move Tab To | `window.moveTabTo` | ⬜ planned |
+| ↳ Move Tab to the Other Group | `window.moveTabTo` | ✅ available |
 | ↳ Move Tabs… | `window.moveTabsTo` | ⬜ planned |
-| ↳ Move to New Window | `window.activeDocToNewWindow` | ⬜ planned |
+| ↳ Move to New Window | `window.activeDocToNewWindow` | ✅ available |
 | ↳ New Blank Window | `window.newBlank` | ✅ available |
 | ↳ New Document Tab | `window.new` | ✅ available |
-| ↳ New Horizontal Tab Group | `window.activeDocToNewHorzTabGroup` | ⬜ planned |
-| ↳ New Vertical Tab Group | `window.activeDocToNewVertTabGroup` | ⬜ planned |
+| ↳ New Horizontal Tab Group | `window.activeDocToNewHorzTabGroup` | ✅ available |
+| ↳ New Vertical Tab Group | `window.activeDocToNewVertTabGroup` | ✅ available |
 | ↳ Remove Split | `window.removeSplit` | ✅ available |
 | ↳ Reset Document Panes Layout | `window.resetDocPanesLayout` | ✅ available |
 | ↳ Reset Main Panes Layout | `window.resetMainPanesLayout` | ✅ available |
 | ↳ Sort Tabs Alphabetically | `window.sortAllDocTabsAbc` | ✅ available |
 | ↳ Split | `window.split` | 🟡 partial |
-| ↳ Vertically | `window.distributeDocsVert` | ⬜ planned |
 | XFA Tree | `view.xfaTree` | ⬜ planned |
 | Zoom | `view.toolbar.zoom` | ✅ available |
 
@@ -1766,19 +1766,19 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Split | `window.split` | 🟡 partial |
 | Remove Split | `window.removeSplit` | ✅ available |
 | Distribute Tabs | `window.distributeTabs` | ⬜ planned |
-| Horizontally | `window.distributeDocsHorz` | ⬜ planned |
-| Merge All Tabs into One Group | `window.allDocsToOneTabGroup` | ⬜ planned |
+| Distribute Tabs One Above the Other | `window.distributeDocsHorz` | ✅ available |
+| Distribute Tabs Side by Side | `window.distributeDocsVert` | ✅ available |
+| Merge All Tabs into One Group | `window.allDocsToOneTabGroup` | ✅ available |
 | Merge All Tabs into This Window | `window.allDocsToActiveWindow` | ⬜ planned |
-| Move Tab To | `window.moveTabTo` | ⬜ planned |
+| Move Tab to the Other Group | `window.moveTabTo` | ✅ available |
 | Move Tabs… | `window.moveTabsTo` | ⬜ planned |
-| Move to New Window | `window.activeDocToNewWindow` | ⬜ planned |
+| Move to New Window | `window.activeDocToNewWindow` | ✅ available |
 | New Blank Window | `window.newBlank` | ✅ available |
-| New Horizontal Tab Group | `window.activeDocToNewHorzTabGroup` | ⬜ planned |
-| New Vertical Tab Group | `window.activeDocToNewVertTabGroup` | ⬜ planned |
+| New Horizontal Tab Group | `window.activeDocToNewHorzTabGroup` | ✅ available |
+| New Vertical Tab Group | `window.activeDocToNewVertTabGroup` | ✅ available |
 | Reset Document Panes Layout | `window.resetDocPanesLayout` | ✅ available |
 | Reset Main Panes Layout | `window.resetMainPanesLayout` | ✅ available |
 | Sort Tabs Alphabetically | `window.sortAllDocTabsAbc` | ✅ available |
-| Vertically | `window.distributeDocsVert` | ⬜ planned |
 
 ### Help
 

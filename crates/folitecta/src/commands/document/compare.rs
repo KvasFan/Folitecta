@@ -206,6 +206,8 @@ fn end_side_by_side(st: AppState) {
 /// their differences marked. Again: the new document alone.
 fn show_both(st: AppState) {
     let Some(c) = need_comparison(st) else { return };
+    // A comparison takes the window: the groups of tabs end.
+    crate::commands::tab_groups::end(st);
     let (Some(new), Some(_)) = (tab_index(st, c.new_tab), tab_index(st, c.old_tab)) else {
         st.toast(ToastKind::Info, t(st.lang(), "toast.compare_closed"), "");
         return;

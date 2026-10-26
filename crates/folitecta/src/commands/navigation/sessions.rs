@@ -162,8 +162,8 @@ fn new_window(st: AppState) {
         .map(|f| f.path)
         .filter(|p| p.exists())
         .collect();
-    match std::env::current_exe().and_then(|exe| std::process::Command::new(exe).args(&paths).spawn()) {
-        Ok(_) => mark_opened(st, i),
+    match crate::commands::tab_groups::start_window(&paths) {
+        Ok(()) => mark_opened(st, i),
         Err(e) => st.error(e),
     }
 }

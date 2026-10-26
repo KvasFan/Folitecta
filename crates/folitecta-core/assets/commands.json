@@ -25808,7 +25808,7 @@
   },
   {
    "id": "window.distributeDocsHorz",
-   "label": "Horizontally",
+   "label": "Distribute Tabs One Above the Other",
    "parent": "window",
    "menu": "window",
    "ribbon": {
@@ -25822,7 +25822,7 @@
   },
   {
    "id": "window.distributeDocsVert",
-   "label": "Vertically",
+   "label": "Distribute Tabs Side by Side",
    "parent": "window",
    "menu": "window",
    "ribbon": {
@@ -25850,7 +25850,7 @@
   },
   {
    "id": "window.moveTabTo",
-   "label": "Move Tab To",
+   "label": "Move Tab to the Other Group",
    "parent": "window",
    "menu": "window",
    "ribbon": {

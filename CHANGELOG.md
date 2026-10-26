@@ -82,6 +82,13 @@ All notable changes to Folitecta are documented here. The format follows
   list and the office papers are forms to fill in, sized to the paper; their words follow the
   language of the interface (text beyond Western European characters in the embedded font).
 
+- Tab groups (Window › New Vertical / Horizontal Tab Group): the active document goes to a second
+  group beside the others or below them, each group with its own tab strip and its document
+  shown; a press in the other group's view or a click on its tabs works there. Tabs move to the
+  other group, are shared out between two groups or gathered into one; documents opened join the
+  group worked in. Move to New Window opens a saved document in another Folitecta window and
+  closes its tab; New Blank Window opens an empty one.
+
 ### Changed
 - Pictures made of the pages follow the layers of the view, as printing does: Export to Images,
   a page copied as a picture, the snapshot of an area and a stamp made of the page leave out what

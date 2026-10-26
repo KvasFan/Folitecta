@@ -315,6 +315,8 @@ pub fn close_tab(st: AppState, id: u64, force: bool, then: AfterUnsaved) {
         st.set_active(n - 1);
     } else if active > idx {
         st.set_active(active - 1);
+    } else {
+        crate::commands::tab_groups::sync(st);
     }
     set_window_title(st);
 }

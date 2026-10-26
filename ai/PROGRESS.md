@@ -4,6 +4,26 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-26 — FOL-L002/S01: tab groups and windows
+
+- **Current state before:** one strip of tabs, a split window of one document; New Blank Window
+  made a blank document in the same window.
+- **Changed:** `commands/window/tab_groups.rs`: `TabGroups` (the tabs of each group, the tab each
+  shows, the group worked in) in `AppState::groups`; `sync` (called by `set_active` and when a
+  tab closes) keeps groups and views in line: the active tab holds the other group's document as
+  the other view of its split (`SplitView::source`), views going back to their tabs when the
+  active tab changes, new tabs joining the group worked in, a group left empty ending the
+  groups. `focus_view` of the other view makes its group's document the active one. Commands:
+  New Vertical/Horizontal Tab Group, Move Tab to the Other Group, Distribute Tabs side by side or
+  one above the other, Merge All Tabs into One Group, Move to New Window (a saved document's file
+  opened by another process, its tab closed; unsaved documents are to be saved first), New Blank
+  Window (another process). A split, Remove Split and a comparison side by side end the groups.
+  `start_window` only notes windows during the self-test.
+- **Checked:** self-test step `groups` (strips 3 and 1, focus by a press and by a tab, ended by
+  moving the last tab back, stacked and gathered, the moved document noted with its file and its
+  tab closed) and `split_view` unchanged.
+- **Open:** dragging tabs between groups and windows; gathering the tabs of other windows.
+
 ## 2026-10-26 — FOL-L010/S01: template gallery
 
 - **Current state before:** new documents were blank pages or made from files.

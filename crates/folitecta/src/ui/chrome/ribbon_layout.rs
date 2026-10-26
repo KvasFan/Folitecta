@@ -202,6 +202,9 @@ pub const RIBBON: &[RTab] = &[
                     "window.new",
                     "window.split",
                     "window.removeSplit",
+                    "window.activeDocToNewVertTabGroup",
+                    "window.allDocsToOneTabGroup",
+                    "window.activeDocToNewWindow",
                     "view.theme",
                     "view.ribbonLabels",
                     "view.ribbonClassicUI"

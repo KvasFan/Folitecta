@@ -13,6 +13,7 @@ pub mod marks;
 pub mod metadata;
 pub mod pages;
 pub mod pagetools;
+pub mod pdfa;
 pub mod portfolio;
 pub mod print;
 pub mod recompress;

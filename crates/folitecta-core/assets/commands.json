@@ -6599,6 +6599,34 @@
    "status": "planned"
   },
   {
+   "id": "document.convertToPDFA",
+   "label": "Convert to PDF/A…",
+   "parent": "document",
+   "menu": "document",
+   "ribbon": {
+    "tab": "convert",
+    "group": "modify"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
+   "id": "document.preflight",
+   "label": "Preflight PDF/A…",
+   "parent": "document",
+   "menu": "document",
+   "ribbon": {
+    "tab": "convert",
+    "group": "modify"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "document.discardPDFA",
    "label": "Enable Editing (Discard PDF/A)",
    "parent": "document",

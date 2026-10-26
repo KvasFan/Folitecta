@@ -416,6 +416,8 @@ pub enum Dialog {
     Templates,
     /// Scanning pages into a new document.
     Scan,
+    /// Preflight against PDF/A-2b and conversion.
+    Preflight,
     /// The items of the chosen combo box or list box.
     FieldItems,
     /// The list of security policies.

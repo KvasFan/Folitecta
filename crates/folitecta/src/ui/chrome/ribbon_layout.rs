@@ -464,6 +464,8 @@ pub const RIBBON: &[RTab] = &[
                 "Modify",
                 [
                     "document.recompressImages",
+                    "document.preflight",
+                    "document.convertToPDFA",
                     "document.discardPDFA",
                     "document.replaceFonts",
                     "document.audit",

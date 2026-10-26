@@ -20,6 +20,7 @@ pub mod ocr;
 pub mod pictures;
 pub mod policies;
 pub mod portfolio;
+pub mod preflight;
 pub mod print;
 pub mod read_aloud;
 pub mod recovery;

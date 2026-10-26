@@ -142,7 +142,7 @@ shorter menus and a pencil pointer of the right size on Linux; everything else w
 | History and sessions | Documents opened before, with thumbnails and pins; sessions of open documents saved and opened again |
 | Calculator, scripts and media | Accounting calculator tapes on the page; a JavaScript console with snippets and named document scripts; sound and video comments with a media player |
 | Files and metadata | An explorer pane with places, folder filters, thumbnails of PDF files and lists of files; the document file renamed, moved or recycled; metadata templates and XMP; guides saved to files |
-| Document tools | Typed or RTF text as pages, a space usage audit, picture recompression (the whole document, a page or one selected picture; presets for the screen, e-books, print and archives that scale pictures down to a resolution; an estimate picture by picture before anything changes), document scripts, pages split at guides or cut to the crop box, leaving PDF/A |
+| Document tools | Typed or RTF text as pages, a space usage audit, a PDF/A-2b preflight with conversion of a copy (declared PDF/A only when every rule checked is met), picture recompression (the whole document, a page or one selected picture; presets for the screen, e-books, print and archives that scale pictures down to a resolution; an estimate picture by picture before anything changes), document scripts, pages split at guides or cut to the crop box, leaving PDF/A |
 
 ## Downloads
 
@@ -269,8 +269,8 @@ limitations, and [docs/FEATURES.md](docs/FEATURES.md) the state of every command
 ## Roadmap
 
 [ai/ROADMAP.md](ai/ROADMAP.md) has the state of every requirement and the planned releases. The
-next one, **0.4.0 — professional tools**, is planned around PDF/A
-validation and conversion, colour conversion and output preview, editing of vector paths, action
+next one, **0.4.0 — professional tools**, is planned around fuller PDF/A
+conversion, colour conversion and output preview, editing of vector paths, action
 sequences and batch processing, a sandboxed JavaScript engine, the system certificate store and
 PKCS#11 devices, and office exports. Text recognition of scripts other than Latin, article
 threads, scanning on macOS, remote services and the other commands still marked as *planned*

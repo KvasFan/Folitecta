@@ -4,10 +4,10 @@ Generated from the command registry for version 0.3.1. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1466 |
+| ✅ available | 1468 |
 | 🟡 partial | 58 |
 | ⬜ planned | 468 |
-| total | 1992 |
+| total | 1994 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -945,6 +945,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Command | Id | Status |
 |---|---|---|
 | Audit Space Usage | `document.audit` | ✅ available |
+| Convert to PDF/A… | `document.convertToPDFA` | ✅ available |
 | Detect Barcodes in Region… | `document.detectBarcodes` | ✅ available |
 | Detect Barcodes… | `document.detectImageBarcode` | ✅ available |
 | Enable Editing (Discard PDF/A) | `document.discardPDFA` | ✅ available |
@@ -955,6 +956,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | New Stamp from Active Document | `document.createStampFromActiveDoc` | ✅ available |
 | New Stamp from Selection… | `document.createStampFromSel` | ✅ available |
 | Options… | `document.options` | ⬜ planned |
+| Preflight PDF/A… | `document.preflight` | ✅ available |
 | Replace Fonts… | `document.replaceFonts` | ⬜ planned |
 | Show Problem Details… | `document.showProblems` | ⬜ planned |
 | Substitute Fonts | `saf` | ⬜ planned |
@@ -1584,6 +1586,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Bookmarks | `bookmarks` | ✅ available |
 | Bookmarks from Headings… | `document.bookmarksFromHeadings` | ✅ available |
 | Clean Up Scans… | `document.cleanUpScans` | ✅ available |
+| Convert to PDF/A… | `document.convertToPDFA` | ✅ available |
 | Create Web Links from Barcodes | `createWebLinksFromBarcodes` | ✅ available |
 | Create Web Links from URLs | `createWebLinksFromText` | ✅ available |
 | Crop to White Margins | `document.cropToWhiteMargins` | ✅ available |
@@ -1627,6 +1630,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Page Marks | `pagemarks` | 🟡 partial |
 | Page Structure | `pageStructure` | ✅ available |
 | Page Transitions | `document.pageTransitions` | ✅ available |
+| Preflight PDF/A… | `document.preflight` | ✅ available |
 | Previous Bookmark | `document.prevBookm` | ✅ available |
 | Public Key Security | `pubsec` | ✅ available |
 | Rasterize Pages… | `document.rasterizePages` | ✅ available |

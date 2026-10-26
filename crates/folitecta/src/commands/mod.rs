@@ -20,8 +20,8 @@ pub(crate) mod protection;
 pub(crate) mod text;
 pub(crate) mod window;
 pub(crate) use document::{
-    barcodes, compare, convert, doctools, file, fileops, macros, mail, ocr, pages, pictures, print, scanning,
-    scans, sources, split, templates,
+    barcodes, compare, convert, doctools, file, fileops, macros, mail, ocr, pages, pictures, preflight,
+    print, scanning, scans, sources, split, templates,
 };
 pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
@@ -86,6 +86,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     tables::HANDLERS,
     barcodes::HANDLERS,
     ocr::HANDLERS,
+    preflight::HANDLERS,
     scanning::HANDLERS,
     scans::HANDLERS,
     templates::HANDLERS,

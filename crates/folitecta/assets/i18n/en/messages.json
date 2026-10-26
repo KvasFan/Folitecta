@@ -204,6 +204,8 @@
   "toast.pdfa1_layers": "PDF/A-1 does not allow layers",
   "toast.pdfa1_layers_detail": "The document says it follows PDF/A-1. To add layers, first use Document › Enable Editing (Discard PDF/A).",
   "toast.pdfa_discarded": "The document no longer claims PDF/A conformance",
+  "toast.pdfa_done": "The converted copy is PDF/A-2b",
+  "toast.pdfa_not_done": "The converted copy is not PDF/A: rules still broken",
   "toast.phrases_highlighted": "Highlights: {count} · phrases: {phrases}",
   "toast.picture_changed": "The document changed while the picture was being edited: nothing was replaced",
   "toast.picture_gone": "The picture is no longer in the document",

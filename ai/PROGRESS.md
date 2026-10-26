@@ -4,6 +4,24 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-26 — FOL-L043/S01: PDF/A-2b preflight and conversion
+
+- **Current state before:** only Enable Editing (Discard PDF/A).
+- **Changed:** core `organize/pdfa.rs`: `RULES` (18 rules with their clauses of ISO 19005-2,
+  level B), `preflight_pdfa` (findings with page, object, detail and whether conversion fixes
+  them), `convert_to_pdfa` (a copy: file identifier, XMP from the document information with
+  dates as XMP dates, an sRGB output intent from `srgb_icc`, actions and JavaScript removed,
+  annotation flags, rollover and down appearances, LZW streams re-encoded, XFA and
+  NeedAppearances removed, Interpolate false, layer configurations named; the copy is checked
+  again and declares `pdfaid:part 2`, `conformance B` only when nothing is left). Commands
+  Preflight PDF/A… and Convert to PDF/A… with a dialog listing the rules, the problems and the
+  conversion into a new tab.
+- **Checked:** `tests/pdfa.rs` (3: a document in the embedded font with JavaScript, a hidden note,
+  device colours and an interpolated picture becomes PDF/A-2b and still passes when opened
+  again, and draws; a document with the standard Helvetica is converted but never declared
+  PDF/A; a protected document refused); unit tests of PDF dates and of the sRGB profile, which
+  LittleCMS also read and used (colours identical to its own sRGB); self-test step `preflight`.
+- **Open:** embedding fonts, the other PDF/A rules, other profiles, an independent validation.
 ## 2026-10-26 — FOL-L045/S01: recompression of one picture, presets, estimate
 
 - **Current state before:** the pictures of all pages or of the current page as JPEG at a quality

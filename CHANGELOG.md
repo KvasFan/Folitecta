@@ -13,6 +13,13 @@ All notable changes to Folitecta are documented here. The format follows
   resolution chosen where it is drawn largest, then kept as JPEG if that makes it smaller. An
   estimate lists, picture by picture, its page, resolution, size in pixels and bytes before and
   after, or why it stays (transparent, its colours, not smaller), before anything changes.
+- Preflight PDF/A… and Convert to PDF/A… (Document and Convert › Modify): the document is checked
+  against 18 rules of PDF/A-2b (encryption, file identifier, XMP metadata and their agreement
+  with the document information, output intent, embedded fonts, forbidden actions and
+  JavaScript, annotations, embedded files, LZW, XFA, interpolation, layer configurations,
+  PostScript), each problem listed with its page; conversion fixes what it can in a copy opened
+  in a new tab — with an sRGB output intent of Folitecta's own — and declares PDF/A-2b only when
+  no rule checked is left broken. Fonts that are not embedded are not embedded yet.
 
 ## [0.3.1] - 2026-10-26
 

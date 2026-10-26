@@ -81,6 +81,12 @@ the separator that splits the first records alike, number columns aligned right)
 scaled down to the resolution asked for where it is drawn largest, from the sides of its
 matrix on the pages in scope, then JPEG at a quality; replaced only when smaller; an estimate
 runs the same plan without replacing, on a copy away from the interface),
+`pdfa` (Preflight PDF/A and Convert to PDF/A: the rules of `RULES`, a subset of PDF/A-2b, each
+finding with its page or object and whether conversion fixes it; conversion works on a copy —
+file identifier, XMP written from the document information with dates converted, an sRGB
+output intent from a profile made by `srgb_icc`, forbidden actions and JavaScript removed,
+annotation flags and appearances, LZW streams made Flate, XFA and NeedAppearances, interpolation,
+layer configurations — and declares PDF/A-2b in XMP only when the check finds nothing left),
 `templates` (File › From Template…: papers, planners and office forms drawn as vector content on
 the paper chosen, sized to it; the forms' fields added with `place_form_field`, one commit for
 all of them, the invoice's amounts and sums as `AFSimple_Calculate` calculations; words by key,
@@ -387,6 +393,12 @@ Mouse coordinates on a page image are converted to PDF user space with
   been tried only with a stand-in engine and a stand-in speech-dispatcher service. Scanning has
   been tried only with a stand-in scanner; it is not available on macOS, and a scan under way
   cannot be stopped. Tabs form at most two groups, and are moved by command, not dragged.
+- Preflight checks a subset of PDF/A-2b (the rules listed in the dialog and in `pdfa::RULES`):
+  transparency, the inside of fonts (beyond being embedded), ICC-based colour spaces, the
+  structure of the file beyond its identifier and the XMP schemas are not checked, and the
+  results have not been compared with an independent validator yet. Conversion does not embed
+  fonts: a document with a font that is not embedded (such as the standard Helvetica of the
+  documents Folitecta makes from WinAnsi text) is converted but not declared PDF/A.
 - Revocation is checked from OCSP answers and from complete revocation lists of the
   certificate's own issuer; indirect, delta and partitioned lists are not read, missing issuers
   are not fetched and certificate policies are not checked. Revocation data are asked online

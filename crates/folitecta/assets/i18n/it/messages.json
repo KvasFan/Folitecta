@@ -204,6 +204,8 @@
   "toast.pdfa1_layers": "PDF/A-1 non ammette livelli",
   "toast.pdfa1_layers_detail": "Il documento dichiara di seguire PDF/A-1. Per aggiungere livelli usa prima Documento › Abilita modifica (scarta PDF/A).",
   "toast.pdfa_discarded": "Il documento non dichiara più la conformità PDF/A",
+  "toast.pdfa_done": "La copia convertita è PDF/A-2b",
+  "toast.pdfa_not_done": "La copia convertita non è PDF/A: regole ancora violate",
   "toast.phrases_highlighted": "Evidenziazioni: {count} · frasi: {phrases}",
   "toast.picture_changed": "Il documento è cambiato mentre l'immagine veniva modificata: non è stato sostituito nulla",
   "toast.picture_gone": "L'immagine non è più nel documento",

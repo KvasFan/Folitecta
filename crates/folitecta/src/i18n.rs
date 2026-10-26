@@ -107,6 +107,7 @@ const AREAS: &[(&str, &[&str])] = &[
             "scans",
             "scan",
             "templates",
+            "preflight",
         ],
     ),
     (

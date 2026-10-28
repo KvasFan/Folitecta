@@ -178,34 +178,37 @@ pub fn finish_drawing(st: AppState) {
 
 /// The tools that stay chosen after what they draw.
 pub fn stays_chosen(tool: Tool) -> bool {
-    matches!(
-        tool,
-        Tool::Ink
-            | Tool::FreeHighlight
-            | Tool::Tick
-            | Tool::Rect
-            | Tool::Ellipse
-            | Tool::Line
-            | Tool::Arrow
-            | Tool::Polygon
-            | Tool::Polyline
-            | Tool::Cloud
-    )
+    crate::ui::features::quick_panel::measuring(tool)
+        || matches!(
+            tool,
+            Tool::Ink
+                | Tool::FreeHighlight
+                | Tool::Tick
+                | Tool::Rect
+                | Tool::Ellipse
+                | Tool::Line
+                | Tool::Arrow
+                | Tool::Polygon
+                | Tool::Polyline
+                | Tool::Cloud
+        )
 }
 
 pub fn after_create(st: AppState) {
     files::set_window_title(st);
     // A freehand drawing takes many strokes, tick marks go one after the
-    // other, shapes are drawn several at a time: the pencil, the free
-    // highlighter, the tick marks and the shapes stay chosen (Escape goes
-    // back to the hand).
+    // other, shapes and measures are drawn several at a time: the pencil,
+    // the free highlighter, the tick marks, the shapes and the measuring
+    // tools stay chosen (Escape goes back to the hand).
     if !stays_chosen(*st.tool.peek()) && !option_on(st, "tool.keepSelected") {
         st.set_tool(Tool::Hand);
     }
 }
 
 /// What a drag (or a click) with a drawing tool makes on page `page`: `d` in
-/// pixels of the page at zoom `z`, `points` the path of the freehand tools.
+/// pixels of the page at zoom `z`, `points` the path of the freehand tools,
+/// `pressures` how hard a pen pressed at each of them (empty for a mouse).
+#[allow(clippy::too_many_arguments)]
 pub(super) fn finish_create(
     st: AppState,
     page: usize,
@@ -214,6 +217,7 @@ pub(super) fn finish_create(
     z: f32,
     d: Drag,
     points: Vec<(f64, f64)>,
+    pressures: Vec<f32>,
 ) {
     let (x0, y0) = (
         d.start.0.min(d.current.0) as f32 / z,
@@ -335,6 +339,20 @@ pub(super) fn finish_create(
                         &scale,
                         &author,
                     )
+                    .map(|_| ())
+            })
+        }
+        // A stroke of a pen that told how hard it pressed, its width following.
+        Tool::Ink
+            if points.len() > 1
+                && pressures.len() == points.len()
+                && crate::ui::features::quick_panel::pressure_on(st) =>
+        {
+            let (path, pressed) =
+                folitecta_core::smooth::smooth_pressed_stroke(&path_pdf(), &pressures, 0.5 / z, 2.0);
+            st.with_active(|t| {
+                t.doc
+                    .add_pressed_ink(page, &path, &pressed, &style("Ink"), &author)
                     .map(|_| ())
             })
         }

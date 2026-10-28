@@ -107,6 +107,12 @@ path editing (FOL-L021), keystroke and page scripts (FOL-L034), real cards and s
 2. ~~**FOL-L025 — the same panel for the other drawing tools.**~~ Done: the free highlighter
    (its own colours and thicknesses) and the rectangle, ellipse, line, arrow, polygon, polyline
    and cloud tools, with the fill of closed shapes.
+3. ~~**FOL-L025, FOL-L028 — the panel for the measuring tools.**~~ Done: distance, perimeter,
+   area, angle, radius and volume, with the scale of the measures shown and opened from the
+   panel; the measuring tools stay chosen.
+4. ~~**FOL-L025 — a pressure-sensitive pen.**~~ Done: the Pencil follows the pressure of a pen
+   (pointer events of type pen): its width changes along the stroke, drawn as a filled outline
+   and kept with the comment (`FolitectaPressure`); a button of the Pencil's panel turns it off.
 
 ### Later
 
@@ -174,10 +180,10 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L025 | P1 | ✅ | every markup and drawing comment, styles and named styles, lock, grouping, align/distribute/order, eraser, clouds, the quick panel of thickness, colours and fill of the drawing tools | Pressure-sensitive pen; check appearances in a second reader. |
+| FOL-L025 | P1 | ✅ | every markup and drawing comment, styles and named styles, lock, grouping, align/distribute/order, eraser, clouds, the quick panel of thickness, colours and fill of the drawing and measuring tools, pen pressure for the Pencil | Pressure tried with real tablets on Windows, macOS and Linux (stand-in pen events so far); tilt of the pen; check appearances in a second reader. |
 | FOL-L026 | P1 | ✅ | comments pane with filters, replies, review states, XFDF/FDF/PDF exchange, comment summaries | CSV summary; history of a comment. |
 | FOL-L027 | P1/P2 | 🟡 | text stamps, stamp designer with dynamic values, favourites and recent stamps | Sequential stamps; symbol libraries with fields asked when placed. |
-| FOL-L028 | P2 | 🟡 | distance, perimeter, area, angle, radius and diameter, volume (area by a depth), calibration, CSV export of measures | Snapping profile; measure info pane; editing the depth of a volume. |
+| FOL-L028 | P2 | 🟡 | distance, perimeter, area, angle, radius and diameter, volume (area by a depth), calibration, CSV export of measures, a quick panel with the scale; the tools stay chosen | Snapping profile; measure info pane; editing the depth of a volume. |
 | FOL-L029 | P2 | 🟡 | calculator with an editable tape placed as a comment; tick marks (check, cross, dot, numbers, letters, roman numerals, plain or circled) placed in series with a click | Saved sets of tick styles; counting the marks of a document. |
 | FOL-L030 | P1/P2 | ✅ | barcodes written (vector) and read (rxing), tables as generated objects | Table extraction from PDF pages (P2). |
 

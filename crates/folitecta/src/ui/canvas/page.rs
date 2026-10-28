@@ -26,6 +26,12 @@ pub(super) fn PageView(
     let st = use_context::<AppState>();
     let mut drag = use_signal(|| None::<Drag>);
     let mut ink: Signal<Vec<(f64, f64)>> = use_signal(Vec::new);
+    // How hard a pen presses at each point of `ink` (empty for a mouse), and
+    // what the last pointer event told: the pressure of a pen, none else.
+    // The pressure is read by the mouse events only, so it is kept where
+    // writing it draws nothing again.
+    let mut pens: Signal<Vec<f32>> = use_signal(Vec::new);
+    let pen = use_hook(|| std::rc::Rc::new(std::cell::Cell::new(None::<f32>)));
     let mut annot_drag = use_signal(|| None::<AnnotDrag>);
     let mut sel_drag = use_signal(|| false);
     let mut hover = use_signal(|| None::<(f32, f32)>);
@@ -447,8 +453,9 @@ pub(super) fn PageView(
     let grown = |r: [f32; 4]| css([r[0] - 2.0, r[1] - 2.0, r[2] + 2.0, r[3] + 2.0]);
 
     // ---- finishing a creation drag -------------------------------------------------
-    let finish_create =
-        move |d: Drag, points: Vec<(f64, f64)>| finish_create(st, page, size, tool, z, d, points);
+    let finish_create = move |d: Drag, points: Vec<(f64, f64)>, pressures: Vec<f32>| {
+        finish_create(st, page, size, tool, z, d, points, pressures)
+    };
 
     // ---- finishing a move/resize of a comment ------------------------------------
     let finish_annot = move |d: AnnotDrag| {
@@ -544,6 +551,24 @@ pub(super) fn PageView(
     } else {
         String::new()
     };
+    // A pen's stroke as the outline of its changing width (screen pixels).
+    let pen_outline = {
+        let pts = ink();
+        let pressures = pens();
+        (tool == Tool::Ink && pts.len() > 1 && pressures.len() == pts.len()).then(|| {
+            let w = crate::state::comment_styles::default_style(st, "Ink").width * z;
+            let screen: Vec<(f32, f32)> = pts.iter().map(|(x, y)| (*x as f32, *y as f32)).collect();
+            let widths: Vec<f32> = pressures
+                .iter()
+                .map(|p| folitecta_core::smooth::pressed_width(w, *p).max(0.5))
+                .collect();
+            folitecta_core::smooth::stroke_outline(&screen, &widths)
+                .iter()
+                .map(|(x, y)| format!("{x:.1},{y:.1}"))
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+    };
     let cur_drag = annot_drag();
     let units = st.ui.read().value("units").unwrap_or("mm").to_string();
     let (unit_pt, minor, major, unit_name) = unit_info(&units);
@@ -576,6 +601,7 @@ pub(super) fn PageView(
     // time: a listener of mouse moves makes every move in the window wait
     // for the program. During a drag the layer is above everything on the
     // page, so the moves over comments and fields reach it too.
+    let pen_at_move = pen.clone();
     let on_move = move |evt: Event<MouseData>| {
         if tool == Tool::ZoomDyn {
             // Up zooms in, down zooms out, while the button is held.
@@ -647,6 +673,9 @@ pub(super) fn PageView(
             drag.set(Some(d));
             if freehand {
                 ink.write().push(d.current);
+                if let Some(p) = pen_at_move.get() {
+                    pens.write().push(p);
+                }
             }
         }
         let current_annot: Option<AnnotDrag> = *annot_drag.peek();
@@ -661,6 +690,7 @@ pub(super) fn PageView(
     let follows_moves = track_pointer || !matches!(tool, Tool::Hand | Tool::Zoom);
 
     // The handlers of the page area.
+    let pen_at_press = pen.clone();
     let onmousedown = move |evt: Event<MouseData>| {
         if evt.trigger_button() != Some(MouseButton::Primary) {
             return;
@@ -774,7 +804,14 @@ pub(super) fn PageView(
                 current: start,
             }));
             ink.set(vec![start]);
+            pens.set(pen_at_press.get().map(|p| vec![p]).unwrap_or_default());
         }
+    };
+    // The pointer events come before the mouse events of the same move: they
+    // tell whether a pen is drawing and how hard it presses.
+    let pen_of_pointer = pen.clone();
+    let on_pointer = move |evt: Event<PointerData>| {
+        pen_of_pointer.set((evt.pointer_type() == "pen").then(|| evt.pressure().clamp(0.0, 1.0)));
     };
     let onmouseup = move |_: Event<MouseData>| {
         if crate::commands::fileops::ZOOM_DRAG.peek().is_some() {
@@ -786,9 +823,11 @@ pub(super) fn PageView(
         let current_drag: Option<Drag> = *drag.peek();
         if let Some(d) = current_drag {
             let points = ink.peek().clone();
+            let pressures = pens.peek().clone();
             drag.set(None);
             ink.set(Vec::new());
-            finish_create(d, points);
+            pens.set(Vec::new());
+            finish_create(d, points, pressures);
         }
         let current_annot: Option<AnnotDrag> = *annot_drag.peek();
         if let Some(d) = current_annot {
@@ -803,6 +842,7 @@ pub(super) fn PageView(
         if drag.peek().is_some() {
             drag.set(None);
             ink.set(Vec::new());
+            pens.set(Vec::new());
         }
         let current_annot: Option<AnnotDrag> = *annot_drag.peek();
         if let Some(d) = current_annot {
@@ -1119,7 +1159,10 @@ pub(super) fn PageView(
                                     let color = css_color(s.color.unwrap_or([0.23, 0.23, 0.75]));
                                     let width = (s.width * z).max(1.0);
                                     let opacity = s.opacity.clamp(0.05, 1.0);
-                                    rsx! { path { class: "ink-stroke", d: "{ink_curve}", fill: "none", stroke: "{color}", stroke_width: "{width}", opacity: "{opacity}", stroke_linecap: "round", stroke_linejoin: "round" } }
+                                    match pen_outline.clone() {
+                                        Some(outline) => rsx! { polygon { class: "ink-stroke pressed", points: "{outline}", fill: "{color}", stroke: "none", opacity: "{opacity}" } },
+                                        None => rsx! { path { class: "ink-stroke", d: "{ink_curve}", fill: "none", stroke: "{color}", stroke_width: "{width}", opacity: "{opacity}", stroke_linecap: "round", stroke_linejoin: "round" } },
+                                    }
                                 }
                             }
                         }
@@ -1136,7 +1179,19 @@ pub(super) fn PageView(
     // program, so with the hand and zoom tools (looking at the pages) there
     // is none unless the pointer position is shown. Changing between the two
     // draws the page area again.
-    let page_inner = if follows_moves {
+    // The Pencil with the pressure on also listens to the pointer events,
+    // which tell how hard a pen presses.
+    let pressing = tool == Tool::Ink && crate::ui::features::quick_panel::pressure_on(st);
+    let page_inner = if pressing {
+        let on_pointer_move = on_pointer.clone();
+        rsx! {
+            div { class: inner_class, style: "{inner_style}",
+                onpointerdown: on_pointer, onpointermove: on_pointer_move,
+                onmousedown: onmousedown, onmouseup: onmouseup, onmouseleave: onmouseleave, ondoubleclick: ondoubleclick, onclick: onclick, onmousemove: on_move,
+                {inner_content}
+            }
+        }
+    } else if follows_moves {
         rsx! {
             div { class: inner_class, style: "{inner_style}",
                 onmousedown: onmousedown, onmouseup: onmouseup, onmouseleave: onmouseleave, ondoubleclick: ondoubleclick, onclick: onclick, onmousemove: on_move,

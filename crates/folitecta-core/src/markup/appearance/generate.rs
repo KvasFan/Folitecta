@@ -302,20 +302,44 @@ impl Document {
                 if paths.iter().all(|p| p.is_empty()) {
                     return Ok(false);
                 }
-                body.push_str("1 J 1 j ");
-                stroke_setup(&mut body);
-                for p in &paths {
-                    match p.len() {
-                        0 => continue,
-                        1 => body.push_str(&poly(&[p[0], (p[0].0 + 0.01, p[0].1)], false)),
-                        2 => body.push_str(&poly(p, false)),
-                        // Freehand strokes are drawn as curves through their points.
-                        _ => body.push_str(&curve_path(p)),
+                // Strokes of a pen that told how hard it pressed: each one the
+                // outline of its changing width, filled in one piece.
+                let pressures = ink_pressures(doc, d);
+                let pressed = pressures.len() == paths.len()
+                    && paths.iter().zip(&pressures).all(|(p, q)| p.len() == q.len());
+                let mut widest = w;
+                if pressed {
+                    body.push_str(&rgb(style.color.unwrap_or([0.0; 3]), "rg"));
+                    for (p, q) in paths.iter().zip(&pressures) {
+                        if p.is_empty() {
+                            continue;
+                        }
+                        let widths: Vec<f32> =
+                            q.iter().map(|v| crate::smooth::pressed_width(w, *v)).collect();
+                        widest = widths.iter().copied().fold(widest, f32::max);
+                        body.push_str(&poly(&crate::smooth::stroke_outline(p, &widths), true));
+                        body.push_str("f ");
                     }
-                    body.push_str("S ");
+                } else {
+                    body.push_str("1 J 1 j ");
+                    stroke_setup(&mut body);
+                    for p in &paths {
+                        match p.len() {
+                            0 => continue,
+                            1 => body.push_str(&poly(&[p[0], (p[0].0 + 0.01, p[0].1)], false)),
+                            2 => body.push_str(&poly(p, false)),
+                            // Freehand strokes are drawn as curves through their points.
+                            _ => body.push_str(&curve_path(p)),
+                        }
+                        body.push_str("S ");
+                    }
                 }
                 let all: Vec<(f32, f32)> = paths.into_iter().flatten().collect();
-                rect = bounds(&all, w + 2.0);
+                rect = if pressed {
+                    bounds(&all, widest / 2.0 + 2.0)
+                } else {
+                    bounds(&all, w + 2.0)
+                };
             }
             "Highlight" | "Underline" | "StrikeOut" | "Squiggly" => {
                 let quads: Vec<[f32; 8]> = numbers(doc, d.get(b"QuadPoints").ok())

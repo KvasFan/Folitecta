@@ -113,8 +113,9 @@ impl MeasureScale {
     }
 }
 
-/// An ink comment changed by the eraser: position, object and remaining strokes.
-type InkEdit = (usize, ObjectId, Vec<Vec<(f32, f32)>>);
+/// An ink comment changed by the eraser: position, object, remaining
+/// strokes and their pressures (none for strokes not drawn with a pen).
+type InkEdit = (usize, ObjectId, Vec<Vec<(f32, f32)>>, Option<Vec<Vec<f32>>>);
 
 /// Kinds of measurement comments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -563,28 +564,38 @@ impl Document {
                         .collect()
                 })
                 .unwrap_or_default();
+            // The pressures of a pen stroke go with its points.
+            let pressures = crate::appearance::ink_pressures(&self.inner, d);
+            let pressed = pressures.len() == strokes.len()
+                && strokes.iter().zip(&pressures).all(|(s, p)| s.len() == p.len());
             let mut kept: Vec<Vec<(f32, f32)>> = Vec::new();
+            let mut kept_p: Vec<Vec<f32>> = Vec::new();
             let mut touched = false;
-            for stroke in strokes {
+            for (k, stroke) in strokes.into_iter().enumerate() {
                 let mut run: Vec<(f32, f32)> = Vec::new();
-                for p in stroke {
+                let mut run_p: Vec<f32> = Vec::new();
+                for (j, p) in stroke.into_iter().enumerate() {
                     if near(p) {
                         touched = true;
                         if run.len() >= 2 {
                             kept.push(std::mem::take(&mut run));
+                            kept_p.push(std::mem::take(&mut run_p));
                         } else {
                             run.clear();
+                            run_p.clear();
                         }
                     } else {
                         run.push(p);
+                        run_p.push(if pressed { pressures[k][j] } else { 0.5 });
                     }
                 }
                 if run.len() >= 2 {
                     kept.push(run);
+                    kept_p.push(run_p);
                 }
             }
             if touched {
-                changes.push((a.index, id, kept));
+                changes.push((a.index, id, kept, pressed.then_some(kept_p)));
             }
         }
         if changes.is_empty() {
@@ -594,15 +605,21 @@ impl Document {
         let count = changes.len();
         // Remove emptied comments from the end so earlier positions stay valid.
         let mut removed: Vec<ObjectId> = Vec::new();
-        for (_, id, kept) in &changes {
+        for (_, id, kept, kept_p) in &changes {
             if kept.is_empty() {
                 removed.push(*id);
                 continue;
             }
             let list: Vec<Object> = kept.iter().map(|s| flat(s)).collect();
-            self.inner
-                .get_dictionary_mut(*id)?
-                .set("InkList", Object::Array(list));
+            let d = self.inner.get_dictionary_mut(*id)?;
+            d.set("InkList", Object::Array(list));
+            if let Some(kept_p) = kept_p {
+                let list: Vec<Object> = kept_p
+                    .iter()
+                    .map(|p| Object::Array(p.iter().map(|v| (*v).into()).collect()))
+                    .collect();
+                d.set(crate::appearance::INK_PRESSURE, Object::Array(list));
+            }
             self.refresh_appearance(*id)?;
         }
         if !removed.is_empty() {

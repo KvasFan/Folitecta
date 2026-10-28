@@ -14,6 +14,14 @@ All notable changes to Folitecta are documented here. The format follows
 - The same quick panel for the free highlighter (yellow, green, pink and blue, thicker lines)
   and the shape tools — rectangle, ellipse, line, arrow, polygon, polyline and cloud — with the
   fill of closed shapes (none, the four colours or any colour of the palette).
+- The quick panel for the measuring tools — distance, perimeter, area, angle, radius and volume
+  — with their thickness and colours and the scale of the measures, which a click opens; the
+  measuring tools stay chosen, so several measures are taken one after the other.
+- Pen pressure for the Pencil: with a pen that tells how hard it presses (a graphics tablet or a
+  stylus), the stroke is thinner where it presses lightly and thicker where it presses hard,
+  from 0.3 to 1.7 times the chosen thickness. The stroke shows so while it is drawn, is saved as
+  an appearance every reader shows, and keeps its pressures when it is moved, restyled or
+  partly erased. A button of the Pencil's panel turns it off; the mouse draws as before.
 
 ## [0.4.1] - 2026-10-26
 

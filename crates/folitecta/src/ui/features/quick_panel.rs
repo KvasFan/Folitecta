@@ -1,9 +1,11 @@
 //! The quick panel of the drawing tools (FOL-L025): while the Pencil, the
-//! free highlighter or a shape tool is the tool, a small bar over the pages
-//! with the thickness of the line, four colours of the tool (black, green,
-//! blue and red; yellow, green, pink and blue for the highlighter) and the
-//! colour palette for any other, and for closed shapes their fill. They
-//! change the default style of the tool's comments, so the next ones follow.
+//! free highlighter, a shape tool or a measuring tool is the tool, a small
+//! bar over the pages with the thickness of the line, four colours of the
+//! tool (black, green, blue and red; yellow, green, pink and blue for the
+//! highlighter) and the colour palette for any other, and for closed shapes
+//! their fill. They change the default style of the tool's comments, so the
+//! next ones follow. The Pencil's panel turns the pressure of a pen on and
+//! off; the measuring tools' panel shows the scale and opens it.
 
 use dioxus::prelude::*;
 
@@ -37,18 +39,33 @@ pub const MARKER_WIDTHS: [f32; 6] = [6.0, 9.0, 12.0, 16.0, 20.0, 28.0];
 
 /// The tools that have the panel.
 pub fn has_panel(tool: Tool) -> bool {
+    measuring(tool)
+        || matches!(
+            tool,
+            Tool::Ink
+                | Tool::FreeHighlight
+                | Tool::Rect
+                | Tool::Ellipse
+                | Tool::Line
+                | Tool::Arrow
+                | Tool::Polygon
+                | Tool::Polyline
+                | Tool::Cloud
+        )
+}
+
+/// The measuring tools, whose panel also shows the scale of the measures.
+pub fn measuring(tool: Tool) -> bool {
     matches!(
         tool,
-        Tool::Ink
-            | Tool::FreeHighlight
-            | Tool::Rect
-            | Tool::Ellipse
-            | Tool::Line
-            | Tool::Arrow
-            | Tool::Polygon
-            | Tool::Polyline
-            | Tool::Cloud
+        Tool::Distance | Tool::Perimeter | Tool::Area | Tool::Angle | Tool::Radius | Tool::Volume
     )
+}
+
+/// Whether the Pencil follows how hard a pen presses (on unless turned off
+/// in its panel).
+pub fn pressure_on(st: AppState) -> bool {
+    st.value("ink.pressure") != "0"
 }
 
 /// Closed shapes, which have a fill.
@@ -127,6 +144,11 @@ pub fn QuickPanel(tool: Tool) -> Element {
     };
     let line = shown(width);
     let opacity = if marker { "opacity:.55;" } else { "" };
+    let pen = tool == Tool::Ink;
+    let pressure = pen && pressure_on(st);
+    let pressure_name = t(lang, "pencil.pressure");
+    let scale = measuring(tool).then(|| crate::ui::dialogs::measure_scale(st).ratio);
+    let scale_name = t(lang, "dialog.calibrate.title");
     rsx! {
         div { class: "pencil-panel quick-panel", role: "toolbar", "aria-label": "{panel_name}", "data-tool": "{kind}",
             onmousedown: move |e| e.stop_propagation(),
@@ -174,6 +196,20 @@ pub fn QuickPanel(tool: Tool) -> Element {
                 Icon { name: "palette" }
                 input { r#type: "color", value: "{hex}", "aria-label": "{palette}",
                     onchange: move |e| { if let Some(c) = parse_colour(&e.value()) { set_tool_style(st, tool, Change::Colour(c)); } } }
+            }
+            if pen {
+                button { class: if pressure { "pencil-btn pencil-pressure active" } else { "pencil-btn pencil-pressure" },
+                    title: "{pressure_name}", "aria-label": "{pressure_name}", "aria-pressed": "{pressure}",
+                    onclick: move |_| st.set_value("ink.pressure", if pressure_on(st) { "0" } else { "1" }),
+                    span { class: "pencil-pressure-line" }
+                }
+            }
+            if let Some(ratio) = scale {
+                button { class: "pencil-btn pencil-scale", title: "{scale_name}", "aria-label": "{scale_name}",
+                    onclick: move |_| crate::commands::dispatch(st, "tool.calibrate"),
+                    Icon { name: "measure" }
+                    span { class: "pencil-width-text", "{ratio}" }
+                }
             }
             if closed(tool) {
                 div { class: "pencil-width-wrap",

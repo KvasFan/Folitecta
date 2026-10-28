@@ -110,6 +110,22 @@ fn numbers(doc: &lopdf::Document, obj: Option<&Object>) -> Vec<f32> {
         .unwrap_or_default()
 }
 
+/// Folitecta's entry of an ink comment drawn with a pen that tells how hard
+/// it presses: one array per path of `/InkList`, a number from 0 to 1 per
+/// point. The appearance drawn from it is in `/AP` for every reader.
+pub(crate) const INK_PRESSURE: &str = "FolitectaPressure";
+
+/// The pressures of the paths of an ink comment, one list per path; empty
+/// when its strokes were not drawn with a pen.
+pub(crate) fn ink_pressures(doc: &lopdf::Document, d: &Dictionary) -> Vec<Vec<f32>> {
+    d.get(INK_PRESSURE.as_bytes())
+        .ok()
+        .map(|l| deref(doc, l))
+        .and_then(|l| l.as_array().ok())
+        .map(|l| l.iter().map(|p| numbers(doc, Some(p))).collect())
+        .unwrap_or_default()
+}
+
 /// A colour array with 1 (gray), 3 (RGB) or 4 (CMYK) components; empty means none.
 fn color_from(doc: &lopdf::Document, obj: Option<&Object>) -> Option<[f32; 3]> {
     let v = numbers(doc, obj);

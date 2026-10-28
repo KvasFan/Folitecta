@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
-use crate::appearance::{AnnotStyle, apply_style};
+use crate::appearance::{AnnotStyle, INK_PRESSURE, apply_style};
 use crate::document::Document;
 use crate::error::{Error, Result};
 use crate::util::{self, color_of, deref, dict_text, rect_of};
@@ -445,6 +445,38 @@ impl Document {
         style: &AnnotStyle,
         author: &str,
     ) -> Result<ObjectId> {
+        self.add_ink_with(page, paths, None, style, author)
+    }
+
+    /// Add a stroke of a pen that told how hard it pressed: `pressures`
+    /// (0 to 1) one per point of `path`. Its width follows them, from 0.3
+    /// to 1.7 times the width of `style` (the width itself at half the
+    /// pressure); they are kept with the comment, so it is drawn so again
+    /// when it is moved, restyled or erased in part.
+    pub fn add_pressed_ink(
+        &mut self,
+        page: usize,
+        path: &[(f32, f32)],
+        pressures: &[f32],
+        style: &AnnotStyle,
+        author: &str,
+    ) -> Result<ObjectId> {
+        if pressures.len() != path.len() {
+            return Err(Error::Invalid(
+                "a pen stroke needs a pressure for every point".into(),
+            ));
+        }
+        self.add_ink_with(page, &[path.to_vec()], Some(&[pressures.to_vec()]), style, author)
+    }
+
+    fn add_ink_with(
+        &mut self,
+        page: usize,
+        paths: &[Vec<(f32, f32)>],
+        pressures: Option<&[Vec<f32>]>,
+        style: &AnnotStyle,
+        author: &str,
+    ) -> Result<ObjectId> {
         let page_id = self.page_id(page)?;
         let pts: Vec<(f32, f32)> = paths.iter().flatten().copied().collect();
         if pts.len() < 2 {
@@ -461,6 +493,20 @@ impl Document {
             .map(|p| Object::Array(p.iter().flat_map(|(x, y)| [(*x).into(), (*y).into()]).collect()))
             .collect();
         annot.set("InkList", Object::Array(ink_list));
+        if let Some(pressures) = pressures {
+            // Two decimals are more than a pen tells apart.
+            let list: Vec<Object> = pressures
+                .iter()
+                .map(|p| {
+                    Object::Array(
+                        p.iter()
+                            .map(|v| ((v.clamp(0.0, 1.0) * 100.0).round() / 100.0).into())
+                            .collect(),
+                    )
+                })
+                .collect();
+            annot.set(INK_PRESSURE, Object::Array(list));
+        }
         apply_style(&mut annot, "Ink", style);
         self.finish_annotation(page_id, annot)
     }

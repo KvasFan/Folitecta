@@ -4,6 +4,30 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-28 — FOL-L025, FOL-L028: the panel of the measures; pen pressure (0.5.0)
+
+- **Current state before:** the measuring tools had no quick panel and went back to the hand after
+  one measure; the Pencil drew every stroke at one width, whatever the pen.
+- **Changed:** core `smooth.rs`: `smooth_pressed_stroke` (the pressures follow the points kept,
+  softened, and the curve), `pressed_width` (0.3 to 1.7 times the width), `stroke_outline` (both
+  sides and round ends); `add_pressed_ink` writes `FolitectaPressure` (one array per path) and
+  the appearance of such a stroke is its outline filled in one piece (no darker overlaps when not
+  opaque); moving, restyling and the eraser keep the pressures (`erase_ink` splits them with the
+  points). App: `quick_panel.rs` has the measuring tools (`measuring`) with a scale button that
+  opens Measurement Scale, and a pressure button for the Pencil (`ink.pressure`, on unless turned
+  off); `page.rs` listens to pointer events only with the Pencil and the pressure on, keeps the
+  pressure of a pen outside the signals and draws the stroke being made as its outline;
+  `create.rs` adds a pen stroke with its pressures; the measuring tools stay chosen.
+- **Checked:** core unit tests (pressures through smoothing, outlines) and `tests/pen_pressure.rs`
+  (thin start and thick end, rectangle, saved and reopened with the same pressures and drawing,
+  moved and restyled, erased in two pieces with their pressures, strokes without pressure as
+  before, a missing pressure refused). Self-test step `pencil`: the distance panel shows
+  "1 mm = 1 mm", blue chosen, two distances in a row, the scale dialog opened from the panel; a
+  stroke of stand-in pen events (pressure 0.05 to 1) keeps light and hard pressures; with the
+  button off an even stroke; seven buttons with the Pencil.
+- **Open:** real tablets and styluses on Windows, macOS and Linux (WebKitGTK and WebView2 give
+  the pressure of pen events; not tried with a device here); the tilt of the pen.
+
 ## 2026-10-28 — FOL-L025: the quick panel for the highlighter and the shapes (0.5.0)
 
 - **Current state before:** only the Pencil had the quick panel.

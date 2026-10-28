@@ -1,7 +1,7 @@
 # Folitecta roadmap and progress
 
 State of every requirement of [REQUIREMENTS.md](REQUIREMENTS.md) on the `main` branch at
-Folitecta 0.5.0, reviewed on **28 October 2026** against the code (not only the command
+Folitecta 0.6.0, reviewed on **28 October 2026** against the code (not only the command
 registry). Update the row of a requirement whenever a sub-task changes it, and log the work in
 [PROGRESS.md](PROGRESS.md).
 
@@ -114,7 +114,7 @@ path editing (FOL-L021), keystroke and page scripts (FOL-L034), real cards and s
    (pointer events of type pen): its width changes along the stroke, drawn as a filled outline
    and kept with the comment (`FolitectaPressure`); a button of the Pencil's panel turns it off.
 
-### 0.6.0 — safe edits
+### 0.6.0 — safe edits (released 28 October 2026)
 
 Page operations keep or update what ties a document together, and say before committing what
 they cannot keep (FOL-L052, FOL-L015, FOL-L051).

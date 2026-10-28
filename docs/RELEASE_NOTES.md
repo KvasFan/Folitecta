@@ -1,36 +1,37 @@
-## Folitecta 0.5.0 — drawing at hand
+## Folitecta 0.6.0 — safe edits
 
 A free PDF editor written entirely in Rust with a Dioxus desktop interface. This release makes
-drawing and measuring quicker: the tools now carry their own small panel over the pages, and the
-Pencil follows the pressure of a pen.
+page operations safe: what ties a document together — bookmarks, links, named destinations, form
+fields, comments and tags — now follows the pages when they leave, arrive or are copied, and
+Folitecta says before OK what it cannot keep.
 
-- **A quick panel for every drawing tool**: choosing the Pencil, the free highlighter, a shape
-  (rectangle, ellipse, line, arrow, polygon, polyline, cloud) or a measuring tool opens a small
-  panel over the pages with the thickness of the line, four colours and the colour palette for
-  any other. Closed shapes also get their fill. What you choose there is used by the next
-  comments of that tool, and the panel goes with another tool.
-- **Measuring at hand**: the panel of the distance, perimeter, area, angle, radius and volume
-  tools shows the scale of the measures and opens it with a click; the measuring tools stay
-  chosen, so several measures are taken one after the other.
-- **Pen pressure**: with a graphics tablet or a stylus that tells how hard it presses, the
-  Pencil's stroke is thinner where the pen presses lightly and thicker where it presses hard. It
-  shows so while you draw, is saved as an appearance every reader shows, and keeps its pressures
-  when it is moved, restyled or partly erased. A button of the Pencil's panel turns it off; the
-  mouse draws as before. Tried with simulated pen input so far — reports from real tablets are
-  welcome.
+- **Deleted pages really go**: deleting, extracting or splitting pages takes away the bookmarks,
+  named destinations and links that lead to the pages that go, their form fields and tags, and
+  the opening view when it showed one of them. Before, a page a bookmark or a tag still pointed
+  to stayed inside the saved file; now nothing of it is left. Delete Pages names what goes with
+  the pages and asks first.
+- **Inserted pages bring their parts**: Insert Pages from a file and Combine Files bring the form
+  fields of those pages into the form, with their named destinations, bookmarks, layers and —
+  when the document is tagged — their tags. A field or destination name the document already has
+  gets a suffix (`name_2`), the links follow, and the insert window lists the renames before OK.
+  Combine Files puts each file under a bookmark named after it.
+- **Duplicated pages are copies of their own**: a note on a copy keeps its pop-up and its replies;
+  the fields of a copy are more widgets of the same fields, so both pages show the same values.
+- **Exports written whole**: pictures, text, attachments, form data, comments, Office documents,
+  digital IDs and settings go to a temporary file first and replace the target only when
+  complete, as saving a PDF already did.
 
-Everything 0.4.0 and 0.4.1 brought — PDF/A preflight and conversion, grey conversion, picture
-recompression, vector path editing, action sequences, office exports, a sandboxed JavaScript
-engine, signing with cards, tokens and the system store — is described in their notes and in
+Everything 0.5.0 brought — the quick panels of the drawing and measuring tools and pen pressure
+for the Pencil — and the earlier releases is described in their notes and in
 [CHANGELOG.md][changelog].
 
 **Binaries**
 
 | Platform | File |
 |---|---|
-| Windows x64 | `folitecta-0.5.0-windows-x64.zip` |
-| Linux x64 | `folitecta-0.5.0-linux-x64.tar.gz` |
-| macOS (Apple silicon and Intel) | `folitecta-0.5.0-macos-universal.zip` (app bundle) or `folitecta-0.5.0-macos-universal.tar.gz` (binary) |
+| Windows x64 | `folitecta-0.6.0-windows-x64.zip` |
+| Linux x64 | `folitecta-0.6.0-linux-x64.tar.gz` |
+| macOS (Apple silicon and Intel) | `folitecta-0.6.0-macos-universal.zip` (app bundle) or `folitecta-0.6.0-macos-universal.tar.gz` (binary) |
 
 Each package carries the `dictionaries`, `ocr` and `fonts` folders next to the program (in the
 app bundle's resources on macOS): keep them with it. SHA-256 checksums are attached.
@@ -47,7 +48,7 @@ app bundle's resources on macOS): keep them with it. SHA-256 checksums are attac
 The status of every command is in [docs/FEATURES.md][features]; known limitations are in
 [docs/ARCHITECTURE.md][limits] and [ai/ROADMAP.md][roadmap].
 
-[changelog]: https://github.com/KvasFan/Folitecta/blob/main/CHANGELOG.md#050---2026-10-28
-[features]: https://github.com/KvasFan/Folitecta/blob/v0.5.0/docs/FEATURES.md
+[changelog]: https://github.com/KvasFan/Folitecta/blob/main/CHANGELOG.md#060---2026-10-28
+[features]: https://github.com/KvasFan/Folitecta/blob/v0.6.0/docs/FEATURES.md
 [limits]: https://github.com/KvasFan/Folitecta/blob/main/docs/ARCHITECTURE.md#known-limitations
 [roadmap]: https://github.com/KvasFan/Folitecta/blob/main/ai/ROADMAP.md

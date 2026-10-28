@@ -6,6 +6,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-28
+
 ### Added
 - Inserting pages from a file and Combine Files bring what belongs to those pages: their form
   fields join the form, their named destinations, bookmarks and layers come along, and so do

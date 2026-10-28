@@ -11,6 +11,9 @@ All notable changes to Folitecta are documented here. The format follows
   thickness of the stroke (0.5 to 8 points), four standard colours — black, green, blue and red —
   and a button that opens the colour palette for any other colour. They set the style of the
   next strokes, which the Pencil keeps; the panel goes with another tool.
+- The same quick panel for the free highlighter (yellow, green, pink and blue, thicker lines)
+  and the shape tools — rectangle, ellipse, line, arrow, polygon, polyline and cloud — with the
+  fill of closed shapes (none, the four colours or any colour of the palette).
 
 ## [0.4.1] - 2026-10-26
 

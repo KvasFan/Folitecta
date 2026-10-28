@@ -93,7 +93,13 @@ pub fn CanvasArea() -> Element {
                     crate::ui::features::read_aloud::ReadAloudBar {}
                 }
                 Loupe {}
-                if *st.tool.read() == Tool::Ink { crate::ui::features::pencil::PencilPanel {} }
+                if crate::ui::features::quick_panel::has_panel(*st.tool.read()) {
+                    // Keyed by the tool: another tool starts with its popovers closed.
+                    {
+                        let tool = *st.tool.read();
+                        rsx! { crate::ui::features::quick_panel::QuickPanel { key: "{tool:?}", tool } }
+                    }
+                }
                 if option_on(st, "view.panzoom") { PanZoomWindow {} }
                 if option_on(st, "view.commentStyles") { crate::ui::panes::comment_styles::StylesPalette {} }
             }

@@ -42,7 +42,7 @@ pub const CSS: &str = concat!(
     include_str!("../assets/styles/features/scans.css"),
     include_str!("../assets/styles/features/scanning.css"),
     include_str!("../assets/styles/features/templates.css"),
-    include_str!("../assets/styles/features/pencil.css"),
+    include_str!("../assets/styles/features/quick-panel.css"),
     include_str!("../assets/styles/features/policies.css"),
     include_str!("../assets/styles/features/mail.css"),
     include_str!("../assets/styles/features/print.css"),

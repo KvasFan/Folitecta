@@ -4,6 +4,19 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-28 — FOL-L025: the quick panel for the highlighter and the shapes (0.5.0)
+
+- **Current state before:** only the Pencil had the quick panel.
+- **Changed:** `ui/features/pencil.rs` became `quick_panel.rs`: `QuickPanel { tool }` for the
+  Pencil, the free highlighter (yellow, green, pink, blue; 6 to 28 points) and the rectangle,
+  ellipse, line, arrow (the line's style), polygon, polyline and cloud tools; closed shapes get a
+  fill button (none, the four colours, the palette); `set_tool_style` writes the default style of
+  the tool's kind (`tool_subtype`). The panel is keyed by the tool, so popovers start closed.
+- **Checked:** self-test step `pencil` grown: the rectangle's panel with seven buttons, blue
+  filled with green chosen and a rectangle drawn so; the highlighter's own colours and no fill;
+  the panel gone with the Hand tool. Tools step unchanged.
+- **Open:** measurement tools; a pressure-sensitive pen.
+
 ## 2026-10-26 — FOL-L025: the Pencil's quick panel (0.5.0)
 
 - **Current state before:** the thickness and colour of the Pencil were set in the comment

@@ -32,8 +32,8 @@ checked, what is still open. The history before October 2026 is in
   tests passed and 0 failed, `docs/FEATURES.md` regenerated. Self-test steps `formats` (3: the
   Date tool and a refused date kept in the editor, a calendar day written as 10/15/2026, a number
   field with a highest value from the properties pane) and `my_templates` (2), with `tools`,
-  `field_scripts` and `templates`: 0 problems. The full self-test was not run for this commit
-  (intermediate commit asked by the user): run it before the release.
+  `field_scripts` and `templates`: 0 problems. Full self-test on 098437e: 293 states, 313
+  interactions, 0 problems.
 - **Open:** search and categories for the user's templates, their import and export; picture
   fields; formats applied to imported form data.
 

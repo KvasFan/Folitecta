@@ -4,6 +4,18 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-28 — release 0.5.0: check of the published packages
+
+- **What:** the eight files of the v0.5.0 release (tag `029e1a8`; CI and release workflows green)
+  downloaded and checked.
+- **Found right:** SHA-256 of the four packages equal to their `.sha256` files; Windows PE32+
+  x86-64 and Linux ELF x86-64; the `ocr`, `dictionaries`, `fonts` and `docs` folders of the
+  Windows and Linux packages equal file by file. The steps `ocr`, `spelling` and `unicode` passed
+  with the packaged Linux executable started from another working folder (13 results, 0
+  problems), so the data folders are found next to the executable.
+- **Open:** the Windows executable itself was not run: this machine has Wine without the WebView2
+  runtime. Run the three steps with it on Windows when one is at hand.
+
 ## 2026-10-28 — FOL-L025, FOL-L028: the panel of the measures; pen pressure (0.5.0)
 
 - **Current state before:** the measuring tools had no quick panel and went back to the hand after

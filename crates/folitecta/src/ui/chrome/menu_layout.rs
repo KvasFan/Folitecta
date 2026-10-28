@@ -70,6 +70,7 @@ pub const MENUS: &[(&str, &[Item])] = &[
                     Cmd("saveCopyAs"),
                     Cmd("saveAll"),
                     Cmd("saveUnrestricted"),
+                    Cmd("saveAsTemplate"),
                     Cmd("saveImage"),
                     Sep,
                     Cmd("saveAsGroup"),

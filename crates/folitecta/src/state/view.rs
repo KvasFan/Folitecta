@@ -58,6 +58,7 @@ pub enum Tool {
     FileAttachment,
     EditFields,
     FieldText,
+    FieldDate,
     FieldCheck,
     FieldRadio,
     FieldCombo,
@@ -167,6 +168,7 @@ impl Tool {
             Tool::FileAttachment => "tool.annot.fileAttachment",
             Tool::EditFields => "tool.editFields.mode.select",
             Tool::FieldText => "tool.editFields.mode.text",
+            Tool::FieldDate => "tool.editFields.mode.date",
             Tool::FieldCheck => "tool.editFields.mode.check",
             Tool::FieldRadio => "tool.editFields.mode.radio",
             Tool::FieldCombo => "tool.editFields.mode.combo",
@@ -233,6 +235,7 @@ impl Tool {
             Tool::FileAttachment => "tool.file_attachment",
             Tool::EditFields => "tool.edit_fields",
             Tool::FieldText => "tool.field_text",
+            Tool::FieldDate => "tool.field_date",
             Tool::FieldCheck => "tool.field_check",
             Tool::FieldRadio => "tool.field_radio",
             Tool::FieldCombo => "tool.field_combo",
@@ -262,6 +265,7 @@ impl Tool {
         use folitecta_core::NewField as F;
         Some(match self {
             Tool::FieldText => F::Text,
+            Tool::FieldDate => F::Date,
             Tool::FieldCheck => F::CheckBox,
             Tool::FieldRadio => F::RadioButton,
             Tool::FieldCombo => F::ComboBox,

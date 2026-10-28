@@ -8,6 +8,7 @@ pub(super) fn create_field(st: AppState, page: usize, size: &PageSize, tool: Too
     let Some(kind) = tool.new_field() else { return };
     let (dw, dh) = match kind {
         NewField::Text | NewField::ComboBox => (160.0, 22.0),
+        NewField::Date => (110.0, 22.0),
         NewField::CheckBox | NewField::RadioButton => (14.0, 14.0),
         NewField::ListBox => (160.0, 64.0),
         NewField::PushButton => (90.0, 24.0),
@@ -67,6 +68,10 @@ pub(super) fn create_field(st: AppState, page: usize, size: &PageSize, tool: Too
                 .collect()
         }
         NewField::PushButton => props.caption = t(st.lang(), "field.button_caption"),
+        // The date format of the language of the interface.
+        NewField::Date => {
+            props.format = folitecta_core::FieldFormat::Date(t(st.lang(), "field.date_format_default"))
+        }
         _ => {}
     }
     match st.with_active(|t| t.doc.add_form_field(page, kind, rect, &props)) {

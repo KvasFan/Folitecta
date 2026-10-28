@@ -414,6 +414,8 @@ pub enum Dialog {
     CleanUpScans,
     /// The gallery of templates of new documents.
     Templates,
+    /// Save the active document as one of the user's templates.
+    SaveTemplate,
     /// Scanning pages into a new document.
     Scan,
     /// Action sequences: editing them and running them.

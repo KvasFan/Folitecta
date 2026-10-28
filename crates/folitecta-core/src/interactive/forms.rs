@@ -281,8 +281,22 @@ impl Document {
                 field.name
             )));
         }
-        // A validation script may refuse the value, saying why.
+        // The keystroke script sees the value as committed, then a
+        // validation script; either may refuse it, saying why.
         if field.kind == FieldKind::Text || field.kind == FieldKind::ComboBox {
+            if let Some(run) = self.run_field_script(field.id, b"K", value) {
+                if run.ok && !run.event_rc {
+                    let why = run
+                        .out
+                        .iter()
+                        .find(|(k, _)| k == "alert")
+                        .map(|(_, t)| t.clone())
+                        .unwrap_or_else(|| {
+                            format!("the value of \"{}\" does not match its format", field.name)
+                        });
+                    return Err(Error::Invalid(why));
+                }
+            }
             if let Some(run) = self.run_field_script(field.id, b"V", value) {
                 if run.ok && !run.event_rc {
                     let why = run

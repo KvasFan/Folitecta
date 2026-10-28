@@ -1246,6 +1246,7 @@
   "cmd.saveAs": "Salva con nome…",
   "cmd.saveAsCopy": "Salva una copia…",
   "cmd.saveAsGroup": "Salva con nome",
+  "cmd.saveAsTemplate": "Salva come modello…",
   "cmd.saveCopyAs": "Salva copia con nome…",
   "cmd.saveCurrentSession": "Salva sessione corrente",
   "cmd.saveCurrentSessionToFile": "Salva sessione corrente su file…",

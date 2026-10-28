@@ -139,6 +139,27 @@ they cannot keep (FOL-L052, FOL-L015, FOL-L051).
 5. ~~**FOL-L051 — exports through a temporary file.**~~ Done: pictures, text, attachments, form
    data, comments, Office documents, digital IDs and settings go through `util::write_atomic`.
 
+### 0.7.0 — forms that check themselves
+
+Fields that know what they hold: dates, times, numbers and ranges chosen, not written as
+scripts, and checked when a value is committed (FOL-L031, FOL-L032), and the user's own
+templates (FOL-L010).
+
+1. ~~**FOL-L031, FOL-L032 — dates and times in the script engine.**~~ Done: `AFDate_*` and
+   `AFTime_*`, `util.printd` with every format letter and `util.scand` (English and Italian
+   month names, week days left out, two-digit years, only dates that exist); the keystroke script
+   runs when a value is committed, so a date that does not exist or a word in a number field is
+   refused, naming the format (`interactive/js.rs`).
+2. ~~**FOL-L031 — a date field.**~~ Done: the designer's Date tool makes a text field with the
+   date format of the language; filling it offers a calendar, and a refused value stays in the
+   editor (`ui/features/calendar.rs`).
+3. ~~**FOL-L032 — formats and checks chosen.**~~ Done: `FieldFormat` and `FieldCheck`
+   (`interactive/form_format.rs`), properties of a text field written as the standard scripts and
+   read back from those other programs write; hand-written scripts stay as they are.
+4. ~~**FOL-L010 — the user's own templates.**~~ Done: File › Save as Template…; My templates in the
+   gallery with origin, date, version and the fonts a template needs, new documents from them,
+   rename and remove (`organize/user_templates.rs`).
+
 ### Later
 
 FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
@@ -165,7 +186,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L007 | P2 | ⬜ | — | File associations (`help.fileAssoc`), virtual printer, office add-ins. |
 | FOL-L008 | P2 | ⬜ | — | XPS/OXPS, metafiles, CAD: engine decision first. |
 | FOL-L009 | P1/P2 | 🟡 | export to pictures (PNG, JPEG, TIFF, …), text, embedded pictures, attachments, split and extracted documents; the text as editable Word (DOCX), rich text (RTF) and web page (HTML) documents, headings and paragraphs in reading order, page breaks on request, a report of what is left out | Pictures, tables with their columns and number types (XLSX), PPTX, page fidelity layouts, accessible text export. |
-| FOL-L010 | P1 | 🟡 | stamps have categories and favourites; a gallery of document templates (papers, week and month planners, a to-do list, a letter, meeting notes, an invoice that adds itself up) on any paper, in the language of the interface | The user's own templates (save a document as a template, a folder of them in the gallery). |
+| FOL-L010 | P1 | 🟡 | stamps have categories and favourites; a gallery of document templates (papers, week and month planners, a to-do list, a letter, meeting notes, an invoice that adds itself up) on any paper, in the language of the interface; the user's own templates (Save as Template…, My templates in the gallery with origin, date, version and the fonts they need; new documents from them, rename, remove) | Search and categories of the user's templates; import and export of templates. |
 
 ### Scanning and OCR
 
@@ -216,8 +237,8 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L031 | P1 | 🟡 | form designer for every field type, items of choice fields, pictures of push buttons, tab order, align/duplicate, fill & sign | A real date field (format, picker, validation); same-name policy when duplicating/merging. |
-| FOL-L032 | P1 | 🟡 | XFDF/FDF/CSV/TXT import and export, filling copies from table rows, calculation order, simple calculations computed in Rust | Named XML profiles, number/date formats and validation, page templates. |
+| FOL-L031 | P1 | 🟡 | form designer for every field type and a date field (format of the language, a calendar while filling, dates that do not exist refused), items of choice fields, pictures of push buttons, tab order, align/duplicate, fill & sign; duplicated pages share their fields, inserted ones get renamed (FOL-L015) | Picture fields; overflow of text reported while filling. |
+| FOL-L032 | P1 | 🟡 | XFDF/FDF/CSV/TXT import and export, filling copies from table rows, calculation order, simple calculations computed in Rust; number, percentage, date, time and special formats and number ranges chosen in the properties and checked when a value is committed (the standard `AF…` scripts) | Named XML profiles, page templates; formats applied to imported data. |
 | FOL-L033 | P2 | ⬜ | — | XFA engine decision. |
 | FOL-L034 | P2 | 🟡 | document scripts and actions listed and edited; a sandboxed engine (Boa, loop and recursion limits, nothing of the system in reach) with a documented API for the console, the calculate, format and validate scripts of fields (typed in their properties) and the `AF…` functions of forms; console time limit | Keystroke scripts while typing, page and document events, action chains, a database bridge. |
 

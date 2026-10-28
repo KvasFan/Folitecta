@@ -26,3 +26,4 @@ pub mod scans;
 pub mod templates;
 pub mod textdoc;
 pub(crate) mod typeset;
+pub mod user_templates;

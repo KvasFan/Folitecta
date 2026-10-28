@@ -430,6 +430,7 @@ mod steps_features;
 mod steps_field_items;
 mod steps_field_scripts;
 mod steps_files;
+mod steps_formats;
 mod steps_frames;
 mod steps_grey;
 mod steps_groups;
@@ -437,6 +438,7 @@ mod steps_jumps;
 mod steps_layer_drawing;
 mod steps_layout;
 mod steps_links;
+mod steps_my_templates;
 mod steps_note_icon;
 mod steps_ocr;
 mod steps_office;
@@ -517,6 +519,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "barcodes" => Box::pin(steps_barcodes::run(cx)),
             "calc" => Box::pin(steps_calc::run(cx)),
             "field_scripts" => Box::pin(steps_field_scripts::run(cx)),
+            "formats" => Box::pin(steps_formats::run(cx)),
             "cards" => Box::pin(steps_cards::run(cx)),
             "split_view" => Box::pin(steps_split_view::run(cx)),
             "groups" => Box::pin(steps_groups::run(cx)),
@@ -537,6 +540,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "preflight" => Box::pin(steps_preflight::run(cx)),
             "scanning" => Box::pin(steps_scanning::run(cx)),
             "templates" => Box::pin(steps_templates::run(cx)),
+            "my_templates" => Box::pin(steps_my_templates::run(cx)),
             "field_items" => Box::pin(steps_field_items::run(cx)),
             "policies" => Box::pin(steps_policies::run(cx)),
             "qat" => Box::pin(steps_qat::run(cx)),
@@ -591,6 +595,7 @@ const STEPS: &[&str] = &[
     "barcodes",
     "calc",
     "field_scripts",
+    "formats",
     "cards",
     "split_view",
     "groups",
@@ -611,6 +616,7 @@ const STEPS: &[&str] = &[
     "reading",
     "contents",
     "templates",
+    "my_templates",
     "field_items",
     "policies",
     "qat",

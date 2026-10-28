@@ -133,7 +133,6 @@ static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {
 /// Commands that perform a reduced version of the full operation.
 pub const PARTIAL: &[&str] = &[
     "fontName",
-    "tool.editFields.mode.date",
     "copySrcFile",
     // From the locale environment variables only.
     "macro.region",

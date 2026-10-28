@@ -3,16 +3,17 @@
 //! thread, the words of the templates in the language of the interface.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use dioxus::prelude::*;
 use folitecta_core::templates::WORDS;
-use folitecta_core::{Document, Renderer, Template, TemplateOptions};
+use folitecta_core::{Document, Renderer, Template, TemplateOptions, UserTemplate};
 
-use crate::commands::handlers;
+use crate::commands::{handlers, no_doc};
 use crate::files;
-use crate::i18n::{Lang, t};
-use crate::state::{AppState, Dialog};
+use crate::i18n::{Lang, t, tf};
+use crate::state::{AppState, Dialog, ToastKind};
 
 /// The pictures of the templates drawn so far, by [`picture_key`].
 pub static PICTURES: GlobalSignal<HashMap<String, String>> = Signal::global(HashMap::new);
@@ -104,6 +105,175 @@ pub fn create(st: AppState, tpl: Template, opts: TemplateOptions) {
     });
 }
 
+/// The folder of the user's own templates.
+pub fn templates_dir() -> Option<PathBuf> {
+    crate::state::app_data_dir().map(|d| d.join("Templates"))
+}
+
+/// A template of the user: its file, what it says of itself, the picture
+/// of its first page.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MyTemplate {
+    pub path: PathBuf,
+    pub info: UserTemplate,
+    pub picture: Option<String>,
+}
+
+/// The user's templates as last read (`None` until they are read).
+pub static MINE: GlobalSignal<Option<Vec<MyTemplate>>> = Signal::global(|| None);
+
+/// Read the user's templates again, away from the interface.
+pub fn load_mine() {
+    dioxus::core::spawn_forever(async move {
+        let list = tokio::task::spawn_blocking(read_mine).await.unwrap_or_default();
+        *MINE.write() = Some(list);
+    });
+}
+
+/// The templates of the folder, by name, with their pictures; files that
+/// are not templates are left out.
+fn read_mine() -> Vec<MyTemplate> {
+    let Some(entries) = templates_dir().and_then(|d| std::fs::read_dir(d).ok()) else {
+        return Vec::new();
+    };
+    let mut out: Vec<MyTemplate> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|x| x.eq_ignore_ascii_case("pdf")))
+        .filter_map(|path| {
+            let doc = Document::from_bytes(std::fs::read(&path).ok()?, None, None).ok()?;
+            let info = doc.template_info()?;
+            let picture = doc.page_size(0).ok().and_then(|size| {
+                let scale = PICTURE_WIDTH / size.width.max(1.0);
+                Renderer::new(doc.bytes())
+                    .and_then(|r| r.render_page(0, scale))
+                    .ok()
+            });
+            let picture = picture.map(|p| {
+                use base64::Engine;
+                format!(
+                    "data:image/png;base64,{}",
+                    base64::engine::general_purpose::STANDARD.encode(p.png)
+                )
+            });
+            Some(MyTemplate { path, info, picture })
+        })
+        .collect();
+    out.sort_by_key(|m| m.info.name.to_lowercase());
+    out
+}
+
+/// A file name for a template named `name` that is not taken in `dir`.
+fn file_for(dir: &Path, name: &str) -> PathBuf {
+    let mut base: String = name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    base = base.trim_matches('-').to_string();
+    if base.is_empty() {
+        base = "template".into();
+    }
+    (1..)
+        .map(|i| {
+            if i == 1 {
+                dir.join(format!("{base}.pdf"))
+            } else {
+                dir.join(format!("{base}-{i}.pdf"))
+            }
+        })
+        .find(|p| !p.exists())
+        .unwrap_or_else(|| dir.join(format!("{base}.pdf")))
+}
+
+/// Whether a template of the user is called `name` (other than `except`).
+fn name_used(name: &str, except: Option<&Path>) -> bool {
+    MINE.peek().as_ref().is_some_and(|list| {
+        list.iter()
+            .any(|m| m.info.name.eq_ignore_ascii_case(name.trim()) && Some(m.path.as_path()) != except)
+    })
+}
+
+/// Save the active document as a template named `name`.
+pub fn save_as_template(st: AppState, name: String) {
+    let lang = st.lang();
+    if name_used(&name, None) {
+        st.error(tf(lang, "templates.name_used", &[("name", name.trim())]));
+        return;
+    }
+    let Some(dir) = templates_dir() else { return };
+    let Some(made) = st.read_active(|t| t.doc.template_bytes(&name)) else {
+        return;
+    };
+    let written = made.map_err(|e| st.core_error_text(&e)).and_then(|bytes| {
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let path = file_for(&dir, &name);
+        folitecta_core::util::write_atomic(&path, bytes).map_err(|e| format!("{}: {e}", path.display()))
+    });
+    match written {
+        Ok(()) => {
+            st.set_dialog(Dialog::None);
+            st.toast(
+                ToastKind::Ok,
+                tf(lang, "templates.saved", &[("name", name.trim())]),
+                "",
+            );
+            load_mine();
+        }
+        Err(e) => st.error(e),
+    }
+}
+
+/// A new document from the template file `path` (in a tab of its own).
+pub fn create_from_mine(st: AppState, path: PathBuf) {
+    st.set_dialog(Dialog::None);
+    dioxus::core::spawn_forever(async move {
+        let made = tokio::task::spawn_blocking(move || {
+            let bytes = std::fs::read(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+            Document::from_template_file(bytes).map_err(|e| e.to_string())
+        })
+        .await;
+        match made {
+            Ok(Ok(doc)) => files::open_document_tab(st, doc),
+            Ok(Err(e)) => st.error(e),
+            Err(_) => {}
+        }
+    });
+}
+
+/// Give a template of the user another name.
+pub fn rename_mine(st: AppState, path: PathBuf, name: String) {
+    if name.trim().is_empty() {
+        return;
+    }
+    if name_used(&name, Some(&path)) {
+        st.error(tf(st.lang(), "templates.name_used", &[("name", name.trim())]));
+        return;
+    }
+    let r = std::fs::read(&path)
+        .map_err(|e| e.to_string())
+        .and_then(|b| folitecta_core::user_templates::renamed_template(b, &name).map_err(|e| e.to_string()))
+        .and_then(|b| folitecta_core::util::write_atomic(&path, b).map_err(|e| e.to_string()));
+    match r {
+        Ok(()) => load_mine(),
+        Err(e) => st.error(e),
+    }
+}
+
+/// Move a template of the user to the bin.
+pub fn remove_mine(st: AppState, path: PathBuf) {
+    match crate::util::move_to_trash(&path) {
+        Ok(()) => load_mine(),
+        Err(e) => st.error(e),
+    }
+}
+
 handlers! {
     "newDocTemplate" => |st| st.set_dialog(Dialog::Templates),
+    "saveAsTemplate" => |st| if !no_doc(st) { st.set_dialog(Dialog::SaveTemplate) },
 }

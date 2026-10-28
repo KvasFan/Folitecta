@@ -7,10 +7,17 @@ use crate::files;
 use crate::i18n::t;
 use crate::state::{AppState, ToastKind};
 
-fn set_value(st: AppState, field: (u32, u16), value: &str) {
+/// Set the value of a field; `false` when it was refused (said in a toast).
+fn set_value(st: AppState, field: (u32, u16), value: &str) -> bool {
     match st.with_active(|t| t.doc.set_field_value(field, value)) {
-        Some(Err(e)) => st.error(e),
-        _ => files::set_window_title(st),
+        Some(Err(e)) => {
+            st.error(e);
+            false
+        }
+        _ => {
+            files::set_window_title(st);
+            true
+        }
     }
 }
 
@@ -37,7 +44,9 @@ pub fn fill_field(st: AppState, page: usize, w: &PageWidget) {
             };
             set_value(st, w.field, &next);
         }
-        FieldKind::RadioButton => set_value(st, w.field, &w.on_state),
+        FieldKind::RadioButton => {
+            set_value(st, w.field, &w.on_state);
+        }
         FieldKind::PushButton => st.toast(ToastKind::Info, t(st.lang(), "toast.button_actions"), ""),
         FieldKind::Signature => st.toast(ToastKind::Info, t(st.lang(), "toast.signature_field"), ""),
         FieldKind::Unknown(_) => {}
@@ -60,15 +69,26 @@ pub fn FieldInput(
     let mut done = use_signal(|| false);
     let field = widget.field;
     let original = use_signal(|| widget.value.clone());
+    // A date field: its format, for the calendar.
+    let date_format = use_hook(|| {
+        st.read_active(|t| match t.doc.field_format(field) {
+            folitecta_core::FieldFormat::Date(f) => Some(f),
+            _ => None,
+        })
+        .flatten()
+    });
+    let mut calendar = use_signal(|| false);
+    // A value the field refuses keeps the editor open with what was typed.
     let mut commit = move |value: String| {
         if *done.peek() {
             return;
         }
+        if value != *original.peek() && !set_value(st, field, &value) {
+            draft.set(value);
+            return;
+        }
         done.set(true);
         st.set_editing_field(None);
-        if value != *original.peek() {
-            set_value(st, field, &value);
-        }
     };
     let mut cancel = move || {
         done.set(true);
@@ -111,6 +131,21 @@ pub fn FieldInput(
                     if e.key() == Key::Enter || e.key() == Key::Tab { commit(draft()); }
                 },
                 onblur: move |_| commit(draft()),
+            }
+            if let Some(fmt) = date_format.clone() {
+                // Pressing it keeps the focus in the field.
+                button { class: "ibtn field-calendar-btn", title: "{t(st.lang(), \"calendar.open\")}",
+                    style: "left:{left + width.max(24.0) + 2.0}px;top:{top}px;height:{height.max(14.0)}px",
+                    onmousedown: move |e| { e.prevent_default(); e.stop_propagation(); },
+                    onclick: move |_| calendar.set(!calendar()),
+                    crate::icons::Icon { name: "calendar" }
+                }
+                if calendar() {
+                    crate::ui::features::calendar::DateCalendar {
+                        format: fmt, value: draft(), left, top: top + height.max(14.0) + 2.0,
+                        on_pick: move |v: String| commit(v),
+                    }
+                }
             }
         },
         FieldKind::ComboBox => {

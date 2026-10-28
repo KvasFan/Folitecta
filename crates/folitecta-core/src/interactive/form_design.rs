@@ -6,12 +6,16 @@ use lopdf::{Dictionary, Object, ObjectId, dictionary};
 use crate::appearance::parse_da;
 use crate::document::Document;
 use crate::error::{Error, Result};
+use crate::form_format::{DATE_FORMATS, FieldCheck, FieldFormat};
 use crate::util::{deref, fmt_num, num, text_of};
 
 /// Kinds of fields that can be created.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NewField {
     Text,
+    /// A text field that takes dates (its format: [`FieldProps::format`],
+    /// `dd/mm/yyyy` when it has none).
+    Date,
     CheckBox,
     RadioButton,
     ComboBox,
@@ -56,6 +60,10 @@ pub struct FieldProps {
     /// 0 left, 1 centre, 2 right.
     pub align: u8,
     pub default_value: String,
+    /// Text fields: how the value shows and which values are taken.
+    pub format: FieldFormat,
+    /// Text fields: what a value must be besides its format.
+    pub check: FieldCheck,
 }
 
 impl Default for FieldProps {
@@ -82,6 +90,8 @@ impl Default for FieldProps {
             border_width: 1.0,
             align: 0,
             default_value: String::new(),
+            format: FieldFormat::None,
+            check: FieldCheck::None,
         }
     }
 }
@@ -245,6 +255,7 @@ impl Document {
         let name = if props.name.trim().is_empty() {
             let base = match kind {
                 NewField::Text => "Text",
+                NewField::Date => "Date",
                 NewField::CheckBox => "Check",
                 NewField::RadioButton => "Group",
                 NewField::ComboBox => "Combo",
@@ -350,7 +361,7 @@ impl Document {
             _ => {
                 widget.set("T", lopdf::text_string(&name));
                 match kind {
-                    NewField::Text => {
+                    NewField::Text | NewField::Date => {
                         widget.set("FT", "Tx");
                         if props.multiline {
                             ff |= FF_MULTILINE;
@@ -411,6 +422,13 @@ impl Document {
         };
         if kind != NewField::RadioButton {
             self.inner.get_dictionary_mut(id)?.set("Ff", ff);
+        }
+        if matches!(kind, NewField::Text | NewField::Date) {
+            let format = match (&props.format, kind) {
+                (FieldFormat::None, NewField::Date) => FieldFormat::Date(DATE_FORMATS[0].into()),
+                (f, _) => f.clone(),
+            };
+            self.write_field_format(id, &format, &props.check)?;
         }
         self.push_page_annot(page_id, id)?;
         self.refresh_widget(id)?;
@@ -509,6 +527,16 @@ impl Document {
                 .ok()
                 .and_then(|o| text_of(doc, o))
                 .unwrap_or_default(),
+            format: if w.ft == "Tx" {
+                self.field_format(field)
+            } else {
+                FieldFormat::None
+            },
+            check: if w.ft == "Tx" {
+                self.field_check(field)
+            } else {
+                FieldCheck::None
+            },
         })
     }
 
@@ -584,6 +612,16 @@ impl Document {
                     rgb(props.text_color, "rg").trim()
                 )),
             );
+        }
+        let is_text = self
+            .inner
+            .get_dictionary(field)?
+            .get(b"FT")
+            .ok()
+            .and_then(|o| o.as_name().ok())
+            == Some(b"Tx".as_slice());
+        if is_text {
+            self.write_field_format(field, &props.format, &props.check)?;
         }
         let on = state_name(&props.export_value);
         for wid in widgets {

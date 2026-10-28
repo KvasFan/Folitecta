@@ -353,6 +353,7 @@ pub const RIBBON: &[RTab] = &[
                 [
                     "tool.editFields",
                     "tool.editFields.mode.text",
+                    "tool.editFields.mode.date",
                     "tool.editFields.mode.check",
                     "tool.editFields.mode.radio",
                     "tool.editFields.mode.combo",
@@ -446,6 +447,7 @@ pub const RIBBON: &[RTab] = &[
                 [
                     "newDocBlank",
                     "newDocTemplate",
+                    "saveAsTemplate",
                     "newDocCombine",
                     "newDocImage",
                     "newDocText",

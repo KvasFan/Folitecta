@@ -175,7 +175,7 @@ handlers! {
     "tool.editFields.mode.select" => |st| select_tool(st, Tool::EditFields),
     "tool.editFields.addNewField" => |st| select_tool(st, Tool::FieldText),
     "tool.editFields.mode.text" => |st| select_tool(st, Tool::FieldText),
-    "tool.editFields.mode.date" => |st| select_tool(st, Tool::FieldText),
+    "tool.editFields.mode.date" => |st| select_tool(st, Tool::FieldDate),
     "tool.editFields.mode.check" => |st| select_tool(st, Tool::FieldCheck),
     "tool.editFields.mode.radio" => |st| select_tool(st, Tool::FieldRadio),
     "tool.editFields.mode.combo" => |st| select_tool(st, Tool::FieldCombo),

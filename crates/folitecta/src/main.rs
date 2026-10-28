@@ -94,6 +94,9 @@ fn main() {
         // Keep the user's settings untouched while the self-test changes options.
         // SAFETY: called before any other thread is started.
         unsafe { std::env::set_var("FOLITECTA_CONFIG_DIR", cfg.dir.join("config")) };
+        // And the user's bin: what the self-test removes goes to a bin of its own.
+        // SAFETY: as above.
+        unsafe { std::env::set_var("XDG_DATA_HOME", cfg.dir.join("data")) };
     }
     // The font of text beyond WinAnsi: its folders, and read it away from the
     // interface so the first text that needs it does not wait.

@@ -115,6 +115,9 @@ pub fn FieldEditor() -> Element {
                 }
                 ButtonPictures { field: id }
             }
+            if is_text {
+                crate::ui::features::field_format::FieldFormatRows { current: props.clone(), apply: move |n: FieldProps| apply(n) }
+            }
             if matches!(kind, FieldKind::Text | FieldKind::ComboBox) {
                 crate::ui::features::form_calc::FieldCalculation { field: id, page, index }
                 // Its own key: another field starts with its own scripts.

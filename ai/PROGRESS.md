@@ -4,6 +4,48 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-28 — FOL-L031, FOL-L032, FOL-L010: forms that check themselves (0.7.0)
+
+- **Current state before:** dates had no format functions in the script engine (`util.scand` was
+  `new Date(s)`, `util.printd` knew six letters); keystroke scripts never ran, so a word went into
+  a number field; the Date tool made a plain text field; formats could only be written as
+  scripts, and non-ASCII characters in scripts were garbled when read back (written as bytes,
+  read as PDFDocEncoding); the gallery had only built-in templates.
+- **Changed:** `js.rs`: `printDate`/`scanDate` (every `util.printd` letter; lenient reading with
+  English and Italian month names, week days left out, two-digit years, only real dates and
+  times), `AFDate_*`/`AFTime_*`, number, percentage and special keystrokes checked on commit.
+  `set_field_value` runs the keystroke script with the committed value before the validate one.
+  New `form_format.rs`: `FieldFormat`, `FieldCheck` (from and to the standard scripts, custom ones
+  recognised and kept), `print_date`/`scan_date`; `FieldProps` carries both, `NewField::Date`.
+  Scripts are written as text strings. App: Date tool (`Tool::FieldDate`, calendar icon, the
+  language's date format), `field_format.rs` in the properties pane, `calendar.rs` while filling,
+  a refused value keeps the editor open. New `user_templates.rs` (`template_bytes`,
+  `template_info`, `from_template_file`, `renamed_template`, `fonts_not_carried`); command
+  `saveAsTemplate`; My templates in the gallery (`<app data>/Templates`). The self-test keeps its
+  own `XDG_DATA_HOME`, so what it moves to the bin goes to a bin of its own.
+- **Checked:** engine tests in `js.rs` (every `util.printd` letter; dates read as typed, 29
+  February only in leap years, 31 April and 25:00 refused; date fields formatted and refused with
+  the format named; number, percentage and special values checked on commit),
+  `field_formats.rs` (5: formats and scripts both ways, as other programs write them; a date
+  field; a number in euros with a range, undone; hand-written scripts kept; calendar dates),
+  `user_templates.rs` (3), calendar arithmetic in the app. fmt and clippy clean, 939 workspace
+  tests passed and 0 failed, `docs/FEATURES.md` regenerated. Self-test steps `formats` (3: the
+  Date tool and a refused date kept in the editor, a calendar day written as 10/15/2026, a number
+  field with a highest value from the properties pane) and `my_templates` (2), with `tools`,
+  `field_scripts` and `templates`: 0 problems. The full self-test was not run for this commit
+  (intermediate commit asked by the user): run it before the release.
+- **Open:** search and categories for the user's templates, their import and export; picture
+  fields; formats applied to imported form data.
+
+## 2026-10-28 — release 0.6.0: check of the published packages
+
+- **What:** tag `v0.6.0` (`138e13d`): CI (22 min) and release (40 min) workflows green, eight
+  files on the release page.
+- **Found right:** SHA-256 of the four packages equal to their `.sha256` files; the data folders
+  of the Windows and Linux packages equal file by file; `ocr`, `spelling` and `unicode` passed with
+  the packaged Linux executable started from another folder (0 problems).
+- **Open:** as for 0.5.0, the Windows executable was not run here (no WebView2 runtime in Wine).
+
 ## 2026-10-28 — FOL-L052, FOL-L015, FOL-L051: safe page operations (0.6.0)
 
 - **Current state before:** deleting, extracting or splitting pages rewrote the page tree only:

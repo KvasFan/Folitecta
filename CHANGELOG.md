@@ -6,6 +6,32 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- A date field: Forms › Date makes a text field that takes only dates, in the format of the
+  language (`dd/mm/yyyy` in Italian, `mm/dd/yyyy` in English, any other chosen in its
+  properties). Filling it offers a calendar; a date that does not exist (30 February) is refused,
+  naming the format, and the field keeps what was typed so it can be corrected.
+- Formats and checks chosen in the properties of a text field instead of written as scripts: a
+  number with its decimals, separators and currency, a percentage, a date, a time, a postal code
+  or a phone number, and the lowest and highest value of a number. They are kept as the standard
+  scripts of forms, so other readers apply them too; scripts written by hand stay as they are.
+- Dates and times in the form scripts: `AFDate_*` and `AFTime_*`, `util.printd` with every format
+  letter and `util.scand`, which reads dates as people type them (English and Italian month
+  names, two-digit years) and only when they exist.
+- The user's own templates: File › Save as Template… keeps the document under a name; the
+  gallery of File › New › From Template… lists them under My templates with their pictures,
+  where they come from, when and with which version they were made and the fonts they need,
+  makes new documents from them (the template never changes), and renames them or moves them to
+  the bin.
+
+### Changed
+- A value is checked when it is committed: a word in a number field, a postal code of the wrong
+  length or a date that does not exist is refused, as the format's script says.
+
+### Fixed
+- Scripts typed into a field's properties lost characters beyond plain ASCII (a € in a format
+  became other characters) when they were read back.
+
 ## [0.6.0] - 2026-10-28
 
 ### Added

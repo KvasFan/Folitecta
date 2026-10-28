@@ -4,10 +4,10 @@ Generated from the command registry for version 0.6.0. Every command of the full
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1473 |
-| 🟡 partial | 58 |
+| ✅ available | 1475 |
+| 🟡 partial | 57 |
 | ⬜ planned | 467 |
-| total | 1998 |
+| total | 1999 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -913,6 +913,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | From Web Page… | `newDocHtml` | ⬜ planned |
 | New Document | `newDoc` | ✅ available |
 | PDF Portfolio… | `newPortfolio` | ✅ available |
+| Save as Template… | `saveAsTemplate` | ✅ available |
 | Source Files | `newDocumentList` | 🟡 partial |
 | ↳ Add File… | `newDocumentList.addFile` | ✅ available |
 | ↳ Add Folder… | `newDocumentList.addFolder` | ✅ available |
@@ -1293,6 +1294,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Save Settings and History | `saveSettingsAndHistory` | ✅ available |
 | Save To | `saveTo` | ✅ available |
 | Save Unrestricted Copy… | `saveUnrestricted` | ✅ available |
+| Save as Template… | `saveAsTemplate` | ✅ available |
 | Sessions | `sessionsList` | ✅ available |
 | Settings | `settings` | ✅ available |
 | Source Files | `newDocumentList` | 🟡 partial |
@@ -2418,7 +2420,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `tool.editFields.mode.button` | Form › Tool › Edit Form › Field Type › Button | ✅ available |
 | `tool.editFields.mode.check` | Form › Tool › Edit Form › Field Type › Check | ✅ available |
 | `tool.editFields.mode.combo` | Form › Tool › Edit Form › Field Type › Combo Box | ✅ available |
-| `tool.editFields.mode.date` | Form › Tool › Edit Form › Field Type › Date | 🟡 partial |
+| `tool.editFields.mode.date` | Form › Tool › Edit Form › Field Type › Date | ✅ available |
 | `tool.editFields.mode.image` | Form › Tool › Edit Form › Field Type › Image | ⬜ planned |
 | `tool.editFields.mode.list` | Form › Tool › Edit Form › Field Type › List | ✅ available |
 | `tool.editFields.mode.radio` | Form › Tool › Edit Form › Field Type › Radio | ✅ available |

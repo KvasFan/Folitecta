@@ -286,6 +286,7 @@
   "tool.field_button": "Button",
   "tool.field_check": "Check box",
   "tool.field_combo": "Combo box",
+  "tool.field_date": "Date field",
   "tool.field_list": "List box",
   "tool.field_radio": "Radio button",
   "tool.field_signature": "Signature field",

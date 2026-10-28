@@ -38,7 +38,7 @@ pub mod protection;
 pub mod tags;
 
 pub use graphics::{barcodes, images, imaging, paths, pictures};
-pub use interactive::{buttons, form_calc, form_data, form_design, forms, js, scripts};
+pub use interactive::{buttons, form_calc, form_data, form_design, form_format, forms, js, scripts};
 pub use markup::{
     annot_copy, annots, appearance, arrange, calculator, comment_exchange, comment_review, comment_summary,
     flatten, grouping, markup_tools, media, signmarks, smooth, stamp_design, stamps, tables, ticks,
@@ -48,7 +48,7 @@ pub(crate) use organize::typeset;
 pub use organize::{
     actions, attachments, combine, compare, csvdoc, delivery, doctools, email, export, greyscale, incoming,
     markdown, marks, metadata, office, pages, pagetools, pdfa, portfolio, print, recompress, scanning, scans,
-    templates, textdoc,
+    templates, textdoc, user_templates,
 };
 pub(crate) use page_text::{content_edit, content_lex};
 pub use page_text::{ocr, reading, search, spelling, text, textedit, textlayer, textops};
@@ -76,6 +76,7 @@ pub use fonts::{AppearanceFont, GlyphProblem};
 pub use form_calc::{CalcOp, Calculation};
 pub use form_data::{FormDataFormat, PageWidget};
 pub use form_design::{FieldProps, NewField};
+pub use form_format::{FieldCheck, FieldFormat};
 pub use forms::{FieldKind, FormField, SignatureInfo};
 pub use greyscale::GreyReport;
 pub use incoming::Arrival;
@@ -108,6 +109,7 @@ pub use text::{SearchHit, SearchOptions};
 pub use textdoc::TextLayout;
 pub use textlayer::{PageText, TextGlyph, TextLine};
 pub use ticks::{Sequence, TickMark, TickShape};
+pub use user_templates::UserTemplate;
 
 /// Crate version, shared with the application.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

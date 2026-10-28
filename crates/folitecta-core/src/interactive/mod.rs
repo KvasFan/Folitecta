@@ -5,6 +5,7 @@ pub mod form_appearance;
 pub mod form_calc;
 pub mod form_data;
 pub mod form_design;
+pub mod form_format;
 pub mod forms;
 pub mod js;
 pub mod scripts;

@@ -1746,7 +1746,7 @@ impl Document {
     // Metadata
     // ------------------------------------------------------------------
 
-    fn info_dict(&self) -> Option<&Dictionary> {
+    pub(crate) fn info_dict(&self) -> Option<&Dictionary> {
         let info = self.inner.trailer.get(b"Info").ok()?;
         deref(&self.inner, info).as_dict().ok()
     }
@@ -1791,7 +1791,7 @@ impl Document {
         }
     }
 
-    fn info_dict_mut(&mut self) -> Result<&mut Dictionary> {
+    pub(crate) fn info_dict_mut(&mut self) -> Result<&mut Dictionary> {
         let existing = self
             .inner
             .trailer

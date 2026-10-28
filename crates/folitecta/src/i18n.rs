@@ -117,6 +117,7 @@ const AREAS: &[(&str, &[&str])] = &[
     (
         "forms",
         &[
+            "calendar",
             "field",
             "fields",
             "fieldkind",

@@ -288,7 +288,7 @@ impl Document {
             Some(c) => {
                 aa.set(
                     "C",
-                    dictionary! { "S" => "JavaScript", "JS" => Object::string_literal(c.script()) },
+                    dictionary! { "S" => "JavaScript", "JS" => lopdf::text_string(&c.script()) },
                 );
                 if !order.contains(&id) {
                     order.push(id);
@@ -336,7 +336,7 @@ impl Document {
             Some(js) => {
                 aa.set(
                     trigger,
-                    dictionary! { "S" => "JavaScript", "JS" => Object::string_literal(js) },
+                    dictionary! { "S" => "JavaScript", "JS" => lopdf::text_string(js) },
                 );
                 if trigger == "C" && !order.contains(&id) {
                     order.push(id);

@@ -119,6 +119,8 @@ const BY_ID: &[(&str, &str)] = &[
     ("tool.sign.and.initials", "signature"),
     // Form fields.
     ("tool.editFields.mode.text", "textbox"),
+    ("tool.editFields.mode.date", "calendar"),
+    ("saveAsTemplate", "save"),
     ("tool.editFields.mode.check", "checkbox"),
     ("tool.editFields.mode.radio", "radio"),
     ("tool.editFields.mode.combo", "combo"),

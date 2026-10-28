@@ -1,7 +1,7 @@
 # Folitecta roadmap and progress
 
 State of every requirement of [REQUIREMENTS.md](REQUIREMENTS.md) on the `main` branch at
-Folitecta 0.4.1, reviewed on **26 October 2026** against the code (not only the command
+Folitecta 0.5.0, reviewed on **28 October 2026** against the code (not only the command
 registry). Update the row of a requirement whenever a sub-task changes it, and log the work in
 [PROGRESS.md](PROGRESS.md).
 
@@ -98,7 +98,7 @@ conversion (FOL-L043), colour profiles beyond grey (FOL-L044), clipping and reus
 path editing (FOL-L021), keystroke and page scripts (FOL-L034), real cards and stores tried
 (FOL-L039).
 
-### 0.5.0 — drawing at hand (next)
+### 0.5.0 — drawing at hand (released 28 October 2026)
 
 1. ~~**FOL-L025 — the pencil's quick panel.**~~ Done: choosing the Pencil opens a small panel
    over the pages with six buttons — the thickness of the stroke (0.5 to 8 points), four standard

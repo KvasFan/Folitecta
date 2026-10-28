@@ -2093,7 +2093,7 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "folitecta"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -2119,7 +2119,7 @@ dependencies = [
 
 [[package]]
 name = "folitecta-core"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "aes 0.8.4",
  "anyhow",
@@ -2173,7 +2173,7 @@ dependencies = [
 
 [[package]]
 name = "folitecta-notices"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "serde_json",
 ]

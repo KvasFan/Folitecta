@@ -157,7 +157,7 @@ pub fn export(st: AppState) {
         else {
             return;
         };
-        match std::fs::write(f.path(), seq.to_json()) {
+        match folitecta_core::util::write_atomic(f.path(), seq.to_json()) {
             Ok(()) => st.toast(
                 ToastKind::Ok,
                 t(st.lang(), "toast.actions_exported"),

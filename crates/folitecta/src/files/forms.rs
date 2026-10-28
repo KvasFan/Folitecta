@@ -29,7 +29,7 @@ pub fn export_form_data(st: AppState) {
             .unwrap_or_default();
         let format = folitecta_core::FormDataFormat::from_extension(&ext)
             .unwrap_or(folitecta_core::FormDataFormat::Xfdf);
-        match std::fs::write(&path, data_for(format)) {
+        match folitecta_core::util::write_atomic(&path, data_for(format)) {
             Ok(()) => st.toast(
                 ToastKind::Ok,
                 tf(st.lang(), "toast.saved", &[("name", &path.display().to_string())]),

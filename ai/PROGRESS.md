@@ -4,6 +4,47 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-28 — FOL-L052, FOL-L015, FOL-L051: safe page operations (0.6.0)
+
+- **Current state before:** deleting, extracting or splitting pages rewrote the page tree only:
+  bookmarks, named destinations and links to the pages that went stayed, leading nowhere, and
+  since bookmarks, destinations and tags still pointed at those pages, their content stayed in
+  the saved file; fields whose widgets went stayed in the form. Inserting pages from a file
+  copied the pages without their fields (the widgets came outside the form), destinations,
+  bookmarks, layers or tags. A duplicated page's note opened the pop-up of the original. Exports
+  were written straight over their targets.
+- **Changed:** core `set_page_order` sends every page that leaves through `keep_only_pages` (the
+  clean-up the copies for e-mail already had; new pages join the tree first so it keeps them);
+  `deleting_pages_takes` says what deleting would take (`LeftOut`). New `organize/incoming.rs`:
+  `insert_pages_from` (the source trimmed to the pages taken by the same clean-up, destination
+  and field names already used renamed with `_2` in the source so its references follow, fields
+  into `/Fields` with the fonts their appearances name, destinations where the source kept them,
+  bookmarks placed by page, layers adopted, tags adopted by `adopt_structure` and the parent tree
+  rebuilt — counted as left when the document has no tags), `inserting_pages_brings`, `Arrival`;
+  `insert_document` uses it; `combine_with_arrivals` puts each file under a bookmark of its name
+  and is tagged when the first file is. `duplicate_pages` copies annotations with their `/P`,
+  `/Popup`, `/Parent` and `/IRT` among the copies, new `/NM`, no `/StructParent(s)`; widgets of a
+  copy join the same field (a widget that is its own field is split into a field with kids).
+  `util::write_atomic` is generic and every export and settings write goes through it. App: Delete
+  Pages and the bookmarks' page removal ask first when something goes with the pages
+  (`delete_pages_asking`); Insert Pages from File lists renames and what is left before OK
+  (worked out on another thread); after Combine Files a note lists the renames per file.
+  `testdocs::relations_doc`: four pages tied every common way.
+- **Checked:** core tests `page_relations.rs` (10: what a deleted page takes, asked and done, saved
+  and reopened, undone; a field over two pages; the opening view; tags; extract; split; reorder;
+  duplicated pages with their own comments and shared fields; asking about 400 pages), the
+  corpus `relations_corpus.rs` (every page operation on the plain and the tagged corpus, once and
+  twice, then all in a row with every undo; a check that must find a page taken out by hand),
+  `incoming_pages.rs` (5: a document into itself with every rename, some pages in another order,
+  tags in a tagged and an untagged document, layers, Combine Files), an export test in
+  `atomic_save.rs`. fmt and clippy clean, 926 workspace tests passed and 0 failed, licences ok,
+  `docs/FEATURES.md` unchanged (1998 commands). Self-test step `relations`: Delete Pages asks
+  "These go with them: bookmarks 1, links 1, destinations 1", deletes, undo; Insert Pages from
+  File lists the eight renames before OK and brings the fields. Full self-test: 293 states, 308
+  interactions, 0 problems.
+- **Open:** attachments and article threads of an inserted file are not brought; labels of
+  inserted pages follow the ranges where they land; relations inside portfolio documents.
+
 ## 2026-10-28 — release 0.5.0: check of the published packages
 
 - **What:** the eight files of the v0.5.0 release (tag `029e1a8`; CI and release workflows green)

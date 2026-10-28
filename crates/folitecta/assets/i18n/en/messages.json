@@ -194,6 +194,7 @@
   "toast.opened": "Opened {name}",
   "toast.page_copied": "Page copied as a picture",
   "toast.page_size": "Page {page}: {w} × {h} mm ({wpt} × {hpt} pt) · file {size}",
+  "toast.pages_arrived": "Pages inserted, with these changes",
   "toast.pages_cropped": "{count} pages cropped",
   "toast.pages_cropped_one": "{count} page cropped",
   "toast.pages_deleted": "{count} pages deleted",

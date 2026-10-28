@@ -12,7 +12,7 @@ impl Document {
     }
 
     /// Id of the structure root, made indirect when it was written in the catalog.
-    pub(super) fn struct_root_id(&mut self) -> Option<ObjectId> {
+    pub(crate) fn struct_root_id(&mut self) -> Option<ObjectId> {
         let cat = self.catalog_id().ok()?;
         let obj = self
             .inner
@@ -48,7 +48,7 @@ impl Document {
     }
 
     /// The structure root, created when missing (the document becomes tagged).
-    pub(super) fn ensure_struct_root(&mut self) -> Result<ObjectId> {
+    pub(crate) fn ensure_struct_root(&mut self) -> Result<ObjectId> {
         if let Some(id) = self.struct_root_id() {
             return Ok(id);
         }
@@ -201,6 +201,62 @@ impl Document {
             })?;
         }
         Ok(())
+    }
+
+    /// Take the structure of pages that came from another document: the kids
+    /// of its structure root `theirs` (their objects already in this
+    /// document) join the end of this structure, created when missing, with
+    /// the roles and classes this one lacks. Returns the elements taken; the
+    /// parent tree is rebuilt by the caller once the pages are in place.
+    pub(crate) fn adopt_structure(&mut self, theirs: &Dictionary) -> Result<usize> {
+        let kids: Vec<Object> = theirs
+            .get(b"K")
+            .ok()
+            .map(|k| kid_objects(&self.inner, k))
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|k| matches!(k, Object::Reference(_)))
+            .collect();
+        if kids.is_empty() {
+            return Ok(0);
+        }
+        let root = self.ensure_struct_root()?;
+        for k in &kids {
+            if let Ok(d) = self.inner.get_dictionary_mut(k.as_reference()?) {
+                d.set("P", Object::Reference(root));
+            }
+        }
+        let mut list = self.kid_list(root);
+        list.extend(kids.iter().cloned());
+        let maps: Vec<(&[u8], Dictionary)> = [&b"RoleMap"[..], b"ClassMap"]
+            .into_iter()
+            .filter_map(|key| {
+                let d = deref(&self.inner, theirs.get(key).ok()?).as_dict().ok()?.clone();
+                Some((key, d))
+            })
+            .collect();
+        let ours = self.inner.get_dictionary(root)?.clone();
+        let mut merged = Vec::new();
+        for (key, d) in maps {
+            let mut map = ours
+                .get(key)
+                .ok()
+                .and_then(|m| deref(&self.inner, m).as_dict().ok())
+                .cloned()
+                .unwrap_or_default();
+            for (k, v) in d.iter() {
+                if !map.has(k) {
+                    map.set(k.clone(), v.clone());
+                }
+            }
+            merged.push((key, map));
+        }
+        let r = self.inner.get_dictionary_mut(root)?;
+        r.set("K", Object::Array(list));
+        for (key, map) in merged {
+            r.set(key.to_vec(), Object::Dictionary(map));
+        }
+        Ok(kids.len())
     }
 
     /// Rebuild the parent tree from the structure tree: the elements that own

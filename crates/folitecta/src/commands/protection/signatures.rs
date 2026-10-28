@@ -77,8 +77,8 @@ fn store_id(id: &DigitalId, pfx: &[u8]) -> Result<StoredId, String> {
     let info = id.info();
     let base = format!("{}-{}", slug(&info.common_name), &info.sha1[..8]);
     let file = dir.join(format!("{base}.pfx"));
-    std::fs::write(&file, pfx).map_err(|e| e.to_string())?;
-    std::fs::write(dir.join(format!("{base}.cer")), cert_to_der(&id.certificate))
+    folitecta_core::util::write_atomic(&file, pfx).map_err(|e| e.to_string())?;
+    folitecta_core::util::write_atomic(dir.join(format!("{base}.cer")), cert_to_der(&id.certificate))
         .map_err(|e| e.to_string())?;
     Ok(StoredId { file, info })
 }
@@ -195,7 +195,7 @@ pub fn add_trusted(certs: &[Certificate]) -> Result<usize, String> {
         let info = cert_info(c);
         let path = dir.join(format!("{}.cer", info.sha1));
         if !path.exists() {
-            std::fs::write(&path, cert_to_der(c)).map_err(|e| e.to_string())?;
+            folitecta_core::util::write_atomic(&path, cert_to_der(c)).map_err(|e| e.to_string())?;
             added += 1;
         }
     }

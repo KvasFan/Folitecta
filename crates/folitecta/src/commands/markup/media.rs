@@ -254,7 +254,7 @@ fn save_media(st: AppState, want_video: Option<bool>) {
         else {
             return;
         };
-        match std::fs::write(file.path(), data) {
+        match folitecta_core::util::write_atomic(file.path(), data) {
             Ok(()) => st.toast(
                 ToastKind::Ok,
                 tf(

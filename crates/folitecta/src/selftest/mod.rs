@@ -454,6 +454,7 @@ mod steps_reading;
 mod steps_recompress;
 mod steps_recovery;
 mod steps_redaction;
+mod steps_relations;
 mod steps_review;
 mod steps_revocation;
 mod steps_scanning;
@@ -550,6 +551,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "unicode" => Box::pin(steps_unicode::run(cx)),
             "layer_drawing" => Box::pin(steps_layer_drawing::run(cx)),
             "jumps" => Box::pin(steps_jumps::run(cx)),
+            "relations" => Box::pin(steps_relations::run(cx)),
             "perf" => Box::pin(steps_perf::run(cx)),
             _ => Box::pin(async { cx.record("unknown step", false, name.to_string()) }),
         };
@@ -622,6 +624,7 @@ const STEPS: &[&str] = &[
     "unicode",
     "layer_drawing",
     "jumps",
+    "relations",
     "perf",
     "effects",
 ];

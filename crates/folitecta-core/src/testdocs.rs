@@ -1323,6 +1323,234 @@ pub fn report_doc(pages: usize) -> Vec<u8> {
     b.finish_compact()
 }
 
+/// Four pages tied together the ways real documents are, to check what
+/// page operations keep (labels i, ii, 1, 2; the text of page n says
+/// `Marker of page n`):
+/// - bookmarks: "Part A" (page 1) with "Page 1" (named destination `first`)
+///   and "Page 2" (a GoTo action); "Part B" (named destination `third`)
+///   with "Page 4";
+/// - named destinations `first` … `fourth`, one per page;
+/// - links: page 1 to page 3, page 2 to `fourth`, page 3 to page 2 by an
+///   action, page 4 to a web address;
+/// - form fields: `name` (page 1), `shared` with a widget on page 1 and one
+///   on page 3, the radio buttons `choice` (two on page 2, `b` chosen),
+///   `notes` (page 4);
+/// - comments: on page 2 a note with its pop-up and a reply, on page 3 a
+///   rectangle;
+/// - the document opens on page 2.
+pub fn relations_doc() -> Vec<u8> {
+    let mut b = Builder::new();
+    let helv = b.doc.add_object(dictionary! {
+        "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica", "Encoding" => "WinAnsiEncoding"
+    });
+    let rect = |x: f32, y: f32, w: f32, h: f32| -> Vec<Object> {
+        vec![x.into(), y.into(), (x + w).into(), (y + h).into()]
+    };
+    // Every object is numbered first: the pages, their widgets and links point to each other.
+    let pages: Vec<ObjectId> = (0..4).map(|_| b.doc.new_object_id()).collect();
+    let dest = |p: usize| -> Object {
+        Object::Array(vec![
+            pages[p].into(),
+            "XYZ".into(),
+            Object::Null,
+            Object::Null,
+            Object::Null,
+        ])
+    };
+    let text_field = |b: &mut Builder, name: Option<&str>, page: ObjectId, y: f32, value: &str| -> ObjectId {
+        let ap = b.form(
+            [0.0, 0.0, 200.0, 18.0],
+            &format!("/Tx BMC BT /Helv 10 Tf 0 g 2 5 Td ({value}) Tj ET EMC\n"),
+            dictionary! { "Font" => dictionary! { "Helv" => helv } },
+            Dictionary::new(),
+        );
+        let mut d = dictionary! {
+            "Type" => "Annot", "Subtype" => "Widget", "Rect" => rect(300.0, y, 200.0, 18.0), "F" => 4,
+            "P" => page, "AP" => dictionary! { "N" => ap },
+        };
+        if let Some(name) = name {
+            d.set("FT", "Tx");
+            d.set("T", Object::string_literal(name));
+            d.set("V", Object::string_literal(value));
+            d.set("DA", Object::string_literal("/Helv 10 Tf 0 g"));
+        }
+        b.doc.add_object(d)
+    };
+    let name = text_field(&mut b, Some("name"), pages[0], 700.0, "Ada");
+    let shared = b.doc.new_object_id();
+    let shared_1 = text_field(&mut b, None, pages[0], 650.0, "Both pages");
+    let shared_3 = text_field(&mut b, None, pages[2], 650.0, "Both pages");
+    for w in [shared_1, shared_3] {
+        b.doc.get_dictionary_mut(w).unwrap().set("Parent", shared);
+    }
+    b.doc.objects.insert(
+        shared,
+        Object::Dictionary(dictionary! {
+            "FT" => "Tx", "T" => Object::string_literal("shared"), "V" => Object::string_literal("Both pages"),
+            "DA" => Object::string_literal("/Helv 10 Tf 0 g"), "Kids" => vec![shared_1.into(), shared_3.into()],
+        }),
+    );
+    let choice = b.doc.new_object_id();
+    let radios: Vec<ObjectId> = ["a", "b"]
+        .iter()
+        .enumerate()
+        .map(|(i, state)| {
+            let on = b.form([0.0, 0.0, 14.0, 14.0], "0 g 3 3 8 8 re f\n", Dictionary::new(), Dictionary::new());
+            let off = b.form([0.0, 0.0, 14.0, 14.0], "0.5 G 1 1 12 12 re S\n", Dictionary::new(), Dictionary::new());
+            let current = if *state == "b" { *state } else { "Off" };
+            b.doc.add_object(dictionary! {
+                "Type" => "Annot", "Subtype" => "Widget", "Rect" => rect(300.0 + 30.0 * i as f32, 600.0, 14.0, 14.0),
+                "F" => 4, "P" => pages[1], "Parent" => choice, "AS" => current,
+                "AP" => dictionary! { "N" => Object::Dictionary(dictionary! { *state => on, "Off" => off }) },
+            })
+        })
+        .collect();
+    b.doc.objects.insert(
+        choice,
+        Object::Dictionary(dictionary! {
+            "FT" => "Btn", "Ff" => 49152, "T" => Object::string_literal("choice"), "V" => "b",
+            "Kids" => radios.iter().map(|r| Object::Reference(*r)).collect::<Vec<_>>(),
+        }),
+    );
+    let notes = text_field(&mut b, Some("notes"), pages[3], 700.0, "Last page");
+    let link = |b: &mut Builder, key: &str, target: Object| -> ObjectId {
+        let mut d = dictionary! {
+            "Type" => "Annot", "Subtype" => "Link", "Rect" => rect(60.0, 560.0, 140.0, 15.0),
+            "Border" => vec![0.into(), 0.into(), 0.into()],
+        };
+        d.set(key, target);
+        b.doc.add_object(d)
+    };
+    let link_1 = link(&mut b, "Dest", dest(2));
+    let link_2 = link(&mut b, "Dest", Object::string_literal("fourth"));
+    let link_3 = link(
+        &mut b,
+        "A",
+        Object::Dictionary(dictionary! { "S" => "GoTo", "D" => dest(1) }),
+    );
+    let link_4 = link(
+        &mut b,
+        "A",
+        Object::Dictionary(
+            dictionary! { "S" => "URI", "URI" => Object::string_literal("https://example.org/") },
+        ),
+    );
+    let popup = b.doc.add_object(dictionary! {
+        "Type" => "Annot", "Subtype" => "Popup", "Rect" => rect(400.0, 400.0, 180.0, 100.0), "Open" => false, "P" => pages[1],
+    });
+    let note = b.doc.add_object(dictionary! {
+        "Type" => "Annot", "Subtype" => "Text", "Rect" => rect(60.0, 500.0, 20.0, 20.0),
+        "Contents" => Object::string_literal("A note"), "T" => Object::string_literal("Reviewer"),
+        "NM" => Object::string_literal("note-2"), "Popup" => popup, "P" => pages[1],
+    });
+    b.doc.get_dictionary_mut(popup).unwrap().set("Parent", note);
+    let reply = b.doc.add_object(dictionary! {
+        "Type" => "Annot", "Subtype" => "Text", "Rect" => rect(60.0, 500.0, 20.0, 20.0),
+        "Contents" => Object::string_literal("A reply"), "T" => Object::string_literal("Author"),
+        "NM" => Object::string_literal("reply-2"), "IRT" => note, "P" => pages[1],
+    });
+    let square = b.doc.add_object(dictionary! {
+        "Type" => "Annot", "Subtype" => "Square", "Rect" => rect(100.0, 300.0, 200.0, 100.0),
+        "C" => vec![1.into(), 0.into(), 0.into()], "Contents" => Object::string_literal("A rectangle"),
+        "T" => Object::string_literal("Reviewer"), "P" => pages[2],
+    });
+    let annots: [Vec<ObjectId>; 4] = [
+        vec![name, shared_1, link_1],
+        vec![radios[0], radios[1], link_2, note, popup, reply],
+        vec![shared_3, link_3, square],
+        vec![notes, link_4],
+    ];
+    for (p, ids) in annots.iter().enumerate() {
+        let mut stream = Stream::new(
+            Dictionary::new(),
+            format!("BT /F1 14 Tf 60 780 Td (Marker of page {}) Tj ET\n", p + 1).into_bytes(),
+        );
+        let _ = stream.compress();
+        let content = b.doc.add_object(stream);
+        b.doc.objects.insert(
+            pages[p],
+            Object::Dictionary(dictionary! {
+                "Type" => "Page", "Parent" => b.pages_id,
+                "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
+                "Contents" => content,
+                "Resources" => dictionary! { "Font" => dictionary! { "F1" => helv } },
+                "Annots" => ids.iter().map(|i| Object::Reference(*i)).collect::<Vec<_>>(),
+            }),
+        );
+        b.kids.push(pages[p].into());
+    }
+    b.catalog_entry(
+        "AcroForm",
+        Object::Dictionary(dictionary! {
+            "Fields" => vec![name.into(), shared.into(), choice.into(), notes.into()],
+            "DA" => Object::string_literal("/Helv 10 Tf 0 g"),
+            "DR" => dictionary! { "Font" => dictionary! { "Helv" => helv } },
+        }),
+    );
+    let names = ["first", "second", "third", "fourth"];
+    b.catalog_entry(
+        "Names",
+        Object::Dictionary(dictionary! { "Dests" => dictionary! {
+            "Names" => names.iter().enumerate().flat_map(|(i, n)| [Object::string_literal(*n), dest(i)]).collect::<Vec<_>>(),
+        } }),
+    );
+    // Bookmarks: two parts with their children.
+    let outlines = b.doc.new_object_id();
+    let ids: Vec<ObjectId> = (0..5).map(|_| b.doc.new_object_id()).collect();
+    let [part_a, page_1, page_2, part_b, page_4] = [ids[0], ids[1], ids[2], ids[3], ids[4]];
+    let item = |title: &str, parent: ObjectId, key: &str, target: Object| -> Dictionary {
+        let mut d = dictionary! { "Title" => Object::string_literal(title), "Parent" => parent };
+        d.set(key, target);
+        d
+    };
+    let mut d = item("Part A", outlines, "Dest", dest(0));
+    d.set("Next", part_b);
+    d.set("First", page_1);
+    d.set("Last", page_2);
+    d.set("Count", 2);
+    b.doc.objects.insert(part_a, Object::Dictionary(d));
+    let mut d = item("Page 1", part_a, "Dest", Object::string_literal("first"));
+    d.set("Next", page_2);
+    b.doc.objects.insert(page_1, Object::Dictionary(d));
+    let mut d = item(
+        "Page 2",
+        part_a,
+        "A",
+        Object::Dictionary(dictionary! { "S" => "GoTo", "D" => dest(1) }),
+    );
+    d.set("Prev", page_1);
+    b.doc.objects.insert(page_2, Object::Dictionary(d));
+    let mut d = item("Part B", outlines, "Dest", Object::string_literal("third"));
+    d.set("Prev", part_a);
+    d.set("First", page_4);
+    d.set("Last", page_4);
+    d.set("Count", 1);
+    b.doc.objects.insert(part_b, Object::Dictionary(d));
+    b.doc.objects.insert(
+        page_4,
+        Object::Dictionary(item("Page 4", part_b, "Dest", dest(3))),
+    );
+    b.doc.objects.insert(
+        outlines,
+        Object::Dictionary(
+            dictionary! { "Type" => "Outlines", "First" => part_a, "Last" => part_b, "Count" => 5 },
+        ),
+    );
+    b.catalog_entry("Outlines", Object::Reference(outlines));
+    b.catalog_entry(
+        "PageLabels",
+        Object::Dictionary(dictionary! { "Nums" => vec![
+            0.into(), Object::Dictionary(dictionary! { "S" => "r" }),
+            2.into(), Object::Dictionary(dictionary! { "S" => "D" }),
+        ] }),
+    );
+    b.catalog_entry(
+        "OpenAction",
+        Object::Dictionary(dictionary! { "S" => "GoTo", "D" => dest(1) }),
+    );
+    b.finish()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

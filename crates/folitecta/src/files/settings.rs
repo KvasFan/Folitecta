@@ -13,7 +13,7 @@ pub fn export_settings(st: AppState) {
         else {
             return;
         };
-        match std::fs::write(file.path(), json) {
+        match folitecta_core::util::write_atomic(file.path(), json) {
             Ok(()) => st.toast(
                 ToastKind::Ok,
                 tf(

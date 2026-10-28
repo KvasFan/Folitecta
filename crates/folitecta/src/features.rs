@@ -113,7 +113,7 @@ pub fn feature_matrix_markdown() -> String {
 /// Write the matrix to `path` and return a short statistics line.
 pub fn write_feature_matrix(path: &str) -> Result<String, String> {
     let md = feature_matrix_markdown();
-    std::fs::write(path, &md).map_err(|e| e.to_string())?;
+    folitecta_core::util::write_atomic(path, &md).map_err(|e| e.to_string())?;
     let r = registry();
     let (d, p, n) = r.status_summary(&implemented_ids(), &partial_ids());
     Ok(format!(

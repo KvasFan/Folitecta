@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::document::Document;
 use crate::error::{Error, Result};
+use crate::incoming::Arrival;
 use crate::textdoc::TextLayout;
 
 /// Kinds of source files.
@@ -73,17 +74,31 @@ pub fn source_pages(path: &Path) -> Result<usize> {
     }
 }
 
+/// A combined document, the sources that could not be read (file and
+/// reason) and what each source that went in brought along.
+pub type Combined = (Document, Vec<(PathBuf, String)>, Vec<(PathBuf, Arrival)>);
+
 impl Document {
-    /// A new document with the pages of the sources in order. Sources that
-    /// cannot be read are left out and reported (file and reason), and so are
-    /// protected files: the combined document is not protected, so their
-    /// pages would be written plain.
+    /// A new document with the pages of the sources in order, each source
+    /// under a bookmark named after its file with its own bookmarks, its
+    /// fields, destinations, layers and (when the first file is tagged) its
+    /// tags; what was renamed or left behind is in the [`Arrival`] of each
+    /// source. Sources that cannot be read are left out and reported (file
+    /// and reason), and so are protected files: the combined document is not
+    /// protected, so their pages would be written plain.
     pub fn combine(sources: &[Source]) -> Result<(Document, Vec<(PathBuf, String)>)> {
+        Self::combine_with_arrivals(sources).map(|(doc, problems, _)| (doc, problems))
+    }
+
+    /// [`combine`](Self::combine), with what each source brought along,
+    /// renamed or left behind (sources that went in only).
+    pub fn combine_with_arrivals(sources: &[Source]) -> Result<Combined> {
         if sources.is_empty() {
             return Err(Error::Invalid("no files to combine".into()));
         }
         let mut doc = Document::new_blank(1, 595.0, 842.0)?;
         let mut problems = Vec::new();
+        let mut arrivals = Vec::new();
         for s in sources {
             let r = source_document(&s.path).and_then(|other| {
                 let n = other.page_count();
@@ -95,10 +110,22 @@ impl Document {
                     return Err(Error::Invalid("none of the chosen pages exists".into()));
                 }
                 let at = doc.page_count();
-                doc.insert_document(at, &other, pages.as_deref())
+                // Tagged from the first file on, when that one is tagged.
+                if at == 1 && arrivals.is_empty() && other.has_structure() {
+                    doc.changing();
+                    doc.ensure_struct_root()?;
+                    doc.commit()?;
+                }
+                let title = s
+                    .path
+                    .file_stem()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                doc.insert_pages_from(at, &other, pages.as_deref(), Some(&title))
             });
-            if let Err(e) = r {
-                problems.push((s.path.clone(), e.to_string()));
+            match r {
+                Ok(a) => arrivals.push((s.path.clone(), a)),
+                Err(e) => problems.push((s.path.clone(), e.to_string())),
             }
         }
         if doc.page_count() == 1 {
@@ -111,7 +138,7 @@ impl Document {
         doc.delete_pages(&[0])?;
         doc.set_path(None);
         doc.clear_history();
-        Ok((doc, problems))
+        Ok((doc, problems, arrivals))
     }
 }
 

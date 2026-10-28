@@ -209,10 +209,10 @@ fn named_destinations_are_edited_and_references_follow_renames() {
     doc.rename_named_destination("intro", "start").unwrap();
     assert_eq!(doc.outline()[0].page, Some(1), "the bookmark follows the rename");
     assert!(doc.named_destinations().iter().any(|d| d.name == "start"));
-    // A destination on a deleted page becomes invalid and can be removed.
+    // A destination on a deleted page goes with the page.
     doc.delete_pages(&[2]).unwrap();
-    assert_eq!(doc.remove_invalid_named_destinations().unwrap(), 1);
     assert_eq!(doc.named_destinations().len(), 1);
+    assert_eq!(doc.remove_invalid_named_destinations().unwrap(), 0);
     assert_eq!(doc.delete_named_destinations(&["start".into()]).unwrap(), 1);
     assert!(doc.named_destinations().is_empty());
 }

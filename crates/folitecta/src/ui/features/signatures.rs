@@ -661,7 +661,7 @@ pub fn DigitalIdsDialog() -> Element {
                                             spawn(async move {
                                                 let name = file.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
                                                 if let Some(dst) = rfd::AsyncFileDialog::new().set_file_name(&name).add_filter("PKCS#12", &["pfx"]).save_file().await {
-                                                    if let Err(e) = std::fs::copy(&file, dst.path()) { st.error(e); }
+                                                    if let Err(e) = std::fs::read(&file).and_then(|b| folitecta_core::util::write_atomic(dst.path(), b)) { st.error(e); }
                                                 }
                                             });
                                         },
@@ -672,7 +672,7 @@ pub fn DigitalIdsDialog() -> Element {
                                             let cer = id.file.with_extension("cer");
                                             spawn(async move {
                                                 if let Some(dst) = rfd::AsyncFileDialog::new().set_file_name("certificate.cer").add_filter("Certificate", &["cer"]).save_file().await {
-                                                    if let Err(e) = std::fs::copy(&cer, dst.path()) { st.error(e); }
+                                                    if let Err(e) = std::fs::read(&cer).and_then(|b| folitecta_core::util::write_atomic(dst.path(), b)) { st.error(e); }
                                                 }
                                             });
                                         },
@@ -706,7 +706,7 @@ pub fn DigitalIdsDialog() -> Element {
                                             let der = o.der.clone();
                                             spawn(async move {
                                                 if let Some(dst) = rfd::AsyncFileDialog::new().set_file_name("certificate.cer").add_filter("Certificate", &["cer"]).save_file().await {
-                                                    if let Err(e) = std::fs::write(dst.path(), &der) { st.error(e); }
+                                                    if let Err(e) = folitecta_core::util::write_atomic(dst.path(), &der) { st.error(e); }
                                                 }
                                             });
                                         },

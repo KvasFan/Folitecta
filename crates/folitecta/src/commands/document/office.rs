@@ -75,7 +75,7 @@ pub fn write_export(st: AppState, format: OfficeFormat, all: bool, page_breaks: 
         let range = if all { 0..n } else { page..page + 1 };
         let made = tokio::task::spawn_blocking(move || {
             let out = copy.export_office(format, range, page_breaks)?;
-            std::fs::write(&target, &out.bytes)
+            folitecta_core::util::write_atomic(&target, &out.bytes)
                 .map_err(|e| folitecta_core::Error::Invalid(format!("{}: {e}", target.display())))?;
             Ok::<_, folitecta_core::Error>((out, target))
         })

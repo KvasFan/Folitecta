@@ -254,7 +254,7 @@ fn save_words(sp: &Speller) {
     }
     let mut text = sp.added_words().join("\n");
     text.push('\n');
-    let _ = std::fs::write(path, text);
+    let _ = folitecta_core::util::write_atomic(path, text);
 }
 
 /// The checker made last (a copy of the handle: no borrow of the signal is

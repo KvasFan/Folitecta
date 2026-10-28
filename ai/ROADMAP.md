@@ -114,6 +114,31 @@ path editing (FOL-L021), keystroke and page scripts (FOL-L034), real cards and s
    (pointer events of type pen): its width changes along the stroke, drawn as a filled outline
    and kept with the comment (`FolitectaPressure`); a button of the Pencil's panel turns it off.
 
+### 0.6.0 — safe edits
+
+Page operations keep or update what ties a document together, and say before committing what
+they cannot keep (FOL-L052, FOL-L015, FOL-L051).
+
+1. ~~**FOL-L052, FOL-L015 — pages that leave take their relations.**~~ Done: deleting pages,
+   extracting them and splitting a document drop the bookmarks, named destinations and links
+   leading to the pages that go, their form fields and tags, the opening view and article threads
+   through them; nothing of those pages stays in the file (before, bookmarks, destinations and
+   tags kept them in it). Delete Pages names what goes with the pages and asks first.
+2. ~~**FOL-L015, FOL-L052 — pages that arrive bring their relations.**~~ Done: Insert Pages from a
+   file and Combine Files bring the form fields of those pages into the form (a name already used
+   gets `_2`, listed before OK), their named destinations, bookmarks and layers, and their tags
+   when the document is tagged (counted as left out otherwise); Combine Files puts each file
+   under a bookmark of its name (`organize/incoming.rs`).
+3. ~~**FOL-L015 — duplicated pages.**~~ Done: the comments of a copy keep their pop-ups and
+   replies among themselves; the fields of a copy are widgets of the same fields.
+4. ~~**FOL-L052 — a relations corpus.**~~ Done: `testdocs::relations_doc` (bookmarks, named
+   destinations, links by destination, name and action, fields over several pages, radio groups,
+   comments with pop-ups and replies, labels, the opening view), plain and tagged, through every
+   page operation one by one and in a row, saved and reopened, with undo
+   (`tests/relations_corpus.rs`).
+5. ~~**FOL-L051 — exports through a temporary file.**~~ Done: pictures, text, attachments, form
+   data, comments, Office documents, digital IDs and settings go through `util::write_atomic`.
+
 ### Later
 
 FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
@@ -155,7 +180,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L015 | P1 | 🟡 | insert, delete, extract, duplicate, move, swap, reverse, replace, insert pictures, split documents, split/merge pages, combine files, find duplicate pages, delete empty pages | Check links, fields, tags and destinations after every operation (FOL-L052); rename same-named fields when merging; list unresolved references before committing. |
+| FOL-L015 | P1 | 🟡 | insert, delete, extract, duplicate, move, swap, reverse, replace, insert pictures, split documents, split/merge pages, combine files (a bookmark per file), find duplicate pages, delete empty pages; bookmarks, named destinations, links, fields, tags and layers follow the pages in and out: same-named fields and destinations of an inserted file get a suffix and are listed before OK, what deleting pages takes is named before OK, duplicated pages keep their comments to themselves and share their fields | Attachments and article threads of an inserted file; page labels of inserted pages follow the ranges where they land. |
 | FOL-L016 | P1/P2 | 🟡 | rotate, crop, crop to white margins, resize, margins, normalize, overlay, rasterize pages | Box management (bleed/trim/art) in the interface; selective flattening; deleting content outside the crop box (today it is only clipped). |
 | FOL-L017 | P1 | ✅ | watermarks, header and footer, Bates numbering (several files), background, page numbering, macros, Folitecta's marks tagged so they can be updated or removed | Logical page labels in every page selector. |
 
@@ -231,8 +256,8 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L051 | P0 | 🟡 | undo/redo of every edit; every PDF save (Save, Save As, copies, protected copies, signed files) and the settings written to a temporary file and renamed over the target only when complete; recovery copies the same way, never for encrypted documents; signed documents saved as incremental updates | Versioned session format; exports of pictures/text/attachments still written directly (they never replace the document). |
-| FOL-L052 | P0 | 🟡 | page tree normalized before every page edit, links and destinations kept by page operations, scripts never run (there is no engine), external actions not executed on opening | A relations test corpus (links, fields, tags, destinations) for reorder/copy/merge; a report of the relations that cannot be kept. |
+| FOL-L051 | P0 | 🟡 | undo/redo of every edit; every PDF save (Save, Save As, copies, protected copies, signed files), the exports (pictures, text, attachments, form data, comments, Office documents, digital IDs) and the settings written to a temporary file and renamed over the target only when complete; recovery copies the same way, never for encrypted documents; signed documents saved as incremental updates | Versioned session format. |
+| FOL-L052 | P0 | 🟡 | page tree normalized before every page edit; pages that leave take the bookmarks, destinations, links, fields, tags and opening view tied to them (nothing of them stays in the file), pages that arrive bring theirs, and what cannot be kept is reported before OK; a relations corpus (`relations_corpus.rs`: bookmarks, destinations, links by array, name and action, fields over several pages, radio groups, comments with pop-ups and replies, tags with their parent tree) through every page operation, saved and reopened; external actions not executed on opening | Relations of portfolio and attachment documents; a safe reading mode with explicit permissions for active actions. |
 | FOL-L053 | P1 | 🟡 | real attachments through the mail program (Simple MAPI, Mail, `xdg-email`), ZIP, EML drafts; the attachment dialog: current state or saved file, pages, comments kept/flattened/removed, form data and comments as files, sizes and previews, protected copies kept protected, failures reported in the dialog | A check with real mail programs; Extract Pages, Split and Delete Pages onto the same page copies (layers and XFA follow page subsets). |
 
 ### Remote services

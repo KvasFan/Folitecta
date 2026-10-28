@@ -73,10 +73,75 @@ pub(super) fn DeletePages() -> Element {
     let range = use_signal(String::new);
     rsx! {
         Frame { title: t(lang, "dialog.delete.title"), danger: true,
-            on_ok: move |_| match scope_pages(st, mode(), &range()) { Ok(pages) => apply(st, |tab| tab.doc.delete_pages(&pages)), Err(e) => st.error(e) },
+            on_ok: move |_| match scope_pages(st, mode(), &range()) { Ok(pages) => delete_pages_asking(st, pages, None), Err(e) => st.error(e) },
             PageScope { mode, range }
         }
     }
+}
+
+/// Delete `pages`; when bookmarks, links, form fields or tags would go with
+/// them, ask first and name them (`question` is asked in any case). What
+/// goes is worked out on another thread, from the document as it is now.
+pub(crate) fn delete_pages_asking(st: AppState, pages: Vec<usize>, question: Option<(String, String)>) {
+    let Some((tab, bytes)) = st.read_active(|t| (t.id, t.doc.bytes())) else {
+        return;
+    };
+    let before = bytes.clone();
+    dioxus::core::spawn_forever(async move {
+        let p = pages.clone();
+        let takes = tokio::task::spawn_blocking(move || {
+            folitecta_core::Document::from_bytes(bytes.to_vec(), None, None)
+                .and_then(|d| d.deleting_pages_takes(&p))
+                .ok()
+        })
+        .await
+        .ok()
+        .flatten()
+        // Pictures and fonts only those pages drew go without a word.
+        .map(|l| folitecta_core::LeftOut { resources: 0, ..l })
+        .filter(|l| !l.is_empty());
+        // Another tab, or the document changed meanwhile: nothing is done.
+        let same = st.read_active(|t| t.id == tab && std::sync::Arc::ptr_eq(&t.doc.bytes(), &before));
+        if same.unwrap_or(false) {
+            ask_or_delete(st, pages, question, takes);
+        }
+    });
+}
+
+fn ask_or_delete(
+    st: AppState,
+    pages: Vec<usize>,
+    question: Option<(String, String)>,
+    takes: Option<folitecta_core::LeftOut>,
+) {
+    let lang = st.lang();
+    if takes.is_none() && question.is_none() {
+        apply(st, move |tab| tab.doc.delete_pages(&pages));
+        return;
+    }
+    let (title, mut body) = question.unwrap_or_else(|| {
+        (
+            t(lang, "dialog.delete.title"),
+            tf(
+                lang,
+                "dialog.confirm.remove_pages",
+                &[("count", &pages.len().to_string())],
+            ),
+        )
+    });
+    if let Some(l) = takes {
+        body.push(' ');
+        body.push_str(&tf(
+            lang,
+            "dialog.delete.takes",
+            &[("list", &crate::ui::features::mail::left_out_text(lang, &l))],
+        ));
+    }
+    st.set_dialog(Dialog::Confirm {
+        title,
+        body,
+        action: ConfirmAction::DeletePages(pages),
+    });
 }
 
 #[component]
@@ -268,6 +333,27 @@ pub(super) fn MergeFile(path: String) -> Element {
     let lang = st.lang();
     let mut position = use_signal(|| "after".to_string());
     let p = std::path::PathBuf::from(path.clone());
+    // What the pages bring along, worked out on another thread.
+    let mut brings: Signal<Option<Vec<String>>> = use_signal(|| None);
+    let ours = use_hook(|| st.read_active(|t| t.doc.bytes()));
+    let source = p.clone();
+    use_hook(move || {
+        if let Some(bytes) = ours.clone() {
+            spawn(async move {
+                let lines = tokio::task::spawn_blocking(move || {
+                    let ours = folitecta_core::Document::from_bytes(bytes.to_vec(), None, None).ok()?;
+                    let other = folitecta_core::Document::open(&source).ok()?;
+                    ours.inserting_pages_brings(&other, None).ok()
+                })
+                .await
+                .ok()
+                .flatten()
+                .map(|a| arrival_lines(lang, &a))
+                .unwrap_or_default();
+                brings.set(Some(lines));
+            });
+        }
+    });
     rsx! {
         Frame { title: t(lang, "dialog.merge.title"),
             on_ok: move |_| {
@@ -284,8 +370,62 @@ pub(super) fn MergeFile(path: String) -> Element {
                     option { value: "end", "{t(lang, \"dialog.insert.end\")}" }
                 }
             }
+            match brings() {
+                None => rsx! { div { class: "hint", "{t(lang, \"dialog.merge.checking\")}" } },
+                Some(lines) if lines.is_empty() => rsx! { div { class: "hint", "{t(lang, \"dialog.merge.brings\")}" } },
+                Some(lines) => rsx! {
+                    div { class: "callout merge-arrival",
+                        for line in lines { p { "{line}" } }
+                    }
+                },
+            }
         }
     }
+}
+
+/// What pages taken from another file renamed or left behind, a sentence
+/// each (nothing when all came as they were).
+pub(crate) fn arrival_lines(lang: Lang, a: &folitecta_core::Arrival) -> Vec<String> {
+    let renames = |list: &[(String, String)]| {
+        list.iter()
+            .map(|(old, new)| format!("{old} → {new}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let mut out = Vec::new();
+    if !a.renamed_fields.is_empty() {
+        out.push(tf(
+            lang,
+            "dialog.merge.renamed_fields",
+            &[("list", &renames(&a.renamed_fields))],
+        ));
+    }
+    if !a.renamed_destinations.is_empty() {
+        out.push(tf(
+            lang,
+            "dialog.merge.renamed_dests",
+            &[("list", &renames(&a.renamed_destinations))],
+        ));
+    }
+    if a.tags_left > 0 {
+        out.push(tf(
+            lang,
+            "dialog.merge.tags_left",
+            &[("count", &a.tags_left.to_string())],
+        ));
+    }
+    let left = folitecta_core::LeftOut {
+        resources: 0,
+        ..a.left_out
+    };
+    if !left.is_empty() {
+        out.push(tf(
+            lang,
+            "dialog.merge.left_out",
+            &[("list", &crate::ui::features::mail::left_out_text(lang, &left))],
+        ));
+    }
+    out
 }
 
 /// Standard paper sizes in points (portrait).

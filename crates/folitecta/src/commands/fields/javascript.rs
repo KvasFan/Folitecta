@@ -342,7 +342,7 @@ pub fn save_snippet(name: &str, code: &str) -> Result<String, String> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
-    std::fs::write(&path, code).map_err(|e| e.to_string())?;
+    folitecta_core::util::write_atomic(&path, code).map_err(|e| e.to_string())?;
     Ok(path
         .file_stem()
         .map(|s| s.to_string_lossy().to_string())

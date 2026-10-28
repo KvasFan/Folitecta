@@ -82,8 +82,8 @@ pub enum CopySignatures {
     Removed(usize),
 }
 
-/// What a copy of some pages could not keep because it belonged to, or led
-/// to, the pages left out.
+/// What a copy of some pages, or a document that loses pages, could not keep
+/// because it belonged to, or led to, the pages left out.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct LeftOut {
     pub bookmarks: usize,

@@ -35,7 +35,7 @@ pub fn export_comments(st: AppState, only: Option<Vec<(usize, usize)>>) {
         };
         let data = st.read_active(|t| t.doc.export_comments(format, only.as_deref()));
         match data {
-            Some(Ok(bytes)) => match std::fs::write(&path, bytes) {
+            Some(Ok(bytes)) => match folitecta_core::util::write_atomic(&path, bytes) {
                 Ok(()) => st.toast(
                     ToastKind::Ok,
                     tf(

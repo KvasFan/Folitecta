@@ -262,7 +262,7 @@ fn export(st: AppState) {
             return;
         };
         let json = serde_json::to_string_pretty(&list).unwrap_or_default();
-        match std::fs::write(file.path(), json) {
+        match folitecta_core::util::write_atomic(file.path(), json) {
             Ok(()) => st.toast(ToastKind::Ok, t(st.lang(), "toast.policies_exported"), ""),
             Err(e) => st.error(e),
         }

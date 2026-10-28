@@ -176,7 +176,7 @@ impl Document {
     }
 
     /// Entries of the `/Names /Dests` name tree.
-    fn names_tree_entries(&self) -> Vec<(Vec<u8>, Object)> {
+    pub(crate) fn names_tree_entries(&self) -> Vec<(Vec<u8>, Object)> {
         let doc = &self.inner;
         let mut out = Vec::new();
         if let Some(tree) = doc
@@ -195,7 +195,7 @@ impl Document {
     }
 
     /// The catalog `/Dests` dictionary (destinations named by name objects).
-    fn dests_dict_mut(&mut self) -> Option<&mut Dictionary> {
+    pub(crate) fn dests_dict_mut(&mut self) -> Option<&mut Dictionary> {
         let r = self.inner.catalog().ok()?.get(b"Dests").ok()?.clone();
         match r {
             Object::Reference(id) => self.inner.get_dictionary_mut(id).ok(),
@@ -208,7 +208,7 @@ impl Document {
     }
 
     /// Rewrite the `/Names /Dests` tree as one sorted leaf.
-    fn write_names_tree(&mut self, mut entries: Vec<(Vec<u8>, Object)>) -> Result<()> {
+    pub(crate) fn write_names_tree(&mut self, mut entries: Vec<(Vec<u8>, Object)>) -> Result<()> {
         entries.sort_by(|a, b| a.0.cmp(&b.0));
         entries.dedup_by(|a, b| a.0 == b.0);
         let names_ref = self.inner.catalog()?.get(b"Names").ok().cloned();

@@ -205,7 +205,7 @@ impl Document {
     /// Write an attachment to disk.
     pub fn save_attachment(&self, att: &Attachment, path: impl AsRef<std::path::Path>) -> Result<()> {
         let data = self.attachment_data(att)?;
-        std::fs::write(path.as_ref(), data).map_err(|e| Error::io(path.as_ref(), e))
+        crate::util::write_atomic(path.as_ref(), data).map_err(|e| Error::io(path.as_ref(), e))
     }
 
     pub(crate) fn embedded_pairs(&self) -> Vec<(Vec<u8>, Object)> {

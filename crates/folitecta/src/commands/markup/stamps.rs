@@ -80,7 +80,7 @@ pub fn save_library(lib: &StampLibrary) {
             let _ = std::fs::create_dir_all(dir);
         }
         if let Ok(json) = serde_json::to_string_pretty(lib) {
-            let _ = std::fs::write(p, json);
+            let _ = folitecta_core::util::write_atomic(p, json);
         }
     }
 }

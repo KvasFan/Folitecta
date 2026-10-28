@@ -44,7 +44,7 @@ fn a_failed_write_leaves_the_target_and_no_temporary_file() {
     assert!(target.is_dir());
     assert_eq!(entries(&dir), ["b.pdf"]);
     // A folder that does not exist: nothing is created.
-    assert!(write_atomic(&dir.join("missing").join("c.pdf"), b"x").is_err());
+    assert!(write_atomic(dir.join("missing").join("c.pdf"), b"x").is_err());
     assert_eq!(entries(&dir), ["b.pdf"]);
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -96,5 +96,28 @@ fn a_file_locked_by_another_program_keeps_its_content() {
     assert_eq!(std::fs::read(&file).unwrap(), before);
     assert!(doc.is_dirty());
     assert_eq!(entries(&dir), ["f.pdf"]);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn exports_replace_their_files_whole() {
+    let dir = folder("exports");
+    let doc = Document::from_text("Exported words", folitecta_core::textdoc::TextLayout::default()).unwrap();
+    let text = dir.join("words.txt");
+    let picture = dir.join("page.png");
+    std::fs::write(&text, "an older, longer text that must not show through").unwrap();
+    std::fs::write(&picture, b"old").unwrap();
+    doc.export_text(&text).unwrap();
+    doc.export_page_image(0, 36.0, folitecta_core::ImageFormat::Png, &picture)
+        .unwrap();
+    assert!(std::fs::read_to_string(&text).unwrap().contains("Exported words"));
+    assert!(!std::fs::read_to_string(&text).unwrap().contains("older"));
+    assert!(std::fs::read(&picture).unwrap().starts_with(b"\x89PNG"));
+    assert_eq!(entries(&dir), ["page.png", "words.txt"]);
+    // A target that cannot be written: an error, and nothing left behind.
+    let blocked = dir.join("blocked.txt");
+    std::fs::create_dir_all(&blocked).unwrap();
+    assert!(doc.export_text(&blocked).is_err());
+    assert_eq!(entries(&dir), ["blocked.txt", "page.png", "words.txt"]);
     let _ = std::fs::remove_dir_all(&dir);
 }

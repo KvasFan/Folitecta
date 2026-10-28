@@ -1,10 +1,19 @@
 //! Page-level operations: rotate, delete, insert, reorder, extract, merge, crop, resize.
 
+use std::collections::HashMap;
+use std::sync::atomic::AtomicBool;
+
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
+use crate::delivery::LeftOut;
 use crate::document::Document;
 use crate::error::{Error, Result};
-use crate::util::{fmt_num, rect_of};
+use crate::util::{deref, fmt_num, rect_of, text_of};
+
+/// The entries of a form field (not of its widgets).
+const FIELD_KEYS: [&[u8]; 13] = [
+    b"T", b"TU", b"TM", b"FT", b"Ff", b"V", b"DV", b"Opt", b"TI", b"I", b"MaxLen", b"Lock", b"SV",
+];
 
 impl Document {
     fn check_pages(&self, pages: &[usize]) -> Result<()> {
@@ -54,6 +63,20 @@ impl Document {
         self.commit()
     }
 
+    /// What deleting `pages` takes with them, nothing changed: the bookmarks,
+    /// links and named destinations leading to them, their form fields and
+    /// tags, and the rest [`LeftOut`] counts.
+    pub fn deleting_pages_takes(&self, pages: &[usize]) -> Result<LeftOut> {
+        self.check_pages(pages)?;
+        let kept: Vec<usize> = (0..self.page_count()).filter(|p| !pages.contains(p)).collect();
+        if kept.is_empty() {
+            return Err(Error::LastPage);
+        }
+        let mut copy = self.derived()?;
+        copy.changing();
+        copy.keep_only_pages(&kept, &AtomicBool::new(false))
+    }
+
     /// Insert `count` blank pages before index `at` (`at == page_count` appends).
     pub fn insert_blank_pages(&mut self, at: usize, count: usize, width: f32, height: f32) -> Result<()> {
         let n = self.page_count();
@@ -80,7 +103,10 @@ impl Document {
         self.commit()
     }
 
-    /// Duplicate pages; each copy is inserted right after its source.
+    /// Duplicate pages; each copy is inserted right after its source. The
+    /// comments of a copy are its own (their pop-ups and replies among
+    /// them), and its form fields are more widgets of the same fields, so
+    /// both pages show the same values. A copy is not tagged.
     pub fn duplicate_pages(&mut self, pages: &[usize]) -> Result<()> {
         self.check_pages(pages)?;
         self.begin_edit();
@@ -90,36 +116,191 @@ impl Document {
         for (i, id) in ids.iter().enumerate() {
             order.push(*id);
             if pages.contains(&i) {
-                let mut copy = self.inner.get_dictionary(*id)?.clone();
-                // Give the copy its own annotation objects so edits do not leak between pages.
-                if let Ok(annots) = copy.get(b"Annots").cloned() {
-                    let resolved = match &annots {
-                        Object::Reference(r) => {
-                            self.inner.get_object(*r).ok().cloned().unwrap_or(annots.clone())
-                        }
-                        other => other.clone(),
-                    };
-                    if let Object::Array(items) = resolved {
-                        let mut new_items = Vec::with_capacity(items.len());
-                        for item in items {
-                            match item {
-                                Object::Reference(r) => {
-                                    if let Ok(obj) = self.inner.get_object(r).cloned() {
-                                        new_items.push(Object::Reference(self.inner.add_object(obj)));
-                                    }
-                                }
-                                other => new_items.push(other),
-                            }
-                        }
-                        copy.set("Annots", Object::Array(new_items));
+                match self.copy_page(*id) {
+                    Ok(copy) => order.push(copy),
+                    Err(e) => {
+                        self.abandon_edit();
+                        return Err(e);
                     }
                 }
-                let new_id = self.inner.add_object(copy);
-                order.push(new_id);
             }
         }
         self.set_page_order(order)?;
         self.commit()
+    }
+
+    /// A copy of the page `id` (not in the page tree yet) with copies of
+    /// its annotations; see [`duplicate_pages`](Self::duplicate_pages).
+    fn copy_page(&mut self, id: ObjectId) -> Result<ObjectId> {
+        let mut page = self.inner.get_dictionary(id)?.clone();
+        page.remove(b"StructParents");
+        let new_page = self.inner.new_object_id();
+        let annots: Vec<Object> = match page.get(b"Annots") {
+            Ok(a) => deref(&self.inner, a).as_array().cloned().unwrap_or_default(),
+            Err(_) => Vec::new(),
+        };
+        // Every annotation of the page gets its copy first, so they can
+        // point to each other.
+        let mut copies: HashMap<ObjectId, ObjectId> = HashMap::new();
+        for a in &annots {
+            if let Ok(r) = a.as_reference() {
+                copies.insert(r, self.inner.new_object_id());
+            }
+        }
+        let mut list = Vec::with_capacity(annots.len());
+        for a in annots {
+            let Ok(old) = a.as_reference() else {
+                list.push(a);
+                continue;
+            };
+            let Ok(mut d) = self.inner.get_dictionary(old).cloned() else {
+                continue;
+            };
+            let new = copies[&old];
+            d.set("P", Object::Reference(new_page));
+            d.remove(b"StructParent");
+            for key in [&b"Popup"[..], b"IRT", b"Parent"] {
+                if let Some(c) = d
+                    .get(key)
+                    .ok()
+                    .and_then(|o| o.as_reference().ok())
+                    .and_then(|r| copies.get(&r))
+                {
+                    d.set(key.to_vec(), Object::Reference(*c));
+                }
+            }
+            if let Some(nm) = d.get(b"NM").ok().and_then(|n| text_of(&self.inner, n)) {
+                d.set("NM", lopdf::text_string(&format!("{nm}-{}", new.0)));
+            }
+            let widget = d.get(b"Subtype").ok().and_then(|s| s.as_name().ok()) == Some(b"Widget".as_slice());
+            if widget {
+                let field = match d.get(b"Parent").ok().and_then(|p| p.as_reference().ok()) {
+                    Some(f) if !copies.values().any(|c| *c == f) => Some(f),
+                    Some(_) => None,
+                    None => self.split_field_widget(old)?,
+                };
+                if let Some(field) = field {
+                    for key in FIELD_KEYS {
+                        d.remove(key);
+                    }
+                    // The actions of the widget, without those of the field.
+                    match self.inner.get_dictionary(old)?.get(b"AA").ok().cloned() {
+                        Some(aa) => d.set("AA", aa),
+                        None => {
+                            d.remove(b"AA");
+                        }
+                    }
+                    d.set("Parent", Object::Reference(field));
+                    let f = self.inner.get_dictionary_mut(field)?;
+                    let mut kids = f
+                        .get(b"Kids")
+                        .ok()
+                        .and_then(|k| k.as_array().ok())
+                        .cloned()
+                        .unwrap_or_default();
+                    kids.push(Object::Reference(new));
+                    f.set("Kids", kids);
+                }
+            }
+            self.inner.objects.insert(new, Object::Dictionary(d));
+            list.push(Object::Reference(new));
+        }
+        if !list.is_empty() {
+            page.set("Annots", Object::Array(list));
+        }
+        self.inner.objects.insert(new_page, Object::Dictionary(page));
+        Ok(new_page)
+    }
+
+    /// A widget that is its own field (`/T` with no parent of its own)
+    /// becomes the first kid of a new field that takes the field's entries,
+    /// in its place in the form. Returns the field, or `None` for a widget
+    /// that is in no field.
+    fn split_field_widget(&mut self, widget: ObjectId) -> Result<Option<ObjectId>> {
+        let d = self.inner.get_dictionary(widget)?.clone();
+        if !d.has(b"T") && !d.has(b"FT") {
+            return Ok(None);
+        }
+        let mut field = Dictionary::new();
+        for key in FIELD_KEYS {
+            if let Ok(v) = d.get(key) {
+                field.set(key.to_vec(), v.clone());
+            }
+        }
+        // Text drawing is the field's too, and stays with the widget.
+        for key in [&b"DA"[..], b"Q"] {
+            if let Ok(v) = d.get(key) {
+                field.set(key.to_vec(), v.clone());
+            }
+        }
+        if let Some(aa) = d
+            .get(b"AA")
+            .ok()
+            .and_then(|a| deref(&self.inner, a).as_dict().ok())
+            .cloned()
+        {
+            let (mut mine, mut theirs) = (Dictionary::new(), Dictionary::new());
+            for (k, v) in aa.iter() {
+                if [&b"K"[..], b"F", b"V", b"C"].contains(&k.as_slice()) {
+                    theirs.set(k.clone(), v.clone());
+                } else {
+                    mine.set(k.clone(), v.clone());
+                }
+            }
+            if !theirs.is_empty() {
+                field.set("AA", theirs);
+            }
+            let w = self.inner.get_dictionary_mut(widget)?;
+            if mine.is_empty() {
+                w.remove(b"AA");
+            } else {
+                w.set("AA", mine);
+            }
+        }
+        field.set("Kids", vec![Object::Reference(widget)]);
+        let field_id = self.inner.add_object(field);
+        let w = self.inner.get_dictionary_mut(widget)?;
+        for key in FIELD_KEYS {
+            w.remove(key);
+        }
+        w.set("Parent", Object::Reference(field_id));
+        // The new field takes the widget's place in the form.
+        let replace = |list: &mut Vec<Object>| {
+            for o in list.iter_mut() {
+                if o.as_reference().ok() == Some(widget) {
+                    *o = Object::Reference(field_id);
+                }
+            }
+        };
+        let form = self.inner.catalog()?.get(b"AcroForm").ok().cloned();
+        let form_dict = match form {
+            Some(Object::Reference(r)) => self.inner.get_dictionary_mut(r).ok(),
+            Some(Object::Dictionary(_)) => self
+                .inner
+                .catalog_mut()?
+                .get_mut(b"AcroForm")
+                .ok()
+                .and_then(|f| f.as_dict_mut().ok()),
+            _ => None,
+        };
+        if let Some(f) = form_dict {
+            for key in [&b"Fields"[..], b"CO"] {
+                match f.get(key).ok().cloned() {
+                    Some(Object::Array(mut a)) => {
+                        replace(&mut a);
+                        f.set(key.to_vec(), a);
+                    }
+                    Some(Object::Reference(r)) => {
+                        if let Ok(Object::Array(a)) = self.inner.get_object_mut(r) {
+                            replace(a);
+                        }
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Ok(Some(field_id))
     }
 
     /// Move the given pages so that they start at index `to` (computed on the remaining pages).
@@ -221,42 +402,7 @@ impl Document {
     /// zero-based pages of `other`; `None` imports every page. Pages of a
     /// protected document are refused by a document that is not protected.
     pub fn insert_document(&mut self, at: usize, other: &Document, pages: Option<&[usize]>) -> Result<()> {
-        self.check_import_from(other)?;
-        let n = self.page_count();
-        if at > n {
-            return Err(Error::InvalidPage(at));
-        }
-        let mut src = lopdf::Document::load_mem(other.bytes().as_slice())?;
-        src.renumber_objects_with(self.inner.max_id + 1);
-        let src_pages: Vec<ObjectId> = src.get_pages().into_values().collect();
-        let selected: Vec<ObjectId> = match pages {
-            Some(sel) => {
-                for &p in sel {
-                    if p >= src_pages.len() {
-                        return Err(Error::InvalidPage(p));
-                    }
-                }
-                sel.iter().map(|&p| src_pages[p]).collect()
-            }
-            None => src_pages.clone(),
-        };
-        if selected.is_empty() {
-            return Ok(());
-        }
-        self.begin_edit();
-        let max_id = src.max_id;
-        for (id, obj) in std::mem::take(&mut src.objects) {
-            self.inner.objects.insert(id, obj);
-        }
-        self.inner.max_id = self.inner.max_id.max(max_id);
-        // Resolve attributes inherited inside the foreign page tree before re-parenting.
-        self.inherit_attributes(&selected);
-        let mut ids = self.page_ids();
-        let tail = ids.split_off(at);
-        ids.extend(selected);
-        ids.extend(tail);
-        self.set_page_order(ids)?;
-        self.commit()
+        self.insert_pages_from(at, other, pages, None).map(|_| ())
     }
 
     /// Set the crop box of pages (PDF user-space rectangle).

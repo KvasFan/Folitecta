@@ -145,11 +145,20 @@ pub fn pick_file_to_insert(st: AppState) {
 
 pub fn insert_from_file(st: AppState, path: PathBuf, at: usize) {
     match Document::open(&path) {
-        Ok(other) => {
-            if let Some(Err(e)) = st.with_active(|t| t.doc.insert_document(at, &other, None)) {
-                st.core_error(&e);
+        Ok(other) => match st.with_active(|t| t.doc.insert_pages_from(at, &other, None, None)) {
+            Some(Err(e)) => st.core_error(&e),
+            Some(Ok(a)) => {
+                let lines = crate::ui::dialogs::arrival_lines(st.lang(), &a);
+                if !lines.is_empty() {
+                    st.toast(
+                        ToastKind::Info,
+                        t(st.lang(), "toast.pages_arrived"),
+                        lines.join(" "),
+                    );
+                }
             }
-        }
+            None => {}
+        },
         Err(e) => st.error(format!("{}: {}", path.display(), st.core_error_text(&e))),
     }
 }
@@ -206,7 +215,7 @@ pub fn save_text_file(st: AppState, suggested: &str, contents: String) {
         else {
             return;
         };
-        match std::fs::write(file.path(), contents) {
+        match folitecta_core::util::write_atomic(file.path(), contents) {
             Ok(()) => st.toast(
                 ToastKind::Ok,
                 tf(

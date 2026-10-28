@@ -6,6 +6,29 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Inserting pages from a file and Combine Files bring what belongs to those pages: their form
+  fields join the form, their named destinations, bookmarks and layers come along, and so do
+  their tags when the document is tagged. A field or destination name the document already has
+  gets a suffix (`name_2`), and the links and bookmarks follow; the insert window lists the
+  renames before OK. Combine Files puts each file under a bookmark named after it.
+
+### Changed
+- Deleting pages, extracting them and splitting a document take away the bookmarks, named
+  destinations and links that lead to the pages that go, their form fields and tags, and the
+  opening view when it showed one of them. Delete Pages names what goes with the pages and asks
+  first. Page labels stay as they were shown.
+- Duplicated pages have comments of their own: a note keeps its pop-up and replies on the copy.
+  The fields of a copy are more widgets of the same fields, so both pages show the same values.
+- Exports (pictures, text, attachments, form data, comments, Office documents, settings and the
+  other files Folitecta writes) go to a temporary file first and replace the target only when
+  complete, as saving a PDF already did.
+
+### Fixed
+- A deleted page stayed inside the saved file whenever a bookmark, a named destination or a tag
+  still led to it; now nothing of it is left. Pages inserted from a file lost their form fields
+  (the boxes came, but outside the form), and their links to named destinations led nowhere.
+
 ## [0.5.0] - 2026-10-28
 
 ### Added

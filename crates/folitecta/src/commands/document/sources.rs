@@ -206,10 +206,22 @@ pub fn combine(st: AppState) {
             pages,
         });
     }
-    match Document::combine(&sources) {
-        Ok((doc, problems)) => {
+    match Document::combine_with_arrivals(&sources) {
+        Ok((doc, problems, arrivals)) => {
             for (p, e) in problems {
                 st.error(format!("{}: {e}", p.display()));
+            }
+            let lang = st.lang();
+            let notes: Vec<String> = arrivals
+                .iter()
+                .filter_map(|(p, a)| {
+                    let lines = crate::ui::dialogs::arrival_lines(lang, a);
+                    let name = p.file_name()?.to_string_lossy().to_string();
+                    (!lines.is_empty()).then(|| format!("{name}: {}", lines.join(" ")))
+                })
+                .collect();
+            if !notes.is_empty() {
+                st.toast(ToastKind::Info, t(lang, "toast.pages_arrived"), notes.join("\n"));
             }
             crate::files::open_document_tab(st, doc);
             st.set_dialog(Dialog::None);

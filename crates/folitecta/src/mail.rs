@@ -220,7 +220,7 @@ pub fn write_files(dir: &Path, files: &[Outgoing]) -> Result<Vec<PathBuf>, Strin
             let written = if f.made_here {
                 folitecta_core::document::write_pdf_file(&path, &f.bytes).map_err(|e| e.to_string())
             } else {
-                folitecta_core::util::write_atomic(&path, &f.bytes)
+                folitecta_core::util::write_atomic(&path, f.bytes.as_slice())
                     .map_err(|e| format!("{}: {e}", path.display()))
             };
             written.map(|()| path)

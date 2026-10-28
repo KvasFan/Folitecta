@@ -1690,7 +1690,27 @@ impl Document {
     }
 
     /// Rewrite the page tree as a flat `/Pages` node with the given order.
+    /// Pages of the tree that `ids` leaves out go with everything that
+    /// belongs or leads to them (bookmarks, links, named destinations, form
+    /// fields, tags: see `keep_only_pages`), so nothing of them stays in the
+    /// file.
     pub(crate) fn set_page_order(&mut self, ids: Vec<ObjectId>) -> Result<()> {
+        let old = self.page_ids();
+        let wanted: std::collections::HashSet<ObjectId> = ids.iter().copied().collect();
+        if old.iter().any(|id| !wanted.contains(id)) {
+            // New pages join the tree first, so the clean-up keeps them.
+            let present: std::collections::HashSet<ObjectId> = old.iter().copied().collect();
+            let mut all = old;
+            all.extend(ids.iter().copied().filter(|id| !present.contains(id)));
+            self.write_page_tree(&all)?;
+            let kept: Vec<usize> = all
+                .iter()
+                .enumerate()
+                .filter(|(_, id)| wanted.contains(id))
+                .map(|(i, _)| i)
+                .collect();
+            self.keep_only_pages(&kept, &std::sync::atomic::AtomicBool::new(false))?;
+        }
         self.write_page_tree(&ids)?;
         self.inner.prune_objects();
         Ok(())

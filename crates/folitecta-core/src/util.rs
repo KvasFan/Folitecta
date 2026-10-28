@@ -10,8 +10,9 @@ use time::macros::format_description;
 /// anything fails the original file is untouched and the temporary file is
 /// removed. A symbolic link is followed, so the file it points to is
 /// replaced, not the link.
-pub fn write_atomic(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+pub fn write_atomic(path: impl AsRef<std::path::Path>, data: impl AsRef<[u8]>) -> std::io::Result<()> {
     use std::io::Write;
+    let (path, data) = (path.as_ref(), data.as_ref());
     use std::sync::atomic::{AtomicU64, Ordering};
     static COUNT: AtomicU64 = AtomicU64::new(0);
     let target = match std::fs::symlink_metadata(path) {

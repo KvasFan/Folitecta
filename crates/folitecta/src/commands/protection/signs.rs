@@ -69,7 +69,7 @@ pub fn save_library(marks: &[SavedMark]) -> Result<(), String> {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
     let json = serde_json::to_string_pretty(marks).map_err(|e| e.to_string())?;
-    std::fs::write(path, json).map_err(|e| e.to_string())
+    folitecta_core::util::write_atomic(path, json).map_err(|e| e.to_string())
 }
 
 /// Add a mark to the library and return it.

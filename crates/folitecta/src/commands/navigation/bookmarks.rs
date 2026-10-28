@@ -8,7 +8,7 @@ use folitecta_core::{DestView, OutlineItem};
 use crate::commands::{core_result, current_zoom, handlers, no_doc, option_on, show_pane};
 use crate::files;
 use crate::i18n::{t, tf};
-use crate::state::{AppState, ConfirmAction, Dialog, Pane, ToastKind};
+use crate::state::{AppState, Dialog, Pane, ToastKind};
 
 /// Where a new bookmark goes relative to the selected one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -431,11 +431,11 @@ fn pages_action(st: AppState, section: bool, action: &'static str) {
                 "dialog.confirm.remove_pages",
                 &[("count", &pages.len().to_string())],
             );
-            st.set_dialog(Dialog::Confirm {
-                title: t(lang, "cmd.bookmarksView.pages.remove"),
-                body,
-                action: ConfirmAction::DeletePages(pages),
-            });
+            crate::ui::dialogs::delete_pages_asking(
+                st,
+                pages,
+                Some((t(lang, "cmd.bookmarksView.pages.remove"), body)),
+            );
         }
     }
 }

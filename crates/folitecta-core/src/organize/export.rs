@@ -123,7 +123,7 @@ impl Document {
             RenderOpts::default(),
         )?;
         let data = encode(rendered, format)?;
-        std::fs::write(path.as_ref(), data).map_err(|e| Error::io(path.as_ref(), e))
+        crate::util::write_atomic(path.as_ref(), data).map_err(|e| Error::io(path.as_ref(), e))
     }
 
     /// Export several pages as `prefix-NNN.ext` files inside `dir`.
@@ -158,7 +158,7 @@ impl Document {
             let rendered = renderer.render_rgba(p, dpi.max(18.0) / 72.0, RenderOpts::default())?;
             let data = encode(rendered, format)?;
             let path = dir.join(format!("{prefix}-{:03}.{}", p + 1, format.extension()));
-            std::fs::write(&path, data).map_err(|e| Error::io(&path, e))?;
+            crate::util::write_atomic(&path, data).map_err(|e| Error::io(&path, e))?;
             out.push(path);
         }
         Ok(out)
@@ -173,7 +173,7 @@ impl Document {
             }
             text.push_str(&page);
         }
-        std::fs::write(path.as_ref(), text).map_err(|e| Error::io(path.as_ref(), e))
+        crate::util::write_atomic(path.as_ref(), text).map_err(|e| Error::io(path.as_ref(), e))
     }
 
     /// Extract embedded raster images of the given pages into `dir`.
@@ -197,11 +197,11 @@ impl Document {
                 let base = dir.join(format!("page{:03}-img{}", p + 1, img.id.0));
                 let path = if filters.iter().any(|f| f == "DCTDecode") {
                     let path = base.with_extension("jpg");
-                    std::fs::write(&path, img.content).map_err(|e| Error::io(&path, e))?;
+                    crate::util::write_atomic(&path, img.content).map_err(|e| Error::io(&path, e))?;
                     path
                 } else if filters.iter().any(|f| f == "JPXDecode") {
                     let path = base.with_extension("jp2");
-                    std::fs::write(&path, img.content).map_err(|e| Error::io(&path, e))?;
+                    crate::util::write_atomic(&path, img.content).map_err(|e| Error::io(&path, e))?;
                     path
                 } else {
                     let Ok(Object::Stream(stream)) = self.inner.get_object(img.id) else {

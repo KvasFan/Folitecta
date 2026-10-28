@@ -55,7 +55,7 @@ fn kind_text(lang: Lang, it: &MailItem) -> String {
 }
 
 /// What was left out with the other pages, in words.
-fn left_out_text(lang: Lang, l: &folitecta_core::LeftOut) -> String {
+pub(crate) fn left_out_text(lang: Lang, l: &folitecta_core::LeftOut) -> String {
     let mut parts = Vec::new();
     for (n, key) in [
         (l.bookmarks, "dialog.mail.left_bookmarks"),

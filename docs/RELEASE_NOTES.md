@@ -1,37 +1,39 @@
-## Folitecta 0.6.0 — safe edits
+## Folitecta 0.7.0 — forms that check themselves
 
-A free PDF editor written entirely in Rust with a Dioxus desktop interface. This release makes
-page operations safe: what ties a document together — bookmarks, links, named destinations, form
-fields, comments and tags — now follows the pages when they leave, arrive or are copied, and
-Folitecta says before OK what it cannot keep.
+A free PDF editor written entirely in Rust with a Dioxus desktop interface. This release gives
+form fields formats and checks chosen instead of written as scripts, a date field with a
+calendar, and templates of the user's own.
 
-- **Deleted pages really go**: deleting, extracting or splitting pages takes away the bookmarks,
-  named destinations and links that lead to the pages that go, their form fields and tags, and
-  the opening view when it showed one of them. Before, a page a bookmark or a tag still pointed
-  to stayed inside the saved file; now nothing of it is left. Delete Pages names what goes with
-  the pages and asks first.
-- **Inserted pages bring their parts**: Insert Pages from a file and Combine Files bring the form
-  fields of those pages into the form, with their named destinations, bookmarks, layers and —
-  when the document is tagged — their tags. A field or destination name the document already has
-  gets a suffix (`name_2`), the links follow, and the insert window lists the renames before OK.
-  Combine Files puts each file under a bookmark named after it.
-- **Duplicated pages are copies of their own**: a note on a copy keeps its pop-up and its replies;
-  the fields of a copy are more widgets of the same fields, so both pages show the same values.
-- **Exports written whole**: pictures, text, attachments, form data, comments, Office documents,
-  digital IDs and settings go to a temporary file first and replace the target only when
-  complete, as saving a PDF already did.
+- **A date field**: Forms › Date makes a text field that takes only dates, in the format of the
+  language (`dd/mm/yyyy` in Italian, `mm/dd/yyyy` in English, any other chosen in its
+  properties). Filling it offers a calendar; a date that does not exist (30 February) is
+  refused, naming the format, and the field keeps what was typed so it can be corrected.
+- **Formats and checks chosen, not written**: the properties of a text field offer a number with
+  its decimals, separators and currency, a percentage, a date, a time, a postal code or a phone
+  number, and the lowest and highest value of a number. They are kept as the standard scripts of
+  forms, so other readers apply them too; scripts written by hand stay as they are.
+- **Values checked when committed**: a word in a number field, a postal code of the wrong length
+  or a date that does not exist is refused, as the format's script says. The form scripts know
+  dates and times (`AFDate_*`, `AFTime_*`, `util.printd` and `util.scand`, which reads dates as
+  people type them, with English and Italian month names).
+- **Your own templates**: File › Save as Template… keeps a document under a name. The gallery of
+  File › New › From Template… lists them under My templates with their pictures, where they come
+  from, when and with which version they were made and the fonts they need; it makes new
+  documents from them (the template never changes), renames them and moves them to the bin.
+- **Fixed**: scripts typed into a field's properties lost characters beyond plain ASCII (a € in a
+  format) when they were read back.
 
-Everything 0.5.0 brought — the quick panels of the drawing and measuring tools and pen pressure
-for the Pencil — and the earlier releases is described in their notes and in
+Everything 0.6.0 brought — page operations that keep bookmarks, links, destinations, fields and
+tags with their pages — and the earlier releases is described in their notes and in
 [CHANGELOG.md][changelog].
 
 **Binaries**
 
 | Platform | File |
 |---|---|
-| Windows x64 | `folitecta-0.6.0-windows-x64.zip` |
-| Linux x64 | `folitecta-0.6.0-linux-x64.tar.gz` |
-| macOS (Apple silicon and Intel) | `folitecta-0.6.0-macos-universal.zip` (app bundle) or `folitecta-0.6.0-macos-universal.tar.gz` (binary) |
+| Windows x64 | `folitecta-0.7.0-windows-x64.zip` |
+| Linux x64 | `folitecta-0.7.0-linux-x64.tar.gz` |
+| macOS (Apple silicon and Intel) | `folitecta-0.7.0-macos-universal.zip` (app bundle) or `folitecta-0.7.0-macos-universal.tar.gz` (binary) |
 
 Each package carries the `dictionaries`, `ocr` and `fonts` folders next to the program (in the
 app bundle's resources on macOS): keep them with it. SHA-256 checksums are attached.
@@ -48,7 +50,7 @@ app bundle's resources on macOS): keep them with it. SHA-256 checksums are attac
 The status of every command is in [docs/FEATURES.md][features]; known limitations are in
 [docs/ARCHITECTURE.md][limits] and [ai/ROADMAP.md][roadmap].
 
-[changelog]: https://github.com/KvasFan/Folitecta/blob/main/CHANGELOG.md#060---2026-10-28
-[features]: https://github.com/KvasFan/Folitecta/blob/v0.6.0/docs/FEATURES.md
+[changelog]: https://github.com/KvasFan/Folitecta/blob/main/CHANGELOG.md#070---2026-10-30
+[features]: https://github.com/KvasFan/Folitecta/blob/v0.7.0/docs/FEATURES.md
 [limits]: https://github.com/KvasFan/Folitecta/blob/main/docs/ARCHITECTURE.md#known-limitations
 [roadmap]: https://github.com/KvasFan/Folitecta/blob/main/ai/ROADMAP.md

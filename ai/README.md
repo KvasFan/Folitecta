@@ -55,7 +55,7 @@ without breaking what already works.
 
 ## Where the product stands (summary)
 
-Folitecta 0.6.0 (October 2026) covers most daily work: viewing, page organization, comments and
+Folitecta 0.7.0 (October 2026) covers most daily work: viewing, page organization, comments and
 review, layers, forms designer and data, OCR, spell checking, barcodes, tables, stamps, digital
 signatures with PKCS#12, smart cards, tokens and the system certificate store, RFC 3161 time stamps and revocation checks, accessibility tags and
 checks, comparison, portfolios, e-mail with an attachment dialog, printing with its own window

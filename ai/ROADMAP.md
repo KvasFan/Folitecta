@@ -1,7 +1,7 @@
 # Folitecta roadmap and progress
 
 State of every requirement of [REQUIREMENTS.md](REQUIREMENTS.md) on the `main` branch at
-Folitecta 0.6.0, reviewed on **28 October 2026** against the code (not only the command
+Folitecta 0.7.0, reviewed on **30 October 2026** against the code (not only the command
 registry). Update the row of a requirement whenever a sub-task changes it, and log the work in
 [PROGRESS.md](PROGRESS.md).
 
@@ -139,7 +139,7 @@ they cannot keep (FOL-L052, FOL-L015, FOL-L051).
 5. ~~**FOL-L051 — exports through a temporary file.**~~ Done: pictures, text, attachments, form
    data, comments, Office documents, digital IDs and settings go through `util::write_atomic`.
 
-### 0.7.0 — forms that check themselves
+### 0.7.0 — forms that check themselves (released 30 October 2026)
 
 Fields that know what they hold: dates, times, numbers and ranges chosen, not written as
 scripts, and checked when a value is committed (FOL-L031, FOL-L032), and the user's own

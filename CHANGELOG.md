@@ -6,6 +6,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-30
+
 ### Added
 - A date field: Forms › Date makes a text field that takes only dates, in the format of the
   language (`dd/mm/yyyy` in Italian, `mm/dd/yyyy` in English, any other chosen in its

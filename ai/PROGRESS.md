@@ -4,6 +4,19 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-30 — release 0.7.0: check of the published packages
+
+- **What:** tag `v0.7.0` (`8bac1e8`): CI (22 min) and release (33 min) workflows green, eight
+  files on the release page.
+- **Found right:** SHA-256 of the four packages equal to their `.sha256` files; the data folders
+  (`ocr`, `dictionaries`, `fonts`, `docs`) of the Windows and Linux packages equal file by file;
+  the packaged Linux executable says `Folitecta 0.7.0`.
+- **Open:** the self-test steps with the packaged executable were not run: the nested compositor
+  used so far (KWin) is no longer installed on this machine, and a headless Weston has no seat,
+  where the program stops before the first window. The full self-test of the same code passed
+  before the tag (293 states, 313 interactions, 0 problems). The Windows executable was not run
+  here (no WebView2 runtime in Wine).
+
 ## 2026-10-28 — FOL-L031, FOL-L032, FOL-L010: forms that check themselves (0.7.0)
 
 - **Current state before:** dates had no format functions in the script engine (`util.scand` was

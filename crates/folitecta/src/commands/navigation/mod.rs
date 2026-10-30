@@ -3,6 +3,7 @@
 pub(crate) mod attachments;
 pub(crate) mod bookmarks;
 pub(crate) mod explorer;
+pub(crate) mod follow;
 pub(crate) mod history;
 pub(crate) mod layers;
 pub(crate) mod panes;

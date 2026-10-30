@@ -4,6 +4,26 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-31 — FOL-L052: a safe reading mode (0.8.0 item 3)
+
+- **Current state before:** the links of a page could not be clicked; push buttons showed a
+  notice; a double click in the Links pane opened a web address at once.
+- **What:** `LinkTarget` gains `NamedAction`, `Submit` and `Reset`; `Document::button_target`
+  reads the action of a push button (its widget's or field's `/A`, else `/AA /U`). In the app,
+  the page draws a `link-hit` over every link with the hand and select tools, and
+  `commands/navigation/follow.rs` follows a target: pages, destinations, named actions (next,
+  previous, first, last page, print) and Reset Form (confirmed) at once; web addresses, files and
+  other documents through the new `Dialog::OpenTarget`, which names the target and can set
+  `DocTab::trust_links` for the session; a file with a program's extension is refused without
+  asking; Submit Form sends nothing and says where the data would go. Push buttons and the
+  Links pane's double click go through `follow`.
+- **Checked:** `link_kinds.rs` `named_actions_form_actions_and_buttons`; self-test step
+  `follow_links` (a page link goes to page 3, a web link asks naming its address and opens
+  nothing when cancelled, `setup.exe` refused without a question); full self-test 293 states,
+  316 interactions, 0 problems; 946 workspace tests passed, 0 failed; clippy clean.
+- **Open:** scripts of buttons (`JavaScript` actions) are not run; Import Data and the actions of
+  rich media are reported, not run; the trust is not saved with the file.
+
 ## 2026-10-30 — FOL-L036: permissions kept in Folitecta (0.8.0 item 2)
 
 - **Current state before:** only the print permission was applied; a file opened with the user

@@ -213,6 +213,9 @@ pub struct DocTab {
     pub redacting: bool,
     /// The last redaction applied, until a save checked it (dropped with the tab).
     pub redaction: Option<RedactionPending>,
+    /// Links and buttons of the document open what lies outside it without
+    /// asking (chosen when one asked; dropped with the tab).
+    pub trust_links: bool,
 }
 
 /// A redaction applied to a document whose saved bytes are still to check.
@@ -367,6 +370,7 @@ impl DocTab {
             spell: None,
             redacting: false,
             redaction: None,
+            trust_links: false,
         };
         tab.page_shown = vec![0; tab.page_sizes.len()];
         // A portfolio opens on its initial file, when it names one.

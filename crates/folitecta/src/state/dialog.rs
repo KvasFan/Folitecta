@@ -105,6 +105,12 @@ pub enum Dialog {
         tab: u64,
         then: AfterUnsaved,
     },
+    /// A link or button of the document of tab `tab` that reaches outside
+    /// it: asked before it opens.
+    OpenTarget {
+        tab: u64,
+        target: folitecta_core::LinkTarget,
+    },
     /// A password, for `target`; `retry` after a wrong one.
     Password {
         target: PasswordTarget,

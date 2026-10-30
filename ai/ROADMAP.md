@@ -176,10 +176,12 @@ outside the visible page too (FOL-L036, FOL-L052, FOL-L037).
    is kept, and the owner password is asked with the setting named, which lifts the
    restrictions until the document is closed. Copying text, a page or an area is refused the
    same way.
-3. **FOL-L052 — a safe reading mode.** Actions that reach outside the document — opening a file
-   or a program, a web address, submitting or importing form data — ask before they run, naming
-   the target, with the answer kept for the document; scripts of opening and page events run only
-   once allowed.
+3. ~~**FOL-L052 — a safe reading mode.**~~ Done: the links of a page and the push buttons of a
+   form are followed (they did nothing before): a page, a destination, a named action and
+   clearing the form run at once; a web address, a file or another document is named and asked
+   first, with a choice to trust the document until it is closed; programs are never started
+   and form data is never sent (`commands/navigation/follow.rs`). Scripts of opening and page
+   events are not run, as before.
 4. **FOL-L037 — what lies outside the crop box.** Redaction marks drawn to the page edge take the
    content beyond the crop box under them too, and Apply names what is still there outside the
    visible page.
@@ -302,7 +304,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
 | FOL-L051 | P0 | 🟡 | undo/redo of every edit; every PDF save (Save, Save As, copies, protected copies, signed files), the exports (pictures, text, attachments, form data, comments, Office documents, digital IDs) and the settings written to a temporary file and renamed over the target only when complete; recovery copies the same way, never for encrypted documents; signed documents saved as incremental updates | Versioned session format. |
-| FOL-L052 | P0 | 🟡 | page tree normalized before every page edit; pages that leave take the bookmarks, destinations, links, fields, tags and opening view tied to them (nothing of them stays in the file), pages that arrive bring theirs, and what cannot be kept is reported before OK; a relations corpus (`relations_corpus.rs`: bookmarks, destinations, links by array, name and action, fields over several pages, radio groups, comments with pop-ups and replies, tags with their parent tree) through every page operation, saved and reopened; external actions not executed on opening | Relations of portfolio and attachment documents; a safe reading mode with explicit permissions for active actions. |
+| FOL-L052 | P0 | 🟡 | page tree normalized before every page edit; pages that leave take the bookmarks, destinations, links, fields, tags and opening view tied to them (nothing of them stays in the file), pages that arrive bring theirs, and what cannot be kept is reported before OK; a relations corpus (`relations_corpus.rs`: bookmarks, destinations, links by array, name and action, fields over several pages, radio groups, comments with pop-ups and replies, tags with their parent tree) through every page operation, saved and reopened; external actions not executed on opening; links and buttons followed with a question before anything outside the document opens, programs never started | Relations of portfolio and attachment documents; the answer to an external link kept only for the session (not saved with the file). |
 | FOL-L053 | P1 | 🟡 | real attachments through the mail program (Simple MAPI, Mail, `xdg-email`), ZIP, EML drafts; the attachment dialog: current state or saved file, pages, comments kept/flattened/removed, form data and comments as files, sizes and previews, protected copies kept protected, failures reported in the dialog | A check with real mail programs; Extract Pages, Split and Delete Pages onto the same page copies (layers and XFA follow page subsets). |
 
 ### Remote services

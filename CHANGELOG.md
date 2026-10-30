@@ -11,6 +11,15 @@ All notable changes to Folitecta are documented here. The format follows
   security settings forbid changing it, commenting, filling in forms, assembling pages or copying
   refuses a change of that kind and changes nothing; the owner password, asked right there,
   lifts the restrictions until the document is closed.
+- Links on the page and push buttons of forms are followed with the hand and select tools: a
+  page, a destination, the next or previous page and clearing the form at once; a web address,
+  a file or another document only after a question that names it, which can trust the document
+  until it is closed. Programs are never started from a document, and form data is never sent
+  (the button says where it would go).
+
+### Changed
+- A double click on a link of the Links pane asks before it opens a web address, as a click on
+  the page does.
 
 ### Fixed
 - Protected files kept the strings of stream dictionaries in plain text — the dates of an

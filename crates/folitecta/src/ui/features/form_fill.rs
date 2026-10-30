@@ -47,7 +47,19 @@ pub fn fill_field(st: AppState, page: usize, w: &PageWidget) {
         FieldKind::RadioButton => {
             set_value(st, w.field, &w.on_state);
         }
-        FieldKind::PushButton => st.toast(ToastKind::Info, t(st.lang(), "toast.button_actions"), ""),
+        FieldKind::PushButton => {
+            match st
+                .read_active(|t| {
+                    t.doc
+                        .button_target(w.widget)
+                        .or_else(|| t.doc.button_target(w.field))
+                })
+                .flatten()
+            {
+                Some(target) => crate::commands::navigation::follow::follow(st, target),
+                None => st.toast(ToastKind::Info, t(st.lang(), "toast.button_actions"), ""),
+            }
+        }
         FieldKind::Signature => st.toast(ToastKind::Info, t(st.lang(), "toast.signature_field"), ""),
         FieldKind::Unknown(_) => {}
     }

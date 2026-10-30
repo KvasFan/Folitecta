@@ -275,6 +275,7 @@ pub fn Dialogs() -> Element {
         Dialog::Confirm { title, body, action } => rsx! { Confirm { title, body, action } },
         Dialog::Unsaved { tab, then } => rsx! { Unsaved { tab, then } },
         Dialog::Password { target, retry } => rsx! { Password { target, retry } },
+        Dialog::OpenTarget { tab, target } => rsx! { OpenTarget { tab, target } },
         Dialog::Note { page, x, y } => rsx! { NoteDialog { page, x, y } },
         Dialog::TextBox { page, rect, border } => {
             rsx! { TextBoxDialog { page, rect: rect.to_vec(), border } }

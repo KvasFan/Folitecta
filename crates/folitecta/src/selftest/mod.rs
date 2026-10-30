@@ -430,6 +430,7 @@ mod steps_features;
 mod steps_field_items;
 mod steps_field_scripts;
 mod steps_files;
+mod steps_follow_links;
 mod steps_formats;
 mod steps_frames;
 mod steps_grey;
@@ -543,6 +544,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "templates" => Box::pin(steps_templates::run(cx)),
             "my_templates" => Box::pin(steps_my_templates::run(cx)),
             "permissions" => Box::pin(steps_permissions::run(cx)),
+            "follow_links" => Box::pin(steps_follow_links::run(cx)),
             "field_items" => Box::pin(steps_field_items::run(cx)),
             "policies" => Box::pin(steps_policies::run(cx)),
             "qat" => Box::pin(steps_qat::run(cx)),
@@ -620,6 +622,7 @@ const STEPS: &[&str] = &[
     "templates",
     "my_templates",
     "permissions",
+    "follow_links",
     "field_items",
     "policies",
     "qat",

@@ -303,11 +303,7 @@ fn LinksPane() -> Element {
                             });
                         },
                         ondoubleclick: move |_| {
-                            match &target {
-                                folitecta_core::LinkTarget::Uri(u) => { if let Err(e) = crate::util::open_external(u) { st.error(e); } }
-                                folitecta_core::LinkTarget::Page(p) => st.go_to_page(*p),
-                                _ => st.go_to_page(page),
-                            }
+                            crate::commands::navigation::follow::follow(st, target.clone());
                         },
                         div { class: "title", Icon { name: "link" } "{t(lang, \"status.page\")} {page + 1}" }
                         div { class: if wrap { "body wrap" } else { "body ellipsis" }, title: "{desc}", "{desc}" }

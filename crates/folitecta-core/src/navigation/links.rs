@@ -15,6 +15,13 @@ pub enum LinkTarget {
     Named(String),
     Launch(String),
     Remote(String),
+    /// A named action: `NextPage`, `PrevPage`, `FirstPage`, `LastPage` and
+    /// the others readers know.
+    NamedAction(String),
+    /// Sending the form data to an address.
+    Submit(String),
+    /// Clearing the form.
+    Reset,
     Other(String),
 }
 
@@ -26,6 +33,9 @@ impl LinkTarget {
             LinkTarget::Named(n) => format!("Destination '{n}'"),
             LinkTarget::Launch(f) => format!("Open file {f}"),
             LinkTarget::Remote(f) => format!("Remote document {f}"),
+            LinkTarget::NamedAction(n) => format!("Named action {n}"),
+            LinkTarget::Submit(u) => format!("Submit form to {u}"),
+            LinkTarget::Reset => "Reset form".into(),
             LinkTarget::Other(s) => s.clone(),
         }
     }
@@ -416,6 +426,32 @@ impl Document {
         Ok(())
     }
 
+    /// What pressing the push button of field `id` does: the action of its
+    /// widget (or of the field), when released (`/AA /U`) or activated (`/A`).
+    pub fn button_target(&self, id: ObjectId) -> Option<LinkTarget> {
+        let doc = &self.inner;
+        let d = doc.get_dictionary(id).ok()?;
+        let mut candidates = vec![d.clone()];
+        if let Some(kids) = d.get(b"Kids").ok().and_then(|k| k.as_array().ok()) {
+            candidates.extend(kids.iter().filter_map(|k| deref(doc, k).as_dict().ok().cloned()));
+        }
+        for c in candidates {
+            if c.has(b"A") {
+                return Some(self.link_target(&c));
+            }
+            let up = c
+                .get(b"AA")
+                .ok()
+                .map(|a| deref(doc, a))
+                .and_then(|a| a.as_dict().ok())
+                .and_then(|aa| aa.get(b"U").ok().cloned());
+            if let Some(up) = up {
+                return Some(self.link_target(&lopdf::dictionary! { "A" => up }));
+            }
+        }
+        None
+    }
+
     fn link_target(&self, d: &Dictionary) -> LinkTarget {
         let doc = &self.inner;
         if let Some(action) = d
@@ -458,14 +494,21 @@ impl Document {
                         .and_then(|f| self.file_spec_name(f))
                         .unwrap_or_default(),
                 ),
-                b"Named" => LinkTarget::Other(format!(
-                    "Named action {}",
+                b"Named" => LinkTarget::NamedAction(
                     action
                         .get(b"N")
                         .ok()
                         .and_then(|n| text_of(doc, n))
-                        .unwrap_or_default()
-                )),
+                        .unwrap_or_default(),
+                ),
+                b"SubmitForm" => LinkTarget::Submit(
+                    action
+                        .get(b"F")
+                        .ok()
+                        .and_then(|f| self.file_spec_name(f))
+                        .unwrap_or_default(),
+                ),
+                b"ResetForm" => LinkTarget::Reset,
                 b"JavaScript" => LinkTarget::Other("JavaScript".into()),
                 other => LinkTarget::Other(String::from_utf8_lossy(other).to_string()),
             };

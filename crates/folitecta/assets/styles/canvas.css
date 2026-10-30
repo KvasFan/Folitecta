@@ -64,6 +64,8 @@
 .dest-flash { position: absolute; z-index: 4; background: rgba(79,70,229,.22); outline: 2px solid rgba(79,70,229,.7); border-radius: 2px; animation: dest-flash 1.6s ease-out forwards; }
 @keyframes dest-flash { 0% { opacity: 1; } 70% { opacity: .8; } 100% { opacity: 0; } }
 .field-hit { position: absolute; cursor: pointer; border-radius: 2px; }
+.link-hit { position: absolute; cursor: pointer; }
+.link-hit:hover { outline: 1px dashed rgba(37, 99, 235, .7); }
 .field-hit:hover { outline: 1.5px solid rgba(8, 145, 178, .8); background: rgba(8, 145, 178, .08); }
 .field-hit.text { cursor: text; }
 .field-hit.readonly { cursor: not-allowed; }

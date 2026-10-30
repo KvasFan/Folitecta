@@ -440,6 +440,36 @@ pub(super) fn Password(target: PasswordTarget, retry: bool) -> Element {
     }
 }
 
+/// A link or button that reaches outside the document, named before it opens.
+#[component]
+pub(super) fn OpenTarget(tab: u64, target: folitecta_core::LinkTarget) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let mut trust = use_signal(|| false);
+    let (body, what) = match &target {
+        folitecta_core::LinkTarget::Uri(u) => ("dialog.open_target.web", u.clone()),
+        folitecta_core::LinkTarget::Launch(f) => ("dialog.open_target.file", f.clone()),
+        folitecta_core::LinkTarget::Remote(f) => ("dialog.open_target.document", f.clone()),
+        other => ("dialog.open_target.file", other.describe()),
+    };
+    rsx! {
+        Frame { title: t(lang, "dialog.open_target.title"), ok_label: t(lang, "dialog.open_target.open"),
+            on_ok: move |_| {
+                st.set_dialog(Dialog::None);
+                if trust() {
+                    if let Some(d) = st.docs_mut().iter_mut().find(|d| d.id == tab) {
+                        d.trust_links = true;
+                    }
+                }
+                crate::commands::navigation::follow::open(st, &target);
+            },
+            p { "{t(lang, body)}" }
+            div { class: "kv", span { class: "v open-target", "{what}" } }
+            label { class: "check", input { class: "open-target-trust", r#type: "checkbox", checked: trust(), onchange: move |_| trust.set(!trust()) } span { "{t(lang, \"dialog.open_target.trust\")}" } }
+        }
+    }
+}
+
 #[component]
 pub(super) fn WordCount(words: usize, chars: usize) -> Element {
     let st = use_context::<AppState>();

@@ -70,6 +70,8 @@ pub(super) fn PageView(
         /// added with Shift or Ctrl).
         chosen: Vec<usize>,
         widgets: Vec<(folitecta_core::PageWidget, [f32; 4])>,
+        /// The links of the page that a click follows (hand and select tools).
+        link_hits: Vec<(folitecta_core::LinkTarget, [f32; 4])>,
         popups: Vec<PopupView>,
         flash: Option<[f32; 4]>,
         /// The lines of the paragraph read aloud.
@@ -225,6 +227,16 @@ pub(super) fn PageView(
                 .filter(|(p, _)| *p == page)
                 .map(|(_, l)| l)
                 .unwrap_or_default();
+            let link_hits = if fill_forms {
+                t.doc
+                    .links(page)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|l| (l.target, pdf_rect_to_display(&size, l.rect)))
+                    .collect()
+            } else {
+                Vec::new()
+            };
             let widgets = if fill_forms && t.doc.has_form() {
                 t.doc
                     .page_widgets(page)
@@ -325,6 +337,7 @@ pub(super) fn PageView(
                 selected,
                 chosen,
                 widgets,
+                link_hits,
                 popups,
                 flash: t.flash.filter(|(p, _)| *p == page).map(|(_, r)| r),
                 reading: t
@@ -1014,6 +1027,15 @@ pub(super) fn PageView(
                 if let Some(r) = sel_first {
                     if !*sel_drag.read() {
                         SelToolbar { left: r[0] * z, top: (r[1] * z - 38.0).max(2.0) }
+                    }
+                }
+                for (i, (target, r)) in view.link_hits.iter().cloned().enumerate() {
+                    div { key: "lh{i}", class: "link-hit", title: "{target.describe()}", style: "{css(r)}",
+                        onmousedown: move |e| e.stop_propagation(),
+                        onclick: move |e| {
+                            e.stop_propagation();
+                            crate::commands::navigation::follow::follow(st, target.clone());
+                        },
                     }
                 }
                 for (w, r) in view.widgets.iter().cloned() {

@@ -11,11 +11,11 @@ checked, what is still open. The history before October 2026 is in
 - **Found right:** SHA-256 of the four packages equal to their `.sha256` files; the data folders
   (`ocr`, `dictionaries`, `fonts`, `docs`) of the Windows and Linux packages equal file by file;
   the packaged Linux executable says `Folitecta 0.7.0`.
-- **Open:** the self-test steps with the packaged executable were not run: the nested compositor
-  used so far (KWin) is no longer installed on this machine, and a headless Weston has no seat,
-  where the program stops before the first window. The full self-test of the same code passed
-  before the tag (293 states, 313 interactions, 0 problems). The Windows executable was not run
-  here (no WebView2 runtime in Wine).
+- **Then:** with the nested compositor installed again, the steps `tools`, `ocr`, `spelling`,
+  `unicode`, `formats` and `my_templates` passed with the packaged Linux executable started from
+  another folder (46 interactions, 0 problems). A headless Weston could not stand in for it: it
+  has no seat, and the program stops before the first window.
+- **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
 
 ## 2026-10-28 — FOL-L031, FOL-L032, FOL-L010: forms that check themselves (0.7.0)
 

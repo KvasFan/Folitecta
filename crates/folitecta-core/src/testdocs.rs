@@ -1551,6 +1551,34 @@ pub fn relations_doc() -> Vec<u8> {
     b.finish()
 }
 
+/// A form with two push buttons: "Go" opens a web address, "Send" submits
+/// the form to one when released.
+pub fn action_buttons_doc() -> Vec<u8> {
+    let mut b = Builder::new();
+    let rect = |x: i64| vec![x.into(), 340.into(), (x + 80).into(), 370.into()];
+    let go = b.doc.add_object(dictionary! {
+        "Type" => "Annot", "Subtype" => "Widget", "FT" => "Btn", "Ff" => 65536, "F" => 4,
+        "T" => Object::string_literal("Go"), "Rect" => rect(20),
+        "A" => dictionary! { "S" => "URI", "URI" => Object::string_literal("https://example.org/go") },
+    });
+    let send = b.doc.add_object(dictionary! {
+        "Type" => "Annot", "Subtype" => "Widget", "FT" => "Btn", "Ff" => 65536, "F" => 4,
+        "T" => Object::string_literal("Send"), "Rect" => rect(120),
+        "AA" => dictionary! { "U" => dictionary! { "S" => "SubmitForm", "F" => Object::string_literal("https://example.org/form") } },
+    });
+    b.page(
+        (300.0, 400.0),
+        Vec::new(),
+        Dictionary::new(),
+        vec![Object::Reference(go), Object::Reference(send)],
+    );
+    b.catalog_entry(
+        "AcroForm",
+        dictionary! { "Fields" => vec![go.into(), send.into()] }.into(),
+    );
+    b.finish()
+}
+
 /// A page whose sheet (300 × 400) is cropped to its lower 300 × 300, with
 /// "Visible words" in view and "HIDDENOUTSIDE" above the crop box.
 pub fn cropped_text_doc() -> Vec<u8> {

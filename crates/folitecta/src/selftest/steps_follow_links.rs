@@ -1,7 +1,9 @@
 //! Interaction step: follow_links — the links of a page are followed with
 //! the hand tool: a link to a page goes there; a web link names its address
 //! and asks first (cancelled here: nothing opens); a link that would start
-//! a program is refused without asking.
+//! a program is refused without asking. The push buttons of a form do the
+//! same: one with a web address asks, one that submits sends nothing and
+//! says where the data would go.
 
 use folitecta_core::Document;
 
@@ -75,6 +77,40 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         format!(
             "links {hits}, page after the link {page}, asked {asked:?}, named {named:?}, dialog for the program {program_dialog}, refused {refused}"
         ),
+    );
+    if let Some(id) = tab {
+        crate::files::close_tab(st, id, true, crate::state::AfterUnsaved::Close);
+        pause(300).await;
+    }
+
+    let Ok(form) = Document::from_bytes(folitecta_core::testdocs::action_buttons_doc(), None, None) else {
+        cx.record("follow links: the form with buttons", false, String::new());
+        return;
+    };
+    crate::files::open_document_tab(st, form);
+    let tab = st.read_active(|t| t.id);
+    st.set_tool(Tool::Hand);
+    pause(800).await;
+    let _ = eval("document.querySelector('.field-hit[title=\"Go\"]')?.click();").await;
+    pause(400).await;
+    let go = match st.dialog.peek().clone() {
+        Dialog::OpenTarget { target, .. } => Some(target),
+        _ => None,
+    };
+    st.set_dialog(Dialog::None);
+    pause(200).await;
+    let _ = eval("document.querySelector('.field-hit[title=\"Send\"]')?.click();").await;
+    pause(400).await;
+    let send_dialog = !matches!(*st.dialog.peek(), Dialog::None);
+    let said = st
+        .toasts
+        .peek()
+        .iter()
+        .any(|t| t.title.contains("https://example.org/form"));
+    cx.record(
+        "follow links: a button with a web address asks first, a button that submits sends nothing and says where",
+        go == Some(folitecta_core::LinkTarget::Uri("https://example.org/go".into())) && !send_dialog && said,
+        format!("asked {go:?}, dialog for the submit {send_dialog}, address named {said}"),
     );
     if let Some(id) = tab {
         crate::files::close_tab(st, id, true, crate::state::AfterUnsaved::Close);

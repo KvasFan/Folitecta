@@ -788,3 +788,39 @@ fn passwords_typed_in_another_normal_form_open_the_content() {
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn strings_of_stream_dictionaries_are_encrypted() {
+    let dir = folder("stream-dicts");
+    for profile in EncryptionProfile::ALL {
+        let mut doc = marked();
+        doc.add_attachment("data.txt", b"attached".to_vec(), "", Some("text/plain"))
+            .unwrap();
+        let before = doc.attachments();
+        // The plain file writes the dates of the embedded file as text.
+        let plain = dir.join("plain.pdf");
+        doc.save_copy(&plain).unwrap();
+        assert!(contains(&std::fs::read(&plain).unwrap(), b"(D:"));
+        let p = dir.join(format!("{}.pdf", profile.key()));
+        doc.save_encrypted(&p, "u", "o", SecurityPermissions::default(), profile)
+            .unwrap();
+        let raw = std::fs::read(&p).unwrap();
+        assert!(!contains(&raw, b"(D:"), "{profile:?}: a date in plain text");
+        let mut opened = Document::open_with_password(&p, "u").unwrap();
+        let after = opened.attachments();
+        assert_eq!(after.len(), 1);
+        assert_eq!(
+            (&after[0].modified, &after[0].created),
+            (&before[0].modified, &before[0].created),
+            "{profile:?}"
+        );
+        assert!(after[0].modified.starts_with("20"), "{:?}", after[0].modified);
+        assert_eq!(opened.attachment_data(&after[0]).unwrap(), b"attached");
+        // Saved again with the same protection, it reads the same.
+        let again = dir.join(format!("{}-again.pdf", profile.key()));
+        opened.save_copy(&again).unwrap();
+        let reopened = Document::open_with_password(&again, "u").unwrap();
+        assert_eq!(reopened.attachments()[0].modified, before[0].modified);
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}

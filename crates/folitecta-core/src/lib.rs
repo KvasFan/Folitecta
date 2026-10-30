@@ -100,7 +100,9 @@ pub use render::{
 pub use scanning::{ScannedPicture, duplex_order, picture_dpi};
 pub use scans::{ScanFix, ScanLook, ScanThresholds, scan_fixes};
 pub use scripts::ScriptInfo;
-pub use security::{EncryptionInfo, EncryptionProfile, PasswordIssue, Protection, SecurityPermissions};
+pub use security::{
+    EncryptionInfo, EncryptionProfile, PasswordIssue, Protection, Restricted, SecurityPermissions,
+};
 pub use signmarks::SignatureMark;
 pub use spelling::{DictionaryFile, Misspelling, SpellOptions, SpellPlace, SpellScope, Speller};
 pub use stamps::STAMP_PRESETS;

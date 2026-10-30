@@ -4,6 +4,48 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-30 — FOL-L036: permissions kept in Folitecta (0.8.0 item 2)
+
+- **Current state before:** only the print permission was applied; a file opened with the user
+  password could be changed, commented, filled in, reassembled and copied whatever its settings.
+- **What:** `protection/permissions.rs` sorts every change at `commit` by comparing the objects
+  before the edit (the snapshot) with the objects after: comments, field values and their
+  appearances, pages and the page tree, bookmarks, the form's field list; what only serves an
+  object (appearances, contents, resources) takes its kind, what only follows a change
+  (document information, objects nothing refers to any more, what goes with a deleted page)
+  counts with it or not at all, anything else is a change of the document. A forbidden kind is
+  taken back (`abandon_edit`) and `Error::NotPermitted` names it. `Document::allows`,
+  `restrictions`; copies made by `derived` (print, export, e-mail) are not restricted. In the
+  app, `AppState::core_error` (and `error`) open the password dialog with the new target
+  `PasswordTarget::Owner`, which names the setting; the right password calls `unlock_owner`.
+  Copying selected text, a page and a snapshot check `Restricted::Copy` first.
+- **Checked:** `permissions.rs` (4 tests: only filling allowed on AES-256 and AES-128 — notes,
+  rotation, deletion, bookmarks and page numbers refused with nothing kept, the owner password
+  lifts them; comments allow filling in; assembling alone; unprotected documents); 794 core
+  tests passed, 0 failed; clippy clean. Self-test step `permissions` (2: a page turn refused, a
+  wrong owner password asked again, the right one lifts the restrictions and the page turns;
+  copying a page asks for the owner password) with `tools`, `protection`, `print`, `email` and
+  `formats`: 0 problems.
+- **Open:** the sorting leans to allowing; real files of other producers may show changes it
+  counts too strictly (a form design change hidden in a fill, say), to be checked with more
+  files.
+
+## 2026-10-30 — FOL-L036: strings of stream dictionaries encrypted (0.8.0 item 1)
+
+- **Current state before:** protected files were written with the strings of stream
+  dictionaries in plain text (the library encrypts a stream's content, not its dictionary), so
+  the dates of an attached file could be read without the password, and other readers, which
+  decrypt them, read noise.
+- **What:** `encrypt_for_file` encrypts the strings of a stream's dictionary before its content;
+  `decrypt_stream_dictionary` decrypts them when a file is read (`finish_load`) and in the earlier
+  revisions the signature check reads (`dss.rs`). A string AES cannot have written (shorter than
+  an IV and a block, or not whole blocks) stays as it is, so files written before still read.
+- **Checked:** `protection_profiles.rs` `strings_of_stream_dictionaries_are_encrypted` (AES-256
+  and AES-128: no date in plain text in the file, the attachment's dates and data read back,
+  saved again and reopened); unit test of the round trip and of a plain string left alone.
+- **Open:** RC4 files written before this change with such strings cannot be told apart and are
+  decrypted as the standard says.
+
 ## 2026-10-30 — release 0.7.0: check of the published packages
 
 - **What:** tag `v0.7.0` (`8bac1e8`): CI (22 min) and release (33 min) workflows green, eight

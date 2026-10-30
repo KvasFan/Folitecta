@@ -478,6 +478,7 @@ pub(super) fn finish_create(
                     crate::commands::doctools::picture_stamp(st, png, name);
                     st.set_tool(Tool::Hand);
                 }
+                Some(Ok(_)) if !st.allowed(folitecta_core::Restricted::Copy) => {}
                 Some(Ok(png)) => match crate::clipboard::set_png(&png) {
                     Ok(()) => st.toast(ToastKind::Ok, t(st.lang(), "toast.snapshot_copied"), ""),
                     Err(e) => st.error(e),

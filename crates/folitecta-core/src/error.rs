@@ -59,6 +59,9 @@ pub enum Error {
     /// Comments of an imported file whose text cannot be drawn; nothing was imported.
     #[error("{}", crate::comment_exchange::describe_undrawable(.0))]
     Undrawable(Vec<crate::comment_exchange::UndrawableComment>),
+    /// A change the security settings of the file forbid; nothing was changed.
+    #[error("the security settings of the document do not allow this ({}); the owner password lifts them", .0.id())]
+    NotPermitted(crate::security::Restricted),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

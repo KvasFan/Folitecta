@@ -378,9 +378,35 @@ pub(super) fn Password(target: PasswordTarget, retry: bool) -> Element {
         PasswordTarget::Revision { field, .. } => {
             ("dialog.password.body_revision", "sig.field", field.clone())
         }
+        PasswordTarget::Owner { tab, .. } => (
+            "dialog.password.body_owner",
+            "dialog.file",
+            st.docs
+                .peek()
+                .iter()
+                .find(|d| d.id == *tab)
+                .map(|d| d.title())
+                .unwrap_or_default(),
+        ),
+    };
+    let text = match &target {
+        PasswordTarget::Owner { refused, .. } => tf(
+            lang,
+            body,
+            &[(
+                "what",
+                &t(lang, &format!("dialog.password.restricted.{}", refused.id())),
+            )],
+        ),
+        _ => t(lang, body),
+    };
+    let title = if matches!(target, PasswordTarget::Owner { .. }) {
+        t(lang, "dialog.password.title_owner")
+    } else {
+        t(lang, "dialog.password.title")
     };
     rsx! {
-        Frame { title: t(lang, "dialog.password.title"),
+        Frame { title,
             on_ok: move |_| {
                 let password = pw();
                 st.set_dialog(Dialog::None);
@@ -390,9 +416,21 @@ pub(super) fn Password(target: PasswordTarget, retry: bool) -> Element {
                     PasswordTarget::Revision { tab, field } => {
                         crate::commands::signatures::open_signed_revision_with(st, tab, &field, Some(&password))
                     }
+                    PasswordTarget::Owner { tab, refused } => {
+                        let unlocked = st
+                            .docs_mut()
+                            .iter_mut()
+                            .find(|d| d.id == tab)
+                            .is_some_and(|d| d.doc.unlock_owner(&password));
+                        if unlocked {
+                            st.toast(crate::state::ToastKind::Ok, t(lang, "dialog.password.owner_ok"), "");
+                        } else {
+                            st.set_dialog(Dialog::Password { target: PasswordTarget::Owner { tab, refused }, retry: true });
+                        }
+                    }
                 }
             },
-            p { "{t(lang, body)}" }
+            p { class: "password-body", "{text}" }
             if retry {
                 p { class: "hint warn password-wrong", "{t(lang, \"dialog.password.wrong\")}" }
             }

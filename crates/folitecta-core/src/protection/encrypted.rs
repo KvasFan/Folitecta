@@ -99,6 +99,13 @@ pub(crate) fn encrypt_for_file(state: &EncryptionState, id: ObjectId, obj: &mut 
             Ok(())
         }
         Object::String(..) | Object::Stream(_) => {
+            // The strings of a stream's dictionary are encrypted too (the
+            // dates and checksums of an embedded file, for one).
+            if let Object::Stream(s) = obj {
+                for (_, value) in s.dict.iter_mut() {
+                    encrypt_for_file(state, id, value)?;
+                }
+            }
             lopdf::encryption::encrypt_object(state, id, obj)
                 .map_err(|e| Error::ProtectionNotKept(format!("an object cannot be encrypted: {e}")))?;
             // Encrypted bytes are written in hexadecimal: in a literal string,
@@ -385,6 +392,43 @@ fn decrypt_string(state: &EncryptionState, id: ObjectId, data: &[u8]) -> Option<
     filter.decrypt(&key, data).ok()
 }
 
+/// Decrypt the strings of the dictionary of stream `s` (of object `id`),
+/// which the reader leaves encrypted. A string AES cannot have written
+/// (shorter than an IV and a block, or not whole blocks) stays as it is:
+/// files written before Folitecta encrypted these strings have them in plain
+/// text.
+pub(crate) fn decrypt_stream_dictionary(state: &EncryptionState, id: ObjectId, s: &mut lopdf::Stream) {
+    fn strings(state: &EncryptionState, id: ObjectId, aes: bool, obj: &mut Object) {
+        match obj {
+            Object::Dictionary(d) => d.iter_mut().for_each(|(_, v)| strings(state, id, aes, v)),
+            Object::Array(items) => items.iter_mut().for_each(|v| strings(state, id, aes, v)),
+            Object::String(data, _) => {
+                if aes && (data.len() < 32 || data.len() % 16 != 0) {
+                    return;
+                }
+                if let Some(plain) = decrypt_string(state, id, data) {
+                    *data = plain;
+                }
+            }
+            _ => {}
+        }
+    }
+    if s.dict.has_type(b"XRef") {
+        return;
+    }
+    let aes = matches!(state.get_string_filter().method(), b"AESV2" | b"AESV3");
+    s.dict.iter_mut().for_each(|(_, v)| strings(state, id, aes, v));
+}
+
+/// [`decrypt_stream_dictionary`] for every stream of `doc`.
+pub(crate) fn decrypt_stream_dictionaries(doc: &mut lopdf::Document, state: &EncryptionState) {
+    for (&id, obj) in doc.objects.iter_mut() {
+        if let Object::Stream(s) = obj {
+            decrypt_stream_dictionary(state, id, s);
+        }
+    }
+}
+
 /// The readable signature value of a raw value found in a file: as it is
 /// when it is a DER structure, else decrypted when that gives one (a
 /// producer that encrypted it), else as it is.
@@ -625,6 +669,58 @@ mod tests {
                     .unwrap(),
                 b"text"
             );
+        }
+    }
+
+    #[test]
+    fn strings_of_stream_dictionaries_round_trip_and_plain_ones_stay() {
+        for profile in crate::security::EncryptionProfile::ALL {
+            let p = aes_state(profile);
+            let date = b"D:20261030120000+01'00'".to_vec();
+            let stream = || {
+                lopdf::Stream::new(
+                    dictionary! {
+                        "Type" => "EmbeddedFile",
+                        "Params" => dictionary! { "ModDate" => Object::String(date.clone(), StringFormat::Literal) },
+                    },
+                    b"data".to_vec(),
+                )
+            };
+            let mut obj = Object::Stream(stream());
+            encrypt_for_file(p.state(), (9, 0), &mut obj).unwrap();
+            let Object::Stream(mut s) = obj else {
+                unreachable!()
+            };
+            let written = s
+                .dict
+                .get_deref(b"Params", &lopdf::Document::new())
+                .unwrap()
+                .as_dict()
+                .unwrap()
+                .get(b"ModDate")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_vec();
+            assert_ne!(written, date);
+            decrypt_stream_dictionary(p.state(), (9, 0), &mut s);
+            let read = |s: &lopdf::Stream| {
+                s.dict
+                    .get(b"Params")
+                    .unwrap()
+                    .as_dict()
+                    .unwrap()
+                    .get(b"ModDate")
+                    .unwrap()
+                    .as_str()
+                    .unwrap()
+                    .to_vec()
+            };
+            assert_eq!(read(&s), date);
+            // A file written before these strings were encrypted.
+            let mut plain = stream();
+            decrypt_stream_dictionary(p.state(), (9, 0), &mut plain);
+            assert_eq!(read(&plain), date);
         }
     }
 

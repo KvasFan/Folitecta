@@ -6,6 +6,17 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- The permissions of protected files are kept. Opened with the password to open it, a file whose
+  security settings forbid changing it, commenting, filling in forms, assembling pages or copying
+  refuses a change of that kind and changes nothing; the owner password, asked right there,
+  lifts the restrictions until the document is closed.
+
+### Fixed
+- Protected files kept the strings of stream dictionaries in plain text — the dates of an
+  attached file, for one. They are now encrypted with the rest, and files written before still
+  read.
+
 ## [0.7.0] - 2026-10-30
 
 ### Added

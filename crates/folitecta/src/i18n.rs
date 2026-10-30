@@ -352,6 +352,7 @@ pub fn core_error(lang: Lang, err: &folitecta_core::Error) -> String {
         E::UnsupportedProtection(what) => tf(lang, "toast.unsupported_protection", &[("what", what)]),
         E::ProtectionNotKept(why) => tf(lang, "toast.protection_not_kept", &[("why", why)]),
         E::SignaturesNotKept => t(lang, "toast.signatures_not_kept"),
+        E::NotPermitted(kind) => restricted(lang, *kind),
         folitecta_core::Error::Glyphs(p) => {
             format!("{} {}", glyph_problem(lang, p), t(lang, "toast.nothing_changed"))
         }
@@ -365,6 +366,19 @@ pub fn core_error(lang: Lang, err: &folitecta_core::Error) -> String {
         ),
         other => other.to_string(),
     }
+}
+
+/// What the security settings of a document forbid, in a sentence.
+pub fn restricted(lang: Lang, kind: folitecta_core::Restricted) -> String {
+    let what = t(lang, &format!("dialog.password.restricted.{}", kind.id()));
+    let body = tf(lang, "dialog.password.body_owner", &[("what", &what)]);
+    // The sentence without the part about the owner password.
+    body.split(". ")
+        .next()
+        .unwrap_or(&body)
+        .trim_end_matches('.')
+        .to_string()
+        + "."
 }
 
 /// Localized label of a registry command (falls back to the registry label).

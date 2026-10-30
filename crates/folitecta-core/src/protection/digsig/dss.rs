@@ -426,6 +426,9 @@ fn decrypt_tolerantly(state: &lopdf::EncryptionState, id: ObjectId, obj: &mut Ob
         }
         Object::Array(items) => items.iter_mut().for_each(|v| decrypt_tolerantly(state, id, v)),
         Object::String(..) | Object::Stream(_) => {
+            if let Object::Stream(s) = obj {
+                encrypted::decrypt_stream_dictionary(state, id, s);
+            }
             let _ = lopdf::encryption::decrypt_object(state, id, obj);
         }
         _ => {}

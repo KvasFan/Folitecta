@@ -40,6 +40,9 @@ fn copy(st: AppState) {
         return;
     }
     let (_, _, page) = sel;
+    if !st.allowed(folitecta_core::Restricted::Copy) {
+        return;
+    }
     // The page as the view shows it.
     let png = st.read_active(|t| t.doc.render_page_png_with_view(page, 2.0, &t.view_layer_states()));
     match png {

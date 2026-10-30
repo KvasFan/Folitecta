@@ -11,6 +11,7 @@ use lopdf::{
 use rand_core::{OsRng, RngCore};
 
 use super::encrypted;
+pub use super::permissions::Restricted;
 use crate::document::{Document, serialize};
 use crate::error::{Error, Result};
 

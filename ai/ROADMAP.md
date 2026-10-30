@@ -160,6 +160,30 @@ templates (FOL-L010).
    gallery with origin, date, version and the fonts a template needs, new documents from them,
    rename and remove (`organize/user_templates.rs`).
 
+### 0.8.0 — documents you can trust
+
+A protected file keeps everything it holds encrypted and Folitecta keeps to what its security
+settings allow; actions that reach outside the document ask first; redaction removes what lies
+outside the visible page too (FOL-L036, FOL-L052, FOL-L037).
+
+1. ~~**FOL-L036 — strings of stream dictionaries encrypted.**~~ Done: the dates and other strings
+   in the dictionary of a stream (an embedded file's `/Params`, for one) are encrypted when a
+   protected file is written and decrypted when it is read; files written before, with these
+   strings in plain text, still read (`protection/encrypted.rs`).
+2. ~~**FOL-L036 — permissions kept in Folitecta.**~~ Done: every change of a file opened with the
+   user password is sorted object by object into changing, commenting, filling in and
+   assembling (`protection/permissions.rs`); a kind the settings forbid is taken back before it
+   is kept, and the owner password is asked with the setting named, which lifts the
+   restrictions until the document is closed. Copying text, a page or an area is refused the
+   same way.
+3. **FOL-L052 — a safe reading mode.** Actions that reach outside the document — opening a file
+   or a program, a web address, submitting or importing form data — ask before they run, naming
+   the target, with the answer kept for the document; scripts of opening and page events run only
+   once allowed.
+4. **FOL-L037 — what lies outside the crop box.** Redaction marks drawn to the page edge take the
+   content beyond the crop box under them too, and Apply names what is still there outside the
+   visible page.
+
 ### Later
 
 FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
@@ -247,7 +271,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
 | FOL-L035 | P1 | 🟡 | text comparison of two documents with a report; side by side, the old document following the new one page for page (pages matched by the words they share), differences marked on both | Geometry and picture differences; following in the horizontal layout and from the old document. |
-| FOL-L036 | P0 | 🟡 | passwords and permissions with AES-256 (default) or AES-128, security policies; files opened encrypted are saved with the same encryption, passwords and permissions; protected documents signed, certified and time-stamped encrypted (encrypted updates keep the signatures); derived documents keep the protection, imports from protected files refused; print permissions applied; Save Unrestricted Copy removes the protection on purpose | Certificate (public-key) encryption; changing or removing the protection needs only the password to open (kept by choice); permissions other than printing not enforced in Folitecta; strings in stream dictionaries not encrypted. |
+| FOL-L036 | P0 | 🟡 | passwords and permissions with AES-256 (default) or AES-128, security policies; every string and stream encrypted, the strings of stream dictionaries included; files opened encrypted are saved with the same encryption, passwords and permissions; protected documents signed, certified and time-stamped encrypted (encrypted updates keep the signatures); derived documents keep the protection, imports from protected files refused; print permissions applied; the other permissions kept when the file is opened with the user password (changes of a forbidden kind taken back, the owner password asked); Save Unrestricted Copy removes the protection on purpose | Certificate (public-key) encryption; changing or removing the protection needs only the password to open (kept by choice); the sorting of changes leans to allowing (an object of unknown kind counts as changing the document; what only follows a change is no change); copies made for printing, export and e-mail are not restricted. |
 | FOL-L037 | P0 | 🟡 | mark areas and search results for redaction; apply by content (glyphs, picture pixels, vector paths, inline pictures, Type 3 text and the content of reused drawings under the marks removed, the rest stays text, comments and fields over the marks removed with their values, overlay codes upright on rotated pages, whole-file rewrite so earlier revisions go) or as pictures (chosen, or for pages that cannot be edited); sanitizing chosen when applying (metadata, attachments, hidden content, quotes of the removed words, scripts); the new file checked before it is written | Quadrilateral marks; content outside the crop box; quotes in page text, comments and field values reported, not changed; the width of a removed word can be measured; patterns and drawings other pages draw stay for them (reported). |
 | FOL-L038 | P1 | ✅ | handwritten signatures and initials, placed on several pages, kept apart from digital signatures | — |
 | FOL-L039 | P1/P2 | 🟡 | PKCS#12 digital IDs (import, create, export), sign and certify (visible or invisible), appearance with picture, incremental updates keep earlier signatures; IDs of smart cards and tokens (PKCS #11 modules: the system's through p11-kit on Linux, and added ones), of the Windows certificate store and of the macOS keychain, keys kept on the device, PIN never stored, each signature checked against its certificate | Tried with real cards and stores, the issuers' certificates of a token in the signature, batches. |

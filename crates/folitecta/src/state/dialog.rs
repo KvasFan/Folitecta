@@ -58,6 +58,12 @@ pub enum PasswordTarget {
     Replace { path: PathBuf, tab: u64 },
     /// The revision a signature of the document of tab `tab` covers.
     Revision { tab: u64, field: String },
+    /// The owner password of the document of tab `tab`, after a change of
+    /// kind `refused` its security settings forbid.
+    Owner {
+        tab: u64,
+        refused: folitecta_core::Restricted,
+    },
 }
 
 /// Modal dialogs. Each variant carries the data the dialog needs.

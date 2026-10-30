@@ -231,6 +231,9 @@ fn create_links(st: AppState) {
 }
 
 fn copy_selection_text(st: AppState) {
+    if !st.allowed(folitecta_core::Restricted::Copy) {
+        return;
+    }
     let text = st
         .read_active(|t| {
             t.text_sel.filter(|s| !s.is_empty()).map(|s| {

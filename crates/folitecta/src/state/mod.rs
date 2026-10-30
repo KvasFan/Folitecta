@@ -511,6 +511,11 @@ impl AppState {
         let lang = self.lang();
         let title = crate::i18n::t(lang, "toast.error");
         let any = &err as &dyn std::any::Any;
+        if let Some(e @ folitecta_core::Error::NotPermitted(_)) = any.downcast_ref::<folitecta_core::Error>()
+        {
+            self.core_error(e);
+            return;
+        }
         let message = if let Some(e) = any.downcast_ref::<folitecta_core::Error>() {
             crate::i18n::core_error(lang, e)
         } else if let Some(p) = any.downcast_ref::<folitecta_core::GlyphProblem>() {
@@ -527,8 +532,33 @@ impl AppState {
         crate::i18n::core_error(self.lang(), e)
     }
 
+    /// Whether the security settings of the active document allow `kind`;
+    /// when they do not, the owner password is asked (see
+    /// [`AppState::core_error`]).
+    pub fn allowed(&self, kind: folitecta_core::Restricted) -> bool {
+        if self.read_active(|t| t.doc.allows(kind)).unwrap_or(true) {
+            return true;
+        }
+        self.core_error(&folitecta_core::Error::NotPermitted(kind));
+        false
+    }
+
     /// Show an error of the core (see [`AppState::core_error_text`]).
     pub fn core_error(&self, e: &folitecta_core::Error) {
+        // A change the security settings forbid: the owner password, asked
+        // in place of a message, lifts them.
+        if let folitecta_core::Error::NotPermitted(refused) = e {
+            if let Some(tab) = self.read_active(|t| t.id) {
+                self.set_dialog(Dialog::Password {
+                    target: PasswordTarget::Owner {
+                        tab,
+                        refused: *refused,
+                    },
+                    retry: false,
+                });
+                return;
+            }
+        }
         self.error(self.core_error_text(e));
     }
 

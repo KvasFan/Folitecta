@@ -63,6 +63,9 @@ pub struct Document {
     redo: Vec<Snapshot>,
     /// What the edit under way set aside, given back when it is abandoned.
     edit_backup: Option<EditBackup>,
+    /// The permissions of the protection restrict changes (false for the
+    /// copies made to be written elsewhere, printed or exported).
+    permissions_apply: bool,
     /// Files written so far (see [`Snapshot::saves`]).
     saves: u64,
     /// Set when the state carries signatures that only an update of the
@@ -580,6 +583,7 @@ fn finish_load(mut doc: lopdf::Document, bytes: &[u8]) -> Result<Loaded> {
         })?;
         let encrypt_ref = in_trailer.or(state.encrypt_object_id());
         let dict = encrypt_ref.and_then(|id| raw_dictionary(bytes, &doc.reference_table, id));
+        encrypted::decrypt_stream_dictionaries(&mut doc, &state);
         encrypted::restore_signature_values(&mut doc, &state, bytes);
         let id = doc.trailer.get(b"ID").ok().cloned();
         protection = Some(Protection::opened(state, id, dict, encrypt_ref));
@@ -629,6 +633,7 @@ impl Document {
             undo: Vec::new(),
             redo: Vec::new(),
             edit_backup: None,
+            permissions_apply: true,
             saves: 0,
             signed_base_lost: None,
             helv_font: None,
@@ -697,6 +702,7 @@ impl Document {
             source_encrypted: false,
             protection: None,
             edit_backup: None,
+            permissions_apply: true,
             saves: 0,
             signed_base_lost: None,
             text_cache: Default::default(),
@@ -761,6 +767,7 @@ impl Document {
             undo: Vec::new(),
             redo: Vec::new(),
             edit_backup: None,
+            permissions_apply: true,
             saves: 0,
             signed_base_lost: None,
             helv_font: None,
@@ -945,6 +952,36 @@ impl Document {
         }
     }
 
+    /// Whether the security settings of the document allow `kind` (always,
+    /// unprotected or opened with the owner password).
+    pub fn allows(&self, kind: crate::security::Restricted) -> bool {
+        !self.permissions_apply || crate::protection::permissions::allows(self.protection.as_ref(), kind)
+    }
+
+    /// The kinds of change the security settings of the document forbid.
+    pub fn restrictions(&self) -> Vec<crate::security::Restricted> {
+        use crate::security::Restricted::*;
+        [Modify, Annotate, FillForms, Assemble, Copy]
+            .into_iter()
+            .filter(|k| !self.allows(*k))
+            .collect()
+    }
+
+    /// The first kind of change of the edit under way that the security
+    /// settings forbid.
+    fn forbidden_change(&self) -> Option<crate::security::Restricted> {
+        if self
+            .restrictions()
+            .iter()
+            .all(|k| *k == crate::security::Restricted::Copy)
+        {
+            return None;
+        }
+        let backup = self.edit_backup.as_ref()?;
+        let old = lopdf::Document::load_mem(&backup.snapshot.bytes).ok()?;
+        crate::protection::permissions::forbidden_change(self.protection.as_ref(), &old, &self.inner)
+    }
+
     /// The protection of the document.
     pub fn protection(&self) -> Option<&Protection> {
         self.protection.as_ref()
@@ -977,6 +1014,7 @@ impl Document {
     pub(crate) fn derived(&self) -> Result<Document> {
         let mut doc = Document::from_bytes(self.bytes().as_ref().clone(), None, None)?;
         doc.protect_like(self);
+        doc.permissions_apply = false;
         Ok(doc)
     }
 
@@ -1450,6 +1488,10 @@ impl Document {
 
     /// Re-serialize after a mutation and bump the revision.
     pub fn commit(&mut self) -> Result<()> {
+        if let Some(kind) = self.forbidden_change() {
+            self.abandon_edit();
+            return Err(Error::NotPermitted(kind));
+        }
         self.bytes = Arc::new(serialize(&mut self.inner)?);
         self.revision += 1;
         self.dirty = true;

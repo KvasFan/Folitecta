@@ -446,6 +446,7 @@ mod steps_panes;
 mod steps_paths;
 mod steps_pencil;
 mod steps_perf;
+mod steps_permissions;
 mod steps_pictures;
 mod steps_policies;
 mod steps_preflight;
@@ -541,6 +542,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "scanning" => Box::pin(steps_scanning::run(cx)),
             "templates" => Box::pin(steps_templates::run(cx)),
             "my_templates" => Box::pin(steps_my_templates::run(cx)),
+            "permissions" => Box::pin(steps_permissions::run(cx)),
             "field_items" => Box::pin(steps_field_items::run(cx)),
             "policies" => Box::pin(steps_policies::run(cx)),
             "qat" => Box::pin(steps_qat::run(cx)),
@@ -617,6 +619,7 @@ const STEPS: &[&str] = &[
     "contents",
     "templates",
     "my_templates",
+    "permissions",
     "field_items",
     "policies",
     "qat",

@@ -262,6 +262,7 @@ fn start_preview(st: AppState, page: Option<usize>) -> u64 {
             let opts = RedactionOptions {
                 method,
                 sanitize: SanitizeOptions::none(),
+                beyond_crop: true,
             };
             doc.apply_redactions_opts(pages.as_deref(), &opts)
                 .ok()
@@ -292,6 +293,7 @@ pub fn ApplyRedactionsDialog(page: Option<usize>) -> Element {
     let opts = use_signal(|| sanitize_options(st));
     let mut save_copy = use_signal(|| save_copy_after_apply(st));
     let mut skipped = use_signal(Vec::<String>::new);
+    let mut beyond = use_signal(|| true);
     let request = use_hook(|| start_preview(st, page));
     let preview = PREVIEW
         .read()
@@ -325,7 +327,7 @@ pub fn ApplyRedactionsDialog(page: Option<usize>) -> Element {
                 save_sanitize_options(st, &sanitize);
                 set_save_copy_after_apply(st, save_copy());
                 sanitize.skip_terms = skipped().iter().map(|s| s.to_lowercase()).collect();
-                let options = RedactionOptions { method: redaction_method(st), sanitize };
+                let options = RedactionOptions { method: redaction_method(st), sanitize, beyond_crop: beyond() };
                 st.set_dialog(Dialog::None);
                 crate::commands::protect::apply_redactions_now(st, page.map(|p| vec![p]), options, save_copy());
             },
@@ -337,6 +339,13 @@ pub fn ApplyRedactionsDialog(page: Option<usize>) -> Element {
             }
             if summary.signatures > 0 {
                 div { class: "callout warn", "{tf(lang, \"redact.apply_signatures\", &[(\"count\", &summary.signatures.to_string())])}" }
+            }
+            if summary.beyond_crop > 0 {
+                label { class: "check redact-beyond-crop",
+                    input { r#type: "checkbox", checked: beyond(),
+                        onchange: move |_| { let on = !*beyond.peek(); beyond.set(on); } }
+                    span { "{tf(lang, \"redact.beyond_crop\", &[(\"count\", &summary.beyond_crop.to_string())])}" }
+                }
             }
             if let Some((type3, patterns)) = kept.filter(|(a, b)| a + b > 0) {
                 div { class: "callout warn", "{tf(lang, \"redact.apply_kept\", &[(\"type3\", &type3.to_string()), (\"patterns\", &patterns.to_string())])}" }

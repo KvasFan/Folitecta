@@ -1551,6 +1551,25 @@ pub fn relations_doc() -> Vec<u8> {
     b.finish()
 }
 
+/// A page whose sheet (300 × 400) is cropped to its lower 300 × 300, with
+/// "Visible words" in view and "HIDDENOUTSIDE" above the crop box.
+pub fn cropped_text_doc() -> Vec<u8> {
+    let mut b = Builder::new();
+    let page = b.page(
+        (300.0, 400.0),
+        b"BT /F1 12 Tf 20 100 Td (Visible words) Tj ET BT /F1 12 Tf 20 350 Td (HIDDENOUTSIDE) Tj ET".to_vec(),
+        dictionary! { "Font" => standard_fonts() },
+        Vec::new(),
+    );
+    if let Ok(d) = b.doc.get_dictionary_mut(page) {
+        d.set(
+            "CropBox",
+            Object::Array(vec![0.into(), 0.into(), 300.into(), 300.into()]),
+        );
+    }
+    b.finish()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

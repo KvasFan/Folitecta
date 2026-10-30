@@ -90,6 +90,7 @@
   "redact.apply_blurred_one": "{count} area è sfocata o pixelata: le sue immagini restano riconoscibili, quindi non è una redazione sicura.",
   "redact.apply_kept": "Altre pagine usano font Type 3 ({type3}) e motivi ({patterns}) che disegnano ciò che è sotto i segni: restano nel file per quelle pagine, con ciò che contengono.",
   "redact.apply_signatures": "Il documento ha {count} firme digitali. Un documento redatto non può mantenerle valide: vengono rimosse e i campi firma restano vuoti.",
+  "redact.beyond_crop": "Rimuovi anche ciò che sta fuori dalla pagina visibile nelle pagine con segni ({count}): altrimenti il contenuto nascosto oltre il riquadro di ritaglio resta nel file",
   "redact.apply_signatures_one": "Il documento ha una firma digitale. Un documento redatto non può mantenerla valida: viene rimossa e il campo firma resta vuoto.",
   "redact.apply_summary": "Aree marcate: {areas} · pagine: {pages}.",
   "redact.as_pictures": "Trasforma in immagini le pagine marcate (nulla di quelle pagine resta testo o disegno)",

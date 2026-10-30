@@ -341,11 +341,35 @@ fn cover(img: &mut RgbaImage, r: [u32; 4], look: &RedactionLook) {
     }
 }
 
+/// The strips of the sheet `media` outside the crop box `crop` (left,
+/// right, below, above; none when they are the same).
+pub(crate) fn beyond_crop(media: [f32; 4], crop: [f32; 4]) -> Vec<[f32; 4]> {
+    const EDGE: f32 = 0.5;
+    let (m, c) = (media, crop);
+    let mut out = Vec::new();
+    if c[0] - m[0] > EDGE {
+        out.push([m[0], m[1], c[0], m[3]]);
+    }
+    if m[2] - c[2] > EDGE {
+        out.push([c[2], m[1], m[2], m[3]]);
+    }
+    if c[1] - m[1] > EDGE {
+        out.push([c[0].max(m[0]), m[1], c[2].min(m[2]), c[1]]);
+    }
+    if m[3] - c[3] > EDGE {
+        out.push([c[0].max(m[0]), c[3], c[2].min(m[2]), m[3]]);
+    }
+    out
+}
+
 /// How redaction marks are applied.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RedactionOptions {
     pub method: RedactionMethod,
     pub sanitize: SanitizeOptions,
+    /// The content of the marked pages outside their crop box (on the
+    /// sheet, hidden from view) goes too.
+    pub beyond_crop: bool,
 }
 
 impl Default for RedactionOptions {
@@ -353,6 +377,7 @@ impl Default for RedactionOptions {
         RedactionOptions {
             method: RedactionMethod::Content,
             sanitize: SanitizeOptions::default(),
+            beyond_crop: true,
         }
     }
 }
@@ -366,6 +391,9 @@ pub struct RedactionSummary {
     pub blurred: usize,
     /// Digital signatures the redaction removes.
     pub signatures: usize,
+    /// Marked pages whose sheet reaches beyond their crop box, where
+    /// content can lie hidden from view.
+    pub beyond_crop: usize,
 }
 
 impl Document {
@@ -448,6 +476,7 @@ impl Document {
             &RedactionOptions {
                 method,
                 sanitize: SanitizeOptions::none(),
+                beyond_crop: true,
             },
         )
     }
@@ -490,6 +519,13 @@ impl Document {
                 .filter(|(_, _, l)| l.overlay != Overlay::Standard)
                 .count(),
             signatures: self.signed_field_count(),
+            beyond_crop: on
+                .iter()
+                .filter(|p| {
+                    self.page_size(**p)
+                        .is_ok_and(|s| !beyond_crop(s.media_box, s.crop_box).is_empty())
+                })
+                .count(),
         }
     }
 
@@ -524,6 +560,24 @@ impl Document {
             });
         }
         by_page
+    }
+
+    /// The strips of the sheet of every marked page outside its crop box,
+    /// added to its marks (with the look of its first mark).
+    fn mark_beyond_crop(&self, marks: &mut BTreeMap<usize, Vec<Mark>>) {
+        for (&p, list) in marks.iter_mut() {
+            let Ok(size) = self.page_size(p) else { continue };
+            let Some(look) = list.first().map(|m| m.look.clone()) else {
+                continue;
+            };
+            for r in beyond_crop(size.media_box, size.crop_box) {
+                list.push(Mark {
+                    pdf: Rect::new(r[0] as f64, r[1] as f64, r[2] as f64, r[3] as f64),
+                    shown: pdf_rect_to_display(&size, r),
+                    look: look.clone(),
+                });
+            }
+        }
     }
 
     /// The terms of the glyphs under the marks (from `probe` when given).
@@ -593,13 +647,19 @@ impl Document {
         pages: Option<&[usize]>,
         opts: &RedactionOptions,
     ) -> Result<RedactionReport> {
-        let marks = self.marks_by_page(pages);
+        let mut marks = self.marks_by_page(pages);
         if marks.is_empty() {
             return Ok(RedactionReport::default());
         }
+        // The areas marked (the strips beyond the crop box are no marks of
+        // the person's).
+        let areas = marks.values().map(Vec::len).sum();
+        if opts.beyond_crop {
+            self.mark_beyond_crop(&mut marks);
+        }
         self.begin_edit();
         match self.apply_marks(marks, opts) {
-            Ok(r) => Ok(r),
+            Ok(r) => Ok(RedactionReport { areas, ..r }),
             Err(e) => {
                 self.abandon_edit();
                 Err(e)

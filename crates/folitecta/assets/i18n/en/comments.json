@@ -90,6 +90,7 @@
   "redact.apply_blurred_one": "{count} area is blurred or pixelated: its pictures stay recognisable, so it is not a secure redaction.",
   "redact.apply_kept": "Other pages use Type 3 fonts ({type3}) and patterns ({patterns}) that draw what is under the marks: they stay in the file for those pages, with what they hold.",
   "redact.apply_signatures": "The document has {count} digital signatures. A redacted document cannot keep them valid: they are removed and the signature fields stay empty.",
+  "redact.beyond_crop": "Also remove what lies outside the visible page on the marked pages ({count}): content hidden beyond the crop box stays in the file otherwise",
   "redact.apply_signatures_one": "The document has a digital signature. A redacted document cannot keep it valid: it is removed and its signature field stays empty.",
   "redact.apply_summary": "Marked areas: {areas} · pages: {pages}.",
   "redact.as_pictures": "Draw the marked pages as pictures (nothing of those pages stays text or drawing)",

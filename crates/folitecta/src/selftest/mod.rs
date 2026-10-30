@@ -458,6 +458,7 @@ mod steps_reading;
 mod steps_recompress;
 mod steps_recovery;
 mod steps_redaction;
+mod steps_redaction_crop;
 mod steps_relations;
 mod steps_review;
 mod steps_revocation;
@@ -545,6 +546,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "my_templates" => Box::pin(steps_my_templates::run(cx)),
             "permissions" => Box::pin(steps_permissions::run(cx)),
             "follow_links" => Box::pin(steps_follow_links::run(cx)),
+            "redaction_crop" => Box::pin(steps_redaction_crop::run(cx)),
             "field_items" => Box::pin(steps_field_items::run(cx)),
             "policies" => Box::pin(steps_policies::run(cx)),
             "qat" => Box::pin(steps_qat::run(cx)),
@@ -623,6 +625,7 @@ const STEPS: &[&str] = &[
     "my_templates",
     "permissions",
     "follow_links",
+    "redaction_crop",
     "field_items",
     "policies",
     "qat",

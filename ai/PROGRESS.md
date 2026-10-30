@@ -4,6 +4,24 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-31 — FOL-L037: content beyond the crop box (0.8.0 item 4)
+
+- **Current state before:** content of a marked page outside its crop box (on the sheet, hidden
+  from view) stayed in the redacted file.
+- **What:** `RedactionOptions::beyond_crop` (on by default): `apply_redactions_opts` adds to the
+  marks of every marked page the strips of its media box outside its crop box
+  (`beyond_crop`), with the look of its first mark, so the content engine takes what is there;
+  the report's `areas` still counts the person's marks. `RedactionSummary::beyond_crop` counts
+  the marked pages whose sheet reaches beyond the crop box; Apply Redactions shows the choice
+  only then. `testdocs::cropped_text_doc`.
+- **Checked:** `redaction_beyond_crop.rs` (2: the hidden text goes with the marked words, the
+  summary names the page, the areas stay 1; left when asked); the redaction suites (75 tests)
+  pass with the option on; self-test step `redaction_crop` (the choice offered and on, the text
+  under the mark and beyond the crop box gone); 948 workspace tests passed, 0 failed; full
+  self-test 317 interactions, 0 problems.
+- **Open:** pages without marks keep what lies beyond their crop box; a command that removes it
+  from any page (FOL-L016) is still to come.
+
 ## 2026-10-31 — FOL-L052: a safe reading mode (0.8.0 item 3)
 
 - **Current state before:** the links of a page could not be clicked; push buttons showed a

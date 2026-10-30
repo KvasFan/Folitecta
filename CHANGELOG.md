@@ -17,6 +17,10 @@ All notable changes to Folitecta are documented here. The format follows
   until it is closed. Programs are never started from a document, and form data is never sent
   (the button says where it would go).
 
+- Applying redaction marks takes away what lies outside the visible page of the marked pages too
+  — text, pictures and drawings on the sheet beyond the crop box, hidden from view but still in
+  the file. Apply Redactions names those pages, and the choice can be turned off.
+
 ### Changed
 - A double click on a link of the Links pane asks before it opens a web address, as a click on
   the page does.

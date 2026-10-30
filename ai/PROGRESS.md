@@ -4,7 +4,7 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
-## 2026-11-01 — FOL-L052: push buttons in the self-test (0.8.0 item 3)
+## 2026-10-30 — FOL-L052: push buttons in the self-test (0.8.0 item 3)
 
 - **What:** `testdocs::action_buttons_doc` and a second check in the step `follow_links`, which
   until now only tried the links of a page.
@@ -12,7 +12,7 @@ checked, what is still open. The history before October 2026 is in
   that submits opens no dialog and names the address it would send to; `tools` and
   `follow_links`: 0 problems. Only this step ran: the full self-test was not repeated.
 
-## 2026-10-31 — FOL-L037: content beyond the crop box (0.8.0 item 4)
+## 2026-10-30 — FOL-L037: content beyond the crop box (0.8.0 item 4)
 
 - **Current state before:** content of a marked page outside its crop box (on the sheet, hidden
   from view) stayed in the redacted file.
@@ -30,7 +30,7 @@ checked, what is still open. The history before October 2026 is in
 - **Open:** pages without marks keep what lies beyond their crop box; a command that removes it
   from any page (FOL-L016) is still to come.
 
-## 2026-10-31 — FOL-L052: a safe reading mode (0.8.0 item 3)
+## 2026-10-30 — FOL-L052: a safe reading mode (0.8.0 item 3)
 
 - **Current state before:** the links of a page could not be clicked; push buttons showed a
   notice; a double click in the Links pane opened a web address at once.

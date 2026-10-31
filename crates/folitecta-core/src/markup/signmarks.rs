@@ -7,6 +7,7 @@ use lopdf::{Object, ObjectId, dictionary};
 use crate::document::Document;
 use crate::error::{Error, Result};
 use crate::flatten::FlattenScope;
+use crate::fonts::TextWriter;
 use crate::util::{fmt_num, pdf_literal};
 
 /// Stamp name of placed signatures.
@@ -75,6 +76,9 @@ impl Document {
             SignatureMark::Image(data) => Some(crate::images::image_object(data.clone())?),
             _ => None,
         };
+        if let SignatureMark::Typed { text, .. } = mark {
+            crate::fonts::check_text(text)?;
+        }
         self.begin_edit();
         let f = fmt_num;
         let mut resources = lopdf::Dictionary::new();
@@ -127,6 +131,28 @@ impl Document {
                     c.push_str("S ");
                 }
                 c
+            }
+            // Letters Times Italic does not have: the embedded font, upright.
+            SignatureMark::Typed { text, color } if !TextWriter::new(text).is_ok_and(|w| w.is_standard()) => {
+                let mut writer = TextWriter::new(text)?;
+                let shown = writer.text().replace(['\n', '\t'], " ");
+                let unit = writer.width(&shown, 1.0);
+                let fs = (h * 0.75).min((w * 0.94) / unit.max(0.1)).max(3.0);
+                let tw = unit * fs;
+                let name = writer.resource_name();
+                let content = format!(
+                    "BT /{name} {} Tf {} {} {} rg {} {} Td {} Tj ET",
+                    f(fs),
+                    f(color[0]),
+                    f(color[1]),
+                    f(color[2]),
+                    f(r[0] + (w - tw) / 2.0),
+                    f(r[1] + (h - fs * 0.7) / 2.0),
+                    writer.show(&shown)?
+                );
+                let font = writer.finish(self, None)?;
+                resources.set("Font", dictionary! { name => font });
+                content
             }
             SignatureMark::Typed { text, color } => {
                 let font = self.inner.add_object(dictionary! {

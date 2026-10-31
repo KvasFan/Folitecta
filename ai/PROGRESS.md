@@ -4,6 +4,22 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-31 — FOL-L018 S05: names in every alphabet (0.10.0)
+
+- **Current state before:** a digital signature of `Łukasz` showed question marks on the page, and
+  so did typed signatures, media posters and redaction codes.
+- **What:** `signature_appearance`, `add_signature_mark`, `media_drawing` and the overlay of
+  redaction (`overlay_text`, `overlay_writer`, both by content and as pictures, the embedded font
+  under a name free on the page) draw through `TextWriter`. What the user types is checked
+  before `begin_edit`; names from certificates and files, and marks a file already holds, fall
+  back to the standard font and never stop the work. The strips beyond the crop box carry no
+  overlay text.
+  The step `follow_links` looked for a new toast by counting them, and toasts stop at four: it now
+  looks for the file named in the refusal.
+- **Checked:** `names_text.rs` (4); self-test step `names_text`; 958 workspace tests passed, 0
+  failed; full self-test 320 interactions, 0 problems; clippy clean.
+- **Open:** OCR text and barcode captions still write WinAnsi; right-to-left text stays refused.
+
 ## 2026-10-31 — release 0.9.0: check of the published packages
 
 - **What:** tag `v0.9.0` (`1e2ecda`): CI (15 min) and release (33 min) workflows green, eight

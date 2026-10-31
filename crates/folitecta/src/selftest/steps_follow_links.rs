@@ -62,10 +62,9 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     st.set_dialog(Dialog::None);
     pause(200).await;
 
-    let toasts_before = st.toasts.peek().len();
     click_link(0, 2).await;
     let program_dialog = !matches!(*st.dialog.peek(), Dialog::None);
-    let refused = st.toasts.peek().len() > toasts_before;
+    let refused = st.toasts.peek().iter().any(|t| t.title.contains("setup.exe"));
     cx.record(
         "follow links: a page link goes there, a web link asks first naming it, a program is refused",
         hits == 3

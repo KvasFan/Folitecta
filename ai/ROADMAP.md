@@ -201,6 +201,20 @@ The text people type into forms stays what they typed, and files of sessions say
    and other JSON files are no longer read as empty sessions
    (`commands/navigation/sessions.rs`).
 
+### 0.10.0 — names in every alphabet
+
+What Folitecta draws from a person's name keeps its letters (FOL-L018/S05).
+
+1. ~~**FOL-L018 — the visible part of a digital signature.**~~ Done: the name, reason and location
+   beyond WinAnsi use the embedded font; a name it has no letters for never stops the signature.
+2. ~~**FOL-L018 — typed signatures.**~~ Done: letters Times Italic lacks use the embedded font,
+   upright; text that cannot be drawn is refused before any change.
+3. ~~**FOL-L018 — the poster of a media comment.**~~ Done: its file name, with the same fallback
+   as the signature.
+4. ~~**FOL-L018 — redaction overlay text.**~~ Done: codes beyond WinAnsi over the covers, by content
+   and as pictures, with a font name free on the page; new marks are checked before they are
+   made.
+
 ### Later
 
 FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
@@ -250,7 +264,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L018 | P0 | 🟡 | text boxes, typewriter text, callouts, measurement labels, text stamps, designed stamps, tables, calculator tapes, page marks (watermarks, headers and footers, page and Bates numbers), comment summaries, text and e-mail documents, form fields: an embedded subset of GNU FreeFont FreeSans with ToUnicode for text beyond WinAnsi (bold stroked), refusals named before the change and while typing; other generated text uses the standard Helvetica with WinAnsi | Right-to-left text and shaping (refused today); a choice of substitute font; the `/DA` font; font inspection and replacement; the other producers: S05 OCR, barcodes, signatures, media, redaction text. |
+| FOL-L018 | P0 | 🟡 | text boxes, typewriter text, callouts, measurement labels, text stamps, designed stamps, tables, calculator tapes, page marks (watermarks, headers and footers, page and Bates numbers), comment summaries, text and e-mail documents, form fields, digital and typed signatures, media posters, redaction overlay text: an embedded subset of GNU FreeFont FreeSans with ToUnicode for text beyond WinAnsi (bold stroked), refusals named before the change and while typing; other generated text uses the standard Helvetica with WinAnsi | Right-to-left text and shaping (refused today); a choice of substitute font; the `/DA` font; font inspection and replacement; the other producers: OCR and barcodes. |
 | FOL-L019 | P1 | 🟡 | Edit Text tool (content stream editing), insert/replace/delete page text, find and replace in page text, spell checking with corrections | Paragraph reflow inside an area, joining/splitting blocks, scope for shared form objects. |
 | FOL-L020 | P1/P2 | 🟡 | pictures pane and editor: replace, crop, turn, filters, export | Inline and nested pictures, colour profile preservation report, raster editor mode. |
 | FOL-L021 | P2 | 🟡 | the vector paths a page draws chosen with a click (Edit Content › Shapes), their nodes dragged, their stroke and fill colours and line width changed, deleted — in the page content, one undo step each | Paths inside reused drawings, adding and removing nodes, clipping paths, gradients and shadings, transparency, numeric transforms of several paths. |

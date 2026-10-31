@@ -42,6 +42,7 @@ use self::counts::{Listing, drawing_counts, listed_by_page, purge, unlist};
 use self::holders::{Mark, Work};
 use crate::document::Document;
 use crate::error::{Error, Result};
+use crate::fonts::TextWriter;
 use crate::marks::pdf_rect_to_display;
 use crate::page_text::probe::{ProbeOptions, probe_pages};
 use crate::render::{RenderOpts, Renderer};
@@ -230,13 +231,32 @@ fn text_width(font: &str, text: &str) -> f32 {
 }
 
 /// Content drawing an overlay text inside `r` (PDF space of the drawn page).
-fn overlay_text(look: &RedactionLook, r: [f32; 4]) -> String {
+fn overlay_text(look: &RedactionLook, r: [f32; 4], writer: Option<&mut TextWriter>) -> String {
     let text = look.text.trim();
     let (w, h) = (r[2] - r[0], r[3] - r[1]);
     if text.is_empty() || w < 1.0 || h < 1.0 {
         return String::new();
     }
-    let unit = text_width(&look.font, text).max(0.1);
+    // The embedded font when the texts of the page need it, else the
+    // standard font of the mark with its WinAnsi bytes.
+    let (unit, shown, resource) = match writer {
+        Some(writer) => {
+            let line = writer.piece(text).replace(['\n', '\t'], " ");
+            let unit = writer.width(&line, 1.0).max(0.1);
+            match writer.show(&line) {
+                Ok(shown) => (unit, shown, writer.resource_name()),
+                Err(_) => return String::new(),
+            }
+        }
+        None => {
+            let hex: String = text.chars().map(|c| format!("{:02X}", winansi_byte(c))).collect();
+            (
+                text_width(&look.font, text).max(0.1),
+                format!("<{hex}>"),
+                "FoliRed".to_string(),
+            )
+        }
+    };
     let size = if look.font_size > 0.0 {
         look.font_size
     } else if look.repeat {
@@ -244,12 +264,10 @@ fn overlay_text(look: &RedactionLook, r: [f32; 4]) -> String {
     } else {
         (h * 0.7).min(w * 0.92 / unit).max(2.0)
     };
-    let bytes: Vec<u8> = text.chars().map(winansi_byte).collect();
-    let hex: String = bytes.iter().map(|b| format!("{b:02X}")).collect();
     let f = fmt_num;
     let c = look.text_color;
     let mut out = format!(
-        "q {} {} {} {} re W n BT /FoliRed {} Tf {} {} {} rg ",
+        "q {} {} {} {} re W n BT /{resource} {} Tf {} {} {} rg ",
         f(r[0]),
         f(r[1]),
         f(w),
@@ -271,7 +289,7 @@ fn overlay_text(look: &RedactionLook, r: [f32; 4]) -> String {
             // Rows shift by half a word, like a pattern.
             let mut x = r[0] - if row % 2 == 1 { step_x / 2.0 } else { 0.0 };
             while x < r[2] {
-                out.push_str(&format!("1 0 0 1 {} {} Tm <{hex}> Tj ", f(x), f(y)));
+                out.push_str(&format!("1 0 0 1 {} {} Tm {shown} Tj ", f(x), f(y)));
                 x += step_x;
             }
             y -= step_y;
@@ -280,10 +298,18 @@ fn overlay_text(look: &RedactionLook, r: [f32; 4]) -> String {
     } else {
         let x = r[0] + (w - line_w) / 2.0;
         let y = r[1] + (h - size * 0.7) / 2.0;
-        out.push_str(&format!("1 0 0 1 {} {} Tm <{hex}> Tj ", f(x), f(y)));
+        out.push_str(&format!("1 0 0 1 {} {} Tm {shown} Tj ", f(x), f(y)));
     }
     out.push_str("ET Q\n");
     out
+}
+
+/// The writer of the overlay texts of `marks`, when they need the embedded
+/// font (all of them then use it). Texts it has no letters for, in a mark a
+/// file already holds, keep the standard font with question marks.
+fn overlay_writer(marks: &[Mark]) -> Option<TextWriter> {
+    let texts = marks.iter().map(|m| m.look.text.trim()).filter(|t| !t.is_empty());
+    TextWriter::for_pieces(texts).ok().filter(|w| !w.is_standard())
 }
 
 /// Cover the pixels `[x0, y0, x1, y1)` of a drawn page as the look says.
@@ -411,6 +437,7 @@ impl Document {
         look: &RedactionLook,
     ) -> Result<ObjectId> {
         let page_id = self.page_id(page)?;
+        crate::fonts::check_text(look.text.trim())?;
         self.begin_edit();
         let mut annot = self.base_annotation(page_id, "Redact", rect, author, "", [1.0, 0.0, 0.0]);
         write_look(&mut annot, look);
@@ -441,6 +468,7 @@ impl Document {
         if !is_redact {
             return Err(Error::Invalid("the comment is not a redaction mark".into()));
         }
+        crate::fonts::check_text(look.text.trim())?;
         self.begin_edit();
         write_look(self.inner.get_dictionary_mut(id)?, look);
         self.commit()
@@ -567,7 +595,10 @@ impl Document {
     fn mark_beyond_crop(&self, marks: &mut BTreeMap<usize, Vec<Mark>>) {
         for (&p, list) in marks.iter_mut() {
             let Ok(size) = self.page_size(p) else { continue };
-            let Some(look) = list.first().map(|m| m.look.clone()) else {
+            let Some(look) = list.first().map(|m| RedactionLook {
+                text: String::new(),
+                ..m.look.clone()
+            }) else {
                 continue;
             };
             for r in beyond_crop(size.media_box, size.crop_box) {
@@ -1037,6 +1068,7 @@ impl Document {
             let (iw, ih) = img.dimensions();
             let (sx, sy) = (iw as f32 / size.width, ih as f32 / size.height);
             let mut texts = String::new();
+            let mut writer = overlay_writer(&marks);
             for m in &marks {
                 // Display space (y down) is the space of the drawn page.
                 let d = m.shown;
@@ -1049,7 +1081,7 @@ impl Document {
                 cover(&mut img, px, &m.look);
                 // The page becomes upright and starts at the origin.
                 let r = [d[0], size.height - d[3], d[2], size.height - d[1]];
-                texts.push_str(&overlay_text(&m.look, r));
+                texts.push_str(&overlay_text(&m.look, r, writer.as_mut()));
             }
             let rgb = image::DynamicImage::ImageRgba8(img).to_rgb8();
             let mut jpeg = std::io::Cursor::new(Vec::new());
@@ -1090,18 +1122,24 @@ impl Document {
             }
             self.inner.change_page_content(id, content.into_bytes())?;
             if !texts.is_empty() {
-                let font = marks
-                    .iter()
-                    .find(|m| !m.look.text.trim().is_empty())
-                    .map(|m| m.look.font.clone())
-                    .unwrap_or_else(|| "Helvetica".into());
-                let fid = self.inner.add_object(dictionary! {
-                    "Type" => "Font",
-                    "Subtype" => "Type1",
-                    "BaseFont" => Object::Name(font.into_bytes()),
-                    "Encoding" => "WinAnsiEncoding",
-                });
-                self.add_page_resource(id, "Font", "FoliRed", Object::Reference(fid))?;
+                if let Some(writer) = writer {
+                    let name = writer.resource_name();
+                    let fid = writer.finish(self, None)?;
+                    self.add_page_resource(id, "Font", &name, Object::Reference(fid))?;
+                } else {
+                    let font = marks
+                        .iter()
+                        .find(|m| !m.look.text.trim().is_empty())
+                        .map(|m| m.look.font.clone())
+                        .unwrap_or_else(|| "Helvetica".into());
+                    let fid = self.inner.add_object(dictionary! {
+                        "Type" => "Font",
+                        "Subtype" => "Type1",
+                        "BaseFont" => Object::Name(font.into_bytes()),
+                        "Encoding" => "WinAnsiEncoding",
+                    });
+                    self.add_page_resource(id, "Font", "FoliRed", Object::Reference(fid))?;
+                }
                 self.append_page_content(id, texts.into_bytes(), Some(cover_tag))?;
             }
         }
@@ -1181,6 +1219,7 @@ mod tests {
                 ..Default::default()
             },
             [10.0, 10.0, 110.0, 30.0],
+            None,
         );
         assert!(
             text.contains("re W n") && text.contains("<434F4445> Tj"),

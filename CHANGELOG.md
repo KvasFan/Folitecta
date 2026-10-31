@@ -6,6 +6,16 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Names keep their letters: the visible part of a digital signature, typed signatures, the
+  posters of media comments and the overlay text of redactions are drawn beyond Western European
+  letters with the embedded font. A typed signature or a redaction code that cannot be drawn is
+  refused, named; a name in a certificate or a file name that cannot be drawn never stops the
+  work.
+
+### Changed
+- The strips added beyond the crop box when redacting carry no overlay text.
+
 ## [0.9.0] - 2026-10-31
 
 ### Added

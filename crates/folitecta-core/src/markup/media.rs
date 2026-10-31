@@ -7,7 +7,8 @@ use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
 use crate::document::Document;
 use crate::error::{Error, Result};
-use crate::util::{deref, dict_text, fmt_num, pdf_literal};
+use crate::fonts::TextWriter;
+use crate::util::{deref, dict_text, fmt_num};
 
 /// A sound or video comment.
 #[derive(Debug, Clone, PartialEq)]
@@ -264,7 +265,7 @@ fn media_of(doc: &lopdf::Document, d: &Dictionary) -> Option<(String, String, St
 }
 
 /// Appearance of a media comment: a frame with a play mark and the file name.
-fn media_appearance(rect: [f32; 4], name: &str, video: bool) -> String {
+fn media_appearance(rect: [f32; 4], name: &str, video: bool, writer: &mut TextWriter) -> Result<String> {
     let f = fmt_num;
     let (x0, y0, x1, y1) = (rect[0], rect[1], rect[2], rect[3]);
     let (w, h) = (x1 - x0, y1 - y0);
@@ -292,21 +293,22 @@ fn media_appearance(rect: [f32; 4], name: &str, video: bool) -> String {
     ));
     if h > 40.0 && w > 40.0 && !name.is_empty() {
         let size = 8.0f32.min(h / 6.0);
-        let mut shown = name.to_string();
-        while !shown.is_empty() && crate::util::helvetica_width(&shown, size) > w - 8.0 {
+        let mut shown = writer.piece(name).replace(['\n', '\t'], " ");
+        while !shown.is_empty() && writer.width(&shown, size) > w - 8.0 {
             shown.pop();
         }
         let tc = if video { "0.9 0.9 0.9" } else { "0.2 0.2 0.2" };
-        let tw = crate::util::helvetica_width(&shown, size);
+        let tw = writer.width(&shown, size);
+        let resource = writer.resource_name();
+        let text = writer.show(&shown).map_err(Error::Glyphs)?;
         c.push_str(&format!(
-            "BT /Helv {} Tf {tc} rg {} {} Td {} Tj ET\n",
+            "BT /{resource} {} Tf {tc} rg {} {} Td {text} Tj ET\n",
             f(size),
             f(cx - tw / 2.0),
             f(y0 + 5.0),
-            String::from_utf8_lossy(&pdf_literal(&shown))
         ));
     }
-    c
+    Ok(c)
 }
 
 impl Document {
@@ -377,8 +379,8 @@ impl Document {
         let mut annot = self.base_annotation(page_id, "Sound", r, author, "", [0.31, 0.27, 0.9]);
         annot.set("Sound", Object::Reference(sid));
         annot.set("Name", Object::Name(b"Speaker".to_vec()));
-        let res = self.helv_resources();
-        self.add_appearance(&mut annot, r, media_appearance(r, "", false), res);
+        let (content, res) = self.media_drawing(r, "", false)?;
+        self.add_appearance(&mut annot, r, content, res);
         let id = self.push_drawn_annotation(page_id, annot)?;
         self.commit()?;
         Ok(id)
@@ -434,8 +436,8 @@ impl Document {
             dictionary! { "Type" => "Rendition", "S" => "MR", "N" => lopdf::text_string(name), "C" => clip };
         let mut annot = self.base_annotation(page_id, "Screen", r, author, name, [0.31, 0.27, 0.9]);
         annot.set("T", lopdf::text_string(name));
-        let res = self.helv_resources();
-        self.add_appearance(&mut annot, r, media_appearance(r, name, video), res);
+        let (content, res) = self.media_drawing(r, name, video)?;
+        self.add_appearance(&mut annot, r, content, res);
         let id = self.push_drawn_annotation(page_id, annot)?;
         // The rendition action names its own comment.
         let action = dictionary! { "S" => "Rendition", "OP" => 0, "R" => rendition, "AN" => id };
@@ -470,9 +472,19 @@ impl Document {
         self.commit()
     }
 
-    fn helv_resources(&mut self) -> Dictionary {
-        let font = self.helvetica_font_id();
-        dictionary! { "Font" => dictionary! { "Helv" => font } }
+    /// The appearance of a media comment and its resources. A file name the
+    /// embedded font has no letters for shows question marks.
+    fn media_drawing(&mut self, rect: [f32; 4], name: &str, video: bool) -> Result<(String, Dictionary)> {
+        let mut writer = TextWriter::new(name)
+            .or_else(|_| TextWriter::new(""))
+            .map_err(Error::Glyphs)?;
+        let content = media_appearance(rect, name, video, &mut writer)?;
+        let resource = writer.resource_name();
+        let font = writer.finish(self, None)?;
+        Ok((
+            content,
+            dictionary! { "Font" => dictionary! { resource => font } },
+        ))
     }
 }
 

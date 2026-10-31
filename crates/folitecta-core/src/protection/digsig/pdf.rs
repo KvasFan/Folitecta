@@ -21,8 +21,9 @@ use super::revocation::{
 use super::timestamp::{self, TimeStampCheck, Transport};
 use crate::document::{Document, Source};
 use crate::error::{Error, Result};
+use crate::fonts::TextWriter;
 use crate::protection::encrypted;
-use crate::util::{self, deref, dict_text, fmt_num, helvetica_width, pdf_literal, rect_of};
+use crate::util::{self, deref, dict_text, fmt_num, rect_of};
 
 /// Where the signature goes.
 #[derive(Debug, Clone, PartialEq)]
@@ -824,29 +825,36 @@ impl Document {
             text_x = box_w + 4.0;
         }
         if !lines.is_empty() {
-            let font = self.helvetica_font_id();
-            resources.set("Font", dictionary! { "Helv" => font });
-            let avail_w = (w - text_x - 2.0).max(10.0);
-            let widest = lines
+            // A name the embedded font has no letters for must not stop the
+            // signature: the standard font shows question marks.
+            let mut writer = TextWriter::for_pieces(lines.iter().map(String::as_str))
+                .or_else(|_| TextWriter::new(""))
+                .map_err(Error::Glyphs)?;
+            let lines: Vec<String> = lines
                 .iter()
-                .map(|l| helvetica_width(l, 1.0))
-                .fold(1.0f32, f32::max);
+                .map(|l| writer.piece(l).replace(['\n', '\t'], " "))
+                .collect();
+            let name = writer.resource_name();
+            let avail_w = (w - text_x - 2.0).max(10.0);
+            let widest = lines.iter().map(|l| writer.width(l, 1.0)).fold(1.0f32, f32::max);
             let fs = (avail_w / widest)
                 .min((h - 4.0) / (lines.len() as f32 * 1.2))
                 .clamp(3.0, 14.0);
             let block = lines.len() as f32 * fs * 1.2;
             let mut y = h - (h - block) / 2.0 - fs;
-            body.push_str(&format!("BT /Helv {} Tf 0 0 0 rg\n", f(fs)));
+            body.push_str(&format!("BT /{name} {} Tf 0 0 0 rg\n", f(fs)));
             for line in &lines {
                 body.push_str(&format!(
                     "1 0 0 1 {} {} Tm {} Tj\n",
                     f(text_x),
                     f(y),
-                    String::from_utf8_lossy(&pdf_literal(line))
+                    writer.show(line).map_err(Error::Glyphs)?
                 ));
                 y -= fs * 1.2;
             }
             body.push_str("ET\n");
+            let font = writer.finish(self, None)?;
+            resources.set("Font", dictionary! { name => font });
         }
         let stream = Stream::new(
             dictionary! {

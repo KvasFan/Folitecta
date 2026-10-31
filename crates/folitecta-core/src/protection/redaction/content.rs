@@ -115,6 +115,22 @@ impl Document {
             f(m[5])
         );
         let mut font = None;
+        // The name of the embedded font must be free on this page (a second
+        // redaction of it finds the first one's there).
+        let mut writer = super::overlay_writer(marks);
+        if let Some(w) = writer.as_mut() {
+            let res = crate::page_text::probe::page_resources(&self.inner, id);
+            let taken = |name: &str| {
+                res.get(b"Font")
+                    .ok()
+                    .map(|f| crate::util::deref(&self.inner, f))
+                    .and_then(|f| f.as_dict().ok())
+                    .is_some_and(|f| f.has(name.as_bytes()))
+            };
+            if let Some(name) = (1..).map(|n| format!("FoliRedUni{n}")).find(|n| !taken(n)) {
+                w.use_resource_name(&name);
+            }
+        }
         for m in marks {
             let (d, look) = (m.shown, &m.look);
             // Upright, origin at the bottom-left corner of the page as shown.
@@ -132,14 +148,18 @@ impl Document {
                     f(u[3] - u[1])
                 ));
             }
-            let text = overlay_text(look, u);
+            let text = overlay_text(look, u, writer.as_mut());
             if !text.is_empty() {
                 font.get_or_insert_with(|| look.font.clone());
                 body.push_str(&text);
             }
         }
         body.push_str("Q\n");
-        if let Some(font) = font {
+        if let (Some(writer), true) = (writer, font.is_some()) {
+            let name = writer.resource_name();
+            let fid = writer.finish(self, None)?;
+            self.add_page_resource(id, "Font", &name, Object::Reference(fid))?;
+        } else if let Some(font) = font {
             let fid = self.inner.add_object(dictionary! {
                 "Type" => "Font",
                 "Subtype" => "Type1",

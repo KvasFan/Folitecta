@@ -441,6 +441,7 @@ mod steps_layer_drawing;
 mod steps_layout;
 mod steps_links;
 mod steps_my_templates;
+mod steps_names_text;
 mod steps_note_icon;
 mod steps_ocr;
 mod steps_office;
@@ -549,6 +550,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "follow_links" => Box::pin(steps_follow_links::run(cx)),
             "redaction_crop" => Box::pin(steps_redaction_crop::run(cx)),
             "field_text" => Box::pin(steps_field_text::run(cx)),
+            "names_text" => Box::pin(steps_names_text::run(cx)),
             "field_items" => Box::pin(steps_field_items::run(cx)),
             "policies" => Box::pin(steps_policies::run(cx)),
             "qat" => Box::pin(steps_qat::run(cx)),
@@ -629,6 +631,7 @@ const STEPS: &[&str] = &[
     "follow_links",
     "redaction_crop",
     "field_text",
+    "names_text",
     "field_items",
     "policies",
     "qat",

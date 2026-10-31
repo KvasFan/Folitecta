@@ -301,14 +301,21 @@ impl TextWriter {
     /// Helvetica, `reuse` when it is the same subset (a drawing made again
     /// with the same characters), else a new subset.
     pub(crate) fn finish(self, doc: &mut Document, reuse: Option<ObjectId>) -> Result<ObjectId> {
-        match self.face {
+        self.font_object(doc, reuse)
+    }
+
+    /// [`TextWriter::finish`] for a drawing that needs the font before its
+    /// strings: every character must have been shown once already, and the
+    /// strings shown after this use the same codes.
+    pub(crate) fn font_object(&self, doc: &mut Document, reuse: Option<ObjectId>) -> Result<ObjectId> {
+        match &self.face {
             Face::Standard => Ok(doc.helvetica_font_id()),
             Face::Unicode { font, chars, .. } => {
-                let parts = build_subset(&font, &chars)?;
+                let parts = build_subset(font, chars)?;
                 if let Some(id) = reuse.filter(|id| doc.same_subset(*id, &parts)) {
                     return Ok(id);
                 }
-                Ok(doc.add_unicode_font(&font, parts))
+                Ok(doc.add_unicode_font(font, parts))
             }
         }
     }

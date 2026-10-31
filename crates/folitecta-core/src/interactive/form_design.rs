@@ -232,6 +232,10 @@ impl Document {
         rect: [f32; 4],
         props: &FieldProps,
     ) -> Result<ObjectId> {
+        crate::fonts::check_text(&props.caption)?;
+        for item in &props.options {
+            crate::fonts::check_text(item)?;
+        }
         let id = self.place_form_field(page, kind, rect, props, false)?;
         self.commit()?;
         Ok(id)
@@ -548,6 +552,14 @@ impl Document {
         }
         if self.form_fields().iter().any(|f| f.name == name && f.id != field) {
             return Err(Error::Invalid(format!("a field named \"{name}\" already exists")));
+        }
+        // New texts must be drawable; what the file already held stays.
+        let held = self.field_props(field)?;
+        if props.caption != held.caption {
+            crate::fonts::check_text(&props.caption)?;
+        }
+        for item in props.options.iter().filter(|o| !held.options.contains(o)) {
+            crate::fonts::check_text(item)?;
         }
         let widgets = self.field_widgets(field);
         self.begin_edit();

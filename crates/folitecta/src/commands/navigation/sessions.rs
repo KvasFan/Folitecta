@@ -198,8 +198,50 @@ fn clear(st: AppState) {
     st.toast(ToastKind::Ok, t(st.lang(), "toast.sessions_cleared"), "");
 }
 
+/// What a file of sessions says it is.
+const SESSIONS_FORMAT: &str = "folitecta-sessions";
+/// The version of the format written; a file of a later version is refused
+/// rather than read in part.
+const SESSIONS_VERSION: u64 = 1;
+
+/// The file of `sessions`.
+fn sessions_file(sessions: &[Session]) -> serde_json::Result<String> {
+    serde_json::to_string_pretty(&serde_json::json!({
+        "format": SESSIONS_FORMAT,
+        "version": SESSIONS_VERSION,
+        "sessions": sessions,
+    }))
+}
+
+/// Why a file cannot be read as sessions.
+#[derive(Debug, PartialEq)]
+enum SessionsError {
+    /// Written by a later version of Folitecta (the version it says).
+    Newer(u64),
+    NotSessions,
+}
+
+/// The sessions of a file: the format with its version, or what earlier
+/// versions wrote without one (a list of sessions, or a single session).
+fn read_sessions(data: &[u8]) -> Result<Vec<Session>, SessionsError> {
+    let value: serde_json::Value = serde_json::from_slice(data).map_err(|_| SessionsError::NotSessions)?;
+    let list = match &value {
+        serde_json::Value::Array(_) => value,
+        serde_json::Value::Object(o) if o.get("format").and_then(|f| f.as_str()) == Some(SESSIONS_FORMAT) => {
+            let version = o.get("version").and_then(|v| v.as_u64()).unwrap_or(0);
+            if version > SESSIONS_VERSION {
+                return Err(SessionsError::Newer(version));
+            }
+            o.get("sessions").cloned().ok_or(SessionsError::NotSessions)?
+        }
+        serde_json::Value::Object(o) if o.contains_key("files") => serde_json::Value::Array(vec![value]),
+        _ => return Err(SessionsError::NotSessions),
+    };
+    serde_json::from_value(list).map_err(|_| SessionsError::NotSessions)
+}
+
 fn export(st: AppState, sessions: Vec<Session>, name: &str) {
-    match serde_json::to_string_pretty(&sessions) {
+    match sessions_file(&sessions) {
         Ok(json) => crate::files::save_text_file(st, name, json),
         Err(e) => st.error(e),
     }
@@ -216,10 +258,7 @@ fn import(st: AppState, open: bool) {
             return;
         };
         let data = f.read().await;
-        // A file holds one session or a list of them.
-        let sessions: Result<Vec<Session>, _> = serde_json::from_slice::<Vec<Session>>(&data)
-            .or_else(|_| serde_json::from_slice::<Session>(&data).map(|s| vec![s]));
-        match sessions {
+        match read_sessions(&data) {
             Ok(list) if !list.is_empty() => {
                 if open {
                     open_here(st, list[0].files.clone());
@@ -234,7 +273,12 @@ fn import(st: AppState, open: bool) {
                 );
             }
             Ok(_) => st.toast(ToastKind::Info, t(st.lang(), "toast.session_nothing"), ""),
-            Err(e) => st.error(e),
+            Err(SessionsError::Newer(version)) => st.error(tf(
+                st.lang(),
+                "toast.session_newer",
+                &[("version", &version.to_string())],
+            )),
+            Err(SessionsError::NotSessions) => st.error(t(st.lang(), "toast.session_not_a_file")),
         }
     });
 }
@@ -306,4 +350,39 @@ handlers! {
     "sessions.sort.createTime" => |st| sort(st, "created"),
     "sessions.sort.openTime" => |st| sort(st, "opened"),
     "sessions.sortBy" => cycle_sort,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn one() -> Session {
+        Session {
+            name: "Work".into(),
+            ..Session::default()
+        }
+    }
+
+    #[test]
+    fn files_of_sessions_say_their_version_and_read_back() {
+        let json = sessions_file(&[one()]).unwrap();
+        assert!(json.contains("\"version\": 1"), "{json}");
+        assert_eq!(read_sessions(json.as_bytes()).unwrap(), [one()]);
+    }
+
+    #[test]
+    fn what_earlier_versions_wrote_still_reads() {
+        let list = serde_json::to_vec(&[one()]).unwrap();
+        assert_eq!(read_sessions(&list).unwrap(), [one()]);
+        let single = serde_json::to_vec(&one()).unwrap();
+        assert_eq!(read_sessions(&single).unwrap(), [one()]);
+    }
+
+    #[test]
+    fn later_versions_and_other_files_are_refused() {
+        let later = br#"{"format": "folitecta-sessions", "version": 2, "sessions": []}"#;
+        assert_eq!(read_sessions(later), Err(SessionsError::Newer(2)));
+        assert_eq!(read_sessions(b"{}"), Err(SessionsError::NotSessions));
+        assert_eq!(read_sessions(b"not json"), Err(SessionsError::NotSessions));
+    }
 }

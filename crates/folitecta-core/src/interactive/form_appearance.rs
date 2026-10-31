@@ -3,14 +3,16 @@
 //! `/MK`, `/BS`, `/Opt`, the pictures of push buttons) so values show in
 //! every viewer, including Folitecta's own renderer.
 
+use std::cell::RefCell;
+
 use lopdf::{Dictionary, Object, ObjectId, Stream, dictionary};
 
 use super::form_design::*;
 use crate::appearance::parse_da;
 use crate::document::Document;
-use crate::error::Result;
-use crate::textdoc::wrap_text;
-use crate::util::{deref, fmt_num, helvetica_width, num, pdf_literal, rect_of, text_of};
+use crate::error::{Error, Result};
+use crate::fonts::{TextWriter, previous_font};
+use crate::util::{deref, fmt_num, num, rect_of, text_of};
 
 /// Everything needed to draw one widget, with inherited entries resolved.
 pub(super) struct WidgetInfo {
@@ -192,7 +194,44 @@ impl Document {
                 }
             }
         }
-        let font = self.helvetica_font_id();
+        // The texts of the widget choose the font. What a file already holds
+        // and cannot be drawn is no reason to fail: new values are checked
+        // before they are written (`check_text`), and the standard font
+        // shows such a text with question marks, as it always did.
+        let pieces: Vec<String> = match w.ft.as_str() {
+            "Tx" if w.ff & FF_PASSWORD != 0 => vec!["*".to_string()],
+            "Tx" => w.value.first().cloned().into_iter().collect(),
+            "Ch" if w.ff & FF_COMBO != 0 => w.value.first().cloned().into_iter().collect(),
+            "Ch" => w.options.clone(),
+            "Btn" if w.ff & FF_PUSH != 0 => vec![w.caption.clone()],
+            _ => Vec::new(),
+        };
+        let mut writer = TextWriter::for_pieces(pieces.iter().map(String::as_str))
+            .or_else(|_| TextWriter::new(""))
+            .map_err(Error::Glyphs)?;
+        if !writer.is_standard() {
+            let _ = writer.show(" ");
+            for piece in &pieces {
+                for part in writer.piece(piece).split(['\n', '\t']) {
+                    writer.show(part).map_err(Error::Glyphs)?;
+                }
+            }
+        }
+        let previous = previous_font(&self.inner, self.inner.get_dictionary(id)?, &writer);
+        let font = writer.font_object(self, previous)?;
+        let resource = writer.resource_name();
+        let writer = RefCell::new(writer);
+        // The string that shows a piece of text; all its characters have
+        // codes already.
+        let shown = |text: &str| -> String {
+            let mut w = writer.borrow_mut();
+            let line = w.piece(text).replace(['\n', '\t'], " ");
+            w.show(&line).unwrap_or_else(|_| "()".to_string())
+        };
+        let width = |text: &str, size: f32| -> f32 {
+            let w = writer.borrow();
+            w.width(&w.piece(text), size)
+        };
         let (bw, bh) = (w.rect[2] - w.rect[0], w.rect[3] - w.rect[1]);
         let f = fmt_num;
         let (da_size, text_color) = parse_da(&w.da);
@@ -238,7 +277,7 @@ impl Document {
                 ((bh - 2.0 * pad) * 0.75).clamp(4.0, 14.0)
             };
             let mut s = format!(
-                "/Tx BMC q {} {} {} {} re W n BT /Helv {} Tf ",
+                "/Tx BMC q {} {} {} {} re W n BT /{resource} {} Tf ",
                 f(w.width),
                 f(w.width),
                 f((bw - 2.0 * w.width).max(0.0)),
@@ -248,9 +287,10 @@ impl Document {
             s.push_str(&rgb(text_color, "rg"));
             let inner = (bw - 2.0 * pad).max(size);
             let lines: Vec<String> = if multiline {
-                wrap_text(text, size, inner)
+                let w = writer.borrow();
+                w.wrap_piece(&w.piece(text), size, inner)
             } else {
-                vec![text.replace(['\n', '\r'], " ")]
+                vec![writer.borrow().piece(text).replace(['\n', '\r'], " ")]
             };
             let comb = w.ff & FF_COMB != 0 && w.max_len > 0 && !multiline;
             let mut y = if multiline {
@@ -263,24 +303,24 @@ impl Document {
                     let cell = bw / w.max_len as f32;
                     for (i, ch) in line.chars().take(w.max_len as usize).enumerate() {
                         let cs = ch.to_string();
-                        let cw = helvetica_width(&cs, size);
+                        let cw = width(&cs, size);
                         s.push_str(&format!(
                             "1 0 0 1 {} {} Tm ",
                             f(cell * i as f32 + (cell - cw) / 2.0),
                             f(y)
                         ));
-                        s.push_str(&String::from_utf8_lossy(&pdf_literal(&cs)));
+                        s.push_str(&shown(&cs));
                         s.push_str(" Tj ");
                     }
                 } else {
-                    let lw = helvetica_width(&line, size);
+                    let lw = width(&line, size);
                     let x = match w.q {
                         1 => (bw - lw) / 2.0,
                         2 => bw - pad - lw,
                         _ => pad,
                     };
                     s.push_str(&format!("1 0 0 1 {} {} Tm ", f(x), f(y)));
-                    s.push_str(&String::from_utf8_lossy(&pdf_literal(&line)));
+                    s.push_str(&shown(&line));
                     s.push_str(" Tj ");
                 }
                 y -= size * 1.15;
@@ -294,7 +334,7 @@ impl Document {
                     "Type" => "XObject",
                     "Subtype" => "Form",
                     "BBox" => vec![0.into(), 0.into(), bw.into(), bh.into()],
-                    "Resources" => dictionary! { "Font" => dictionary! { "Helv" => font } },
+                    "Resources" => dictionary! { "Font" => dictionary! { resource.as_str() => font } },
                 },
                 content.into_bytes(),
             )
@@ -348,10 +388,10 @@ impl Document {
                                 f(size * 1.2)
                             ));
                         }
-                        c.push_str(&format!("BT /Helv {} Tf ", f(size)));
+                        c.push_str(&format!("BT /{resource} {} Tf ", f(size)));
                         c.push_str(&rgb(text_color, "rg"));
                         c.push_str(&format!("{} {} Td ", f(pad), f(y)));
-                        c.push_str(&String::from_utf8_lossy(&pdf_literal(opt)));
+                        c.push_str(&shown(opt));
                         c.push_str(" Tj ET ");
                         y -= size * 1.2;
                     }
@@ -369,7 +409,7 @@ impl Document {
                 } else {
                     (bh * 0.45).clamp(4.0, 14.0)
                 };
-                let cw = helvetica_width(&w.caption, size);
+                let cw = width(&w.caption, size);
                 // The picture fills the button (above the caption when there is one), kept in shape.
                 let caption_h = if has_icon && !w.caption.is_empty() {
                     size * 1.5
@@ -408,10 +448,10 @@ impl Document {
                         } else {
                             (bh - size * 0.72) / 2.0
                         };
-                        c.push_str(&format!("BT /Helv {} Tf ", f(size)));
+                        c.push_str(&format!("BT /{resource} {} Tf ", f(size)));
                         c.push_str(&rgb(text_color, "rg"));
                         c.push_str(&format!("{} {} Td ", f((bw - cw) / 2.0), f(y)));
-                        c.push_str(&String::from_utf8_lossy(&pdf_literal(&w.caption)));
+                        c.push_str(&shown(&w.caption));
                         c.push_str(" Tj ET ");
                     }
                     c

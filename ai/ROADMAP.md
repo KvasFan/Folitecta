@@ -187,6 +187,20 @@ outside the visible page too (FOL-L036, FOL-L052, FOL-L037).
    under a mark); Apply Redactions names those pages with a choice, on by default, to leave it
    (`RedactionOptions::beyond_crop`).
 
+### 0.9.0 — text in every field
+
+The text people type into forms stays what they typed, and files of sessions say what they are
+(FOL-L018, FOL-L051).
+
+1. ~~**FOL-L018 — form fields (S04).**~~ Done: values, list items and button captions beyond
+   WinAnsi are drawn with the embedded font; a new text that cannot be drawn is refused before
+   anything changes, named, and stays in the editor; what a file already holds never fails
+   (`interactive/form_appearance.rs`).
+2. ~~**FOL-L051 — a versioned session format.**~~ Done: files of sessions carry their format and
+   version; what earlier versions wrote still reads, a later version is refused with a message,
+   and other JSON files are no longer read as empty sessions
+   (`commands/navigation/sessions.rs`).
+
 ### Later
 
 FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
@@ -236,7 +250,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L018 | P0 | 🟡 | text boxes, typewriter text, callouts, measurement labels, text stamps, designed stamps, tables, calculator tapes, page marks (watermarks, headers and footers, page and Bates numbers), comment summaries, text and e-mail documents: an embedded subset of GNU FreeFont FreeSans with ToUnicode for text beyond WinAnsi (bold stroked), refusals named before the change and while typing; other generated text uses the standard Helvetica with WinAnsi | Right-to-left text and shaping (refused today); a choice of substitute font; the `/DA` font; font inspection and replacement; the other producers: S04 form fields; S05 OCR, barcodes, signatures, media, redaction text. |
+| FOL-L018 | P0 | 🟡 | text boxes, typewriter text, callouts, measurement labels, text stamps, designed stamps, tables, calculator tapes, page marks (watermarks, headers and footers, page and Bates numbers), comment summaries, text and e-mail documents, form fields: an embedded subset of GNU FreeFont FreeSans with ToUnicode for text beyond WinAnsi (bold stroked), refusals named before the change and while typing; other generated text uses the standard Helvetica with WinAnsi | Right-to-left text and shaping (refused today); a choice of substitute font; the `/DA` font; font inspection and replacement; the other producers: S05 OCR, barcodes, signatures, media, redaction text. |
 | FOL-L019 | P1 | 🟡 | Edit Text tool (content stream editing), insert/replace/delete page text, find and replace in page text, spell checking with corrections | Paragraph reflow inside an area, joining/splitting blocks, scope for shared form objects. |
 | FOL-L020 | P1/P2 | 🟡 | pictures pane and editor: replace, crop, turn, filters, export | Inline and nested pictures, colour profile preservation report, raster editor mode. |
 | FOL-L021 | P2 | 🟡 | the vector paths a page draws chosen with a click (Edit Content › Shapes), their nodes dragged, their stroke and fill colours and line width changed, deleted — in the page content, one undo step each | Paths inside reused drawings, adding and removing nodes, clipping paths, gradients and shadings, transparency, numeric transforms of several paths. |
@@ -304,7 +318,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L051 | P0 | 🟡 | undo/redo of every edit; every PDF save (Save, Save As, copies, protected copies, signed files), the exports (pictures, text, attachments, form data, comments, Office documents, digital IDs) and the settings written to a temporary file and renamed over the target only when complete; recovery copies the same way, never for encrypted documents; signed documents saved as incremental updates | Versioned session format. |
+| FOL-L051 | P0 | 🟡 | undo/redo of every edit; every PDF save (Save, Save As, copies, protected copies, signed files), the exports (pictures, text, attachments, form data, comments, Office documents, digital IDs) and the settings written to a temporary file and renamed over the target only when complete; recovery copies the same way, never for encrypted documents; signed documents saved as incremental updates; files of sessions with their format and version | — |
 | FOL-L052 | P0 | 🟡 | page tree normalized before every page edit; pages that leave take the bookmarks, destinations, links, fields, tags and opening view tied to them (nothing of them stays in the file), pages that arrive bring theirs, and what cannot be kept is reported before OK; a relations corpus (`relations_corpus.rs`: bookmarks, destinations, links by array, name and action, fields over several pages, radio groups, comments with pop-ups and replies, tags with their parent tree) through every page operation, saved and reopened; external actions not executed on opening; links and buttons followed with a question before anything outside the document opens, programs never started | Relations of portfolio and attachment documents; the answer to an external link kept only for the session (not saved with the file). |
 | FOL-L053 | P1 | 🟡 | real attachments through the mail program (Simple MAPI, Mail, `xdg-email`), ZIP, EML drafts; the attachment dialog: current state or saved file, pages, comments kept/flattened/removed, form data and comments as files, sizes and previews, protected copies kept protected, failures reported in the dialog | A check with real mail programs; Extract Pages, Split and Delete Pages onto the same page copies (layers and XFA follow page subsets). |
 

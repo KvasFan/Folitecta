@@ -4,6 +4,24 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-31 — FOL-L018 S04, FOL-L051: text in form fields, versioned sessions (0.9.0)
+
+- **Current state before:** field appearances wrote WinAnsi only, so `Łódź` showed question marks
+  while the value stayed right; exported sessions had no version, and because `Session` takes
+  defaults any JSON object imported as an empty session.
+- **What:** `refresh_widget` chooses the font with `TextWriter::for_pieces` (value, list items,
+  caption), gives every character its code first and takes the font with the new
+  `font_object`, since the streams need it; WinAnsi text is written as before. New texts are
+  checked before `begin_edit` in `set_field_value`, `set_field_values`, `add_form_field` and
+  `set_field_props` (only what changed); text a file already holds falls back to the standard
+  font. `sessions_file`, `read_sessions`, `SessionsError`.
+- **Checked:** `field_text.rs` (3), 3 unit tests of session files; self-test step `field_text`
+  with `tools`, `formats`, `field_items`, `field_scripts`: 0 problems; 954 workspace tests
+  passed, 0 failed; full self-test 319 interactions, 0 problems; clippy clean.
+- **Open:** right-to-left text in a field is refused, where it used to be accepted with question
+  marks in its appearance; a whole import is refused for one such value; the `/DA` font is not
+  used for drawing; readers that redraw fields use their own font.
+
 ## 2026-10-30 — FOL-L052: push buttons in the self-test (0.8.0 item 3)
 
 - **What:** `testdocs::action_buttons_doc` and a second check in the step `follow_links`, which

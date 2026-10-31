@@ -429,6 +429,7 @@ mod steps_email;
 mod steps_features;
 mod steps_field_items;
 mod steps_field_scripts;
+mod steps_field_text;
 mod steps_files;
 mod steps_follow_links;
 mod steps_formats;
@@ -547,6 +548,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "permissions" => Box::pin(steps_permissions::run(cx)),
             "follow_links" => Box::pin(steps_follow_links::run(cx)),
             "redaction_crop" => Box::pin(steps_redaction_crop::run(cx)),
+            "field_text" => Box::pin(steps_field_text::run(cx)),
             "field_items" => Box::pin(steps_field_items::run(cx)),
             "policies" => Box::pin(steps_policies::run(cx)),
             "qat" => Box::pin(steps_qat::run(cx)),
@@ -626,6 +628,7 @@ const STEPS: &[&str] = &[
     "permissions",
     "follow_links",
     "redaction_crop",
+    "field_text",
     "field_items",
     "policies",
     "qat",

@@ -386,6 +386,8 @@
   "toast.session_missing": "{count} file della sessione non esistono più",
   "toast.session_missing_one": "{count} file della sessione non esiste più",
   "toast.session_nothing": "Nessun documento aperto con un file da salvare",
+  "toast.session_newer": "Questo file di sessioni è stato scritto da una versione più recente di Folitecta (formato {version}): aggiorna Folitecta per leggerlo.",
+  "toast.session_not_a_file": "Questo file non contiene sessioni di Folitecta.",
   "toast.session_saved": "Salvato: {name}.",
   "toast.session_select": "Seleziona prima una sessione",
   "toast.session_skipped": "{count} documenti non salvati esclusi.",

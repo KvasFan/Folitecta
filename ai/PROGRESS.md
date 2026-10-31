@@ -4,6 +4,16 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-31 — release 0.9.0: check of the published packages
+
+- **What:** tag `v0.9.0` (`1e2ecda`): CI (15 min) and release (33 min) workflows green, eight
+  files on the release page.
+- **Found right:** SHA-256 of the four packages equal to their `.sha256` files; the data folders of
+  the Windows and Linux packages equal file by file; `tools`, `ocr`, `spelling`, `unicode`,
+  `field_text` and `formats` passed with the packaged Linux executable started from another
+  folder (45 interactions, 0 problems).
+- **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
+
 ## 2026-10-31 — release 0.8.0: check of the published packages
 
 - **What:** tag `v0.8.0` (`d178b40`): CI (18 min) and release (35 min) workflows green, eight

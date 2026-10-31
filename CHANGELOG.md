@@ -6,6 +6,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-31
+
 ### Added
 - The permissions of protected files are kept. Opened with the password to open it, a file whose
   security settings forbid changing it, commenting, filling in forms, assembling pages or copying

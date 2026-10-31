@@ -1,7 +1,7 @@
 # Folitecta roadmap and progress
 
 State of every requirement of [REQUIREMENTS.md](REQUIREMENTS.md) on the `main` branch at
-Folitecta 0.7.0, reviewed on **30 October 2026** against the code (not only the command
+Folitecta 0.8.0, reviewed on **31 October 2026** against the code (not only the command
 registry). Update the row of a requirement whenever a sub-task changes it, and log the work in
 [PROGRESS.md](PROGRESS.md).
 
@@ -160,7 +160,7 @@ templates (FOL-L010).
    gallery with origin, date, version and the fonts a template needs, new documents from them,
    rename and remove (`organize/user_templates.rs`).
 
-### 0.8.0 — documents you can trust
+### 0.8.0 — documents you can trust (released 31 October 2026)
 
 A protected file keeps everything it holds encrypted and Folitecta keeps to what its security
 settings allow; actions that reach outside the document ask first; redaction removes what lies

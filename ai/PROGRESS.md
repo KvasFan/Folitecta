@@ -4,6 +4,18 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-10-31 — release 0.8.0: check of the published packages
+
+- **What:** tag `v0.8.0` (`d178b40`): CI (18 min) and release (35 min) workflows green, eight
+  files on the release page.
+- **Found right:** SHA-256 of the four packages equal to their `.sha256` files; the data folders of
+  the Windows and Linux packages equal file by file; `tools`, `ocr`, `spelling`, `unicode`,
+  `permissions`, `follow_links` and `redaction_crop` passed with the packaged Linux executable
+  started from another folder (46 interactions, 0 problems).
+- **Open:** the Windows executable was not run here (no WebView2 runtime in Wine); the packaged
+  `docs/ARCHITECTURE.md` of 0.8.0 still says permissions are not enforced (corrected after the
+  tag).
+
 ## 2026-10-31 — FOL-L018 S04, FOL-L051: text in form fields, versioned sessions (0.9.0)
 
 - **Current state before:** field appearances wrote WinAnsi only, so `Łódź` showed question marks

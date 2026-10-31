@@ -1,7 +1,7 @@
 # Folitecta roadmap and progress
 
 State of every requirement of [REQUIREMENTS.md](REQUIREMENTS.md) on the `main` branch at
-Folitecta 0.8.0, reviewed on **31 October 2026** against the code (not only the command
+Folitecta 0.9.0, reviewed on **31 October 2026** against the code (not only the command
 registry). Update the row of a requirement whenever a sub-task changes it, and log the work in
 [PROGRESS.md](PROGRESS.md).
 
@@ -187,7 +187,7 @@ outside the visible page too (FOL-L036, FOL-L052, FOL-L037).
    under a mark); Apply Redactions names those pages with a choice, on by default, to leave it
    (`RedactionOptions::beyond_crop`).
 
-### 0.9.0 — text in every field
+### 0.9.0 — text in every field (released 31 October 2026)
 
 The text people type into forms stays what they typed, and files of sessions say what they are
 (FOL-L018, FOL-L051).

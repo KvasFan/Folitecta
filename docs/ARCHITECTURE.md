@@ -468,7 +468,11 @@ Mouse coordinates on a page image are converted to PDF user space with
 - The hand-over of files to mail programs (Simple MAPI, Mail, `xdg-email`) has been tried only
   with stand-in programs. Time stamp and revocation servers on the internet have not been tried.
 - Protection: no certificate (public-key) encryption; changing or removing the protection needs
-  only the password to open; permissions other than printing are not enforced in Folitecta.
+  only the password to open; the permissions of a file are kept by sorting each change into the
+  kinds the settings name, which leans to allowing (copies made for printing and export are not
+  restricted).
+- Form fields: right-to-left text and text the embedded font cannot draw is refused; the font of
+  a field's `/DA` is not used for drawing.
 - Speed and memory were measured on Linux only, at pixel ratio 1 (no HiDPI screen, no pinch
   zoom).
 - Commands marked *planned* in [FEATURES.md](FEATURES.md) open a roadmap notice.

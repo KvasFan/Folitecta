@@ -6,6 +6,17 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-31
+
+### Added
+- Form fields show letters beyond Western European ones: values, list items and button captions
+  are drawn with the embedded font instead of question marks. Text that cannot be drawn is
+  refused, named, and stays in the editor to be corrected; imported form data with such text
+  changes nothing.
+- Exported sessions say their format and version. Earlier files still open, files of a later
+  version are refused with a message, and other JSON files are no longer imported as empty
+  sessions.
+
 ## [0.8.0] - 2026-10-31
 
 ### Added
@@ -22,14 +33,6 @@ All notable changes to Folitecta are documented here. The format follows
 - Applying redaction marks takes away what lies outside the visible page of the marked pages too
   — text, pictures and drawings on the sheet beyond the crop box, hidden from view but still in
   the file. Apply Redactions names those pages, and the choice can be turned off.
-
-- Form fields show letters beyond Western European ones: values, list items and button captions
-  are drawn with the embedded font instead of question marks. Text that cannot be drawn is
-  refused, named, and stays in the editor to be corrected; imported form data with such text
-  changes nothing.
-- Exported sessions say their format and version. Earlier files still open, files of a later
-  version are refused with a message, and other JSON files are no longer imported as empty
-  sessions.
 
 ### Changed
 - A double click on a link of the Links pane asks before it opens a web address, as a click on

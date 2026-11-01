@@ -16,6 +16,15 @@ fn set_value(st: AppState, field: (u32, u16), value: &str) -> bool {
         }
         _ => {
             files::set_window_title(st);
+            // Kept as typed, but this program cannot draw it.
+            if let Err(problem) = folitecta_core::fonts::check_text(value) {
+                let lang = st.lang();
+                st.toast(
+                    ToastKind::Warn,
+                    t(lang, "toast.field_undrawable"),
+                    crate::i18n::glyph_problem(lang, &problem),
+                );
+            }
             true
         }
     }

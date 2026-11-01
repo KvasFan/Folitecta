@@ -309,12 +309,6 @@ impl Document {
                 }
             }
         }
-        if matches!(
-            field.kind,
-            FieldKind::Text | FieldKind::ComboBox | FieldKind::ListBox
-        ) {
-            crate::fonts::check_text(value)?;
-        }
         self.begin_edit();
         self.write_field_value(&field, value)?;
         self.recalculate()?;
@@ -385,11 +379,6 @@ impl Document {
         }
         if todo.is_empty() {
             return Ok(0);
-        }
-        for (f, v) in &todo {
-            if matches!(f.kind, FieldKind::Text | FieldKind::ComboBox | FieldKind::ListBox) {
-                crate::fonts::check_text(v)?;
-            }
         }
         self.begin_edit();
         for (f, v) in &todo {

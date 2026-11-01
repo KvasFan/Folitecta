@@ -33,7 +33,7 @@ mod subset;
 mod writer;
 
 pub use source::{UNICODE_FONT_FILE, font_dirs, preload, set_font_dirs};
-pub(crate) use writer::TextWriter;
+pub(crate) use writer::{TextWriter, mirrored, right_to_left, visual_order};
 
 /// Why generated text cannot be drawn. Every operation that meets one changes
 /// nothing.
@@ -77,7 +77,7 @@ impl fmt::Display for GlyphProblem {
             }
             GlyphProblem::NeedsLayout(chars) => write!(
                 f,
-                "{}: right-to-left text and letters that join or combine cannot be drawn in generated text yet",
+                "{}: Arabic and other letters that join or combine cannot be drawn in generated text yet",
                 describe_chars(chars)
             ),
             GlyphProblem::Missing { font, chars } => {

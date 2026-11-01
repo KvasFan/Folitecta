@@ -183,7 +183,7 @@ CIDFontType2 with `/FontFile2`, `/CIDToGIDMap` and `/W`) with a `/ToUnicode` map
 characters in the order they are first drawn. The subsetter keeps the glyph numbers, records and
 metrics of the glyphs used; each appearance owns its subset (marked `/FolitectaFont` with the key
 of its characters), and a drawing made again with the same characters uses it again. Text that
-needs right-to-left order, joining or combining marks, and characters the font lacks, are refused
+needs right-to-left order beyond Hebrew, joining or combining marks, and characters the font lacks, are refused
 before an edit begins (`check_text`, `appearance::text_problem`); a failed edit is abandoned with
 its undo and redo history as it was (`Document::edit_step`). The font is a data file, never built
 into the program (see `fonts/README.md`). Text drawn into the content of pages (watermarks,
@@ -413,7 +413,7 @@ Mouse coordinates on a page image are converted to PDF user space with
   tables, calculator tapes, watermarks, headers and footers, page and Bates numbers, comment
   summaries and documents made from text or e-mail draw text beyond WinAnsi with the embedded
   FreeSans subset (one subset for all the text of a drawing, a mark or a made document; FreeSans
-  has no bold, so bold text in it is filled and stroked); right-to-left text, letters that join
+  has no bold, so bold text in it is filled and stroked); right-to-left text beyond Hebrew, letters that join
   or combine (Arabic, Hebrew, Indic scripts, Thai marks) and characters FreeSans lacks (Chinese,
   Japanese, Korean, ...) are refused, with no choice of another font yet; `/DA` still names
   Helvetica. The other generated text (form fields, signature appearances, typed signature
@@ -471,8 +471,9 @@ Mouse coordinates on a page image are converted to PDF user space with
   only the password to open; the permissions of a file are kept by sorting each change into the
   kinds the settings name, which leans to allowing (copies made for printing and export are not
   restricted).
-- Form fields: right-to-left text and text the embedded font cannot draw is refused; the font of
-  a field's `/DA` is not used for drawing.
+- Form fields: a value the embedded font cannot draw is kept as typed, with question marks in
+  Folitecta and `/NeedAppearances` for other readers; the font of a field's `/DA` is not used for
+  drawing.
 - Speed and memory were measured on Linux only, at pixel ratio 1 (no HiDPI screen, no pinch
   zoom).
 - Commands marked *planned* in [FEATURES.md](FEATURES.md) open a roadmap notice.

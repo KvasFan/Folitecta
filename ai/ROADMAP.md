@@ -1,7 +1,7 @@
 # Folitecta roadmap and progress
 
 State of every requirement of [REQUIREMENTS.md](REQUIREMENTS.md) on the `main` branch at
-Folitecta 0.10.0, reviewed on **1 November 2026** against the code (not only the command
+Folitecta 0.11.0, reviewed on **1 November 2026** against the code (not only the command
 registry). Update the row of a requirement whenever a sub-task changes it, and log the work in
 [PROGRESS.md](PROGRESS.md).
 
@@ -215,6 +215,21 @@ What Folitecta draws from a person's name keeps its letters (FOL-L018/S05).
    and as pictures, with a font name free on the page; new marks are checked before they are
    made.
 
+### 0.11.0 — right to left (released 1 November 2026)
+
+Hebrew is drawn and read right to left; values that cannot be drawn are kept (FOL-L018).
+
+1. ~~**FOL-L018 — Hebrew in generated text.**~~ Done: Hebrew letters and punctuation are drawn in
+   visual order wherever generated text is drawn (`fonts/writer.rs`), brackets turned, fields
+   aligned to the right. Its points stay refused: they need placing over the letters.
+2. ~~**FOL-L001 — right-to-left text read in its order.**~~ Done: the lines of a page with Hebrew or
+   Arabic letters are put in reading order in the text layer, with the map to their glyphs, so
+   search, copying and marks work on any PDF (`page_text/textlayer.rs`).
+3. ~~**FOL-L031 — values that cannot be drawn.**~~ Done: the refusal of 0.9.0 goes: a value the
+   embedded font cannot draw (Arabic has no letters in it) stays as typed, Folitecta warns and
+   shows question marks, and the form asks other readers to draw its fields
+   (`/NeedAppearances`).
+
 ### Later
 
 FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
@@ -264,7 +279,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L018 | P0 | 🟡 | text boxes, typewriter text, callouts, measurement labels, text stamps, designed stamps, tables, calculator tapes, page marks (watermarks, headers and footers, page and Bates numbers), comment summaries, text and e-mail documents, form fields, digital and typed signatures, media posters, redaction overlay text: an embedded subset of GNU FreeFont FreeSans with ToUnicode for text beyond WinAnsi (bold stroked), refusals named before the change and while typing; other generated text uses the standard Helvetica with WinAnsi | Right-to-left text and shaping (refused today); a choice of substitute font; the `/DA` font; font inspection and replacement; the other producers: OCR and barcodes. |
+| FOL-L018 | P0 | 🟡 | text boxes, typewriter text, callouts, measurement labels, text stamps, designed stamps, tables, calculator tapes, page marks (watermarks, headers and footers, page and Bates numbers), comment summaries, text and e-mail documents, form fields, digital and typed signatures, media posters, redaction overlay text: an embedded subset of GNU FreeFont FreeSans with ToUnicode for text beyond WinAnsi (bold stroked), refusals named before the change and while typing; other generated text uses the standard Helvetica with WinAnsi | Arabic and shaping (no letters in the embedded font), Hebrew points; a choice of substitute font; the `/DA` font; font inspection and replacement; the other producers: OCR and barcodes. |
 | FOL-L019 | P1 | 🟡 | Edit Text tool (content stream editing), insert/replace/delete page text, find and replace in page text, spell checking with corrections | Paragraph reflow inside an area, joining/splitting blocks, scope for shared form objects. |
 | FOL-L020 | P1/P2 | 🟡 | pictures pane and editor: replace, crop, turn, filters, export | Inline and nested pictures, colour profile preservation report, raster editor mode. |
 | FOL-L021 | P2 | 🟡 | the vector paths a page draws chosen with a click (Edit Content › Shapes), their nodes dragged, their stroke and fill colours and line width changed, deleted — in the page content, one undo step each | Paths inside reused drawings, adding and removing nodes, clipping paths, gradients and shadings, transparency, numeric transforms of several paths. |

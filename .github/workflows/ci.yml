@@ -51,6 +51,10 @@ jobs:
                msg != "" && n < 12 { gsub(/%/, "%25"); msg = msg "%0A" $0; n++ }
                END { if (msg != "") print msg }' test-output.txt | head -n 10 |
             while IFS= read -r m; do echo "::error title=Failing test::$m"; done
+      - name: Disk space left
+        if: always()
+        shell: bash
+        run: df -h . target || true
       - name: Build
         run: cargo build --workspace
       - name: Licence notices of the libraries

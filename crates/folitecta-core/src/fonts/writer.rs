@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use lopdf::ObjectId;
-use unicode_bidi::BidiClass;
+use unicode_bidi::{BidiClass, BidiInfo};
 use unicode_normalization::UnicodeNormalization;
 
 use super::GlyphProblem;
@@ -54,10 +54,71 @@ fn layout_control(c: char) -> bool {
     )
 }
 
+/// Hebrew letters and punctuation: drawn right to left, with no joining and
+/// no shaping. Their points are combining marks, which stay refused.
+fn hebrew(c: char) -> bool {
+    matches!(c, '\u{05D0}'..='\u{05EA}' | '\u{05EF}'..='\u{05F4}' | '\u{05BE}' | '\u{05C0}' | '\u{05C3}' | '\u{05C6}')
+}
+
+/// The opposite of a bracket, drawn in a right-to-left run.
+pub(crate) fn mirrored(c: char) -> char {
+    match c {
+        '(' => ')',
+        ')' => '(',
+        '[' => ']',
+        ']' => '[',
+        '{' => '}',
+        '}' => '{',
+        '<' => '>',
+        '>' => '<',
+        '«' => '»',
+        '»' => '«',
+        other => other,
+    }
+}
+
+/// `line` in the order its glyphs are drawn from left to right.
+pub(crate) fn visual_order(line: &str) -> String {
+    if !line.chars().any(hebrew) {
+        return line.to_string();
+    }
+    let info = BidiInfo::new(line, None);
+    let Some(paragraph) = info.paragraphs.first() else {
+        return line.to_string();
+    };
+    let (levels, runs) = info.visual_runs(paragraph, paragraph.range.clone());
+    let mut out = String::with_capacity(line.len());
+    for run in runs {
+        let text = &line[run.clone()];
+        if levels[run.start].is_rtl() {
+            out.extend(text.chars().rev().map(mirrored));
+        } else {
+            out.push_str(text);
+        }
+    }
+    out
+}
+
+/// Whether `line` reads from right to left.
+pub(crate) fn right_to_left(line: &str) -> bool {
+    line.chars()
+        .find(|c| {
+            matches!(
+                unicode_bidi::bidi_class(*c),
+                BidiClass::L | BidiClass::R | BidiClass::AL
+            )
+        })
+        .is_some_and(hebrew)
+}
+
 /// Characters that need a layout generated text cannot make yet: right-to-left
-/// order, joining, marks combined with their letter, vertical scripts.
+/// order beyond Hebrew, joining, marks combined with their letter, vertical
+/// scripts.
 fn needs_layout(c: char) -> bool {
     use BidiClass::*;
+    if hebrew(c) {
+        return false;
+    }
     matches!(
         unicode_bidi::bidi_class(c),
         R | AL | AN | RLE | LRE | RLO | LRO | PDF | RLI | LRI | FSI | PDI
@@ -269,7 +330,7 @@ impl TextWriter {
             Face::Unicode { font, chars, codes } => {
                 let mut hex = String::with_capacity(2 + 4 * line.len());
                 hex.push('<');
-                for c in line.chars() {
+                for c in visual_order(line).chars() {
                     let code = match codes.get(&c) {
                         Some(code) => *code,
                         None => {
@@ -347,8 +408,8 @@ mod tests {
     #[test]
     fn layout_needing_text_is_refused() {
         assert_eq!(
-            problem("שלום"),
-            GlyphProblem::NeedsLayout(vec!['ש', 'ל', 'ו', 'ם'])
+            problem("سلام"),
+            GlyphProblem::NeedsLayout(vec!['س', 'ل', 'ا', 'م'])
         );
         assert_eq!(problem("x\u{301}"), GlyphProblem::NeedsLayout(vec!['\u{301}']));
         assert_eq!(problem("a\u{200D}b"), GlyphProblem::NeedsLayout(vec!['\u{200D}']));
@@ -357,6 +418,25 @@ mod tests {
             GlyphProblem::NeedsLayout(vec!['\u{202E}'])
         );
         assert_eq!(problem("١٢"), GlyphProblem::NeedsLayout(vec!['١', '٢']));
+    }
+
+    #[test]
+    fn hebrew_is_drawn_from_right_to_left() {
+        assert_eq!(visual_order("plain"), "plain");
+        assert_eq!(visual_order("שלום"), "םולש");
+        // Latin and numbers keep their order inside, brackets turn round.
+        assert_eq!(visual_order("שלום (abc)"), "(abc) םולש");
+        assert_eq!(visual_order("שלום 12"), "12 םולש");
+        assert_eq!(visual_order("abc שלום def"), "abc םולש def");
+        assert!(right_to_left("12 שלום") && !right_to_left("abc שלום"));
+        let mut writer = TextWriter::new("שלום").unwrap();
+        assert!(!writer.is_standard());
+        assert_eq!(writer.show("שלום").unwrap(), "<0001000200030004>");
+        // Points over the letters need a layout.
+        assert_eq!(
+            problem("שָׁ"),
+            GlyphProblem::NeedsLayout(vec!['\u{5B8}', '\u{5C1}'])
+        );
     }
 
     #[test]

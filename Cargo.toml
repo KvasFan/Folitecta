@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/folitecta-core", "crates/folitecta", "crates/libxdo", "crates/notices"]
 
 [workspace.package]
-version = "0.10.0"
+version = "0.11.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/KvasFan/Folitecta"
@@ -55,6 +55,10 @@ opt-level = "s"
 
 [profile.dev]
 opt-level = 1
+# Line tables are enough for backtraces. Every test program links the whole
+# library, so full debug information makes each one over 800 MB, and the 89 of
+# them fill the disk of a CI runner.
+debug = "line-tables-only"
 
 [profile.dev.package."*"]
 opt-level = 2

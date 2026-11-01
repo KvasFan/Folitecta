@@ -4,6 +4,31 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-01 — release 0.10.0: CI failed on the disk of its runner
+
+- **What:** tag `v0.10.0` (`6aa16ad`): the release workflow green with its eight files. CI failed on
+  ubuntu-latest only, in its last step: every test had passed, then `ld` died with a bus error
+  linking `cargo build --workspace`.
+- **Cause:** a full disk. Each test program was 848 MB (823 MB of debug information) and there are
+  89 of them, about 73 GB; 0.10.0 added one. CI was not run again, which would fail the same way.
+- **What changed:** `[profile.dev] debug = "line-tables-only"`; CI prints the disk left before its
+  build; the local check before a tag refuses test programs too big for a runner.
+
+## 2026-11-01 — FOL-L018, FOL-L001, FOL-L031: right to left (0.11.0)
+
+- **Current state before:** right-to-left text was refused; the refusal of undrawable form values
+  added in 0.9.0 stopped people from filling forms in Arabic, which used to work; text extracted
+  from Hebrew and Arabic lines came out reversed, on any PDF, so search and copying failed. The
+  embedded font has 56 Hebrew glyphs and no Arabic.
+- **What:** `visual_order`, `mirrored`, `right_to_left` (`show` writes visual order); `needs_layout`
+  lets Hebrew through; `reading_order` in `assemble` permutes `text` and `char_glyph` line by line;
+  `refresh_widget` sets `/NeedAppearances` for an undrawable value; `form_fill` warns. The step
+  `reading` waits for the next paragraph instead of 30 ms.
+- **Checked:** unit tests of both orders; `field_text.rs` (5), Hebrew drawn on a page found by
+  search and read back; `unicode_text.rs` and `unicode_drawings.rs` now refuse Arabic.
+- **Open:** Arabic needs a font and shaping; selecting by dragging over a right-to-left line follows
+  reading order, not the pointer; Hebrew points.
+
 ## 2026-10-31 — FOL-L018 S05: names in every alphabet (0.10.0)
 
 - **Current state before:** a digital signature of `Łukasz` showed question marks on the page, and

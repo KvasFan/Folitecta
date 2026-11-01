@@ -1,10 +1,9 @@
 //! Text in form fields beyond WinAnsi: drawn with the embedded font, the
-//! standard font left as it was for the rest; text that cannot be drawn is
-//! refused before anything changes, and what a file already holds stays
-//! usable.
+//! standard font left as it was for the rest; values it cannot draw stay as
+//! typed, for readers that can.
 
+use folitecta_core::Document;
 use folitecta_core::testdocs::{Builder, form_doc};
-use folitecta_core::{Document, Error};
 use lopdf::{Object, ObjectId, dictionary};
 
 /// The names of the fonts of the normal appearance of `widget`.
@@ -43,21 +42,34 @@ fn values_beyond_winansi_use_the_embedded_font() {
 }
 
 #[test]
-fn text_that_cannot_be_drawn_changes_nothing() {
+fn values_that_cannot_be_drawn_stay_as_typed() {
     let mut doc = Document::from_bytes(form_doc(1, 2), None, None).unwrap();
     let field = doc.form_fields()[0].clone();
-    let before = doc.bytes().to_vec();
-    let undo = doc.can_undo();
-    assert!(matches!(
-        doc.set_field_value(field.id, "漢字"),
-        Err(Error::Glyphs(_))
-    ));
-    assert!(matches!(
-        doc.set_field_values(&[(field.name.clone(), "漢字".to_string())]),
-        Err(Error::Glyphs(_))
-    ));
-    assert_eq!(doc.bytes().to_vec(), before);
-    assert_eq!(doc.can_undo(), undo);
+    for value in ["漢字", "سلام"] {
+        doc.set_field_value(field.id, value).unwrap();
+        assert_eq!(doc.form_fields()[0].value, value);
+    }
+    // Other readers are asked to draw it, and the file reads back the same.
+    let again = Document::from_bytes(doc.bytes().to_vec(), None, None).unwrap();
+    assert_eq!(again.form_fields()[0].value, "سلام");
+    let bytes = doc.bytes().to_vec();
+    let file = lopdf::Document::load_mem(&bytes).unwrap();
+    let form = file.catalog().unwrap().get(b"AcroForm").unwrap();
+    let form = match form {
+        Object::Reference(id) => file.get_dictionary(*id).unwrap(),
+        other => other.as_dict().unwrap(),
+    };
+    assert!(form.get(b"NeedAppearances").unwrap().as_bool().unwrap());
+}
+
+#[test]
+fn hebrew_values_are_drawn() {
+    let mut doc = Document::from_bytes(form_doc(1, 2), None, None).unwrap();
+    let field = doc.form_fields()[0].id;
+    let widget = doc.field_widgets(field)[0];
+    doc.set_field_value(field, "שלום").unwrap();
+    assert_eq!(fonts(&doc, widget), ["FoliUni"]);
+    assert_eq!(doc.form_fields()[0].value, "שלום");
 }
 
 #[test]
@@ -79,4 +91,26 @@ fn a_list_a_file_already_holds_can_still_be_used() {
     let mut doc = Document::from_bytes(b.finish(), None, None).unwrap();
     doc.set_field_value(list, "One").unwrap();
     assert_eq!(doc.form_fields()[0].value, "One");
+}
+
+#[test]
+fn hebrew_drawn_on_a_page_reads_in_its_own_order() {
+    use folitecta_core::MarkPosition;
+    let mut doc = Document::new_blank(1, 400.0, 500.0).unwrap();
+    doc.add_page_numbers(
+        &[0],
+        "שלום {page}",
+        1,
+        MarkPosition::BottomCenter,
+        12.0,
+        20.0,
+        [0.0; 3],
+    )
+    .unwrap();
+    let text = doc.page_text(0);
+    assert!(text.contains("שלום"), "{text:?}");
+    let hits = doc.search("שלום", Default::default());
+    assert_eq!(hits.len(), 1);
+    assert_eq!(doc.text_range(0, hits[0].start, hits[0].end), "שלום");
+    assert!(!hits[0].rects.is_empty());
 }

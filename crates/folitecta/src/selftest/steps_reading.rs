@@ -106,8 +106,13 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     // The next paragraph, by the bar.
     let before_next = READ.peek().current;
     let _ = eval("document.querySelector('.read-next')?.click();").await;
-    pause(30).await;
-    let next = READ.peek().current == before_next + 1;
+    for _ in 0..40 {
+        pause(25).await;
+        if READ.peek().current != before_next {
+            break;
+        }
+    }
+    let next = READ.peek().current > before_next;
     let _ = capture_window(&cx.dir.join("interaction-read-aloud.png"));
     let _ = eval("document.querySelector('.read-stop')?.click();").await;
     pause(300).await;

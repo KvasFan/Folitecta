@@ -115,7 +115,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         contents: text.to_string(),
     });
     pause(500).await;
-    type_text("Łódź שלום").await;
+    type_text("Łódź سلام").await;
     let warned = hint().await;
     press_ok().await;
     let still_open = matches!((st.dialog)(), Dialog::AnnotationText { .. });
@@ -127,7 +127,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     pause(300).await;
     cx.record(
         "a text box edited to right-to-left text: named, refused, the text kept",
-        warned.contains("U+05E9") && still_open && kept && revision(st) == rev,
+        warned.contains("U+0633") && still_open && kept && revision(st) == rev,
         format!("hint {warned:?}, dialog kept {still_open}, text kept {kept}"),
     );
 

@@ -190,7 +190,7 @@ fn text_a_table_cannot_draw_is_refused_before_any_change() {
     let mut doc = blank();
     let before = state(&doc);
     let err = doc
-        .add_table(0, PLACE, &table(["ok", "שלום", "", ""]), "Reviewer")
+        .add_table(0, PLACE, &table(["ok", "سلام", "", ""]), "Reviewer")
         .unwrap_err();
     assert!(
         matches!(err, Error::Glyphs(GlyphProblem::NeedsLayout(_))),
@@ -502,7 +502,7 @@ fn mark_text_that_cannot_be_drawn_is_refused_before_any_change() {
     );
     unchanged(&doc, &before);
     // Macros are expanded first: a title that cannot be drawn is refused too.
-    doc.set_info("שלום", "", "", "").unwrap();
+    doc.set_info("سلام", "", "", "").unwrap();
     let before = state(&doc);
     let err = doc
         .add_header_footer(&[0, 1], ["{title}", "", ""], ["", "", ""], 10.0, 30.0, [0.0; 3])
@@ -595,7 +595,7 @@ fn summary_text_that_cannot_be_drawn_is_refused() {
             matches!(err, Error::Glyphs(GlyphProblem::Missing { .. })),
             "{layout:?}: {err:?}"
         );
-        let err = summary(&commented("note", "שלום"), layout).unwrap_err();
+        let err = summary(&commented("note", "سلام"), layout).unwrap_err();
         assert!(
             matches!(err, Error::Glyphs(GlyphProblem::NeedsLayout(_))),
             "{layout:?}: {err:?}"
@@ -685,7 +685,7 @@ fn email_text_that_cannot_be_drawn_is_refused() {
         matches!(err, Error::Glyphs(GlyphProblem::Missing { .. })),
         "{err:?}"
     );
-    let err = Document::from_email(&message("Subject", "שלום"), &labels, TextLayout::default()).unwrap_err();
+    let err = Document::from_email(&message("Subject", "سلام"), &labels, TextLayout::default()).unwrap_err();
     assert!(
         matches!(err, Error::Glyphs(GlyphProblem::NeedsLayout(_))),
         "{err:?}"

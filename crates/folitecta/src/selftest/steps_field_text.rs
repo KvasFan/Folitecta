@@ -1,16 +1,8 @@
 //! Interaction step: field_text — a field filled on the page with letters
-//! beyond WinAnsi keeps them; text the embedded font cannot draw is refused,
-//! named, and stays in the editor to be corrected.
+//! beyond WinAnsi or in Hebrew keeps them; a value the embedded font cannot
+//! draw stays as typed, with a warning that names its characters.
 
 use super::*;
-
-async fn text(js: &str) -> String {
-    eval(js)
-        .await
-        .ok()
-        .and_then(|v| v.as_str().map(str::to_string))
-        .unwrap_or_default()
-}
 
 async fn type_value(value: &str) {
     let _ =
@@ -43,16 +35,16 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     };
     type_value("Łódź Ελληνικά").await;
     let kept = value();
+    type_value("שלום").await;
+    let hebrew = value();
+    let quiet = !st.toasts.peek().iter().any(|t| t.message.contains('ש'));
     type_value("漢字").await;
     let after = value();
-    let draft = text("return document.querySelector('#pg-0 .field-input')?.value || '';").await;
     let said = st.toasts.peek().iter().any(|t| t.message.contains('漢'));
-    let _ = eval("const i = document.querySelector('#pg-0 .field-input'); if (i) i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));").await;
-    pause(300).await;
     cx.record(
-        "field text: letters beyond WinAnsi are kept, text that cannot be drawn is refused and stays in the editor",
-        kept == "Łódź Ελληνικά" && after == kept && draft == "漢字" && said,
-        format!("kept {kept:?}, after the refusal {after:?}, draft {draft:?}, named {said}"),
+        "field text: letters beyond WinAnsi and Hebrew are drawn, a value that cannot be drawn is kept with a warning",
+        kept == "Łódź Ελληνικά" && hebrew == "שלום" && quiet && after == "漢字" && said,
+        format!("kept {kept:?}, hebrew {hebrew:?}, no warning {quiet}, after {after:?}, warned {said}"),
     );
     if let Some(id) = tab {
         crate::files::close_tab(st, id, true, crate::state::AfterUnsaved::Close);

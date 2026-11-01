@@ -473,8 +473,8 @@ fn right_to_left_and_uncomposed_marks_are_refused_before_any_change() {
     let mut doc = with_redo();
     let before = Unchanged::of(&doc);
     assert!(matches!(
-        add_box(&mut doc, "שלום"),
-        Err(Error::Glyphs(GlyphProblem::NeedsLayout(c))) if c == vec!['ש', 'ל', 'ו', 'ם']
+        add_box(&mut doc, "سلام"),
+        Err(Error::Glyphs(GlyphProblem::NeedsLayout(c))) if c == vec!['س', 'ل', 'ا', 'م']
     ));
     assert!(matches!(
         add_box(&mut doc, "x\u{301}"),
@@ -1161,7 +1161,7 @@ fn text_stamps_draw_text_beyond_winansi_with_the_embedded_font() {
     // Text that cannot be drawn is still refused before any change.
     let before = Unchanged::of(&doc);
     assert!(matches!(
-        doc.add_stamp(0, place, "שלום", [0.8, 0.1, 0.1], "Reviewer"),
+        doc.add_stamp(0, place, "سلام", [0.8, 0.1, 0.1], "Reviewer"),
         Err(Error::Glyphs(GlyphProblem::NeedsLayout(_)))
     ));
     assert!(matches!(

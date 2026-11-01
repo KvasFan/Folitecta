@@ -264,6 +264,86 @@ fn assemble(raw: Vec<RawGlyph>, width: f32, height: f32, images: Vec<Rect>, ink:
     }
     out.images = images.into_iter().map(rect4).collect();
     out.ink_bbox = ink.map(rect4);
+    reading_order(&mut out);
+    out
+}
+
+fn strongly_right_to_left(c: char) -> bool {
+    matches!(
+        unicode_bidi::bidi_class(c),
+        unicode_bidi::BidiClass::R | unicode_bidi::BidiClass::AL
+    )
+}
+
+/// Glyphs come in the order they are drawn, from left to right: the lines
+/// with right-to-left letters are put in the order they are read, text and
+/// glyph map together, so search, copying and marks find the right glyphs.
+fn reading_order(out: &mut PageText) {
+    if !out.text.chars().any(strongly_right_to_left) {
+        return;
+    }
+    let mut chars: Vec<char> = out.text.chars().collect();
+    for line in &out.lines {
+        let Some((visual, map)) = chars
+            .get(line.start..line.end)
+            .zip(out.char_glyph.get(line.start..line.end))
+        else {
+            continue;
+        };
+        if !visual.iter().copied().any(strongly_right_to_left) {
+            continue;
+        }
+        let order = reading_indices(visual);
+        let new_chars: Vec<char> = order
+            .iter()
+            .map(|&(i, turned)| {
+                if turned {
+                    crate::fonts::mirrored(visual[i])
+                } else {
+                    visual[i]
+                }
+            })
+            .collect();
+        let new_map: Vec<Option<usize>> = order.iter().map(|&(i, _)| map[i]).collect();
+        chars[line.start..line.end].copy_from_slice(&new_chars);
+        out.char_glyph[line.start..line.end].copy_from_slice(&new_map);
+    }
+    out.text = chars.into_iter().collect();
+}
+
+/// The characters of a line as drawn, in the order they are read: each with
+/// whether it lies in a right-to-left run (where a bracket looks turned).
+fn reading_indices(visual: &[char]) -> Vec<(usize, bool)> {
+    use unicode_bidi::{BidiInfo, Level};
+    let rtl = visual.iter().filter(|c| strongly_right_to_left(**c)).count();
+    let ltr = visual
+        .iter()
+        .filter(|c| c.is_alphabetic() && !strongly_right_to_left(**c))
+        .count();
+    let level = if rtl >= ltr { Level::rtl() } else { Level::ltr() };
+    let line: String = visual.iter().collect();
+    let info = BidiInfo::new(&line, Some(level));
+    let Some(paragraph) = info.paragraphs.first() else {
+        return (0..visual.len()).map(|i| (i, false)).collect();
+    };
+    let (levels, runs) = info.visual_runs(paragraph, paragraph.range.clone());
+    let index: std::collections::HashMap<usize, usize> = line
+        .char_indices()
+        .enumerate()
+        .map(|(i, (b, _))| (b, i))
+        .collect();
+    let mut out = Vec::with_capacity(visual.len());
+    for run in runs {
+        let rtl = levels[run.start].is_rtl();
+        let of_run = line[run.clone()]
+            .char_indices()
+            .map(|(b, _)| index[&(run.start + b)]);
+        if rtl {
+            out.extend(of_run.rev().map(|i| (i, true)));
+        } else {
+            out.extend(of_run.map(|i| (i, false)));
+        }
+    }
     out
 }
 
@@ -716,5 +796,32 @@ impl PageText {
             }
         }
         out
+    }
+}
+
+#[cfg(test)]
+mod reading_tests {
+    use super::*;
+
+    fn read(visual: &str) -> String {
+        let chars: Vec<char> = visual.chars().collect();
+        reading_indices(&chars)
+            .into_iter()
+            .map(|(i, turned)| {
+                if turned {
+                    crate::fonts::mirrored(chars[i])
+                } else {
+                    chars[i]
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn lines_as_drawn_are_put_in_reading_order() {
+        for logical in ["שלום", "שלום 12", "שלום (abc)", "abc שלום def", "שלום עולם"]
+        {
+            assert_eq!(read(&crate::fonts::visual_order(logical)), logical);
+        }
     }
 }

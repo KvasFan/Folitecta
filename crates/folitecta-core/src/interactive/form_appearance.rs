@@ -11,7 +11,7 @@ use super::form_design::*;
 use crate::appearance::parse_da;
 use crate::document::Document;
 use crate::error::{Error, Result};
-use crate::fonts::{TextWriter, previous_font};
+use crate::fonts::{TextWriter, previous_font, right_to_left, visual_order};
 use crate::util::{deref, fmt_num, num, rect_of, text_of};
 
 /// Everything needed to draw one widget, with inherited entries resolved.
@@ -194,10 +194,9 @@ impl Document {
                 }
             }
         }
-        // The texts of the widget choose the font. What a file already holds
-        // and cannot be drawn is no reason to fail: new values are checked
-        // before they are written (`check_text`), and the standard font
-        // shows such a text with question marks, as it always did.
+        // The texts of the widget choose the font. A value that cannot be
+        // drawn is no reason to fail: it stays as typed, this appearance shows
+        // question marks and readers that can draw it are asked to.
         let pieces: Vec<String> = match w.ft.as_str() {
             "Tx" if w.ff & FF_PASSWORD != 0 => vec!["*".to_string()],
             "Tx" => w.value.first().cloned().into_iter().collect(),
@@ -206,9 +205,9 @@ impl Document {
             "Btn" if w.ff & FF_PUSH != 0 => vec![w.caption.clone()],
             _ => Vec::new(),
         };
-        let mut writer = TextWriter::for_pieces(pieces.iter().map(String::as_str))
-            .or_else(|_| TextWriter::new(""))
-            .map_err(Error::Glyphs)?;
+        let drawable = TextWriter::for_pieces(pieces.iter().map(String::as_str));
+        let undrawable = drawable.is_err();
+        let mut writer = drawable.or_else(|_| TextWriter::new("")).map_err(Error::Glyphs)?;
         if !writer.is_standard() {
             let _ = writer.show(" ");
             for piece in &pieces {
@@ -293,6 +292,7 @@ impl Document {
                 vec![writer.borrow().piece(text).replace(['\n', '\r'], " ")]
             };
             let comb = w.ff & FF_COMB != 0 && w.max_len > 0 && !multiline;
+            let rtl = lines.iter().any(|l| right_to_left(l));
             let mut y = if multiline {
                 bh - pad - size * 0.88
             } else {
@@ -301,7 +301,7 @@ impl Document {
             for line in lines {
                 if comb {
                     let cell = bw / w.max_len as f32;
-                    for (i, ch) in line.chars().take(w.max_len as usize).enumerate() {
+                    for (i, ch) in visual_order(&line).chars().take(w.max_len as usize).enumerate() {
                         let cs = ch.to_string();
                         let cw = width(&cs, size);
                         s.push_str(&format!(
@@ -317,6 +317,7 @@ impl Document {
                     let x = match w.q {
                         1 => (bw - lw) / 2.0,
                         2 => bw - pad - lw,
+                        0 if rtl => bw - pad - lw,
                         _ => pad,
                     };
                     s.push_str(&format!("1 0 0 1 {} {} Tm ", f(x), f(y)));
@@ -542,6 +543,9 @@ impl Document {
             }
             _ => return Ok(()),
         };
+        if undrawable {
+            self.ask_readers_to_draw_fields();
+        }
         let d = self.inner.get_dictionary_mut(id)?;
         d.set("AP", ap);
         if w.ft == "Btn" && w.ff & FF_PUSH == 0 {
@@ -556,6 +560,31 @@ impl Document {
             );
         }
         Ok(())
+    }
+
+    /// `/NeedAppearances true`: readers draw the fields themselves.
+    fn ask_readers_to_draw_fields(&mut self) {
+        let Ok(root) = self.inner.trailer.get(b"Root").and_then(Object::as_reference) else {
+            return;
+        };
+        let form = self
+            .inner
+            .get_dictionary(root)
+            .ok()
+            .and_then(|c| c.get(b"AcroForm").ok())
+            .and_then(|f| f.as_reference().ok());
+        let dict = match form {
+            Some(id) => self.inner.get_dictionary_mut(id).ok(),
+            None => self
+                .inner
+                .get_dictionary_mut(root)
+                .ok()
+                .and_then(|c| c.get_mut(b"AcroForm").ok())
+                .and_then(|f| f.as_dict_mut().ok()),
+        };
+        if let Some(d) = dict {
+            d.set("NeedAppearances", true);
+        }
     }
 
     /// Regenerate the appearances of every widget of a field.

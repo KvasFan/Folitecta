@@ -6,6 +6,19 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-01
+
+### Added
+- Hebrew is drawn from right to left wherever Folitecta generates text: comments, stamps, tables,
+  page marks, form fields and signatures. Its points are still refused.
+- Right-to-left text of any PDF is read in its order: search, copying and text marks work on
+  Hebrew and Arabic lines, which came out reversed.
+
+### Changed
+- A form value the embedded font cannot draw, such as Arabic or Chinese, is no longer refused: it
+  stays as typed, Folitecta warns and shows question marks, and other readers are asked to draw
+  the field.
+
 ## [0.10.0] - 2026-11-01
 
 ### Added

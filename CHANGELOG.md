@@ -6,6 +6,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-01
+
 ### Added
 - Names keep their letters: the visible part of a digital signature, typed signatures, the
   posters of media comments and the overlay text of redactions are drawn beyond Western European

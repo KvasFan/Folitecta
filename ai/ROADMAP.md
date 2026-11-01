@@ -1,7 +1,7 @@
 # Folitecta roadmap and progress
 
 State of every requirement of [REQUIREMENTS.md](REQUIREMENTS.md) on the `main` branch at
-Folitecta 0.9.0, reviewed on **31 October 2026** against the code (not only the command
+Folitecta 0.10.0, reviewed on **1 November 2026** against the code (not only the command
 registry). Update the row of a requirement whenever a sub-task changes it, and log the work in
 [PROGRESS.md](PROGRESS.md).
 
@@ -201,7 +201,7 @@ The text people type into forms stays what they typed, and files of sessions say
    and other JSON files are no longer read as empty sessions
    (`commands/navigation/sessions.rs`).
 
-### 0.10.0 — names in every alphabet
+### 0.10.0 — names in every alphabet (released 1 November 2026)
 
 What Folitecta draws from a person's name keeps its letters (FOL-L018/S05).
 

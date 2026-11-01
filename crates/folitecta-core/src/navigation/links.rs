@@ -41,6 +41,14 @@ impl LinkTarget {
     }
 }
 
+/// One thing pressing a push button does.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ButtonAction {
+    Target(LinkTarget),
+    /// A script, for the sandbox of the script engine.
+    Script(String),
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Link {
     pub page: usize,
@@ -426,30 +434,84 @@ impl Document {
         Ok(())
     }
 
-    /// What pressing the push button of field `id` does: the action of its
-    /// widget (or of the field), when released (`/AA /U`) or activated (`/A`).
-    pub fn button_target(&self, id: ObjectId) -> Option<LinkTarget> {
+    /// The first action of the push button `id` (its widget or field), when
+    /// released (`/AA /U`) or activated (`/A`).
+    fn button_action(&self, id: ObjectId) -> Option<Object> {
         let doc = &self.inner;
         let d = doc.get_dictionary(id).ok()?;
         let mut candidates = vec![d.clone()];
         if let Some(kids) = d.get(b"Kids").ok().and_then(|k| k.as_array().ok()) {
             candidates.extend(kids.iter().filter_map(|k| deref(doc, k).as_dict().ok().cloned()));
         }
-        for c in candidates {
-            if c.has(b"A") {
-                return Some(self.link_target(&c));
-            }
-            let up = c
-                .get(b"AA")
-                .ok()
-                .map(|a| deref(doc, a))
-                .and_then(|a| a.as_dict().ok())
-                .and_then(|aa| aa.get(b"U").ok().cloned());
-            if let Some(up) = up {
-                return Some(self.link_target(&lopdf::dictionary! { "A" => up }));
-            }
+        candidates.into_iter().find_map(|c| {
+            c.get(b"A").ok().cloned().or_else(|| {
+                c.get(b"AA")
+                    .ok()
+                    .map(|a| deref(doc, a))
+                    .and_then(|a| a.as_dict().ok())
+                    .and_then(|aa| aa.get(b"U").ok().cloned())
+            })
+        })
+    }
+
+    /// What pressing the push button of field `id` does first.
+    pub fn button_target(&self, id: ObjectId) -> Option<LinkTarget> {
+        let action = self.button_action(id)?;
+        Some(self.link_target(&lopdf::dictionary! { "A" => action }))
+    }
+
+    /// Everything pressing the push button of field `id` does, in order: its
+    /// action and those its `/Next` chain goes on to.
+    pub fn button_actions(&self, id: ObjectId) -> Vec<ButtonAction> {
+        let mut out = Vec::new();
+        if let Some(action) = self.button_action(id) {
+            self.action_chain(&action, &mut out, 0);
         }
-        None
+        out
+    }
+
+    /// Everything following the link `index` of `page` does, in order (see
+    /// [`Link::index`]).
+    pub fn link_actions(&self, page: usize, index: usize) -> Vec<ButtonAction> {
+        let doc = &self.inner;
+        let annot = self.page_id(page).ok().and_then(|id| {
+            let page = doc.get_dictionary(id).ok()?;
+            let list = deref(doc, page.get(b"Annots").ok()?).as_array().ok()?;
+            deref(doc, list.get(index)?).as_dict().ok()
+        });
+        let Some(annot) = annot else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        match annot.get(b"A") {
+            Ok(action) => self.action_chain(action, &mut out, 0),
+            Err(_) => out.push(ButtonAction::Target(self.link_target(annot))),
+        }
+        out
+    }
+
+    fn action_chain(&self, action: &Object, out: &mut Vec<ButtonAction>, depth: usize) {
+        // A chain that turns back on itself ends here.
+        if depth > 32 || out.len() > 64 {
+            return;
+        }
+        let doc = &self.inner;
+        match deref(doc, action) {
+            Object::Array(list) => list.iter().for_each(|a| self.action_chain(a, out, depth + 1)),
+            Object::Dictionary(d) => {
+                let script =
+                    d.get(b"S").ok().and_then(|s| s.as_name().ok()) == Some(b"JavaScript".as_slice());
+                out.push(if script {
+                    ButtonAction::Script(crate::interactive::scripts::script_code(doc, d).unwrap_or_default())
+                } else {
+                    ButtonAction::Target(self.link_target(&lopdf::dictionary! { "A" => d.clone() }))
+                });
+                if let Ok(next) = d.get(b"Next") {
+                    self.action_chain(next, out, depth + 1);
+                }
+            }
+            _ => {}
+        }
     }
 
     fn link_target(&self, d: &Dictionary) -> LinkTarget {

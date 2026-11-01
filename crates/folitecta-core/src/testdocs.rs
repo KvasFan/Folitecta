@@ -1551,8 +1551,9 @@ pub fn relations_doc() -> Vec<u8> {
     b.finish()
 }
 
-/// A form with two push buttons: "Go" opens a web address, "Send" submits
-/// the form to one when released.
+/// A form with three push buttons: "Go" opens a web address, "Send" submits
+/// the form to one when released, "Fill" runs a script that fills the field
+/// "Total" and goes on to a second one that alerts.
 pub fn action_buttons_doc() -> Vec<u8> {
     let mut b = Builder::new();
     let rect = |x: i64| vec![x.into(), 340.into(), (x + 80).into(), 370.into()];
@@ -1566,15 +1567,35 @@ pub fn action_buttons_doc() -> Vec<u8> {
         "T" => Object::string_literal("Send"), "Rect" => rect(120),
         "AA" => dictionary! { "U" => dictionary! { "S" => "SubmitForm", "F" => Object::string_literal("https://example.org/form") } },
     });
+    let fill = b.doc.add_object(dictionary! {
+        "Type" => "Annot", "Subtype" => "Widget", "FT" => "Btn", "Ff" => 65536, "F" => 4,
+        "T" => Object::string_literal("Fill"),
+        "Rect" => vec![20.into(), 280.into(), 100.into(), 310.into()],
+        "A" => dictionary! {
+            "S" => "JavaScript",
+            "JS" => Object::string_literal("this.getField('Total').value = '42';"),
+            "Next" => dictionary! { "S" => "JavaScript", "JS" => Object::string_literal("app.alert('Done');") },
+        },
+    });
+    let total = b.doc.add_object(dictionary! {
+        "Type" => "Annot", "Subtype" => "Widget", "FT" => "Tx", "F" => 4,
+        "T" => Object::string_literal("Total"),
+        "Rect" => vec![120.into(), 280.into(), 200.into(), 310.into()],
+    });
     b.page(
         (300.0, 400.0),
         Vec::new(),
         Dictionary::new(),
-        vec![Object::Reference(go), Object::Reference(send)],
+        vec![
+            Object::Reference(go),
+            Object::Reference(send),
+            Object::Reference(fill),
+            Object::Reference(total),
+        ],
     );
     b.catalog_entry(
         "AcroForm",
-        dictionary! { "Fields" => vec![go.into(), send.into()] }.into(),
+        dictionary! { "Fields" => vec![go.into(), send.into(), fill.into(), total.into()] }.into(),
     );
     b.finish()
 }

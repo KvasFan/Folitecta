@@ -71,7 +71,7 @@ pub(super) fn PageView(
         chosen: Vec<usize>,
         widgets: Vec<(folitecta_core::PageWidget, [f32; 4])>,
         /// The links of the page that a click follows (hand and select tools).
-        link_hits: Vec<(folitecta_core::LinkTarget, [f32; 4])>,
+        link_hits: Vec<(usize, String, [f32; 4])>,
         popups: Vec<PopupView>,
         flash: Option<[f32; 4]>,
         /// The lines of the paragraph read aloud.
@@ -232,7 +232,7 @@ pub(super) fn PageView(
                     .links(page)
                     .unwrap_or_default()
                     .into_iter()
-                    .map(|l| (l.target, pdf_rect_to_display(&size, l.rect)))
+                    .map(|l| (l.index, l.target.describe(), pdf_rect_to_display(&size, l.rect)))
                     .collect()
             } else {
                 Vec::new()
@@ -1029,12 +1029,13 @@ pub(super) fn PageView(
                         SelToolbar { left: r[0] * z, top: (r[1] * z - 38.0).max(2.0) }
                     }
                 }
-                for (i, (target, r)) in view.link_hits.iter().cloned().enumerate() {
-                    div { key: "lh{i}", class: "link-hit", title: "{target.describe()}", style: "{css(r)}",
+                for (index, title, r) in view.link_hits.iter().cloned() {
+                    div { key: "lh{index}", class: "link-hit", title: "{title}", style: "{css(r)}",
                         onmousedown: move |e| e.stop_propagation(),
                         onclick: move |e| {
                             e.stop_propagation();
-                            crate::commands::navigation::follow::follow(st, target.clone());
+                            let actions = st.read_active(|t| t.doc.link_actions(page, index)).unwrap_or_default();
+                            crate::commands::navigation::follow::run_actions(st, actions);
                         },
                     }
                 }

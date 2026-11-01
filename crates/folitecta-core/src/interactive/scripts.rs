@@ -13,7 +13,7 @@ pub struct ScriptInfo {
     pub code: String,
 }
 
-fn script_code(doc: &lopdf::Document, action: &Dictionary) -> Option<String> {
+pub(crate) fn script_code(doc: &lopdf::Document, action: &Dictionary) -> Option<String> {
     let js = action.get(b"JS").ok()?;
     match deref(doc, js) {
         Object::Stream(s) => Some(

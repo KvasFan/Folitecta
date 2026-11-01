@@ -1,26 +1,25 @@
-## Folitecta 0.12.0 — nothing left behind
+## Folitecta 0.13.0 — buttons that work
 
-A free PDF editor written entirely in Rust with a Dioxus desktop interface. This release makes
-commands do all they promise.
+A free PDF editor written entirely in Rust with a Dioxus desktop interface. This release makes the
+push buttons and links of a document do what it says.
 
-- **Remove Cropped Content removes it**: the command only clipped the pages, so what lay outside the
-  crop box stayed in the saved file. It now takes that text, those pictures and drawings out of the
-  content, as redaction does, after asking; digital signatures go with it.
-- **Templates exchanged**: the gallery imports a template or any PDF file, and exports a template to
-  a file.
-- **Attached files come along**: inserting all the pages of a file brings the files attached to it,
-  renamed when their name is already used. Taking some pages leaves them, and the window says so.
+- **Scripts of buttons and links**: a press runs the script in the sandbox of the JavaScript console,
+  with no files and no network, within its time limit. Scripts fill fields, move through the pages
+  and show messages.
+- **Chains of actions**: every action a button or link goes on to runs in order, where only the first
+  one used to.
 
-Everything 0.11.0 brought — right-to-left text drawn and read in its order, form values kept — and the
-earlier releases is described in their notes and in [CHANGELOG.md][changelog].
+Everything 0.12.0 brought — Remove Cropped Content that really removes, templates exchanged, attached
+files of inserted documents — and the earlier releases is described in their notes and in
+[CHANGELOG.md][changelog].
 
 **Binaries**
 
 | Platform | File |
 |---|---|
-| Windows x64 | `folitecta-0.12.0-windows-x64.zip` |
-| Linux x64 | `folitecta-0.12.0-linux-x64.tar.gz` |
-| macOS (Apple silicon and Intel) | `folitecta-0.12.0-macos-universal.zip` (app bundle) or `folitecta-0.12.0-macos-universal.tar.gz` (binary) |
+| Windows x64 | `folitecta-0.13.0-windows-x64.zip` |
+| Linux x64 | `folitecta-0.13.0-linux-x64.tar.gz` |
+| macOS (Apple silicon and Intel) | `folitecta-0.13.0-macos-universal.zip` (app bundle) or `folitecta-0.13.0-macos-universal.tar.gz` (binary) |
 
 Each package carries the `dictionaries`, `ocr` and `fonts` folders next to the program (in the
 app bundle's resources on macOS): keep them with it. SHA-256 checksums are attached.
@@ -37,7 +36,7 @@ app bundle's resources on macOS): keep them with it. SHA-256 checksums are attac
 The status of every command is in [docs/FEATURES.md][features]; known limitations are in
 [docs/ARCHITECTURE.md][limits] and [ai/ROADMAP.md][roadmap].
 
-[changelog]: https://github.com/KvasFan/Folitecta/blob/main/CHANGELOG.md#0120---2026-11-01
-[features]: https://github.com/KvasFan/Folitecta/blob/v0.12.0/docs/FEATURES.md
+[changelog]: https://github.com/KvasFan/Folitecta/blob/main/CHANGELOG.md#0130---2026-11-01
+[features]: https://github.com/KvasFan/Folitecta/blob/v0.13.0/docs/FEATURES.md
 [limits]: https://github.com/KvasFan/Folitecta/blob/main/docs/ARCHITECTURE.md#known-limitations
 [roadmap]: https://github.com/KvasFan/Folitecta/blob/main/ai/ROADMAP.md

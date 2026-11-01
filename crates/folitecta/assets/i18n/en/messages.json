@@ -18,7 +18,7 @@
   "toast.bookmarks_imported": "Added {count} bookmarks",
   "toast.bookmarks_imported_one": "Added {count} bookmark",
   "toast.bookmarks_made": "Bookmarks created: {count}",
-  "toast.button_actions": "Button actions run scripts, which Folitecta does not execute",
+  "toast.button_actions": "This button has no action.",
   "toast.field_undrawable": "The value is kept as typed, but Folitecta shows question marks: other readers draw it themselves.",
   "toast.link_nowhere": "The destination “{name}” is not in the document.",
   "toast.link_action": "Folitecta does not run this action: {what}.",

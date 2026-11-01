@@ -244,6 +244,43 @@ pub fn run(st: AppState, code: String) {
     });
 }
 
+/// Run a script of the document, on a press of its button: in the same
+/// sandbox as the console (no files, no network), within the time limit, its
+/// alerts and failures as messages.
+pub async fn run_of_document(st: AppState, code: String) {
+    if code.trim().is_empty() {
+        return;
+    }
+    let ctx = context(st);
+    let limit = std::time::Duration::from_secs(timeout_secs(st));
+    let job = tokio::task::spawn_blocking(move || folitecta_core::js::run_script(&code, &ctx, None));
+    let run = match tokio::time::timeout(limit, job).await {
+        Ok(Ok(run)) => run,
+        Ok(Err(e)) => {
+            st.error(e.to_string());
+            return;
+        }
+        Err(_) => {
+            st.error(tf(
+                st.lang(),
+                "js.timeout_msg",
+                &[("secs", &timeout_secs(st).to_string())],
+            ));
+            return;
+        }
+    };
+    for (kind, text) in run.out {
+        if kind == "alert" {
+            st.toast(ToastKind::Info, text, "");
+        }
+    }
+    if !run.ok {
+        st.error(run.error.unwrap_or_else(|| "error".into()));
+    } else if changes_allowed(st) {
+        apply_ops(st, &run.ops);
+    }
+}
+
 /// Code of the console editor.
 pub fn console_code(st: AppState) -> String {
     st.value("js.code")

@@ -6,6 +6,13 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-01
+
+### Added
+- Push buttons and links run their scripts, and every action they chain, in order. Scripts run in
+  the sandbox of the JavaScript console, with no files and no network: they fill fields, move
+  through the pages and show messages.
+
 ## [0.12.0] - 2026-11-01
 
 ### Added

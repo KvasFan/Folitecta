@@ -4,6 +4,26 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-01 — release 0.12.0: check of the published packages
+
+- **What:** tag `v0.12.0` (`52b1180`): CI (40 min) and release (33 min) workflows green, eight files.
+- **Found right:** SHA-256, data folders of Windows and Linux equal, self-test steps with the
+  packaged Linux executable: 0 problems.
+- **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
+
+## 2026-11-01 — FOL-L034: buttons that work (0.13.0)
+
+- **Current state before:** a button with a script said that Folitecta does not run it; `/Next` was
+  ignored, so only the first action of a chain happened.
+- **What:** `ButtonAction`, `button_actions`, `link_actions`, `action_chain` (depth and length
+  limited); `javascript::run_of_document` (the console's sandbox, its time limit, alerts as
+  messages, changes through `apply_ops`, off with the console's setting); `follow::run_actions`
+  runs them in order. The page keeps the index of each link and asks for its actions on a click.
+- **Checked:** `link_kinds.rs` (chains, links, a chain that loops); step `follow_links` (a script
+  fills a field, the next one alerts); 965 workspace tests passed, 0 failed; full self-test 323
+  interactions, 0 problems; clippy clean on Linux, Windows and macOS.
+- **Open:** keystroke scripts while typing; page and document events are still not run.
+
 ## 2026-11-01 — releases 0.10.0 and 0.11.0: check of the published packages
 
 - **What:** tags `v0.10.0` (`6aa16ad`) and `v0.11.0` (`6ba1412`): eight files each; CI of 0.11.0

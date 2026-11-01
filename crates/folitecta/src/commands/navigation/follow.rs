@@ -106,6 +106,21 @@ pub fn follow(st: AppState, target: LinkTarget) {
     }
 }
 
+/// Do the `actions` of a link or a button, in order: a script waits for the
+/// one before it.
+pub fn run_actions(st: AppState, actions: Vec<folitecta_core::ButtonAction>) {
+    dioxus::core::spawn_forever(async move {
+        for action in actions {
+            match action {
+                folitecta_core::ButtonAction::Target(target) => follow(st, target),
+                folitecta_core::ButtonAction::Script(code) => {
+                    crate::commands::javascript::run_of_document(st, code).await
+                }
+            }
+        }
+    });
+}
+
 /// Open what an external target names (asked already).
 pub fn open(st: AppState, target: &LinkTarget) {
     match target {

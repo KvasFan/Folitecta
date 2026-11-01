@@ -57,17 +57,19 @@ pub fn fill_field(st: AppState, page: usize, w: &PageWidget) {
             set_value(st, w.field, &w.on_state);
         }
         FieldKind::PushButton => {
-            match st
-                .read_active(|t| {
-                    t.doc
-                        .button_target(w.widget)
-                        .or_else(|| t.doc.button_target(w.field))
-                })
-                .flatten()
-            {
-                Some(target) => crate::commands::navigation::follow::follow(st, target),
-                None => st.toast(ToastKind::Info, t(st.lang(), "toast.button_actions"), ""),
+            let mut actions = st
+                .read_active(|t| t.doc.button_actions(w.widget))
+                .unwrap_or_default();
+            if actions.is_empty() {
+                actions = st
+                    .read_active(|t| t.doc.button_actions(w.field))
+                    .unwrap_or_default();
             }
+            if actions.is_empty() {
+                st.toast(ToastKind::Info, t(st.lang(), "toast.button_actions"), "");
+                return;
+            }
+            crate::commands::navigation::follow::run_actions(st, actions);
         }
         FieldKind::Signature => st.toast(ToastKind::Info, t(st.lang(), "toast.signature_field"), ""),
         FieldKind::Unknown(_) => {}

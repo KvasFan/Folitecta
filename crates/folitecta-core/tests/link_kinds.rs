@@ -82,3 +82,55 @@ fn named_actions_form_actions_and_buttons() {
     );
     assert_eq!(doc.button_target(plain), None);
 }
+
+#[test]
+fn the_actions_of_a_button_follow_their_chain_and_a_loop_ends() {
+    use folitecta_core::ButtonAction;
+    use folitecta_core::testdocs::{Builder, action_buttons_doc};
+    use lopdf::{Object, dictionary};
+    let doc = Document::from_bytes(action_buttons_doc(), None, None).unwrap();
+    let fill = doc.form_fields().into_iter().find(|f| f.name == "Fill").unwrap();
+    assert_eq!(
+        doc.button_actions(fill.id),
+        [
+            ButtonAction::Script("this.getField('Total').value = '42';".into()),
+            ButtonAction::Script("app.alert('Done');".into()),
+        ]
+    );
+    // A link does the same, a destination of its own being one action.
+    let mut plain = Document::new_blank(3, 300.0, 300.0).unwrap();
+    let r = [20.0, 20.0, 120.0, 40.0];
+    plain.add_page_link(0, r, 2).unwrap();
+    plain.add_script_link(0, r, "app.alert('Hello');").unwrap();
+    let links = plain.links(0).unwrap();
+    assert_eq!(
+        plain.link_actions(0, links[0].index),
+        [ButtonAction::Target(LinkTarget::Page(2))]
+    );
+    assert_eq!(
+        plain.link_actions(0, links[1].index),
+        [ButtonAction::Script("app.alert('Hello');".into())]
+    );
+    // An action whose chain comes back to itself.
+    let mut b = Builder::new();
+    let id = b.doc.new_object_id();
+    b.doc.objects.insert(
+        id,
+        dictionary! { "S" => "Named", "N" => "NextPage", "Next" => Object::Reference(id) }.into(),
+    );
+    let button = b.doc.add_object(dictionary! {
+        "Type" => "Annot", "Subtype" => "Widget", "FT" => "Btn", "Ff" => 65536,
+        "T" => Object::string_literal("Loop"), "Rect" => vec![0.into(), 0.into(), 10.into(), 10.into()],
+        "A" => Object::Reference(id),
+    });
+    b.page(
+        (300.0, 300.0),
+        Vec::new(),
+        lopdf::Dictionary::new(),
+        vec![Object::Reference(button)],
+    );
+    b.catalog_entry("AcroForm", dictionary! { "Fields" => vec![button.into()] }.into());
+    let doc = Document::from_bytes(b.finish(), None, None).unwrap();
+    let chain = doc.button_actions(button);
+    assert!(!chain.is_empty() && chain.len() <= 65, "{}", chain.len());
+}

@@ -1,7 +1,7 @@
 # Folitecta roadmap and progress
 
 State of every requirement of [REQUIREMENTS.md](REQUIREMENTS.md) on the `main` branch at
-Folitecta 0.12.0, reviewed on **1 November 2026** against the code (not only the command
+Folitecta 0.13.0, reviewed on **1 November 2026** against the code (not only the command
 registry). Update the row of a requirement whenever a sub-task changes it, and log the work in
 [PROGRESS.md](PROGRESS.md).
 
@@ -241,6 +241,16 @@ What a command promises, it does whole (FOL-L016, FOL-L010, FOL-L015).
 3. ~~**FOL-L015 — attached files of an inserted document.**~~ Done: they come with all its pages,
    renamed when their name is used; taking some pages leaves them, and the window says so.
 
+### 0.13.0 — buttons that work (released 1 November 2026)
+
+Links and push buttons do all their document says, scripts included, in the sandbox (FOL-L034).
+
+1. ~~**FOL-L034 — scripts of buttons and links.**~~ Done: a press runs the script in the sandbox of
+   the console, with no files and no network, within its time limit; alerts and failures are
+   messages, changes reach the fields and pages (`follow::run_actions`).
+2. ~~**FOL-L034 — chains of actions.**~~ Done: `/Next` is followed in order, a chain that comes
+   back on itself ends (`Document::button_actions`, `link_actions`).
+
 ### Later
 
 FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
@@ -321,7 +331,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L031 | P1 | 🟡 | form designer for every field type and a date field (format of the language, a calendar while filling, dates that do not exist refused), items of choice fields, pictures of push buttons, tab order, align/duplicate, fill & sign; duplicated pages share their fields, inserted ones get renamed (FOL-L015) | Picture fields; overflow of text reported while filling. |
 | FOL-L032 | P1 | 🟡 | XFDF/FDF/CSV/TXT import and export, filling copies from table rows, calculation order, simple calculations computed in Rust; number, percentage, date, time and special formats and number ranges chosen in the properties and checked when a value is committed (the standard `AF…` scripts) | Named XML profiles, page templates; formats applied to imported data. |
 | FOL-L033 | P2 | ⬜ | — | XFA engine decision. |
-| FOL-L034 | P2 | 🟡 | document scripts and actions listed and edited; a sandboxed engine (Boa, loop and recursion limits, nothing of the system in reach) with a documented API for the console, the calculate, format and validate scripts of fields (typed in their properties) and the `AF…` functions of forms; console time limit | Keystroke scripts while typing, page and document events, action chains, a database bridge. |
+| FOL-L034 | P2 | 🟡 | document scripts and actions listed and edited; a sandboxed engine (Boa, loop and recursion limits, nothing of the system in reach) with a documented API for the console, the calculate, format and validate scripts of fields (typed in their properties) and the `AF…` functions of forms; console time limit | Keystroke scripts while typing, page and document events, a database bridge. |
 
 ### Comparison, encryption, redaction and signatures
 

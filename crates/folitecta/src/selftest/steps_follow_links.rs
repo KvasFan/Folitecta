@@ -3,7 +3,8 @@
 //! and asks first (cancelled here: nothing opens); a link that would start
 //! a program is refused without asking. The push buttons of a form do the
 //! same: one with a web address asks, one that submits sends nothing and
-//! says where the data would go.
+//! says where the data would go, one with a script runs it in the sandbox
+//! and goes on to the next action.
 
 use folitecta_core::Document;
 
@@ -110,6 +111,33 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         "follow links: a button with a web address asks first, a button that submits sends nothing and says where",
         go == Some(folitecta_core::LinkTarget::Uri("https://example.org/go".into())) && !send_dialog && said,
         format!("asked {go:?}, dialog for the submit {send_dialog}, address named {said}"),
+    );
+
+    // A button with a script, and a second one its action goes on to.
+    let _ = eval("document.querySelector('.field-hit[title=\"Fill\"]')?.click();").await;
+    let mut total = String::new();
+    for _ in 0..30 {
+        pause(100).await;
+        total = st
+            .read_active(|t| {
+                t.doc
+                    .form_fields()
+                    .into_iter()
+                    .find(|f| f.name == "Total")
+                    .map(|f| f.value)
+            })
+            .flatten()
+            .unwrap_or_default();
+        if total == "42" {
+            break;
+        }
+    }
+    pause(300).await;
+    let alerted = st.toasts.peek().iter().any(|t| t.title == "Done");
+    cx.record(
+        "follow links: a button runs its script in the sandbox and the one its action goes on to",
+        total == "42" && alerted,
+        format!("total {total:?}, alerted {alerted}"),
     );
     if let Some(id) = tab {
         crate::files::close_tab(st, id, true, crate::state::AfterUnsaved::Close);

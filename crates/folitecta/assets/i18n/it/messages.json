@@ -18,7 +18,7 @@
   "toast.bookmarks_imported": "Aggiunti {count} segnalibri",
   "toast.bookmarks_imported_one": "Aggiunto {count} segnalibro",
   "toast.bookmarks_made": "Segnalibri creati: {count}",
-  "toast.button_actions": "Le azioni dei pulsanti eseguono script, che Folitecta non esegue",
+  "toast.button_actions": "Questo pulsante non ha azioni.",
   "toast.field_undrawable": "Il valore resta come digitato, ma Folitecta mostra punti interrogativi: gli altri lettori lo disegnano da soli.",
   "toast.link_nowhere": "La destinazione «{name}» non è nel documento.",
   "toast.link_action": "Folitecta non esegue questa azione: {what}.",

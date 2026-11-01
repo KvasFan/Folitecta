@@ -83,6 +83,7 @@ pub fn search_settings(st: AppState) -> (SearchOptions, Proximity, SearchScopes)
         case_sensitive,
         whole_words,
         ignore_diacritics: on("search.diacritics"),
+        regex: st.value("search.regex") == "1",
     };
     let scopes = SearchScopes {
         page_text: on("search.pageText"),
@@ -382,7 +383,28 @@ pub fn search_state(st: AppState, id: &str) -> Option<bool> {
     }
 }
 
+/// Save the results of the search in the page text as CSV.
+fn save_results(st: AppState) {
+    let lang = st.lang();
+    let (page, found, context) = (
+        t(lang, "search.csv.page"),
+        t(lang, "search.csv.found"),
+        t(lang, "search.csv.context"),
+    );
+    let csv = st.read_active(|tab| {
+        (!tab.search.hits.is_empty()).then(|| {
+            tab.doc
+                .search_hits_csv(&tab.search.hits, [&page, &found, &context])
+        })
+    });
+    match csv.flatten() {
+        Some(csv) => crate::files::save_text_file(st, "search-results.csv", csv),
+        None => st.toast(ToastKind::Info, t(lang, "search.csv.nothing"), ""),
+    }
+}
+
 handlers! {
+    "searchView.results.save" => save_results,
     "searchView.caseSensitive" => toggle_case,
     "searchView.wholeWords" => toggle_whole,
     "document.find.caseSensitive" => toggle_case,

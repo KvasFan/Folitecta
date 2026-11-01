@@ -251,6 +251,18 @@ Links and push buttons do all their document says, scripts included, in the sand
 2. ~~**FOL-L034 — chains of actions.**~~ Done: `/Next` is followed in order, a chain that comes
    back on itself ends (`Document::button_actions`, `link_actions`).
 
+### 0.14.0 — search that finds more (released 2 November 2026)
+
+Search by pattern, and results that leave the program (FOL-L003).
+
+1. ~~**FOL-L003 — regular expressions.**~~ Done: an option of the search pane, with case and whole
+   words; an invalid expression is explained; the library keeps to a time in proportion to the
+   text, whatever the pattern.
+2. ~~**FOL-L003 — ready patterns.**~~ Done: e-mail addresses, phone numbers, dates, web addresses
+   and bank accounts (`SEARCH_PATTERNS`).
+3. ~~**FOL-L003 — results exported.**~~ Done: CSV of page, match and context; cells a spreadsheet
+   would run as formulas are written as text (`search_hits_csv`).
+
 ### Later
 
 FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
@@ -265,7 +277,7 @@ FOL-C001–C005 and C007–C014 (R4).
 |---|---|---|---|---|
 | FOL-L001 | P1 | 🟡 | hayro rendering on worker threads with one queue per document ranked by the window, pages near the view only, small previews, tiles at high zoom, pages redrawn only when they change, scrolling and Ctrl+wheel without waiting for the program; thumbnails, single/continuous/two-page layouts, right-to-left option, loupe, pan and zoom, split window, view rotation, full screen, password-protected files (decrypted in memory) | Certificate-encrypted files; presentation mode with transitions; a test corpus (transparency, scans, rotated pages); HiDPI and pinch zoom measurements. |
 | FOL-L002 | P1 | 🟡 | document tabs, split window, sessions (save/open), recovery of unsaved documents at the next start; two tab groups (side by side or stacked, tabs moved, shared out, gathered); a saved document moved to a new window, a new empty window | Tabs dragged between groups and windows; all tabs of other windows gathered into one; report missing files of a session one by one. |
-| FOL-L003 | P1 | 🟡 | search pane, Find and Replace, search in folders, annotate results | Patterns, filters on comments/bookmarks/attachments, embedded or local indexes, export of results. |
+| FOL-L003 | P1 | 🟡 | search pane, Find and Replace, search in folders, annotate results | Embedded or local indexes; results of comments and bookmarks in the export. |
 | FOL-L004 | P1 | 🟡 | panes for thumbnails, bookmarks, comments, attachments, layers, fields, links, destinations, signatures, tags, reading order, content; properties pane; document properties and XMP | Fonts pane, object inspector, history pane of changes. |
 
 ### Creation, import, export and templates

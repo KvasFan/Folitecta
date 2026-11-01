@@ -6,6 +6,13 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-02
+
+### Added
+- Search by regular expression, with ready patterns for e-mail addresses, phone numbers, dates, web
+  addresses and bank accounts. An expression that is not valid is explained.
+- The results of a search in the page text are saved as CSV, with their page and context.
+
 ## [0.13.0] - 2026-11-01
 
 ### Added

@@ -107,7 +107,7 @@ pub use signmarks::SignatureMark;
 pub use spelling::{DictionaryFile, Misspelling, SpellOptions, SpellPlace, SpellScope, Speller};
 pub use stamps::STAMP_PRESETS;
 pub use templates::{Template, TemplateGroup, TemplateOptions};
-pub use text::{SearchHit, SearchOptions};
+pub use text::{SEARCH_PATTERNS, SearchHit, SearchOptions, pattern_problem};
 pub use textdoc::TextLayout;
 pub use textlayer::{PageText, TextGlyph, TextLine};
 pub use ticks::{Sequence, TickMark, TickShape};

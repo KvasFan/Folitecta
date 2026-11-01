@@ -344,6 +344,16 @@ pub(super) fn SearchPane() -> Element {
         ("page", label("searchView.proximity.samePage")),
         ("document", label("searchView.proximity.sameDoc")),
     ];
+    let regex = st.value("search.regex") == "1";
+    let patterns: Vec<(&str, String)> = folitecta_core::SEARCH_PATTERNS
+        .iter()
+        .map(|(id, _)| (*id, t(lang, &format!("search.pattern.{id}"))))
+        .collect();
+    let bad_pattern = (regex && !query().trim().is_empty())
+        .then(|| folitecta_core::pattern_problem(query().trim()))
+        .flatten()
+        // The library's explanation spans lines of its own.
+        .map(|p| p.lines().last().unwrap_or("").trim().to_string());
     let more_label = if more() {
         t(lang, "search.fewer")
     } else {
@@ -375,6 +385,35 @@ pub(super) fn SearchPane() -> Element {
         }
         if more() {
             div { class: "search-more",
+                label { class: "check search-regex",
+                    input { r#type: "checkbox", checked: regex,
+                        onchange: move |_| {
+                            st.set_value("search.regex", if regex { "0" } else { "1" });
+                            crate::commands::search::rerun(st);
+                        } }
+                    span { "{t(lang, \"search.regex\")}" }
+                }
+                div { class: "field",
+                    label { "{t(lang, \"search.pattern\")}" }
+                    select { class: "search-pattern",
+                        onchange: move |e| {
+                            if let Some((_, pattern)) = folitecta_core::SEARCH_PATTERNS.iter().find(|(id, _)| *id == e.value()) {
+                                st.set_value("search.regex", "1");
+                                query.set(pattern.to_string());
+                                run_search(st, pattern);
+                            }
+                        },
+                        option { value: "", "" }
+                        for (id, name) in patterns.iter() {
+                            option { key: "{id}", value: "{id}", "{name}" }
+                        }
+                    }
+                }
+                if let Some(problem) = bad_pattern.clone() {
+                    p { class: "hint warn search-bad-pattern", "{tf(lang, \"search.bad_pattern\", &[(\"why\", &problem)])}" }
+                }
+                button { class: "tbtn search-save", onclick: move |_| crate::commands::dispatch(st, "searchView.results.save"),
+                    "{t(lang, \"search.save_results\")}" }
                 div { class: "search-more-title", "{t(lang, \"search.look_in\")}" }
                 div { class: "search-scopes",
                     for id in scope_ids {

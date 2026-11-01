@@ -467,6 +467,7 @@ mod steps_review;
 mod steps_revocation;
 mod steps_scanning;
 mod steps_scans;
+mod steps_search_patterns;
 mod steps_spelling;
 mod steps_split;
 mod steps_split_view;
@@ -553,6 +554,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "field_text" => Box::pin(steps_field_text::run(cx)),
             "names_text" => Box::pin(steps_names_text::run(cx)),
             "left_behind" => Box::pin(steps_left_behind::run(cx)),
+            "search_patterns" => Box::pin(steps_search_patterns::run(cx)),
             "field_items" => Box::pin(steps_field_items::run(cx)),
             "policies" => Box::pin(steps_policies::run(cx)),
             "qat" => Box::pin(steps_qat::run(cx)),
@@ -635,6 +637,7 @@ const STEPS: &[&str] = &[
     "field_text",
     "names_text",
     "left_behind",
+    "search_patterns",
     "field_items",
     "policies",
     "qat",

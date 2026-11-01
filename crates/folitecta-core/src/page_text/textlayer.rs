@@ -471,6 +471,9 @@ fn is_word_char(c: char) -> bool {
 /// Character ranges `[start, end)` of `text` matching `query`. Whitespace in
 /// the query matches any run of whitespace (including line breaks).
 pub fn find_in(text: &str, query: &str, opts: SearchOptions) -> Vec<(usize, usize)> {
+    if opts.regex {
+        return find_pattern(text, query, opts);
+    }
     let q: Vec<char> = query
         .split_whitespace()
         .collect::<Vec<_>>()
@@ -797,6 +800,46 @@ impl PageText {
         }
         out
     }
+}
+
+/// The matches of the regular expression `query`. The library keeps to a
+/// time in proportion to the text, whatever the pattern of a document or a
+/// paste; one that is not valid finds nothing.
+fn find_pattern(text: &str, query: &str, opts: SearchOptions) -> Vec<(usize, usize)> {
+    let source = if opts.whole_words {
+        format!(r"\b(?:{query})\b")
+    } else {
+        query.to_string()
+    };
+    let Ok(pattern) = regex::RegexBuilder::new(&source)
+        .case_insensitive(!opts.case_sensitive)
+        .size_limit(1 << 22)
+        .build()
+    else {
+        return Vec::new();
+    };
+    // Positions in characters, as the text layer counts them.
+    let mut chars = text.char_indices().map(|(b, _)| b).enumerate();
+    let mut at = |byte: usize, seen: &mut (usize, usize)| {
+        while seen.1 < byte {
+            match chars.next() {
+                Some((i, b)) => *seen = (i, b),
+                None => {
+                    *seen = (seen.0 + 1, byte);
+                    break;
+                }
+            }
+        }
+        if seen.1 == byte { seen.0 } else { seen.0 + 1 }
+    };
+    let mut seen = (0, 0);
+    let mut out = Vec::new();
+    for m in pattern.find_iter(text).filter(|m| !m.is_empty()) {
+        let start = at(m.start(), &mut seen);
+        let end = at(m.end(), &mut seen);
+        out.push((start, end));
+    }
+    out
 }
 
 #[cfg(test)]

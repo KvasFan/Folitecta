@@ -1,25 +1,26 @@
-## Folitecta 0.13.0 — buttons that work
+## Folitecta 0.14.0 — search that finds more
 
-A free PDF editor written entirely in Rust with a Dioxus desktop interface. This release makes the
-push buttons and links of a document do what it says.
+A free PDF editor written entirely in Rust with a Dioxus desktop interface. This release searches
+by pattern and lets the results leave the program.
 
-- **Scripts of buttons and links**: a press runs the script in the sandbox of the JavaScript console,
-  with no files and no network, within its time limit. Scripts fill fields, move through the pages
-  and show messages.
-- **Chains of actions**: every action a button or link goes on to runs in order, where only the first
-  one used to.
+- **Regular expressions**: an option of the search pane, together with match case and whole words.
+  An expression that is not valid is explained, and the search keeps to a time in proportion to the
+  text, whatever the pattern.
+- **Ready patterns**: e-mail addresses, phone numbers, dates, web addresses and bank accounts, chosen
+  from a list.
+- **Results as CSV**: the hits in the page text are saved with their page, match and context. Cells
+  a spreadsheet would run as formulas are written as text.
 
-Everything 0.12.0 brought — Remove Cropped Content that really removes, templates exchanged, attached
-files of inserted documents — and the earlier releases is described in their notes and in
-[CHANGELOG.md][changelog].
+Everything 0.13.0 brought — scripts of push buttons and links in a sandbox, chains of actions — and
+the earlier releases is described in their notes and in [CHANGELOG.md][changelog].
 
 **Binaries**
 
 | Platform | File |
 |---|---|
-| Windows x64 | `folitecta-0.13.0-windows-x64.zip` |
-| Linux x64 | `folitecta-0.13.0-linux-x64.tar.gz` |
-| macOS (Apple silicon and Intel) | `folitecta-0.13.0-macos-universal.zip` (app bundle) or `folitecta-0.13.0-macos-universal.tar.gz` (binary) |
+| Windows x64 | `folitecta-0.14.0-windows-x64.zip` |
+| Linux x64 | `folitecta-0.14.0-linux-x64.tar.gz` |
+| macOS (Apple silicon and Intel) | `folitecta-0.14.0-macos-universal.zip` (app bundle) or `folitecta-0.14.0-macos-universal.tar.gz` (binary) |
 
 Each package carries the `dictionaries`, `ocr` and `fonts` folders next to the program (in the
 app bundle's resources on macOS): keep them with it. SHA-256 checksums are attached.
@@ -36,7 +37,7 @@ app bundle's resources on macOS): keep them with it. SHA-256 checksums are attac
 The status of every command is in [docs/FEATURES.md][features]; known limitations are in
 [docs/ARCHITECTURE.md][limits] and [ai/ROADMAP.md][roadmap].
 
-[changelog]: https://github.com/KvasFan/Folitecta/blob/main/CHANGELOG.md#0130---2026-11-01
-[features]: https://github.com/KvasFan/Folitecta/blob/v0.13.0/docs/FEATURES.md
+[changelog]: https://github.com/KvasFan/Folitecta/blob/main/CHANGELOG.md#0140---2026-11-02
+[features]: https://github.com/KvasFan/Folitecta/blob/v0.14.0/docs/FEATURES.md
 [limits]: https://github.com/KvasFan/Folitecta/blob/main/docs/ARCHITECTURE.md#known-limitations
 [roadmap]: https://github.com/KvasFan/Folitecta/blob/main/ai/ROADMAP.md

@@ -2,7 +2,6 @@
 //! expanding or collapsing the tree of the visible pane.
 
 use crate::commands::{handlers, no_doc};
-use crate::files;
 use crate::i18n::{t, tf};
 use crate::state::{AppState, DocTab, ToastKind};
 use dioxus::prelude::ReadableExt;
@@ -155,11 +154,6 @@ handlers! {
     "thumbnailsView.zoomOut" => |st| thumbs_zoom(st, 0.8),
     "selectPages" => |st| select_pages_where(st, |_, _| true),
     "searchView.results.clear" => |st| { st.with_active(|t| { t.search.hits.clear(); t.search.query.clear(); }); },
-    "searchView.results.save" => |st| {
-        if no_doc(st) { return; }
-        let text = st.read_active(|t| t.search.hits.iter().map(|h| format!("Page {}: {}", h.page + 1, h.snippet)).collect::<Vec<_>>().join("\n")).unwrap_or_default();
-        files::save_text_file(st, "search-results.txt", text);
-    },
     "document.find.gotoNext" => |st| crate::ui::panes::step_search(st, true),
     "document.find.gotoPrev" => |st| crate::ui::panes::step_search(st, false),
     "loupeView.zoomIn" => |st| loupe_zoom(st, 1.25),

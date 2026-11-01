@@ -11,6 +11,22 @@ pub struct SearchOptions {
     pub whole_words: bool,
     /// Accented letters match their base letter (`é` matches `e`).
     pub ignore_diacritics: bool,
+    /// The query is a regular expression.
+    pub regex: bool,
+}
+
+/// Ready patterns of the search: their name and regular expression.
+pub const SEARCH_PATTERNS: &[(&str, &str)] = &[
+    ("email", r"[\w.+-]+@[\w-]+\.[\w.-]+"),
+    ("phone", r"\+?\d[\d\s().-]{6,}\d"),
+    ("date", r"\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b"),
+    ("web", r"https?://\S+"),
+    ("iban", r"\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b"),
+];
+
+/// Why `query` is no regular expression, in the words of the library.
+pub fn pattern_problem(query: &str) -> Option<String> {
+    regex::Regex::new(query).err().map(|e| e.to_string())
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -181,6 +197,26 @@ impl Document {
             }
         }
         hits
+    }
+
+    /// The hits as CSV: page, what was found and its context, under `head`.
+    /// A cell that a spreadsheet would run as a formula starts with `'`.
+    pub fn search_hits_csv(&self, hits: &[SearchHit], head: [&str; 3]) -> String {
+        let cell = |text: &str| {
+            let text = if text.starts_with(['=', '+', '-', '@']) {
+                format!("'{text}")
+            } else {
+                text.to_string()
+            };
+            format!("\"{}\"", text.replace('"', "\"\""))
+        };
+        let mut out = head.map(cell).join(",");
+        out.push('\n');
+        for h in hits {
+            let found = self.text_range(h.page, h.start, h.end);
+            out.push_str(&format!("{},{},{}\n", h.page + 1, cell(&found), cell(&h.snippet)));
+        }
+        out
     }
 
     /// `(words, characters)` over the whole document.

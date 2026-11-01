@@ -117,7 +117,7 @@ pub fn match_text(
     proximity: Proximity,
 ) -> Option<(usize, usize)> {
     let words: Vec<&str> = query.split_whitespace().collect();
-    if proximity == Proximity::Phrase || words.len() < 2 {
+    if opts.regex || proximity == Proximity::Phrase || words.len() < 2 {
         return find_in(text, query, opts).first().copied();
     }
     let mut first = None;
@@ -146,7 +146,7 @@ impl Document {
     /// Hits of word searches cover each word and tell which word it is.
     pub fn search_words(&self, query: &str, opts: SearchOptions, proximity: Proximity) -> Vec<SearchHit> {
         let words: Vec<&str> = query.split_whitespace().collect();
-        if proximity == Proximity::Phrase || words.len() < 2 {
+        if opts.regex || proximity == Proximity::Phrase || words.len() < 2 {
             return self.search(query, opts);
         }
         let layers = self.text_layers();

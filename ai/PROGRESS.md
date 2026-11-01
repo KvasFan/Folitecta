@@ -4,6 +4,26 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-02 — release 0.13.0: check of the published packages
+
+- **What:** tag `v0.13.0` (`bec91bc`): CI and release workflows green, eight files.
+- **Found right:** SHA-256, data folders of Windows and Linux equal, self-test steps with the
+  packaged Linux executable: 0 problems.
+- **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
+
+## 2026-11-01 — FOL-L003: search that finds more (0.14.0)
+
+- **Current state before:** search took phrases and words only; `searchView.results.save` wrote
+  a plain list of snippets.
+- **What:** `SearchOptions::regex`, `find_pattern` (the `regex` crate, in linear time, size limited,
+  byte offsets turned into the character offsets of the text layer), `pattern_problem`,
+  `SEARCH_PATTERNS`, `search_hits_csv` (`'` before a cell that starts a formula).
+- **Checked:** `search.rs` (patterns, characters of more bytes, invalid expressions, CSV);
+  self-test step `search_patterns`; the local copy of CI: 967 tests, full self-test with 324
+  interactions, 0 problems.
+- **Open:** the export has the hits of the page text only, not those of comments or bookmarks;
+  diacritics are not ignored in a regular expression.
+
 ## 2026-11-01 — release 0.12.0: check of the published packages
 
 - **What:** tag `v0.12.0` (`52b1180`): CI (40 min) and release (33 min) workflows green, eight files.

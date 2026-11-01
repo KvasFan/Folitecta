@@ -121,3 +121,63 @@ fn other_places_are_searched() {
             .is_empty()
     );
 }
+
+fn pattern() -> SearchOptions {
+    SearchOptions {
+        regex: true,
+        ..SearchOptions::default()
+    }
+}
+
+#[test]
+fn regular_expressions_and_ready_patterns() {
+    let doc = Document::from_text(
+        "Write to anna.bianchi@example.org by 12/03/2026.\nCall +39 02 1234 5678 or see https://example.org/x.",
+        TextLayout::default(),
+    )
+    .unwrap();
+    let text = |h: &folitecta_core::SearchHit| doc.text_range(h.page, h.start, h.end);
+    let of = |id: &str| {
+        folitecta_core::SEARCH_PATTERNS
+            .iter()
+            .find(|(n, _)| *n == id)
+            .unwrap()
+            .1
+    };
+    assert_eq!(
+        text(&doc.search(of("email"), pattern())[0]),
+        "anna.bianchi@example.org"
+    );
+    assert_eq!(text(&doc.search(of("date"), pattern())[0]), "12/03/2026");
+    assert_eq!(
+        text(&doc.search(of("web"), pattern())[0]),
+        "https://example.org/x."
+    );
+    assert_eq!(text(&doc.search(of("phone"), pattern())[0]), "+39 02 1234 5678");
+    assert_eq!(doc.search("WRITE|call", pattern()).len(), 2);
+    let exact = SearchOptions {
+        case_sensitive: true,
+        ..pattern()
+    };
+    assert_eq!(doc.search("WRITE|Call", exact).len(), 1);
+    // Positions count characters, after letters of more than one byte.
+    let accents = Document::from_text("perché è così 42", TextLayout::default()).unwrap();
+    let hits = accents.search(r"\d+", pattern());
+    assert_eq!(accents.text_range(0, hits[0].start, hits[0].end), "42");
+    // Not an expression: nothing found, and the reason can be told.
+    assert!(doc.search("(unclosed", pattern()).is_empty());
+    assert!(folitecta_core::pattern_problem("(unclosed").is_some());
+    assert!(folitecta_core::pattern_problem("a|b").is_none());
+}
+
+#[test]
+fn results_are_saved_as_csv_that_spreadsheets_do_not_run() {
+    let doc = Document::from_text("=SUM(A1) and \"quoted\" cost", TextLayout::default()).unwrap();
+    let hits = doc.search(r"=SUM\(A1\)", pattern());
+    let csv = doc.search_hits_csv(&hits, ["Page", "Found", "Context"]);
+    let mut lines = csv.lines();
+    assert_eq!(lines.next(), Some(r#""Page","Found","Context""#));
+    let row = lines.next().unwrap();
+    assert!(row.starts_with(r#"1,"'=SUM(A1)","#), "{row}");
+    assert!(row.contains(r#"""quoted"""#), "{row}");
+}

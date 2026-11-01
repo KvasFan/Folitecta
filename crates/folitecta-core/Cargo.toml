@@ -12,6 +12,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+regex = "1"
 anyhow.workspace = true
 thiserror.workspace = true
 serde.workspace = true

@@ -242,6 +242,7 @@
   "dialog.password.restricted.fill_forms": "filling in form fields",
   "dialog.password.restricted.assemble": "inserting, deleting, rotating or moving pages and changing bookmarks",
   "dialog.password.restricted.copy": "copying its text and pictures",
+  "dialog.password.restricted.protection": "changing or removing its protection",
   "dialog.password.field": "Password",
   "dialog.open_target.title": "Open from the Document",
   "dialog.open_target.web": "A link of this document opens this web address in the browser:",

@@ -238,6 +238,7 @@ impl Document {
         pages: Range<usize>,
         page_breaks: bool,
     ) -> Result<OfficeExport> {
+        self.require(crate::security::Restricted::Copy)?;
         let n = self.page_count();
         if pages.start >= pages.end || pages.end > n {
             return Err(Error::InvalidPage(pages.end.saturating_sub(1)));

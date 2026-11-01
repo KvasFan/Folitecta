@@ -385,6 +385,9 @@ pub fn search_state(st: AppState, id: &str) -> Option<bool> {
 
 /// Save the results of the search in the page text as CSV.
 fn save_results(st: AppState) {
+    if !st.allowed(folitecta_core::Restricted::Copy) {
+        return;
+    }
     let lang = st.lang();
     let (page, found, context) = (
         t(lang, "search.csv.page"),

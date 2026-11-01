@@ -924,6 +924,7 @@ impl Document {
     /// Write a copy to `path` without the protection of the document (an
     /// explicit choice of the user: Save Unrestricted Copy).
     pub fn save_unprotected_copy(&mut self, path: impl AsRef<Path>) -> Result<()> {
+        self.require(crate::security::Restricted::Protection)?;
         let path = path.as_ref();
         let bytes = serialize(&mut self.inner)?;
         write_pdf_file(path, &bytes)
@@ -956,6 +957,22 @@ impl Document {
     /// unprotected or opened with the owner password).
     pub fn allows(&self, kind: crate::security::Restricted) -> bool {
         !self.permissions_apply || crate::protection::permissions::allows(self.protection.as_ref(), kind)
+    }
+
+    /// Refused with [`Error::NotPermitted`] when the security settings of
+    /// the document forbid `kind`.
+    pub(crate) fn require(&self, kind: crate::security::Restricted) -> Result<()> {
+        if self.allows(kind) {
+            Ok(())
+        } else {
+            Err(Error::NotPermitted(kind))
+        }
+    }
+
+    /// Let the security settings apply to a document made from another
+    /// one (see [`Document::derived`]), when it is given to the user.
+    pub fn keep_restrictions(&mut self) {
+        self.permissions_apply = true;
     }
 
     /// The kinds of change the security settings of the document forbid.

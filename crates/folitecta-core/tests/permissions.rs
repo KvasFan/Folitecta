@@ -3,7 +3,10 @@
 //! back and named; the owner password lifts the restrictions.
 
 use folitecta_core::testdocs::form_doc;
-use folitecta_core::{Document, EncryptionProfile, Error, MarkPosition, Restricted, SecurityPermissions};
+use folitecta_core::{
+    Document, EncryptionProfile, Error, ImageFormat, MarkPosition, OfficeFormat, Restricted,
+    SecurityPermissions,
+};
 
 fn protected(name: &str, permissions: SecurityPermissions, profile: EncryptionProfile) -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!("folitecta-permissions-{}", std::process::id()));
@@ -126,6 +129,91 @@ fn assembling_pages_alone() {
         refused(doc.set_field_value(field, "Filled")),
         Some(Restricted::FillForms)
     );
+}
+
+const NO_COPY: SecurityPermissions = SecurityPermissions {
+    print: true,
+    modify: true,
+    copy: false,
+    annotate: true,
+    fill_forms: true,
+    assemble: true,
+};
+
+#[test]
+fn text_and_pictures_that_cannot_be_copied_stay_out_of_files() {
+    let path = protected("no-copy", NO_COPY, EncryptionProfile::Aes256);
+    let dir = path.with_extension("out");
+    let text = dir.join("text.txt");
+    let mut doc = Document::open_with_password(&path, "u").unwrap();
+    let copy = Some(Restricted::Copy);
+    assert_eq!(refused(doc.export_text(&text)), copy);
+    assert_eq!(
+        refused(doc.export_page_image(0, 72.0, ImageFormat::Png, dir.join("p.png"))),
+        copy
+    );
+    assert_eq!(
+        refused(
+            doc.export_pages_images(&[0], &dir, 72.0, ImageFormat::Png, "p")
+                .map(|_| ())
+        ),
+        copy
+    );
+    assert_eq!(refused(doc.extract_images(&[0], &dir).map(|_| ())), copy);
+    assert_eq!(
+        refused(doc.export_office(OfficeFormat::Docx, 0..1, false).map(|_| ())),
+        copy
+    );
+    assert!(!dir.exists(), "nothing was written");
+
+    // A copy for another tab is restricted like the document.
+    assert_eq!(refused(doc.duplicate().unwrap().export_text(&text)), copy);
+    // Pages taken out too, once they are given to the user.
+    let mut pages = doc.extract_pages(&[0]).unwrap();
+    pages.keep_restrictions();
+    assert_eq!(refused(pages.export_text(&text)), copy);
+
+    // Changes stay allowed; the owner password lifts the rest.
+    assert_eq!(refused(doc.rotate_pages(&[0], 90)), None);
+    assert!(doc.unlock_owner("o"));
+    std::fs::create_dir_all(&dir).unwrap();
+    assert_eq!(refused(doc.export_text(&text)), None);
+    assert!(text.exists());
+    assert_eq!(
+        refused(doc.duplicate().unwrap().export_text(dir.join("again.txt"))),
+        None
+    );
+}
+
+#[test]
+fn the_protection_stays_while_it_forbids_anything() {
+    let no_print = SecurityPermissions {
+        print: false,
+        ..Default::default()
+    };
+    for (name, permissions) in [("copying", NO_COPY), ("printing", no_print)] {
+        let path = protected(name, permissions, EncryptionProfile::Aes256);
+        let target = path.with_extension("plain.pdf");
+        let again = path.with_extension("again.pdf");
+        let mut doc = Document::open_with_password(&path, "u").unwrap();
+        let protection = Some(Restricted::Protection);
+        assert_eq!(refused(doc.save_unprotected_copy(&target)), protection);
+        assert_eq!(
+            refused(doc.save_encrypted(&again, "", "mine", Default::default(), EncryptionProfile::Aes256)),
+            protection
+        );
+        assert!(!target.exists() && !again.exists());
+
+        assert!(doc.unlock_owner("o"));
+        assert_eq!(refused(doc.save_unprotected_copy(&target)), None);
+        assert!(!Document::open(&target).unwrap().is_protected());
+    }
+
+    // Nothing forbidden, nothing to keep: the password to open is enough.
+    let path = protected("nothing", Default::default(), EncryptionProfile::Aes256);
+    let target = path.with_extension("plain.pdf");
+    let mut doc = Document::open_with_password(&path, "u").unwrap();
+    assert_eq!(refused(doc.save_unprotected_copy(&target)), None);
 }
 
 #[test]

@@ -772,6 +772,7 @@ impl Document {
         permissions: SecurityPermissions,
         profile: EncryptionProfile,
     ) -> Result<()> {
+        self.require(Restricted::Protection)?;
         let out = protected_copy(
             self.bytes().as_slice(),
             user_password,

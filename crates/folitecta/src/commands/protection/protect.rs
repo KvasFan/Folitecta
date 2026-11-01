@@ -436,12 +436,20 @@ fn apply_redactions(st: AppState, current_page: bool) {
     });
 }
 
+/// The window of the protection of a copy: not while the security settings
+/// keep the protection as it is.
+fn security(st: AppState) {
+    if st.allowed(folitecta_core::Restricted::Protection) {
+        doc_dialog(st, Dialog::Security);
+    }
+}
+
 handlers! {
     "tool.annot.redaction" => |st| { if !no_doc(st) { st.set_tool(Tool::Redact) } },
     "document.applyRedactions" => |st| apply_redactions(st, false),
     "annots.applyRedactions" => |st| apply_redactions(st, true),
-    "document.security" => |st| doc_dialog(st, Dialog::Security),
-    "standardSecPolicy" => |st| doc_dialog(st, Dialog::Security),
+    "document.security" => security,
+    "standardSecPolicy" => security,
     "saveUnrestricted" => |st| files::save_unprotected_copy(st),
 }
 

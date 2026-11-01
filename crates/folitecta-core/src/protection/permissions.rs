@@ -26,8 +26,11 @@ pub enum Restricted {
     FillForms,
     /// Inserting, deleting, rotating and moving pages; bookmarks.
     Assemble,
-    /// Copying text and pictures.
+    /// Copying text and pictures, also to files.
     Copy,
+    /// Changing or removing the protection itself: forbidden as soon as
+    /// anything is, or it would undo the rest.
+    Protection,
 }
 
 impl Restricted {
@@ -39,6 +42,7 @@ impl Restricted {
             Restricted::FillForms => "fill_forms",
             Restricted::Assemble => "assemble",
             Restricted::Copy => "copy",
+            Restricted::Protection => "protection",
         }
     }
 }
@@ -66,6 +70,14 @@ pub(crate) fn allows(protection: Option<&Protection>, kind: Restricted) -> bool 
             }
         }
         Restricted::Copy => p.contains(Permissions::COPYABLE),
+        Restricted::Protection => {
+            use Restricted::*;
+            [Modify, Annotate, FillForms, Assemble, Copy]
+                .into_iter()
+                .all(|k| allows(protection, k))
+                && p.contains(Permissions::PRINTABLE)
+                && (old || p.contains(Permissions::PRINTABLE_IN_HIGH_QUALITY))
+        }
     }
 }
 

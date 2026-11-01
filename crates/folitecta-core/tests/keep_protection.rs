@@ -132,6 +132,12 @@ fn unrestricted_copy_is_explicit(profile: EncryptionProfile) {
         .unwrap();
     let mut doc = Document::open_with_password(&original, "user-pw").unwrap();
     let plain = dir.join("plain.pdf");
+    assert!(matches!(
+        doc.save_unprotected_copy(&plain),
+        Err(Error::NotPermitted(folitecta_core::Restricted::Protection))
+    ));
+    assert!(!plain.exists());
+    assert!(doc.unlock_owner("owner-pw"));
     doc.save_unprotected_copy(&plain).unwrap();
     let reopened = Document::open(&plain).unwrap();
     assert!(!reopened.is_protected());

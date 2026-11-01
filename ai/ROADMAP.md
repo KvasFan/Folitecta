@@ -263,6 +263,18 @@ Search by pattern, and results that leave the program (FOL-L003).
 3. ~~**FOL-L003 — results exported.**~~ Done: CSV of page, match and context; cells a spreadsheet
    would run as formulas are written as text (`search_hits_csv`).
 
+### 0.15.0 — what the file forbids (released 2 November 2026)
+
+Files that forbid copying keep their text and pictures, and the protection stays (FOL-L036).
+
+1. ~~**FOL-L036 — exports under the copy permission.**~~ Done: pictures of pages, text, embedded
+   pictures, Office documents and search results are refused with the password to open, as copying
+   is, and the owner password asked; pages taken out into a tab are restricted like the document;
+   the text of the reflow view cannot be selected. Reading aloud stays.
+2. ~~**FOL-L036 — the protection itself.**~~ Done: Save Unrestricted Copy and the Security window
+   need the owner password as soon as the settings forbid anything, printing included
+   (`Restricted::Protection`).
+
 ### Later
 
 FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
@@ -350,7 +362,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
 | FOL-L035 | P1 | 🟡 | text comparison of two documents with a report; side by side, the old document following the new one page for page (pages matched by the words they share), differences marked on both | Geometry and picture differences; following in the horizontal layout and from the old document. |
-| FOL-L036 | P0 | 🟡 | passwords and permissions with AES-256 (default) or AES-128, security policies; every string and stream encrypted, the strings of stream dictionaries included; files opened encrypted are saved with the same encryption, passwords and permissions; protected documents signed, certified and time-stamped encrypted (encrypted updates keep the signatures); derived documents keep the protection, imports from protected files refused; print permissions applied; the other permissions kept when the file is opened with the user password (changes of a forbidden kind taken back, the owner password asked); Save Unrestricted Copy removes the protection on purpose | Certificate (public-key) encryption; changing or removing the protection needs only the password to open (kept by choice); the sorting of changes leans to allowing (an object of unknown kind counts as changing the document; what only follows a change is no change); copies made for printing, export and e-mail are not restricted. |
+| FOL-L036 | P0 | 🟡 | passwords and permissions with AES-256 (default) or AES-128, security policies; every string and stream encrypted, the strings of stream dictionaries included; files opened encrypted are saved with the same encryption, passwords and permissions; protected documents signed, certified and time-stamped encrypted (encrypted updates keep the signatures); derived documents keep the protection, imports from protected files refused; print permissions applied; the other permissions kept when the file is opened with the user password (changes of a forbidden kind taken back, exports of text and pictures refused, the owner password asked); Save Unrestricted Copy and new passwords need the owner password when anything is forbidden | Certificate (public-key) encryption; the sorting of changes leans to allowing (an object of unknown kind counts as changing the document; what only follows a change is no change); the copy permission covers page text and pictures, not comments, form data or bookmarks. |
 | FOL-L037 | P0 | 🟡 | mark areas and search results for redaction; apply by content (glyphs, picture pixels, vector paths, inline pictures, Type 3 text and the content of reused drawings under the marks removed, the rest stays text, comments and fields over the marks removed with their values, overlay codes upright on rotated pages, whole-file rewrite so earlier revisions go) or as pictures (chosen, or for pages that cannot be edited); sanitizing chosen when applying (metadata, attachments, hidden content, quotes of the removed words, scripts); the new file checked before it is written | Quadrilateral marks; content outside the crop box of pages without marks; quotes in page text, comments and field values reported, not changed; the width of a removed word can be measured; patterns and drawings other pages draw stay for them (reported). |
 | FOL-L038 | P1 | ✅ | handwritten signatures and initials, placed on several pages, kept apart from digital signatures | — |
 | FOL-L039 | P1/P2 | 🟡 | PKCS#12 digital IDs (import, create, export), sign and certify (visible or invisible), appearance with picture, incremental updates keep earlier signatures; IDs of smart cards and tokens (PKCS #11 modules: the system's through p11-kit on Linux, and added ones), of the Windows certificate store and of the macOS keychain, keys kept on the device, PIN never stored, each signature checked against its certificate | Tried with real cards and stores, the issuers' certificates of a token in the signature, batches. |

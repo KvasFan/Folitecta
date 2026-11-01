@@ -242,6 +242,7 @@
   "dialog.password.restricted.fill_forms": "di compilare i campi dei moduli",
   "dialog.password.restricted.assemble": "di inserire, eliminare, ruotare o spostare pagine e di cambiare i segnalibri",
   "dialog.password.restricted.copy": "di copiarne il testo e le immagini",
+  "dialog.password.restricted.protection": "di cambiarne o rimuoverne la protezione",
   "dialog.password.field": "Password",
   "dialog.open_target.title": "Apri dal documento",
   "dialog.open_target.web": "Un collegamento di questo documento apre questo indirizzo web nel browser:",

@@ -166,6 +166,9 @@ fn delete_tag(st: AppState) {
 }
 
 fn copy_contents(st: AppState) {
+    if !st.allowed(folitecta_core::Restricted::Copy) {
+        return;
+    }
     let Some((tree, id)) = need_selected(st) else {
         return;
     };

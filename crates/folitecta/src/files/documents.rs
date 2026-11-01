@@ -219,6 +219,9 @@ fn save_copy_with(st: AppState, unprotected: bool) {
         st.toast(ToastKind::Warn, t(st.lang(), "toast.no_document"), "");
         return;
     }
+    if unprotected && !st.allowed(folitecta_core::Restricted::Protection) {
+        return;
+    }
     let name = suggested_name(st, if unprotected { "-unrestricted" } else { "-copy" });
     spawn(async move {
         let Some(file) = pdf_dialog()
@@ -496,6 +499,7 @@ pub fn open_embedded_pdf(
 /// Open a document created in memory (untitled) in a new tab.
 pub fn open_document_tab(st: AppState, mut doc: Document) {
     doc.clear_history();
+    doc.keep_restrictions();
     let id = st.alloc_id();
     st.docs_mut().push(DocTab::new(id, doc));
     let n = st.docs.read().len();
@@ -512,6 +516,9 @@ pub fn save_encrypted(
     perms: folitecta_core::SecurityPermissions,
     profile: folitecta_core::EncryptionProfile,
 ) {
+    if !st.allowed(folitecta_core::Restricted::Protection) {
+        return;
+    }
     let name = suggested_name(st, "-protected");
     let Some(bytes) = st.read_active(|t| t.doc.bytes()) else {
         st.toast(ToastKind::Warn, t(st.lang(), "toast.no_document"), "");

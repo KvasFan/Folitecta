@@ -108,12 +108,16 @@ pub fn write_export(st: AppState, format: OfficeFormat, all: bool, page_breaks: 
                     detail,
                 );
             }
-            Ok(Err(e)) => st.error(st.core_error_text(&e)),
+            Ok(Err(e)) => st.core_error(&e),
             Err(_) => {}
         }
     });
 }
 
 handlers! {
-    "document.exportOffice" => |st| doc_dialog(st, Dialog::ExportOffice),
+    "document.exportOffice" => |st| {
+        if st.allowed(folitecta_core::Restricted::Copy) {
+            doc_dialog(st, Dialog::ExportOffice);
+        }
+    },
 }

@@ -2,7 +2,9 @@
 //! is allowed, opened with the user password: a field is filled; rotating a
 //! page is refused, nothing changes, and the owner password is asked with
 //! the setting named; a wrong one asks again; the right one lifts the
-//! restrictions and the page turns. Copying the page is refused the same way.
+//! restrictions and the page turns. Copying the page is refused the same way,
+//! and so is whatever would take text and pictures to a file, or take the
+//! protection away; the reflow view does not let them be selected.
 
 use folitecta_core::{Document, EncryptionProfile, Restricted, SecurityPermissions};
 
@@ -142,6 +144,50 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         "permissions: copying a page the settings forbid asks for the owner password",
         copy_asked == Some((Restricted::Copy, false)),
         format!("asked {copy_asked:?}"),
+    );
+
+    // Nor do they leave for a file.
+    let mut left = Vec::new();
+    for command in [
+        "document.export",
+        "document.exportOffice",
+        "searchView.results.save",
+    ] {
+        crate::commands::dispatch(st, command);
+        left.push((command, owner_dialog(st).await));
+        st.set_dialog(Dialog::None);
+        pause(200).await;
+    }
+    cx.record(
+        "permissions: exporting text or pictures the settings forbid copying asks for the owner password",
+        left.iter().all(|(_, a)| *a == Some((Restricted::Copy, false))),
+        format!("{left:?}"),
+    );
+    let mut kept = Vec::new();
+    for command in ["saveUnrestricted", "document.security"] {
+        crate::commands::dispatch(st, command);
+        kept.push((command, owner_dialog(st).await));
+        st.set_dialog(Dialog::None);
+        pause(200).await;
+    }
+    cx.record(
+        "permissions: the protection cannot be removed or changed without the owner password",
+        kept.iter()
+            .all(|(_, a)| *a == Some((Restricted::Protection, false))),
+        format!("{kept:?}"),
+    );
+    crate::commands::dispatch(st, "view.reflow");
+    pause(800).await;
+    let selectable = text(
+        "const r = document.querySelector('#reflow'); return r ? getComputedStyle(r).webkitUserSelect || getComputedStyle(r).userSelect : 'no view';",
+    )
+    .await;
+    crate::commands::dispatch(st, "view.reflow");
+    pause(400).await;
+    cx.record(
+        "permissions: the text of the reflow view cannot be selected",
+        selectable == "none",
+        format!("user-select {selectable:?}"),
     );
     if let Some(id) = copy_tab {
         crate::files::close_tab(st, id, true, crate::state::AfterUnsaved::Close);

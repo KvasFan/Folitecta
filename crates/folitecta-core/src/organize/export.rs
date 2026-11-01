@@ -11,6 +11,7 @@ use image::RgbaImage;
 use crate::document::Document;
 use crate::error::{Error, Result};
 use crate::render::{RenderOpts, RenderedPage, Renderer};
+use crate::security::Restricted;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ImageFormat {
@@ -117,6 +118,7 @@ impl Document {
         format: ImageFormat,
         path: impl AsRef<Path>,
     ) -> Result<()> {
+        self.require(Restricted::Copy)?;
         let rendered = Renderer::new(self.render_bytes()?)?.render_rgba(
             page,
             dpi.max(18.0) / 72.0,
@@ -150,6 +152,7 @@ impl Document {
         prefix: &str,
         view: &HashMap<ObjectId, bool>,
     ) -> Result<Vec<PathBuf>> {
+        self.require(Restricted::Copy)?;
         let dir = dir.as_ref();
         std::fs::create_dir_all(dir).map_err(|e| Error::io(dir, e))?;
         let renderer = self.view_renderer(view)?;
@@ -166,6 +169,7 @@ impl Document {
 
     /// Write the extracted text of every page to a UTF-8 file.
     pub fn export_text(&self, path: impl AsRef<Path>) -> Result<()> {
+        self.require(Restricted::Copy)?;
         let mut text = String::new();
         for (i, page) in self.all_text().into_iter().enumerate() {
             if i > 0 {
@@ -180,6 +184,7 @@ impl Document {
     /// JPEG and JPEG 2000 streams are written as-is; uncompressed/Flate RGB and
     /// gray images are converted to PNG. Other encodings are skipped.
     pub fn extract_images(&self, pages: &[usize], dir: impl AsRef<Path>) -> Result<Vec<PathBuf>> {
+        self.require(Restricted::Copy)?;
         let dir = dir.as_ref();
         std::fs::create_dir_all(dir).map_err(|e| Error::io(dir, e))?;
         let mut seen = HashSet::new();

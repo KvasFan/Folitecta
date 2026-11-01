@@ -46,7 +46,7 @@
 </p>
 
 > [!NOTE]
-> **Folitecta 0.14.0 is a pre-release.** Every command of the full feature set is already in the
+> **Folitecta 0.15.0 is a pre-release.** Every command of the full feature set is already in the
 > interface; each release turns more of them into working operations, and the ones that are not
 > done yet open a roadmap notice. [docs/FEATURES.md](docs/FEATURES.md) lists the state of every
 > command; the limits of what works are written below and in
@@ -106,8 +106,8 @@
 
 ## What works today
 
-Version 0.14.0. The parts marked *new in 0.14.0* come with this release; those marked *new in
-0.13.0* came with 0.13.0; those marked *new in 0.12.0* came with 0.12.0; those marked *new in 0.11.0* came with 0.11.0; those marked *new in 0.10.0* came with 0.10.0; those marked *new in 0.9.0* came with 0.9.0; those marked *new in 0.8.0* came with 0.8.0; those marked *new in 0.7.0* came with 0.7.0; those marked *new in 0.6.0* came with 0.6.0; those marked *new in 0.5.0* came with 0.5.0; those marked *new in 0.4.0* came with 0.4.0, which 0.4.1 fixed (the
+Version 0.15.0. The parts marked *new in 0.15.0* come with this release; those marked *new in
+0.14.0* came with 0.14.0; those marked *new in 0.13.0* came with 0.13.0; those marked *new in 0.12.0* came with 0.12.0; those marked *new in 0.11.0* came with 0.11.0; those marked *new in 0.10.0* came with 0.10.0; those marked *new in 0.9.0* came with 0.9.0; those marked *new in 0.8.0* came with 0.8.0; those marked *new in 0.7.0* came with 0.7.0; those marked *new in 0.6.0* came with 0.6.0; those marked *new in 0.5.0* came with 0.5.0; those marked *new in 0.4.0* came with 0.4.0, which 0.4.1 fixed (the
 office export from its dialog) and completed with shape tools that stay chosen; those marked
 *new in 0.3.0* came with 0.3.0, which 0.3.1 completed with shorter menus and a pencil pointer
 of the right size on Linux; everything else was already in 0.2.1.
@@ -125,7 +125,7 @@ of the right size on Linux; everything else was already in 0.2.1.
 | Review | Replies, review states with history, check marks, filters, pop-up notes, comment summaries, export and import of comments as XFDF, FDF or PDF |
 | Layers | Visibility in the view, defaults, groups, merge, flatten, extract, import. With a layer selected in the Layers pane or with Edit › Choose Layer, new comments, placed pictures and barcodes go to that layer, and the status bar shows it (Default Layer stops it); Choose Layer, the Layer field of the comment properties and Move to New Layer move comments between layers; the comments of a hidden layer are hidden on the pages, the thumbnails and in the Comments pane |
 | Sign | Digital signatures and certification with PKCS#12 digital IDs (RSA, ECDSA) and self-signed IDs, and with the IDs of smart cards and tokens (their PKCS #11 module), of the certificate store of Windows and of the keychain of macOS, whose keys never leave them and whose PIN is never kept (*new in 0.4.0*); validation against trusted certificates with separate checks of integrity, signer, time and revocation; time stamps (RFC 3161) of signatures and document time stamps from a time stamp server; incremental saving that keeps signatures valid; handwritten signatures and initials from a library. Revocation is checked from the OCSP answers and revocation lists in the signature, its time stamp or the document security store, or fetched online (off until you turn it on in the options of the Signatures pane); Add validation material writes certificates and revocation data to the document security store as an update that keeps the signatures valid; signing and time-stamping a protected document keeps it encrypted. Not yet tried against public revocation servers; names beyond Western European letters in the visible part of a signature and in typed signatures (*new in 0.10.0*) |
-| Protect | Password protection with AES-256 (AES-128 as a choice) and permissions; a protected file is saved again with its encryption, passwords and permissions, and Save Unrestricted Copy removes them on purpose; documents made from a protected one stay protected; security policies (named sets of permissions, imported and exported); listing and removal of document scripts; the permissions of a file opened with the password to open it are kept, and the owner password lifts them until it is closed (*new in 0.8.0*) |
+| Protect | Password protection with AES-256 (AES-128 as a choice) and permissions; a protected file is saved again with its encryption, passwords and permissions, and Save Unrestricted Copy removes them on purpose, with the owner password when the file forbids anything (*new in 0.15.0*); documents made from a protected one stay protected; security policies (named sets of permissions, imported and exported); listing and removal of document scripts; the permissions of a file opened with the password to open it are kept, and the owner password lifts them until it is closed (*new in 0.8.0*) |
 | Redaction | Areas or text marked for redaction, with colour, blur or pixelated overlays, overlay text and sets of redaction codes. Applying takes the text and pictures under the marks out of the page content, and the vector paths too, also inside drawings reused on several pages, while the rest of the page stays text and drawings; comments and form fields over the marks go with their values, and the next save rewrites the whole file so no earlier revision keeps what was removed. An apply dialog shows what goes, warns about blurred areas and signatures, and by default also removes the metadata, attachments, hidden content and scripts, and the quotes of the removed words in bookmarks, links, tags and document information (quotes in the text of other pages are reported, not changed); the result can be saved as a new file that is checked before it is written. Pages that cannot be edited that way, or every marked page when chosen, are drawn as pictures. Marks are rectangles, and the space a removed word took stays on its line (the dialog says so); what lies beyond the crop box of the marked pages goes too, named before applying (*new in 0.8.0*); overlay text beyond Western European letters (*new in 0.10.0*) |
 | Print | Folitecta's own print window with a live preview of the sheets: the computer's printers, copies and collation; ranges by number or page label, odd or even pages, reverse order, every open document; comments and form fields; fit, actual size, shrink, custom scale, paper by page size, auto-rotate; 2 to 16 pages per sheet; booklets (binding, signatures, back cover); posters (overlap, cut marks, labels); orientation, paper, two-sided printing and colour. Jobs go straight to the printer: the vector print file to the local print server on Linux and macOS (IPP), the sheets as pictures of up to 600 dpi on Windows; progress and cancel in the status bar. Save as PDF and the system dialog remain. Print permissions of protected files apply. Not yet verified on real printers |
 | E-mail | Files handed to the mail program (Simple MAPI on Windows, Mail on macOS, `xdg-email` on Linux) or saved as an unsent `.eml` draft; e-mail messages (`.eml`) open as PDF documents with their attachments embedded. An attachment dialog (File › Email Document…, Share › Send, Form › Forms › Email Form Data…): for each document, the current state or the saved file, its form data (XFDF, FDF, CSV, text) and its comments (XFDF, FDF); PDF copies cut to some pages, with comments kept, flattened or removed, separately or in one ZIP archive; every file prepared in the background with its size, what it holds and its first pages. Open in Mail Program hands the files over, Save Draft… writes the draft where you choose, and Folitecta itself sends nothing. Not yet tried with real mail programs |
@@ -152,7 +152,7 @@ of the right size on Linux; everything else was already in 0.2.1.
 the newest version is at the top, with the packages listed below and its notes, followed by the
 earlier versions. Versions up to 0.0.12 are also on the
 [GitLab releases](https://gitlab.com/tirael8308/folitecta/-/releases); later versions are published
-on GitHub only. `<version>` in the file names is the version number, for example `0.14.0`.
+on GitHub only. `<version>` in the file names is the version number, for example `0.15.0`.
 
 | System | File | Notes |
 |---|---|---|
@@ -298,9 +298,8 @@ limitations, and [docs/FEATURES.md](docs/FEATURES.md) the state of every command
 ## Roadmap
 
 [ai/ROADMAP.md](ai/ROADMAP.md) has the state of every requirement and the planned releases. The
-latest one, **0.14.0 — search that finds more**, searches by regular expression, with ready patterns
-for e-mail addresses, phone numbers, dates, web addresses and bank accounts, and saves the results
-as CSV. Fuller PDF/A conversion
+latest one, **0.15.0 — what the file forbids**, keeps the text and pictures of files that forbid
+copying out of exports, and the protection of a file in place without its owner password. Fuller PDF/A conversion
 (embedding fonts), colour profiles beyond grey, fuller editing of vector paths, text recognition
 of scripts other than Latin, article threads, scanning on macOS, remote services and the other
 commands still marked as *planned* come later.

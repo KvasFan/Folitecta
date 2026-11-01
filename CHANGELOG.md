@@ -6,6 +6,15 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-02
+
+### Changed
+- A file that forbids copying no longer lets its text and pictures out through exports: pictures of
+  pages, text, embedded pictures, Office documents and search results ask for the owner password, as
+  copying does. Reading aloud stays.
+- Save Unrestricted Copy and the Security window ask for the owner password when the security
+  settings of the file forbid anything. A file that forbids nothing needs only the password to open.
+
 ## [0.14.0] - 2026-11-02
 
 ### Added

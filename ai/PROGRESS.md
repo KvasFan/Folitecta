@@ -4,6 +4,31 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-02 — release 0.14.0: check of the published packages
+
+- **What:** tag `v0.14.0` (`7fce968`): CI (29 min) and release (36 min) workflows green, eight files.
+- **Found right:** SHA-256, data folders of Windows and Linux equal, self-test steps with the
+  packaged Linux executable: 0 problems.
+- **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
+
+## 2026-11-02 — FOL-L036: what the file forbids (0.15.0)
+
+- **Current state before:** the copy permission held for the clipboard only: exports took the same
+  text and pictures to files. Save Unrestricted Copy and new passwords needed only the password to
+  open, which undid every permission (noted as kept by choice before permissions were enforced).
+  Pages taken out into a tab came without restrictions (`derived`).
+- **What:** `Restricted::Protection`, `Document::require`, `keep_restrictions`; the checks are in the
+  core (`export_page_image`, `export_pages_images*`, `export_text`, `extract_images`,
+  `export_office`, `save_unprotected_copy`, `save_encrypted`) and the commands ask for the owner
+  password before their windows open; search results, the contents of a tag, the reflow view.
+- **Checked:** `permissions.rs` (every export, copies for tabs, pages taken out, the protection with
+  copying and with printing forbidden, a file that forbids nothing), `keep_protection.rs`; self-test
+  step `permissions`; the local copy of CI: 969 tests, full self-test with 327 interactions,
+  0 problems.
+- **Open:** comments, form data and bookmarks are not page content and stay exportable; a comparison
+  report quotes the text; working copies inside the program (print, e-mail) are not restricted, and
+  what leaves stays protected.
+
 ## 2026-11-02 — release 0.13.0: check of the published packages
 
 - **What:** tag `v0.13.0` (`bec91bc`): CI and release workflows green, eight files.

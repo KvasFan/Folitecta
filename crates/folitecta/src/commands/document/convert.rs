@@ -5,7 +5,9 @@ use crate::files;
 use crate::state::{AppState, Dialog};
 
 fn export(st: AppState) {
-    doc_dialog(st, Dialog::ExportImages);
+    if st.allowed(folitecta_core::Restricted::Copy) {
+        doc_dialog(st, Dialog::ExportImages);
+    }
 }
 
 handlers! {

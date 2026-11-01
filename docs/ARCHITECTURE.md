@@ -198,7 +198,8 @@ and applied again whenever the document is saved, so a protected file stays prot
 with the same passwords. Documents made from a protected one (extracted pages, filled copies,
 summaries, reports, duplicates) carry its protection, and content of a protected file is refused
 by unprotected documents. New protection is AES-256 (revision 6) by default, AES-128 on request.
-Save Unrestricted Copy writes a plain copy on purpose. Signed documents are saved as an
+Save Unrestricted Copy writes a plain copy on purpose, with the owner password when the settings
+forbid anything. Signed documents are saved as an
 incremental update, which keeps their signatures valid; for a protected signed document the
 update is encrypted with the document's key (`protection::encrypted::protected_update`, over the
 decrypted objects of the file as it was written). The value of a signature (its `/Contents`) is
@@ -467,10 +468,10 @@ Mouse coordinates on a page image are converted to PDF user space with
   and paste.
 - The hand-over of files to mail programs (Simple MAPI, Mail, `xdg-email`) has been tried only
   with stand-in programs. Time stamp and revocation servers on the internet have not been tried.
-- Protection: no certificate (public-key) encryption; changing or removing the protection needs
-  only the password to open; the permissions of a file are kept by sorting each change into the
-  kinds the settings name, which leans to allowing (copies made for printing and export are not
-  restricted).
+- Protection: no certificate (public-key) encryption; the permissions of a file are kept by
+  sorting each change into the kinds the settings name, which leans to allowing; the copy
+  permission covers the text and pictures of pages, not comments, form data or bookmarks, and
+  working copies inside the program (print, e-mail) are not restricted, what leaves stays protected.
 - Form fields: a value the embedded font cannot draw is kept as typed, with question marks in
   Folitecta and `/NeedAppearances` for other readers; the font of a field's `/DA` is not used for
   drawing.

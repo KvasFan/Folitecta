@@ -42,7 +42,7 @@ pub fn export_images(st: AppState, pages: Vec<usize>, dpi: f32, format: ImageFor
                 ),
                 "",
             ),
-            Some(Err(e)) => st.error(e),
+            Some(Err(e)) => st.core_error(&e),
             None => {}
         }
     });
@@ -185,7 +185,7 @@ pub fn export_text(st: AppState) {
                 ),
                 "",
             ),
-            Some(Err(e)) => st.error(e),
+            Some(Err(e)) => st.core_error(&e),
             None => {}
         }
     });
@@ -254,7 +254,7 @@ pub fn extract_images(st: AppState, pages: Vec<usize>) {
                 ),
                 "",
             ),
-            Some(Err(e)) => st.error(e),
+            Some(Err(e)) => st.core_error(&e),
             None => {}
         }
     });

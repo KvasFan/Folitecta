@@ -142,6 +142,12 @@ pub fn ReflowView() -> Element {
         }
     }
     let no_text = blocks.is_empty();
+    // Text the security settings forbid copying cannot be selected.
+    let reflow_class = if st.peek_active(|t| t.doc.allows(folitecta_core::Restricted::Copy)) == Some(false) {
+        "reflow no-copy"
+    } else {
+        "reflow"
+    };
     rsx! {
         div { class: "reflow-wrap",
             div { class: "reflow-bar",
@@ -152,7 +158,7 @@ pub fn ReflowView() -> Element {
                 button { class: "tbtn reflow-larger", title: "{t(lang, \"reflow.larger\")}", onclick: move |_| change_size(st, true), "A+" }
                 button { class: "tbtn reflow-close", onclick: move |_| crate::commands::dispatch(st, "view.reflow"), "{t(lang, \"reflow.pages\")}" }
             }
-            div { id: "reflow", class: "reflow", style: "font-size:{size}px",
+            div { id: "reflow", class: "{reflow_class}", style: "font-size:{size}px",
                 article { class: "reflow-text",
                     if no_text {
                         p { class: "hint", "{t(lang, \"reflow.no_text\")}" }

@@ -9,7 +9,7 @@ use folitecta_core::Document;
 
 use crate::commands::{core_result, doc_dialog, handlers, no_doc};
 use crate::i18n::{t, tf};
-use crate::state::{AppState, Dialog, Pane, ToastKind, Tool};
+use crate::state::{AppState, ConfirmAction, Dialog, Pane, ToastKind, Tool};
 
 /// Pages a tool works on: the selected pages, or every page.
 pub fn target_pages(st: AppState) -> Vec<usize> {
@@ -148,7 +148,17 @@ fn remove_cropped(st: AppState) {
         return;
     }
     let pages = target_pages(st);
-    match st.with_active(|t| t.doc.remove_cropped_content(&pages)) {
+    let lang = st.lang();
+    st.set_dialog(Dialog::Confirm {
+        title: crate::i18n::t(lang, "cmd.document.removeCroppedContent"),
+        body: crate::i18n::t(lang, "dialog.confirm.remove_cropped"),
+        action: ConfirmAction::RemoveCropped(pages),
+    });
+}
+
+/// Take away what lies outside the crop boxes of `pages`.
+pub(crate) fn remove_cropped_now(st: AppState, pages: &[usize]) {
+    match st.with_active(|t| t.doc.remove_cropped_content(pages)) {
         Some(Ok(n)) => {
             crate::files::set_window_title(st);
             st.toast(

@@ -590,6 +590,41 @@ impl Document {
         by_page
     }
 
+    /// Take out of the content of `pages` what lies outside their crop boxes,
+    /// as under a redaction mark (one undo step; signatures go). Returns
+    /// whether there was a sheet beyond a crop box.
+    pub(crate) fn clear_beyond_crop(&mut self, pages: &[usize]) -> Result<bool> {
+        let look = RedactionLook {
+            fill: [1.0, 1.0, 1.0],
+            ..RedactionLook::default()
+        };
+        let mut marks: BTreeMap<usize, Vec<Mark>> = BTreeMap::new();
+        for &p in pages {
+            let size = self.page_size(p)?;
+            for r in beyond_crop(size.media_box, size.crop_box) {
+                marks.entry(p).or_default().push(Mark {
+                    pdf: Rect::new(r[0] as f64, r[1] as f64, r[2] as f64, r[3] as f64),
+                    shown: pdf_rect_to_display(&size, r),
+                    look: look.clone(),
+                });
+            }
+        }
+        if marks.is_empty() {
+            return Ok(false);
+        }
+        let opts = RedactionOptions {
+            sanitize: SanitizeOptions::none(),
+            beyond_crop: false,
+            ..RedactionOptions::default()
+        };
+        self.begin_edit();
+        if let Err(e) = self.apply_marks(marks, &opts) {
+            self.abandon_edit();
+            return Err(e);
+        }
+        Ok(true)
+    }
+
     /// The strips of the sheet of every marked page outside its crop box,
     /// added to its marks (with the look of its first mark).
     fn mark_beyond_crop(&self, marks: &mut BTreeMap<usize, Vec<Mark>>) {

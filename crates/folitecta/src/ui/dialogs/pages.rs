@@ -414,6 +414,21 @@ pub(crate) fn arrival_lines(lang: Lang, a: &folitecta_core::Arrival) -> Vec<Stri
             &[("count", &a.tags_left.to_string())],
         ));
     }
+    let renamed: Vec<(String, String)> = a.attachments.iter().filter(|(o, n)| o != n).cloned().collect();
+    if !renamed.is_empty() {
+        out.push(tf(
+            lang,
+            "dialog.merge.renamed_attachments",
+            &[("list", &renames(&renamed))],
+        ));
+    }
+    if a.attachments_left > 0 {
+        out.push(tf(
+            lang,
+            "dialog.merge.attachments_left",
+            &[("count", &a.attachments_left.to_string())],
+        ));
+    }
     let left = folitecta_core::LeftOut {
         resources: 0,
         ..a.left_out

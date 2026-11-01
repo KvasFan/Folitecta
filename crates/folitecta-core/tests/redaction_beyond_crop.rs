@@ -43,3 +43,29 @@ fn asked_to_stay_it_stays() {
     assert!(!text.contains("Visible"), "{text}");
     assert!(text.contains("HIDDENOUTSIDE"), "{text}");
 }
+
+#[test]
+fn removing_cropped_content_takes_it_out_of_the_file() {
+    let mut doc = cropped();
+    assert_eq!(doc.remove_cropped_content(&[0]).unwrap(), 1);
+    let text = doc.page_text(0);
+    assert!(text.contains("Visible"), "{text}");
+    assert!(!text.contains("HIDDENOUTSIDE"), "{text}");
+    let size = doc.page_size(0).unwrap();
+    assert_eq!(size.media_box, size.crop_box);
+    // Only the shrunk box would leave it in the content: it is gone from it.
+    let bytes = doc.bytes().to_vec();
+    let mut file = lopdf::Document::load_mem(&bytes).unwrap();
+    file.decompress();
+    let page = file.page_iter().next().unwrap();
+    let content = String::from_utf8_lossy(&file.get_page_content(page)).to_string();
+    assert!(content.contains("BT") || content.contains("Tj"), "{content}");
+    assert!(!content.contains("HIDDENOUTSIDE"), "{content}");
+    // One undo step brings all of it back.
+    doc.undo().unwrap();
+    assert!(doc.page_text(0).contains("HIDDENOUTSIDE"));
+    assert!(!doc.can_undo());
+    // Nothing to do on a page without a crop box.
+    let mut plain = Document::new_blank(1, 300.0, 300.0).unwrap();
+    assert_eq!(plain.remove_cropped_content(&[0]).unwrap(), 0);
+}

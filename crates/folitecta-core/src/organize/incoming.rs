@@ -30,6 +30,12 @@ pub struct Arrival {
     /// The elements of the source's tags not brought: this document has no
     /// tags.
     pub tags_left: usize,
+    /// The files attached to the source that came with it, under their name
+    /// here (old name, new name; a name already used gets a suffix).
+    pub attachments: Vec<(String, String)>,
+    /// The files attached to the source that stay there: they belong to the
+    /// whole document, and only some of its pages were taken.
+    pub attachments_left: usize,
 }
 
 impl Arrival {
@@ -39,6 +45,8 @@ impl Arrival {
             && self.renamed_destinations.is_empty()
             && self.left_out.is_empty()
             && self.tags_left == 0
+            && self.attachments.iter().all(|(old, new)| old == new)
+            && self.attachments_left == 0
     }
 }
 
@@ -99,6 +107,16 @@ impl Document {
         let mut src = other.derived()?;
         src.changing();
         let mut arrival = Arrival::default();
+        // Files attached to the document as a whole, not to a page.
+        let attached: Vec<_> = other
+            .attachments()
+            .into_iter()
+            .filter(|a| a.page.is_none())
+            .collect();
+        let whole = pages.is_none_or(|sel| sel.len() == other.page_count());
+        if !whole {
+            arrival.attachments_left = attached.len();
+        }
         if let Some(sel) = pages {
             let n = src.page_count();
             if let Some(&bad) = sel.iter().find(|&&p| p >= n) {
@@ -123,12 +141,44 @@ impl Document {
             src.write_page_tree(&order)?;
         }
         self.begin_edit();
-        if let Err(e) = self.take_pages(at, &mut src, title, &mut arrival) {
+        let mut taken = self.take_pages(at, &mut src, title, &mut arrival);
+        if taken.is_ok() && whole {
+            taken = self.take_attachments(other, attached, &mut arrival);
+        }
+        if let Err(e) = taken {
             self.abandon_edit();
             return Err(e);
         }
         self.commit()?;
         Ok(arrival)
+    }
+
+    /// Bring the files attached to `other` as a whole, a name already used
+    /// here with a suffix.
+    fn take_attachments(
+        &mut self,
+        other: &Document,
+        attached: Vec<crate::attachments::Attachment>,
+        arrival: &mut Arrival,
+    ) -> Result<()> {
+        let mut used: HashSet<String> = self
+            .embedded_pairs()
+            .iter()
+            .map(|(k, _)| String::from_utf8_lossy(k).to_string())
+            .collect();
+        for att in attached {
+            let name = if used.contains(&att.name) {
+                free_name(&att.name, &used)
+            } else {
+                att.name.clone()
+            };
+            used.insert(name.clone());
+            let data = other.attachment_data(&att)?;
+            let mime = (!att.mime.is_empty()).then_some(att.mime.as_str());
+            self.insert_attachment(name.as_bytes().to_vec(), &name, data, &att.description, mime)?;
+            arrival.attachments.push((att.name, name));
+        }
+        Ok(())
     }
 
     /// What [`insert_pages_from`](Self::insert_pages_from) would rename and

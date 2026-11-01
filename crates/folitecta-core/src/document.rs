@@ -1407,6 +1407,11 @@ impl Document {
         }
     }
 
+    /// The edit just begun and the one before it are undone together.
+    pub(crate) fn merge_undo_step(&mut self) {
+        self.undo.pop();
+    }
+
     /// An edit is under way: the objects differ from the bytes.
     pub(crate) fn editing(&self) -> bool {
         self.edit_backup.is_some()

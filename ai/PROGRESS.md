@@ -4,6 +4,28 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-01 — releases 0.10.0 and 0.11.0: check of the published packages
+
+- **What:** tags `v0.10.0` (`6aa16ad`) and `v0.11.0` (`6ba1412`): eight files each; CI of 0.11.0
+  green with the smaller test programs, which proves the cause of the failure of 0.10.0.
+- **Found right:** SHA-256 of the packages, data folders of Windows and Linux equal file by file;
+  self-test steps with the packaged Linux executable (0 problems on both).
+- **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
+
+## 2026-11-01 — FOL-L016, FOL-L010, FOL-L015: nothing left behind (0.12.0)
+
+- **Current state before:** Remove Cropped Content clipped the content and shrank the media box:
+  the text stayed in the file, under a name that promises the opposite. Templates could not leave
+  the machine. Files attached to an inserted document stayed behind.
+- **What:** `clear_beyond_crop` (redaction engine, white covers, signatures go) before the existing
+  steps of `remove_cropped_content`, `merge_undo_step` for one undo; `ConfirmAction::RemoveCropped`;
+  `import_mine_file`, `import_mine`, `export_mine`; `take_attachments`, `Arrival::attachments`,
+  `attachments_left`.
+- **Checked:** `redaction_beyond_crop.rs` reads the page content itself; `incoming_pages.rs`;
+  self-test step `left_behind`; 964 workspace tests passed, 0 failed; full self-test 322
+  interactions, 0 problems; clippy clean on Linux, Windows and macOS.
+- **Open:** search and categories of templates; article threads of an inserted file.
+
 ## 2026-11-01 — release 0.10.0: CI failed on the disk of its runner
 
 - **What:** tag `v0.10.0` (`6aa16ad`): the release workflow green with its eight files. CI failed on

@@ -1,7 +1,7 @@
 # Folitecta roadmap and progress
 
 State of every requirement of [REQUIREMENTS.md](REQUIREMENTS.md) on the `main` branch at
-Folitecta 0.11.0, reviewed on **1 November 2026** against the code (not only the command
+Folitecta 0.12.0, reviewed on **1 November 2026** against the code (not only the command
 registry). Update the row of a requirement whenever a sub-task changes it, and log the work in
 [PROGRESS.md](PROGRESS.md).
 
@@ -230,6 +230,17 @@ Hebrew is drawn and read right to left; values that cannot be drawn are kept (FO
    shows question marks, and the form asks other readers to draw its fields
    (`/NeedAppearances`).
 
+### 0.12.0 — nothing left behind (released 1 November 2026)
+
+What a command promises, it does whole (FOL-L016, FOL-L010, FOL-L015).
+
+1. ~~**FOL-L016 — Remove Cropped Content removes it.**~~ Done: the command only clipped, so the text
+   stayed in the file; it now takes it out as redaction does, asks first, and stays one undo step.
+2. ~~**FOL-L010 — templates exchanged.**~~ Done: import of a template or of any PDF file, export
+   of a template, from the gallery.
+3. ~~**FOL-L015 — attached files of an inserted document.**~~ Done: they come with all its pages,
+   renamed when their name is used; taking some pages leaves them, and the window says so.
+
 ### Later
 
 FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
@@ -256,7 +267,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L007 | P2 | ⬜ | — | File associations (`help.fileAssoc`), virtual printer, office add-ins. |
 | FOL-L008 | P2 | ⬜ | — | XPS/OXPS, metafiles, CAD: engine decision first. |
 | FOL-L009 | P1/P2 | 🟡 | export to pictures (PNG, JPEG, TIFF, …), text, embedded pictures, attachments, split and extracted documents; the text as editable Word (DOCX), rich text (RTF) and web page (HTML) documents, headings and paragraphs in reading order, page breaks on request, a report of what is left out | Pictures, tables with their columns and number types (XLSX), PPTX, page fidelity layouts, accessible text export. |
-| FOL-L010 | P1 | 🟡 | stamps have categories and favourites; a gallery of document templates (papers, week and month planners, a to-do list, a letter, meeting notes, an invoice that adds itself up) on any paper, in the language of the interface; the user's own templates (Save as Template…, My templates in the gallery with origin, date, version and the fonts they need; new documents from them, rename, remove) | Search and categories of the user's templates; import and export of templates. |
+| FOL-L010 | P1 | 🟡 | stamps have categories and favourites; a gallery of document templates (papers, week and month planners, a to-do list, a letter, meeting notes, an invoice that adds itself up) on any paper, in the language of the interface; the user's own templates (Save as Template…, My templates in the gallery with origin, date, version and the fonts they need; new documents from them, rename, remove) | Search and categories of the user's templates. |
 
 ### Scanning and OCR
 
@@ -271,8 +282,8 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L015 | P1 | 🟡 | insert, delete, extract, duplicate, move, swap, reverse, replace, insert pictures, split documents, split/merge pages, combine files (a bookmark per file), find duplicate pages, delete empty pages; bookmarks, named destinations, links, fields, tags and layers follow the pages in and out: same-named fields and destinations of an inserted file get a suffix and are listed before OK, what deleting pages takes is named before OK, duplicated pages keep their comments to themselves and share their fields | Attachments and article threads of an inserted file; page labels of inserted pages follow the ranges where they land. |
-| FOL-L016 | P1/P2 | 🟡 | rotate, crop, crop to white margins, resize, margins, normalize, overlay, rasterize pages | Box management (bleed/trim/art) in the interface; selective flattening; deleting content outside the crop box (today it is only clipped). |
+| FOL-L015 | P1 | 🟡 | insert, delete, extract, duplicate, move, swap, reverse, replace, insert pictures, split documents, split/merge pages, combine files (a bookmark per file), find duplicate pages, delete empty pages; bookmarks, named destinations, links, fields, tags and layers follow the pages in and out: same-named fields and destinations of an inserted file get a suffix and are listed before OK, what deleting pages takes is named before OK, duplicated pages keep their comments to themselves and share their fields | Article threads of an inserted file; page labels of inserted pages follow the ranges where they land. |
+| FOL-L016 | P1/P2 | 🟡 | rotate, crop, crop to white margins, resize, margins, normalize, overlay, rasterize pages | Box management (bleed/trim/art) in the interface; selective flattening. |
 | FOL-L017 | P1 | ✅ | watermarks, header and footer, Bates numbering (several files), background, page numbering, macros, Folitecta's marks tagged so they can be updated or removed | Logical page labels in every page selector. |
 
 ### Native editing

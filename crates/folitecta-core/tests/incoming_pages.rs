@@ -236,3 +236,43 @@ fn combined_files_get_a_bookmark_each_and_their_renames() {
     assert_eq!(doc.form_fields().len(), 7);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn attached_files_come_with_all_the_pages_of_a_document() {
+    let mut source = Document::new_blank(2, 300.0, 300.0).unwrap();
+    source
+        .add_attachment(
+            "data.txt",
+            b"from the source".to_vec(),
+            "Figures",
+            Some("text/plain"),
+        )
+        .unwrap();
+    let mut doc = Document::new_blank(1, 300.0, 300.0).unwrap();
+    doc.add_attachment("data.txt", b"already here".to_vec(), "", None)
+        .unwrap();
+
+    // Some of the pages: the file stays there, and says so.
+    let preview = doc.inserting_pages_brings(&source, Some(&[0])).unwrap();
+    assert_eq!(preview.attachments_left, 1);
+    assert!(preview.attachments.is_empty());
+    assert!(!preview.is_empty());
+    assert_eq!(doc.attachments().len(), 1);
+
+    // All of them: it comes, renamed, its data and description with it.
+    let arrival = doc.insert_pages_from(1, &source, None, None).unwrap();
+    assert_eq!(
+        arrival.attachments,
+        [("data.txt".to_string(), "data.txt_2".to_string())]
+    );
+    let list = doc.attachments();
+    assert_eq!(list.len(), 2);
+    let came = list.iter().find(|a| a.name == "data.txt_2").unwrap();
+    assert_eq!(came.description, "Figures");
+    assert_eq!(doc.attachment_data(came).unwrap(), b"from the source");
+    let here = list.iter().find(|a| a.name == "data.txt").unwrap();
+    assert_eq!(doc.attachment_data(here).unwrap(), b"already here");
+    // One undo step takes pages and file away together.
+    doc.undo().unwrap();
+    assert_eq!((doc.page_count(), doc.attachments().len()), (1, 1));
+}

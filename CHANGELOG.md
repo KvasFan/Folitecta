@@ -6,6 +6,17 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-01
+
+### Added
+- Templates are exchanged: the gallery imports a template or any PDF file, and exports a template.
+- Inserting all the pages of a file brings the files attached to it, renamed when their name is
+  already used; taking some pages leaves them, and the insert window says so.
+
+### Fixed
+- Remove Cropped Content only clipped the pages: what lay outside the crop box stayed in the saved
+  file. It now takes it out of the content, as redaction does, and asks first.
+
 ## [0.11.0] - 2026-11-01
 
 ### Added

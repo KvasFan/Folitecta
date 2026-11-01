@@ -27,6 +27,8 @@ pub enum ConfirmAction {
     RemoveScripts,
     /// Delete these pages.
     DeletePages(Vec<usize>),
+    /// Take away what lies outside the crop boxes of these pages.
+    RemoveCropped(Vec<usize>),
     /// Remove every digital signature.
     ClearSignatures,
     /// Tag the document again (its tags are replaced).

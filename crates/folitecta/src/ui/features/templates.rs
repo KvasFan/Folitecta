@@ -93,6 +93,10 @@ pub fn TemplateGallery() -> Element {
                 st.set_value("templates.sunday_first", if monday() { "0" } else { "1" });
                 templates::create(st, chosen(), create_opts.clone());
             },
+            div { class: "row tpl-import-row",
+                button { class: "tbtn tpl-import", onclick: move |_| templates::import_mine(st),
+                    "{t(lang, \"templates.import\")}" }
+            }
             div { class: "tpl-gallery",
                 if !mine.is_empty() {
                     div { class: "tpl-group tpl-mine",
@@ -223,7 +227,11 @@ fn MineDetails(template: templates::MyTemplate) -> Element {
     );
     let fonts = (!info.fonts.is_empty())
         .then(|| tf(lang, "templates.mine.fonts", &[("list", &info.fonts.join(", "))]));
-    let (p1, p2) = (template.path.clone(), template.path.clone());
+    let (p1, p2, p3) = (
+        template.path.clone(),
+        template.path.clone(),
+        template.path.clone(),
+    );
     rsx! {
         p { class: "hint tpl-hint tpl-mine-about", "{about}" }
         if let Some(f) = fonts { p { class: "hint tpl-mine-fonts", "{f}" } }
@@ -234,6 +242,8 @@ fn MineDetails(template: templates::MyTemplate) -> Element {
             }
         }
         div { class: "row",
+            button { class: "tbtn tpl-mine-export", onclick: move |_| templates::export_mine(st, p3.clone()),
+                "{t(lang, \"templates.mine.export\")}" }
             button { class: "tbtn danger tpl-mine-remove", onclick: move |_| templates::remove_mine(st, p2.clone()),
                 "{t(lang, \"templates.mine.remove\")}" }
         }

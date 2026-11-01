@@ -323,6 +323,10 @@ pub(super) fn Confirm(title: String, body: String, action: ConfirmAction) -> Ele
                         st.with_active(|t| { t.acc.tag = None; t.flash = None; });
                         apply(st, |tab| tab.doc.clear_structure());
                     }
+                    ConfirmAction::RemoveCropped(pages) => {
+                        st.set_dialog(Dialog::None);
+                        crate::commands::doctools::remove_cropped_now(st, &pages);
+                    }
                     ConfirmAction::DeletePages(pages) => {
                         st.with_active(|t| t.selected_pages.clear());
                         apply(st, move |tab| tab.doc.delete_pages(&pages));

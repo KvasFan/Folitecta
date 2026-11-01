@@ -266,9 +266,11 @@ impl Document {
         Ok(made)
     }
 
-    /// Make the crop box the page: the media box shrinks to it, the content
-    /// is clipped to it and comments wholly outside it are removed. Returns
-    /// the number of pages changed.
+    /// Make the crop box the page: what lies outside it is taken out of the
+    /// content (glyphs, pictures and paths, as redaction does, so digital
+    /// signatures go), the media box shrinks to it, the content is clipped
+    /// to it and comments wholly outside it are removed. One undo step.
+    /// Returns the number of pages changed.
     pub fn remove_cropped_content(&mut self, pages: &[usize]) -> Result<usize> {
         self.check(pages)?;
         let ids = self.page_ids();
@@ -282,7 +284,12 @@ impl Document {
         if todo.is_empty() {
             return Ok(0);
         }
+        let cleared = self.clear_beyond_crop(pages)?;
+        let ids = self.page_ids();
         self.begin_edit();
+        if cleared {
+            self.merge_undo_step();
+        }
         self.inherit_attributes(&ids);
         for (p, id, c) in &todo {
             let f = fmt_num;

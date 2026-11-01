@@ -265,6 +265,99 @@ pub fn rename_mine(st: AppState, path: PathBuf, name: String) {
     }
 }
 
+/// Take the PDF file `path` among the templates of the user: one saved as a
+/// template as it is, any other as a new template named after the file.
+pub fn import_mine_file(st: AppState, path: &Path) {
+    let lang = st.lang();
+    let Some(dir) = templates_dir() else { return };
+    let stem = path
+        .file_stem()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let made = std::fs::read(path)
+        .map_err(|e| format!("{}: {e}", path.display()))
+        .and_then(|bytes| {
+            let doc = Document::from_bytes(bytes.clone(), Some(path.to_path_buf()), None)
+                .map_err(|e| st.core_error_text(&e))?;
+            let name = doc.template_info().map(|i| i.name).unwrap_or(stem);
+            // A name already in the list gets the next number.
+            let free = (1..)
+                .map(|i| {
+                    if i == 1 {
+                        name.clone()
+                    } else {
+                        format!("{name} {i}")
+                    }
+                })
+                .find(|n| !name_used(n, None))
+                .unwrap_or_else(|| name.clone());
+            let bytes = match doc.template_info() {
+                Some(_) => folitecta_core::user_templates::renamed_template(bytes, &free),
+                None => doc.template_bytes(&free),
+            }
+            .map_err(|e| st.core_error_text(&e))?;
+            Ok::<_, String>((free, bytes))
+        });
+    let written = made.and_then(|(name, bytes)| {
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let target = file_for(&dir, &name);
+        folitecta_core::util::write_atomic(&target, bytes)
+            .map_err(|e| format!("{}: {e}", target.display()))?;
+        Ok(name)
+    });
+    match written {
+        Ok(name) => {
+            st.toast(
+                ToastKind::Ok,
+                tf(lang, "templates.imported", &[("name", &name)]),
+                "",
+            );
+            load_mine();
+        }
+        Err(e) => st.error(e),
+    }
+}
+
+/// Choose a PDF file to take among the templates of the user.
+pub fn import_mine(st: AppState) {
+    dioxus::core::spawn_forever(async move {
+        let Some(f) = rfd::AsyncFileDialog::new()
+            .add_filter("PDF", &["pdf"])
+            .pick_file()
+            .await
+        else {
+            return;
+        };
+        import_mine_file(st, f.path());
+    });
+}
+
+/// Choose where to save a copy of the template file `path`.
+pub fn export_mine(st: AppState, path: PathBuf) {
+    dioxus::core::spawn_forever(async move {
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let Some(f) = rfd::AsyncFileDialog::new()
+            .add_filter("PDF", &["pdf"])
+            .set_file_name(name)
+            .save_file()
+            .await
+        else {
+            return;
+        };
+        let target = f.path().to_path_buf();
+        let copied = std::fs::read(&path)
+            .map_err(|e| e.to_string())
+            .and_then(|b| folitecta_core::util::write_atomic(&target, b).map_err(|e| e.to_string()));
+        match copied {
+            Ok(()) => st.toast(ToastKind::Ok, t(st.lang(), "templates.exported"), ""),
+            Err(e) => st.error(e),
+        }
+    });
+}
+
 /// Move a template of the user to the bin.
 pub fn remove_mine(st: AppState, path: PathBuf) {
     match crate::util::move_to_trash(&path) {

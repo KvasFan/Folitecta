@@ -356,7 +356,7 @@
   "toast.save_before_window": "Salva prima il documento: la nuova finestra apre il suo file",
   "toast.save_first": "Salva prima il documento come file",
   "toast.saved": "Salvato {name}",
-  "toast.scans_done": "Pagine scansionate pulite — raddrizzate: {straightened}, eliminate: {deleted}.",
+  "toast.scans_done": "Pagine scansionate pulite — raddrizzate: {straightened}, eliminate: {deleted}, sbiancate: {whitened}.",
   "toast.scripts_removed": "{count} script rimossi",
   "toast.scripts_removed_one": "{count} script rimosso",
   "toast.search_first": "Esegui prima una ricerca",

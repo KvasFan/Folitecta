@@ -11,6 +11,18 @@ checked, what is still open. The history before October 2026 is in
   packaged Linux executable: 0 problems.
 - **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
 
+## 2026-11-02 — FOL-L012, FOL-L014: cleaner scans (0.20.0)
+
+- **Current state before:** the dark edges of a scan were only left out of the count of ink; the
+  certainty of a doubtful word was a constant.
+- **What:** `dark_borders`, `whiten`, `ScanFix::Whiten`, `ScanThresholds::min_border`,
+  `ScanLook::borders`, `clean_up_scans` returns three counts; a page can have two fixes, so the rows
+  of the window have keys of their own. `OcrOptions::doubt_below`, `PageOcr::doubt_below`.
+- **Checked:** `scans.rs`, `ocr.rs`, unit tests of the borders; self-test step `scans`; the local copy
+  of CI: 983 tests, full self-test with 337 interactions, 0 problems.
+- **Open:** borders are found on the sheet as scanned, so a page fed very askew has none that run
+  straight; the threshold applies to what is read next, not to text already in the file.
+
 ## 2026-11-02 — release 0.19.0: check of the published packages
 
 - **What:** tag `v0.19.0` (`70c6422`): CI (30 min) and release (36 min) workflows green, eight files.

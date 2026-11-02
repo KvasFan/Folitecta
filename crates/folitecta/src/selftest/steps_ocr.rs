@@ -135,6 +135,7 @@ fn doubtful_document() -> Option<folitecta_core::Document> {
         page: 0,
         scale,
         lines: vec![line],
+        doubt_below: folitecta_core::DOUBTFUL_BELOW,
     }])
     .ok()?;
     doc.clear_history();

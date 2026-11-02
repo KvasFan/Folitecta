@@ -1,7 +1,7 @@
 //! Clean-up of scanned pages (FOL-L012): pages that are a picture of paper
-//! are looked at for what a scanner leaves behind — blank sides and sheets
-//! fed askew — and cleaned in one step, the askew pictures straightened and
-//! the blank pages taken out.
+//! are looked at for what a scanner leaves behind — blank sides, sheets fed
+//! askew and the dark edges of its lid — and cleaned in one step: the borders
+//! whitened, the askew pictures straightened and the blank pages taken out.
 
 use image::{RgbaImage, imageops};
 
@@ -20,6 +20,13 @@ const EDGE: f32 = 0.04;
 /// and the grey of recycled paper are lighter.
 const INK: u8 = 128;
 
+/// A row or column at the edge is part of a dark border when at least this
+/// share of it is dark: a line of text across the page is not.
+const BORDER_DARK: f32 = 0.8;
+
+/// A border reaches at most this far in: past it, the page is a dark picture.
+const BORDER_MOST: f32 = 0.15;
+
 /// What a scanned page looks like.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScanLook {
@@ -31,6 +38,9 @@ pub struct ScanLook {
     /// Degrees the lines of the page are turned counterclockwise (0 when
     /// none stand out).
     pub skew: f32,
+    /// How far dark borders reach in from the left, top, right and bottom,
+    /// as shares of the width and height of the picture.
+    pub borders: [f32; 4],
 }
 
 /// When a scanned page counts as blank and when as askew.
@@ -40,6 +50,8 @@ pub struct ScanThresholds {
     pub blank_ink: f32,
     /// Askew from this many degrees.
     pub min_skew: f32,
+    /// Dark borders count from this share of the side.
+    pub min_border: f32,
 }
 
 impl Default for ScanThresholds {
@@ -47,6 +59,7 @@ impl Default for ScanThresholds {
         ScanThresholds {
             blank_ink: 0.002,
             min_skew: 0.3,
+            min_border: 0.003,
         }
     }
 }
@@ -60,6 +73,12 @@ impl ScanLook {
     pub fn askew(&self, t: &ScanThresholds) -> bool {
         !self.blank(t) && self.skew.abs() >= t.min_skew
     }
+
+    /// The borders that count, and not on a blank page.
+    pub fn dark_borders(&self, t: &ScanThresholds) -> Option<[f32; 4]> {
+        (!self.blank(t) && self.borders.iter().any(|b| *b >= t.min_border))
+            .then(|| self.borders.map(|b| if b >= t.min_border { b } else { 0.0 }))
+    }
 }
 
 /// One change of a clean-up.
@@ -69,6 +88,75 @@ pub enum ScanFix {
     Straighten { page: usize, picture: usize, angle: f32 },
     /// Take the page out.
     Delete { page: usize },
+    /// Whiten the dark borders of the picture (see [`ScanLook::borders`]).
+    Whiten {
+        page: usize,
+        picture: usize,
+        borders: [f32; 4],
+    },
+}
+
+impl ScanFix {
+    pub fn page(&self) -> usize {
+        match *self {
+            ScanFix::Straighten { page, .. } | ScanFix::Delete { page } | ScanFix::Whiten { page, .. } => {
+                page
+            }
+        }
+    }
+}
+
+/// How far dark borders reach in from each side of `px` (left, top, right,
+/// bottom), as shares of its width and height.
+pub fn dark_borders(px: &RgbaImage) -> [f32; 4] {
+    let (w, h) = px.dimensions();
+    if w == 0 || h == 0 {
+        return [0.0; 4];
+    }
+    let dark = |x: u32, y: u32| {
+        let p = px.get_pixel(x, y);
+        p[3] > 127
+            && (u32::from(p[0]) * 299 + u32::from(p[1]) * 587 + u32::from(p[2]) * 114) / 1000 < u32::from(INK)
+    };
+    // Every eighth pixel of a line tells whether it is dark.
+    let column = |x: u32| (0..h).step_by(8).filter(|y| dark(x, *y)).count() as f32 / h.div_ceil(8) as f32;
+    let row = |y: u32| (0..w).step_by(8).filter(|x| dark(*x, y)).count() as f32 / w.div_ceil(8) as f32;
+    let reach = |side: u32, share: &dyn Fn(u32) -> f32| {
+        let most = (side as f32 * BORDER_MOST).ceil() as u32;
+        let n = (0..most).take_while(|i| share(*i) >= BORDER_DARK).count() as u32;
+        if n >= most { 0.0 } else { n as f32 / side as f32 }
+    };
+    [
+        reach(w, &column),
+        reach(h, &row),
+        reach(w, &|i| column(w - 1 - i)),
+        reach(h, &|i| row(h - 1 - i)),
+    ]
+}
+
+/// Paint the borders of `px` the colour of its paper.
+fn whiten(px: &mut RgbaImage, borders: [f32; 4]) {
+    let (w, h) = px.dimensions();
+    let inner = |share: f32, side: u32| ((share * side as f32).ceil() as u32 + 2).min(side);
+    let (l, t, r, b) = (
+        if borders[0] > 0.0 { inner(borders[0], w) } else { 0 },
+        if borders[1] > 0.0 { inner(borders[1], h) } else { 0 },
+        if borders[2] > 0.0 { inner(borders[2], w) } else { 0 },
+        if borders[3] > 0.0 { inner(borders[3], h) } else { 0 },
+    );
+    let paper = *px.get_pixel(w / 2, (h / 2).min(h.saturating_sub(1)));
+    let paper = if paper[0] > 200 && paper[1] > 200 && paper[2] > 200 {
+        paper
+    } else {
+        image::Rgba([255, 255, 255, 255])
+    };
+    for y in 0..h {
+        for x in 0..w {
+            if x < l || y < t || x >= w - r || y >= h - b {
+                px.put_pixel(x, y, paper);
+            }
+        }
+    }
 }
 
 /// Share of `px` that is ink, away from the edges, measured on a copy at most
@@ -115,22 +203,28 @@ pub fn ink_share(px: &RgbaImage) -> f32 {
 
 /// The changes `thresholds` call for on the pages looked at.
 pub fn scan_fixes(looks: &[ScanLook], thresholds: &ScanThresholds) -> Vec<ScanFix> {
-    looks
-        .iter()
-        .filter_map(|l| {
-            if l.blank(thresholds) {
-                Some(ScanFix::Delete { page: l.page })
-            } else if l.askew(thresholds) {
-                Some(ScanFix::Straighten {
-                    page: l.page,
-                    picture: l.picture,
-                    angle: l.skew,
-                })
-            } else {
-                None
-            }
-        })
-        .collect()
+    let mut fixes = Vec::new();
+    for l in looks {
+        if l.blank(thresholds) {
+            fixes.push(ScanFix::Delete { page: l.page });
+            continue;
+        }
+        if let Some(borders) = l.dark_borders(thresholds) {
+            fixes.push(ScanFix::Whiten {
+                page: l.page,
+                picture: l.picture,
+                borders,
+            });
+        }
+        if l.askew(thresholds) {
+            fixes.push(ScanFix::Straighten {
+                page: l.page,
+                picture: l.picture,
+                angle: l.skew,
+            });
+        }
+    }
+    fixes
 }
 
 impl Document {
@@ -163,19 +257,19 @@ impl Document {
             picture,
             ink: ink_share(&px),
             skew: skew_angle(&px),
+            borders: dark_borders(&px),
         }))
     }
 
-    /// Make `fixes` in one undo step: the pictures straightened (the corners
-    /// they uncover white), then the pages deleted. Returns how many pages
-    /// were straightened and how many deleted. Every page cannot be deleted.
-    pub fn clean_up_scans(&mut self, fixes: &[ScanFix]) -> Result<(usize, usize)> {
+    /// Make `fixes` in one undo step, in their order: borders whitened,
+    /// pictures straightened (the corners they uncover white), then the pages
+    /// deleted. Returns how many pages were straightened, deleted and
+    /// whitened. Every page cannot be deleted.
+    pub fn clean_up_scans(&mut self, fixes: &[ScanFix]) -> Result<(usize, usize, usize)> {
         let n = self.page_count();
         let mut delete: Vec<usize> = Vec::new();
         for f in fixes {
-            let page = match *f {
-                ScanFix::Straighten { page, .. } | ScanFix::Delete { page } => page,
-            };
+            let page = f.page();
             if page >= n {
                 return Err(Error::InvalidPage(page));
             }
@@ -189,12 +283,14 @@ impl Document {
             return Err(Error::LastPage);
         }
         self.edit_step(|doc| {
-            let mut straightened = 0;
+            let (mut straightened, mut whitened) = (0, 0);
             for f in fixes {
-                let ScanFix::Straighten { page, picture, angle } = *f else {
-                    continue;
+                let (page, picture) = match *f {
+                    ScanFix::Straighten { page, picture, angle } if angle != 0.0 => (page, picture),
+                    ScanFix::Whiten { page, picture, .. } => (page, picture),
+                    _ => continue,
                 };
-                if delete.contains(&page) || angle == 0.0 {
+                if delete.contains(&page) {
                     continue;
                 }
                 let images = doc.page_images(page)?;
@@ -203,9 +299,18 @@ impl Document {
                     .ok_or_else(|| Error::Invalid("the picture is not on the page".into()))?;
                 let (matrix, colors) = (im.matrix, im.colors);
                 let mut work = Work::new(doc.image_pixels(page, picture)?, matrix, colors);
-                work.apply(Edit::Turn(-angle));
+                match *f {
+                    ScanFix::Straighten { angle, .. } => {
+                        work.apply(Edit::Turn(-angle));
+                        straightened += 1;
+                    }
+                    ScanFix::Whiten { borders, .. } => {
+                        whiten(&mut work.pixels, borders);
+                        whitened += 1;
+                    }
+                    ScanFix::Delete { .. } => {}
+                }
                 doc.put_page_image(page, picture, &work.pixels, work.placement, work.colors)?;
-                straightened += 1;
             }
             if !delete.is_empty() {
                 let keep = doc
@@ -217,7 +322,7 @@ impl Document {
                     .collect();
                 doc.set_page_order(keep)?;
             }
-            Ok((straightened, delete.len()))
+            Ok((straightened, delete.len(), whitened))
         })
     }
 }
@@ -261,6 +366,43 @@ mod tests {
     }
 
     #[test]
+    fn dark_borders_are_told_from_lines_of_text() {
+        let mut px = sheet(800, 1000);
+        assert_eq!(dark_borders(&px), [0.0; 4]);
+        for y in 0..1000 {
+            for x in 0..24 {
+                px.put_pixel(x, y, Rgba([15, 15, 15, 255]));
+            }
+        }
+        for y in 960..1000 {
+            for x in 0..800 {
+                px.put_pixel(x, y, Rgba([25, 25, 25, 255]));
+            }
+        }
+        // A line of text that does not reach the whole width, near the top.
+        for y in 2..14 {
+            for x in 60..700 {
+                if x % 11 < 6 {
+                    px.put_pixel(x, y, Rgba([0, 0, 0, 255]));
+                }
+            }
+        }
+        let b = dark_borders(&px);
+        assert!((b[0] - 0.03).abs() < 0.002, "{b:?}");
+        assert_eq!(b[1], 0.0, "{b:?}");
+        assert_eq!(b[2], 0.0, "{b:?}");
+        assert!((b[3] - 0.04).abs() < 0.002, "{b:?}");
+        whiten(&mut px, b);
+        assert_eq!(dark_borders(&px), [0.0; 4]);
+        assert_eq!(px.get_pixel(5, 500), &Rgba([250, 250, 248, 255]));
+        assert_eq!(px.get_pixel(100, 5), &Rgba([0, 0, 0, 255]), "the text stays");
+
+        // A page that is dark all over has no border.
+        let night = RgbaImage::from_pixel(400, 400, Rgba([10, 10, 10, 255]));
+        assert_eq!(dark_borders(&night), [0.0; 4]);
+    }
+
+    #[test]
     fn blank_pages_are_deleted_and_askew_ones_straightened() {
         let t = ScanThresholds::default();
         let looks = [
@@ -269,18 +411,21 @@ mod tests {
                 picture: 0,
                 ink: 0.06,
                 skew: 0.1,
+                borders: [0.0; 4],
             },
             ScanLook {
                 page: 1,
                 picture: 0,
                 ink: 0.0004,
                 skew: 2.0,
+                borders: [0.03, 0.0, 0.0, 0.0],
             },
             ScanLook {
                 page: 2,
                 picture: 1,
                 ink: 0.04,
                 skew: -1.5,
+                borders: [0.0; 4],
             },
         ];
         assert_eq!(
@@ -297,6 +442,7 @@ mod tests {
         let strict = ScanThresholds {
             blank_ink: 0.0001,
             min_skew: 3.0,
+            min_border: 0.5,
         };
         assert!(scan_fixes(&looks, &strict).is_empty());
     }

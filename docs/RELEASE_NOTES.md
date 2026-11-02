@@ -1,25 +1,24 @@
-## Folitecta 0.19.0 — boxes and reading
+## Folitecta 0.20.0 — cleaner scans
 
-A free PDF editor written entirely in Rust with a Dioxus desktop interface. This release prepares
-pages for the printer and reads from where one looks.
+A free PDF editor written entirely in Rust with a Dioxus desktop interface. This release cleans up
+more of what a scanner leaves behind.
 
-- **Page boxes**: Page Boxes… lists the sheet, visible page, bleed, trim and art boxes of a page, and
-  sets or removes the last three on a range of pages. Show All Boxes draws them on the pages. What a
-  page shows does not change.
-- **Reading from a paragraph**: a double click on a paragraph of the reflow view reads aloud from
-  there, also while reading.
-- **Crop**: a crop that would leave nothing no longer leaves an edit open.
+- **Dark borders**: Clean Up Scans finds the dark edges of scanned pages, told from lines of text and
+  from pages dark all over, and paints them the colour of the paper. A page can be whitened and
+  straightened in the same step.
+- **Doubtful words**: the certainty below which a recognized word is kept for review is chosen in the
+  recognition window.
 
-Everything 0.18.0 brought — values from a file checked by their fields, values too long said — and the
-earlier releases is described in their notes and in [CHANGELOG.md][changelog].
+Everything 0.19.0 brought — bleed, trim and art boxes, reading from a paragraph — and the earlier
+releases is described in their notes and in [CHANGELOG.md][changelog].
 
 **Binaries**
 
 | Platform | File |
 |---|---|
-| Windows x64 | `folitecta-0.19.0-windows-x64.zip` |
-| Linux x64 | `folitecta-0.19.0-linux-x64.tar.gz` |
-| macOS (Apple silicon and Intel) | `folitecta-0.19.0-macos-universal.zip` (app bundle) or `folitecta-0.19.0-macos-universal.tar.gz` (binary) |
+| Windows x64 | `folitecta-0.20.0-windows-x64.zip` |
+| Linux x64 | `folitecta-0.20.0-linux-x64.tar.gz` |
+| macOS (Apple silicon and Intel) | `folitecta-0.20.0-macos-universal.zip` (app bundle) or `folitecta-0.20.0-macos-universal.tar.gz` (binary) |
 
 Each package carries the `dictionaries`, `ocr` and `fonts` folders next to the program (in the
 app bundle's resources on macOS): keep them with it. SHA-256 checksums are attached.
@@ -36,7 +35,7 @@ app bundle's resources on macOS): keep them with it. SHA-256 checksums are attac
 The status of every command is in [docs/FEATURES.md][features]; known limitations are in
 [docs/ARCHITECTURE.md][limits] and [ai/ROADMAP.md][roadmap].
 
-[changelog]: https://github.com/KvasFan/Folitecta/blob/main/CHANGELOG.md#0190---2026-11-02
-[features]: https://github.com/KvasFan/Folitecta/blob/v0.19.0/docs/FEATURES.md
+[changelog]: https://github.com/KvasFan/Folitecta/blob/main/CHANGELOG.md#0200---2026-11-02
+[features]: https://github.com/KvasFan/Folitecta/blob/v0.20.0/docs/FEATURES.md
 [limits]: https://github.com/KvasFan/Folitecta/blob/main/docs/ARCHITECTURE.md#known-limitations
 [roadmap]: https://github.com/KvasFan/Folitecta/blob/main/ai/ROADMAP.md

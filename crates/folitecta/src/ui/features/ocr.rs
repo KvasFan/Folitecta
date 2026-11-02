@@ -31,6 +31,7 @@ pub fn OcrDialog(pictures_only: bool) -> Element {
     let mut quality = use_signal(|| Quality::from_id(&st.value("ocr.quality")));
     let mut skip = use_signal(|| st.value("ocr.skipText") != "0");
     let mut review = use_signal(|| st.value("ocr.review") != "0");
+    let mut doubt = use_signal(|| format!("{:.0}", ocr::doubt_below(st) * 100.0));
     let has_models = use_hook(|| ocr::models().is_some());
     let job = JOB.read().clone();
     let pages = move || -> Result<Vec<usize>, String> {
@@ -50,6 +51,7 @@ pub fn OcrDialog(pictures_only: bool) -> Element {
                 st.set_value("ocr.quality", quality().id());
                 st.set_value("ocr.skipText", if skip() { "1" } else { "0" });
                 st.set_value("ocr.review", if review() { "1" } else { "0" });
+                st.set_value("ocr.doubt", doubt());
                 ocr::run(st, list, quality(), skip(), pictures_only);
             }
             Err(e) => st.error(e),
@@ -106,6 +108,11 @@ pub fn OcrDialog(pictures_only: bool) -> Element {
             label { class: "check",
                 input { r#type: "checkbox", class: "ocr-review-after", checked: review(), onchange: move |_| review.toggle() }
                 span { "{t(lang, \"ocr.review_after\")}" }
+            }
+            div { class: "field",
+                label { "{t(lang, \"ocr.doubt_below\")}" }
+                input { r#type: "number", class: "ocr-doubt", min: "0", max: "100", step: "5", value: "{doubt}",
+                    oninput: move |e| doubt.set(e.value()) }
             }
             if job.running {
                 div { class: "ocr-progress",

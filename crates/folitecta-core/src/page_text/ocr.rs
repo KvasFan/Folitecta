@@ -108,6 +108,8 @@ pub struct PageOcr {
     /// Pixels per point of the picture the text was read in (the page as shown).
     pub scale: f32,
     pub lines: Vec<OcrLine>,
+    /// Words read less surely than this are kept for review (0 to 1).
+    pub doubt_below: f32,
 }
 
 /// How hard to look: the resolution pages are drawn at and the size the
@@ -118,6 +120,8 @@ pub struct OcrOptions {
     pub dpi: f32,
     /// Longest side of the picture the lines are searched in (pixels).
     pub search_side: usize,
+    /// Words read less surely than this are kept for review (0 to 1).
+    pub doubt_below: f32,
 }
 
 impl Default for OcrOptions {
@@ -125,6 +129,7 @@ impl Default for OcrOptions {
         OcrOptions {
             dpi: 200.0,
             search_side: 1280,
+            doubt_below: DOUBTFUL_BELOW,
         }
     }
 }
@@ -628,7 +633,12 @@ impl OcrEngine {
                 lines
             }
         };
-        Ok(PageOcr { page, scale, lines })
+        Ok(PageOcr {
+            page,
+            scale,
+            lines,
+            doubt_below: opts.doubt_below,
+        })
     }
 }
 
@@ -816,7 +826,8 @@ fn doubts(data: &[u8]) -> Vec<Doubt> {
 
 /// Content stream operations that write `words` invisibly (text render
 /// mode 3) over a page, each word stretched to the place it was read at.
-fn ocr_content(size: &PageSize, scale: f32, lines: &[OcrLine], font: &str) -> Vec<u8> {
+fn ocr_content(size: &PageSize, read: &PageOcr, font: &str) -> Vec<u8> {
+    let (scale, lines) = (read.scale, &read.lines);
     let to_pdf = |p: [f32; 2]| display_to_pdf(size, p[0] / scale, size.height - p[1] / scale);
     let f = fmt_num;
     let mut out = String::from("BT\n3 Tr\n");
@@ -848,7 +859,7 @@ fn ocr_content(size: &PageSize, scale: f32, lines: &[OcrLine], font: &str) -> Ve
             let size_pt = (height * 0.72).max(1.0);
             let lift = height * 0.22;
             let (ox, oy) = (ll.0 - uy * lift, ll.1 + ux * lift);
-            let doubtful = w.confidence < DOUBTFUL_BELOW;
+            let doubtful = w.confidence < read.doubt_below;
             if doubtful {
                 out.push_str(&format!(
                     "/{DOUBT_TAG} <</Confidence {}>> BDC ",
@@ -909,7 +920,7 @@ impl Document {
             let page_id = ids[r.page];
             let size = self.page_size_of(page_id);
             self.add_page_resource(page_id, "Font", "FoliOcr", lopdf::Object::Reference(font))?;
-            let content = ocr_content(&size, r.scale, &r.lines, "FoliOcr");
+            let content = ocr_content(&size, r, "FoliOcr");
             let mut wrapped = b"q\n".to_vec();
             wrapped.extend(content);
             wrapped.extend_from_slice(b"Q\n");

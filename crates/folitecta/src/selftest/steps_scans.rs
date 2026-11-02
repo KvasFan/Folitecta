@@ -63,6 +63,11 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         }
     }
     pause(400).await;
+    let whiten_offered = eval("return document.querySelectorAll('.dialog .scans-whiten:checked').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
     let looked = SCAN.peek().looks.len();
     let listed = rows().await;
     let thumbs = eval("return [...document.querySelectorAll('.dialog .scans-thumb')].every(i => i.complete && i.naturalWidth > 0);")
@@ -94,6 +99,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     cx.record(
         "clean up scans: a blank and an askew sheet found with their pictures, a stricter angle leaves one out, cleaned in one undo step",
         looked == 3
+            && whiten_offered == 1
             && listed == 2
             && thumbs
             && can_apply

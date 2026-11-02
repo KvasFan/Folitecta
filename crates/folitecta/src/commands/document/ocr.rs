@@ -51,14 +51,25 @@ impl Quality {
             Quality::Fast => OcrOptions {
                 dpi: 150.0,
                 search_side: 960,
+                ..OcrOptions::default()
             },
             Quality::Normal => OcrOptions::default(),
             Quality::Accurate => OcrOptions {
                 dpi: 300.0,
                 search_side: 1792,
+                ..OcrOptions::default()
             },
         }
     }
+}
+
+/// How sure a word must be read not to be kept for review, as chosen.
+pub fn doubt_below(st: AppState) -> f32 {
+    st.value("ocr.doubt")
+        .trim()
+        .parse::<f32>()
+        .map(|p| (p / 100.0).clamp(0.0, 1.0))
+        .unwrap_or(folitecta_core::DOUBTFUL_BELOW)
 }
 
 /// A reading under way.
@@ -171,7 +182,10 @@ pub fn run(st: AppState, pages: Vec<usize>, quality: Quality, skip_text: bool, p
         done: 0,
         total: todo.len(),
     };
-    let opts = quality.options();
+    let opts = OcrOptions {
+        doubt_below: doubt_below(st),
+        ..quality.options()
+    };
     dioxus::core::spawn_forever(async move {
         let mut results: Vec<PageOcr> = Vec::new();
         let mut failure = None;

@@ -30,6 +30,31 @@ fn scans() -> Document {
 }
 
 #[test]
+fn dark_borders_are_found_and_whitened() {
+    let mut doc = scans();
+    let mut px = doc.image_pixels(0, 0).unwrap();
+    let (w, h) = px.dimensions();
+    let wide = w / 30;
+    for y in 0..h {
+        for x in 0..wide {
+            px.put_pixel(x, y, Rgba([12, 12, 12, 255]));
+        }
+    }
+    let colors = doc.page_images(0).unwrap()[0].colors;
+    doc.replace_page_image(0, 0, &px, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0], colors)
+        .unwrap();
+    let look = doc.look_at_scan(0).unwrap().unwrap();
+    assert!((look.borders[0] - 1.0 / 30.0).abs() < 0.01, "{look:?}");
+    let fixes = scan_fixes(&[look], &ScanThresholds::default());
+    assert!(
+        matches!(fixes[..], [ScanFix::Whiten { page: 0, .. }]),
+        "{fixes:?}"
+    );
+    assert_eq!(doc.clean_up_scans(&fixes).unwrap(), (0, 0, 1));
+    assert_eq!(doc.look_at_scan(0).unwrap().unwrap().borders, [0.0; 4]);
+}
+
+#[test]
 fn blank_and_askew_scans_are_found() {
     let doc = scans();
     let looks: Vec<_> = (0..4).map(|p| doc.look_at_scan(p).unwrap()).collect();
@@ -60,7 +85,7 @@ fn a_clean_up_straightens_and_deletes_in_one_step() {
     let mut doc = scans();
     let looks: Vec<_> = (0..4).filter_map(|p| doc.look_at_scan(p).unwrap()).collect();
     let fixes = scan_fixes(&looks, &ScanThresholds::default());
-    assert_eq!(doc.clean_up_scans(&fixes).unwrap(), (1, 1));
+    assert_eq!(doc.clean_up_scans(&fixes).unwrap(), (1, 1, 0));
     assert_eq!(doc.page_count(), 3);
     // The askew letter, now page 2, is straight; the page that is not a scan stays.
     let straight = doc.image_pixels(1, 0).unwrap();

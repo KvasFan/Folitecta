@@ -49,6 +49,7 @@ pub fn CleanUpScansDialog() -> Element {
     });
     let mut delete = use_signal(|| st.value("scans.delete") != "0");
     let mut straighten = use_signal(|| st.value("scans.straighten") != "0");
+    let mut whiten = use_signal(|| st.value("scans.whiten") != "0");
     let mut left_out = use_signal(HashSet::<usize>::new);
 
     let run = SCAN.read().clone();
@@ -56,25 +57,24 @@ pub fn CleanUpScansDialog() -> Element {
     let thresholds = ScanThresholds {
         blank_ink: number(&blank(), defaults.blank_ink * 100.0) / 100.0,
         min_skew: number(&skew(), defaults.min_skew),
+        ..defaults
     };
     let found = scan_fixes(&run.looks, &thresholds);
     let wanted = |f: &ScanFix| match f {
         ScanFix::Delete { .. } => delete(),
         ScanFix::Straighten { .. } => straighten(),
+        ScanFix::Whiten { .. } => whiten(),
     };
     let fixes: Vec<ScanFix> = found
         .iter()
         .filter(|f| wanted(f))
-        .filter(|f| {
-            let (ScanFix::Delete { page } | ScanFix::Straighten { page, .. }) = **f;
-            !left_out.read().contains(&page)
-        })
+        .filter(|f| !left_out.read().contains(&f.page()))
         .copied()
         .collect();
-    let (blank_count, askew_count) = found.iter().fold((0, 0), |(b, a), f| match f {
-        ScanFix::Delete { .. } => (b + 1, a),
-        ScanFix::Straighten { .. } => (b, a + 1),
-    });
+    let count = |kind: fn(&ScanFix) -> bool| found.iter().filter(|f| kind(f)).count();
+    let blank_count = count(|f| matches!(f, ScanFix::Delete { .. }));
+    let askew_count = count(|f| matches!(f, ScanFix::Straighten { .. }));
+    let border_count = count(|f| matches!(f, ScanFix::Whiten { .. }));
     let (tab, shown) = st
         .read_active(|t| (t.id, t.page_shown.clone()))
         .unwrap_or_default();
@@ -95,6 +95,7 @@ pub fn CleanUpScansDialog() -> Element {
             ("pages", &run.total.to_string()),
             ("blank", &blank_count.to_string()),
             ("askew", &askew_count.to_string()),
+            ("borders", &border_count.to_string()),
         ],
     );
     let apply_fixes = fixes.clone();
@@ -106,6 +107,7 @@ pub fn CleanUpScansDialog() -> Element {
                 st.set_value("scans.skew", skew());
                 st.set_value("scans.delete", if delete() { "1" } else { "0" });
                 st.set_value("scans.straighten", if straighten() { "1" } else { "0" });
+                st.set_value("scans.whiten", if whiten() { "1" } else { "0" });
                 scans::apply(st, apply_fixes.clone());
             },
             p { class: "hint", "{t(lang, \"scans.hint\")}" }
@@ -128,6 +130,10 @@ pub fn CleanUpScansDialog() -> Element {
                     input { class: "scans-skew", r#type: "number", min: "0", max: "15", step: "0.1", value: "{skew}",
                         oninput: move |e| skew.set(e.value()) }
                 }
+            }
+            label { class: "check",
+                input { r#type: "checkbox", class: "scans-whiten", checked: whiten(), onchange: move |_| whiten.toggle() }
+                span { "{t(lang, \"scans.whiten\")}" }
             }
             if run.running {
                 div { class: "ocr-progress",
@@ -162,13 +168,15 @@ pub fn CleanUpScansDialog() -> Element {
                             ScanFix::Straighten { page, angle, .. } => {
                                 (page, tf(lang, "scans.askew_row", &[("angle", &format!("{:.1}", angle))]), straighten())
                             }
+                            ScanFix::Whiten { page, .. } => (page, t(lang, "scans.border_row"), whiten()),
                         };
+                        let row_key = format!("{page}-{}", matches!(f, ScanFix::Whiten { .. }));
                         let on = kind_on && !left_out.read().contains(&page);
                         let rev = shown.get(page).copied().unwrap_or_default();
                         let src = format!("/page/{tab}/{page}/{rev}/200.png?lane=thumb");
                         let label = tf(lang, "scans.page", &[("page", &(page + 1).to_string())]);
                         rsx! {
-                            div { key: "{page}", class: if on { "scans-row" } else { "scans-row off" },
+                            div { key: "{row_key}", class: if on { "scans-row" } else { "scans-row off" },
                                 input { r#type: "checkbox", checked: on, disabled: !kind_on,
                                     onchange: move |_| {
                                         let mut l = left_out.write();

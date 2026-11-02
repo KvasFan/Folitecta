@@ -139,6 +139,7 @@ fn doubtful_page_turned(degrees: i32) -> Document {
         page: 0,
         scale: 2.0,
         lines: vec![line],
+        doubt_below: DOUBTFUL_BELOW,
     };
     doc.add_ocr_text(&[read]).unwrap();
     doc
@@ -249,4 +250,34 @@ fn words_read_wrong_in_a_poor_scan_are_doubtful() {
     // Written with doubt, they are listed to be checked.
     scan.add_ocr_text(std::slice::from_ref(&read)).unwrap();
     assert_eq!(texts(&scan), doubtful);
+}
+
+#[test]
+fn the_certainty_asked_for_decides_what_is_doubtful() {
+    let word = |text: &str, confidence: f32| OcrWord {
+        text: text.into(),
+        quad: [[100.0, 100.0], [160.0, 100.0], [160.0, 124.0], [100.0, 124.0]],
+        confidence,
+    };
+    let words = vec![word("sure", 0.97), word("fairly", 0.85), word("unsure", 0.4)];
+    let read = |doubt_below: f32| PageOcr {
+        page: 0,
+        scale: 2.0,
+        lines: vec![OcrLine {
+            text: "sure fairly unsure".into(),
+            quad: [[100.0, 100.0], [400.0, 100.0], [400.0, 124.0], [100.0, 124.0]],
+            words: words.clone(),
+            confidence: 0.7,
+        }],
+        doubt_below,
+    };
+    for (doubt_below, expected) in [
+        (DOUBTFUL_BELOW, vec!["unsure"]),
+        (0.9, vec!["fairly", "unsure"]),
+        (0.0, vec![]),
+    ] {
+        let mut doc = Document::new_blank(1, 300.0, 300.0).unwrap();
+        doc.add_ocr_text(&[read(doubt_below)]).unwrap();
+        assert_eq!(texts(&doc), expected, "{doubt_below}");
+    }
 }

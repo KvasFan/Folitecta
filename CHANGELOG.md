@@ -6,6 +6,12 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-02
+
+### Added
+- Clean Up Scans finds the dark borders of scanned pages and whitens them.
+- The certainty below which a recognized word counts as doubtful is chosen in the recognition window.
+
 ## [0.19.0] - 2026-11-02
 
 ### Added

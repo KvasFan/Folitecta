@@ -192,6 +192,7 @@ pub const RIBBON: &[RTab] = &[
                     "view.links",
                     "view.destinations",
                     "view.signatures",
+                    "view.fonts",
                     "view.search",
                     "view.properties"
                 ]

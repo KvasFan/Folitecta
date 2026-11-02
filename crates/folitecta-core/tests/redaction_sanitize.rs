@@ -38,6 +38,7 @@ fn no_sanitizing() -> RedactionOptions {
         method: RedactionMethod::Content,
         sanitize: SanitizeOptions::none(),
         beyond_crop: true,
+        beyond_crop_everywhere: false,
     }
 }
 
@@ -891,6 +892,7 @@ fn pages_drawn_as_pictures_pass_the_check_and_their_originals_go() {
         method: RedactionMethod::Picture,
         sanitize: SanitizeOptions::none(),
         beyond_crop: true,
+        beyond_crop_everywhere: false,
     };
     let report = doc.apply_redactions_opts(None, &opts).unwrap();
     assert_eq!(report.pages_as_pictures, vec![0]);
@@ -1059,6 +1061,7 @@ fn page_checked_and_its_metadata_gone(named: bool) {
             ..SanitizeOptions::none()
         },
         beyond_crop: true,
+        beyond_crop_everywhere: false,
     };
     let report = doc.apply_redactions_opts(None, &quoting_only).unwrap();
     let check = check_now(&mut doc, &report);
@@ -1133,6 +1136,7 @@ fn undrawn_resources_a_page_inherits_go_with_both_methods() {
                     method,
                     sanitize: SanitizeOptions::none(),
                     beyond_crop: true,
+                    beyond_crop_everywhere: false,
                 },
             )
             .unwrap();
@@ -1158,6 +1162,7 @@ fn words_left_quoted_on_purpose_stay_known_to_the_check() {
             ..SanitizeOptions::none()
         },
         beyond_crop: true,
+        beyond_crop_everywhere: false,
     };
     let report = doc.apply_redactions_opts(None, &opts).unwrap();
     assert!(

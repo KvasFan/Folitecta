@@ -6,6 +6,18 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-02
+
+### Added
+- Apply Redactions offers to remove what lies outside the visible page on the pages without marks
+  too; what shows on them does not change.
+- A Fonts pane lists the fonts of the document with their kind, whether the file holds them and the
+  pages they appear on.
+
+### Fixed
+- A document keeps its page when another tab closes or is chosen; it used to take the scroll position
+  of the tab shown before it.
+
 ## [0.15.0] - 2026-11-02
 
 ### Changed

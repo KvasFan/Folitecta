@@ -1619,6 +1619,95 @@ pub fn cropped_text_doc() -> Vec<u8> {
     b.finish()
 }
 
+/// [`cropped_text_doc`] twice: two pages, with hidden text of their own.
+pub fn cropped_pages_doc() -> Vec<u8> {
+    let mut b = Builder::new();
+    for (shown, hidden) in [("Visible words", "HIDDENONE"), ("Other words", "HIDDENTWO")] {
+        let content =
+            format!("BT /F1 12 Tf 20 100 Td ({shown}) Tj ET BT /F1 12 Tf 20 350 Td ({hidden}) Tj ET")
+                .into_bytes();
+        let page = b.page(
+            (300.0, 400.0),
+            content,
+            dictionary! { "Font" => standard_fonts() },
+            Vec::new(),
+        );
+        if let Ok(d) = b.doc.get_dictionary_mut(page) {
+            d.set(
+                "CropBox",
+                Object::Array(vec![0.into(), 0.into(), 300.into(), 300.into()]),
+            );
+        }
+    }
+    b.finish()
+}
+
+/// Fonts in all the places a page has them: Helvetica on page 1; a form on
+/// both pages with an embedded subset; on page 2 a composite font that is
+/// not embedded and a comment whose appearance uses a Type 3 font.
+pub fn fonts_doc() -> Vec<u8> {
+    let mut b = Builder::new();
+    let file = b.doc.add_object(Stream::new(Dictionary::new(), vec![0u8; 16]));
+    let descriptor = b.doc.add_object(dictionary! {
+        "Type" => "FontDescriptor", "FontName" => "ABCDEF+Body", "Flags" => 4, "FontFile2" => file,
+    });
+    let body = b.doc.add_object(dictionary! {
+        "Type" => "Font", "Subtype" => "TrueType", "BaseFont" => "ABCDEF+Body", "FontDescriptor" => descriptor,
+    });
+    let form = b.doc.add_object(Stream::new(
+        dictionary! {
+            "Type" => "XObject", "Subtype" => "Form",
+            "BBox" => vec![0.into(), 0.into(), 100.into(), 100.into()],
+            "Resources" => dictionary! { "Font" => dictionary! { "B" => body } },
+        },
+        Vec::new(),
+    ));
+    let descendant = b.doc.add_object(dictionary! {
+        "Type" => "Font", "Subtype" => "CIDFontType2", "BaseFont" => "Elsewhere",
+    });
+    let composite = b.doc.add_object(dictionary! {
+        "Type" => "Font", "Subtype" => "Type0", "BaseFont" => "Elsewhere",
+        "DescendantFonts" => vec![descendant.into()],
+    });
+    let drawn = b.doc.add_object(dictionary! {
+        "Type" => "Font", "Subtype" => "Type3", "Name" => "Drawn",
+    });
+    let look = b.doc.add_object(Stream::new(
+        dictionary! {
+            "Type" => "XObject", "Subtype" => "Form",
+            "BBox" => vec![0.into(), 0.into(), 10.into(), 10.into()],
+            "Resources" => dictionary! { "Font" => dictionary! { "D" => drawn } },
+        },
+        Vec::new(),
+    ));
+    let note = b.doc.add_object(dictionary! {
+        "Type" => "Annot", "Subtype" => "FreeText",
+        "Rect" => vec![10.into(), 10.into(), 20.into(), 20.into()],
+        "AP" => dictionary! { "N" => look },
+    });
+    b.page(
+        (200.0, 200.0),
+        Vec::new(),
+        dictionary! {
+            "Font" => dictionary! { "H" => Object::Dictionary(dictionary! {
+                "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica",
+            }) },
+            "XObject" => dictionary! { "Fm" => form },
+        },
+        Vec::new(),
+    );
+    b.page(
+        (200.0, 200.0),
+        Vec::new(),
+        dictionary! {
+            "Font" => dictionary! { "C" => composite },
+            "XObject" => dictionary! { "Fm" => form },
+        },
+        vec![note.into()],
+    );
+    b.finish()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

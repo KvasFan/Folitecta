@@ -799,6 +799,7 @@ fn Canvas(pane: u8) -> Element {
     let dpr = (st.dpr)();
     let tool = (st.tool)();
     let rulers = option_on(st, "view.showRulers");
+    let shown_tab = use_hook(|| std::rc::Rc::new(std::cell::Cell::new(None::<u64>)));
     let Some(split) = st.read_active(|t| t.split.clone()) else {
         return rsx! {};
     };
@@ -826,6 +827,24 @@ fn Canvas(pane: u8) -> Element {
         },
     };
     let (page, layout, rotation) = (view.page, view.layout, view.rotation);
+    // Another document in this view: it goes to the page it was left on, not
+    // to where the last one was scrolled.
+    if shown_tab
+        .replace(Some(tab_id))
+        .is_some_and(|before| before != tab_id)
+    {
+        let id = if focused {
+            format!("pg-{page}")
+        } else {
+            format!("spg-{page}")
+        };
+        let js = format!(
+            "requestAnimationFrame(() => document.getElementById('{id}')?.scrollIntoView({{ block: 'start', inline: 'nearest' }}));"
+        );
+        spawn(async move {
+            let _ = document::eval(&js).await;
+        });
+    }
     // The scale the pictures are drawn at. After a change of zoom the pages
     // take their new size at once and keep their pictures, scaled, until the
     // zoom has stayed the same for 90 ms: then the pictures of the new

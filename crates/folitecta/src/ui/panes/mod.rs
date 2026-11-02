@@ -24,6 +24,7 @@ pub mod comment_styles;
 pub mod comments;
 pub mod explorer;
 pub mod fields;
+pub mod fonts;
 pub mod history;
 pub mod layers;
 pub mod right;
@@ -44,6 +45,7 @@ fn pane_icon(p: &Pane) -> &'static str {
         Pane::Destinations => "star",
         Pane::Search => "search",
         Pane::Signatures => "signature",
+        Pane::Fonts => "font",
         Pane::History => "history",
         Pane::Sessions => "window",
         Pane::Stamps => "tag",
@@ -227,6 +229,7 @@ pub fn PanePanel() -> Element {
             Pane::Destinations => rsx! { crate::ui::panes::bookmarks::DestinationsPane {} },
             Pane::Search => rsx! { SearchPane {} },
             Pane::Signatures => rsx! { crate::ui::features::signatures::SignaturesPane {} },
+            Pane::Fonts => rsx! { crate::ui::panes::fonts::FontsPane {} },
             Pane::Comparison => rsx! { crate::ui::features::compare::ComparisonPane {} },
             Pane::Tags => rsx! { crate::ui::panes::accessibility::TagsPane {} },
             Pane::Order => rsx! { crate::ui::panes::accessibility::OrderPane {} },

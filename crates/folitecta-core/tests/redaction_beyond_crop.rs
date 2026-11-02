@@ -2,8 +2,9 @@
 //! visible page goes with the marks of its page, unless asked to stay.
 
 use folitecta_core::Document;
+use folitecta_core::redaction::RedactionMethod;
 use folitecta_core::redaction::{RedactionOptions, SanitizeOptions};
-use folitecta_core::testdocs::cropped_text_doc;
+use folitecta_core::testdocs::{cropped_pages_doc, cropped_text_doc};
 
 fn cropped() -> Document {
     Document::from_bytes(cropped_text_doc(), None, None).unwrap()
@@ -68,4 +69,50 @@ fn removing_cropped_content_takes_it_out_of_the_file() {
     // Nothing to do on a page without a crop box.
     let mut plain = Document::new_blank(1, 300.0, 300.0).unwrap();
     assert_eq!(plain.remove_cropped_content(&[0]).unwrap(), 0);
+}
+
+#[test]
+fn the_pages_without_marks_are_cleared_when_asked() {
+    let marked = || {
+        let mut doc = Document::from_bytes(cropped_pages_doc(), None, None).unwrap();
+        doc.add_redaction(0, [15.0, 195.0, 160.0, 215.0], "Reviewer")
+            .unwrap();
+        doc
+    };
+    let everywhere = RedactionOptions {
+        beyond_crop_everywhere: true,
+        ..options(true)
+    };
+
+    let mut doc = marked();
+    let summary = doc.redaction_summary(None);
+    assert_eq!((summary.beyond_crop, summary.beyond_crop_elsewhere), (1, 1));
+    assert_eq!(doc.redaction_summary(Some(&[0])).beyond_crop_elsewhere, 0);
+    let report = doc.apply_redactions_opts(None, &everywhere).unwrap();
+    assert_eq!(report.areas, 1);
+    assert!(!doc.page_text(0).contains("HIDDENONE"));
+    assert!(!doc.page_text(1).contains("HIDDENTWO"));
+    assert!(doc.page_text(1).contains("Other words"), "{:?}", doc.page_text(1));
+    // One step.
+    doc.undo().unwrap();
+    assert!(doc.page_text(1).contains("HIDDENTWO"));
+
+    // Not asked for.
+    let mut doc = marked();
+    doc.apply_redactions_opts(None, &options(true)).unwrap();
+    assert!(doc.page_text(1).contains("HIDDENTWO"));
+
+    // Only the marks of a page applied: only that page.
+    let mut doc = marked();
+    doc.apply_redactions_opts(Some(&[0]), &everywhere).unwrap();
+    assert!(doc.page_text(1).contains("HIDDENTWO"));
+
+    // Pages drawn as pictures would lose their text: they stay.
+    let mut doc = marked();
+    let pictures = RedactionOptions {
+        method: RedactionMethod::Picture,
+        ..everywhere
+    };
+    doc.apply_redactions_opts(None, &pictures).unwrap();
+    assert!(doc.page_text(1).contains("Other words"));
 }

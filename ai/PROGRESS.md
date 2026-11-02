@@ -4,6 +4,30 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-02 — release 0.15.0: check of the published packages
+
+- **What:** tag `v0.15.0` (`a9fd55f`): CI (39 min) and release (36 min) workflows green, eight files.
+- **Found right:** SHA-256, data folders of Windows and Linux equal, self-test steps with the
+  packaged Linux executable: 0 problems.
+- **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
+
+## 2026-11-02 — FOL-L037, FOL-L004: what the file holds (0.16.0)
+
+- **Current state before:** text beyond the crop box stayed on pages without redaction marks; the
+  fonts of a document could not be seen.
+- **What:** `RedactionOptions::beyond_crop_everywhere`, `RedactionSummary::beyond_crop_elsewhere`,
+  `crop_strip_marks`; `Document::used_fonts`, `UsedFont`, `FontKind` (`fonts/used.rs`), `Pane::Fonts`,
+  `view.fonts`; `testdocs::cropped_pages_doc`, `fonts_doc`.
+- **Checked:** `redaction_beyond_crop.rs` (asked, not asked, one page, pictures, one undo step),
+  `used_fonts.rs`; self-test steps `redaction_crop`, `fonts_pane`; the local copy of CI: 974 tests,
+  full self-test with 330 interactions, 0 problems.
+- **Found on the way:** a document took the scroll position of the tab shown before it, so its page
+  changed when a tab closed or another was chosen; the view now goes to the page it was left on
+  (`ui/canvas/mod.rs`). The self-test `step:fonts_pane,tools` showed it, the full order did not.
+- **Open:** a font a page lists and does not use counts; pages drawn as pictures keep what is beyond
+  the crop box of the pages without marks; a tab comes back at the top of its page, not at the
+  height it was left at.
+
 ## 2026-11-02 — release 0.14.0: check of the published packages
 
 - **What:** tag `v0.14.0` (`7fce968`): CI (29 min) and release (36 min) workflows green, eight files.

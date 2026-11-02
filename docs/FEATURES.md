@@ -1,13 +1,13 @@
 # Folitecta feature matrix
 
-Generated from the command registry for version 0.15.0. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
+Generated from the command registry for version 0.16.0. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1475 |
+| ✅ available | 1476 |
 | 🟡 partial | 57 |
 | ⬜ planned | 467 |
-| total | 1999 |
+| total | 2000 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -260,6 +260,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Drawing | `view.toolbar.drawing` | ✅ available |
 | Fields | `view.fields` | ✅ available |
 | File | `view.toolbar.file` | ✅ available |
+| Fonts | `view.fonts` | ✅ available |
 | Form | `view.toolbar.form` | ✅ available |
 | History | `view.history` | ✅ available |
 | JavaScript Options… | `view.javaScriptOpts` | ✅ available |
@@ -1476,6 +1477,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Expand All | `expandAll` | ✅ available |
 | Expand All Descendants | `expandAllDescendants` | ✅ available |
 | Fields Pane | `fieldsView` | ✅ available |
+| Fonts | `view.fonts` | ✅ available |
 | Grey Preview | `view.greyPreview` | ✅ available |
 | Highlight | `highlight` | ✅ available |
 | Highlight Links | `view.highlightLinks` | ✅ available |

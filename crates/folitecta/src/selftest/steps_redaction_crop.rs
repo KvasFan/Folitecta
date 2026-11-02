@@ -1,6 +1,7 @@
 //! Interaction step: redaction_crop — a page whose sheet reaches beyond its
 //! crop box, with text there: Apply Redactions names it and, left chosen,
-//! removes that text with the marked words.
+//! removes that text with the marked words. A document with hidden text on a
+//! page without marks offers to remove it too.
 
 use folitecta_core::Document;
 
@@ -50,6 +51,51 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         "redaction beyond the crop box: offered, chosen, and the hidden text goes with the marked words",
         offered == 1 && !text.contains("Visible") && !text.contains("HIDDENOUTSIDE"),
         format!("offered {offered}, text after {text:?}"),
+    );
+    if let Some(id) = tab {
+        crate::files::close_tab(st, id, true, crate::state::AfterUnsaved::Close);
+        pause(300).await;
+    }
+
+    let two =
+        Document::from_bytes(folitecta_core::testdocs::cropped_pages_doc(), None, None).and_then(|mut d| {
+            d.add_redaction(0, [15.0, 195.0, 160.0, 215.0], "Reviewer")?;
+            Ok(d)
+        });
+    let Ok(two) = two else {
+        cx.record(
+            "redaction beyond the crop box: pages without marks",
+            false,
+            String::new(),
+        );
+        return;
+    };
+    crate::files::open_document_tab(st, two);
+    let tab = st.read_active(|t| t.id);
+    pause(600).await;
+    crate::commands::dispatch(st, "document.applyRedactions");
+    pause(1200).await;
+    let offered =
+        eval("return document.querySelectorAll('.dialog .redact-beyond-elsewhere input:checked').length;")
+            .await
+            .ok()
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.danger, .dialog-foot .tbtn.primary')?.click();")
+        .await;
+    let mut other = String::new();
+    for _ in 0..30 {
+        pause(300).await;
+        other = st.read_active(|t| t.doc.page_text(1)).unwrap_or_default();
+        if !other.contains("HIDDENTWO") {
+            break;
+        }
+    }
+    st.set_dialog(Dialog::None);
+    cx.record(
+        "redaction beyond the crop box: the hidden text of a page without marks goes, what shows there stays",
+        offered == 1 && !other.contains("HIDDENTWO") && other.contains("Other words"),
+        format!("offered {offered}, text after {other:?}"),
     );
     if let Some(id) = tab {
         crate::files::close_tab(st, id, true, crate::state::AfterUnsaved::Close);

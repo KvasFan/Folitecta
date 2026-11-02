@@ -30,9 +30,11 @@ use crate::util::deref;
 mod embed;
 mod source;
 mod subset;
+mod used;
 mod writer;
 
 pub use source::{UNICODE_FONT_FILE, font_dirs, preload, set_font_dirs};
+pub use used::{FontKind, UsedFont};
 pub(crate) use writer::{TextWriter, mirrored, right_to_left, visual_order};
 
 /// Why generated text cannot be drawn. Every operation that meets one changes

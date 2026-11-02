@@ -193,6 +193,7 @@ pub const PANES: &[(&str, &str)] = &[
     ("destinations", "Named Destinations"),
     ("search", "Search"),
     ("signatures", "Signatures"),
+    ("fonts", "Fonts"),
     ("content", "Content"),
     ("stamps", "Stamps"),
     ("history", "History"),

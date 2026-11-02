@@ -405,6 +405,7 @@ fn a_pattern_another_page_paints_with_stays_for_it_and_is_reported_unless_shown_
                 method: RedactionMethod::Picture,
                 sanitize: SanitizeOptions::none(),
                 beyond_crop: true,
+                beyond_crop_everywhere: false,
             },
         )
         .unwrap();
@@ -770,6 +771,7 @@ fn a_long_document_sharing_its_drawings_is_redacted_and_checked_in_time() {
                 method: RedactionMethod::Content,
                 sanitize: SanitizeOptions::none(),
                 beyond_crop: true,
+                beyond_crop_everywhere: false,
             },
         )
         .unwrap();

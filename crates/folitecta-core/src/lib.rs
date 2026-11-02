@@ -72,7 +72,7 @@ pub use document::{DocInfo, DocSnapshot, Document, PageSize, PreparedSave, Prote
 pub use error::{Error, Result};
 pub use export::ImageFormat;
 pub use flatten::FlattenScope;
-pub use fonts::{AppearanceFont, GlyphProblem};
+pub use fonts::{AppearanceFont, FontKind, GlyphProblem, UsedFont};
 pub use form_calc::{CalcOp, Calculation};
 pub use form_data::{FormDataFormat, PageWidget};
 pub use form_design::{FieldProps, NewField};

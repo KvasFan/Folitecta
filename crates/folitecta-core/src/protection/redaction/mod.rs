@@ -396,6 +396,9 @@ pub struct RedactionOptions {
     /// The content of the marked pages outside their crop box (on the
     /// sheet, hidden from view) goes too.
     pub beyond_crop: bool,
+    /// So does that content of the pages without marks, when every page is
+    /// redacted by content (drawing pages as pictures would change them).
+    pub beyond_crop_everywhere: bool,
 }
 
 impl Default for RedactionOptions {
@@ -404,6 +407,7 @@ impl Default for RedactionOptions {
             method: RedactionMethod::Content,
             sanitize: SanitizeOptions::default(),
             beyond_crop: true,
+            beyond_crop_everywhere: false,
         }
     }
 }
@@ -420,6 +424,8 @@ pub struct RedactionSummary {
     /// Marked pages whose sheet reaches beyond their crop box, where
     /// content can lie hidden from view.
     pub beyond_crop: usize,
+    /// The same of the pages without marks (only when every page counts).
+    pub beyond_crop_elsewhere: usize,
 }
 
 impl Document {
@@ -505,6 +511,7 @@ impl Document {
                 method,
                 sanitize: SanitizeOptions::none(),
                 beyond_crop: true,
+                beyond_crop_everywhere: false,
             },
         )
     }
@@ -554,6 +561,17 @@ impl Document {
                         .is_ok_and(|s| !beyond_crop(s.media_box, s.crop_box).is_empty())
                 })
                 .count(),
+            beyond_crop_elsewhere: if pages.is_none() {
+                (0..self.page_count())
+                    .filter(|p| !on.contains(p))
+                    .filter(|p| {
+                        self.page_size(*p)
+                            .is_ok_and(|s| !beyond_crop(s.media_box, s.crop_box).is_empty())
+                    })
+                    .count()
+            } else {
+                0
+            },
         }
     }
 
@@ -594,19 +612,11 @@ impl Document {
     /// as under a redaction mark (one undo step; signatures go). Returns
     /// whether there was a sheet beyond a crop box.
     pub(crate) fn clear_beyond_crop(&mut self, pages: &[usize]) -> Result<bool> {
-        let look = RedactionLook {
-            fill: [1.0, 1.0, 1.0],
-            ..RedactionLook::default()
-        };
         let mut marks: BTreeMap<usize, Vec<Mark>> = BTreeMap::new();
         for &p in pages {
-            let size = self.page_size(p)?;
-            for r in beyond_crop(size.media_box, size.crop_box) {
-                marks.entry(p).or_default().push(Mark {
-                    pdf: Rect::new(r[0] as f64, r[1] as f64, r[2] as f64, r[3] as f64),
-                    shown: pdf_rect_to_display(&size, r),
-                    look: look.clone(),
-                });
+            let strips = self.crop_strip_marks(p)?;
+            if !strips.is_empty() {
+                marks.insert(p, strips);
             }
         }
         if marks.is_empty() {
@@ -623,6 +633,24 @@ impl Document {
             return Err(e);
         }
         Ok(true)
+    }
+
+    /// Marks over the strips of the sheet of page `p` outside its crop box,
+    /// which nothing draws on: their covers lie out of sight.
+    fn crop_strip_marks(&self, p: usize) -> Result<Vec<Mark>> {
+        let look = RedactionLook {
+            fill: [1.0, 1.0, 1.0],
+            ..RedactionLook::default()
+        };
+        let size = self.page_size(p)?;
+        Ok(beyond_crop(size.media_box, size.crop_box)
+            .into_iter()
+            .map(|r| Mark {
+                pdf: Rect::new(r[0] as f64, r[1] as f64, r[2] as f64, r[3] as f64),
+                shown: pdf_rect_to_display(&size, r),
+                look: look.clone(),
+            })
+            .collect())
     }
 
     /// The strips of the sheet of every marked page outside its crop box,
@@ -722,6 +750,17 @@ impl Document {
         let areas = marks.values().map(Vec::len).sum();
         if opts.beyond_crop {
             self.mark_beyond_crop(&mut marks);
+        }
+        if opts.beyond_crop_everywhere && pages.is_none() && opts.method == RedactionMethod::Content {
+            let unmarked: Vec<usize> = (0..self.page_count())
+                .filter(|p| !marks.contains_key(p))
+                .collect();
+            for p in unmarked {
+                let strips = self.crop_strip_marks(p)?;
+                if !strips.is_empty() {
+                    marks.insert(p, strips);
+                }
+            }
         }
         self.begin_edit();
         match self.apply_marks(marks, opts) {

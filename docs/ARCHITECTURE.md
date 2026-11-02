@@ -443,8 +443,7 @@ Mouse coordinates on a page image are converted to PDF user space with
   store, but no long-term validation profile is claimed. Later revisions after a signature are
   recognised when they only add validation material or end with document time stamps; other
   changes are reported, not analysed. There is no conversion to PDF/A.
-- Redaction applies rectangles only (no quadrilateral marks) and does not remove content
-  outside the crop box. The moves that replace removed glyphs keep their widths, so the length
+- Redaction applies rectangles only (no quadrilateral marks). The moves that replace removed glyphs keep their widths, so the length
   of a removed word can be measured; shapes of removed glyphs stay in embedded font programs
   that other text still uses, and the procedures of a Type 3 font stay whole where the codes
   another page or form shows with it cannot be told (a font set by a graphics state included).

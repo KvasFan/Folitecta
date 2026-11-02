@@ -323,7 +323,7 @@ What a scanner leaves, and how sure a reading must be (FOL-L012, FOL-L014).
    be whitened and straightened in the same step.
 2. ~~**FOL-L014 — the threshold of doubt.**~~ Done: chosen in the recognition window, as a percentage.
 
-### 0.21.0 — fonts for PDF/A
+### 0.21.0 — fonts for PDF/A (released 2 November 2026)
 
 What PDF/A needs most: every font in the file (FOL-L043).
 
@@ -335,12 +335,10 @@ What PDF/A needs most: every font in the file (FOL-L043).
    of document found what the preflight missed — text painted in the initial black (DeviceGray),
    fonts written inside resources, comments without appearances, the actions and single
    appearances of buttons — all now checked and fixed; every copy declared PDF/A-2b passes it.
-3. **FOL-L043 — the rest of the fonts.** Composite fonts that are not embedded, Symbol and
-   ZapfDingbats.
-
 ### Later
 
-FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
+The rest of the fonts for PDF/A (FOL-L043: composite fonts that are not embedded, Symbol and
+ZapfDingbats), FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
 FOL-L007 (virtual printer, shell integration), FOL-L008 (XPS, metafiles, CAD), remote services
 FOL-C001–C005 and C007–C014 (R4).
 

@@ -1,24 +1,31 @@
-## Folitecta 0.20.0 — cleaner scans
+## Folitecta 0.21.0 — fonts for PDF/A
 
-A free PDF editor written entirely in Rust with a Dioxus desktop interface. This release cleans up
-more of what a scanner leaves behind.
+A free PDF editor written entirely in Rust with a Dioxus desktop interface. This release makes
+Convert to PDF/A produce files an independent validator accepts.
 
-- **Dark borders**: Clean Up Scans finds the dark edges of scanned pages, told from lines of text and
-  from pages dark all over, and paints them the colour of the paper. A page can be whitened and
-  straightened in the same step.
-- **Doubtful words**: the certainty below which a recognized word is kept for review is chosen in the
-  recognition window.
+- **Fonts embedded**: the fonts a document names without carrying them — Helvetica, Times, Courier,
+  Arial and other simple fonts — become subsets of GNU FreeFont FreeSans, FreeSerif or FreeMono of
+  the same style, with the widths the text is laid out with, so no line moves. Documents made from
+  plain text are now declared PDF/A-2b. The packages carry the twelve FreeFont faces.
+- **What PDF/A asks of comments and forms**: appearances are drawn for comments and form fields
+  that have none, buttons get their appearance as a state and lose their actions.
+- **Checked by an independent validator**: compared with veraPDF on seventeen kinds of document, the
+  preflight missed text painted in the initial grey and fonts written inside resources, so some
+  copies were declared PDF/A-2b wrongly. Fixed: every copy declared PDF/A-2b now passes veraPDF.
+- **Tick marks** are counted by shape in their window.
 
-Everything 0.19.0 brought — bleed, trim and art boxes, reading from a paragraph — and the earlier
-releases is described in their notes and in [CHANGELOG.md][changelog].
+Composite fonts, Symbol and ZapfDingbats that are not embedded are left as they are: the copy is
+converted but not declared PDF/A. Everything 0.20.0 brought — dark borders of scans whitened, the
+certainty of doubtful words chosen — and the earlier releases is described in their notes and in
+[CHANGELOG.md][changelog].
 
 **Binaries**
 
 | Platform | File |
 |---|---|
-| Windows x64 | `folitecta-0.20.0-windows-x64.zip` |
-| Linux x64 | `folitecta-0.20.0-linux-x64.tar.gz` |
-| macOS (Apple silicon and Intel) | `folitecta-0.20.0-macos-universal.zip` (app bundle) or `folitecta-0.20.0-macos-universal.tar.gz` (binary) |
+| Windows x64 | `folitecta-0.21.0-windows-x64.zip` |
+| Linux x64 | `folitecta-0.21.0-linux-x64.tar.gz` |
+| macOS (Apple silicon and Intel) | `folitecta-0.21.0-macos-universal.zip` (app bundle) or `folitecta-0.21.0-macos-universal.tar.gz` (binary) |
 
 Each package carries the `dictionaries`, `ocr` and `fonts` folders next to the program (in the
 app bundle's resources on macOS): keep them with it. SHA-256 checksums are attached.
@@ -35,7 +42,7 @@ app bundle's resources on macOS): keep them with it. SHA-256 checksums are attac
 The status of every command is in [docs/FEATURES.md][features]; known limitations are in
 [docs/ARCHITECTURE.md][limits] and [ai/ROADMAP.md][roadmap].
 
-[changelog]: https://github.com/KvasFan/Folitecta/blob/main/CHANGELOG.md#0200---2026-11-02
-[features]: https://github.com/KvasFan/Folitecta/blob/v0.20.0/docs/FEATURES.md
+[changelog]: https://github.com/KvasFan/Folitecta/blob/main/CHANGELOG.md#0210---2026-11-02
+[features]: https://github.com/KvasFan/Folitecta/blob/v0.21.0/docs/FEATURES.md
 [limits]: https://github.com/KvasFan/Folitecta/blob/main/docs/ARCHITECTURE.md#known-limitations
 [roadmap]: https://github.com/KvasFan/Folitecta/blob/main/ai/ROADMAP.md

@@ -1621,18 +1621,19 @@ pub fn cropped_text_doc() -> Vec<u8> {
 
 /// Text in fonts that are not embedded: the standard Helvetica (WinAnsi),
 /// Times-Bold and Courier (their own StandardEncoding, an apostrophe at 39),
-/// Symbol, and a TrueType font named Arial,Bold whose widths are its own
-/// (every letter 700).
+/// Symbol, ZapfDingbats, a TrueType font named Arial,Bold whose widths are
+/// its own (every letter 700), and a font that names a Chinese character no
+/// substitute has, which stays out.
 pub fn unembedded_fonts_doc() -> Vec<u8> {
     unembedded_fonts(true)
 }
 
-/// [`unembedded_fonts_doc`] without Symbol: every font can be embedded.
+/// [`unembedded_fonts_doc`] without the font no substitute can draw.
 pub fn embeddable_fonts_doc() -> Vec<u8> {
     unembedded_fonts(false)
 }
 
-fn unembedded_fonts(symbol: bool) -> Vec<u8> {
+fn unembedded_fonts(chinese: bool) -> Vec<u8> {
     let mut b = Builder::new();
     let simple = |base: &str, encoding: Option<&str>| {
         let mut d = dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => base };
@@ -1645,9 +1646,16 @@ fn unembedded_fonts(symbol: bool) -> Vec<u8> {
         ("H", simple("Helvetica", Some("WinAnsiEncoding"))),
         ("T", simple("Times-Bold", None)),
         ("C", simple("Courier", None)),
+        ("S", simple("Symbol", None)),
+        ("Z", simple("ZapfDingbats", None)),
     ];
-    if symbol {
-        fonts.push(("S", simple("Symbol", None)));
+    if chinese {
+        let mut d = dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Brush-Script" };
+        d.set(
+            "Encoding",
+            dictionary! { "BaseEncoding" => "WinAnsiEncoding", "Differences" => vec![65.into(), Object::Name(b"uni4E00".to_vec())] },
+        );
+        fonts.push(("K", Object::Dictionary(d)));
     }
     let mut resources = Dictionary::new();
     for (name, font) in fonts {
@@ -1671,11 +1679,13 @@ fn unembedded_fonts(symbol: bool) -> Vec<u8> {
         b"BT /H 12 Tf 20 360 Td (Helvetica text) Tj ET \
           BT /T 12 Tf 20 330 Td (Times bold 'quoted') Tj ET \
           BT /C 12 Tf 20 300 Td (Courier text) Tj ET \
-          BT /A 12 Tf 20 240 Td (ARIAL WIDE) Tj ET"
+          BT /A 12 Tf 20 240 Td (ARIAL WIDE) Tj ET \
+          BT /S 12 Tf 20 270 Td (abg) Tj ET \
+          BT /Z 12 Tf 20 210 Td (!4) Tj ET"
             .to_vec()
             .into_iter()
-            .chain(if symbol {
-                b" BT /S 12 Tf 20 270 Td (abg) Tj ET".to_vec()
+            .chain(if chinese {
+                b" BT /K 12 Tf 20 180 Td (A) Tj ET".to_vec()
             } else {
                 Vec::new()
             })

@@ -337,8 +337,8 @@ What PDF/A needs most: every font in the file (FOL-L043).
    appearances of buttons — all now checked and fixed; every copy declared PDF/A-2b passes it.
 ### Later
 
-The rest of the fonts for PDF/A (FOL-L043: composite fonts that are not embedded, Symbol and
-ZapfDingbats), FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
+The rest of the fonts for PDF/A (FOL-L043: composite fonts that are not embedded, characters no
+FreeFont face has), FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
 FOL-L007 (virtual printer, shell integration), FOL-L008 (XPS, metafiles, CAD), remote services
 FOL-C001–C005 and C007–C014 (R4).
 
@@ -435,7 +435,7 @@ FOL-C001–C005 and C007–C014 (R4).
 |---|---|---|---|---|
 | FOL-L041 | P1 | 🟡 | accessibility check and report, auto-tagging of the document and of form fields, tags pane, reading order, alternate text | Table repair (headers, spans); manual checks listed in the report. |
 | FOL-L042 | P1 | 🟡 | English and Italian interface, keyboard shortcuts, themes (light, white, dark, black), short tool names with full tooltips; a reflow view; reading aloud with the voices of the system (web view, speech-dispatcher on Linux) | A keyboard-only and screen reader pass; words marked as they are read; reading from a paragraph clicked on the page itself. |
-| FOL-L043 | P2 | 🟡 | enable editing of PDF/A files; a PDF/A-2b preflight of 18 rules with findings by page and object, and conversion of a copy that fixes 14 of them (simple fonts that are not embedded become subsets of FreeSans, FreeSerif or FreeMono with the widths of the document) and declares PDF/A-2b only when nothing is left | Composite, Symbol and ZapfDingbats fonts that are not embedded; transparency and the other PDF/A rules; PDF/A-1, -3, PDF/X and PDF/UA profiles; a validator run as part of the checks (veraPDF was run by hand). |
+| FOL-L043 | P2 | 🟡 | enable editing of PDF/A files; a PDF/A-2b preflight of 18 rules with findings by page and object, and conversion of a copy that fixes 14 of them (simple fonts that are not embedded become subsets of FreeSans, FreeSerif or FreeMono with the widths of the document) and declares PDF/A-2b only when nothing is left | Composite fonts that are not embedded, characters no FreeFont face has; transparency and the other PDF/A rules; PDF/A-1, -3, PDF/X and PDF/UA profiles; a validator run as part of the checks (veraPDF was run by hand). |
 | FOL-L044 | P2 | 🟡 | conversion of the colours of a document to grey (content, drawings, pictures, comments and fields; what is left reported), a grey preview of the pages that changes nothing | ICC profiles and rendering intents, conversion to CMYK and selective conversion, spot colours, separations and overprint preview. |
 | FOL-L045 | P2 | 🟡 | space usage audit; recompression of the pictures of the document, of pages or of one selected picture, with presets (screen, e-book, print, archive) scaling pictures down to a resolution where they are drawn largest, an estimate picture by picture and a size report; never a larger picture | Fonts and other objects; MRC for scans; quality checks on the reopened file. |
 | FOL-L046 | P1/P2 | 🟡 | a print window of its own with a sheet preview and the printers of the computer: ranges by number or label, odd/even, reverse, copies and collation, comments and fields, fit/actual/shrink/custom scale, paper by page, 2–16 pages per sheet, booklet, poster, two-sided order, colour; jobs sent directly (IPP with a vector print file on Linux and macOS, GDI pictures up to 600 dpi on Windows); Save as PDF; print permissions; portfolio printing of its own files | Verification on real printers (order, scale, margins, counts); vector output on Windows; booklets on both sides without a duplex printer. |

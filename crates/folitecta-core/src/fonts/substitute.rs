@@ -194,6 +194,19 @@ fn code_names(doc: &lopdf::Document, font: &Dictionary) -> Option<Vec<String>> {
     Some(names)
 }
 
+/// The built-in encoding of Symbol or ZapfDingbats, when `font` is one of
+/// them without an encoding of its own.
+fn symbolic_table(font: &Dictionary) -> Option<&'static [(u8, &'static str, char, u16)]> {
+    if font.has(b"Encoding") {
+        return None;
+    }
+    match bare_name(font).as_str() {
+        "Symbol" => Some(super::symbolic::SYMBOL),
+        "ZapfDingbats" => Some(super::symbolic::ZAPF_DINGBATS),
+        _ => None,
+    }
+}
+
 /// Whether the font at `font` is one [`Document::embed_substitute`] can
 /// embed (without reading any font file).
 pub(crate) fn can_substitute(doc: &lopdf::Document, font: &Dictionary) -> bool {
@@ -201,9 +214,12 @@ pub(crate) fn can_substitute(doc: &lopdf::Document, font: &Dictionary) -> bool {
         name_of(font, b"Subtype"),
         Some(b"Type1" | b"MMType1" | b"TrueType")
     );
-    let name = bare_name(font);
-    if !simple || name == "Symbol" || name == "ZapfDingbats" {
+    if !simple {
         return false;
+    }
+    let name = bare_name(font);
+    if name == "Symbol" || name == "ZapfDingbats" {
+        return symbolic_table(font).is_some();
     }
     let descriptor = font
         .get(b"FontDescriptor")
@@ -216,6 +232,101 @@ pub(crate) fn can_substitute(doc: &lopdf::Document, font: &Dictionary) -> bool {
     // A symbolic font has codes of its own, unless it is a standard one.
     let symbolic = flags & 4 != 0 && flags & 32 == 0;
     (!symbolic || STANDARD_FONTS.contains(&name.as_str())) && code_names(doc, font).is_some()
+}
+
+/// The codes the document shows with the font at `font`: in the content of
+/// its pages and of the forms (appearances included) whose resources name it.
+fn used_codes(doc: &lopdf::Document, font: ObjectId) -> BTreeSet<u8> {
+    use lopdf::content::Content;
+    let mut out = BTreeSet::new();
+    for (id, obj) in &doc.objects {
+        let (resources, content) = match obj {
+            Object::Dictionary(d) if name_of(d, b"Type") == Some(b"Page") => (
+                crate::page_text::probe::page_resources(doc, *id),
+                doc.get_page_content(*id),
+            ),
+            Object::Stream(s) if name_of(&s.dict, b"Subtype") == Some(b"Form") => (
+                s.dict
+                    .get(b"Resources")
+                    .ok()
+                    .and_then(|r| deref(doc, r).as_dict().ok())
+                    .cloned()
+                    .unwrap_or_default(),
+                s.decompressed_content().unwrap_or_else(|_| s.content.clone()),
+            ),
+            _ => continue,
+        };
+        let names: Vec<Vec<u8>> = resources
+            .get(b"Font")
+            .ok()
+            .and_then(|f| deref(doc, f).as_dict().ok())
+            .map(|f| {
+                f.iter()
+                    .filter(|(_, v)| v.as_reference().ok() == Some(font))
+                    .map(|(k, _)| k.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+        if names.is_empty() {
+            continue;
+        }
+        let Ok(ops) = Content::decode(&content) else {
+            continue;
+        };
+        let mut current: Option<Vec<u8>> = None;
+        let take = |o: &Object, out: &mut BTreeSet<u8>| {
+            if let Object::String(bytes, _) = o {
+                out.extend(bytes.iter().copied());
+            }
+        };
+        for op in ops.operations {
+            match op.operator.as_str() {
+                "Tf" => {
+                    current = op
+                        .operands
+                        .first()
+                        .and_then(|n| n.as_name().ok())
+                        .map(<[u8]>::to_vec)
+                }
+                _ if !current.as_ref().is_some_and(|c| names.contains(c)) => {}
+                "Tj" | "'" => op.operands.first().into_iter().for_each(|o| take(o, &mut out)),
+                "\"" => op.operands.get(2).into_iter().for_each(|o| take(o, &mut out)),
+                "TJ" => {
+                    if let Some(Object::Array(a)) = op.operands.first() {
+                        a.iter().for_each(|o| take(o, &mut out));
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    out
+}
+
+/// A ToUnicode CMap of one-byte codes (ISO 32000-1, 9.10.3).
+fn byte_to_unicode(codes: &BTreeMap<u8, char>) -> Vec<u8> {
+    let mut out = String::from(
+        "/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n\
+         /CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n\
+         /CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n\
+         1 begincodespacerange\n<00> <FF>\nendcodespacerange\n",
+    );
+    let list: Vec<(&u8, &char)> = codes.iter().collect();
+    for block in list.chunks(100) {
+        out.push_str(&format!("{} beginbfchar\n", block.len()));
+        for (code, c) in block {
+            let mut units = [0u16; 2];
+            let hex: String = c
+                .encode_utf16(&mut units)
+                .iter()
+                .map(|u| format!("{u:04X}"))
+                .collect();
+            out.push_str(&format!("<{code:02X}> <{hex}>\n"));
+        }
+        out.push_str("endbfchar\n");
+    }
+    out.push_str("endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n");
+    out.into_bytes()
 }
 
 /// The `Differences` of the codes whose glyph is not the WinAnsi one there.
@@ -254,11 +365,36 @@ impl Document {
         {
             return Ok(false);
         }
-        let Some(names) = code_names(doc, &font) else {
-            return Ok(false);
-        };
         let name = bare_name(&font);
-        let (family, bold, italic) = face_of(&name, descriptor.as_ref());
+        let symbolic = symbolic_table(&font);
+        // Every code: its glyph name, character and the width readers use.
+        let entries: Vec<(u8, String, Option<char>, Option<f32>)> = match symbolic {
+            Some(table) => table
+                .iter()
+                .map(|(code, glyph, c, w)| (*code, glyph.to_string(), Some(*c), Some(f32::from(*w))))
+                .collect(),
+            None => {
+                let Some(names) = code_names(doc, &font) else {
+                    return Ok(false);
+                };
+                names
+                    .into_iter()
+                    .enumerate()
+                    .filter(|(_, glyph)| glyph != ".notdef")
+                    .map(|(code, glyph)| {
+                        let c = glyph_char(&glyph);
+                        // A standard font without widths has those of its metrics.
+                        let w = standard_width(&name, &glyph);
+                        (code as u8, glyph, c, w)
+                    })
+                    .collect()
+            }
+        };
+        let (family, bold, italic) = match symbolic {
+            // FreeSerif has the Greek, mathematical and dingbat glyphs.
+            Some(_) => (Family::Serif, false, false),
+            None => face_of(&name, descriptor.as_ref()),
+        };
         let Ok(face) = font_file(&substitute_file(family, bold, italic)) else {
             return Ok(false);
         };
@@ -278,36 +414,41 @@ impl Document {
         let mut chars: Vec<(char, u16)> = Vec::new();
         let mut advances: BTreeMap<u16, u16> = BTreeMap::new();
         let mut used: BTreeMap<u8, String> = BTreeMap::new();
+        let mut shown: BTreeMap<u8, char> = BTreeMap::new();
         let mut widths: BTreeMap<u8, f32> = BTreeMap::new();
-        for (code, glyph) in names.iter().enumerate() {
-            if glyph == ".notdef" {
-                continue;
-            }
-            let found = glyph_char(glyph).and_then(|c| face.glyph(c).map(|g| (c, g)));
-            // A standard font without widths has those of its metrics.
-            let width = width_of(code)
-                .or_else(|| standard_width(&name, glyph))
+        for (code, glyph, c, standard) in &entries {
+            let found = c.and_then(|c| face.glyph(c).map(|g| (c, g)));
+            let width = width_of(*code as usize)
+                .or(*standard)
                 .or(found.map(|(_, g)| f32::from(face.advance(g))));
             if let Some(w) = width {
-                widths.insert(code as u8, w);
+                widths.insert(*code, w);
             }
             let Some((c, g)) = found else { continue };
-            chars.push((c, g));
+            // A symbolic font is reached by code through the (3, 0) table.
+            let key = match symbolic {
+                Some(_) => char::from_u32(0xF000 + u32::from(*code)).unwrap_or(c),
+                None => c,
+            };
+            chars.push((key, g));
+            shown.insert(*code, c);
             let w = width.unwrap_or(0.0);
             advances
                 .entry(g)
                 .or_insert((w * upem / 1000.0).round().clamp(0.0, f32::from(u16::MAX)) as u16);
-            used.insert(code as u8, glyph.clone());
+            used.insert(*code, glyph.clone());
         }
-        if chars.is_empty() {
+        // A code the document shows that the substitute cannot draw would be
+        // a missing glyph (ISO 19005-2, 6.2.11.8): the font stays as it is.
+        if chars.is_empty() || used_codes(doc, id).iter().any(|c| !used.contains_key(c)) {
             return Ok(false);
         }
         let glyphs: BTreeSet<u16> = chars.iter().map(|(_, g)| *g).collect();
-        let program =
-            subset_with_advances(face.data(), &glyphs, &chars, &advances).map_err(Error::Invalid)?;
+        let program = subset_with_advances(face.data(), &glyphs, &chars, &advances, symbolic.is_some())
+            .map_err(Error::Invalid)?;
         let base = format!("{}+{}", subset_tag(&subset_key(&face, &chars)), face.name);
         let d = &face.descriptor;
-        let mut flags = 32;
+        let mut flags = if symbolic.is_some() { 4 } else { 32 };
         match family {
             Family::Mono => flags |= 1,
             Family::Serif => flags |= 2,
@@ -346,11 +487,26 @@ impl Document {
         let list: Vec<Object> = (lo..=hi)
             .map(|c| Object::Real(widths.get(&c).copied().unwrap_or(0.0)))
             .collect();
+        let to_unicode = (symbolic.is_some() && !font.has(b"ToUnicode")).then(|| {
+            let mut map = Stream::new(Dictionary::new(), byte_to_unicode(&shown));
+            let _ = map.compress();
+            self.inner.add_object(map)
+        });
         let out = self.inner.get_dictionary_mut(id)?;
         out.set("Subtype", "TrueType");
         out.set("BaseFont", Object::Name(base.into_bytes()));
         out.set("FontDescriptor", descriptor_id);
-        out.set("Encoding", encoding);
+        // A symbolic TrueType font has no encoding (6.2.11.6): a ToUnicode
+        // map keeps its text readable when it has none.
+        match symbolic {
+            Some(_) => {
+                out.remove(b"Encoding");
+            }
+            None => out.set("Encoding", encoding),
+        }
+        if let Some(map) = to_unicode {
+            out.set("ToUnicode", map);
+        }
         out.set("FirstChar", i64::from(lo));
         out.set("LastChar", i64::from(hi));
         out.set("Widths", list);

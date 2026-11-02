@@ -57,7 +57,8 @@ pub(crate) fn checksum(data: &[u8]) -> u32 {
 
 /// A `cmap` with the characters drawn: format 4 for the Basic Multilingual
 /// Plane (3, 1) and format 12 (3, 10) when there are characters beyond it.
-fn cmap_table(chars: &[(char, u16)]) -> Vec<u8> {
+/// With `symbol`, one table (3, 0) of the codes `chars` gives (U+F0xx).
+fn cmap_table(chars: &[(char, u16)], symbol: bool) -> Vec<u8> {
     let mut all: Vec<(u32, u16)> = chars.iter().map(|(c, g)| (*c as u32, *g)).collect();
     all.sort_unstable();
     all.dedup_by_key(|(c, _)| *c);
@@ -91,7 +92,7 @@ fn cmap_table(chars: &[(char, u16)]) -> Vec<u8> {
             .chain([1])
             .for_each(|d| f4.extend(d.to_be_bytes()));
         (0..seg_count).for_each(|_| f4.extend(0u16.to_be_bytes()));
-        subtables.push((1, f4));
+        subtables.push((if symbol { 0 } else { 1 }, f4));
     }
     if all.iter().any(|(c, _)| *c > 0xFFFF) || subtables.is_empty() {
         let mut f12 = Vec::new();
@@ -126,7 +127,7 @@ fn cmap_table(chars: &[(char, u16)]) -> Vec<u8> {
 /// A font program with the glyphs `glyphs` (and what they need) of `data`,
 /// under their own numbers; `chars` are the characters drawn and their glyphs.
 pub(crate) fn subset(data: &[u8], glyphs: &BTreeSet<u16>, chars: &[(char, u16)]) -> Result<Vec<u8>, String> {
-    subset_with_advances(data, glyphs, chars, &BTreeMap::new())
+    subset_with_advances(data, glyphs, chars, &BTreeMap::new(), false)
 }
 
 /// [`subset`], the glyphs of `advances` given those advances (font units) in
@@ -136,6 +137,7 @@ pub(crate) fn subset_with_advances(
     glyphs: &BTreeSet<u16>,
     chars: &[(char, u16)],
     advances: &BTreeMap<u16, u16>,
+    symbol: bool,
 ) -> Result<Vec<u8>, String> {
     let font = FontRef::new(data).map_err(|_| "not a TrueType font".to_string())?;
     let get =
@@ -238,7 +240,7 @@ pub(crate) fn subset_with_advances(
             tables.insert(*tag, t.to_vec());
         }
     }
-    tables.insert(*b"cmap", cmap_table(chars));
+    tables.insert(*b"cmap", cmap_table(chars, symbol));
     tables.insert(*b"glyf", new_glyf);
     tables.insert(*b"head", new_head);
     tables.insert(*b"hhea", new_hhea);

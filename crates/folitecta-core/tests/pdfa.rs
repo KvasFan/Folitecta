@@ -129,12 +129,12 @@ fn the_standard_helvetica_is_embedded_and_the_document_claims_pdfa() {
 
 #[test]
 fn a_font_that_is_not_embedded_keeps_the_document_from_claiming_pdfa() {
-    // Symbol has no substitute: it stays out of the file.
+    // A Chinese character no substitute draws: its font stays out of the file.
     let doc = Document::from_bytes(folitecta_core::testdocs::unembedded_fonts_doc(), None, None).unwrap();
     let before = doc.preflight_pdfa();
     let fonts: Vec<_> = before.findings.iter().filter(|f| f.rule == "fonts").collect();
     assert!(
-        fonts.iter().any(|f| f.detail.contains("Symbol") && !f.fixable),
+        fonts.iter().any(|f| f.detail.contains("Brush-Script")),
         "{fonts:?}"
     );
     let (converted, outcome) = doc.convert_to_pdfa().unwrap();

@@ -1,6 +1,7 @@
 //! Fonts that are not embedded become embedded subsets of their GNU FreeFont
 //! substitutes when a document is converted to PDF/A: the same family and
 //! style, the widths the text was laid out with, the encoding kept; Symbol
+//! and ZapfDingbats in FreeSerif; a font with a character no substitute has
 //! stays, and the copy is not declared conformant while it does.
 
 use folitecta_core::Document;
@@ -59,8 +60,8 @@ fn simple_fonts_are_embedded_with_their_widths() {
     let original = Document::from_bytes(unembedded_fonts_doc(), None, None).unwrap();
     let before = original.preflight_pdfa();
     let fonts: Vec<_> = before.findings.iter().filter(|f| f.rule == "fonts").collect();
-    assert_eq!(fonts.len(), 5, "{fonts:?}");
-    assert_eq!(fonts.iter().filter(|f| f.fixable).count(), 4, "{fonts:?}");
+    assert_eq!(fonts.len(), 7, "{fonts:?}");
+    assert_eq!(fonts.iter().filter(|f| f.fixable).count(), 7, "{fonts:?}");
 
     let (copy, outcome) = original.convert_to_pdfa().unwrap();
     let left: Vec<_> = outcome
@@ -69,10 +70,13 @@ fn simple_fonts_are_embedded_with_their_widths() {
         .iter()
         .filter(|f| f.rule == "fonts")
         .collect();
+    // The Chinese character has no glyph in any substitute: that font stays.
     assert_eq!(left.len(), 1, "{left:?}");
-    assert!(left[0].detail.contains("Symbol"), "{left:?}");
+    assert!(left[0].detail.contains("Brush-Script"), "{left:?}");
     assert!(!outcome.claimed);
-    assert_eq!(copy.page_text(0), original.page_text(0));
+    // The same text; the dingbats, which nothing read before, are read now.
+    assert_eq!(copy.page_text(0).replace(" ✁✔", ""), original.page_text(0));
+    assert!(copy.page_text(0).contains("αβγ ✁✔"));
 
     // Helvetica: FreeSans, WinAnsi kept, its widths those of Helvetica.
     let h = font(&copy, b"H");
@@ -133,10 +137,22 @@ fn simple_fonts_are_embedded_with_their_widths() {
         "{w_i:?}"
     );
 
-    // Symbol stays as it was.
-    assert_eq!(name(font(&copy, b"S"), b"Subtype"), "Type1");
+    // Symbol and ZapfDingbats: FreeSerif, symbolic, without an encoding,
+    // their glyphs reached by code; the widths of their metrics.
+    for (res, c, width) in [(b"S", '\u{F061}', 631.0), (b"Z", '\u{F021}', 974.0)] {
+        let f = font(&copy, res);
+        assert!(
+            name(f, b"BaseFont").ends_with("+FreeSerif"),
+            "{}",
+            name(f, b"BaseFont")
+        );
+        assert!(!f.has(b"Encoding"));
+        let data = program(&copy, f).unwrap();
+        assert!((advance(&data, c) - width).abs() < 1.0, "{}", advance(&data, c));
+    }
+    assert_eq!(name(font(&copy, b"K"), b"Subtype"), "Type1");
 
-    // Saved and opened again, nothing else is left but Symbol.
+    // Saved and opened again, nothing else is left but that font.
     let again = Document::from_bytes(copy.bytes().to_vec(), None, None).unwrap();
     let rules: Vec<_> = again.preflight_pdfa().findings.iter().map(|f| f.rule).collect();
     assert!(
@@ -153,9 +169,14 @@ fn text_stays_where_it_was() {
     let (copy, _) = original.convert_to_pdfa().unwrap();
     let a = original.text_layer(0).unwrap();
     let b = copy.text_layer(0).unwrap();
-    assert_eq!(a.text, b.text);
-    assert_eq!(a.glyphs.len(), b.glyphs.len());
-    for (i, (x, y)) in a.glyphs.iter().zip(b.glyphs.iter()).enumerate() {
+    // The dingbats, which nothing read before, are read now; the rest is the
+    // same glyph for glyph.
+    let dingbat = |t: &str| t == "✁" || t == "✔";
+    assert_eq!(a.text, b.text.replace("✁✔", ""));
+    let kept: Vec<_> = b.glyphs.iter().filter(|g| !dingbat(&g.text)).collect();
+    let before: Vec<_> = a.glyphs.iter().filter(|g| !g.text.is_empty()).collect();
+    assert_eq!(before.len(), kept.len());
+    for (i, (x, y)) in before.iter().zip(kept.iter()).enumerate() {
         let near = x
             .quad
             .iter()
@@ -204,7 +225,7 @@ fn converted_documents_for_a_validator() {
     use folitecta_core::TextLayout;
     let docs = [
         (
-            "fonts-with-symbol",
+            "fonts-with-chinese",
             Document::from_bytes(unembedded_fonts_doc(), None, None).unwrap(),
         ),
         (

@@ -33,6 +33,7 @@ mod source;
 mod standard_metrics;
 mod subset;
 pub(crate) mod substitute;
+mod symbolic;
 mod used;
 mod writer;
 

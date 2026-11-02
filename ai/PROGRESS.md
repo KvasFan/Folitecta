@@ -11,6 +11,20 @@ checked, what is still open. The history before October 2026 is in
   packaged Linux executable: 0 problems.
 - **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
 
+## 2026-11-02 — FOL-L043: Symbol and ZapfDingbats for PDF/A (no release)
+
+- **Current state before:** Symbol and ZapfDingbats were left unembedded; a font was embedded
+  whatever codes its substitute lacked.
+- **What:** `fonts/symbolic.rs` (codes, glyph names, characters and widths of both, generated from
+  the Adobe encoding files of X.Org, the Adobe Glyph List and the Core 14 metrics), symbolic
+  TrueType subsets of FreeSerif with a (3, 0) `cmap` (`subset_with_advances(.., symbol)`), no
+  `/Encoding` and a ToUnicode map (`byte_to_unicode`); `used_codes` reads the codes pages and
+  forms show with a font, and a font whose substitute lacks one stays.
+- **Checked:** `pdfa_fonts.rs`, `pdfa.rs`; veraPDF 1.30.3 on the seventeen documents: sixteen pass,
+  the one with a Chinese character no FreeFont face has fails and is not declared PDF/A; the local
+  copy of CI: 996 tests, full self-test with 339 interactions, 0 problems.
+- **Open:** composite fonts that are not embedded.
+
 ## 2026-11-02 — release 0.21.0: check of the published packages
 
 - **What:** tag `v0.21.0` (`48c421f`): CI (39 min) and release (42 min) workflows green, eight files;

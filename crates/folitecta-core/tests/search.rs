@@ -174,10 +174,12 @@ fn regular_expressions_and_ready_patterns() {
 fn results_are_saved_as_csv_that_spreadsheets_do_not_run() {
     let doc = Document::from_text("=SUM(A1) and \"quoted\" cost", TextLayout::default()).unwrap();
     let hits = doc.search(r"=SUM\(A1\)", pattern());
-    let csv = doc.search_hits_csv(&hits, ["Page", "Found", "Context"]);
+    let mut rows = vec![vec!["Page".to_string(), "Found".into(), "Context".into()]];
+    rows.extend(doc.search_hit_rows(&hits));
+    let csv = folitecta_core::util::csv_table(&rows);
     let mut lines = csv.lines();
     assert_eq!(lines.next(), Some(r#""Page","Found","Context""#));
     let row = lines.next().unwrap();
-    assert!(row.starts_with(r#"1,"'=SUM(A1)","#), "{row}");
+    assert!(row.starts_with(r#""1","'=SUM(A1)","#), "{row}");
     assert!(row.contains(r#"""quoted"""#), "{row}");
 }

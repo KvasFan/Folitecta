@@ -46,7 +46,7 @@
 </p>
 
 > [!NOTE]
-> **Folitecta 0.16.0 is a pre-release.** Every command of the full feature set is already in the
+> **Folitecta 0.17.0 is a pre-release.** Every command of the full feature set is already in the
 > interface; each release turns more of them into working operations, and the ones that are not
 > done yet open a roadmap notice. [docs/FEATURES.md](docs/FEATURES.md) lists the state of every
 > command; the limits of what works are written below and in
@@ -106,8 +106,8 @@
 
 ## What works today
 
-Version 0.16.0. The parts marked *new in 0.16.0* come with this release; those marked *new in
-0.15.0* came with 0.15.0; those marked *new in 0.14.0* came with 0.14.0; those marked *new in 0.13.0* came with 0.13.0; those marked *new in 0.12.0* came with 0.12.0; those marked *new in 0.11.0* came with 0.11.0; those marked *new in 0.10.0* came with 0.10.0; those marked *new in 0.9.0* came with 0.9.0; those marked *new in 0.8.0* came with 0.8.0; those marked *new in 0.7.0* came with 0.7.0; those marked *new in 0.6.0* came with 0.6.0; those marked *new in 0.5.0* came with 0.5.0; those marked *new in 0.4.0* came with 0.4.0, which 0.4.1 fixed (the
+Version 0.17.0. The parts marked *new in 0.17.0* come with this release; those marked *new in
+0.16.0* came with 0.16.0; those marked *new in 0.15.0* came with 0.15.0; those marked *new in 0.14.0* came with 0.14.0; those marked *new in 0.13.0* came with 0.13.0; those marked *new in 0.12.0* came with 0.12.0; those marked *new in 0.11.0* came with 0.11.0; those marked *new in 0.10.0* came with 0.10.0; those marked *new in 0.9.0* came with 0.9.0; those marked *new in 0.8.0* came with 0.8.0; those marked *new in 0.7.0* came with 0.7.0; those marked *new in 0.6.0* came with 0.6.0; those marked *new in 0.5.0* came with 0.5.0; those marked *new in 0.4.0* came with 0.4.0, which 0.4.1 fixed (the
 office export from its dialog) and completed with shape tools that stay chosen; those marked
 *new in 0.3.0* came with 0.3.0, which 0.3.1 completed with shorter menus and a pencil pointer
 of the right size on Linux; everything else was already in 0.2.1.
@@ -117,7 +117,7 @@ of the right size on Linux; everything else was already in 0.2.1.
 | Viewing | Tabs; continuous, single-page and two-page layouts; fit width, fit page and free zoom (`Ctrl`+wheel); view rotation; a split window with two views of a document; tabs in two groups side by side or one above the other, each with its tab strip, and a document moved to a new window (*new in 0.3.0*); full screen; light, white, dark and black themes; dark and high-contrast page modes; a grey preview of the pages; rulers (mm, cm, in, pt, pc), grid and guides with snapping; a loupe with adjustable enlargement; a pan and zoom window; the visible area outlined on the thumbnails; link and form-field highlighting; transparency grid; document info bar; page labels; view history; a reflow view with the text of the document in the width of the window, at a size of one's choosing (*new in 0.3.0*); reading aloud with the voices of the system, paragraph by paragraph, the one read marked (*new in 0.3.0*) |
 | Interface | Ribbon or classic menus and toolbars that adapt to any window size; menus kept short, with the commands used most at the top and the others in submenus by subject; short tool names under the ribbon icons (View › Tool Names hides them) and the whole names in the tooltips; a Quick Access Toolbar of your own commands (a right click on a tool adds it), next to the tabs or below the ribbon; side panes, ribbon rows and the width of each ribbon group changed by dragging their edges; properties pane; touch mode; command palette; undo and redo of every edit; pages drawn on several threads; recovery of documents after a window ended with unsaved changes; English and Italian |
 | Large documents | Faster scrolling and zoom: pages are drawn in the order the window needs them, in tiles when zoomed in, and scrolling never waits for the program |
-| Text and search | Text layer with mouse selection, copy and select all; search with match case, whole words and accents ignored, words near each other (adjacent, same paragraph, page or document) in separate colours, also in comments, bookmarks, form fields, document information, attachments and links, or through the PDF files of a folder; grouped results with previous and next (`F3`); every result marked as highlight, underline, strikeout or redaction; word count; export to `.txt`; regular expressions, with ready patterns for e-mail addresses, phone numbers, dates, web addresses and bank accounts, and the results saved as CSV (*new in 0.14.0*) |
+| Text and search | Text layer with mouse selection, copy and select all; search with match case, whole words and accents ignored, words near each other (adjacent, same paragraph, page or document) in separate colours, also in comments, bookmarks, form fields, document information, attachments and links, or through the PDF files of a folder; grouped results with previous and next (`F3`); every result marked as highlight, underline, strikeout or redaction; word count; export to `.txt`; regular expressions, with ready patterns for e-mail addresses, phone numbers, dates, web addresses and bank accounts, and the results saved as CSV (*new in 0.14.0*); those of comments, bookmarks and the rest in the CSV too (*new in 0.17.0*) |
 | Page text | The Edit Text tool and the Insert, Replace and Delete Text commands of Edit › Text change the text drawn on the page (the rest of the line moves to make room); Find and Replace changes one occurrence or all of them in one undo step |
 | Text recognition (OCR) | Scanned pages, only the pictures in the pages, or an area read with PaddleOCR models run in pure Rust; English, Italian and 30 more languages of the Latin script. The text is written invisibly over the pages, so they can be searched and their text selected and copied; pictures can be made into a searchable document. Pages are read in the background with a progress bar and can be stopped; words read with doubt are then checked one by one, each shown with its picture, to correct, keep or remove (*new in 0.3.0*) |
 | Spelling | Spell Check and Replace goes through the words of the page text, comments and form fields that the dictionaries do not know (English and Italian included, more Hunspell dictionaries can be added, several languages at once), with suggestions, change once or everywhere, ignore once or everywhere, and your own words; misspelled words are marked on the page while its text is edited |
@@ -152,7 +152,7 @@ of the right size on Linux; everything else was already in 0.2.1.
 the newest version is at the top, with the packages listed below and its notes, followed by the
 earlier versions. Versions up to 0.0.12 are also on the
 [GitLab releases](https://gitlab.com/tirael8308/folitecta/-/releases); later versions are published
-on GitHub only. `<version>` in the file names is the version number, for example `0.16.0`.
+on GitHub only. `<version>` in the file names is the version number, for example `0.17.0`.
 
 | System | File | Notes |
 |---|---|---|
@@ -298,8 +298,8 @@ limitations, and [docs/FEATURES.md](docs/FEATURES.md) the state of every command
 ## Roadmap
 
 [ai/ROADMAP.md](ai/ROADMAP.md) has the state of every requirement and the planned releases. The
-latest one, **0.16.0 — what the file holds**, takes hidden content out of the pages without
-redaction marks too, and lists the fonts of a document in a pane of their own. Fuller PDF/A conversion
+latest one, **0.17.0 — lists that leave the program**, saves every search result and the comments
+of a document as CSV, and names the files of a session that are gone. Fuller PDF/A conversion
 (embedding fonts), colour profiles beyond grey, fuller editing of vector paths, text recognition
 of scripts other than Latin, article threads, scanning on macOS, remote services and the other
 commands still marked as *planned* come later.

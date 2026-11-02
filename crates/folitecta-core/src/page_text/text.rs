@@ -199,24 +199,17 @@ impl Document {
         hits
     }
 
-    /// The hits as CSV: page, what was found and its context, under `head`.
-    /// A cell that a spreadsheet would run as a formula starts with `'`.
-    pub fn search_hits_csv(&self, hits: &[SearchHit], head: [&str; 3]) -> String {
-        let cell = |text: &str| {
-            let text = if text.starts_with(['=', '+', '-', '@']) {
-                format!("'{text}")
-            } else {
-                text.to_string()
-            };
-            format!("\"{}\"", text.replace('"', "\"\""))
-        };
-        let mut out = head.map(cell).join(",");
-        out.push('\n');
-        for h in hits {
-            let found = self.text_range(h.page, h.start, h.end);
-            out.push_str(&format!("{},{},{}\n", h.page + 1, cell(&found), cell(&h.snippet)));
-        }
-        out
+    /// The hits as rows: page, what was found and its context.
+    pub fn search_hit_rows(&self, hits: &[SearchHit]) -> Vec<Vec<String>> {
+        hits.iter()
+            .map(|h| {
+                vec![
+                    (h.page + 1).to_string(),
+                    self.text_range(h.page, h.start, h.end),
+                    h.snippet.clone(),
+                ]
+            })
+            .collect()
     }
 
     /// `(words, characters)` over the whole document.

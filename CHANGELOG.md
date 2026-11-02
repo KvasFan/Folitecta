@@ -6,6 +6,16 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-02
+
+### Added
+- The CSV of search results has what was found in comments, bookmarks, form fields, links,
+  attachments and document information too.
+- Export to CSV in the menu of the Comments pane.
+
+### Changed
+- Files of a session that no longer exist are named, not only counted.
+
 ## [0.16.0] - 2026-11-02
 
 ### Added

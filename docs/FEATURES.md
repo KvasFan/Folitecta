@@ -1,13 +1,13 @@
 # Folitecta feature matrix
 
-Generated from the command registry for version 0.16.0. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
+Generated from the command registry for version 0.17.0. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1476 |
+| ✅ available | 1477 |
 | 🟡 partial | 57 |
 | ⬜ planned | 467 |
-| total | 2000 |
+| total | 2001 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -1980,6 +1980,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `commentsView.collapseAll` | View › Comments View › Collapse All | ✅ available |
 | `commentsView.expandAll` | View › Comments View › Expand All | ✅ available |
 | `commentsView.exportSelected` | View › Comments View › Export Selected | ✅ available |
+| `commentsView.exportToCSV` | View › Comments View › Export to CSV | ✅ available |
 | `commentsView.groupBy` | View › Comments View › Group by | ✅ available |
 | `commentsView.groupBy.author` | View › Comments View › Group by › Author | ✅ available |
 | `commentsView.groupBy.color` | View › Comments View › Group by › Color | ✅ available |

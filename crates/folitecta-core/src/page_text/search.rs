@@ -84,6 +84,19 @@ pub enum FoundIn {
     },
 }
 
+impl FoundIn {
+    /// The page of what was found, for what is on one.
+    pub fn page(&self) -> Option<usize> {
+        match self {
+            FoundIn::Comment { page, .. }
+            | FoundIn::AttachmentPage { page, .. }
+            | FoundIn::Link { page, .. } => Some(*page),
+            FoundIn::Bookmark { page, .. } | FoundIn::Field { page, .. } => *page,
+            FoundIn::DocInfo { .. } | FoundIn::Attachment { .. } => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct OtherHit {
     pub found_in: FoundIn,

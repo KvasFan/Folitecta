@@ -4,6 +4,25 @@ use lopdf::{Dictionary, Object, ObjectId};
 use time::OffsetDateTime;
 use time::macros::format_description;
 
+/// `rows` as CSV. A cell that a spreadsheet would run as a formula starts
+/// with `'`.
+pub fn csv_table(rows: &[Vec<String>]) -> String {
+    let cell = |text: &String| {
+        let guarded = if text.starts_with(['=', '+', '-', '@']) {
+            format!("'{text}")
+        } else {
+            text.clone()
+        };
+        format!("\"{}\"", guarded.replace('"', "\"\""))
+    };
+    let mut out = String::new();
+    for row in rows {
+        out.push_str(&row.iter().map(cell).collect::<Vec<_>>().join(","));
+        out.push('\n');
+    }
+    out
+}
+
 /// Write `data` to `path` without ever leaving a half-written file there: the
 /// bytes go to a temporary file in the same folder, are flushed to the disk,
 /// and the temporary file then replaces the target in one rename. When

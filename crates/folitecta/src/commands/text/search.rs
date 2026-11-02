@@ -383,26 +383,50 @@ pub fn search_state(st: AppState, id: &str) -> Option<bool> {
     }
 }
 
-/// Save the results of the search in the page text as CSV.
+/// The results of the search as CSV: where each was found, its page, the
+/// words and their context. `None` without results.
+pub(crate) fn results_csv(st: AppState) -> Option<String> {
+    let lang = st.lang();
+    st.read_active(|tab| {
+        if tab.search.hits.is_empty() && tab.search.other.is_empty() {
+            return None;
+        }
+        let mut rows = vec![vec![
+            t(lang, "search.csv.where"),
+            t(lang, "search.csv.page"),
+            t(lang, "search.csv.found"),
+            t(lang, "search.csv.context"),
+        ]];
+        let in_text = t(lang, "search.csv.text");
+        for mut row in tab.doc.search_hit_rows(&tab.search.hits) {
+            row.insert(0, in_text.clone());
+            rows.push(row);
+        }
+        for hit in &tab.search.other {
+            let group = crate::ui::panes::other_group(&hit.found_in);
+            rows.push(vec![
+                t(lang, &format!("search.group.{group}")),
+                hit.found_in
+                    .page()
+                    .map(|p| (p + 1).to_string())
+                    .unwrap_or_default(),
+                String::new(),
+                hit.snippet.clone(),
+            ]);
+        }
+        Some(folitecta_core::util::csv_table(&rows))
+    })
+    .flatten()
+}
+
+/// Save the results of the search as CSV.
 fn save_results(st: AppState) {
     if !st.allowed(folitecta_core::Restricted::Copy) {
         return;
     }
-    let lang = st.lang();
-    let (page, found, context) = (
-        t(lang, "search.csv.page"),
-        t(lang, "search.csv.found"),
-        t(lang, "search.csv.context"),
-    );
-    let csv = st.read_active(|tab| {
-        (!tab.search.hits.is_empty()).then(|| {
-            tab.doc
-                .search_hits_csv(&tab.search.hits, [&page, &found, &context])
-        })
-    });
-    match csv.flatten() {
+    match results_csv(st) {
         Some(csv) => crate::files::save_text_file(st, "search-results.csv", csv),
-        None => st.toast(ToastKind::Info, t(lang, "search.csv.nothing"), ""),
+        None => st.toast(ToastKind::Info, t(st.lang(), "search.csv.nothing"), ""),
     }
 }
 

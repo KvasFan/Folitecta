@@ -83,12 +83,12 @@ fn need_selected(st: AppState) -> Option<(usize, Option<usize>, Session)> {
     r
 }
 
-/// Open files of a session in this window.
-fn open_here(st: AppState, files: Vec<SessionFile>) {
-    let mut missing = 0;
+/// Open files of a session in this window; those that are gone are named.
+pub(crate) fn open_here(st: AppState, files: Vec<SessionFile>) {
+    let mut missing = Vec::new();
     for f in files {
         if !f.path.exists() {
-            missing += 1;
+            missing.push(f.path.display().to_string());
             continue;
         }
         crate::files::open_path(st, f.path.clone(), None);
@@ -100,15 +100,15 @@ fn open_here(st: AppState, files: Vec<SessionFile>) {
             st.navigate(f.page, true);
         }
     }
-    if missing > 0 {
+    if !missing.is_empty() {
         st.toast(
             ToastKind::Warn,
             tf(
                 st.lang(),
                 "toast.session_missing",
-                &[("count", &missing.to_string())],
+                &[("count", &missing.len().to_string())],
             ),
-            "",
+            missing.join("\n"),
         );
     }
 }

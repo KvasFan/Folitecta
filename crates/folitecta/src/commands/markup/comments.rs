@@ -18,6 +18,45 @@ fn link_tool(st: AppState, kind: &str) {
     tool(st, Tool::Link);
 }
 
+/// The comments of the document as CSV, a line for each; `None` without any.
+pub(crate) fn comments_csv(st: AppState) -> Option<String> {
+    let lang = st.lang();
+    let comments = st.read_active(|t| t.doc.comments()).unwrap_or_default();
+    if comments.is_empty() {
+        return None;
+    }
+    let mut rows = vec![
+        [
+            "page", "type", "author", "subject", "modified", "reply", "contents",
+        ]
+        .map(|k| t(lang, &format!("comments.csv.{k}")))
+        .to_vec(),
+    ];
+    let reply = t(lang, "comments.csv.is_reply");
+    rows.extend(comments.into_iter().map(|c| {
+        vec![
+            (c.page + 1).to_string(),
+            c.subtype,
+            c.author,
+            c.subject,
+            c.modified,
+            if c.is_reply { reply.clone() } else { String::new() },
+            c.contents,
+        ]
+    }));
+    Some(folitecta_core::util::csv_table(&rows))
+}
+
+fn export_comments_csv(st: AppState) {
+    if no_doc(st) {
+        return;
+    }
+    match comments_csv(st) {
+        Some(csv) => files::save_text_file(st, "comments.csv", csv),
+        None => st.toast(ToastKind::Info, t(st.lang(), "toast.no_comments"), ""),
+    }
+}
+
 fn export_measures(st: AppState) {
     if no_doc(st) {
         return;
@@ -351,6 +390,7 @@ handlers! {
     "comments.export" => |st| { if !no_doc(st) { files::export_comments(st, None) } },
     "comments.import" => |st| { if !no_doc(st) { files::import_comments(st) } },
     "commentsView.exportSelected" => export_selected,
+    "commentsView.exportToCSV" => export_comments_csv,
     "comments.flatten" => |st| doc_dialog(st, Dialog::Flatten),
     "comments.flattenGroup" => |st| doc_dialog(st, Dialog::Flatten),
     "comments.flattenSel" => flatten_selected,

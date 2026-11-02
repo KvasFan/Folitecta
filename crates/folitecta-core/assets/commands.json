@@ -4600,6 +4600,17 @@
    "status": "planned"
   },
   {
+   "id": "commentsView.exportToCSV",
+   "label": "Export to CSV…",
+   "parent": "commentsView",
+   "menu": "view",
+   "ribbon": null,
+   "pane": "comments",
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "commentsView.groupBy",
    "label": "Group by",
    "parent": "commentsView",

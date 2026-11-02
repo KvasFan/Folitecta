@@ -345,6 +345,7 @@
   "cmd.commentsView.collapseAll": "Comprimi tutto",
   "cmd.commentsView.expandAll": "Espandi tutto",
   "cmd.commentsView.exportSelected": "Esporta selezionati",
+  "cmd.commentsView.exportToCSV": "Esporta in CSV…",
   "cmd.commentsView.groupBy": "Raggruppa per",
   "cmd.commentsView.groupBy.author": "Autore",
   "cmd.commentsView.groupBy.color": "Colore",

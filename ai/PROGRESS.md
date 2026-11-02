@@ -4,6 +4,25 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-02 — release 0.16.0: check of the published packages
+
+- **What:** tag `v0.16.0` (`25050ff`): CI (41 min) and release (40 min) workflows green, eight files.
+- **Found right:** SHA-256, data folders of Windows and Linux equal, self-test steps with the
+  packaged Linux executable: 0 problems.
+- **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
+
+## 2026-11-02 — FOL-L003, FOL-L026, FOL-L002: lists that leave the program (0.17.0)
+
+- **Current state before:** the CSV of a search had the page text only; comments had no CSV; the
+  files of a session that were gone were only counted.
+- **What:** `util::csv_table` (one place for the guard against formulas), `search_hit_rows` in place
+  of `search_hits_csv`, `FoundIn::page`, `commentsView.exportToCSV`, `results_csv`, `comments_csv`,
+  the names of missing files in the message of `open_here`.
+- **Checked:** `search.rs`; self-test step `lists_out`; the local copy of CI: 974 tests, full
+  self-test with 333 interactions, 0 problems.
+- **Open:** the type of a comment in the CSV is its PDF name (`FreeText`), not the word of the
+  interface.
+
 ## 2026-11-02 — release 0.15.0: check of the published packages
 
 - **What:** tag `v0.15.0` (`a9fd55f`): CI (39 min) and release (36 min) workflows green, eight files.

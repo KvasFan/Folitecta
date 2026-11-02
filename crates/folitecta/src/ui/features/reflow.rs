@@ -159,7 +159,7 @@ pub fn ReflowView() -> Element {
                 button { class: "tbtn reflow-close", onclick: move |_| crate::commands::dispatch(st, "view.reflow"), "{t(lang, \"reflow.pages\")}" }
             }
             div { id: "reflow", class: "{reflow_class}", style: "font-size:{size}px",
-                article { class: "reflow-text",
+                article { class: "reflow-text", title: "{t(lang, \"reflow.read_hint\")}",
                     if no_text {
                         p { class: "hint", "{t(lang, \"reflow.no_text\")}" }
                     }
@@ -170,12 +170,14 @@ pub fn ReflowView() -> Element {
                                 {
                                     let id = format!("rb-{}-{}", b.page, b.start);
                                     let class = if reading == Some((b.page, b.start)) { "reading" } else { "" };
+                                    let (from_page, from) = (b.page, b.start);
+                                    let read = move |_| crate::commands::read_aloud::read_from(st, from_page, from);
                                     match b.level {
-                                        1 => rsx! { h1 { key: "{id}", id: "{id}", class: "{class}", "{b.text}" } },
-                                        2 => rsx! { h2 { key: "{id}", id: "{id}", class: "{class}", "{b.text}" } },
-                                        3 => rsx! { h3 { key: "{id}", id: "{id}", class: "{class}", "{b.text}" } },
-                                        4 => rsx! { h4 { key: "{id}", id: "{id}", class: "{class}", "{b.text}" } },
-                                        _ => rsx! { p { key: "{id}", id: "{id}", class: "{class}", "{b.text}" } },
+                                        1 => rsx! { h1 { key: "{id}", id: "{id}", class: "{class}", ondoubleclick: read, "{b.text}" } },
+                                        2 => rsx! { h2 { key: "{id}", id: "{id}", class: "{class}", ondoubleclick: read, "{b.text}" } },
+                                        3 => rsx! { h3 { key: "{id}", id: "{id}", class: "{class}", ondoubleclick: read, "{b.text}" } },
+                                        4 => rsx! { h4 { key: "{id}", id: "{id}", class: "{class}", ondoubleclick: read, "{b.text}" } },
+                                        _ => rsx! { p { key: "{id}", id: "{id}", class: "{class}", ondoubleclick: read, "{b.text}" } },
                                     }
                                 }
                             }

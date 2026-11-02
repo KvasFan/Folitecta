@@ -11,6 +11,19 @@ checked, what is still open. The history before October 2026 is in
   packaged Linux executable: 0 problems.
 - **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
 
+## 2026-11-02 — FOL-L016, FOL-L042: boxes and reading (0.19.0)
+
+- **Current state before:** the bleed, trim and art boxes could only be lost (rasterizing to the
+  crop drops them); reading always began at the first paragraph; `crop_pages` left the edit open
+  when it returned an error.
+- **What:** `PageBox`, `PageBoxes`, `page_boxes`, `set_page_box`, `Dialog::PageBoxes`,
+  `document.pageBoxes`, `cropPage.showAllBoxes`/`hideAllBoxes` (option `view.pageBoxes`),
+  `read_aloud::read_from`.
+- **Checked:** `page_boxes.rs`; self-test step `page_boxes`; the local copy of CI: 980 tests, full
+  self-test with 337 interactions, 0 problems.
+- **Open:** boxes are set by margins from the sheet, not dragged on the page; a double click on the
+  page itself does not read.
+
 ## 2026-11-02 — release 0.18.0: check of the published packages
 
 - **What:** tag `v0.18.0` (`9de1f90`): CI (39 min) and release (26 min) workflows green, eight files.

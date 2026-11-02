@@ -192,6 +192,78 @@ pub(super) fn CropPages() -> Element {
     }
 }
 
+/// The boxes of a page, in millimetres of width and height, for the window.
+fn box_line(lang: Lang, key: &str, r: [f32; 4]) -> String {
+    let mm = |v: f32| format!("{:.1}", v * 25.4 / 72.0);
+    format!("{}: {} × {} mm", t(lang, key), mm(r[2] - r[0]), mm(r[3] - r[1]))
+}
+
+#[component]
+pub(super) fn PageBoxes() -> Element {
+    use folitecta_core::pages::PageBox;
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let mode = use_signal(|| default_scope(st));
+    let range = use_signal(String::new);
+    let mut which = use_signal(|| "trim".to_string());
+    let left = use_signal(|| "0".to_string());
+    let top = use_signal(|| "0".to_string());
+    let right = use_signal(|| "0".to_string());
+    let bottom = use_signal(|| "0".to_string());
+    let mut remove = use_signal(|| false);
+    let f = |s: Signal<String>| s().trim().parse::<f32>().unwrap_or(0.0);
+    let boxes = st.read_active(|t| t.doc.page_boxes(t.page).ok()).flatten();
+    let lines: Vec<String> = boxes
+        .iter()
+        .flat_map(|b| {
+            [
+                ("dialog.page_boxes.media", Some(b.media)),
+                ("dialog.page_boxes.crop", Some(b.crop)),
+                ("dialog.page_boxes.bleed", b.bleed),
+                ("dialog.page_boxes.trim", b.trim),
+                ("dialog.page_boxes.art", b.art),
+            ]
+        })
+        .filter_map(|(key, r)| r.map(|r| box_line(lang, key, r)))
+        .collect();
+    rsx! {
+        Frame { title: t(lang, "dialog.page_boxes.title"),
+            on_ok: move |_| match scope_pages(st, mode(), &range()) {
+                Ok(pages) => {
+                    let kind = match which().as_str() {
+                        "bleed" => PageBox::Bleed,
+                        "art" => PageBox::Art,
+                        _ => PageBox::Trim,
+                    };
+                    let margins = (!remove()).then(|| [f(left), f(top), f(right), f(bottom)]);
+                    apply(st, |tab| tab.doc.set_page_box(&pages, kind, margins));
+                }
+                Err(e) => st.error(e),
+            },
+            div { class: "hint page-boxes-now",
+                for line in lines { div { key: "{line}", "{line}" } }
+            }
+            div { class: "field",
+                label { "{t(lang, \"dialog.page_boxes.which\")}" }
+                select { onchange: move |e| which.set(e.value()),
+                    option { value: "trim", "{t(lang, \"dialog.page_boxes.trim\")}" }
+                    option { value: "bleed", "{t(lang, \"dialog.page_boxes.bleed\")}" }
+                    option { value: "art", "{t(lang, \"dialog.page_boxes.art\")}" }
+                }
+            }
+            div { class: "hint", "{t(lang, \"dialog.page_boxes.margins\")}" }
+            div { class: "field-grid",
+                Num { label: t(lang, "dialog.hf.left"), value: left, min: "0", step: "1" }
+                Num { label: t(lang, "dialog.margin.top"), value: top, min: "0", step: "1" }
+                Num { label: t(lang, "dialog.hf.right"), value: right, min: "0", step: "1" }
+                Num { label: t(lang, "dialog.margin.bottom"), value: bottom, min: "0", step: "1" }
+            }
+            label { class: "check", input { r#type: "checkbox", checked: remove(), onchange: move |_| remove.set(!remove()) } span { "{t(lang, \"dialog.page_boxes.remove\")}" } }
+            PageScope { mode, range }
+        }
+    }
+}
+
 #[component]
 pub(super) fn ResizePages() -> Element {
     let st = use_context::<AppState>();

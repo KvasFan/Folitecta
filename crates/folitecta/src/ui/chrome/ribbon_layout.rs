@@ -416,6 +416,7 @@ pub const RIBBON: &[RTab] = &[
                 [
                     "document.rotatePages",
                     "document.cropPages",
+                    "document.pageBoxes",
                     "document.cropToWhiteMargins",
                     "document.resizePages",
                     "document.setMargins",

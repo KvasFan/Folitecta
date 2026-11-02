@@ -337,6 +337,7 @@
   "preflight.rule.xfa": "Nessun modulo XFA",
   "preflight.title": "Preflight",
   "preflight.will_fix": "corretto dalla conversione",
+  "reflow.read_hint": "Fai doppio clic su un paragrafo per leggere ad alta voce da lì",
   "read.close": "Chiudi la barra di lettura",
   "read.default_voice": "Voce predefinita",
   "read.next": "Paragrafo successivo",

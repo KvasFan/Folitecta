@@ -1,13 +1,13 @@
 # Folitecta feature matrix
 
-Generated from the command registry for version 0.18.0. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
+Generated from the command registry for version 0.19.0. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1477 |
-| 🟡 partial | 57 |
-| ⬜ planned | 467 |
-| total | 2001 |
+| ✅ available | 1480 |
+| 🟡 partial | 58 |
+| ⬜ planned | 464 |
+| total | 2002 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -799,11 +799,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 |---|---|---|
 | Crop | `crop` | ⬜ planned |
 | ↳ Apply | `crop.apply` | ⬜ planned |
-| Crop Page | `cropPage` | ⬜ planned |
+| Crop Page | `cropPage` | 🟡 partial |
 | ↳ Apply | `cropPage.apply` | ⬜ planned |
-| ↳ Hide All Boxes | `cropPage.hideAllBoxes` | ⬜ planned |
+| ↳ Hide All Boxes | `cropPage.hideAllBoxes` | ✅ available |
 | ↳ Hide Origin Anchor | `cropPage.hideOriginAnchor` | ⬜ planned |
-| ↳ Show All Boxes | `cropPage.showAllBoxes` | ⬜ planned |
+| ↳ Show All Boxes | `cropPage.showAllBoxes` | ✅ available |
 | ↳ Show Origin Anchor | `cropPage.showOriginAnchor` | ⬜ planned |
 | Crop Page Tool | `tool.cropPage` | ✅ available |
 | Crop Pages… | `document.cropPages` | ✅ available |
@@ -814,6 +814,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Top | `document.cropToWhiteMargins.top` | ✅ available |
 | Normalize Pages… | `document.normalizePages` | ✅ available |
 | Overlay Pages… | `document.overlayPages` | ✅ available |
+| Page Boxes… | `document.pageBoxes` | ✅ available |
 | Rasterize Pages… | `document.rasterizePages` | ✅ available |
 | Remove Cropped Content | `document.removeCroppedContent` | 🟡 partial |
 | Resize Pages… | `document.resizePages` | ✅ available |
@@ -1333,7 +1334,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Choose Layer | `chooseLayer` | ✅ available |
 | Clipboard | `clipboardGroup` | ⬜ planned |
 | Crop | `crop` | ⬜ planned |
-| Crop Page | `cropPage` | ⬜ planned |
+| Crop Page | `cropPage` | 🟡 partial |
 | Customize Toolbars | `customizeToolbars` | ✅ available |
 | Default Layer | `defaultLayer` | ✅ available |
 | Distribute Horizontally | `distribHorz` | 🟡 partial |
@@ -1637,6 +1638,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Options… | `document.options` | ⬜ planned |
 | Overlay | `overlay` | ✅ available |
 | Overlay Pages… | `document.overlayPages` | ✅ available |
+| Page Boxes… | `document.pageBoxes` | ✅ available |
 | Page Marks | `pagemarks` | 🟡 partial |
 | Page Structure | `pageStructure` | ✅ available |
 | Page Transitions | `document.pageTransitions` | ✅ available |

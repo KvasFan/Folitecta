@@ -56,6 +56,7 @@
   "short.document.convertToGrey": "To grey",
   "short.document.convertToPDFA": "To PDF/A",
   "short.document.cropPages": "Crop",
+  "short.document.pageBoxes": "Boxes",
   "short.document.cropToWhiteMargins": "Auto crop",
   "short.document.deleteEmptyPages": "Del. blank",
   "short.document.deletePages": "Delete",

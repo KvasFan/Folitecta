@@ -259,6 +259,7 @@ pub fn Dialogs() -> Element {
         Dialog::DeletePages => rsx! { DeletePages {} },
         Dialog::ExtractPages => rsx! { ExtractPages {} },
         Dialog::CropPages => rsx! { CropPages {} },
+        Dialog::PageBoxes => rsx! { PageBoxes {} },
         Dialog::ResizePages => rsx! { ResizePages {} },
         Dialog::AddMargins => rsx! { AddMargins {} },
         Dialog::MovePages => rsx! { MovePages {} },

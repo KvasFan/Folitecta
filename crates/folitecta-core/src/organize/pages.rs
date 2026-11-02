@@ -15,6 +15,37 @@ const FIELD_KEYS: [&[u8]; 13] = [
     b"T", b"TU", b"TM", b"FT", b"Ff", b"V", b"DV", b"Opt", b"TI", b"I", b"MaxLen", b"Lock", b"SV",
 ];
 
+/// A box of a page that says what it is for, not what shows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PageBox {
+    /// Where the ink of what runs off the page ends.
+    Bleed,
+    /// The finished page, after cutting.
+    Trim,
+    /// The meaningful content.
+    Art,
+}
+
+impl PageBox {
+    fn key(self) -> &'static str {
+        match self {
+            PageBox::Bleed => "BleedBox",
+            PageBox::Trim => "TrimBox",
+            PageBox::Art => "ArtBox",
+        }
+    }
+}
+
+/// The boxes of a page, in PDF user space.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PageBoxes {
+    pub media: [f32; 4],
+    pub crop: [f32; 4],
+    pub bleed: Option<[f32; 4]>,
+    pub trim: Option<[f32; 4]>,
+    pub art: Option<[f32; 4]>,
+}
+
 impl Document {
     fn check_pages(&self, pages: &[usize]) -> Result<()> {
         let n = self.page_count();
@@ -418,12 +449,59 @@ impl Document {
             let x1 = rect[2].min(m[2]);
             let y1 = rect[3].min(m[3]);
             if x1 - x0 < 1.0 || y1 - y0 < 1.0 {
+                self.abandon_edit();
                 return Err(Error::Invalid("crop rectangle is empty".into()));
             }
             self.inner.get_dictionary_mut(ids[p])?.set(
                 "CropBox",
                 Object::Array(vec![x0.into(), y0.into(), x1.into(), y1.into()]),
             );
+        }
+        self.commit()
+    }
+
+    /// The boxes of a page.
+    pub fn page_boxes(&self, page: usize) -> Result<PageBoxes> {
+        let id = self.page_id(page)?;
+        let size = self.page_size_of(id);
+        let d = self.inner.get_dictionary(id)?;
+        let own = |key: &[u8]| d.get(key).ok().and_then(|o| crate::util::rect_of(&self.inner, o));
+        Ok(PageBoxes {
+            media: size.media_box,
+            crop: size.crop_box,
+            bleed: own(b"BleedBox"),
+            trim: own(b"TrimBox"),
+            art: own(b"ArtBox"),
+        })
+    }
+
+    /// Give `pages` a bleed, trim or art box, `margins` points in from the
+    /// left, top, right and bottom of their sheets, or take it away with
+    /// `None`. The content and the page shown do not change (one undo step).
+    pub fn set_page_box(&mut self, pages: &[usize], which: PageBox, margins: Option<[f32; 4]>) -> Result<()> {
+        self.check_pages(pages)?;
+        let ids = self.page_ids();
+        let mut boxes = Vec::new();
+        for &p in pages {
+            let m = self.page_size_of(ids[p]).media_box;
+            let rect = margins.map(|[l, t, r, b]| [m[0] + l, m[1] + b, m[2] - r, m[3] - t]);
+            if rect.is_some_and(|r| r[2] - r[0] < 1.0 || r[3] - r[1] < 1.0) {
+                return Err(Error::Invalid("the box is larger than the page allows".into()));
+            }
+            boxes.push((ids[p], rect));
+        }
+        self.begin_edit();
+        for (id, rect) in boxes {
+            let d = self.inner.get_dictionary_mut(id)?;
+            match rect {
+                Some(r) => d.set(
+                    which.key(),
+                    Object::Array(r.iter().map(|v| (*v).into()).collect()),
+                ),
+                None => {
+                    d.remove(which.key().as_bytes());
+                }
+            }
         }
         self.commit()
     }
@@ -445,6 +523,7 @@ impl Document {
             let c = size.crop_box;
             let rect = [c[0] + left, c[1] + bottom, c[2] - right, c[3] - top];
             if rect[2] - rect[0] < 1.0 || rect[3] - rect[1] < 1.0 {
+                self.abandon_edit();
                 return Err(Error::Invalid("crop margins leave no page area".into()));
             }
             self.inner.get_dictionary_mut(ids[p])?.set(

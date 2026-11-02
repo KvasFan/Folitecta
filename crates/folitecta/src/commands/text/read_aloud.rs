@@ -130,6 +130,22 @@ fn no_voice_key() -> &'static str {
 
 /// Start reading, or go on after a pause.
 pub fn start(st: AppState) {
+    begin(st, None);
+}
+
+/// Read from the paragraph that starts at character `start` of `page`.
+pub fn read_from(st: AppState, page: usize, start: usize) {
+    let at = |r: &ReadState| r.blocks.iter().position(|b| b.page == page && b.start == start);
+    if READ.peek().running {
+        if let Some(i) = at(&READ.peek()) {
+            go_to(st, i);
+        }
+        return;
+    }
+    begin(st, Some((page, start)));
+}
+
+fn begin(st: AppState, from: Option<(usize, usize)>) {
     if no_doc(st) {
         return;
     }
@@ -172,7 +188,15 @@ pub fn start(st: AppState) {
             r.running = true;
             r.paused = false;
         }
-        go_to(st, 0);
+        let first = from
+            .and_then(|(page, start)| {
+                READ.peek()
+                    .blocks
+                    .iter()
+                    .position(|b| b.page == page && b.start == start)
+            })
+            .unwrap_or(0);
+        go_to(st, first);
     });
 }
 

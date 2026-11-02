@@ -305,6 +305,15 @@ Forms tell what they could not take (FOL-L032, FOL-L031).
 2. ~~**FOL-L031 — values too long.**~~ Done: the value is kept and said, typed or imported
    (`field_overflows`).
 
+### 0.19.0 — boxes and reading (released 2 November 2026)
+
+Pages for the printer, reading from where one looks (FOL-L016, FOL-L042).
+
+1. ~~**FOL-L016 — page boxes.**~~ Done: Page Boxes… lists the sheet, visible page, bleed, trim and art
+   boxes of a page and sets or removes the last three on a range of pages; Show All Boxes draws them.
+2. ~~**FOL-L042 — reading from a paragraph.**~~ Done: a double click in the reflow view reads from
+   there, also while reading.
+
 ### Later
 
 FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
@@ -347,7 +356,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
 | FOL-L015 | P1 | 🟡 | insert, delete, extract, duplicate, move, swap, reverse, replace, insert pictures, split documents, split/merge pages, combine files (a bookmark per file), find duplicate pages, delete empty pages; bookmarks, named destinations, links, fields, tags and layers follow the pages in and out: same-named fields and destinations of an inserted file get a suffix and are listed before OK, what deleting pages takes is named before OK, duplicated pages keep their comments to themselves and share their fields | Article threads of an inserted file; page labels of inserted pages follow the ranges where they land. |
-| FOL-L016 | P1/P2 | 🟡 | rotate, crop, crop to white margins, resize, margins, normalize, overlay, rasterize pages | Box management (bleed/trim/art) in the interface; selective flattening. |
+| FOL-L016 | P1/P2 | 🟡 | rotate, crop, crop to white margins, resize, margins, normalize, overlay, rasterize pages | Selective flattening. |
 | FOL-L017 | P1 | ✅ | watermarks, header and footer, Bates numbering (several files), background, page numbering, macros, Folitecta's marks tagged so they can be updated or removed | Logical page labels in every page selector. |
 
 ### Native editing
@@ -403,7 +412,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
 | FOL-L041 | P1 | 🟡 | accessibility check and report, auto-tagging of the document and of form fields, tags pane, reading order, alternate text | Table repair (headers, spans); manual checks listed in the report. |
-| FOL-L042 | P1 | 🟡 | English and Italian interface, keyboard shortcuts, themes (light, white, dark, black), short tool names with full tooltips; a reflow view; reading aloud with the voices of the system (web view, speech-dispatcher on Linux) | A keyboard-only and screen reader pass; words marked as they are read; reading from a paragraph clicked. |
+| FOL-L042 | P1 | 🟡 | English and Italian interface, keyboard shortcuts, themes (light, white, dark, black), short tool names with full tooltips; a reflow view; reading aloud with the voices of the system (web view, speech-dispatcher on Linux) | A keyboard-only and screen reader pass; words marked as they are read; reading from a paragraph clicked on the page itself. |
 | FOL-L043 | P2 | 🟡 | enable editing of PDF/A files; a PDF/A-2b preflight of 18 rules with findings by page and object, and conversion of a copy that fixes 13 of them and declares PDF/A-2b only when nothing is left | Embedding fonts that are not embedded; transparency and the other PDF/A rules; PDF/A-1, -3, PDF/X and PDF/UA profiles; comparison with an independent validator before claiming more. |
 | FOL-L044 | P2 | 🟡 | conversion of the colours of a document to grey (content, drawings, pictures, comments and fields; what is left reported), a grey preview of the pages that changes nothing | ICC profiles and rendering intents, conversion to CMYK and selective conversion, spot colours, separations and overprint preview. |
 | FOL-L045 | P2 | 🟡 | space usage audit; recompression of the pictures of the document, of pages or of one selected picture, with presets (screen, e-book, print, archive) scaling pictures down to a resolution where they are drawn largest, an estimate picture by picture and a size report; never a larger picture | Fonts and other objects; MRC for scans; quality checks on the reopened file. |

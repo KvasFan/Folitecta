@@ -6,6 +6,15 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-02
+
+### Added
+- Page Boxes… sets or removes the bleed, trim and art boxes of pages, and Show All Boxes draws them.
+- A double click on a paragraph of the reflow view reads aloud from there.
+
+### Fixed
+- A crop that would leave nothing no longer leaves an edit open.
+
 ## [0.18.0] - 2026-11-02
 
 ### Fixed

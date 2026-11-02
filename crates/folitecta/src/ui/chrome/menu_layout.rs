@@ -546,6 +546,9 @@ pub const MENUS: &[(&str, &[Item])] = &[
                 "pageSize",
                 &[
                     Cmd("document.cropPages"),
+                    Cmd("document.pageBoxes"),
+                    Cmd("cropPage.showAllBoxes"),
+                    Cmd("cropPage.hideAllBoxes"),
                     Cmd("document.cropToWhiteMargins"),
                     Cmd("document.removeCroppedContent"),
                     Cmd("document.resizePages"),

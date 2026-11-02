@@ -492,6 +492,7 @@
   "cmd.document.createStampFromActiveDoc": "Nuovo timbro dal documento attivo",
   "cmd.document.createStampFromSel": "Nuovo timbro dalla selezione…",
   "cmd.document.cropPages": "Ritaglia pagine…",
+  "cmd.document.pageBoxes": "Riquadri di pagina…",
   "cmd.document.cropToWhiteMargins": "Ritaglia ai margini bianchi",
   "cmd.document.cropToWhiteMargins.bottom": "Basso",
   "cmd.document.cropToWhiteMargins.left": "Sinistra",

@@ -331,6 +331,7 @@
   "preflight.rule.xfa": "No XFA forms",
   "preflight.title": "Preflight",
   "preflight.will_fix": "fixed by conversion",
+  "reflow.read_hint": "Double-click a paragraph to read aloud from there",
   "read.close": "Close the reading bar",
   "read.default_voice": "Default voice",
   "read.next": "Next paragraph",

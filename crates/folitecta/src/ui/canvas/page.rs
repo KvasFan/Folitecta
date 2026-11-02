@@ -2,6 +2,17 @@
 
 use super::*;
 
+/// The bleed, trim and art boxes of `page` as the view shows them.
+fn page_box_marks(t: &crate::state::DocTab, page: usize, size: &PageSize) -> Vec<(&'static str, [f32; 4])> {
+    let Ok(boxes) = t.doc.page_boxes(page) else {
+        return Vec::new();
+    };
+    [("bleed", boxes.bleed), ("trim", boxes.trim), ("art", boxes.art)]
+        .into_iter()
+        .filter_map(|(kind, r)| r.map(|r| (kind, pdf_rect_to_display(size, r))))
+        .collect()
+}
+
 #[component]
 pub(super) fn PageView(
     tab_id: u64,
@@ -74,6 +85,8 @@ pub(super) fn PageView(
         link_hits: Vec<(usize, String, [f32; 4])>,
         popups: Vec<PopupView>,
         flash: Option<[f32; 4]>,
+        /// The boxes of the page, when they are shown: kind and rectangle.
+        boxes: Vec<(&'static str, [f32; 4])>,
         /// The lines of the paragraph read aloud.
         reading: Vec<[f32; 4]>,
         /// Tab order and calculation order numbers of the form fields: label, calculation, rectangle.
@@ -95,6 +108,7 @@ pub(super) fn PageView(
     }
     // The spell check marks words while its dialog is open, and while the
     // page text is edited with Spell Check on.
+    let show_boxes = crate::commands::option_on(st, "view.pageBoxes");
     let spell_checking = matches!(*st.dialog.read(), Dialog::SpellCheck);
     let spell_editing = tool == Tool::EditText && option_on(st, "view.spellCheck");
     if spell_editing {
@@ -340,6 +354,11 @@ pub(super) fn PageView(
                 link_hits,
                 popups,
                 flash: t.flash.filter(|(p, _)| *p == page).map(|(_, r)| r),
+                boxes: if show_boxes {
+                    page_box_marks(t, page, &size)
+                } else {
+                    Vec::new()
+                },
                 reading: t
                     .reading
                     .as_ref()
@@ -1152,6 +1171,9 @@ pub(super) fn PageView(
                 }
                 if let Some(r) = view.flash {
                     div { class: "dest-flash", style: "{css(r)}" }
+                }
+                for (kind, r) in view.boxes.iter() {
+                    div { key: "box{kind}", class: "page-box {kind}", style: "{css(*r)}" }
                 }
                 for (i, r) in view.reading.iter().enumerate() {
                     div { key: "rd{i}", class: "reading-mark", style: "{css(*r)}" }

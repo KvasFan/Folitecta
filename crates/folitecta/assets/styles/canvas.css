@@ -61,6 +61,10 @@
 .popup-reply-box input { flex: 1 1 auto; border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; background: var(--surface-2); }
 .popup-reply-box .tbtn { flex: none; }
 .drag-capture { position: fixed; inset: 0; z-index: 1000; cursor: move; }
+.page-box { position: absolute; z-index: 4; pointer-events: none; outline: 1px dashed; }
+.page-box.bleed { outline-color: #2563eb; }
+.page-box.trim { outline-color: #dc2626; }
+.page-box.art { outline-color: #16a34a; }
 .dest-flash { position: absolute; z-index: 4; background: rgba(79,70,229,.22); outline: 2px solid rgba(79,70,229,.7); border-radius: 2px; animation: dest-flash 1.6s ease-out forwards; }
 @keyframes dest-flash { 0% { opacity: 1; } 70% { opacity: .8; } 100% { opacity: 0; } }
 .field-hit { position: absolute; cursor: pointer; border-radius: 2px; }

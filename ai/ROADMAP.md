@@ -295,6 +295,16 @@ What a pane lists can be taken away (FOL-L003, FOL-L026, FOL-L002).
    type, author, subject, date, reply and contents (`util::csv_table`).
 3. ~~**FOL-L002 — files of a session that are gone.**~~ Done: named one by one, not only counted.
 
+### 0.18.0 — forms that say so (released 2 November 2026)
+
+Forms tell what they could not take (FOL-L032, FOL-L031).
+
+1. ~~**FOL-L032 — values from a file are checked.**~~ Done: imported values and copies filled from a
+   table go through the formats and checks of their fields; those refused stay out and are named,
+   where they used to enter as they were.
+2. ~~**FOL-L031 — values too long.**~~ Done: the value is kept and said, typed or imported
+   (`field_overflows`).
+
 ### Later
 
 FOL-L033 (XFA engine), FOL-L048 (on-device AI), FOL-L049 (3D), FOL-L006 (office and HTML import),
@@ -372,8 +382,8 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L031 | P1 | 🟡 | form designer for every field type and a date field (format of the language, a calendar while filling, dates that do not exist refused), items of choice fields, pictures of push buttons, tab order, align/duplicate, fill & sign; duplicated pages share their fields, inserted ones get renamed (FOL-L015) | Picture fields; overflow of text reported while filling. |
-| FOL-L032 | P1 | 🟡 | XFDF/FDF/CSV/TXT import and export, filling copies from table rows, calculation order, simple calculations computed in Rust; number, percentage, date, time and special formats and number ranges chosen in the properties and checked when a value is committed (the standard `AF…` scripts) | Named XML profiles, page templates; formats applied to imported data. |
+| FOL-L031 | P1 | 🟡 | form designer for every field type and a date field (format of the language, a calendar while filling, dates that do not exist refused), items of choice fields, pictures of push buttons, tab order, align/duplicate, fill & sign; duplicated pages share their fields, inserted ones get renamed (FOL-L015) | Picture fields. |
+| FOL-L032 | P1 | 🟡 | XFDF/FDF/CSV/TXT import and export, filling copies from table rows, calculation order, simple calculations computed in Rust; number, percentage, date, time and special formats and number ranges chosen in the properties and checked when a value is committed (the standard `AF…` scripts) | Named XML profiles, page templates. |
 | FOL-L033 | P2 | ⬜ | — | XFA engine decision. |
 | FOL-L034 | P2 | 🟡 | document scripts and actions listed and edited; a sandboxed engine (Boa, loop and recursion limits, nothing of the system in reach) with a documented API for the console, the calculate, format and validate scripts of fields (typed in their properties) and the `AF…` functions of forms; console time limit | Keystroke scripts while typing, page and document events, a database bridge. |
 

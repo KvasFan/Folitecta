@@ -35,6 +35,17 @@ impl FieldKind {
     }
 }
 
+/// What became of field values that came from a file.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FilledFields {
+    /// Fields filled.
+    pub filled: usize,
+    /// Field name and why its value was refused; the field stays as it was.
+    pub refused: Vec<(String, String)>,
+    /// Fields whose value is kept but does not fit.
+    pub overflowing: Vec<String>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct FormField {
     pub id: ObjectId,
@@ -281,38 +292,34 @@ impl Document {
                 field.name
             )));
         }
-        // The keystroke script sees the value as committed, then a
-        // validation script; either may refuse it, saying why.
-        if field.kind == FieldKind::Text || field.kind == FieldKind::ComboBox {
-            if let Some(run) = self.run_field_script(field.id, b"K", value) {
-                if run.ok && !run.event_rc {
-                    let why = run
-                        .out
-                        .iter()
-                        .find(|(k, _)| k == "alert")
-                        .map(|(_, t)| t.clone())
-                        .unwrap_or_else(|| {
-                            format!("the value of \"{}\" does not match its format", field.name)
-                        });
-                    return Err(Error::Invalid(why));
-                }
-            }
-            if let Some(run) = self.run_field_script(field.id, b"V", value) {
-                if run.ok && !run.event_rc {
-                    let why = run
-                        .out
-                        .iter()
-                        .find(|(k, _)| k == "alert")
-                        .map(|(_, t)| t.clone())
-                        .unwrap_or_else(|| format!("the value of \"{}\" was not accepted", field.name));
-                    return Err(Error::Invalid(why));
-                }
-            }
+        if let Some(why) = self.value_problem(&field, value) {
+            return Err(Error::Invalid(why));
         }
         self.begin_edit();
         self.write_field_value(&field, value)?;
         self.recalculate()?;
         self.commit()
+    }
+
+    /// Why `field` refuses `value`, if it does: the keystroke script sees the
+    /// value as committed, then a validation script; either may say why.
+    fn value_problem(&self, field: &FormField, value: &str) -> Option<String> {
+        if field.kind != FieldKind::Text && field.kind != FieldKind::ComboBox {
+            return None;
+        }
+        let said =
+            |run: &crate::js::ScriptRun| run.out.iter().find(|(k, _)| k == "alert").map(|(_, t)| t.clone());
+        if let Some(run) = self.run_field_script(field.id, b"K", value) {
+            if run.ok && !run.event_rc {
+                return Some(said(&run).unwrap_or_else(|| {
+                    format!("the value of \"{}\" does not match its format", field.name)
+                }));
+            }
+        }
+        let run = self.run_field_script(field.id, b"V", value)?;
+        (run.ok && !run.event_rc).then(|| {
+            said(&run).unwrap_or_else(|| format!("the value of \"{}\" was not accepted", field.name))
+        })
     }
 
     pub(crate) fn write_field_value(&mut self, field: &FormField, value: &str) -> Result<()> {
@@ -387,6 +394,38 @@ impl Document {
         self.recalculate()?;
         self.commit()?;
         Ok(todo.len())
+    }
+
+    /// Set field values that come from a file by full name, as one undo step:
+    /// each goes through the checks of its field as if it were typed, and
+    /// those refused are left out and said. An empty value empties a field.
+    pub fn set_checked_field_values(&mut self, values: &[(String, String)]) -> Result<FilledFields> {
+        let fields = self.form_fields();
+        let mut report = FilledFields::default();
+        let mut accepted = Vec::new();
+        for (name, value) in values {
+            let problem = fields
+                .iter()
+                .find(|f| &f.name == name && !f.read_only)
+                .filter(|_| !value.is_empty())
+                .and_then(|f| self.value_problem(f, value));
+            match problem {
+                Some(why) => report.refused.push((name.clone(), why)),
+                None => accepted.push((name.clone(), value.clone())),
+            }
+        }
+        report.filled = self.set_field_values(&accepted)?;
+        let fields = self.form_fields();
+        report.overflowing = accepted
+            .iter()
+            .filter(|(name, _)| {
+                fields
+                    .iter()
+                    .any(|f| &f.name == name && self.field_overflows(f.id))
+            })
+            .map(|(name, _)| name.clone())
+            .collect();
+        Ok(report)
     }
 
     /// Name of the "on" appearance state of a check box or radio widget.

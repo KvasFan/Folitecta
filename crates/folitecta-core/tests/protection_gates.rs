@@ -86,10 +86,10 @@ fn documents_made_from_protected_ones_keep_the_protection() {
     for (i, part) in parts.into_iter().enumerate() {
         saved_protected(part, &dir, &format!("part-{i}.pdf"));
     }
-    let (filled, n) = prot
+    let (filled, report) = prot
         .filled_copy(&[("Name".to_string(), "Ada".to_string())])
         .unwrap();
-    assert_eq!(n, 1);
+    assert_eq!(report.filled, 1);
     saved_protected(filled, &dir, "filled.pdf");
     saved_protected(prot.duplicate().unwrap(), &dir, "duplicate.pdf");
     saved_protected(

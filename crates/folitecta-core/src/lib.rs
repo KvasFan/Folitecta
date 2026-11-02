@@ -77,7 +77,7 @@ pub use form_calc::{CalcOp, Calculation};
 pub use form_data::{FormDataFormat, PageWidget};
 pub use form_design::{FieldProps, NewField};
 pub use form_format::{FieldCheck, FieldFormat};
-pub use forms::{FieldKind, FormField, SignatureInfo};
+pub use forms::{FieldKind, FilledFields, FormField, SignatureInfo};
 pub use greyscale::GreyReport;
 pub use incoming::Arrival;
 pub use layers::{Layer, LayerNode};

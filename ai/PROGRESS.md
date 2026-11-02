@@ -4,6 +4,26 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-02 — release 0.17.0: check of the published packages
+
+- **What:** tag `v0.17.0` (`c9fc740`): CI (29 min) and release (35 min) workflows green, eight files.
+- **Found right:** SHA-256, data folders of Windows and Linux equal, self-test steps with the
+  packaged Linux executable: 0 problems.
+- **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
+
+## 2026-11-02 — FOL-L032, FOL-L031: forms that say so (0.18.0)
+
+- **Current state before:** `set_field_values` wrote what a file gave without the keystroke and
+  validation scripts, so imports and Populate Forms got past every format; nothing told that a value
+  was cut off on the page.
+- **What:** `value_problem` (shared with `set_field_value`), `set_checked_field_values`,
+  `FilledFields`, `import_form_data` and `filled_copy` report through it; `field_overflows`,
+  `text_size`. `set_field_values` stays unchecked for what the program writes itself.
+- **Checked:** `form_values.rs`; self-test step `field_values`; the local copy of CI: 977 tests, full
+  self-test with 335 interactions, 0 problems.
+- **Open:** the marker of a combo box is not taken from the width measured; values of hidden copies
+  of a field are not measured apart.
+
 ## 2026-11-02 — release 0.16.0: check of the published packages
 
 - **What:** tag `v0.16.0` (`25050ff`): CI (41 min) and release (40 min) workflows green, eight files.

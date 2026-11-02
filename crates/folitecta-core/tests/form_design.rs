@@ -313,7 +313,7 @@ fn form_data_round_trips_through_every_format() {
             },
         )
         .unwrap();
-        let n = dst.import_form_data(format, &data).unwrap();
+        let n = dst.import_form_data(format, &data).unwrap().filled;
         assert_eq!(n, 2, "{format:?}: {}", String::from_utf8_lossy(&data));
         let fields = dst.form_fields();
         assert_eq!(fields[0].value, "Ada, \"Countess\" (L)", "{format:?}");

@@ -6,6 +6,15 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-02
+
+### Fixed
+- Values imported into a form, or filled from a table, go through the formats and checks of their
+  fields. A word in a number field used to enter as it was; now it stays out and is named.
+
+### Added
+- A value too long for its field is kept and Folitecta says so, when typed and when imported.
+
 ## [0.17.0] - 2026-11-02
 
 ### Added

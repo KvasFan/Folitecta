@@ -1,24 +1,24 @@
-## Folitecta 0.17.0 — lists that leave the program
+## Folitecta 0.18.0 — forms that say so
 
-A free PDF editor written entirely in Rust with a Dioxus desktop interface. This release lets what
-a pane lists leave the program.
+A free PDF editor written entirely in Rust with a Dioxus desktop interface. This release makes forms
+tell what they could not take.
 
-- **Every search result as CSV**: the file now has what was found in comments, bookmarks, form fields,
-  links, attachments and document information too, each with its place.
-- **Comments as CSV**: Export to CSV in the menu of the Comments pane gives page, type, author, subject,
-  date, reply and contents. Cells a spreadsheet would run as formulas are written as text.
-- **Sessions**: the files of a session that no longer exist are named one by one.
+- **Values from a file are checked**: imported values and copies filled from a table go through the
+  formats and checks of their fields. A word in a number field used to enter as it was; now it stays
+  out and is named, with the reason.
+- **Values too long**: a value that does not fit its field is kept, and Folitecta says that part of it
+  does not show on the page, when typed and when imported.
 
-Everything 0.16.0 brought — hidden content on every page, the Fonts pane, tabs that keep their page —
+Everything 0.17.0 brought — every search result and the comments as CSV, the files of a session named —
 and the earlier releases is described in their notes and in [CHANGELOG.md][changelog].
 
 **Binaries**
 
 | Platform | File |
 |---|---|
-| Windows x64 | `folitecta-0.17.0-windows-x64.zip` |
-| Linux x64 | `folitecta-0.17.0-linux-x64.tar.gz` |
-| macOS (Apple silicon and Intel) | `folitecta-0.17.0-macos-universal.zip` (app bundle) or `folitecta-0.17.0-macos-universal.tar.gz` (binary) |
+| Windows x64 | `folitecta-0.18.0-windows-x64.zip` |
+| Linux x64 | `folitecta-0.18.0-linux-x64.tar.gz` |
+| macOS (Apple silicon and Intel) | `folitecta-0.18.0-macos-universal.zip` (app bundle) or `folitecta-0.18.0-macos-universal.tar.gz` (binary) |
 
 Each package carries the `dictionaries`, `ocr` and `fonts` folders next to the program (in the
 app bundle's resources on macOS): keep them with it. SHA-256 checksums are attached.
@@ -35,7 +35,7 @@ app bundle's resources on macOS): keep them with it. SHA-256 checksums are attac
 The status of every command is in [docs/FEATURES.md][features]; known limitations are in
 [docs/ARCHITECTURE.md][limits] and [ai/ROADMAP.md][roadmap].
 
-[changelog]: https://github.com/KvasFan/Folitecta/blob/main/CHANGELOG.md#0170---2026-11-02
-[features]: https://github.com/KvasFan/Folitecta/blob/v0.17.0/docs/FEATURES.md
+[changelog]: https://github.com/KvasFan/Folitecta/blob/main/CHANGELOG.md#0180---2026-11-02
+[features]: https://github.com/KvasFan/Folitecta/blob/v0.18.0/docs/FEATURES.md
 [limits]: https://github.com/KvasFan/Folitecta/blob/main/docs/ARCHITECTURE.md#known-limitations
 [roadmap]: https://github.com/KvasFan/Folitecta/blob/main/ai/ROADMAP.md

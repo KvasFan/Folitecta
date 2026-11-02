@@ -5,7 +5,7 @@ use lopdf::ObjectId;
 
 use crate::document::Document;
 use crate::error::{Error, Result};
-use crate::forms::FieldKind;
+use crate::forms::{FieldKind, FilledFields};
 use crate::util::{deref, rect_of};
 
 /// Data formats for form values.
@@ -389,9 +389,10 @@ impl Document {
         }
     }
 
-    /// Import form values from data in a format (one undo step). Returns the
-    /// number of fields filled.
-    pub fn import_form_data(&mut self, format: FormDataFormat, data: &[u8]) -> Result<usize> {
+    /// Import form values from data in a format (one undo step): each goes
+    /// through the checks of its field (see
+    /// [`Document::set_checked_field_values`]).
+    pub fn import_form_data(&mut self, format: FormDataFormat, data: &[u8]) -> Result<FilledFields> {
         let values: Vec<(String, String)> = match format {
             FormDataFormat::Xfdf => parse_xfdf(&String::from_utf8_lossy(data)),
             FormDataFormat::Fdf => parse_fdf(data),
@@ -418,17 +419,17 @@ impl Document {
         if values.is_empty() {
             return Err(Error::Invalid("no field values found in the file".into()));
         }
-        self.set_field_values(&values)
+        self.set_checked_field_values(&values)
     }
 
     /// A copy of the document with its fields filled from `values` (field
-    /// name, value), and the number of fields filled; protected like the
-    /// document when it is.
-    pub fn filled_copy(&self, values: &[(String, String)]) -> Result<(Document, usize)> {
+    /// name, value) and what became of them; protected like the document
+    /// when it is.
+    pub fn filled_copy(&self, values: &[(String, String)]) -> Result<(Document, FilledFields)> {
         let mut copy = self.derived()?;
-        let n = copy.set_field_values(values)?;
+        let report = copy.set_checked_field_values(values)?;
         copy.clear_history();
-        Ok((copy, n))
+        Ok((copy, report))
     }
 }
 

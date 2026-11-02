@@ -65,18 +65,56 @@ pub fn import_form_data(st: AppState) {
                 folitecta_core::FormDataFormat::Xfdf
             });
         match st.with_active(|t| t.doc.import_form_data(format, &data)) {
-            Some(Ok(n)) => {
+            Some(Ok(report)) => {
                 set_window_title(st);
                 st.toast(
                     ToastKind::Ok,
-                    tf(st.lang(), "toast.fields_filled", &[("count", &n.to_string())]),
+                    tf(
+                        st.lang(),
+                        "toast.fields_filled",
+                        &[("count", &report.filled.to_string())],
+                    ),
                     "",
                 );
+                filled_warnings(st, &report);
             }
             Some(Err(e)) => st.error(e),
             None => {}
         }
     });
+}
+
+/// What a file of values could not do: the values its fields refused, by
+/// field, and those that do not fit.
+fn filled_warnings(st: AppState, report: &folitecta_core::FilledFields) {
+    let lang = st.lang();
+    if !report.refused.is_empty() {
+        let lines: Vec<String> = report
+            .refused
+            .iter()
+            .map(|(name, why)| format!("{name}: {why}"))
+            .collect();
+        st.toast(
+            ToastKind::Warn,
+            tf(
+                lang,
+                "toast.fields_refused",
+                &[("count", &report.refused.len().to_string())],
+            ),
+            lines.join("\n"),
+        );
+    }
+    if !report.overflowing.is_empty() {
+        st.toast(
+            ToastKind::Warn,
+            tf(
+                lang,
+                "toast.fields_overflow",
+                &[("count", &report.overflowing.len().to_string())],
+            ),
+            report.overflowing.join(", "),
+        );
+    }
 }
 
 /// A file name made safe for every system (no path separators or reserved characters).
@@ -154,13 +192,26 @@ pub fn populate_forms(st: AppState) {
         let folder = folder.path().to_path_buf();
         let mut written = 0;
         let mut detail = String::new();
+        let mut all = folitecta_core::FilledFields::default();
         for (i, row) in rows.iter().enumerate() {
             let copy = st.read_active(|t| t.doc.filled_copy(row));
             let path = folder.join(row_file_name(row, &stem, i + 1));
             match copy {
-                Some(Ok((mut doc, _))) => match doc.save_as(&path) {
+                Some(Ok((mut doc, report))) => match doc.save_as(&path) {
                     Ok(()) => {
                         written += 1;
+                        let name = path
+                            .file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_default();
+                        all.refused.extend(
+                            report
+                                .refused
+                                .into_iter()
+                                .map(|(f, why)| (format!("{name}, {f}"), why)),
+                        );
+                        all.overflowing
+                            .extend(report.overflowing.into_iter().map(|f| format!("{name}, {f}")));
                         detail = super::protected_detail(st, &doc);
                     }
                     Err(e) => return st.core_error(&e),
@@ -181,6 +232,7 @@ pub fn populate_forms(st: AppState) {
             ),
             detail,
         );
+        filled_warnings(st, &all);
     });
 }
 

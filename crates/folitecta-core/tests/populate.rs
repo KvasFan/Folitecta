@@ -16,8 +16,8 @@ fn one_filled_copy_for_every_row_of_a_table() {
     let rows = form_rows(FormDataFormat::Csv, csv.as_bytes()).unwrap();
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[0][1], ("City".to_string(), "London, UK".to_string()));
-    let (copy, n) = doc.filled_copy(&rows[1]).unwrap();
-    assert_eq!(n, 2, "the unknown column fills nothing");
+    let (copy, report) = doc.filled_copy(&rows[1]).unwrap();
+    assert_eq!(report.filled, 2, "the unknown column fills nothing");
     let value = |d: &Document, name: &str| {
         d.form_fields()
             .into_iter()

@@ -34,6 +34,26 @@ pub(super) struct WidgetInfo {
     pub(super) on_state: String,
 }
 
+/// The `/DA` of a widget names a size.
+fn has_explicit_size(w: &WidgetInfo) -> bool {
+    w.da.split_whitespace()
+        .collect::<Vec<_>>()
+        .windows(2)
+        .any(|p| p[1] == "Tf" && p[0].parse::<f32>().map(|v| v > 0.0).unwrap_or(false))
+}
+
+/// The size the text of a widget is drawn at.
+fn text_size(w: &WidgetInfo, multiline: bool) -> f32 {
+    if has_explicit_size(w) {
+        parse_da(&w.da).0
+    } else if multiline {
+        10.0
+    } else {
+        let pad = 2.0 + w.width;
+        ((w.rect[3] - w.rect[1] - 2.0 * pad) * 0.75).clamp(4.0, 14.0)
+    }
+}
+
 fn ellipse(cx: f32, cy: f32, rx: f32, ry: f32) -> String {
     let k = 0.5523;
     let f = fmt_num;
@@ -180,6 +200,59 @@ impl Document {
     }
 
     /// Regenerate the appearance of one widget from its field data.
+    /// Whether the value of a field is too long for one of its widgets: part
+    /// of it would be cut off on the page, though the file has all of it.
+    pub fn field_overflows(&self, field: ObjectId) -> bool {
+        let widgets = self
+            .form_fields()
+            .into_iter()
+            .find(|f| f.id == field)
+            .map(|f| f.widgets)
+            .unwrap_or_default();
+        widgets.into_iter().any(|id| self.widget_overflows(id))
+    }
+
+    fn widget_overflows(&self, id: ObjectId) -> bool {
+        let Some(w) = self.widget_info(id) else {
+            return false;
+        };
+        if !(w.ft == "Tx" && w.ff & FF_PASSWORD == 0 || w.ft == "Ch" && w.ff & FF_COMBO != 0) {
+            return false;
+        }
+        let Some(mut text) = w.value.first().filter(|v| !v.is_empty()).cloned() else {
+            return false;
+        };
+        if let Some(run) = self.run_field_script(id, b"F", &text) {
+            if let (true, Some(v)) = (run.ok, run.event_value) {
+                text = v;
+            }
+        }
+        let Ok(mut writer) = TextWriter::for_pieces([text.as_str()]) else {
+            return false;
+        };
+        let multiline = w.ft == "Tx" && w.ff & FF_MULTILINE != 0;
+        if !multiline && w.ff & FF_COMB != 0 && w.max_len > 0 {
+            return text.chars().count() > w.max_len as usize;
+        }
+        if !writer.is_standard() {
+            for part in writer.piece(&text).split(['\n', '\t']) {
+                let _ = writer.show(part);
+            }
+        }
+        let size = text_size(&w, multiline);
+        let pad = 2.0 + w.width;
+        let (inner_w, inner_h) = (
+            w.rect[2] - w.rect[0] - 2.0 * pad,
+            w.rect[3] - w.rect[1] - 2.0 * pad,
+        );
+        if multiline {
+            let lines = writer.wrap_piece(&writer.piece(&text), size, inner_w.max(size));
+            lines.len() as f32 * size * 1.15 > inner_h + size * 0.15
+        } else {
+            writer.width(&writer.piece(&text).replace(['\n', '\r'], " "), size) > inner_w
+        }
+    }
+
     pub(crate) fn refresh_widget(&mut self, id: ObjectId) -> Result<()> {
         let Some(mut w) = self.widget_info(id) else {
             return Ok(());
@@ -234,11 +307,7 @@ impl Document {
         let (bw, bh) = (w.rect[2] - w.rect[0], w.rect[3] - w.rect[1]);
         let f = fmt_num;
         let (da_size, text_color) = parse_da(&w.da);
-        let explicit_size =
-            w.da.split_whitespace()
-                .collect::<Vec<_>>()
-                .windows(2)
-                .any(|p| p[1] == "Tf" && p[0].parse::<f32>().map(|v| v > 0.0).unwrap_or(false));
+        let explicit_size = has_explicit_size(&w);
         let frame = |pressed: bool| -> String {
             let mut s = String::new();
             if let Some(c) = w.fill {
@@ -268,13 +337,7 @@ impl Document {
         };
         let pad = 2.0 + w.width;
         let text_block = |text: &str, multiline: bool| -> String {
-            let size = if explicit_size {
-                da_size
-            } else if multiline {
-                10.0
-            } else {
-                ((bh - 2.0 * pad) * 0.75).clamp(4.0, 14.0)
-            };
+            let size = text_size(&w, multiline);
             let mut s = format!(
                 "/Tx BMC q {} {} {} {} re W n BT /{resource} {} Tf ",
                 f(w.width),

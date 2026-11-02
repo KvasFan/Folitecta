@@ -11,6 +11,19 @@ checked, what is still open. The history before October 2026 is in
   packaged Linux executable: 0 problems.
 - **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
 
+## 2026-11-02 — FOL-L005, FOL-L010: choices of one's own (0.23.0)
+
+- **Current state before:** a CSV file became a table with the separator, header and turn found,
+  on A4, with no way to choose; templates of one's own were one group and could not be searched.
+- **What:** `CsvOptions`, `TableTurn`, `csv_shape`, `Document::from_csv_with`; `DocTab::made_from`
+  (the CSV text a table was made of), `csv.tableOptions`, `Dialog::CsvOptions`
+  (`ui/features/csv_table.rs`); `UserTemplate::category`, `recategorized_template`,
+  `set_mine_category`, the search box and the groups of the gallery.
+- **Checked:** `csv_options.rs`, `user_templates.rs`; self-test steps `csv_options` and
+  `my_templates`; the local copy of CI: 1001 tests, full self-test with 342 interactions, 0 problems.
+- **Open:** Table Options makes the table again, so changes made to it are lost (the window says
+  so); the groups of the built-in templates stay shown when a search finds none of them.
+
 ## 2026-11-02 — FOL-L011, FOL-L013, FOL-L047: scans and recognition in bulk (0.22.0)
 
 - **Current state before:** scans always made a new document; a scan could not be stopped; text

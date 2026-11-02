@@ -994,6 +994,7 @@
   "cmd.newDocSelection": "Dalla selezione…",
   "cmd.newDocTemplate": "Da modello…",
   "cmd.newDocText": "Da testo…",
+  "cmd.csv.tableOptions": "Opzioni tabella…",
   "cmd.newDocumentList": "File di origine",
   "cmd.newDocumentList.addFile": "Aggiungi file…",
   "cmd.newDocumentList.addFolder": "Aggiungi cartella…",

@@ -347,6 +347,17 @@ Scanning where the document is, and text recognition on many files (FOL-L011, FO
    step (pages that already have text left out unless asked), so folders of files and the command
    line (`--run-actions`) get their text read; one engine shared by the core and the window.
 
+### 0.23.0 — choices of one's own
+
+Tables and templates as the user wants them (FOL-L005, FOL-L010).
+
+1. ~~**FOL-L005 — Table Options.**~~ Done: a table made from a CSV file is made again in its tab with
+   the separator, the first row (header or data), the paper, the turn of the pages and the size of
+   the text chosen (`CsvOptions`, `from_csv_with`, `csv_shape`).
+2. ~~**FOL-L010 — groups and search of templates.**~~ Done: a template of the user is put in a group
+   of the gallery of its own (kept in its file), and a search box finds templates by name, group and
+   file of origin.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -369,12 +380,12 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L005 | P1 | 🟡 | blank pages, from images, from text files, from the clipboard, combine files; Markdown (CommonMark, tables, task lists; headings as bookmarks, links, code, quotes) and CSV (separator guessed, local numbers right-aligned, header repeated, wide tables sideways) set by a small typesetter | RTF with styles; Markdown pictures, CSS and formulas; a choice of separator, header and paper in the interface. |
+| FOL-L005 | P1 | 🟡 | blank pages, from images, from text files, from the clipboard, combine files; Markdown (CommonMark, tables, task lists; headings as bookmarks, links, code, quotes) and CSV (separator guessed, local numbers right-aligned, header repeated, wide tables sideways) set by a small typesetter | RTF with styles; Markdown pictures, CSS and formulas. |
 | FOL-L006 | P2 | 🟡 | e-mail messages (EML) made into documents: header lines, text, attachments embedded | Mail archives; office formats and HTML need a local engine decision. |
 | FOL-L007 | P2 | ⬜ | — | File associations (`help.fileAssoc`), virtual printer, office add-ins. |
 | FOL-L008 | P2 | ⬜ | — | XPS/OXPS, metafiles, CAD: engine decision first. |
 | FOL-L009 | P1/P2 | 🟡 | export to pictures (PNG, JPEG, TIFF, …), text, embedded pictures, attachments, split and extracted documents; the text as editable Word (DOCX), rich text (RTF) and web page (HTML) documents, headings and paragraphs in reading order, page breaks on request, a report of what is left out | Pictures, tables with their columns and number types (XLSX), PPTX, page fidelity layouts, accessible text export. |
-| FOL-L010 | P1 | 🟡 | stamps have categories and favourites; a gallery of document templates (papers, week and month planners, a to-do list, a letter, meeting notes, an invoice that adds itself up) on any paper, in the language of the interface; the user's own templates (Save as Template…, My templates in the gallery with origin, date, version and the fonts they need; new documents from them, rename, remove) | Search and categories of the user's templates. |
+| FOL-L010 | P1 | 🟡 | stamps have categories and favourites; a gallery of document templates (papers, week and month planners, a to-do list, a letter, meeting notes, an invoice that adds itself up) on any paper, in the language of the interface; the user's own templates (Save as Template…, My templates in the gallery with origin, date, version and the fonts they need; new documents from them, rename, remove) | — |
 
 ### Scanning and OCR
 

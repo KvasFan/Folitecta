@@ -41,8 +41,23 @@ pub fn TemplateGallery() -> Element {
     let mut monday = use_signal(|| st.value("templates.sunday_first") != "1");
     // A template of the user chosen instead of one of the gallery's.
     let mut mine_chosen: Signal<Option<std::path::PathBuf>> = use_signal(|| None);
+    let mut query = use_signal(String::new);
     use_hook(templates::load_mine);
     let mine = MINE.read().clone().unwrap_or_default();
+    // What the search box asks for, in names, categories and files of origin.
+    let wanted = |text: &[&str]| {
+        let q = query().trim().to_lowercase();
+        q.is_empty() || text.iter().any(|t| t.to_lowercase().contains(&q))
+    };
+    let mine_shown: Vec<templates::MyTemplate> = mine
+        .iter()
+        .filter(|m| wanted(&[&m.info.name, &m.info.category, &m.info.origin]))
+        .cloned()
+        .collect();
+    // The user's templates by category, those without one first.
+    let mut categories: Vec<String> = mine_shown.iter().map(|m| m.info.category.clone()).collect();
+    categories.sort_by_key(|c| (!c.is_empty(), c.to_lowercase()));
+    categories.dedup();
     let picked = mine_chosen().and_then(|p| mine.iter().find(|m| m.path == p).cloned());
 
     let (mut w, mut h) = paper_size(&paper()).unwrap_or((595.28, 841.89));
@@ -94,15 +109,19 @@ pub fn TemplateGallery() -> Element {
                 templates::create(st, chosen(), create_opts.clone());
             },
             div { class: "row tpl-import-row",
+                input { class: "tpl-search", r#type: "search", value: "{query}", placeholder: "{t(lang, \"templates.search\")}",
+                    oninput: move |e| query.set(e.value()) }
                 button { class: "tbtn tpl-import", onclick: move |_| templates::import_mine(st),
                     "{t(lang, \"templates.import\")}" }
             }
             div { class: "tpl-gallery",
-                if !mine.is_empty() {
-                    div { class: "tpl-group tpl-mine",
-                        h4 { class: "tpl-group-title", "{t(lang, \"templates.group.mine\")}" }
+                for category in categories {
+                    div { key: "mine-{category}", class: "tpl-group tpl-mine",
+                        h4 { class: "tpl-group-title",
+                            if category.is_empty() { "{t(lang, \"templates.group.mine\")}" } else { "{category}" }
+                        }
                         div { class: "tpl-cards",
-                            for m in mine.iter().cloned() {
+                            for m in mine_shown.iter().filter(|m| m.info.category == category).cloned() {
                                 {
                                     let on = mine_chosen().as_ref() == Some(&m.path);
                                     let (p1, p2) = (m.path.clone(), m.path.clone());
@@ -128,7 +147,9 @@ pub fn TemplateGallery() -> Element {
                     div { key: "{label}", class: "tpl-group",
                         h4 { class: "tpl-group-title", "{t(lang, label)}" }
                         div { class: "tpl-cards",
-                            for item in Template::ALL.into_iter().filter(|x| x.group() == group) {
+                            for item in Template::ALL.into_iter().filter(|x| x.group() == group).filter(|x| {
+                                wanted(&[&t(lang, &format!("templates.name.{}", x.id())), &t(lang, label)])
+                            }) {
                                 {
                                     templates::want_picture(item, &opts, lang);
                                     let key = templates::picture_key(item, &opts, lang);
@@ -227,7 +248,8 @@ fn MineDetails(template: templates::MyTemplate) -> Element {
     );
     let fonts = (!info.fonts.is_empty())
         .then(|| tf(lang, "templates.mine.fonts", &[("list", &info.fonts.join(", "))]));
-    let (p1, p2, p3) = (
+    let (p1, p2, p3, p4) = (
+        template.path.clone(),
         template.path.clone(),
         template.path.clone(),
         template.path.clone(),
@@ -239,6 +261,10 @@ fn MineDetails(template: templates::MyTemplate) -> Element {
             div { class: "field", label { "{t(lang, \"templates.mine.name\")}" }
                 input { class: "tpl-mine-name", value: "{info.name}",
                     onchange: move |e: Event<FormData>| templates::rename_mine(st, p1.clone(), e.value()) }
+            }
+            div { class: "field", label { "{t(lang, \"templates.mine.category\")}" }
+                input { class: "tpl-mine-category", value: "{info.category}", placeholder: "{t(lang, \"templates.group.mine\")}",
+                    onchange: move |e: Event<FormData>| templates::set_mine_category(st, p4.clone(), e.value()) }
             }
         }
         div { class: "row",

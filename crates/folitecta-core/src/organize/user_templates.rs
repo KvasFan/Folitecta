@@ -25,6 +25,8 @@ pub struct UserTemplate {
     /// Fonts its pages use without carrying them (the reader must have them).
     pub fonts: Vec<String>,
     pub pages: usize,
+    /// The group of the gallery it is shown in (none: My templates).
+    pub category: String,
 }
 
 const NAME: &[u8] = b"FolitectaTemplate";
@@ -32,6 +34,7 @@ const ORIGIN: &[u8] = b"FolitectaTemplateOrigin";
 const MADE: &[u8] = b"FolitectaTemplateMade";
 const VERSION: &[u8] = b"FolitectaTemplateVersion";
 const FONTS: &[u8] = b"FolitectaTemplateFonts";
+const CATEGORY: &[u8] = b"FolitectaTemplateCategory";
 
 /// The fonts every reader has (the standard 14), so no template needs them.
 const STANDARD: [&str; 14] = [
@@ -162,6 +165,7 @@ impl Document {
                 .map(str::to_string)
                 .collect(),
             pages: self.page_count(),
+            category: get(CATEGORY).trim().to_string(),
         })
     }
 
@@ -175,7 +179,7 @@ impl Document {
         }
         doc.begin_edit();
         if let Ok(info) = doc.info_dict_mut() {
-            for k in [NAME, ORIGIN, MADE, VERSION, FONTS] {
+            for k in [NAME, ORIGIN, MADE, VERSION, FONTS, CATEGORY] {
                 info.remove(k);
             }
         }
@@ -184,6 +188,25 @@ impl Document {
         doc.clear_history();
         Ok(doc)
     }
+}
+
+/// The template file `bytes` in the group `category` of the gallery (none:
+/// My templates); what else it says stays as it was.
+pub fn recategorized_template(bytes: Vec<u8>, category: &str) -> Result<Vec<u8>> {
+    let mut doc = Document::from_bytes(bytes, None, None)?;
+    if doc.template_info().is_none() {
+        return Err(Error::Invalid("the file is not a template".into()));
+    }
+    doc.begin_edit();
+    let info = doc.info_dict_mut()?;
+    match category.trim() {
+        "" => {
+            info.remove(CATEGORY);
+        }
+        c => info.set(CATEGORY.to_vec(), lopdf::text_string(c)),
+    }
+    doc.commit()?;
+    Ok(doc.bytes().to_vec())
 }
 
 /// The template file `bytes` under the name `name` (what else it says

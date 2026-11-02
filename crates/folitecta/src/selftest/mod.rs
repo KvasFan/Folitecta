@@ -424,6 +424,7 @@ mod steps_barcodes;
 mod steps_calc;
 mod steps_cards;
 mod steps_contents;
+mod steps_csv_options;
 mod steps_effects;
 mod steps_email;
 mod steps_features;
@@ -556,6 +557,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "permissions" => Box::pin(steps_permissions::run(cx)),
             "follow_links" => Box::pin(steps_follow_links::run(cx)),
             "field_values" => Box::pin(steps_field_values::run(cx)),
+            "csv_options" => Box::pin(steps_csv_options::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -644,6 +646,7 @@ const STEPS: &[&str] = &[
     "permissions",
     "follow_links",
     "field_values",
+    "csv_options",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

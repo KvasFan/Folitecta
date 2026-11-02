@@ -86,6 +86,7 @@ pub enum Dialog {
     ExtractPages,
     CropPages,
     PageBoxes,
+    CsvOptions,
     ResizePages,
     AddMargins,
     MovePages,

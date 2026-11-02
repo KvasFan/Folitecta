@@ -260,6 +260,7 @@ pub fn Dialogs() -> Element {
         Dialog::ExtractPages => rsx! { ExtractPages {} },
         Dialog::CropPages => rsx! { CropPages {} },
         Dialog::PageBoxes => rsx! { PageBoxes {} },
+        Dialog::CsvOptions => rsx! { crate::ui::features::csv_table::CsvOptionsDialog {} },
         Dialog::ResizePages => rsx! { ResizePages {} },
         Dialog::AddMargins => rsx! { AddMargins {} },
         Dialog::MovePages => rsx! { MovePages {} },

@@ -246,6 +246,20 @@ pub fn create_from_mine(st: AppState, path: PathBuf) {
     });
 }
 
+/// Put a template of the user in another group of the gallery.
+pub fn set_mine_category(st: AppState, path: PathBuf, category: String) {
+    let r = std::fs::read(&path)
+        .map_err(|e| e.to_string())
+        .and_then(|b| {
+            folitecta_core::user_templates::recategorized_template(b, &category).map_err(|e| e.to_string())
+        })
+        .and_then(|b| folitecta_core::util::write_atomic(&path, b).map_err(|e| e.to_string()));
+    match r {
+        Ok(()) => load_mine(),
+        Err(e) => st.error(e),
+    }
+}
+
 /// Give a template of the user another name.
 pub fn rename_mine(st: AppState, path: PathBuf, name: String) {
     if name.trim().is_empty() {

@@ -7,6 +7,11 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Table Options (File menu) makes a table opened from a CSV file again with the separator, the
+  first row, the paper, the turn of the pages and the size of the text chosen.
+- Templates of one's own can be put in groups of the gallery, and a search box finds templates.
+
+### Added
 - The scanning window can put the scanned pages into the open document, after the current page.
 - A scan under way can be stopped; the sheets the feeder gave before stay.
 - Action sequences have a Recognize Text step, so the text of whole folders of scanned files, and

@@ -107,6 +107,44 @@ fn numeric_columns(rows: &[Vec<String>], n: usize) -> Vec<bool> {
         .collect()
 }
 
+/// Which way the pages of a table are turned.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TableTurn {
+    /// Upright, unless the table needs the width of the page turned.
+    #[default]
+    Auto,
+    Upright,
+    Sideways,
+}
+
+/// How CSV text becomes a table; `None` lets Folitecta tell.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct CsvOptions {
+    pub separator: Option<char>,
+    /// The first record is the header.
+    pub header: Option<bool>,
+    pub turn: TableTurn,
+}
+
+/// What CSV text holds with `options`: records (the header included),
+/// columns, the separator and whether the first record is the header.
+pub fn csv_shape(text: &str, options: &CsvOptions) -> (usize, usize, char, bool) {
+    let sep = options.separator.unwrap_or_else(|| guess_separator(text));
+    let rows = parse_csv(text, sep);
+    let n = rows.iter().map(|r| r.len()).max().unwrap_or(0);
+    let header = options.header.unwrap_or_else(|| !first_is_data(&rows, n));
+    (rows.len(), n, sep, header)
+}
+
+/// The first record looks like data: numbers where its column has them.
+fn first_is_data(rows: &[Vec<String>], n: usize) -> bool {
+    rows.len() > 1
+        && numeric_columns(&rows[1..], n)
+            .iter()
+            .zip(&rows[0])
+            .any(|(num, cell)| *num && number_like(cell))
+}
+
 impl Document {
     /// A new document with the records of CSV `text` as a table (the
     /// separator guessed when `separator` is None). The first record is the
@@ -117,7 +155,22 @@ impl Document {
         layout: TextLayout,
         title: &str,
     ) -> Result<Document> {
-        let sep = separator.unwrap_or_else(|| guess_separator(text));
+        let options = CsvOptions {
+            separator,
+            ..CsvOptions::default()
+        };
+        Document::from_csv_with(text, &options, layout, title)
+    }
+
+    /// [`Document::from_csv`] with the separator, the header and the turn of
+    /// the pages chosen.
+    pub fn from_csv_with(
+        text: &str,
+        options: &CsvOptions,
+        layout: TextLayout,
+        title: &str,
+    ) -> Result<Document> {
+        let sep = options.separator.unwrap_or_else(|| guess_separator(text));
         let mut rows = parse_csv(text, sep);
         if rows.is_empty() {
             return Err(Error::Invalid("the file has no records".into()));
@@ -126,13 +179,9 @@ impl Document {
         for r in &mut rows {
             r.resize(n, String::new());
         }
-        let numeric = numeric_columns(&rows[1..], n);
-        let first_is_data = rows.len() > 1
-            && numeric
-                .iter()
-                .zip(&rows[0])
-                .any(|(num, cell)| *num && number_like(cell));
-        let head = (!first_is_data).then(|| rows.remove(0));
+        let header = options.header.unwrap_or_else(|| !first_is_data(&rows, n));
+        let numeric = numeric_columns(if header { &rows[1..] } else { &rows[..] }, n);
+        let head = (header && !rows.is_empty()).then(|| rows.remove(0));
         let fonts = Fonts::new(rows.iter().chain(head.iter()).flatten().map(String::as_str))?;
         let size = (layout.font_size * 0.82).clamp(5.0, 20.0);
         let pad = size * 0.4;
@@ -168,7 +217,11 @@ impl Document {
         )
         .iter()
         .sum();
-        let sideways = natural > short - 2.0 * margin;
+        let sideways = match options.turn {
+            TableTurn::Auto => natural > short - 2.0 * margin,
+            TableTurn::Upright => false,
+            TableTurn::Sideways => true,
+        };
         let sheet = if sideways {
             Sheet {
                 width: long,

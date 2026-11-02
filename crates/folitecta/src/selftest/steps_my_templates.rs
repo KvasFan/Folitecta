@@ -104,6 +104,26 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         == "yes";
     let _ = eval("document.querySelector('[data-template=\"mine:Orders\"]')?.click();").await;
     pause(300).await;
+    // Put in a group of its own, then found by searching.
+    let _ = eval("const i = document.querySelector('.tpl-mine-category'); if (i) { i.value = 'Shop'; i.dispatchEvent(new Event('change', { bubbles: true })); }").await;
+    let grouped = wait_for(
+        "return [...document.querySelectorAll('.tpl-mine .tpl-group-title')].some(h => h.textContent.trim() == 'Shop') ? 'yes' : '';",
+    )
+    .await
+        == "yes";
+    let search = |q: &str| {
+        format!(
+            "const i = document.querySelector('.tpl-search'); if (i) {{ i.value = {}; i.dispatchEvent(new Event('input', {{ bubbles: true }})); }}",
+            serde_json::to_string(q).unwrap_or_default()
+        )
+    };
+    let _ = eval(&search("shop")).await;
+    pause(300).await;
+    let found = text("return String(document.querySelectorAll('.tpl-card').length);").await == "1";
+    let _ = eval(&search("")).await;
+    pause(300).await;
+    let _ = eval("document.querySelector('[data-template=\"mine:Orders\"]')?.click();").await;
+    pause(300).await;
     let _ = eval("document.querySelector('.tpl-mine-remove')?.click();").await;
     pause(800).await;
     let gone = text("return document.querySelector('.tpl-mine') ? 'still' : '';")
@@ -113,9 +133,9 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let _ = eval("document.querySelector('.dialog-foot .tbtn:not(.primary)')?.click();").await;
     pause(300).await;
     cx.record(
-        "my templates: a template renamed in the gallery, then moved to the bin",
-        renamed && gone && left == 0,
-        format!("renamed {renamed}, group gone {gone}, files left {left}"),
+        "my templates: a template renamed in the gallery, put in a group, found by searching, then moved to the bin",
+        renamed && grouped && found && gone && left == 0,
+        format!("renamed {renamed}, grouped {grouped}, found alone {found}, group gone {gone}, files left {left}"),
     );
     crate::files::close_tab(st, source_tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;

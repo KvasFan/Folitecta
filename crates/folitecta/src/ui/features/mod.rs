@@ -8,6 +8,7 @@ pub mod calculator;
 pub mod calendar;
 pub mod compare;
 pub mod contents;
+pub mod csv_table;
 pub mod doctools;
 pub mod field_editor;
 pub mod field_format;

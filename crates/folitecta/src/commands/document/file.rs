@@ -64,6 +64,17 @@ handlers! {
     "newDocBlank" => |st| doc_dialog_or_blank(st),
     "newDoc" => |st| files::new_blank(st, 1, 595.0, 842.0),
     "newDocText" => |st| files::new_from_text_file(st),
+    "csv.tableOptions" => |st| {
+        if st.read_active(|t| t.made_from.is_some()).unwrap_or(false) {
+            st.set_dialog(crate::state::Dialog::CsvOptions);
+        } else {
+            st.toast(
+                crate::state::ToastKind::Info,
+                crate::i18n::t(st.lang(), "toast.not_a_table"),
+                "",
+            );
+        }
+    },
     "newDocEmail" => |st| files::new_from_email(st),
     "save" => |st| files::save(st),
     "saveAs" => |st| files::save_as(st),

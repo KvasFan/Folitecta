@@ -217,10 +217,7 @@ pub(crate) fn made_from_text(path: &Path) -> bool {
 /// not valid UTF-8): Markdown set with its styles, CSV as a table, other
 /// text as it is.
 pub(crate) fn document_from_text(name: &str, bytes: Vec<u8>) -> folitecta_core::Result<Document> {
-    let text = match String::from_utf8(bytes) {
-        Ok(s) => s.trim_start_matches('\u{feff}').to_string(),
-        Err(e) => e.into_bytes().iter().map(|b| *b as char).collect(),
-    };
+    let text = decode_text(bytes);
     let (stem, ext) = name.rsplit_once('.').unwrap_or((name, ""));
     let layout = folitecta_core::TextLayout::default();
     let mut doc = match ext.to_ascii_lowercase().as_str() {
@@ -238,6 +235,28 @@ pub(crate) fn document_from_text(name: &str, bytes: Vec<u8>) -> folitecta_core::
     Ok(doc)
 }
 
+/// Text of a file: UTF-8, or Latin-1 when not valid UTF-8.
+fn decode_text(bytes: Vec<u8>) -> String {
+    match String::from_utf8(bytes) {
+        Ok(s) => s.trim_start_matches('\u{feff}').to_string(),
+        Err(e) => e.into_bytes().iter().map(|b| *b as char).collect(),
+    }
+}
+
+/// A table made from a CSV file keeps its text, so Table Options can make it
+/// again; the user is told it can.
+fn remember_table(st: AppState, name: &str, bytes: Vec<u8>) {
+    let ext = name
+        .rsplit_once('.')
+        .map(|(_, e)| e.to_ascii_lowercase())
+        .unwrap_or_default();
+    if ext == "csv" || ext == "tsv" {
+        let text = decode_text(bytes);
+        let name = name.to_string();
+        st.with_active(|t| t.made_from = Some((text, name)));
+    }
+}
+
 /// Open a Markdown or CSV file as a new document made from it.
 pub fn open_text_file(st: AppState, path: &Path) {
     let name = path
@@ -245,9 +264,10 @@ pub fn open_text_file(st: AppState, path: &Path) {
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default();
     match std::fs::read(path) {
-        Ok(data) => match document_from_text(&name, data) {
+        Ok(data) => match document_from_text(&name, data.clone()) {
             Ok(doc) => {
                 open_document_tab(st, doc);
+                remember_table(st, &name, data);
                 st.toast(
                     ToastKind::Ok,
                     tf(st.lang(), "toast.opened", &[("name", &name)]),
@@ -274,8 +294,11 @@ pub fn new_from_text_file(st: AppState) {
         };
         let name = file.file_name();
         let bytes = file.read().await;
-        match document_from_text(&name, bytes) {
-            Ok(doc) => open_document_tab(st, doc),
+        match document_from_text(&name, bytes.clone()) {
+            Ok(doc) => {
+                open_document_tab(st, doc);
+                remember_table(st, &name, bytes);
+            }
             Err(e) => st.error(format!("{name}: {}", st.core_error_text(&e))),
         }
     });

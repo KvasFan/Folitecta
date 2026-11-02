@@ -158,6 +158,9 @@ pub struct DocTab {
     /// the revision in the address of its picture. An edit of one page
     /// leaves the addresses (and the pictures kept) of the others.
     pub page_shown: Vec<u64>,
+    /// The CSV text and file name a document made from a table was made of,
+    /// to make it again with other choices.
+    pub made_from: Option<(String, String)>,
     /// Selected bookmark in the bookmarks pane.
     pub selected_bookmark: Option<Vec<usize>>,
     /// Selected named destination.
@@ -347,6 +350,7 @@ impl DocTab {
             view_gen: 0,
             view_serial: 0,
             page_shown: Vec::new(),
+            made_from: None,
             selected_bookmark: None,
             selected_link: None,
             selected_dest: None,

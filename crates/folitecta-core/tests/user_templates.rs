@@ -81,3 +81,25 @@ fn protected_documents_and_empty_names_are_refused() {
     assert!(plain.template_bytes("   ").is_err());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn a_template_has_a_category_it_does_not_give_its_documents() {
+    use folitecta_core::user_templates::recategorized_template;
+    let doc = Document::new_blank(1, 300.0, 300.0).unwrap();
+    let bytes = doc.template_bytes("Order form").unwrap();
+    let as_template = |b: &[u8]| {
+        Document::from_bytes(b.to_vec(), None, None)
+            .unwrap()
+            .template_info()
+            .unwrap()
+    };
+    assert_eq!(as_template(&bytes).category, "");
+    let shop = recategorized_template(bytes, "  Shop ").unwrap();
+    assert_eq!(as_template(&shop).category, "Shop");
+    assert_eq!(as_template(&shop).name, "Order form");
+    // A document made from it says nothing of it.
+    let made = Document::from_template_file(shop.clone()).unwrap();
+    assert!(made.template_info().is_none());
+    let none = recategorized_template(shop, "").unwrap();
+    assert_eq!(as_template(&none).category, "");
+}

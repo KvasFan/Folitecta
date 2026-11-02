@@ -13227,6 +13227,17 @@
    "status": "planned"
   },
   {
+   "id": "csv.tableOptions",
+   "label": "Table Options…",
+   "parent": null,
+   "menu": "file",
+   "ribbon": null,
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "newDocText",
    "label": "From Text…",
    "parent": null,

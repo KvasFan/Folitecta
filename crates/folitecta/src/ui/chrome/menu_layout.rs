@@ -46,6 +46,7 @@ pub const MENUS: &[(&str, &[Item])] = &[
                     Cmd("newDocFromFiles"),
                     Cmd("newDocImage"),
                     Cmd("newDocText"),
+                    Cmd("csv.tableOptions"),
                     Cmd("newDocRTF"),
                     Cmd("newDocHtml"),
                     Cmd("newDocEmail"),

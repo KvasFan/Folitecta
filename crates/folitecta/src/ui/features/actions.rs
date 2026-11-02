@@ -51,6 +51,13 @@ fn step_settings(st: AppState, i: usize, step: &Step) -> Element {
                 option { value: "even", selected: pages == PageSet::Even, "{t(lang, \"sequence.pages.even\")}" }
             }
         },
+        Step::Ocr { all_pages } => rsx! {
+            label { class: "check",
+                input { r#type: "checkbox", class: "actions-ocr-all", checked: all_pages,
+                    onchange: move |_| set(Step::Ocr { all_pages: !all_pages }) }
+                span { "{t(lang, \"sequence.ocr.all_pages\")}" }
+            }
+        },
         Step::Recompress { preset } => {
             let presets: Vec<(&'static str, String)> = RecompressPreset::ALL
                 .iter()
@@ -157,7 +164,7 @@ pub fn ActionsDialog() -> Element {
                             onclick: move |_| actions::edit(st, move |q| q.steps.swap(i, i - 1)), "↑" }
                         button { class: "ibtn", disabled: i + 1 >= n, title: "{t(lang, \"sequence.down\")}",
                             onclick: move |_| actions::edit(st, move |q| q.steps.swap(i, i + 1)), "↓" }
-                        button { class: "ibtn", title: "{t(lang, \"sequence.remove\")}",
+                        button { class: "ibtn actions-remove", title: "{t(lang, \"sequence.remove\")}",
                             onclick: move |_| actions::edit(st, move |q| { q.steps.remove(i); }), "×" }
                     }
                 }

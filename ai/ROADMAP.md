@@ -335,6 +335,18 @@ What PDF/A needs most: every font in the file (FOL-L043).
    of document found what the preflight missed — text painted in the initial black (DeviceGray),
    fonts written inside resources, comments without appearances, the actions and single
    appearances of buttons — all now checked and fixed; every copy declared PDF/A-2b passes it.
+### 0.22.0 — scans and recognition in bulk
+
+Scanning where the document is, and text recognition on many files (FOL-L011, FOL-L013, FOL-L047).
+
+1. ~~**FOL-L011 — scanning into the open document.**~~ Done: a choice of the scanning window puts
+   the pages after the current page instead of a new tab, backs and clean-up as before.
+2. ~~**FOL-L011 — stopping a scan.**~~ Done: Stop ends `scanimage`; the sheets the feeder gave
+   before stay.
+3. ~~**FOL-L013, FOL-L047 — recognition as a step.**~~ Done: action sequences have a Recognize Text
+   step (pages that already have text left out unless asked), so folders of files and the command
+   line (`--run-actions`) get their text read; one engine shared by the core and the window.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -368,9 +380,9 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L011 | P1 | 🟡 | scanning into a new document: SANE (`scanimage`) on Linux with its devices, sources, colour modes and resolutions and presets of them; the WIA dialogs on Windows; pages the size of the paper; backs scanned as a second stack put between the fronts; clean-up offered afterwards | Scanning on macOS (Image Capture); scanning into the open document; stopping a scan under way. |
+| FOL-L011 | P1 | 🟡 | scanning into a new document: SANE (`scanimage`) on Linux with its devices, sources, colour modes and resolutions and presets of them; the WIA dialogs on Windows; pages the size of the paper; backs scanned as a second stack put between the fronts; clean-up offered afterwards | Scanning on macOS (Image Capture); stopping the system's dialog on Windows. |
 | FOL-L012 | P1 | 🟡 | picture tools: turn, crop, straighten, filters, black and white; delete blank pages; Clean Up Scans: scanned pages (a picture covering 85% of the page) looked at in the background, blank sides (share of ink away from the edges) and askew sheets listed with thumbnails and thresholds, deleted and straightened in one undo step | Pages upside down or sideways, despeckle and black and white in the same workflow; fronts and backs interleaved. |
-| FOL-L013 | P1 | 🟡 | local OCR (PaddleOCR models run by tract): pages, a selected area, pictures; invisible text tagged `OCR`, removed or replaced on demand; Latin-script languages | Editable text output; exclusions (existing text, fields, comments, logos); batches of files; more scripts (models). |
+| FOL-L013 | P1 | 🟡 | local OCR (PaddleOCR models run by tract): pages, a selected area, pictures; invisible text tagged `OCR`, removed or replaced on demand; Latin-script languages | Editable text output; exclusions (existing text, fields, comments, logos); more scripts (models). |
 | FOL-L014 | P1 | 🟡 | words read with doubt (a letter below 0.8 probability) kept in the page as marked content and reviewed one by one: picture of the word, its place marked on the page, correct, keep, remove or skip, one undo step each; the review opens after recognition | Field recognition proposals; doubtful words in the search and in the spell check. |
 
 ### Pages and composition
@@ -444,7 +456,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L047 | P2 | 🟡 | page-mark macros; action sequences of 11 kinds of steps kept as JSON, run on the open document as one undo step or on files and folders (a plan with collisions, a result and a log per file, cancel), and from the command line (`--run-actions`, a line of JSON per file, exit status) with the same code | Interactive steps, portfolios as inputs, more steps (OCR, splitting, protection), scheduling through the system. |
+| FOL-L047 | P2 | 🟡 | page-mark macros; action sequences of 11 kinds of steps kept as JSON, run on the open document as one undo step or on files and folders (a plan with collisions, a result and a log per file, cancel), and from the command line (`--run-actions`, a line of JSON per file, exit status) with the same code | Interactive steps, portfolios as inputs, more steps (splitting, protection), scheduling through the system. |
 | FOL-L048 | P2 | ⬜ | — | On-device AI engine decision. |
 | FOL-L049 | P2 | ⬜ | — | 3D viewer and authoring. |
 | FOL-L050 | P1/P2 | 🟡 | preferences, shortcuts, ribbon and classic interface with short menus (submenus by subject), Quick Access Toolbar, command palette, settings export/import/reset, resizable panes and ribbon | Toolbox profiles, plug-ins, portable/administrative settings. |

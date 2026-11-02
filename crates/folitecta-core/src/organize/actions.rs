@@ -89,11 +89,17 @@ pub enum Step {
     },
     /// Convert to PDF/A-2b (declared only when every rule checked is met).
     PdfA,
+    /// Recognize the text of the pages (invisible text over them); pages that
+    /// already have text are left out unless `all_pages`.
+    Ocr {
+        #[serde(default)]
+        all_pages: bool,
+    },
 }
 
 impl Step {
     /// The ids of the steps, in the order they are offered.
-    pub const IDS: [&'static str; 11] = [
+    pub const IDS: [&'static str; 12] = [
         "rotate",
         "delete-empty-pages",
         "recompress",
@@ -104,6 +110,7 @@ impl Step {
         "watermark",
         "page-numbers",
         "info",
+        "ocr",
         "pdf-a",
     ];
 
@@ -120,6 +127,7 @@ impl Step {
             Step::PageNumbers { .. } => "page-numbers",
             Step::Info { .. } => "info",
             Step::PdfA => "pdf-a",
+            Step::Ocr { .. } => "ocr",
         }
     }
 
@@ -153,6 +161,7 @@ impl Step {
                 keywords: String::new(),
             },
             "pdf-a" => Step::PdfA,
+            "ocr" => Step::Ocr { all_pages: false },
             _ => return None,
         })
     }
@@ -256,6 +265,23 @@ impl Step {
                     &pick(keywords, &info.keywords),
                 )?;
                 "document information set".to_string()
+            }
+            Step::Ocr { all_pages } => {
+                let pages: Vec<usize> = (0..n)
+                    .filter(|p| *all_pages || doc.page_text(*p).trim().is_empty())
+                    .collect();
+                if pages.is_empty() {
+                    "every page has text: none recognized".to_string()
+                } else {
+                    let engine = crate::ocr::shared_engine()?;
+                    let bytes = doc.bytes();
+                    let read = pages
+                        .iter()
+                        .map(|p| engine.read_page(bytes.clone(), *p, crate::ocr::OcrOptions::default()))
+                        .collect::<Result<Vec<_>>>()?;
+                    let written = doc.add_ocr_text(&read)?;
+                    format!("recognized the text of {written} pages")
+                }
             }
             Step::PdfA => {
                 let outcome = doc.make_pdfa()?;

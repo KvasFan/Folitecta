@@ -50,6 +50,37 @@ pub struct OcrModels {
 
 /// The first folder of `dirs` with the models (`det.onnx`,
 /// `rec-latin.onnx`, `dict-latin.txt`).
+/// The folders the models are looked for in (`None`: the `ocr` folder of
+/// the source tree).
+static MODEL_DIRS: Mutex<Option<Vec<PathBuf>>> = Mutex::new(None);
+/// The engine of [`shared_engine`], loaded once.
+static SHARED: Mutex<Option<Arc<OcrEngine>>> = Mutex::new(None);
+
+/// Look for the models in these folders, in this order (the program sets them
+/// once at start).
+pub fn set_model_dirs(dirs: Vec<PathBuf>) {
+    *MODEL_DIRS.lock().unwrap_or_else(|e| e.into_inner()) = Some(dirs);
+}
+
+/// The engine of the models of the folders set, loaded the first time (call
+/// away from the interface thread).
+pub fn shared_engine() -> Result<Arc<OcrEngine>> {
+    let mut slot = SHARED.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(e) = slot.as_ref() {
+        return Ok(e.clone());
+    }
+    let dirs = MODEL_DIRS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+        .unwrap_or_else(|| vec![PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ocr"))]);
+    let models = find_models(&dirs)
+        .ok_or_else(|| Error::Invalid("the text recognition models are missing (ocr folder)".into()))?;
+    let engine = Arc::new(OcrEngine::load(&models)?);
+    *slot = Some(engine.clone());
+    Ok(engine)
+}
+
 pub fn find_models(dirs: &[PathBuf]) -> Option<OcrModels> {
     dirs.iter().find_map(|d| {
         let m = OcrModels {

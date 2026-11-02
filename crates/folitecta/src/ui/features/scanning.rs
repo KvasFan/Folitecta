@@ -28,6 +28,8 @@ pub fn ScanDialog() -> Element {
     let mut backs = use_signal(|| st.value("scan.backs") == "1");
     let mut reversed = use_signal(|| st.value("scan.reversed") != "0");
     let mut clean_up = use_signal(|| st.value("scan.clean_up") == "1");
+    let has_doc = st.has_doc();
+    let mut into_open = use_signal(|| has_doc && st.value("scan.into_open") == "1");
     let mut preset_name = use_signal(String::new);
 
     let backend = scanner::backend();
@@ -70,6 +72,7 @@ pub fn ScanDialog() -> Element {
         backs: backs(),
         reversed: reversed(),
         clean_up: clean_up(),
+        into_open: has_doc && into_open(),
     };
     let presets = scanning::presets(st);
     let waiting_backs = !state.fronts.is_empty();
@@ -92,6 +95,9 @@ pub fn ScanDialog() -> Element {
                 st.set_value("scan.backs", if backs() { "1" } else { "0" });
                 st.set_value("scan.reversed", if reversed() { "1" } else { "0" });
                 st.set_value("scan.clean_up", if clean_up() { "1" } else { "0" });
+                if has_doc {
+                    st.set_value("scan.into_open", if into_open() { "1" } else { "0" });
+                }
                 scanning::start(st, go_settings.clone(), options);
             },
             if backend == Backend::None {
@@ -184,8 +190,16 @@ pub fn ScanDialog() -> Element {
                     button { class: "tbtn scan-no-backs", disabled: state.busy, onclick: move |_| scanning::without_backs(st, options), "{t(lang, \"scan.no_backs\")}" }
                 }
             }
+            if backend != Backend::None && has_doc {
+                label { class: "check", input { class: "scan-into-open", r#type: "checkbox", checked: into_open(), onchange: move |_| into_open.set(!into_open()) } span { "{t(lang, \"scan.into_open\")}" } }
+            }
             if state.busy {
-                p { class: "hint scan-busy", "{t(lang, \"scan.scanning\")}" }
+                div { class: "row scan-busy-row",
+                    p { class: "hint scan-busy", "{t(lang, \"scan.scanning\")}" }
+                    if backend == Backend::Devices {
+                        button { class: "tbtn scan-stop", onclick: move |_| scanner::stop(), "{t(lang, \"scan.stop\")}" }
+                    }
+                }
             }
             if let Some(why) = state.problem.as_ref() {
                 div { class: "callout warn scan-problem", "{why}" }

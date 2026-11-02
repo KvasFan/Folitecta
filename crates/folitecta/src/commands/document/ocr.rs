@@ -6,8 +6,8 @@
 //! to stop. The words read with doubt are reviewed one by one afterwards.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
 
 use base64::Engine;
 use dioxus::prelude::*;
@@ -87,7 +87,6 @@ pub static JOB: GlobalSignal<OcrJob> = Signal::global(OcrJob::default);
 pub static AREA: GlobalSignal<Option<(u64, PageOcr)>> = Signal::global(|| None);
 
 static STOP: AtomicBool = AtomicBool::new(false);
-static ENGINE: Mutex<Option<Arc<OcrEngine>>> = Mutex::new(None);
 
 /// The folders searched for the models, the preferred first: the user's
 /// own, the program's, the source tree (when run from there).
@@ -116,15 +115,8 @@ pub fn models() -> Option<OcrModels> {
 
 /// The engine, loaded the first time (call away from the interface thread).
 fn engine() -> Result<Arc<OcrEngine>, String> {
-    let mut slot = ENGINE.lock().unwrap_or_else(|e| e.into_inner());
-    if let Some(e) = slot.as_ref() {
-        return Ok(e.clone());
-    }
-    let models =
-        models().ok_or_else(|| "the text recognition models are missing (ocr folder)".to_string())?;
-    let e = Arc::new(OcrEngine::load(&models).map_err(|e| e.to_string())?);
-    *slot = Some(e.clone());
-    Ok(e)
+    // The one of the core, which action sequences share.
+    folitecta_core::ocr::shared_engine().map_err(|e| e.to_string())
 }
 
 fn with_tab<T>(st: AppState, id: u64, f: impl FnOnce(&mut DocTab) -> T) -> Option<T> {

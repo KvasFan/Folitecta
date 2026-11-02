@@ -51,6 +51,28 @@ pub enum Backend {
 }
 
 static STAND_IN: Mutex<bool> = Mutex::new(false);
+/// The self-test's scanner takes its time, so a scan can be stopped.
+static STAND_IN_SLOW: Mutex<bool> = Mutex::new(false);
+/// A scan under way is to stop.
+static STOP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// What a stopped scan answers (when no sheet was scanned before).
+pub const STOPPED: &str = "stopped";
+
+/// Stop the scan under way: the scanner program is ended; the sheets of the
+/// feeder scanned before stay.
+pub fn stop() {
+    STOP.store(true, std::sync::atomic::Ordering::SeqCst);
+}
+
+pub(crate) fn stopped() -> bool {
+    STOP.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+/// The self-test's scanner waits before giving its pages.
+pub fn set_stand_in_slow(on: bool) {
+    *STAND_IN_SLOW.lock().unwrap_or_else(|e| e.into_inner()) = on;
+}
 
 /// The self-test's scanner instead of the system's: nothing is started.
 pub fn set_stand_in(on: bool) {
@@ -117,7 +139,16 @@ pub fn is_feeder(source: &str) -> bool {
 /// Scan with `settings`; `window` is the window the system's dialog belongs to.
 pub fn scan(settings: &ScanSettings, window: isize) -> Result<Vec<ScannedPicture>, String> {
     let _ = window;
+    STOP.store(false, std::sync::atomic::Ordering::SeqCst);
     let pictures = if stand_in() {
+        if *STAND_IN_SLOW.lock().unwrap_or_else(|e| e.into_inner()) {
+            for _ in 0..50 {
+                if stopped() {
+                    return Err(STOPPED.into());
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+        }
         stand_in_scan(settings)
     } else {
         #[cfg(all(unix, not(target_os = "macos")))]

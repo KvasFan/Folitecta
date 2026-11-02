@@ -356,6 +356,7 @@
   "toast.save_before_window": "Save the document first: the new window opens its file",
   "toast.save_first": "Save the document as a file first",
   "toast.saved": "Saved {name}",
+  "toast.scans_added": "{count} scanned pages added to the document",
   "toast.scans_done": "Scanned pages cleaned up — straightened: {straightened}, deleted: {deleted}, whitened: {whitened}.",
   "toast.scripts_removed": "{count} scripts removed",
   "toast.scripts_removed_one": "{count} script removed",

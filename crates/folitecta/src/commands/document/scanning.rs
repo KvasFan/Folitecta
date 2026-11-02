@@ -7,8 +7,9 @@ use dioxus::prelude::*;
 use folitecta_core::{Document, ScannedPicture};
 
 use crate::commands::handlers;
+use crate::i18n::{t, tf};
 use crate::scanner::{self, Capabilities, Device, ScanSettings};
-use crate::state::{AppState, Dialog};
+use crate::state::{AppState, Dialog, ToastKind};
 
 /// The state of the scan dialog.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -32,6 +33,8 @@ pub struct ScanOptions {
     pub backs: bool,
     /// That stack was turned over (the last sheet first).
     pub reversed: bool,
+    /// The pages go into the open document, after its current page.
+    pub into_open: bool,
     /// Clean Up Scans opens on the new document.
     pub clean_up: bool,
 }
@@ -147,7 +150,9 @@ pub fn start(st: AppState, settings: ScanSettings, options: ScanOptions) {
             Ok(Err(e)) => {
                 let mut s = SCAN.write();
                 s.busy = false;
-                s.problem = Some(if e.is_empty() {
+                s.problem = Some(if e == scanner::STOPPED {
+                    t(st.lang(), "scan.stopped")
+                } else if e.is_empty() {
                     "the scanner did not answer".into()
                 } else {
                     e
@@ -209,6 +214,30 @@ async fn finish(
     .await;
     SCAN.write().busy = false;
     match made {
+        Ok(Ok(doc)) if options.into_open && st.has_doc() => {
+            let added = doc.page_count();
+            let inserted = st.with_active(|t| {
+                let at = (t.page + 1).min(t.doc.page_count());
+                t.doc.insert_document(at, &doc, None).map(|_| at)
+            });
+            match inserted {
+                Some(Ok(at)) => {
+                    st.set_dialog(Dialog::None);
+                    crate::files::set_window_title(st);
+                    st.go_to_page(at);
+                    st.toast(
+                        ToastKind::Ok,
+                        tf(st.lang(), "toast.scans_added", &[("count", &added.to_string())]),
+                        "",
+                    );
+                    if options.clean_up {
+                        crate::commands::dispatch(st, "document.cleanUpScans");
+                    }
+                }
+                Some(Err(e)) => SCAN.write().problem = Some(st.core_error_text(&e)),
+                None => {}
+            }
+        }
         Ok(Ok(doc)) => {
             st.set_dialog(Dialog::None);
             crate::files::open_document_tab(st, doc);

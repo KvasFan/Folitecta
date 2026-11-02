@@ -11,6 +11,21 @@ checked, what is still open. The history before October 2026 is in
   packaged Linux executable: 0 problems.
 - **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
 
+## 2026-11-02 — FOL-L011, FOL-L013, FOL-L047: scans and recognition in bulk (0.22.0)
+
+- **Current state before:** scans always made a new document; a scan could not be stopped; text
+  recognition ran on the open document only.
+- **What:** `ScanOptions::into_open` (pages inserted after the current page with
+  `insert_document`), `scanner::stop`, `run_scan` (the scanner program is polled and ended when
+  stopped; the feeder's sheets kept), `Step::Ocr { all_pages }`, `ocr::set_model_dirs`,
+  `ocr::shared_engine` (the window uses it too, one engine).
+- **Checked:** `actions.rs` (a page that is a picture gets its text, a second run leaves it, the
+  step as JSON); self-test steps `scanning` (into the open document, stopped) and `ocr_sequence`;
+  the local copy of CI: 998 tests, full self-test with 341 interactions, 0 problems (the step
+  `recovery` failed once under a load of 38 and passed alone and in the full run again).
+- **Open:** the system's scanning dialog of Windows cannot be stopped from Folitecta; a stopped
+  flatbed scan keeps nothing.
+
 ## 2026-11-02 — FOL-L043: composite fonts for PDF/A (no release)
 
 - **What:** `composite_parts` (Identity-H, a descendant without a program, the characters of its

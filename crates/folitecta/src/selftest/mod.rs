@@ -448,6 +448,7 @@ mod steps_my_templates;
 mod steps_names_text;
 mod steps_note_icon;
 mod steps_ocr;
+mod steps_ocr_sequence;
 mod steps_office;
 mod steps_page_boxes;
 mod steps_panes;
@@ -557,6 +558,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "field_values" => Box::pin(steps_field_values::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
+            "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
             "page_boxes" => Box::pin(steps_page_boxes::run(cx)),
             "redaction_crop" => Box::pin(steps_redaction_crop::run(cx)),
             "field_text" => Box::pin(steps_field_text::run(cx)),
@@ -644,6 +646,7 @@ const STEPS: &[&str] = &[
     "field_values",
     "fonts_pane",
     "lists_out",
+    "ocr_sequence",
     "page_boxes",
     "redaction_crop",
     "field_text",

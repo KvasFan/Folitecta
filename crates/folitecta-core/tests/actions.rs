@@ -160,3 +160,29 @@ fn a_batch_has_a_result_for_every_file() {
     assert_eq!(twice[1].collision, Some("twice"));
     std::fs::remove_dir_all(&dir).ok();
 }
+
+#[test]
+fn a_sequence_recognizes_the_text_of_scanned_pages() {
+    let mut doc = Document::from_text(
+        "Invoice number 2026\nThe quick brown fox jumps over the lazy dog.",
+        TextLayout::default(),
+    )
+    .unwrap();
+    doc.rasterize_pages(&[0], 150.0, false).unwrap();
+    assert!(doc.page_text(0).trim().is_empty());
+    let seq = ActionSequence {
+        name: "Recognize".into(),
+        steps: vec![Step::new("ocr").unwrap()],
+    };
+    let log = doc.run_actions(&seq).unwrap();
+    assert!(log[0].contains("recognized the text of 1 pages"), "{log:?}");
+    let text = doc.page_text(0).to_lowercase();
+    assert!(text.contains("quick") && text.contains("invoice"), "{text}");
+    // Run again: the page has text now and is left out.
+    let log = doc.run_actions(&seq).unwrap();
+    assert!(log[0].contains("none recognized"), "{log:?}");
+    // The step reads and writes as JSON like the others.
+    let json = seq.to_json();
+    assert!(json.contains("\"ocr\""), "{json}");
+    assert_eq!(ActionSequence::from_json(&json).unwrap(), seq);
+}

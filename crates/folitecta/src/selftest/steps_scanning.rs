@@ -98,6 +98,43 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         }
     }
     let single_tab = st.read_active(|t| t.id).unwrap_or(0);
+
+    // Into the open document: the page goes after the current page, no tab.
+    let tabs_now = st.docs.read().len();
+    crate::commands::dispatch(st, "newDocScanner");
+    let _ = wait_for("return !!document.querySelector('.dialog .scan-into-open');").await;
+    let _ =
+        eval("const c = document.querySelector('.dialog .scan-into-open'); if (c && !c.checked) c.click();")
+            .await;
+    pause(200).await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let mut into = 0;
+    for _ in 0..40 {
+        pause(150).await;
+        into = st.read_active(|t| t.doc.page_count()).unwrap_or(0);
+        if into == 2 {
+            break;
+        }
+    }
+    let no_new_tab = st.docs.read().len() == tabs_now;
+
+    // A scan stopped while under way: nothing is added, the window says so.
+    crate::scanner::set_stand_in_slow(true);
+    crate::commands::dispatch(st, "newDocScanner");
+    let _ = wait_for("return !!document.querySelector('.dialog .scan-source');").await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let stop_shown = wait_for("return !!document.querySelector('.dialog .scan-stop');").await;
+    let _ = eval("document.querySelector('.dialog .scan-stop')?.click();").await;
+    let stopped = wait_for("return !!document.querySelector('.dialog .scan-problem');").await;
+    let unchanged = st.read_active(|t| t.doc.page_count()).unwrap_or(0) == 2;
+    crate::scanner::set_stand_in_slow(false);
+    st.set_dialog(crate::state::Dialog::None);
+    pause(200).await;
+    cx.record(
+        "scanning: a page scanned into the open document, a scan stopped while under way",
+        into == 2 && no_new_tab && stop_shown && stopped && unchanged,
+        format!("pages {into}, no new tab {no_new_tab}, stop shown {stop_shown}, stopped {stopped}, unchanged {unchanged}"),
+    );
     for id in [single_tab, duplex_tab] {
         crate::files::close_tab(st, id, true, crate::state::AfterUnsaved::Close);
         pause(200).await;

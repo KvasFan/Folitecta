@@ -13,6 +13,47 @@ fn scanimage() -> Command {
     Command::new("scanimage")
 }
 
+/// [`run`] for a scan: the program is ended when the scan is stopped.
+fn run_scan(cmd: &mut Command) -> Result<std::process::Output, String> {
+    use std::io::Read;
+    let mut child = cmd
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => "scanimage (SANE) is not installed".to_string(),
+            _ => e.to_string(),
+        })?;
+    let read = |pipe: Option<Box<dyn Read + Send>>| {
+        std::thread::spawn(move || {
+            let mut bytes = Vec::new();
+            if let Some(mut p) = pipe {
+                let _ = p.read_to_end(&mut bytes);
+            }
+            bytes
+        })
+    };
+    let out = read(child.stdout.take().map(|p| Box::new(p) as Box<dyn Read + Send>));
+    let err = read(child.stderr.take().map(|p| Box::new(p) as Box<dyn Read + Send>));
+    let status = loop {
+        if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
+            break status;
+        }
+        if super::stopped() {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(super::STOPPED.into());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    };
+    Ok(std::process::Output {
+        status,
+        stdout: out.join().unwrap_or_default(),
+        stderr: err.join().unwrap_or_default(),
+    })
+}
+
 fn run(cmd: &mut Command) -> Result<std::process::Output, String> {
     cmd.stdin(Stdio::null()).output().map_err(|e| match e.kind() {
         std::io::ErrorKind::NotFound => "scanimage (SANE) is not installed".to_string(),
@@ -117,7 +158,7 @@ fn settings_args(s: &ScanSettings) -> Vec<String> {
 pub fn scan(s: &ScanSettings) -> Result<Vec<ScannedPicture>, String> {
     let dpi = s.dpi as f32;
     if !is_feeder(&s.source) {
-        let out = run(scanimage().args(settings_args(s)))?;
+        let out = run_scan(scanimage().args(settings_args(s)))?;
         if !out.status.success() || out.stdout.is_empty() {
             return Err(String::from_utf8_lossy(&out.stderr).trim().to_string());
         }
@@ -130,9 +171,11 @@ pub fn scan(s: &ScanSettings) -> Result<Vec<ScannedPicture>, String> {
     let dir = std::env::temp_dir().join(format!("folitecta-scan-{}-{}", std::process::id(), stamp()));
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let pattern = dir.join("page%04d.png");
-    let out = run(scanimage()
-        .args(settings_args(s))
-        .arg(format!("--batch={}", pattern.display())));
+    let out = run_scan(
+        scanimage()
+            .args(settings_args(s))
+            .arg(format!("--batch={}", pattern.display())),
+    );
     let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
         .map(|r| r.flatten().map(|e| e.path()).collect())
         .unwrap_or_default();
@@ -143,6 +186,10 @@ pub fn scan(s: &ScanSettings) -> Result<Vec<ScannedPicture>, String> {
         .map(|data| ScannedPicture { data, dpi })
         .collect();
     let _ = std::fs::remove_dir_all(&dir);
+    // Stopped: the sheets scanned before stay.
+    if out.as_ref().is_err_and(|e| e == super::STOPPED) && !pictures.is_empty() {
+        return Ok(pictures);
+    }
     let out = out?;
     if pictures.is_empty() {
         let why = String::from_utf8_lossy(&out.stderr).trim().to_string();

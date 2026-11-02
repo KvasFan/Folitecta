@@ -11,7 +11,15 @@ checked, what is still open. The history before October 2026 is in
   packaged Linux executable: 0 problems.
 - **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
 
-## 2026-11-02 — FOL-L043: simple fonts embedded for PDF/A (0.21.0, no release yet)
+## 2026-11-02 — release 0.21.0: check of the published packages
+
+- **What:** tag `v0.21.0` (`48c421f`): CI (39 min) and release (42 min) workflows green, eight files;
+  the release workflow ran for the first time without its GitLab job.
+- **Found right:** SHA-256, data folders of Windows and Linux equal (the twelve FreeFont faces in
+  both), self-test steps with the packaged Linux executable, `preflight` included: 0 problems.
+- **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
+
+## 2026-11-02 — FOL-L043: simple fonts embedded for PDF/A (0.21.0)
 
 - **Current state before:** Convert to PDF/A could not embed a font, so every document set in the
   standard Helvetica (all those made from WinAnsi text) was converted but never declared PDF/A.

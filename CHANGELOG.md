@@ -11,6 +11,9 @@ All notable changes to Folitecta are documented here. The format follows
   with a map back to their characters, so their text is read as Greek letters, symbols and
   dingbats. A font is embedded only when the substitute has a glyph for every code the document
   shows with it.
+- Composite fonts (Identity-H with a ToUnicode map) are embedded the same way, as CIDFontType2
+  subsets with their widths kept, so documents in Polish, Russian, Greek and other scripts FreeFont
+  covers become PDF/A too.
 
 ## [0.21.0] - 2026-11-02
 

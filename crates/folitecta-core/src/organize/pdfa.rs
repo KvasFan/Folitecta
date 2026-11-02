@@ -818,6 +818,9 @@ impl Document {
             let mut inner = Vec::new();
             direct_fonts(obj, 0, &mut inner);
             for d in inner {
+                if matches!(name_of(d, b"Subtype"), Some(b"CIDFontType0" | b"CIDFontType2")) {
+                    continue;
+                }
                 if !font_embedded(doc, d) {
                     let base = name_of(d, b"BaseFont")
                         .map(|b| String::from_utf8_lossy(b).to_string())
@@ -874,7 +877,9 @@ impl Document {
                     let ty = name_of(d, b"Type");
                     if ty == Some(b"Font") {
                         let subtype = name_of(d, b"Subtype").unwrap_or_default();
-                        if subtype == b"Type3" {
+                        // Type 3 fonts draw with the file's content; a CIDFont is
+                        // checked through the composite font above it.
+                        if matches!(subtype, b"Type3" | b"CIDFontType0" | b"CIDFontType2") {
                             continue;
                         }
                         let embedded = font_embedded(doc, d);

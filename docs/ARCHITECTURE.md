@@ -441,8 +441,9 @@ Mouse coordinates on a page image are converted to PDF user space with
   appearance of buttons in a state and takes the actions of widgets away. Conversion embeds simple
   fonts (Type 1 and TrueType, the standard Helvetica, Times and Courier included) as subsets of
   FreeSans, FreeSerif or FreeMono with the widths of the document, Symbol and ZapfDingbats in
-  FreeSerif; composite fonts that are not embedded, encodings other than the standard ones and
-  fonts with a code the substitute has no glyph for stay as they are, and the document is then
+  FreeSerif, composite fonts with Identity-H and a ToUnicode map as CIDFontType2 subsets; composite
+  fonts without such a map, encodings other than the standard ones and fonts with a code the
+  substitute has no glyph for stay as they are, and the document is then
   converted but not declared PDF/A. The substitute faces look like the fonts they stand for, not
   the same.
 - Revocation is checked from OCSP answers and from complete revocation lists of the

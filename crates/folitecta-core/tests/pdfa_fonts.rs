@@ -264,6 +264,10 @@ fn converted_documents_for_a_validator() {
     ] {
         docs.push((name, Document::from_bytes(bytes, None, None).unwrap()));
     }
+    for (name, cjk) in [("composite", false), ("composite-chinese", true)] {
+        let bytes = folitecta_core::testdocs::composite_font_doc(cjk);
+        docs.push((name, Document::from_bytes(bytes, None, None).unwrap()));
+    }
     let mut noted = Document::from_text("A page with comments.", TextLayout::default()).unwrap();
     noted
         .add_note(0, 100.0, 700.0, "a note", "Reviewer", [1.0, 0.9, 0.2])
@@ -377,4 +381,58 @@ fn comments_and_buttons_get_what_pdfa_asks() {
             "the normal appearance is a dictionary of states: {n:?}"
         );
     }
+}
+
+#[test]
+fn composite_fonts_are_embedded_with_their_widths() {
+    use folitecta_core::testdocs::composite_font_doc;
+    let doc = Document::from_bytes(composite_font_doc(false), None, None).unwrap();
+    let before = doc.preflight_pdfa();
+    assert!(
+        before.findings.iter().any(|f| f.rule == "fonts" && f.fixable),
+        "{:?}",
+        before.findings
+    );
+    let (copy, outcome) = doc.convert_to_pdfa().unwrap();
+    assert!(outcome.claimed, "{:?}", outcome.after.findings);
+    assert_eq!(copy.page_text(0), doc.page_text(0));
+    assert!(copy.page_text(0).contains("ŁжΩ"), "{}", copy.page_text(0));
+    let a = doc.text_layer(0).unwrap();
+    let b = copy.text_layer(0).unwrap();
+    for (x, y) in a.glyphs.iter().zip(b.glyphs.iter()) {
+        assert!(
+            x.quad
+                .iter()
+                .zip(y.quad.iter())
+                .all(|(p, q)| (p - q).abs() < 0.05),
+            "{x:?} {y:?}"
+        );
+    }
+    // The descendant: a CIDFontType2 subset of FreeSans with a map to its glyphs.
+    let inner = copy.inner();
+    let cid_font = inner
+        .objects
+        .values()
+        .filter_map(|o| o.as_dict().ok())
+        .find(|d| d.get(b"Subtype").ok().and_then(|s| s.as_name().ok()) == Some(b"CIDFontType2".as_slice()))
+        .unwrap();
+    assert!(cid_font.has(b"CIDToGIDMap"));
+    assert!(
+        name(cid_font, b"BaseFont").ends_with("+FreeSans"),
+        "{}",
+        name(cid_font, b"BaseFont")
+    );
+    let data = program(&copy, cid_font).unwrap();
+    assert!(
+        (advance(&data, 'Ł') - 600.0).abs() < 1.0,
+        "{}",
+        advance(&data, 'Ł')
+    );
+    assert!((advance(&data, 'Ω') - 700.0).abs() < 1.0);
+
+    // A Chinese character no substitute draws: the font stays.
+    let chinese = Document::from_bytes(composite_font_doc(true), None, None).unwrap();
+    let (_, outcome) = chinese.convert_to_pdfa().unwrap();
+    assert!(!outcome.claimed);
+    assert!(outcome.after.findings.iter().any(|f| f.rule == "fonts"));
 }

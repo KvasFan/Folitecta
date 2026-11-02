@@ -1696,6 +1696,44 @@ fn unembedded_fonts(chinese: bool) -> Vec<u8> {
     b.finish()
 }
 
+/// A composite font that is not embedded (Identity-H, a ToUnicode map):
+/// Polish, Russian and Greek letters with widths of their own; with `cjk`,
+/// a Chinese character too, which no substitute has.
+pub fn composite_font_doc(cjk: bool) -> Vec<u8> {
+    let mut b = Builder::new();
+    let mut map = String::from(
+        "/CIDInit /ProcSet findresource begin 12 dict begin begincmap 1 begincodespacerange <0000> <FFFF> endcodespacerange 4 beginbfchar <0001> <0141> <0002> <0436> <0003> <03A9> <0004> <6F22> endbfchar endcmap end end",
+    );
+    map.push('\n');
+    let to_unicode = b.doc.add_object(Stream::new(Dictionary::new(), map.into_bytes()));
+    let descriptor = b.doc.add_object(dictionary! {
+        "Type" => "FontDescriptor", "FontName" => "ArialUnicodeMS", "Flags" => 32,
+        "FontBBox" => vec![0.into(), (-200).into(), 1000.into(), 900.into()],
+        "ItalicAngle" => 0, "Ascent" => 900, "Descent" => -200, "CapHeight" => 700, "StemV" => 80,
+    });
+    let cid_font = b.doc.add_object(dictionary! {
+        "Type" => "Font", "Subtype" => "CIDFontType2", "BaseFont" => "ArialUnicodeMS",
+        "CIDSystemInfo" => dictionary! { "Registry" => Object::string_literal("Adobe"), "Ordering" => Object::string_literal("Identity"), "Supplement" => 0 },
+        "FontDescriptor" => descriptor, "DW" => 1000,
+        "W" => vec![1.into(), vec![600.into(), 650.into(), 700.into()].into(), 4.into(), 4.into(), 1000.into()],
+    });
+    let font = b.doc.add_object(dictionary! {
+        "Type" => "Font", "Subtype" => "Type0", "BaseFont" => "ArialUnicodeMS",
+        "Encoding" => "Identity-H", "DescendantFonts" => vec![cid_font.into()], "ToUnicode" => to_unicode,
+    });
+    let mut content = b"BT /U 14 Tf 20 360 Td <000100020003> Tj ET".to_vec();
+    if cjk {
+        content.extend_from_slice(b" BT /U 14 Tf 20 330 Td <0004> Tj ET");
+    }
+    b.page(
+        (300.0, 400.0),
+        content,
+        dictionary! { "Font" => dictionary! { "U" => font } },
+        Vec::new(),
+    );
+    b.finish()
+}
+
 /// [`cropped_text_doc`] twice: two pages, with hidden text of their own.
 pub fn cropped_pages_doc() -> Vec<u8> {
     let mut b = Builder::new();

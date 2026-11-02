@@ -11,6 +11,19 @@ checked, what is still open. The history before October 2026 is in
   packaged Linux executable: 0 problems.
 - **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
 
+## 2026-11-02 — FOL-L043: composite fonts for PDF/A (no release)
+
+- **What:** `composite_parts` (Identity-H, a descendant without a program, the characters of its
+  ToUnicode map read with `textedit::to_unicode`), `cid_width` (`/W`, `/DW`), `embed_composite`:
+  a CIDFontType2 subset of the substitute with a `/CIDToGIDMap` and the advances of `/W`;
+  `used_strings`. The preflight checks a CIDFont through its composite font: it had reported the
+  descendant (same name) as unfixable and hidden the composite.
+- **Checked:** `pdfa_fonts.rs` (`composite_font_doc`: Ł, ж and Ω at their widths and places; a
+  Chinese character keeps its font out); veraPDF on nineteen documents: the seventeen declared
+  PDF/A-2b pass, the two with Chinese characters fail and are not declared; the local copy of CI:
+  997 tests, full self-test with 339 interactions, 0 problems.
+- **Open:** composite fonts without a ToUnicode map or with other encodings.
+
 ## 2026-11-02 — FOL-L043: Symbol and ZapfDingbats for PDF/A (no release)
 
 - **Current state before:** Symbol and ZapfDingbats were left unembedded; a font was embedded

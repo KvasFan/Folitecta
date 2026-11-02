@@ -194,6 +194,81 @@ fn code_names(doc: &lopdf::Document, font: &Dictionary) -> Option<Vec<String>> {
     Some(names)
 }
 
+/// The descendant font of a composite font that can be embedded, and its
+/// character of every code: Identity-H (codes are two-byte CIDs), a ToUnicode
+/// map to read the characters from, a descendant without a font program.
+fn composite_parts(doc: &lopdf::Document, font: &Dictionary) -> Option<(Dictionary, BTreeMap<u16, char>)> {
+    if name_of(font, b"Encoding") != Some(b"Identity-H") {
+        return None;
+    }
+    let descendant = font
+        .get(b"DescendantFonts")
+        .ok()
+        .and_then(|d| deref(doc, d).as_array().ok())
+        .and_then(|a| a.first())
+        .and_then(|d| deref(doc, d).as_dict().ok())?
+        .clone();
+    if !matches!(
+        name_of(&descendant, b"Subtype"),
+        Some(b"CIDFontType0" | b"CIDFontType2")
+    ) {
+        return None;
+    }
+    let stream = deref(doc, font.get(b"ToUnicode").ok()?).as_stream().ok()?;
+    let data = stream
+        .decompressed_content()
+        .unwrap_or_else(|_| stream.content.clone());
+    let map: BTreeMap<u16, char> = crate::page_text::textedit::to_unicode(&data)
+        .into_iter()
+        .filter_map(|(code, text)| {
+            let mut chars = text.chars();
+            let c = chars.next()?;
+            (code.len() == 2 && chars.next().is_none()).then(|| (u16::from_be_bytes([code[0], code[1]]), c))
+        })
+        .collect();
+    (!map.is_empty()).then_some((descendant, map))
+}
+
+/// The widths of a CIDFont by CID (`/W`, `/DW`, 1/1000 em).
+fn cid_width(doc: &lopdf::Document, descendant: &Dictionary, cid: u16) -> f32 {
+    let default = descendant.get(b"DW").ok().and_then(number).unwrap_or(1000.0);
+    let Some(w) = descendant
+        .get(b"W")
+        .ok()
+        .and_then(|w| deref(doc, w).as_array().ok())
+    else {
+        return default;
+    };
+    let cid = f32::from(cid);
+    let mut i = 0;
+    while i < w.len() {
+        let Some(first) = number(deref(doc, &w[i])) else {
+            break;
+        };
+        match w.get(i + 1).map(|o| deref(doc, o)) {
+            Some(Object::Array(list)) => {
+                let at = cid - first;
+                if at >= 0.0 && (at as usize) < list.len() {
+                    return number(deref(doc, &list[at as usize])).unwrap_or(default);
+                }
+                i += 2;
+            }
+            Some(last) => {
+                let last = number(last).unwrap_or(-1.0);
+                if (first..=last).contains(&cid) {
+                    return w
+                        .get(i + 2)
+                        .and_then(|x| number(deref(doc, x)))
+                        .unwrap_or(default);
+                }
+                i += 3;
+            }
+            None => break,
+        }
+    }
+    default
+}
+
 /// The built-in encoding of Symbol or ZapfDingbats, when `font` is one of
 /// them without an encoding of its own.
 fn symbolic_table(font: &Dictionary) -> Option<&'static [(u8, &'static str, char, u16)]> {
@@ -210,6 +285,9 @@ fn symbolic_table(font: &Dictionary) -> Option<&'static [(u8, &'static str, char
 /// Whether the font at `font` is one [`Document::embed_substitute`] can
 /// embed (without reading any font file).
 pub(crate) fn can_substitute(doc: &lopdf::Document, font: &Dictionary) -> bool {
+    if name_of(font, b"Subtype") == Some(b"Type0") {
+        return composite_parts(doc, font).is_some();
+    }
     let simple = matches!(
         name_of(font, b"Subtype"),
         Some(b"Type1" | b"MMType1" | b"TrueType")
@@ -234,11 +312,16 @@ pub(crate) fn can_substitute(doc: &lopdf::Document, font: &Dictionary) -> bool {
     (!symbolic || STANDARD_FONTS.contains(&name.as_str())) && code_names(doc, font).is_some()
 }
 
-/// The codes the document shows with the font at `font`: in the content of
-/// its pages and of the forms (appearances included) whose resources name it.
+/// The codes the document shows with the simple font at `font`.
 fn used_codes(doc: &lopdf::Document, font: ObjectId) -> BTreeSet<u8> {
+    used_strings(doc, font).into_iter().flatten().collect()
+}
+
+/// The strings the document shows with the font at `font`: in the content
+/// of its pages and of the forms (appearances included) whose resources name it.
+fn used_strings(doc: &lopdf::Document, font: ObjectId) -> Vec<Vec<u8>> {
     use lopdf::content::Content;
-    let mut out = BTreeSet::new();
+    let mut out = Vec::new();
     for (id, obj) in &doc.objects {
         let (resources, content) = match obj {
             Object::Dictionary(d) if name_of(d, b"Type") == Some(b"Page") => (
@@ -274,9 +357,9 @@ fn used_codes(doc: &lopdf::Document, font: ObjectId) -> BTreeSet<u8> {
             continue;
         };
         let mut current: Option<Vec<u8>> = None;
-        let take = |o: &Object, out: &mut BTreeSet<u8>| {
+        let take = |o: &Object, out: &mut Vec<Vec<u8>>| {
             if let Object::String(bytes, _) = o {
-                out.extend(bytes.iter().copied());
+                out.push(bytes.clone());
             }
         };
         for op in ops.operations {
@@ -353,6 +436,9 @@ impl Document {
     pub(crate) fn embed_substitute(&mut self, id: ObjectId) -> Result<bool> {
         let doc = &self.inner;
         let font = doc.get_dictionary(id)?.clone();
+        if name_of(&font, b"Subtype") == Some(b"Type0") {
+            return self.embed_composite(id, &font);
+        }
         let descriptor = font
             .get(b"FontDescriptor")
             .ok()
@@ -510,6 +596,136 @@ impl Document {
         out.set("FirstChar", i64::from(lo));
         out.set("LastChar", i64::from(hi));
         out.set("Widths", list);
+        Ok(true)
+    }
+}
+
+impl Document {
+    /// [`Document::embed_substitute`] for a composite font: a CIDFontType2
+    /// subset of the substitute, reached through a `/CIDToGIDMap`, the widths
+    /// of `/W` kept.
+    fn embed_composite(&mut self, id: ObjectId, font: &Dictionary) -> Result<bool> {
+        let doc = &self.inner;
+        let Some((descendant, map)) = composite_parts(doc, font) else {
+            return Ok(false);
+        };
+        let descriptor = descendant
+            .get(b"FontDescriptor")
+            .ok()
+            .and_then(|d| deref(doc, d).as_dict().ok())
+            .cloned();
+        if descriptor
+            .as_ref()
+            .is_some_and(|d| d.has(b"FontFile") || d.has(b"FontFile2") || d.has(b"FontFile3"))
+        {
+            return Ok(false);
+        }
+        let name = bare_name(&descendant);
+        let (family, bold, italic) = face_of(&name, descriptor.as_ref());
+        let Ok(face) = font_file(&substitute_file(family, bold, italic)) else {
+            return Ok(false);
+        };
+        let cids: BTreeSet<u16> = used_strings(doc, id)
+            .iter()
+            .flat_map(|s| s.as_chunks::<2>().0.iter().map(|c| u16::from_be_bytes(*c)))
+            .collect();
+        let upem = f32::from(face.upem);
+        let mut chars: Vec<(char, u16)> = Vec::new();
+        let mut advances: BTreeMap<u16, u16> = BTreeMap::new();
+        let mut gids: BTreeMap<u16, u16> = BTreeMap::new();
+        // Every CID the document shows, and those the map names.
+        for cid in cids
+            .iter()
+            .copied()
+            .chain(map.keys().copied())
+            .collect::<BTreeSet<u16>>()
+        {
+            let glyph = map.get(&cid).and_then(|c| face.glyph(*c).map(|g| (*c, g)));
+            let Some((c, g)) = glyph else {
+                if cids.contains(&cid) {
+                    // Shown but not drawable: the font stays.
+                    return Ok(false);
+                }
+                continue;
+            };
+            chars.push((c, g));
+            gids.insert(cid, g);
+            let w = cid_width(doc, &descendant, cid);
+            advances
+                .entry(g)
+                .or_insert((w * upem / 1000.0).round().clamp(0.0, f32::from(u16::MAX)) as u16);
+        }
+        if gids.is_empty() {
+            return Ok(false);
+        }
+        let glyphs: BTreeSet<u16> = gids.values().copied().collect();
+        let program =
+            subset_with_advances(face.data(), &glyphs, &chars, &advances, false).map_err(Error::Invalid)?;
+        let base = format!("{}+{}", subset_tag(&subset_key(&face, &chars)), face.name);
+        let max = gids.keys().next_back().copied().unwrap_or(0);
+        let mut to_gid = Vec::with_capacity(2 * (usize::from(max) + 1));
+        for cid in 0..=max {
+            to_gid.extend(gids.get(&cid).copied().unwrap_or(0).to_be_bytes());
+        }
+        let d = &face.descriptor;
+        let mut flags = 4;
+        match family {
+            Family::Mono => flags |= 1,
+            Family::Serif => flags |= 2,
+            Family::Sans => {}
+        }
+        if italic {
+            flags |= 64;
+        }
+        let length = program.len() as i64;
+        let mut file = Stream::new(dictionary! { "Length1" => length }, program);
+        let _ = file.compress();
+        let file_id = self.inner.add_object(file);
+        let mut gid_map = Stream::new(Dictionary::new(), to_gid);
+        let _ = gid_map.compress();
+        let gid_map_id = self.inner.add_object(gid_map);
+        let descriptor_id = self.inner.add_object(dictionary! {
+            "Type" => "FontDescriptor",
+            "FontName" => Object::Name(base.clone().into_bytes()),
+            "Flags" => flags,
+            "FontBBox" => d.bbox.iter().map(|v| Object::Integer(*v)).collect::<Vec<_>>(),
+            "ItalicAngle" => d.italic_angle,
+            "Ascent" => d.ascent,
+            "Descent" => d.descent,
+            "CapHeight" => d.cap_height,
+            "StemV" => d.stem_v,
+            "FontFile2" => file_id,
+        });
+        let update = |cid_font: &mut Dictionary| {
+            cid_font.set("Subtype", "CIDFontType2");
+            cid_font.set("BaseFont", Object::Name(base.clone().into_bytes()));
+            cid_font.set("FontDescriptor", descriptor_id);
+            cid_font.set("CIDToGIDMap", gid_map_id);
+        };
+        let descendant_ref = font.get(b"DescendantFonts").ok().and_then(|d| match d {
+            Object::Array(a) => a.first().cloned(),
+            Object::Reference(r) => self
+                .inner
+                .get_object(*r)
+                .ok()
+                .and_then(|o| o.as_array().ok())
+                .and_then(|a| a.first().cloned()),
+            _ => None,
+        });
+        match descendant_ref {
+            Some(Object::Reference(r)) => update(self.inner.get_dictionary_mut(r)?),
+            _ => {
+                let mut cid_font = descendant.clone();
+                update(&mut cid_font);
+                let r = self.inner.add_object(cid_font);
+                self.inner
+                    .get_dictionary_mut(id)?
+                    .set("DescendantFonts", vec![Object::Reference(r)]);
+            }
+        }
+        self.inner
+            .get_dictionary_mut(id)?
+            .set("BaseFont", Object::Name(base.into_bytes()));
         Ok(true)
     }
 }

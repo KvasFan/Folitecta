@@ -383,6 +383,158 @@ pub fn srgb_icc() -> Vec<u8> {
     h
 }
 
+/// The field type of a widget, from it or the fields above it.
+fn field_type<'a>(doc: &'a lopdf::Document, widget: &'a Dictionary) -> Option<&'a [u8]> {
+    let mut d = widget;
+    for _ in 0..16 {
+        if let Some(ft) = name_of(d, b"FT") {
+            return Some(ft);
+        }
+        d = d.get(b"Parent").ok().and_then(|p| deref(doc, p).as_dict().ok())?;
+    }
+    None
+}
+
+/// Put the single appearance of every button widget inside a state, `Off`,
+/// and select it (ISO 19005-2, 6.3.3: the normal appearance of a button is a
+/// dictionary of states).
+fn button_states(doc: &mut lopdf::Document) {
+    let todo: Vec<(ObjectId, Object)> = doc
+        .objects
+        .iter()
+        .filter_map(|(id, o)| {
+            let d = o.as_dict().ok()?;
+            if name_of(d, b"Subtype") != Some(b"Widget") || field_type(doc, d) != Some(b"Btn".as_slice()) {
+                return None;
+            }
+            let ap = deref(doc, d.get(b"AP").ok()?).as_dict().ok()?;
+            let n = ap.get(b"N").ok()?;
+            deref(doc, n).as_stream().ok()?;
+            Some((*id, n.clone()))
+        })
+        .collect();
+    for (id, normal) in todo {
+        let normal = match normal {
+            Object::Reference(r) => Object::Reference(r),
+            other => Object::Reference(doc.add_object(other)),
+        };
+        let Ok(d) = doc.get_dictionary_mut(id) else {
+            continue;
+        };
+        let states = dictionary! { "Off" => normal };
+        match d.get_mut(b"AP") {
+            Ok(Object::Dictionary(ap)) => ap.set("N", states),
+            Ok(Object::Reference(r)) => {
+                let r = *r;
+                if let Ok(ap) = doc.get_dictionary_mut(r) {
+                    ap.set("N", states);
+                }
+            }
+            _ => continue,
+        }
+        if let Ok(d) = doc.get_dictionary_mut(id) {
+            d.set("AS", "Off");
+        }
+    }
+}
+
+/// A font dictionary (simple, composite or Type 3).
+fn is_font(d: &Dictionary) -> bool {
+    name_of(d, b"Type") == Some(b"Font")
+        || d.has(b"BaseFont")
+            && matches!(
+                name_of(d, b"Subtype"),
+                Some(b"Type1" | b"MMType1" | b"TrueType" | b"Type0")
+            )
+}
+
+/// Whether the program of a font is in the file (Type 3 fonts draw with the
+/// file's own content).
+fn font_embedded(doc: &lopdf::Document, d: &Dictionary) -> bool {
+    let subtype = name_of(d, b"Subtype").unwrap_or_default();
+    if subtype == b"Type3" {
+        return true;
+    }
+    let descriptor = if subtype == b"Type0" {
+        d.get(b"DescendantFonts")
+            .ok()
+            .map(|x| deref(doc, x))
+            .and_then(|x| x.as_array().ok())
+            .and_then(|a| a.first())
+            .and_then(|f| deref(doc, f).as_dict().ok())
+            .and_then(|f| f.get(b"FontDescriptor").ok())
+    } else {
+        d.get(b"FontDescriptor").ok()
+    }
+    .and_then(|fd| deref(doc, fd).as_dict().ok());
+    descriptor.is_some_and(|fd| fd.has(b"FontFile") || fd.has(b"FontFile2") || fd.has(b"FontFile3"))
+}
+
+/// The font dictionaries written directly inside `obj` (in its resources, a
+/// form's default resources, ...), not as objects of their own.
+fn direct_fonts<'a>(obj: &'a Object, depth: usize, out: &mut Vec<&'a Dictionary>) {
+    if depth > 5 {
+        return;
+    }
+    let d = match obj {
+        Object::Dictionary(d) => d,
+        Object::Stream(s) => &s.dict,
+        Object::Array(a) => {
+            a.iter().for_each(|o| direct_fonts(o, depth + 1, out));
+            return;
+        }
+        _ => return,
+    };
+    if depth > 0 && is_font(d) {
+        out.push(d);
+        return;
+    }
+    for (_, v) in d.iter() {
+        direct_fonts(v, depth + 1, out);
+    }
+}
+
+/// Make every font dictionary written inside another object an object of its
+/// own, referred to from where it was.
+fn lift_direct_fonts(doc: &mut lopdf::Document) {
+    fn lift(obj: &mut Object, depth: usize, add: &mut dyn FnMut(Dictionary) -> ObjectId) {
+        if depth > 5 {
+            return;
+        }
+        let d = match obj {
+            Object::Dictionary(d) => d,
+            Object::Stream(s) => &mut s.dict,
+            Object::Array(a) => {
+                a.iter_mut().for_each(|o| lift(o, depth + 1, add));
+                return;
+            }
+            _ => return,
+        };
+        for (_, v) in d.iter_mut() {
+            if let Object::Dictionary(inner) = v {
+                if is_font(inner) {
+                    let font = std::mem::take(inner);
+                    *v = Object::Reference(add(font));
+                    continue;
+                }
+            }
+            lift(v, depth + 1, add);
+        }
+    }
+    let ids: Vec<ObjectId> = doc.objects.keys().copied().collect();
+    for id in ids {
+        let Some(mut obj) = doc.objects.remove(&id) else {
+            continue;
+        };
+        let mut found = Vec::new();
+        direct_fonts(&obj, 0, &mut found);
+        if !found.is_empty() {
+            lift(&mut obj, 0, &mut |font| doc.add_object(font));
+        }
+        doc.objects.insert(id, obj);
+    }
+}
+
 /// Device colours a content stream uses: grey, RGB, CMYK.
 #[derive(Debug, Default, Clone, Copy)]
 struct DeviceColours {
@@ -412,6 +564,11 @@ impl DeviceColours {
         for op in content.operations {
             match op.operator.as_str() {
                 "g" | "G" => self.gray = true,
+                // Painting before any colour is set paints in the initial
+                // DeviceGray black (ISO 19005-2, 6.2.4.3 counts it).
+                "Tj" | "TJ" | "'" | "\"" | "f" | "F" | "f*" | "S" | "s" | "B" | "B*" | "b" | "b*" => {
+                    self.gray = true
+                }
                 "rg" | "RG" => self.rgb = true,
                 "k" | "K" => self.cmyk = true,
                 "cs" | "CS" => {
@@ -657,6 +814,26 @@ impl Document {
             .collect();
         let mut fonts_seen: BTreeSet<String> = BTreeSet::new();
         for (id, obj) in &doc.objects {
+            // Fonts written inside resources, not as objects of their own.
+            let mut inner = Vec::new();
+            direct_fonts(obj, 0, &mut inner);
+            for d in inner {
+                if !font_embedded(doc, d) {
+                    let base = name_of(d, b"BaseFont")
+                        .map(|b| String::from_utf8_lossy(b).to_string())
+                        .unwrap_or_default();
+                    if fonts_seen.insert(base.clone()) {
+                        let fixable = crate::fonts::substitute::can_substitute(doc, d);
+                        add(
+                            "fonts",
+                            None,
+                            Some(*id),
+                            format!("{base} is not embedded"),
+                            fixable,
+                        );
+                    }
+                }
+            }
             match obj {
                 Object::Stream(s) => {
                     let d = &s.dict;
@@ -700,21 +877,7 @@ impl Document {
                         if subtype == b"Type3" {
                             continue;
                         }
-                        let descriptor = if subtype == b"Type0" {
-                            d.get(b"DescendantFonts")
-                                .ok()
-                                .map(|x| deref(doc, x))
-                                .and_then(|x| x.as_array().ok())
-                                .and_then(|a| a.first())
-                                .and_then(|f| deref(doc, f).as_dict().ok())
-                                .and_then(|f| f.get(b"FontDescriptor").ok())
-                        } else {
-                            d.get(b"FontDescriptor").ok()
-                        }
-                        .and_then(|fd| deref(doc, fd).as_dict().ok());
-                        let embedded = descriptor.is_some_and(|fd| {
-                            fd.has(b"FontFile") || fd.has(b"FontFile2") || fd.has(b"FontFile3")
-                        });
+                        let embedded = font_embedded(doc, d);
                         if !embedded {
                             let base = name_of(d, b"BaseFont")
                                 .map(|b| String::from_utf8_lossy(b).to_string())
@@ -788,8 +951,27 @@ impl Document {
                                     page,
                                     Some(*id),
                                     format!("a {sub} annotation has no appearance"),
-                                    false,
+                                    // Folitecta draws comments of these kinds and form fields.
+                                    subtype == b"Widget"
+                                        || crate::appearance::GENERATED_SUBTYPES
+                                            .contains(&String::from_utf8_lossy(subtype).as_ref()),
                                 ),
+                                Some(ap)
+                                    if subtype == b"Widget"
+                                        && field_type(doc, d) == Some(b"Btn".as_slice())
+                                        && ap
+                                            .get(b"N")
+                                            .ok()
+                                            .is_some_and(|n| deref(doc, n).as_stream().is_ok()) =>
+                                {
+                                    add(
+                                        "annotation-appearance",
+                                        page,
+                                        Some(*id),
+                                        "a button whose appearance has no states".into(),
+                                        true,
+                                    )
+                                }
                                 Some(ap) if ap.has(b"R") || ap.has(b"D") => add(
                                     "annotation-appearance",
                                     page,
@@ -809,7 +991,15 @@ impl Document {
                                 true,
                             );
                         }
-                        if let Some(a) = d
+                        if subtype == b"Widget" && d.has(b"A") {
+                            add(
+                                "actions",
+                                page,
+                                Some(*id),
+                                "an action of a form field widget".into(),
+                                true,
+                            );
+                        } else if let Some(a) = d
                             .get(b"A")
                             .ok()
                             .map(|a| deref(doc, a))
@@ -1031,9 +1221,35 @@ impl Document {
             .filter(|f| f.fixable)
             .map(|f| f.rule)
             .collect();
+        // Comments and form fields without an appearance get one (drawn with
+        // fonts the next step embeds).
+        if rules.contains("annotation-appearance") {
+            let missing: Vec<(ObjectId, bool)> = self
+                .inner
+                .objects
+                .iter()
+                .filter_map(|(id, o)| {
+                    let d = o.as_dict().ok()?;
+                    (d.has(b"Rect") && d.has(b"Subtype") && !d.has(b"AP"))
+                        .then(|| (*id, name_of(d, b"Subtype") == Some(b"Widget")))
+                })
+                .collect();
+            for (id, widget) in missing {
+                // What cannot be drawn keeps its finding.
+                let _ = if widget {
+                    self.refresh_widget(id)
+                } else {
+                    self.refresh_appearance(id).map(|_| ())
+                };
+            }
+        }
+        if rules.contains("annotation-appearance") {
+            button_states(&mut self.inner);
+        }
         // Fonts the document names without carrying them: a substitute of
         // the same family and style, with the widths the text is laid out with.
-        if rules.contains("fonts") {
+        if rules.contains("fonts") || rules.contains("annotation-appearance") {
+            lift_direct_fonts(&mut self.inner);
             let fonts: Vec<ObjectId> = self
                 .inner
                 .objects
@@ -1067,7 +1283,8 @@ impl Document {
             );
         }
         let cat_id = doc.trailer.get(b"Root")?.as_reference()?;
-        if rules.contains("output-intent") {
+        // Appearances drawn above may bring device colours of their own.
+        if rules.contains("output-intent") || rules.contains("annotation-appearance") {
             let mut icc = Stream::new(dictionary! { "N" => 3 }, srgb_icc());
             let _ = icc.compress();
             let icc_id = doc.add_object(icc);
@@ -1126,11 +1343,13 @@ impl Document {
                     {
                         d.remove(b"AA");
                     }
-                    let a_bad = match d.get(b"A") {
-                        Ok(Object::Dictionary(a)) => forbidden(a),
-                        Ok(Object::Reference(r)) => bad_actions.contains(r),
-                        _ => false,
-                    };
+                    // A widget may have no action at all (ISO 19005-2, 6.4.1).
+                    let a_bad = name_of(d, b"Subtype") == Some(b"Widget")
+                        || match d.get(b"A") {
+                            Ok(Object::Dictionary(a)) => forbidden(a),
+                            Ok(Object::Reference(r)) => bad_actions.contains(r),
+                            _ => false,
+                        };
                     if a_bad {
                         d.remove(b"A");
                     }

@@ -191,3 +191,169 @@ fn the_embedded_glyphs_are_drawn() {
     let ratio = b as f32 / a as f32;
     assert!((0.75..1.33).contains(&ratio), "ink {a} became {b}");
 }
+
+/// With `PDFA_DUMP` set to a folder, the converted documents are written there
+/// for an independent validator.
+#[test]
+fn converted_documents_for_a_validator() {
+    let Ok(dir) = std::env::var("PDFA_DUMP") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    use folitecta_core::TextLayout;
+    let docs = [
+        (
+            "fonts-with-symbol",
+            Document::from_bytes(unembedded_fonts_doc(), None, None).unwrap(),
+        ),
+        (
+            "fonts-all-embeddable",
+            Document::from_bytes(folitecta_core::testdocs::embeddable_fonts_doc(), None, None).unwrap(),
+        ),
+        (
+            "plain-text",
+            Document::from_text("Plain text in Helvetica, ‘quoted’ – €5.", TextLayout::default()).unwrap(),
+        ),
+        (
+            "markdown",
+            Document::from_markdown(
+                "# Report\n\nSome *text* and `code`.\n\n- one\n- two\n",
+                TextLayout::default(),
+                "Report",
+            )
+            .unwrap(),
+        ),
+    ];
+    let mut docs: Vec<(&str, Document)> = docs.into_iter().collect();
+    use folitecta_core::testdocs as t;
+    for (name, bytes) in [
+        ("text", t::text_doc(2)),
+        ("vector", t::vector_doc(1)),
+        ("photo", t::photo_doc(1)),
+        ("scan", t::scan_doc(1)),
+        ("long-comments", t::long_doc(3)),
+        ("embedded-fonts", t::font_doc(1)),
+        ("form", t::form_doc(1, 6)),
+        ("transparency", t::transparency_doc(1)),
+        ("report", t::report_doc(2)),
+        ("relations", t::relations_doc()),
+        ("buttons", t::action_buttons_doc()),
+        ("cropped", t::cropped_text_doc()),
+    ] {
+        docs.push((name, Document::from_bytes(bytes, None, None).unwrap()));
+    }
+    let mut noted = Document::from_text("A page with comments.", TextLayout::default()).unwrap();
+    noted
+        .add_note(0, 100.0, 700.0, "a note", "Reviewer", [1.0, 0.9, 0.2])
+        .unwrap();
+    docs.push(("noted", noted));
+    for (name, doc) in docs {
+        let Ok((copy, outcome)) = doc.convert_to_pdfa() else {
+            println!("{name}: not converted");
+            continue;
+        };
+        std::fs::write(dir.join(format!("{name}.pdf")), copy.bytes().as_slice()).unwrap();
+        println!(
+            "{name}: claimed {}, left {:?}",
+            outcome.claimed,
+            outcome.after.broken()
+        );
+    }
+}
+
+#[test]
+fn text_in_the_initial_black_asks_for_an_output_intent() {
+    // No colour is set before the text: it is painted in DeviceGray.
+    let doc = Document::from_bytes(folitecta_core::testdocs::embeddable_fonts_doc(), None, None).unwrap();
+    let before = doc.preflight_pdfa();
+    assert!(
+        before.findings.iter().any(|f| f.rule == "output-intent"),
+        "{:?}",
+        before.findings
+    );
+    let (copy, outcome) = doc.convert_to_pdfa().unwrap();
+    assert!(outcome.claimed, "{:?}", outcome.after.findings);
+    let root = copy.inner().trailer.get(b"Root").unwrap().as_reference().unwrap();
+    assert!(copy.inner().get_dictionary(root).unwrap().has(b"OutputIntents"));
+}
+
+#[test]
+fn fonts_written_inside_resources_are_found_and_embedded() {
+    // The test documents write their standard fonts inside the resources.
+    let doc = Document::from_bytes(folitecta_core::testdocs::text_doc(1), None, None).unwrap();
+    let fonts: Vec<_> = doc
+        .preflight_pdfa()
+        .findings
+        .into_iter()
+        .filter(|f| f.rule == "fonts")
+        .collect();
+    assert!(!fonts.is_empty() && fonts.iter().all(|f| f.fixable), "{fonts:?}");
+    let (copy, outcome) = doc.convert_to_pdfa().unwrap();
+    assert!(outcome.claimed, "{:?}", outcome.after.findings);
+    assert!(
+        copy.used_fonts().iter().all(|f| f.embedded),
+        "{:?}",
+        copy.used_fonts()
+    );
+    assert_eq!(copy.page_text(0), doc.page_text(0));
+}
+
+#[test]
+fn comments_and_buttons_get_what_pdfa_asks() {
+    use folitecta_core::testdocs::{action_buttons_doc, long_doc};
+    // Comments without appearances: drawn.
+    let comments = Document::from_bytes(long_doc(2), None, None).unwrap();
+    let before = comments.preflight_pdfa();
+    assert!(
+        before
+            .findings
+            .iter()
+            .any(|f| f.rule == "annotation-appearance" && f.fixable),
+        "{:?}",
+        before.findings
+    );
+    let (_, outcome) = comments.convert_to_pdfa().unwrap();
+    assert!(outcome.claimed, "{:?}", outcome.after.findings);
+
+    // Push buttons: no action, their appearance a state.
+    let buttons = Document::from_bytes(action_buttons_doc(), None, None).unwrap();
+    let (copy, outcome) = buttons.convert_to_pdfa().unwrap();
+    assert!(outcome.claimed, "{:?}", outcome.after.findings);
+    let inner = copy.inner();
+    for obj in inner.objects.values() {
+        let Ok(d) = obj.as_dict() else { continue };
+        if d.get(b"Subtype").ok().and_then(|s| s.as_name().ok()) != Some(b"Widget".as_slice()) {
+            continue;
+        }
+        assert!(!d.has(b"A") && !d.has(b"AA"), "{d:?}");
+        // Text fields may keep a single appearance; buttons have states.
+        let mut field = d;
+        let ft = loop {
+            if let Ok(ft) = field.get(b"FT").and_then(|f| f.as_name()) {
+                break Some(ft.to_vec());
+            }
+            match field.get(b"Parent").and_then(|p| p.as_reference()) {
+                Ok(r) => field = inner.get_dictionary(r).unwrap(),
+                Err(_) => break None,
+            }
+        };
+        if ft.as_deref() != Some(b"Btn".as_slice()) {
+            continue;
+        }
+        let ap = match d.get(b"AP").unwrap() {
+            Object::Reference(r) => inner.get_dictionary(*r).unwrap(),
+            Object::Dictionary(ap) => ap,
+            other => panic!("{other:?}"),
+        };
+        let n = ap.get(b"N").unwrap();
+        let n = match n {
+            Object::Reference(r) => inner.get_object(*r).unwrap(),
+            other => other,
+        };
+        assert!(
+            n.as_dict().is_ok(),
+            "the normal appearance is a dictionary of states: {n:?}"
+        );
+    }
+}

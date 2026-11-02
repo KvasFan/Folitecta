@@ -27,9 +27,17 @@ checked, what is still open. The history before October 2026 is in
   font with widths of its own, Symbol left; the glyphs exactly where they were), `pdfa.rs` (a
   document of plain text declared PDF/A-2b and still passing when opened again), unit tests of the
   names, families and encodings, every face recorded in `fonts/README.md`; self-test step
-  `preflight`; the local copy of CI: 992 tests, full self-test with 339 interactions, 0 problems.
-- **Open:** composite fonts, Symbol and ZapfDingbats, other encodings and font dictionaries
-  written inside resources are left; no independent validator was run on the result.
+  `preflight`; the local copy of CI: 996 tests, full self-test with 339 interactions, 0 problems.
+- **Validator:** veraPDF 1.30.3 (installed in the session scratchpad with the user's permission)
+  on seventeen converted documents (`PDFA_DUMP=<folder> cargo test --test pdfa_fonts` writes them).
+  It found four things the preflight missed, so copies were declared PDF/A-2b wrongly: text
+  painted in the initial DeviceGray without an output intent (6.2.4.3), fonts written inside
+  resources (6.2.11.4.1: `direct_fonts`, `lift_direct_fonts`), comments and widgets without
+  appearances (6.3.3: drawn now), widgets with actions (6.4.1: removed) and buttons whose
+  normal appearance is a stream (6.3.3: put in an `Off` state, `button_states`). After the fixes
+  16 of 17 pass; the one left has Symbol, which Folitecta does not declare.
+- **Open:** composite fonts, Symbol and ZapfDingbats and other encodings are left; veraPDF is
+  not part of the automatic checks.
 
 ## 2026-11-02 — FOL-L029: tick marks counted (no release)
 

@@ -1624,6 +1624,15 @@ pub fn cropped_text_doc() -> Vec<u8> {
 /// Symbol, and a TrueType font named Arial,Bold whose widths are its own
 /// (every letter 700).
 pub fn unembedded_fonts_doc() -> Vec<u8> {
+    unembedded_fonts(true)
+}
+
+/// [`unembedded_fonts_doc`] without Symbol: every font can be embedded.
+pub fn embeddable_fonts_doc() -> Vec<u8> {
+    unembedded_fonts(false)
+}
+
+fn unembedded_fonts(symbol: bool) -> Vec<u8> {
     let mut b = Builder::new();
     let simple = |base: &str, encoding: Option<&str>| {
         let mut d = dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => base };
@@ -1632,12 +1641,14 @@ pub fn unembedded_fonts_doc() -> Vec<u8> {
         }
         Object::Dictionary(d)
     };
-    let fonts = [
+    let mut fonts = vec![
         ("H", simple("Helvetica", Some("WinAnsiEncoding"))),
         ("T", simple("Times-Bold", None)),
         ("C", simple("Courier", None)),
-        ("S", simple("Symbol", None)),
     ];
+    if symbol {
+        fonts.push(("S", simple("Symbol", None)));
+    }
     let mut resources = Dictionary::new();
     for (name, font) in fonts {
         let id = b.doc.add_object(font);
@@ -1660,9 +1671,15 @@ pub fn unembedded_fonts_doc() -> Vec<u8> {
         b"BT /H 12 Tf 20 360 Td (Helvetica text) Tj ET \
           BT /T 12 Tf 20 330 Td (Times bold 'quoted') Tj ET \
           BT /C 12 Tf 20 300 Td (Courier text) Tj ET \
-          BT /S 12 Tf 20 270 Td (abg) Tj ET \
           BT /A 12 Tf 20 240 Td (ARIAL WIDE) Tj ET"
-            .to_vec(),
+            .to_vec()
+            .into_iter()
+            .chain(if symbol {
+                b" BT /S 12 Tf 20 270 Td (abg) Tj ET".to_vec()
+            } else {
+                Vec::new()
+            })
+            .collect(),
         dictionary! { "Font" => resources },
         Vec::new(),
     );

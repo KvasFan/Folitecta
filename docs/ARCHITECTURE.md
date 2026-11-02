@@ -433,8 +433,12 @@ Mouse coordinates on a page image are converted to PDF user space with
   by building for them. Tabs form at most two groups, and are moved by command, not dragged.
 - Preflight checks a subset of PDF/A-2b (the rules listed in the dialog and in `pdfa::RULES`):
   transparency, the inside of fonts (beyond being embedded), ICC-based colour spaces, the
-  structure of the file beyond its identifier and the XMP schemas are not checked, and the
-  results have not been compared with an independent validator yet. Conversion embeds simple
+  structure of the file beyond its identifier and the XMP schemas are not checked. The results
+  were compared with veraPDF 1.30.3 (PDF/A-2b) on seventeen kinds of document (text, Markdown,
+  pictures, scans, forms, buttons, comments, transparency, cropped pages, embedded and missing
+  fonts): every copy Folitecta declares PDF/A-2b passes, and the one it does not declare fails.
+  Conversion draws the appearances of comments and form fields that have none, puts the
+  appearance of buttons in a state and takes the actions of widgets away. Conversion embeds simple
   fonts (Type 1 and TrueType, the standard Helvetica, Times and Courier included) as subsets of
   FreeSans, FreeSerif or FreeMono with the widths of the document; Symbol, ZapfDingbats,
   composite and Type 3 fonts that are not embedded, encodings other than the standard ones and

@@ -14,6 +14,14 @@ All notable changes to Folitecta are documented here. The format follows
   Courier, Arial and other simple fonts become subsets of GNU FreeFont FreeSans, FreeSerif or
   FreeMono of the same style, with the widths the text is laid out with, so documents made from
   plain text are now declared PDF/A-2b. The packages carry the twelve FreeFont faces.
+- Convert to PDF/A draws the appearances of comments and form fields that have none, puts the
+  appearance of buttons in a state and takes the actions of form fields away, as PDF/A asks.
+
+### Fixed (PDF/A)
+- The PDF/A preflight missed text painted before any colour is set (it is device grey, which needs
+  an output intent) and fonts written directly inside resources, so some copies were declared
+  PDF/A-2b without conforming. Checked against veraPDF on seventeen kinds of document: every copy
+  declared PDF/A-2b now passes it.
 
 ### Removed
 - The GitLab release pipeline (`.gitlab-ci.yml` and the job that fed it): releases are published on

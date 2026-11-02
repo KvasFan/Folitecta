@@ -360,6 +360,21 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         asked && chosen && ticks == ["3", "4"] && next == 5,
         format!("dialog {asked}, tool {chosen}, marks {ticks:?}, next {next}"),
     );
+    // The window counts them.
+    crate::commands::dispatch(st, "tool.annot.tickMark");
+    pause(300).await;
+    let counted = eval("return document.querySelector('.dialog .tick-counts')?.textContent || '';")
+        .await
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default();
+    st.set_dialog(Dialog::None);
+    pause(200).await;
+    cx.record(
+        "tick marks: their window counts those of the document",
+        counted.contains("\u{2460} 2"),
+        counted,
+    );
 
     // 15. Callout: drag from the pointed spot to where the box goes, then type.
     crate::commands::dispatch(st, "tool.annot.callout");

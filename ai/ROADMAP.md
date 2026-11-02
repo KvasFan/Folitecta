@@ -391,9 +391,9 @@ FOL-C001–C005 and C007–C014 (R4).
 |---|---|---|---|---|
 | FOL-L025 | P1 | ✅ | every markup and drawing comment, styles and named styles, lock, grouping, align/distribute/order, eraser, clouds, the quick panel of thickness, colours and fill of the drawing and measuring tools, pen pressure for the Pencil | Pressure tried with real tablets on Windows, macOS and Linux (stand-in pen events so far); tilt of the pen; check appearances in a second reader. |
 | FOL-L026 | P1 | ✅ | comments pane with filters, replies, review states, XFDF/FDF/PDF exchange, comment summaries, comments as CSV | History of a comment. |
-| FOL-L027 | P1/P2 | 🟡 | text stamps, stamp designer with dynamic values, favourites and recent stamps | Sequential stamps; symbol libraries with fields asked when placed. |
+| FOL-L027 | P1/P2 | 🟡 | text stamps, stamp designer with dynamic values, favourites and recent stamps | Symbol libraries with fields asked when placed. |
 | FOL-L028 | P2 | 🟡 | distance, perimeter, area, angle, radius and diameter, volume (area by a depth), calibration, CSV export of measures, a quick panel with the scale; the tools stay chosen | Snapping profile; measure info pane; editing the depth of a volume. |
-| FOL-L029 | P2 | 🟡 | calculator with an editable tape placed as a comment; tick marks (check, cross, dot, numbers, letters, roman numerals, plain or circled) placed in series with a click | Saved sets of tick styles; counting the marks of a document. |
+| FOL-L029 | P2 | 🟡 | calculator with an editable tape placed as a comment; tick marks (check, cross, dot, numbers, letters, roman numerals, plain or circled) placed in series with a click and counted in their window | Saved sets of tick styles. |
 | FOL-L030 | P1/P2 | ✅ | barcodes written (vector) and read (rxing), tables as generated objects | Table extraction from PDF pages (P2). |
 
 ### Forms and scripts

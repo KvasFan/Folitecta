@@ -74,3 +74,27 @@ fn tick_texts_beyond_winansi_and_refusals() {
     assert!(doc.annotations(0).unwrap().is_empty());
     assert!(!doc.can_undo());
 }
+
+#[test]
+fn marks_are_counted_by_shape() {
+    let mut doc = Document::new_blank(2, 300.0, 300.0).unwrap();
+    assert!(doc.tick_counts().is_empty());
+    let mark = |shape: TickShape, text: &str| TickMark {
+        shape,
+        text: text.into(),
+        size: 18.0,
+        color: [0.0; 3],
+    };
+    doc.add_tick_mark(0, (50.0, 50.0), &mark(TickShape::Check, ""), "A")
+        .unwrap();
+    doc.add_tick_mark(1, (50.0, 50.0), &mark(TickShape::Check, ""), "A")
+        .unwrap();
+    doc.add_tick_mark(1, (90.0, 50.0), &mark(TickShape::Circled, "1"), "A")
+        .unwrap();
+    doc.add_note(0, 100.0, 100.0, "not a mark", "A", [1.0, 1.0, 0.0])
+        .unwrap();
+    assert_eq!(
+        doc.tick_counts(),
+        [(TickShape::Check, 2), (TickShape::Circled, 1)]
+    );
+}

@@ -11,6 +11,13 @@ checked, what is still open. The history before October 2026 is in
   packaged Linux executable: 0 problems.
 - **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
 
+## 2026-11-02 — FOL-L029: tick marks counted (no release)
+
+- **What:** `Document::tick_counts`, the count in the Tick Mark window. The stamp designer already has
+  a counter field that goes on with each stamp: the gap of FOL-L027 was out of date, so it goes.
+- **Checked:** `ticks.rs`; self-test step `tools`; the local copy of CI.
+- **Open:** counts are by shape, not by text of a sequence.
+
 ## 2026-11-02 — release 0.20.0: check of the published packages
 
 - **What:** tag `v0.20.0` (`75ab177`): CI (38 min) and release (30 min) workflows green, eight files.

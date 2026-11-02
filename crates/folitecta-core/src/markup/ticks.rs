@@ -332,6 +332,22 @@ impl Document {
         Ok(id)
     }
 
+    /// How many tick marks of each shape the document has, for the shapes
+    /// it has.
+    pub fn tick_counts(&self) -> Vec<(TickShape, usize)> {
+        let marks: Vec<TickShape> = self
+            .comments()
+            .iter()
+            .filter_map(|c| self.tick_mark_at(c.page, c.index))
+            .map(|m| m.shape)
+            .collect();
+        TickShape::ALL
+            .into_iter()
+            .map(|shape| (shape, marks.iter().filter(|m| **m == shape).count()))
+            .filter(|(_, n)| *n > 0)
+            .collect()
+    }
+
     /// The mark of a comment, when it is a tick mark.
     pub fn tick_mark_at(&self, page: usize, index: usize) -> Option<TickMark> {
         let id = self.annotation_object(page, index).ok()?;

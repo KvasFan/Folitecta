@@ -55,6 +55,13 @@ pub fn TickMarksDialog() -> Element {
         .into_iter()
         .map(|q| (q, t(lang, &format!("dialog.tick.seq_{}", q.id()))))
         .collect();
+    let counts: Vec<String> = st
+        .read_active(|t| t.doc.tick_counts())
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(shape, n)| format!("{} {n}", sample(shape)))
+        .collect();
+    let counted = counts.join(" · ");
     let preview = ticks::next_mark(&settings());
     let shown = if preview.shape.has_text() {
         preview.text.clone()
@@ -68,6 +75,9 @@ pub fn TickMarksDialog() -> Element {
                 st.set_dialog(Dialog::None);
                 st.set_tool(Tool::Tick);
             },
+            if !counted.is_empty() {
+                p { class: "hint tick-counts", "{t(lang, \"dialog.tick.in_document\")} {counted}" }
+            }
             p { class: "hint", "{t(lang, \"dialog.tick.hint\")}" }
             div { class: "field", label { "{t(lang, \"dialog.tick.shape\")}" }
                 div { class: "tick-shapes",

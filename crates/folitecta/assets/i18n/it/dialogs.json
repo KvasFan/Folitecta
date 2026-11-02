@@ -535,6 +535,7 @@
   "dialog.tick.shape": "Segno",
   "dialog.tick.size": "Dimensione (pt)",
   "dialog.tick.text": "Numero o lettera",
+  "dialog.tick.in_document": "In questo documento:",
   "dialog.tick.use": "Metti i segni",
   "dialog.tiles.cols": "Colonne",
   "dialog.tiles.hint": "Ogni pagina viene tagliata in riquadri che diventano pagine separate, in ordine di lettura.",

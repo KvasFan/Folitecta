@@ -6,6 +6,9 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- The Tick Mark window counts the marks of the document by shape.
+
 ## [0.20.0] - 2026-11-02
 
 ### Added

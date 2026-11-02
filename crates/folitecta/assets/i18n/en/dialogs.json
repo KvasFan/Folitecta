@@ -535,6 +535,7 @@
   "dialog.tick.shape": "Mark",
   "dialog.tick.size": "Size (pt)",
   "dialog.tick.text": "Number or letter",
+  "dialog.tick.in_document": "In this document:",
   "dialog.tick.use": "Place Marks",
   "dialog.tiles.cols": "Columns",
   "dialog.tiles.hint": "Each page is cut into tiles that become separate pages, in reading order.",

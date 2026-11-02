@@ -11,6 +11,13 @@ checked, what is still open. The history before October 2026 is in
   packaged Linux executable: 0 problems.
 - **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
 
+## 2026-11-02 — release 0.19.0: check of the published packages
+
+- **What:** tag `v0.19.0` (`70c6422`): CI (30 min) and release (36 min) workflows green, eight files.
+- **Found right:** SHA-256, data folders of Windows and Linux equal, self-test steps with the
+  packaged Linux executable: 0 problems.
+- **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
+
 ## 2026-11-02 — FOL-L016, FOL-L042: boxes and reading (0.19.0)
 
 - **Current state before:** the bleed, trim and art boxes could only be lost (rasterizing to the

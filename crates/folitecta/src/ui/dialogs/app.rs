@@ -121,7 +121,7 @@ pub(super) fn About() -> Element {
                         li { "Rendering: hayro (Apache-2.0 OR MIT)" }
                         li { "Document model: lopdf (MIT)" }
                         li { "User interface: Dioxus (MIT OR Apache-2.0)" }
-                        li { "Text beyond Western European characters: GNU FreeFont FreeSans (GPL-3.0-or-later with the font exception)" }
+                        li { "Text beyond Western European characters, and fonts embedded for PDF/A: GNU FreeFont FreeSans, FreeSerif and FreeMono (GPL-3.0-or-later with the font exception)" }
                         li { a { href: "https://github.com/KvasFan/Folitecta", onclick: move |e| { e.prevent_default(); let _ = crate::util::open_external("https://github.com/KvasFan/Folitecta"); }, "github.com/KvasFan/Folitecta" } }
                     }
                     div { class: "row", style: "gap:8px; margin-top: 8px",

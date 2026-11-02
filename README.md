@@ -278,7 +278,7 @@ talks to are the time stamp and revocation servers it starts on the same compute
 | `crates/notices` | A tool of the release jobs: the licence notices of the libraries built into the program, shipped as `THIRD-PARTY-LICENSES.txt` |
 | `dictionaries` | Hunspell spelling dictionaries (English, Italian), data files read at run time, each with its licence |
 | `ocr` | Text recognition models (PaddleOCR, ONNX), data files read at run time, with their licence |
-| `fonts` | GNU FreeFont FreeSans, the font of generated text beyond Western European characters, read at run time, with its licence and its signed source in `fonts/source` |
+| `fonts` | GNU FreeFont FreeSans, the font of generated text beyond Western European characters, and FreeSerif and FreeMono, which with FreeSans stand for the fonts a document does not embed when it becomes PDF/A; read at run time, with their licence and their signed source in `fonts/source` |
 | `ai` | Guides for AI agents and contributors: target requirements, the state of each one, planned releases, workflow, progress log |
 
 ## Architecture

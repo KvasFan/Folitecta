@@ -28,8 +28,11 @@ use crate::error::Result;
 use crate::util::deref;
 
 mod embed;
+mod encodings;
 mod source;
+mod standard_metrics;
 mod subset;
+pub(crate) mod substitute;
 mod used;
 mod writer;
 

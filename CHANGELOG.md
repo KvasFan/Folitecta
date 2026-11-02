@@ -9,6 +9,12 @@ All notable changes to Folitecta are documented here. The format follows
 ### Added
 - The Tick Mark window counts the marks of the document by shape.
 
+### Added (PDF/A)
+- Convert to PDF/A embeds the fonts a document names without carrying them: Helvetica, Times,
+  Courier, Arial and other simple fonts become subsets of GNU FreeFont FreeSans, FreeSerif or
+  FreeMono of the same style, with the widths the text is laid out with, so documents made from
+  plain text are now declared PDF/A-2b. The packages carry the twelve FreeFont faces.
+
 ### Removed
 - The GitLab release pipeline (`.gitlab-ci.yml` and the job that fed it): releases are published on
   GitHub only since 0.0.13.

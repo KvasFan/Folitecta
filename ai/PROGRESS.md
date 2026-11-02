@@ -11,6 +11,26 @@ checked, what is still open. The history before October 2026 is in
   packaged Linux executable: 0 problems.
 - **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
 
+## 2026-11-02 — FOL-L043: simple fonts embedded for PDF/A (0.21.0, no release yet)
+
+- **Current state before:** Convert to PDF/A could not embed a font, so every document set in the
+  standard Helvetica (all those made from WinAnsi text) was converted but never declared PDF/A.
+- **What:** `fonts/substitute.rs` (`can_substitute`, `embed_substitute`, `glyph_char`,
+  `face_of`, `substitute_file`), `fonts/encodings.rs` (StandardEncoding, MacRomanEncoding,
+  WinAnsiEncoding and 1617 names of the Adobe Glyph List, generated from the tables of
+  Ghostscript), `fonts/standard_metrics.rs` (Adobe Core 14 widths of Helvetica and Times,
+  generated from the tables of hayro), `subset_with_advances`, `font_file`, `SourceFont::upem`;
+  the preflight marks simple fonts fixable and the conversion embeds them. The other eleven
+  faces of GNU FreeFont 20120503, from the archive whose SHA-256 the font README already
+  recorded, are in `fonts/` with theirs.
+- **Checked:** `pdfa_fonts.rs` (Helvetica, Times-Bold with StandardEncoding, Courier, a TrueType
+  font with widths of its own, Symbol left; the glyphs exactly where they were), `pdfa.rs` (a
+  document of plain text declared PDF/A-2b and still passing when opened again), unit tests of the
+  names, families and encodings, every face recorded in `fonts/README.md`; self-test step
+  `preflight`; the local copy of CI: 992 tests, full self-test with 339 interactions, 0 problems.
+- **Open:** composite fonts, Symbol and ZapfDingbats, other encodings and font dictionaries
+  written inside resources are left; no independent validator was run on the result.
+
 ## 2026-11-02 — FOL-L029: tick marks counted (no release)
 
 - **What:** `Document::tick_counts`, the count in the Tick Mark window. The stamp designer already has

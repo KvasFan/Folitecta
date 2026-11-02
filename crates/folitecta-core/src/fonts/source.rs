@@ -84,6 +84,31 @@ pub(crate) fn unicode_font() -> Loaded {
     result
 }
 
+/// The fonts of the folders read by file name, once each.
+static FILES: Mutex<Option<HashMap<String, Arc<SourceFont>>>> = Mutex::new(None);
+
+/// The font file `file` of the font folders, read once.
+pub(crate) fn font_file(file: &str) -> Loaded {
+    let mut files = FILES.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(font) = files.as_ref().and_then(|m| m.get(file)) {
+        return Ok(font.clone());
+    }
+    let dirs = font_dirs();
+    let path = dirs
+        .iter()
+        .map(|d| d.join(file))
+        .find(|p| p.is_file())
+        .ok_or_else(|| GlyphProblem::FontMissing {
+            file: file.to_string(),
+            searched: dirs.clone(),
+        })?;
+    let font = Arc::new(SourceFont::load(&path)?);
+    files
+        .get_or_insert_with(HashMap::new)
+        .insert(file.to_string(), font.clone());
+    Ok(font)
+}
+
 /// Values of the font descriptor (ISO 32000-1, 9.8), in 1/1000 em.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Descriptor {
@@ -109,6 +134,8 @@ pub(crate) struct SourceFont {
     cmap: HashMap<char, u16>,
     /// Advance of every glyph in 1/1000 em, rounded (the values of `/W`).
     advances: Vec<u16>,
+    /// Font units per em.
+    pub(crate) upem: u16,
 }
 
 pub(crate) fn be_u16(data: &[u8], at: usize) -> Option<u16> {
@@ -256,6 +283,7 @@ impl SourceFont {
             data,
             cmap,
             advances,
+            upem: upem as u16,
         })
     }
 

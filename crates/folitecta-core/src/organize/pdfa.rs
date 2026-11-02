@@ -3,7 +3,8 @@
 //! the document that fixes what can be fixed (the file identifier, XMP
 //! metadata agreeing with the document information, an sRGB output intent,
 //! forbidden actions, annotation flags and appearances, LZW streams, XFA,
-//! interpolation, optional content configurations) and declares PDF/A-2b
+//! interpolation, optional content configurations, simple fonts that are
+//! not embedded: see `fonts::substitute`) and declares PDF/A-2b
 //! in its metadata only when no rule is left broken. The metadata alone
 //! never claims conformance; the original document is never changed.
 //!
@@ -719,7 +720,14 @@ impl Document {
                                 .map(|b| String::from_utf8_lossy(b).to_string())
                                 .unwrap_or_default();
                             if fonts_seen.insert(base.clone()) {
-                                add("fonts", None, Some(*id), format!("{base} is not embedded"), false);
+                                let fixable = crate::fonts::substitute::can_substitute(doc, d);
+                                add(
+                                    "fonts",
+                                    None,
+                                    Some(*id),
+                                    format!("{base} is not embedded"),
+                                    fixable,
+                                );
                             }
                         }
                     }
@@ -1023,6 +1031,24 @@ impl Document {
             .filter(|f| f.fixable)
             .map(|f| f.rule)
             .collect();
+        // Fonts the document names without carrying them: a substitute of
+        // the same family and style, with the widths the text is laid out with.
+        if rules.contains("fonts") {
+            let fonts: Vec<ObjectId> = self
+                .inner
+                .objects
+                .iter()
+                .filter(|(_, o)| {
+                    o.as_dict()
+                        .is_ok_and(|d| name_of(d, b"Type") == Some(b"Font") || d.has(b"BaseFont"))
+                })
+                .map(|(id, _)| *id)
+                .collect();
+            for id in fonts {
+                // A font that cannot be embedded stays, and so does its finding.
+                let _ = self.embed_substitute(id);
+            }
+        }
         let doc = &mut self.inner;
         if rules.contains("file-id") {
             use std::hash::{Hash, Hasher};

@@ -8,9 +8,28 @@ together with a map from each glyph back to its character, so the text can be co
 searched. The font is a separate data file read at run time; the release packages carry it in a
 `fonts` folder next to the program.
 
+Converting a document to PDF/A embeds the fonts it names without carrying them. A simple font is
+drawn with the face of the same family and style — **FreeSans** for Helvetica, Arial and other
+sans-serif fonts, **FreeSerif** for Times and other serif fonts, **FreeMono** for Courier and other
+fixed-pitch fonts, each upright, bold, italic (oblique) or both — and a subset of that face goes
+into the document. The three families are made from the URW fonts that have the metrics of
+Helvetica, Times and Courier; the glyphs embedded take the widths the document lays its text out
+with, so no line moves.
+
 | File | What it is | SHA-256 |
 |---|---|---|
 | `FreeSans.ttf` | GNU FreeFont FreeSans, release 20120503, TrueType | `c80858440d8fb618e0ac5ff6f16251dbfa6b3316f00f3cdd17d477297dd87b04` |
+| `FreeSansBold.ttf` | GNU FreeFont FreeSansBold, release 20120503, TrueType | `982534a3731416a15e2756601721f26053f68bf4239011550f3dd23ce6308215` |
+| `FreeSansOblique.ttf` | GNU FreeFont FreeSansOblique, release 20120503, TrueType | `43ef481308dfb3aa1103a75699cb4976139b6339eda0901df69a25533f07cf6b` |
+| `FreeSansBoldOblique.ttf` | GNU FreeFont FreeSansBoldOblique, release 20120503, TrueType | `deb48d677df0b521793df8da28729316bfcc255309aeb6dacfbd38241ac9b7ba` |
+| `FreeSerif.ttf` | GNU FreeFont FreeSerif, release 20120503, TrueType | `658563c732eafdc851de2b3f38b27d0afcde5674b2f93440971b9693438c6494` |
+| `FreeSerifBold.ttf` | GNU FreeFont FreeSerifBold, release 20120503, TrueType | `973791e2bb5ef4ba7ac9e7423f8a8d8441468da3a37c7e38ab38256011f5f261` |
+| `FreeSerifItalic.ttf` | GNU FreeFont FreeSerifItalic, release 20120503, TrueType | `1cef05c1ea5d88f0e06b212bdb0510edf65c5456523dd81ddccfe9847a77284f` |
+| `FreeSerifBoldItalic.ttf` | GNU FreeFont FreeSerifBoldItalic, release 20120503, TrueType | `38e39596c9daec677633761324216ffda969c65b9515cf273b001521f22cb2b3` |
+| `FreeMono.ttf` | GNU FreeFont FreeMono, release 20120503, TrueType | `0517b67f1e50bbcde4e54834a5fa597be2526cf3cbb69487a9fbdb0de1a83b4c` |
+| `FreeMonoBold.ttf` | GNU FreeFont FreeMonoBold, release 20120503, TrueType | `acd5fbb1985f9c2266c96a995b6cfba981609d598c9ce815388c1d5a8a23962a` |
+| `FreeMonoOblique.ttf` | GNU FreeFont FreeMonoOblique, release 20120503, TrueType | `196b630f5572a331e9619d6791f305bc47d32159720486a38b4306da5775fc0e` |
+| `FreeMonoBoldOblique.ttf` | GNU FreeFont FreeMonoBoldOblique, release 20120503, TrueType | `f51bd5acb07ba63498bb4434f63198f45163bf97822f361b67605619b0f78ce8` |
 | `COPYING` | The GNU General Public License, version 3 | `8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903` |
 | `README` | The README of the release, with the font exception | `d7375e3982a2e0afc471f8900c46ac6ea41b1112de1f5cdb9ca5c820adf25a33` |
 | `AUTHORS` | The authors of GNU FreeFont | `1baa0cba3f6004ac1277a25c79ab5efb45011102f9ef2ab3a5b7d262088a1f5a` |
@@ -57,7 +76,7 @@ the characters drawn. The glyph numbers stay those of FreeSans.
 
 ## Source
 
-The Corresponding Source of `FreeSans.ttf` (the FontForge files it is built from) is the signed
+The Corresponding Source of the twelve font files (the FontForge files they are built from) is the signed
 archive `freefont-src-20120503.tar.gz` with its signature `freefont-src-20120503.tar.gz.sig`,
 unchanged copies of the files of the same name. You can get it, at no charge, from any of these
 places:
@@ -69,4 +88,4 @@ places:
   folder `fonts/source/`;
 - the GNU project, https://ftp.gnu.org/gnu/freefont/freefont-src-20120503.tar.gz (and `.sig`).
 
-The program packages carry the font next to the program but not this archive.
+The program packages carry the fonts next to the program but not this archive.

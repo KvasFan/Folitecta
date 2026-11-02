@@ -1,7 +1,8 @@
 //! Interaction step: Preflight PDF/A — a document set in the embedded font
 //! with a script and device colours checked (the broken rules counted, all
 //! fixable), then converted: a new tab with the copy, declared PDF/A-2b,
-//! the original unchanged.
+//! the original unchanged. A document of plain text in the standard Helvetica
+//! becomes PDF/A too, its font embedded.
 
 use super::*;
 
@@ -13,8 +14,41 @@ async fn text(js: &str) -> String {
         .unwrap_or_default()
 }
 
+/// Run the preflight window on the active document and convert it: whether
+/// the copy declares PDF/A-2b and has every font embedded, and its tab.
+async fn convert(st: AppState, tabs: usize) -> (bool, bool, u64) {
+    crate::commands::dispatch(st, "document.preflight");
+    for _ in 0..40 {
+        pause(150).await;
+        if !text("return document.querySelector('.dialog .preflight-summary')?.textContent || '';")
+            .await
+            .is_empty()
+        {
+            break;
+        }
+    }
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    for _ in 0..60 {
+        pause(150).await;
+        if st.docs.read().len() > tabs {
+            break;
+        }
+    }
+    st.read_active(|t| {
+        let claimed = t
+            .doc
+            .xmp_packet()
+            .unwrap_or_default()
+            .contains("<pdfaid:part>2</pdfaid:part>");
+        let embedded = t.doc.used_fonts().iter().all(|f| f.embedded);
+        (claimed, embedded, t.id)
+    })
+    .unwrap_or_default()
+}
+
 pub(super) async fn run(cx: &mut Ctx<'_>) {
     let st = cx.st;
+    plain_text(cx).await;
     let made = folitecta_core::Document::from_markdown(
         "# Отчёт\n\nТекст документа.\n",
         folitecta_core::TextLayout::default(),
@@ -80,5 +114,31 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         "preflight PDF/A: the broken rules listed, a converted copy opened in a new tab declared PDF/A-2b, the original unchanged",
         !summary.is_empty() && broken_n >= 2 && claimed && unchanged && copy != tab,
         format!("summary {summary:?}, broken {broken}, claimed {claimed}, unchanged {unchanged}"),
+    );
+}
+
+/// Plain text in the standard Helvetica: its font embedded, the copy PDF/A.
+async fn plain_text(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    let Ok(doc) = folitecta_core::Document::from_text(
+        "Plain text in Helvetica.",
+        folitecta_core::TextLayout::default(),
+    ) else {
+        cx.record("preflight: the plain document", false, String::new());
+        return;
+    };
+    crate::files::open_document_tab(st, doc);
+    let tab = st.read_active(|t| t.id).unwrap_or(0);
+    let tabs = st.docs.read().len();
+    pause(500).await;
+    let (claimed, embedded, copy) = convert(st, tabs).await;
+    for id in [copy, tab] {
+        crate::files::close_tab(st, id, true, crate::state::AfterUnsaved::Close);
+        pause(200).await;
+    }
+    cx.record(
+        "preflight PDF/A: plain text in Helvetica becomes PDF/A-2b, its font embedded",
+        claimed && embedded && copy != tab,
+        format!("claimed {claimed}, every font embedded {embedded}"),
     );
 }

@@ -126,6 +126,17 @@ fn cmap_table(chars: &[(char, u16)]) -> Vec<u8> {
 /// A font program with the glyphs `glyphs` (and what they need) of `data`,
 /// under their own numbers; `chars` are the characters drawn and their glyphs.
 pub(crate) fn subset(data: &[u8], glyphs: &BTreeSet<u16>, chars: &[(char, u16)]) -> Result<Vec<u8>, String> {
+    subset_with_advances(data, glyphs, chars, &BTreeMap::new())
+}
+
+/// [`subset`], the glyphs of `advances` given those advances (font units) in
+/// place of their own: the widths a document already lays its text out with.
+pub(crate) fn subset_with_advances(
+    data: &[u8],
+    glyphs: &BTreeSet<u16>,
+    chars: &[(char, u16)],
+    advances: &BTreeMap<u16, u16>,
+) -> Result<Vec<u8>, String> {
     let font = FontRef::new(data).map_err(|_| "not a TrueType font".to_string())?;
     let get =
         |tag: &[u8; 4]| table(&font, tag).ok_or_else(|| format!("no {} table", String::from_utf8_lossy(tag)));
@@ -199,6 +210,7 @@ pub(crate) fn subset(data: &[u8], glyphs: &BTreeSet<u16>, chars: &[(char, u16)])
                     be_u16(hmtx, 4 * h_metrics + 2 * (g - h_metrics)),
                 )
             };
+            let advance = advances.get(&(g as u16)).copied().or(advance);
             new_hmtx.extend(advance.ok_or_else(|| damaged("hmtx"))?.to_be_bytes());
             new_hmtx.extend(bearing.ok_or_else(|| damaged("hmtx"))?.to_be_bytes());
         } else {

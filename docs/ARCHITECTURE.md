@@ -376,8 +376,9 @@ label paths, fuzzy search and shortcut lookup. Unit tests guarantee that the dat
   `ui/features/mail.rs`) prepares every file away from the interface thread, two at a time, and
   shows its size, facts and first pages. Tests and the self-test use a stand-in mail program.
 - `dictionaries/`, `ocr/` and `fonts/` (at the root of the repository) — the Hunspell
-  dictionaries, the text recognition models and the font of generated text beyond WinAnsi
-  (FreeSans) shipped with the program, as data files next to it in the release packages (the
+  dictionaries, the text recognition models and the fonts — FreeSans for generated text beyond
+  WinAnsi, the twelve FreeSans, FreeSerif and FreeMono faces for the fonts PDF/A conversion embeds
+  (`fonts/substitute.rs`) — shipped with the program, as data files next to it in the release packages (the
   `Resources` of the macOS bundle; `fonts/source`, the source of the font, stays in the source
   archives). They are looked for in the user's `Folitecta/dictionaries` (or `Folitecta/ocr`,
   `Folitecta/fonts`) folder first, then next to the program, then in the source tree, and the
@@ -433,9 +434,13 @@ Mouse coordinates on a page image are converted to PDF user space with
 - Preflight checks a subset of PDF/A-2b (the rules listed in the dialog and in `pdfa::RULES`):
   transparency, the inside of fonts (beyond being embedded), ICC-based colour spaces, the
   structure of the file beyond its identifier and the XMP schemas are not checked, and the
-  results have not been compared with an independent validator yet. Conversion does not embed
-  fonts: a document with a font that is not embedded (such as the standard Helvetica of the
-  documents Folitecta makes from WinAnsi text) is converted but not declared PDF/A.
+  results have not been compared with an independent validator yet. Conversion embeds simple
+  fonts (Type 1 and TrueType, the standard Helvetica, Times and Courier included) as subsets of
+  FreeSans, FreeSerif or FreeMono with the widths of the document; Symbol, ZapfDingbats,
+  composite and Type 3 fonts that are not embedded, encodings other than the standard ones and
+  font dictionaries written directly inside resources stay as they are, and the document is then
+  converted but not declared PDF/A. The substitute faces look like the fonts they stand for, not
+  the same.
 - Revocation is checked from OCSP answers and from complete revocation lists of the
   certificate's own issuer; indirect, delta and partitioned lists are not read, missing issuers
   are not fetched and certificate policies are not checked. Revocation data are asked online

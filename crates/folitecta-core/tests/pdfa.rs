@@ -109,13 +109,34 @@ fn a_document_with_embedded_fonts_becomes_pdfa_2b() {
 }
 
 #[test]
-fn a_font_that_is_not_embedded_keeps_the_document_from_claiming_pdfa() {
-    // WinAnsi text: the standard Helvetica, not embedded.
+fn the_standard_helvetica_is_embedded_and_the_document_claims_pdfa() {
+    // WinAnsi text: the standard Helvetica, not embedded, becomes FreeSans.
     let doc = Document::from_markdown("# Report\n\nPlain text.", TextLayout::default(), "Report").unwrap();
     let before = doc.preflight_pdfa();
     let fonts: Vec<_> = before.findings.iter().filter(|f| f.rule == "fonts").collect();
-    assert!(!fonts.is_empty() && fonts.iter().all(|f| !f.fixable), "{fonts:?}");
+    assert!(!fonts.is_empty() && fonts.iter().all(|f| f.fixable), "{fonts:?}");
     assert!(fonts.iter().any(|f| f.detail.contains("Helvetica")));
+    let (converted, outcome) = doc.convert_to_pdfa().unwrap();
+    assert!(outcome.claimed, "{:?}", outcome.after.findings);
+    assert!(converted.xmp_packet().unwrap().contains("pdfaid"));
+    let again = Document::from_bytes(converted.bytes().to_vec(), None, None).unwrap();
+    assert!(
+        again.preflight_pdfa().passed(),
+        "{:?}",
+        again.preflight_pdfa().findings
+    );
+}
+
+#[test]
+fn a_font_that_is_not_embedded_keeps_the_document_from_claiming_pdfa() {
+    // Symbol has no substitute: it stays out of the file.
+    let doc = Document::from_bytes(folitecta_core::testdocs::unembedded_fonts_doc(), None, None).unwrap();
+    let before = doc.preflight_pdfa();
+    let fonts: Vec<_> = before.findings.iter().filter(|f| f.rule == "fonts").collect();
+    assert!(
+        fonts.iter().any(|f| f.detail.contains("Symbol") && !f.fixable),
+        "{fonts:?}"
+    );
     let (converted, outcome) = doc.convert_to_pdfa().unwrap();
     assert!(!outcome.claimed);
     assert!(rules(&outcome.after).contains(&"fonts"));

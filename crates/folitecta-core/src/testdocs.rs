@@ -1619,6 +1619,56 @@ pub fn cropped_text_doc() -> Vec<u8> {
     b.finish()
 }
 
+/// Text in fonts that are not embedded: the standard Helvetica (WinAnsi),
+/// Times-Bold and Courier (their own StandardEncoding, an apostrophe at 39),
+/// Symbol, and a TrueType font named Arial,Bold whose widths are its own
+/// (every letter 700).
+pub fn unembedded_fonts_doc() -> Vec<u8> {
+    let mut b = Builder::new();
+    let simple = |base: &str, encoding: Option<&str>| {
+        let mut d = dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => base };
+        if let Some(e) = encoding {
+            d.set("Encoding", e);
+        }
+        Object::Dictionary(d)
+    };
+    let fonts = [
+        ("H", simple("Helvetica", Some("WinAnsiEncoding"))),
+        ("T", simple("Times-Bold", None)),
+        ("C", simple("Courier", None)),
+        ("S", simple("Symbol", None)),
+    ];
+    let mut resources = Dictionary::new();
+    for (name, font) in fonts {
+        let id = b.doc.add_object(font);
+        resources.set(name, id);
+    }
+    let descriptor = b.doc.add_object(dictionary! {
+        "Type" => "FontDescriptor", "FontName" => "Arial,Bold", "Flags" => 32,
+        "FontBBox" => vec![0.into(), (-200).into(), 1000.into(), 900.into()],
+        "ItalicAngle" => 0, "Ascent" => 900, "Descent" => -200, "CapHeight" => 700, "StemV" => 120,
+    });
+    let arial = b.doc.add_object(dictionary! {
+        "Type" => "Font", "Subtype" => "TrueType", "BaseFont" => "Arial,Bold",
+        "Encoding" => "WinAnsiEncoding", "FirstChar" => 32, "LastChar" => 126,
+        "Widths" => (32..=126).map(|c| Object::Integer(if c == 32 { 250 } else { 700 })).collect::<Vec<_>>(),
+        "FontDescriptor" => descriptor,
+    });
+    resources.set("A", arial);
+    b.page(
+        (400.0, 400.0),
+        b"BT /H 12 Tf 20 360 Td (Helvetica text) Tj ET \
+          BT /T 12 Tf 20 330 Td (Times bold 'quoted') Tj ET \
+          BT /C 12 Tf 20 300 Td (Courier text) Tj ET \
+          BT /S 12 Tf 20 270 Td (abg) Tj ET \
+          BT /A 12 Tf 20 240 Td (ARIAL WIDE) Tj ET"
+            .to_vec(),
+        dictionary! { "Font" => resources },
+        Vec::new(),
+    );
+    b.finish()
+}
+
 /// [`cropped_text_doc`] twice: two pages, with hidden text of their own.
 pub fn cropped_pages_doc() -> Vec<u8> {
     let mut b = Builder::new();

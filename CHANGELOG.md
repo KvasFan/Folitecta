@@ -9,6 +9,10 @@ All notable changes to Folitecta are documented here. The format follows
 ### Added
 - The Tick Mark window counts the marks of the document by shape.
 
+### Removed
+- The GitLab release pipeline (`.gitlab-ci.yml` and the job that fed it): releases are published on
+  GitHub only since 0.0.13.
+
 ## [0.20.0] - 2026-11-02
 
 ### Added

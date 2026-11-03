@@ -571,7 +571,8 @@ pub enum SpellPlace {
     Field(ObjectId),
 }
 
-/// A word of a document that the dictionaries do not know.
+/// A word of a document that the dictionaries do not know, or that text
+/// recognition read with doubt.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Misspelling {
     pub place: SpellPlace,
@@ -584,6 +585,9 @@ pub struct Misspelling {
     pub start: usize,
     pub end: usize,
     pub word: String,
+    /// Text recognition read the word with doubt (it may be a word the
+    /// dictionaries know, read wrong).
+    pub doubtful: bool,
 }
 
 impl Misspelling {
@@ -599,6 +603,9 @@ pub struct SpellScope {
     pub page_text: bool,
     pub comments: bool,
     pub fields: bool,
+    /// The words of the page text that text recognition read with doubt,
+    /// known to the dictionaries or not.
+    pub doubtful: bool,
 }
 
 impl Default for SpellScope {
@@ -607,6 +614,7 @@ impl Default for SpellScope {
             page_text: true,
             comments: true,
             fields: true,
+            doubtful: true,
         }
     }
 }
@@ -635,6 +643,7 @@ impl Document {
                 start,
                 end,
                 word,
+                doubtful: false,
             })
             .collect()
     }
@@ -681,10 +690,12 @@ impl Document {
         out
     }
 
-    /// Every word of the document that `speller` does not know, in reading order.
+    /// Every word of the document that `speller` does not know, in reading
+    /// order; with [`SpellScope::doubtful`], the words of the page text read
+    /// with doubt too (marked [`Misspelling::doubtful`]).
     pub fn misspellings(&self, speller: &Speller, scope: SpellScope) -> Vec<Misspelling> {
         let places = self.spelling_places(scope);
-        places
+        let mut found: Vec<Misspelling> = places
             .par_iter()
             .enumerate()
             .flat_map_iter(|(order, (place, page, text))| {
@@ -698,9 +709,77 @@ impl Document {
                         start,
                         end,
                         word,
+                        doubtful: false,
                     })
             })
-            .collect()
+            .collect();
+        if scope.doubtful && scope.page_text {
+            for (order, (place, _, _)) in places.iter().enumerate() {
+                let SpellPlace::Page(page) = *place else {
+                    continue;
+                };
+                for (_, start, end, word) in self.doubtful_spans(page) {
+                    match found
+                        .iter_mut()
+                        .find(|m| m.order == order && m.start < end && start < m.end)
+                    {
+                        Some(m) => {
+                            // One entry, over the word as read.
+                            (m.start, m.end, m.word, m.doubtful) = (start, end, word, true);
+                        }
+                        None => found.push(Misspelling {
+                            place: *place,
+                            page: Some(page),
+                            order,
+                            start,
+                            end,
+                            word,
+                            doubtful: true,
+                        }),
+                    }
+                }
+            }
+            found.sort_by_key(|m| m.key());
+        }
+        found
+    }
+
+    /// The words of the text of `page` that text recognition read with doubt
+    /// and are not checked yet: their index among the doubtful words of the
+    /// page, characters of the page text and the word.
+    fn doubtful_spans(&self, page: usize) -> Vec<(usize, usize, usize, String)> {
+        let doubts = self.doubtful_words(page);
+        if doubts.is_empty() {
+            return Vec::new();
+        }
+        let layers = self.text_layers();
+        let Some(layer) = layers.get(page) else {
+            return Vec::new();
+        };
+        let chars: Vec<char> = layer.text.chars().collect();
+        let mut out = Vec::new();
+        for d in doubts {
+            let r = d.rect;
+            let inside: Vec<usize> = (0..chars.len())
+                .filter(|&i| !chars[i].is_whitespace())
+                .filter(|&i| {
+                    layer
+                        .char_glyph
+                        .get(i)
+                        .copied()
+                        .flatten()
+                        .and_then(|g| layer.glyphs.get(g))
+                        .is_some_and(|g| {
+                            let (cx, cy) = ((g.bbox[0] + g.bbox[2]) / 2.0, (g.bbox[1] + g.bbox[3]) / 2.0);
+                            cx >= r[0] - 1.0 && cx <= r[2] + 1.0 && cy >= r[1] - 1.0 && cy <= r[3] + 1.0
+                        })
+                })
+                .collect();
+            if let (Some(&a), Some(&b)) = (inside.first(), inside.last()) {
+                out.push((d.index, a, b + 1, chars[a..=b].iter().collect()));
+            }
+        }
+        out
     }
 
     /// The text of a place: the text of the page, of the comment, or the
@@ -725,6 +804,12 @@ impl Document {
     /// Write `with` in place of the word `m` (one undo step). The word must
     /// still be where it was found.
     pub fn correct_spelling(&mut self, m: &Misspelling, with: &str) -> Result<TextEditReport> {
+        if m.doubtful {
+            // Written in place of the doubtful word, which is checked then.
+            let index = self.doubt_of(m)?;
+            self.review_ocr_word(m.page.unwrap_or_default(), index, Some(with))?;
+            return Ok(TextEditReport::default());
+        }
         let text = self
             .spelling_text(m.place)
             .ok_or_else(|| Error::Invalid("the text of the word is gone".into()))?;
@@ -750,6 +835,24 @@ impl Document {
                 Ok(TextEditReport::default())
             }
         }
+    }
+
+    /// The index of the doubtful word `m` stands for, among those of its page
+    /// as they are now.
+    fn doubt_of(&self, m: &Misspelling) -> Result<usize> {
+        let page = m.page.unwrap_or_default();
+        self.doubtful_spans(page)
+            .into_iter()
+            .find(|(_, start, end, word)| (*start, *end) == (m.start, m.end) && *word == m.word)
+            .map(|(i, ..)| i)
+            .ok_or_else(|| Error::Invalid(format!("\"{}\" is no longer there", m.word)))
+    }
+
+    /// Keep a word read with doubt as it was read: it is checked, and no
+    /// longer doubtful. One undo step.
+    pub fn keep_doubtful_word(&mut self, m: &Misspelling) -> Result<()> {
+        let index = self.doubt_of(m)?;
+        self.review_ocr_word(m.page.unwrap_or_default(), index, None)
     }
 
     /// Write `with` in place of every word of `list`, as one undo step. The

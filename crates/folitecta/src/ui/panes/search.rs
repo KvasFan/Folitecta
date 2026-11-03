@@ -36,6 +36,7 @@ pub fn run_search(st: AppState, query: &str) {
 pub fn refresh_hits(st: AppState, query: &str) -> Option<(usize, usize)> {
     let q = query.to_string();
     let (opts, proximity, scopes) = crate::commands::search::search_settings(st);
+    let doubtful_only = st.value("search.doubtful") == "1";
     st.with_active(|t| {
         t.search.query = q.clone();
         let empty = q.trim().is_empty();
@@ -44,6 +45,11 @@ pub fn refresh_hits(st: AppState, query: &str) -> Option<(usize, usize)> {
         } else {
             t.doc.search_words(&q, opts, proximity)
         };
+        if doubtful_only && !t.search.hits.is_empty() {
+            let on = t.doc.hits_on_doubtful(&t.search.hits);
+            let mut on = on.into_iter();
+            t.search.hits.retain(|_| on.next().unwrap_or(false));
+        }
         t.search.other = if empty {
             Vec::new()
         } else {
@@ -381,6 +387,17 @@ pub(super) fn SearchPane() -> Element {
             label { class: "check", input { r#type: "checkbox", checked: search.case_sensitive, onchange: move |_| { st.with_active(|t| t.search.query = query()); dispatch(st, "searchView.caseSensitive"); } } span { "{t(lang, \"search.case\")}" } }
             label { class: "check", input { r#type: "checkbox", checked: search.whole_words, onchange: move |_| { st.with_active(|t| t.search.query = query()); dispatch(st, "searchView.wholeWords"); } } span { "{t(lang, \"search.whole\")}" } }
             label { class: "check", input { r#type: "checkbox", checked: checked("searchView.ignoreDiacritics"), onchange: move |_| { st.with_active(|t| t.search.query = query()); dispatch(st, "searchView.ignoreDiacritics"); } } span { "{t(lang, \"search.diacritics\")}" } }
+            label { class: "check",
+                input { r#type: "checkbox", class: "search-doubtful", checked: st.value("search.doubtful") == "1",
+                    onchange: move |e| {
+                        st.set_value("search.doubtful", if e.checked() { "1" } else { "0" });
+                        let q = query();
+                        if !q.trim().is_empty() {
+                            refresh_hits(st, &q);
+                        }
+                    } }
+                span { "{t(lang, \"search.doubtful\")}" }
+            }
             button { class: "linkish", onclick: move |_| more.set(!more()), "{more_label}" }
         }
         if more() {

@@ -169,6 +169,7 @@ pub fn scope(st: AppState) -> SpellScope {
         page_text: st.value("spell.pages") != "0",
         comments: st.value("spell.comments") != "0",
         fields: st.value("spell.fields") != "0",
+        doubtful: st.value("spell.doubtful") != "0",
     }
 }
 
@@ -486,10 +487,50 @@ fn previous(st: AppState) {
     step(st, true);
 }
 
-/// Pass over the word shown, here only.
+/// Keep the words read with doubt `which` picks among those listed, as
+/// they were read: they are checked. Returns whether the word shown was one.
+fn keep_doubtful(st: AppState, which: impl Fn(&Misspelling, &Misspelling) -> bool) -> bool {
+    let Some((shown, list)) = st
+        .read_active(|t| {
+            let m = current(t)?.clone();
+            let list: Vec<Misspelling> = t
+                .spell
+                .as_ref()?
+                .list
+                .iter()
+                .filter(|o| o.doubtful)
+                .cloned()
+                .collect();
+            Some((m, list))
+        })
+        .flatten()
+    else {
+        return false;
+    };
+    if !shown.doubtful {
+        return false;
+    }
+    for m in list.iter().filter(|o| which(&shown, o)) {
+        let r = st.with_active(|t| t.doc.keep_doubtful_word(m));
+        if let Some(Err(e)) = r {
+            st.error(e.to_string());
+            break;
+        }
+    }
+    files::set_window_title(st);
+    refresh(st);
+    show_current(st);
+    true
+}
+
+/// Pass over the word shown, here only (a word read with doubt is kept as
+/// read, and so checked).
 pub fn ignore(st: AppState) {
     if !matches!(*st.dialog.peek(), Dialog::SpellCheck) {
         open(st);
+        return;
+    }
+    if keep_doubtful(st, |shown, m| m == shown) {
         return;
     }
     let left = st
@@ -516,6 +557,10 @@ pub fn ignore(st: AppState) {
 pub fn ignore_all(st: AppState) {
     if !matches!(*st.dialog.peek(), Dialog::SpellCheck) {
         open(st);
+        return;
+    }
+    // The words read with doubt like it are kept as read.
+    if keep_doubtful(st, |shown, m| m.word == shown.word) {
         return;
     }
     let word = st.read_active(|t| current(t).map(|m| m.word.clone())).flatten();

@@ -980,6 +980,28 @@ impl Document {
             .collect()
     }
 
+    /// Which of `hits` fall on a word text recognition read with doubt and
+    /// that is not checked yet: half of a rectangle of the hit or more inside
+    /// the word.
+    pub fn hits_on_doubtful(&self, hits: &[crate::text::SearchHit]) -> Vec<bool> {
+        let mut words: HashMap<usize, Vec<[f32; 4]>> = HashMap::new();
+        hits.iter()
+            .map(|h| {
+                let doubts = words
+                    .entry(h.page)
+                    .or_insert_with(|| self.doubtful_words(h.page).into_iter().map(|w| w.rect).collect());
+                h.rects.iter().any(|r| {
+                    let area = ((r[2] - r[0]) * (r[3] - r[1])).max(0.01);
+                    doubts.iter().any(|d| {
+                        let w = (r[2].min(d[2]) - r[0].max(d[0])).max(0.0);
+                        let h = (r[3].min(d[3]) - r[1].max(d[1])).max(0.0);
+                        w * h * 2.0 >= area
+                    })
+                })
+            })
+            .collect()
+    }
+
     /// The words text recognition wrote with doubt on page `page` and that
     /// are not checked yet, in writing order.
     pub fn doubtful_words(&self, page: usize) -> Vec<DoubtfulWord> {

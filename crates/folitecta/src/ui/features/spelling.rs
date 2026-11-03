@@ -44,6 +44,7 @@ pub fn SpellCheckDialog() -> Element {
                     ],
                 ),
                 m.word,
+                m.doubtful,
             ))
         })
         .flatten();
@@ -81,9 +82,13 @@ pub fn SpellCheckDialog() -> Element {
 
     rsx! {
         Frame { title, side: true,
-            if let Some((place, context, count, word)) = shown {
+            if let Some((place, context, count, word, doubtful)) = shown {
                 div { class: "spell-head",
-                    span { class: "muted", "{t(lang, \"spell.not_known\")}" }
+                    if doubtful {
+                        span { class: "muted spell-doubtful", "{t(lang, \"spell.read_with_doubt\")}" }
+                    } else {
+                        span { class: "muted", "{t(lang, \"spell.not_known\")}" }
+                    }
                     span { class: "grow" }
                     span { class: "muted spell-count", "{count}" }
                 }
@@ -177,6 +182,11 @@ pub fn SpellCheckDialog() -> Element {
                                 input { r#type: "checkbox", class: "spell-in-fields", checked: scope.fields,
                                     onchange: move |_| sp::set_flag(st, "spell.fields", !scope.fields) }
                                 span { "{t(lang, \"spell.fields\")}" }
+                            }
+                            label { class: "check", title: "{t(lang, \"spell.doubtful_hint\")}",
+                                input { r#type: "checkbox", class: "spell-in-doubtful", checked: scope.doubtful,
+                                    onchange: move |_| sp::set_flag(st, "spell.doubtful", !scope.doubtful) }
+                                span { "{t(lang, \"spell.doubtful\")}" }
                             }
                         }
                     }

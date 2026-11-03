@@ -7,7 +7,8 @@ use std::sync::OnceLock;
 
 use folitecta_core::ocr::find_models;
 use folitecta_core::{
-    DOUBTFUL_BELOW, Document, OcrEngine, OcrLine, OcrOptions, OcrWord, PageOcr, SearchOptions, TextLayout,
+    DOUBTFUL_BELOW, Document, OcrEngine, OcrLine, OcrOptions, OcrWord, PageOcr, SearchOptions, SpellScope,
+    Speller, TextLayout,
 };
 
 fn engine() -> &'static OcrEngine {
@@ -280,4 +281,54 @@ fn the_certainty_asked_for_decides_what_is_doubtful() {
         doc.add_ocr_text(&[read(doubt_below)]).unwrap();
         assert_eq!(texts(&doc), expected, "{doubt_below}");
     }
+}
+
+#[test]
+fn doubtful_words_join_the_spell_check_and_are_checked_there() {
+    let mut doc = doubtful_page();
+    // No dictionary: only the words read with doubt are listed.
+    let none = Speller::new();
+    let found = doc.misspellings(&none, SpellScope::default());
+    let listed: Vec<(&str, bool)> = found.iter().map(|m| (m.word.as_str(), m.doubtful)).collect();
+    assert_eq!(listed, [("nunber", true), ("2O26", true), ("~", true)]);
+    let not_asked = SpellScope {
+        doubtful: false,
+        ..SpellScope::default()
+    };
+    assert!(doc.misspellings(&none, not_asked).is_empty());
+    // Changed in the spell check: written in place, and no longer doubtful.
+    doc.correct_spelling(&found[0], "number").unwrap();
+    assert_eq!(texts(&doc), ["2O26", "~"]);
+    assert!(
+        doc.page_text(0).contains("Invoice number 2O26"),
+        "{}",
+        doc.page_text(0)
+    );
+    // Kept as read: checked too.
+    let now = doc.misspellings(&none, SpellScope::default());
+    assert_eq!(now[0].word, "2O26");
+    doc.keep_doubtful_word(&now[0]).unwrap();
+    assert_eq!(texts(&doc), ["~"]);
+    // A word no longer doubtful is not changed as one.
+    assert!(doc.correct_spelling(&found[1], "2026").is_err());
+    assert!(doc.page_text(0).contains("2O26"));
+    // Each check one undo step.
+    doc.undo().unwrap();
+    doc.undo().unwrap();
+    assert_eq!(texts(&doc), ["nunber", "2O26", "~"]);
+}
+
+#[test]
+fn search_results_on_doubtful_words_are_told() {
+    let mut doc = doubtful_page();
+    let opts = SearchOptions::default();
+    let hits = [
+        doc.search("Invoice", opts)[0].clone(),
+        doc.search("nunber", opts)[0].clone(),
+    ];
+    assert_eq!(doc.hits_on_doubtful(&hits), [false, true]);
+    // Checked, the word is no longer doubtful.
+    doc.review_ocr_word(0, 0, None).unwrap();
+    let hits = doc.search("nunber", opts);
+    assert_eq!(doc.hits_on_doubtful(&hits), [false]);
 }

@@ -408,6 +408,17 @@ Tables of the tags that a screen reader can follow (FOL-L041).
    rows `/ColSpan`: the columns their text covers, measured against the widest row, or the last
    cell the rest when the page does not tell.
 
+### 0.29.0 — words read with doubt, found
+
+The doubtful words of text recognition where words are looked for (FOL-L014).
+
+1. ~~**FOL-L014 — doubtful words in the spell check.**~~ Done: listed with the words the dictionaries
+   do not know (`SpellScope::doubtful`, `Misspelling::doubtful`), the word found again among the
+   doubtful words when it is checked (`keep_doubtful_word`, `correct_spelling` through
+   `review_ocr_word`).
+2. ~~**FOL-L014 — doubtful words in the search.**~~ Done: Only Words Read with Doubt keeps the
+   results on them (`hits_on_doubtful`).
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -444,7 +455,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L011 | P1 | 🟡 | scanning into a new document: SANE (`scanimage`) on Linux with its devices, sources, colour modes and resolutions and presets of them; the WIA dialogs on Windows; pages the size of the paper; backs scanned as a second stack put between the fronts; clean-up offered afterwards | Scanning on macOS (Image Capture); stopping the system's dialog on Windows. |
 | FOL-L012 | P1 | 🟡 | picture tools: turn, crop, straighten, filters, black and white; delete blank pages; Clean Up Scans: scanned pages (a picture covering 85% of the page) looked at in the background, blank sides (share of ink away from the edges), askew sheets and sheets upside down or sideways listed with thumbnails and thresholds, deleted, straightened and turned in one undo step | Despeckle and black and white in the same workflow; fronts and backs interleaved; sideways pages straightened when askew (their skew is not measured). |
 | FOL-L013 | P1 | 🟡 | local OCR (PaddleOCR models run by tract): pages, a selected area, pictures; invisible text tagged `OCR`, removed or replaced on demand; Latin-script languages | Editable text output; exclusions (existing text, fields, comments, logos); more scripts (models). |
-| FOL-L014 | P1 | 🟡 | words read with doubt (a letter below 0.8 probability) kept in the page as marked content and reviewed one by one: picture of the word, its place marked on the page, correct, keep, remove or skip, one undo step each; the review opens after recognition | Field recognition proposals; doubtful words in the search and in the spell check. |
+| FOL-L014 | P1 | 🟡 | words read with doubt (a letter below 0.8 probability) kept in the page as marked content and reviewed one by one: picture of the word, its place marked on the page, correct, keep, remove or skip, one undo step each; the review opens after recognition | Field recognition proposals. |
 
 ### Pages and composition
 

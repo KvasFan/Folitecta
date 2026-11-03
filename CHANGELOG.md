@@ -7,6 +7,9 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- The words text recognition read with doubt join the spell check (Words Read with Doubt, on), even
+  when the dictionaries know them: Change writes the correction in their place and Ignore keeps them
+  as read, and either way they are checked. The search can keep only the results on such words.
 - The accessibility check fixes two rules of tables: a table without header cells gets them from
   its first row (header cells of their column), and in a table whose rows have different numbers
   of cells, the cells of the shorter rows span the columns their text covers on the page.

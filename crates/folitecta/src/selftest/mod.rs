@@ -427,6 +427,7 @@ mod steps_cards;
 mod steps_changes;
 mod steps_contents;
 mod steps_csv_options;
+mod steps_doubtful_words;
 mod steps_effects;
 mod steps_email;
 mod steps_features;
@@ -568,6 +569,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "scans_upright" => Box::pin(steps_scans_upright::run(cx)),
             "changes" => Box::pin(steps_changes::run(cx)),
             "table_fixes" => Box::pin(steps_table_fixes::run(cx)),
+            "doubtful_words" => Box::pin(steps_doubtful_words::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -662,6 +664,7 @@ const STEPS: &[&str] = &[
     "scans_upright",
     "changes",
     "table_fixes",
+    "doubtful_words",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

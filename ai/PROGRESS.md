@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L014: words read with doubt, found (0.29.0)
+
+- **Current state before:** words read with doubt were seen only in the review of text
+  recognition; the spell check missed those the dictionaries know (a real word read wrong), and the
+  search could not pick them out.
+- **What:** `SpellScope::doubtful`, `Misspelling::doubtful`, `Document::keep_doubtful_word`,
+  `doubtful_spans` (the characters of the page text inside each doubtful word), `correct_spelling`
+  writing through `review_ocr_word`; `hits_on_doubtful`; the box Words Read with Doubt of the spell
+  check (`spell.doubtful`), its line Read with Doubt, Ignore and Ignore All keeping such words; the
+  box Only Words Read with Doubt of the search (`search.doubtful`).
+- **Checked:** `ocr.rs` (listed without a dictionary, changed and kept one step each, a word no
+  longer doubtful refused; search results on them told); self-test step `doubtful_words`.
+- **Open:** Change All on doubtful words checks them one by one in one step; the search of folders
+  does not filter.
+
 ## 2026-11-03 — FOL-L041: tables that read right (0.28.0)
 
 - **Current state before:** the check found tables without header cells and with rows of

@@ -1243,6 +1243,7 @@ fn spelling_corrections_redraw_unicode_text_and_refusals_change_nothing() {
         start,
         end: start + "beautifl".chars().count(),
         word: "beautifl".into(),
+        doubtful: false,
     };
     doc.correct_spelling(&m, "beautiful").unwrap();
     assert_eq!(doc.annotations(0).unwrap()[0].contents, "Łódź is beautiful");
@@ -1257,6 +1258,7 @@ fn spelling_corrections_redraw_unicode_text_and_refusals_change_nothing() {
         start: 3,
         end: 7,
         word: "helo".into(),
+        doubtful: false,
     };
     let report = doc.correct_spellings(&[m], "hello");
     assert_eq!((report.replaced, report.refused), (0, 1));

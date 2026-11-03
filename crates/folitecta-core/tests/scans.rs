@@ -1,9 +1,10 @@
 //! Clean-up of scanned pages: a blank sheet is found and taken out, a sheet
-//! fed askew is found and straightened, pages that are not scans are left
-//! alone; the clean-up is one undo step.
+//! fed askew is found and straightened, sheets upside down or sideways are
+//! turned upright, pages that are not scans are left alone; the clean-up is
+//! one undo step.
 
 use folitecta_core::imaging::{skew_angle, turn};
-use folitecta_core::{Document, ScanFix, ScanThresholds, TextLayout, scan_fixes};
+use folitecta_core::{Document, ScanFix, ScanThresholds, ScansCleaned, TextLayout, scan_fixes};
 use image::Rgba;
 
 fn text(lines: usize) -> String {
@@ -50,7 +51,13 @@ fn dark_borders_are_found_and_whitened() {
         matches!(fixes[..], [ScanFix::Whiten { page: 0, .. }]),
         "{fixes:?}"
     );
-    assert_eq!(doc.clean_up_scans(&fixes).unwrap(), (0, 0, 1));
+    assert_eq!(
+        doc.clean_up_scans(&fixes).unwrap(),
+        ScansCleaned {
+            whitened: 1,
+            ..ScansCleaned::default()
+        }
+    );
     assert_eq!(doc.look_at_scan(0).unwrap().unwrap().borders, [0.0; 4]);
 }
 
@@ -85,7 +92,14 @@ fn a_clean_up_straightens_and_deletes_in_one_step() {
     let mut doc = scans();
     let looks: Vec<_> = (0..4).filter_map(|p| doc.look_at_scan(p).unwrap()).collect();
     let fixes = scan_fixes(&looks, &ScanThresholds::default());
-    assert_eq!(doc.clean_up_scans(&fixes).unwrap(), (1, 1, 0));
+    assert_eq!(
+        doc.clean_up_scans(&fixes).unwrap(),
+        ScansCleaned {
+            straightened: 1,
+            deleted: 1,
+            ..ScansCleaned::default()
+        }
+    );
     assert_eq!(doc.page_count(), 3);
     // The askew letter, now page 2, is straight; the page that is not a scan stays.
     let straight = doc.image_pixels(1, 0).unwrap();
@@ -104,4 +118,84 @@ fn every_page_cannot_be_deleted() {
     assert_eq!(doc.page_count(), 2);
     assert!(!doc.can_undo());
     assert!(doc.clean_up_scans(&[ScanFix::Delete { page: 5 }]).is_err());
+}
+
+/// Lines of a letter that differ from each other, as in a real page (the
+/// same sentence on every line would put its words in columns).
+fn prose(lines: usize) -> String {
+    const WORDS: [&str; 24] = [
+        "the", "quick", "brown", "fox", "jumps", "over", "lazy", "dogs", "while", "a", "kind", "old", "lady",
+        "reads", "her", "daily", "paper", "by", "the", "bright", "window", "of", "its", "shop",
+    ];
+    (0..lines)
+        .map(|i| {
+            let n = 9 + (i * 5) % 6;
+            (0..n)
+                .map(|k| WORDS[(i * 7 + k * 5) % WORDS.len()])
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[test]
+fn pages_upside_down_and_sideways_are_turned_upright() {
+    let source = [prose(40), prose(40), prose(40), prose(40)].join("\u{c}");
+    let mut doc = Document::from_text(&source, TextLayout::default()).unwrap();
+    doc.rasterize_pages(&[0, 1, 2, 3], 100.0, false).unwrap();
+    // Page 1 upside down, page 2 turned a quarter clockwise, page 3 a
+    // quarter counterclockwise; page 0 upright.
+    for (page, turned) in [
+        (
+            1,
+            image::imageops::rotate180 as fn(&image::RgbaImage) -> image::RgbaImage,
+        ),
+        (2, image::imageops::rotate90),
+        (3, image::imageops::rotate270),
+    ] {
+        let px = turned(&doc.image_pixels(page, 0).unwrap());
+        let colors = doc.page_images(page).unwrap()[0].colors;
+        doc.replace_page_image(page, 0, &px, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0], colors)
+            .unwrap();
+    }
+    doc.clear_history();
+    let looks: Vec<_> = (0..4).map(|p| doc.look_at_scan(p).unwrap().unwrap()).collect();
+    let turns: Vec<i32> = looks.iter().map(|l| l.turn).collect();
+    assert_eq!(turns, [0, 180, 270, 90]);
+    let fixes: Vec<ScanFix> = scan_fixes(&looks, &ScanThresholds::default())
+        .into_iter()
+        .filter(|f| matches!(f, ScanFix::Turn { .. }))
+        .collect();
+    assert_eq!(doc.clean_up_scans(&fixes).unwrap().turned, 3);
+    let rotations: Vec<i32> = doc.page_sizes().iter().map(|s| s.rotation).collect();
+    assert_eq!(rotations, [0, 180, 270, 90]);
+    // Turned, they read upright: nothing more to turn.
+    let again: Vec<i32> = (0..4)
+        .map(|p| doc.look_at_scan(p).unwrap().unwrap().turn)
+        .collect();
+    assert_eq!(again, [0; 4]);
+    doc.undo().unwrap();
+    assert!(doc.page_sizes().iter().all(|s| s.rotation == 0));
+}
+
+#[test]
+fn pictures_without_text_are_not_turned() {
+    let mut doc = Document::new_blank(1, 400.0, 500.0).unwrap();
+    doc.insert_image_pages(
+        0,
+        vec![{
+            let px = image::RgbaImage::from_fn(400, 500, |x, y| {
+                let v = ((x * 7 + y * 3) % 255) as u8;
+                image::Rgba([v, 255 - v, 128, 255])
+            });
+            let mut out = std::io::Cursor::new(Vec::new());
+            px.write_to(&mut out, image::ImageFormat::Png).unwrap();
+            out.into_inner()
+        }],
+    )
+    .unwrap();
+    if let Some(look) = doc.look_at_scan(0).unwrap() {
+        assert_eq!(look.turn, 0);
+    }
 }

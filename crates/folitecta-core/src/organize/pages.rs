@@ -61,19 +61,27 @@ impl Document {
     pub fn rotate_pages(&mut self, pages: &[usize], degrees: i32) -> Result<()> {
         self.check_pages(pages)?;
         self.begin_edit();
-        let ids = self.page_ids();
         for &p in pages {
-            let id = ids[p];
-            let current = self
-                .inherited_attr(id, b"Rotate")
-                .and_then(|o| o.as_i64().ok())
-                .unwrap_or(0) as i32;
-            let next = (((current + degrees) % 360) + 360) % 360;
-            self.inner
-                .get_dictionary_mut(id)?
-                .set("Rotate", Object::Integer(next as i64));
+            if let Err(e) = self.turn_page(p, degrees) {
+                self.abandon_edit();
+                return Err(e);
+            }
         }
         self.commit()
+    }
+
+    /// Turn page `page` by `degrees` clockwise, without an undo step.
+    pub(crate) fn turn_page(&mut self, page: usize, degrees: i32) -> Result<()> {
+        let id = self.page_id(page)?;
+        let current = self
+            .inherited_attr(id, b"Rotate")
+            .and_then(|o| o.as_i64().ok())
+            .unwrap_or(0) as i32;
+        let next = (current + degrees).rem_euclid(360);
+        self.inner
+            .get_dictionary_mut(id)?
+            .set("Rotate", Object::Integer(next as i64));
+        Ok(())
     }
 
     /// Delete the given pages (zero-based). At least one page must remain.

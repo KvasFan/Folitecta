@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L012: scans the right way up (0.26.0)
+
+- **Current state before:** a sheet fed upside down or sideways stayed so; it had to be found and
+  turned by hand.
+- **What:** `imaging::upright_turn` (a small black and white copy cut into four strips: lines
+  across or down by how often rows change from paper to ink, twice as often one way or no
+  answer; then the ink above and below the core of each line, a fifth more one way or no answer);
+  `ScanLook::turn`, `ScanFix::Turn`, `ScansCleaned`, `Document::turn_page`; the box of the window
+  and its rows.
+- **Checked:** `scans.rs` (a letter upright, upside down and turned both ways; a picture without
+  text), unit tests of the placements; self-test step `scans_upright`.
+- **Open:** made for Latin letters (other scripts give no answer or a wrong one: the box can be
+  cleared, or the page left out); a page whose lines repeat the same words in columns gives no
+  answer; a sideways sheet is not straightened in the same step.
+
 ## 2026-11-03 — FOL-L017: labels in every page selector (0.25.0)
 
 - **Current state before:** only Print read page labels in its range (behind a box off by default)

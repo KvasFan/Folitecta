@@ -1,13 +1,15 @@
 //! Clean-up of scanned pages (FOL-L012): pages that are a picture of paper
 //! are looked at for what a scanner leaves behind — blank sides, sheets fed
-//! askew and the dark edges of its lid — and cleaned in one step: the borders
-//! whitened, the askew pictures straightened and the blank pages taken out.
+//! askew, upside down or sideways, and the dark edges of its lid — and
+//! cleaned in one step: the borders whitened, the askew pictures
+//! straightened, the pages turned the right way up and the blank pages
+//! taken out.
 
 use image::{RgbaImage, imageops};
 
 use crate::document::Document;
 use crate::error::{Error, Result};
-use crate::imaging::{Edit, Work, skew_angle};
+use crate::imaging::{Edit, Work, skew_angle, upright_turn};
 
 /// Share of the page a picture must cover for the page to be a scan.
 const SCAN_COVER: f32 = 0.85;
@@ -41,6 +43,9 @@ pub struct ScanLook {
     /// How far dark borders reach in from the left, top, right and bottom,
     /// as shares of the width and height of the picture.
     pub borders: [f32; 4],
+    /// Degrees clockwise the page must turn for its text to read upright:
+    /// 0, 90, 180 or 270 (0 also when it cannot be told).
+    pub turn: i32,
 }
 
 /// When a scanned page counts as blank and when as askew.
@@ -74,6 +79,11 @@ impl ScanLook {
         !self.blank(t) && self.skew.abs() >= t.min_skew
     }
 
+    /// Upside down or sideways, and not blank.
+    pub fn turned(&self, t: &ScanThresholds) -> bool {
+        !self.blank(t) && self.turn != 0
+    }
+
     /// The borders that count, and not on a blank page.
     pub fn dark_borders(&self, t: &ScanThresholds) -> Option<[f32; 4]> {
         (!self.blank(t) && self.borders.iter().any(|b| *b >= t.min_border))
@@ -94,14 +104,18 @@ pub enum ScanFix {
         picture: usize,
         borders: [f32; 4],
     },
+    /// Turn the page clockwise by `degrees` (a quarter turn or more), so its
+    /// text reads upright; the picture is left as it is.
+    Turn { page: usize, degrees: i32 },
 }
 
 impl ScanFix {
     pub fn page(&self) -> usize {
         match *self {
-            ScanFix::Straighten { page, .. } | ScanFix::Delete { page } | ScanFix::Whiten { page, .. } => {
-                page
-            }
+            ScanFix::Straighten { page, .. }
+            | ScanFix::Delete { page }
+            | ScanFix::Whiten { page, .. }
+            | ScanFix::Turn { page, .. } => page,
         }
     }
 }
@@ -223,8 +237,31 @@ pub fn scan_fixes(looks: &[ScanLook], thresholds: &ScanThresholds) -> Vec<ScanFi
                 angle: l.skew,
             });
         }
+        if l.turned(thresholds) {
+            fixes.push(ScanFix::Turn {
+                page: l.page,
+                degrees: l.turn,
+            });
+        }
     }
     fixes
+}
+
+/// Degrees clockwise a picture placed with `matrix` shows its pixels turned,
+/// to the nearest quarter turn.
+fn placed_turn(matrix: &[f64; 6]) -> i32 {
+    // Where the first row of pixels runs, on the page as seen (y down).
+    let deg = (-matrix[1]).atan2(matrix[0]).to_degrees();
+    ((deg / 90.0).round() as i32 * 90).rem_euclid(360)
+}
+
+/// What a clean-up of scans changed.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ScansCleaned {
+    pub straightened: usize,
+    pub deleted: usize,
+    pub whitened: usize,
+    pub turned: usize,
 }
 
 impl Document {
@@ -252,20 +289,30 @@ impl Document {
             return Ok(None);
         };
         let px = self.image_pixels(page, picture)?;
+        // The pixels show turned by their placement and by the page.
+        let shown = self
+            .page_images(page)?
+            .get(picture)
+            .map(|im| placed_turn(&im.matrix))
+            .unwrap_or(0)
+            + self.page_size_of(self.page_id(page)?).rotation;
+        let turn = upright_turn(&px)
+            .map(|t| (t - shown).rem_euclid(360))
+            .unwrap_or(0);
         Ok(Some(ScanLook {
             page,
             picture,
             ink: ink_share(&px),
             skew: skew_angle(&px),
             borders: dark_borders(&px),
+            turn,
         }))
     }
 
     /// Make `fixes` in one undo step, in their order: borders whitened,
-    /// pictures straightened (the corners they uncover white), then the pages
-    /// deleted. Returns how many pages were straightened, deleted and
-    /// whitened. Every page cannot be deleted.
-    pub fn clean_up_scans(&mut self, fixes: &[ScanFix]) -> Result<(usize, usize, usize)> {
+    /// pictures straightened (the corners they uncover white), pages turned,
+    /// then the pages deleted. Every page cannot be deleted.
+    pub fn clean_up_scans(&mut self, fixes: &[ScanFix]) -> Result<ScansCleaned> {
         let n = self.page_count();
         let mut delete: Vec<usize> = Vec::new();
         for f in fixes {
@@ -283,8 +330,15 @@ impl Document {
             return Err(Error::LastPage);
         }
         self.edit_step(|doc| {
-            let (mut straightened, mut whitened) = (0, 0);
+            let mut done = ScansCleaned::default();
             for f in fixes {
+                if let ScanFix::Turn { page, degrees } = *f {
+                    if !delete.contains(&page) && degrees.rem_euclid(360) != 0 {
+                        doc.turn_page(page, degrees)?;
+                        done.turned += 1;
+                    }
+                    continue;
+                }
                 let (page, picture) = match *f {
                     ScanFix::Straighten { page, picture, angle } if angle != 0.0 => (page, picture),
                     ScanFix::Whiten { page, picture, .. } => (page, picture),
@@ -302,13 +356,13 @@ impl Document {
                 match *f {
                     ScanFix::Straighten { angle, .. } => {
                         work.apply(Edit::Turn(-angle));
-                        straightened += 1;
+                        done.straightened += 1;
                     }
                     ScanFix::Whiten { borders, .. } => {
                         whiten(&mut work.pixels, borders);
-                        whitened += 1;
+                        done.whitened += 1;
                     }
-                    ScanFix::Delete { .. } => {}
+                    ScanFix::Delete { .. } | ScanFix::Turn { .. } => {}
                 }
                 doc.put_page_image(page, picture, &work.pixels, work.placement, work.colors)?;
             }
@@ -322,7 +376,8 @@ impl Document {
                     .collect();
                 doc.set_page_order(keep)?;
             }
-            Ok((straightened, delete.len(), whitened))
+            done.deleted = delete.len();
+            Ok(done)
         })
     }
 }
@@ -412,6 +467,7 @@ mod tests {
                 ink: 0.06,
                 skew: 0.1,
                 borders: [0.0; 4],
+                turn: 0,
             },
             ScanLook {
                 page: 1,
@@ -419,6 +475,7 @@ mod tests {
                 ink: 0.0004,
                 skew: 2.0,
                 borders: [0.03, 0.0, 0.0, 0.0],
+                turn: 0,
             },
             ScanLook {
                 page: 2,
@@ -426,6 +483,7 @@ mod tests {
                 ink: 0.04,
                 skew: -1.5,
                 borders: [0.0; 4],
+                turn: 0,
             },
         ];
         assert_eq!(
@@ -445,5 +503,44 @@ mod tests {
             min_border: 0.5,
         };
         assert!(scan_fixes(&looks, &strict).is_empty());
+    }
+
+    #[test]
+    fn pages_upside_down_or_sideways_are_turned_unless_blank() {
+        let t = ScanThresholds::default();
+        let look = |page, ink, turn| ScanLook {
+            page,
+            picture: 0,
+            ink,
+            skew: 0.0,
+            borders: [0.0; 4],
+            turn,
+        };
+        let looks = [
+            look(0, 0.05, 180),
+            look(1, 0.05, 0),
+            look(2, 0.05, 90),
+            look(3, 0.0001, 270),
+        ];
+        assert_eq!(
+            scan_fixes(&looks, &t),
+            [
+                ScanFix::Turn {
+                    page: 0,
+                    degrees: 180
+                },
+                ScanFix::Turn { page: 2, degrees: 90 },
+                ScanFix::Delete { page: 3 },
+            ]
+        );
+    }
+
+    #[test]
+    fn placements_turn_the_pixels_they_show() {
+        assert_eq!(placed_turn(&[600.0, 0.0, 0.0, 800.0, 0.0, 0.0]), 0);
+        // The first row of pixels runs down the page: a quarter clockwise.
+        assert_eq!(placed_turn(&[0.0, -600.0, 800.0, 0.0, 0.0, 600.0]), 90);
+        assert_eq!(placed_turn(&[-600.0, 0.0, 0.0, -800.0, 600.0, 800.0]), 180);
+        assert_eq!(placed_turn(&[0.0, 600.0, -800.0, 0.0, 800.0, 0.0]), 270);
     }
 }

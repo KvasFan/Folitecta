@@ -98,7 +98,7 @@ pub use render::{
     Lane, RenderAnswer, RenderOpts, RenderRequest, RenderService, RenderStats, RenderedPage, Renderer,
 };
 pub use scanning::{ScannedPicture, duplex_order, picture_dpi};
-pub use scans::{ScanFix, ScanLook, ScanThresholds, scan_fixes};
+pub use scans::{ScanFix, ScanLook, ScanThresholds, ScansCleaned, scan_fixes};
 pub use scripts::ScriptInfo;
 pub use security::{
     EncryptionInfo, EncryptionProfile, PasswordIssue, Protection, Restricted, SecurityPermissions,

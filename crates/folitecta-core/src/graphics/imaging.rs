@@ -521,6 +521,173 @@ pub fn skew_angle(px: &RgbaImage) -> f32 {
     if angle.abs() < 0.05 { 0.0 } else { angle as f32 }
 }
 
+/// A picture made small and split into ink and paper.
+struct InkGrid {
+    w: usize,
+    h: usize,
+    ink: Vec<bool>,
+}
+
+/// Vertical strips the lines of a page are followed in: narrow enough that
+/// a sheet fed a little askew still has empty rows between its lines, and
+/// that the columns of a page are looked at apart.
+const STRIPS: usize = 4;
+
+impl InkGrid {
+    fn of(px: &RgbaImage) -> Option<InkGrid> {
+        let (w, h) = px.dimensions();
+        if w < 32 || h < 32 {
+            return None;
+        }
+        let scale = (1600.0 / w.max(h) as f64).min(1.0);
+        let small = imageops::resize(
+            px,
+            ((w as f64 * scale).round() as u32).max(1),
+            ((h as f64 * scale).round() as u32).max(1),
+            imageops::FilterType::Triangle,
+        );
+        let t = otsu(&small);
+        let (w, h) = small.dimensions();
+        let ink = small.pixels().map(|p| p[3] > 127 && luma(p) <= t).collect();
+        Some(InkGrid {
+            w: w as usize,
+            h: h as usize,
+            ink,
+        })
+    }
+
+    /// The grid turned a quarter clockwise.
+    fn turned(&self) -> InkGrid {
+        let (w, h) = (self.h, self.w);
+        let mut ink = vec![false; w * h];
+        for y in 0..h {
+            for x in 0..w {
+                // The new (x, y) was at (y, old height - 1 - x).
+                ink[y * w + x] = self.ink[(self.h - 1 - x) * self.w + y];
+            }
+        }
+        InkGrid { w, h, ink }
+    }
+
+    /// The ink of every row of each vertical strip.
+    fn strip_rows(&self) -> Vec<Vec<usize>> {
+        (0..STRIPS)
+            .map(|s| {
+                let (x0, x1) = (self.w * s / STRIPS, self.w * (s + 1) / STRIPS);
+                (0..self.h)
+                    .map(|y| {
+                        self.ink[y * self.w + x0..y * self.w + x1]
+                            .iter()
+                            .filter(|i| **i)
+                            .count()
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    /// Below this much ink a row of a strip is empty: specks are not lines.
+    fn empty_below(&self) -> usize {
+        (self.w / STRIPS / 200).max(1)
+    }
+
+    /// How many times the rows go from paper to ink and back, in all the
+    /// strips: about twice the lines of text running across.
+    fn row_changes(&self) -> usize {
+        let empty = self.empty_below();
+        self.strip_rows()
+            .iter()
+            .map(|rows| {
+                rows.windows(2)
+                    .filter(|p| (p[0] <= empty) != (p[1] <= empty))
+                    .count()
+            })
+            .sum()
+    }
+
+    /// The ink above the core of the lines (where most letters are) and
+    /// below it. Latin letters reach up far more often (b, d, f, h, k, l, t
+    /// and the capitals) than down (g, j, p, q, y), so lines read upright
+    /// have more ink above their core.
+    fn above_and_below(&self) -> (usize, usize) {
+        let empty = self.empty_below();
+        let (mut above, mut below) = (0, 0);
+        for rows in self.strip_rows() {
+            // The lines: runs of rows with ink.
+            let mut lines: Vec<(usize, usize)> = Vec::new();
+            let mut start = None;
+            for (y, n) in rows.iter().enumerate() {
+                match (start, *n > empty) {
+                    (None, true) => start = Some(y),
+                    (Some(s), false) => {
+                        lines.push((s, y));
+                        start = None;
+                    }
+                    _ => {}
+                }
+            }
+            let mut heights: Vec<usize> = lines.iter().map(|(a, b)| b - a).collect();
+            heights.sort_unstable();
+            let Some(&typical) = heights.get(heights.len() / 2) else {
+                continue;
+            };
+            for (a, b) in lines {
+                let height = b - a;
+                // Lines of their own: not specks, rules or lines run together.
+                if height < 4 || height * 2 < typical || height * 5 > typical * 9 {
+                    continue;
+                }
+                let peak = rows[a..b].iter().copied().max().unwrap_or(0);
+                let core: Vec<usize> = (a..b).filter(|y| rows[*y] * 2 >= peak).collect();
+                let (Some(&top), Some(&bottom)) = (core.first(), core.last()) else {
+                    continue;
+                };
+                above += rows[a..top].iter().sum::<usize>();
+                below += rows[bottom + 1..b].iter().sum::<usize>();
+            }
+        }
+        (above, below)
+    }
+
+    /// Whether the lines read upright (`Some(true)`), upside down
+    /// (`Some(false)`), or cannot be told.
+    fn upright(&self) -> Option<bool> {
+        let (above, below) = self.above_and_below();
+        if above + below < 200 {
+            return None;
+        }
+        if above * 4 >= below * 5 {
+            Some(true)
+        } else if below * 4 >= above * 5 {
+            Some(false)
+        } else {
+            None
+        }
+    }
+}
+
+/// How many degrees clockwise `px` must turn for its lines of text to read
+/// upright: 0, 90, 180 or 270; `None` when it cannot be told (too little
+/// text, lines neither across nor down, letters that do not tell up from
+/// down). Made for Latin letters.
+pub fn upright_turn(px: &RgbaImage) -> Option<i32> {
+    let grid = InkGrid::of(px)?;
+    let turned = grid.turned();
+    let (across, down) = (grid.row_changes(), turned.row_changes());
+    if across + down < 8 {
+        return None;
+    }
+    if down > across * 2 {
+        // The lines run down the picture: turned a quarter clockwise they
+        // read upright or upside down.
+        turned.upright().map(|up| if up { 90 } else { 270 })
+    } else if across > down * 2 {
+        grid.upright().map(|up| if up { 0 } else { 180 })
+    } else {
+        None
+    }
+}
+
 /// Median of the 3 × 3 neighbourhood of every pixel (colours only).
 fn median3(src: &RgbaImage) -> RgbaImage {
     let (w, h) = src.dimensions();

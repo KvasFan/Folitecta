@@ -362,7 +362,7 @@
   "toast.scans_added": "{count} scanned pages added to the document",
   "toast.not_a_table": "The document was not made from a CSV file: there are no table options for it",
   "toast.table_made": "The table was made again",
-  "toast.scans_done": "Scanned pages cleaned up — straightened: {straightened}, deleted: {deleted}, whitened: {whitened}.",
+  "toast.scans_done": "Scanned pages cleaned up — straightened: {straightened}, turned upright: {turned}, deleted: {deleted}, whitened: {whitened}.",
   "toast.scripts_removed": "{count} scripts removed",
   "toast.scripts_removed_one": "{count} script removed",
   "toast.search_first": "Search for something first",

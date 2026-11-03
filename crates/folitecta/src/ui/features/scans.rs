@@ -1,4 +1,5 @@
-//! The Clean Up Scans dialog: the thresholds of blank and askew pages, the
+//! The Clean Up Scans dialog: the thresholds of blank and askew pages, pages
+//! turned upright, the
 //! pages found with their pictures (each can be left out, and shown in the
 //! window), and the clean-up in one step.
 
@@ -50,6 +51,7 @@ pub fn CleanUpScansDialog() -> Element {
     let mut delete = use_signal(|| st.value("scans.delete") != "0");
     let mut straighten = use_signal(|| st.value("scans.straighten") != "0");
     let mut whiten = use_signal(|| st.value("scans.whiten") != "0");
+    let mut upright = use_signal(|| st.value("scans.turn") != "0");
     let mut left_out = use_signal(HashSet::<usize>::new);
 
     let run = SCAN.read().clone();
@@ -64,6 +66,7 @@ pub fn CleanUpScansDialog() -> Element {
         ScanFix::Delete { .. } => delete(),
         ScanFix::Straighten { .. } => straighten(),
         ScanFix::Whiten { .. } => whiten(),
+        ScanFix::Turn { .. } => upright(),
     };
     let fixes: Vec<ScanFix> = found
         .iter()
@@ -75,6 +78,7 @@ pub fn CleanUpScansDialog() -> Element {
     let blank_count = count(|f| matches!(f, ScanFix::Delete { .. }));
     let askew_count = count(|f| matches!(f, ScanFix::Straighten { .. }));
     let border_count = count(|f| matches!(f, ScanFix::Whiten { .. }));
+    let turn_count = count(|f| matches!(f, ScanFix::Turn { .. }));
     let (tab, shown) = st
         .read_active(|t| (t.id, t.page_shown.clone()))
         .unwrap_or_default();
@@ -96,6 +100,7 @@ pub fn CleanUpScansDialog() -> Element {
             ("blank", &blank_count.to_string()),
             ("askew", &askew_count.to_string()),
             ("borders", &border_count.to_string()),
+            ("turned", &turn_count.to_string()),
         ],
     );
     let apply_fixes = fixes.clone();
@@ -108,6 +113,7 @@ pub fn CleanUpScansDialog() -> Element {
                 st.set_value("scans.delete", if delete() { "1" } else { "0" });
                 st.set_value("scans.straighten", if straighten() { "1" } else { "0" });
                 st.set_value("scans.whiten", if whiten() { "1" } else { "0" });
+                st.set_value("scans.turn", if upright() { "1" } else { "0" });
                 scans::apply(st, apply_fixes.clone());
             },
             p { class: "hint", "{t(lang, \"scans.hint\")}" }
@@ -134,6 +140,10 @@ pub fn CleanUpScansDialog() -> Element {
             label { class: "check",
                 input { r#type: "checkbox", class: "scans-whiten", checked: whiten(), onchange: move |_| whiten.toggle() }
                 span { "{t(lang, \"scans.whiten\")}" }
+            }
+            label { class: "check",
+                input { r#type: "checkbox", class: "scans-turn", checked: upright(), onchange: move |_| upright.toggle() }
+                span { "{t(lang, \"scans.turn\")}" }
             }
             if run.running {
                 div { class: "ocr-progress",
@@ -169,8 +179,17 @@ pub fn CleanUpScansDialog() -> Element {
                                 (page, tf(lang, "scans.askew_row", &[("angle", &format!("{:.1}", angle))]), straighten())
                             }
                             ScanFix::Whiten { page, .. } => (page, t(lang, "scans.border_row"), whiten()),
+                            ScanFix::Turn { page, degrees } => {
+                                let how = t(lang, &format!("scans.turn_{degrees}"));
+                                (page, how, upright())
+                            }
                         };
-                        let row_key = format!("{page}-{}", matches!(f, ScanFix::Whiten { .. }));
+                        let kind = match f {
+                            ScanFix::Whiten { .. } => "w",
+                            ScanFix::Turn { .. } => "t",
+                            _ => "s",
+                        };
+                        let row_key = format!("{page}-{kind}");
                         let on = kind_on && !left_out.read().contains(&page);
                         let rev = shown.get(page).copied().unwrap_or_default();
                         let src = format!("/page/{tab}/{page}/{rev}/200.png?lane=thumb");

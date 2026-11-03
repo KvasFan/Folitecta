@@ -7,6 +7,9 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Clean Up Scans finds scanned pages upside down or sideways, by the letters of their lines
+  (Latin letters reach up more often than down), and turns them upright in the same step, the
+  picture left as it is; pages it cannot tell about are left alone.
 - Page ranges take the page labels of the document (`iii-v`, `"A-1"-"A-4"`) in every page window
   (rotate, delete, extract, crop, marks, recognition, mail and the rest), in the page box of the
   status bar and in Replace Pages for the pages of the other file; a label wins over the page

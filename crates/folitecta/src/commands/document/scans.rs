@@ -104,7 +104,7 @@ pub fn apply(st: AppState, fixes: Vec<ScanFix>) {
         return;
     }
     match st.with_active(|t| t.doc.clean_up_scans(&fixes)) {
-        Some(Ok((straightened, deleted, whitened))) => {
+        Some(Ok(done)) => {
             files::set_window_title(st);
             st.set_dialog(Dialog::None);
             st.toast(
@@ -113,9 +113,10 @@ pub fn apply(st: AppState, fixes: Vec<ScanFix>) {
                     st.lang(),
                     "toast.scans_done",
                     &[
-                        ("straightened", &straightened.to_string()),
-                        ("deleted", &deleted.to_string()),
-                        ("whitened", &whitened.to_string()),
+                        ("straightened", &done.straightened.to_string()),
+                        ("deleted", &done.deleted.to_string()),
+                        ("whitened", &done.whitened.to_string()),
+                        ("turned", &done.turned.to_string()),
                     ],
                 ),
                 "",

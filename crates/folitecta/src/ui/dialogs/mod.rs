@@ -15,7 +15,7 @@ use crate::files;
 use crate::i18n::{Lang, cmd_label, t, tf};
 use crate::icons::Icon;
 use crate::state::{AppState, ConfirmAction, Dialog, Guide, PasswordTarget, Theme, ToastKind, Tool, Zoom};
-use crate::util::{format_pages, parse_color, parse_page_range};
+use crate::util::{format_pages, parse_color, parse_pages_labelled, range_labels};
 
 mod app;
 mod marks;
@@ -217,7 +217,7 @@ fn scope_pages(st: AppState, mode: Scope, range: &str) -> Result<Vec<usize>, Str
         Scope::Current => Ok(vec![st.current_page()]),
         Scope::Selected => Ok(st.read_active(|t| t.target_pages()).unwrap_or_default()),
         Scope::All => Ok((0..count).collect()),
-        Scope::Range => parse_page_range(range, count),
+        Scope::Range => parse_pages_labelled(range, count, &range_labels(st)).map_err(|e| e.to_string()),
     }
 }
 

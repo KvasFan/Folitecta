@@ -461,7 +461,7 @@ impl Document {
     }
 
     /// Whether the document numbers its pages with labels of its own.
-    pub(crate) fn has_page_labels(&self) -> bool {
+    pub fn has_page_labels(&self) -> bool {
         self.inner.catalog().is_ok_and(|c| c.has(b"PageLabels"))
     }
 

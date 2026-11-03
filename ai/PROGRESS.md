@@ -4,6 +4,19 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L017: labels in every page selector (0.25.0)
+
+- **Current state before:** only Print read page labels in its range (behind a box off by default)
+  and the page box took a label only when it was not a number, so in a document numbered i, ii,
+  1, 2 typing 1 went to page i.
+- **What:** `util::parse_pages_labelled` (the label reading of `parse_print_range`, each page
+  once), `util::range_labels`, the option `pages.useLabels` (on, in Preferences); used by
+  `scope_pages` (every page window), recognition, Repeat Mark, the mail window (`DocFacts::labels`),
+  the page box and Replace Pages; Print starts with labels when they are used.
+- **Checked:** `util` tests `page_ranges_by_label`; self-test step `page_label_ranges`.
+- **Open:** the first and last page of Replace Pages and the other number fields take numbers only;
+  ranges of files in the source lists (combining) take numbers.
+
 ## 2026-11-03 — release 0.23.0: check of the published packages
 
 - **What:** tag `v0.23.0` (`a467b21`, the work planned as 0.22.0 and 0.23.0): CI (39 min) and

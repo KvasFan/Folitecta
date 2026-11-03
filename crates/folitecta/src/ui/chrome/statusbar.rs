@@ -168,10 +168,13 @@ pub fn StatusBar() -> Element {
                         e.stop_propagation();
                         if e.key() == Key::Enter {
                             let v = page_input().trim().to_string();
-                            match v.parse::<usize>() {
-                                Ok(n) if n >= 1 => st.go_to_page(n - 1),
+                            // A page label wins over the number written the same way.
+                            let by_label = crate::util::range_labels(st).iter().position(|l| *l == v);
+                            match (by_label, v.parse::<usize>()) {
+                                (Some(i), _) => st.go_to_page(i),
+                                (None, Ok(n)) if n >= 1 => st.go_to_page(n - 1),
                                 _ => {
-                                    // Logical page label typed by the user.
+                                    // A label of a document whose labels are not used for ranges.
                                     if let Some(i) = st.read_active(|t| t.doc.page_labels().iter().position(|l| *l == v)).flatten() {
                                         st.go_to_page(i);
                                     }

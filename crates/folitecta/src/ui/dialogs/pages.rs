@@ -833,7 +833,13 @@ pub(super) fn ReplacePages(path: String) -> Element {
                     st.error(tf(st.lang(), "dialog.replace.bad_range", &[("count", &count.to_string())]));
                     return;
                 }
-                match parse_page_range(&src(), src_count) {
+                // The other file's own labels, when it has some and they are used.
+                let labels = if crate::commands::option_on(st, "pages.useLabels") && doc.has_page_labels() {
+                    doc.page_labels()
+                } else {
+                    Vec::new()
+                };
+                match parse_pages_labelled(&src(), src_count, &labels) {
                     Ok(src_pages) => apply(st, |tab| tab.doc.replace_pages(a - 1, b - a + 1, doc, &src_pages)),
                     Err(e) => st.error(e),
                 }

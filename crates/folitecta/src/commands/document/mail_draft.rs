@@ -15,7 +15,7 @@ use folitecta_core::{
 
 use crate::i18n::{Lang, t, tf};
 use crate::mail::{HandOverError, Outgoing};
-use crate::util::{RangeError, parse_pages};
+use crate::util::{RangeError, parse_pages_labelled};
 
 /// Data taken out of a document.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -140,6 +140,9 @@ pub struct DocFacts {
     pub saved_at: u64,
     pub dirty: bool,
     pub pages: usize,
+    /// The page labels a range may be written with (none when the document
+    /// has no labels of its own).
+    pub labels: Vec<String>,
     pub current_page: usize,
     pub selected: Vec<usize>,
     pub comments: usize,
@@ -170,6 +173,11 @@ impl DocFacts {
             saved_at,
             dirty: doc.is_dirty(),
             pages: doc.page_count(),
+            labels: if doc.has_page_labels() {
+                doc.page_labels()
+            } else {
+                Vec::new()
+            },
             current_page: page,
             selected: selected.to_vec(),
             comments: doc.comments().len(),
@@ -309,7 +317,7 @@ impl MailItem {
             Pages::All => return Ok(None),
             Pages::Current => vec![self.doc.current_page.min(n.saturating_sub(1))],
             Pages::Range => {
-                let mut v = parse_pages(&self.range, n).map_err(Problem::Range)?;
+                let mut v = parse_pages_labelled(&self.range, n, &self.doc.labels).map_err(Problem::Range)?;
                 v.sort_unstable();
                 v.dedup();
                 v

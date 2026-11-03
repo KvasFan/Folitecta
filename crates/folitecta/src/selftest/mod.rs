@@ -453,6 +453,7 @@ mod steps_ocr;
 mod steps_ocr_sequence;
 mod steps_office;
 mod steps_page_boxes;
+mod steps_page_label_ranges;
 mod steps_panes;
 mod steps_paths;
 mod steps_pencil;
@@ -560,6 +561,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "field_values" => Box::pin(steps_field_values::run(cx)),
             "csv_options" => Box::pin(steps_csv_options::run(cx)),
             "bookmark_labels" => Box::pin(steps_bookmark_labels::run(cx)),
+            "page_label_ranges" => Box::pin(steps_page_label_ranges::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -650,6 +652,7 @@ const STEPS: &[&str] = &[
     "field_values",
     "csv_options",
     "bookmark_labels",
+    "page_label_ranges",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

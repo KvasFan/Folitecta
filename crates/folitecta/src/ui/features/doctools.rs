@@ -7,7 +7,7 @@ use folitecta_core::{Kept, RecompressPreset, RecompressReport, RecompressScope, 
 use crate::i18n::{t, tf, ui_label};
 use crate::state::{AppState, Dialog, ToastKind};
 use crate::ui::dialogs::Frame;
-use crate::util::{format_pages, human_size, parse_page_range};
+use crate::util::{format_pages, human_size, parse_pages_labelled, range_labels};
 
 /// Pages with page marks of a kind, removing them or adding more.
 #[component]
@@ -355,7 +355,7 @@ pub fn MultiPlaceDialog() -> Element {
     rsx! {
         Frame { title: t(lang, "multiplace.title"),
             on_ok: move |_| {
-                let pages = if all() { Ok((0..count).collect::<Vec<_>>()) } else { parse_page_range(&range(), count) };
+                let pages = if all() { Ok((0..count).collect::<Vec<_>>()) } else { parse_pages_labelled(&range(), count, &range_labels(st)).map_err(|e| e.to_string()) };
                 let pages = match pages { Ok(p) => p, Err(e) => return st.error(e) };
                 let r = st.with_active(|t| {
                     let (p, i) = t.selected_annot.ok_or_else(|| folitecta_core::Error::Invalid("select a placed signature first".into()))?;

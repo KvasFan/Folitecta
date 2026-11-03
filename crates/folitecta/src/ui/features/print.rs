@@ -625,7 +625,8 @@ pub fn PrintWindow(target: PrintTarget) -> Element {
         }
     });
     let mut range = use_signal(String::new);
-    let mut use_labels = use_signal(|| false);
+    // Labels on when the document has its own and Use Page Labels is on.
+    let mut use_labels = use_signal(|| !crate::util::range_labels(st).is_empty());
     let mut visible: Signal<Vec<usize>> = use_signal(Vec::new);
     use_hook(move || {
         spawn(async move {

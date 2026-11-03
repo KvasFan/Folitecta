@@ -7,6 +7,10 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Page ranges take the page labels of the document (`iii-v`, `"A-1"-"A-4"`) in every page window
+  (rotate, delete, extract, crop, marks, recognition, mail and the rest), in the page box of the
+  status bar and in Replace Pages for the pages of the other file; a label wins over the page
+  number written the same way. Use Page Labels (Preferences, on) turns it off; Print starts with it.
 - Delete Duplicates (Bookmarks pane menu) deletes the bookmarks that repeat one before them — the
   same title opening the same place — in one undo step; their children stay, in their place.
 - Insert Table of Contents numbers the entries with the page labels of the document (i, ii, 1, 2,

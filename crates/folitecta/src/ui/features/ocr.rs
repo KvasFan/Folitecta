@@ -10,7 +10,7 @@ use crate::commands::ocr::{self, JOB, Quality};
 use crate::i18n::{cmd_label, t, tf};
 use crate::state::{AppState, Dialog};
 use crate::ui::dialogs::Frame;
-use crate::util::parse_page_range;
+use crate::util::{parse_pages_labelled, range_labels};
 
 #[component]
 pub fn OcrDialog(pictures_only: bool) -> Element {
@@ -37,7 +37,7 @@ pub fn OcrDialog(pictures_only: bool) -> Element {
     let pages = move || -> Result<Vec<usize>, String> {
         match which().as_str() {
             "current" => Ok(vec![st.current_page()]),
-            "range" => parse_page_range(&range(), n),
+            "range" => parse_pages_labelled(&range(), n, &range_labels(st)).map_err(|e| e.to_string()),
             _ => Ok((0..n).collect()),
         }
     };

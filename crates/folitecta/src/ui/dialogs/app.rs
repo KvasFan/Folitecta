@@ -248,6 +248,11 @@ pub(super) fn Prefs() -> Element {
                     onchange: move |_| crate::commands::dispatch(st, "view.ribbonLabels") }
                 span { "{t(lang, \"dialog.prefs.labels\")}" }
             }
+            label { class: "check", title: "{t(lang, \"dialog.prefs.page_labels.hint\")}",
+                input { r#type: "checkbox", class: "prefs-page-labels", checked: crate::commands::option_on(st, "pages.useLabels"),
+                    onchange: move |e| st.set_option("pages.useLabels", e.checked()) }
+                span { "{t(lang, \"dialog.prefs.page_labels\")}" }
+            }
         }
     }
 }

@@ -255,6 +255,7 @@ pub const VIEW_OPTIONS: &[&str] = &[
 /// Options that are on unless the user turned them off.
 pub const DEFAULT_ON: &[&str] = &[
     "view.ribbonLabels",
+    "pages.useLabels",
     "view.spellCheck",
     "search.pageText",
     "portfolio.tools",

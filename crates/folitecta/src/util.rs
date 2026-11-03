@@ -90,6 +90,41 @@ pub fn parse_pages(input: &str, page_count: usize) -> Result<Vec<usize>, RangeEr
     Ok(out)
 }
 
+/// [`parse_pages`] where the ends of a range may also be page labels
+/// (`iii-v, "A-1"`): a label wins over the page number written the same way,
+/// a number that is no label is a page number. With no `labels` it reads
+/// numbers only. A page given twice is chosen once.
+pub fn parse_pages_labelled(
+    input: &str,
+    page_count: usize,
+    labels: &[String],
+) -> Result<Vec<usize>, RangeError> {
+    if labels.is_empty() {
+        return parse_pages(input, page_count);
+    }
+    if page_count == 0 {
+        return Ok(Vec::new());
+    }
+    let mut out: Vec<usize> = Vec::new();
+    for p in parse_print_range(input, page_count, labels, true)? {
+        if !out.contains(&p) {
+            out.push(p);
+        }
+    }
+    Ok(out)
+}
+
+/// The labels page ranges are read with in the active document: its page
+/// labels when it has some of its own and Use Page Labels is on, else none.
+pub fn range_labels(st: crate::state::AppState) -> Vec<String> {
+    if !crate::commands::option_on(st, "pages.useLabels") {
+        return Vec::new();
+    }
+    st.read_active(|t| t.doc.has_page_labels().then(|| t.doc.page_labels()))
+        .flatten()
+        .unwrap_or_default()
+}
+
 /// Split `s` at the characters of `seps` outside double quotes.
 fn split_unquoted<'a>(s: &'a str, seps: &[char]) -> Vec<&'a str> {
     let mut parts = Vec::new();
@@ -382,6 +417,33 @@ mod tests {
             parse_print_range("12", n, &labels, false),
             Err(RangeError::OutOfBounds(n))
         );
+    }
+
+    #[test]
+    fn page_ranges_by_label() {
+        let labels: Vec<String> = ["i", "ii", "1", "2", "A-1"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        // "1" and "2" are labels here, "5" only a page number.
+        assert_eq!(parse_pages_labelled("ii-2", 5, &labels), Ok(vec![1, 2, 3]));
+        assert_eq!(parse_pages_labelled("1, 5, i", 5, &labels), Ok(vec![2, 4, 0]));
+        assert_eq!(
+            parse_pages_labelled("\"A-1\", 2-1", 5, &labels),
+            Ok(vec![4, 3, 2])
+        );
+        assert_eq!(parse_pages_labelled("", 5, &labels), Ok(vec![0, 1, 2, 3, 4]));
+        assert_eq!(parse_pages_labelled("ii-", 5, &labels), Ok(vec![1, 2, 3, 4]));
+        assert_eq!(
+            parse_pages_labelled("iv", 5, &labels),
+            Err(RangeError::NotARange("iv".into()))
+        );
+        assert_eq!(
+            parse_pages_labelled("6", 5, &labels),
+            Err(RangeError::OutOfBounds(5))
+        );
+        // Without labels, numbers as before.
+        assert_eq!(parse_pages_labelled("1-2", 5, &[]), Ok(vec![0, 1]));
     }
 
     #[test]

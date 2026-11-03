@@ -81,12 +81,19 @@ pub fn start(st: AppState, how: Start) {
     let lang = st.lang();
     let active = st.active_index();
     let all = matches!(how, Start::Documents { all: true, .. });
+    let by_label = crate::commands::option_on(st, "pages.useLabels");
     let docs: Vec<DocFacts> = {
         let docs = st.docs.read();
         docs.iter()
             .enumerate()
             .filter(|(i, _)| all || Some(*i) == active)
-            .map(|(_, tab)| DocFacts::of(tab.id, &tab.doc, tab.page, &tab.selected_pages))
+            .map(|(_, tab)| {
+                let mut facts = DocFacts::of(tab.id, &tab.doc, tab.page, &tab.selected_pages);
+                if !by_label {
+                    facts.labels.clear();
+                }
+                facts
+            })
             .collect()
     };
     if how == Start::FormData && !docs.iter().any(|d| d.has_form) {

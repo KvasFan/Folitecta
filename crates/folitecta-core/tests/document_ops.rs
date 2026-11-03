@@ -473,3 +473,49 @@ fn render_service_serves_pages() {
     service.replace(edited.bytes());
     assert_eq!(service.page_sizes_blocking().unwrap().len(), 2);
 }
+
+#[test]
+fn undo_steps_keep_the_names_they_were_given() {
+    let mut doc = Document::new_blank(3, 200.0, 200.0).unwrap();
+    assert!(doc.undo_steps().is_empty());
+    let since = doc.step_count();
+    doc.rotate_pages(&[0], 90).unwrap();
+    doc.name_new_step(since, "Rotate Pages");
+    // A step made without a name, then one named twice: the first name stays.
+    doc.rotate_pages(&[1], 90).unwrap();
+    let since = doc.step_count();
+    doc.delete_pages(&[2]).unwrap();
+    doc.name_new_step(since, "Delete Pages");
+    doc.name_new_step(since, "Something else");
+    assert_eq!(
+        doc.undo_steps(),
+        [
+            Some("Rotate Pages".to_string()),
+            None,
+            Some("Delete Pages".to_string())
+        ]
+    );
+    // Undo and Redo carry the names; naming after them names nothing.
+    let since = doc.step_count();
+    doc.undo().unwrap();
+    doc.undo().unwrap();
+    doc.name_new_step(since, "Undo");
+    assert_eq!(doc.undo_steps(), [Some("Rotate Pages".to_string())]);
+    assert_eq!(doc.redo_steps(), [None, Some("Delete Pages".to_string())]);
+    doc.redo().unwrap();
+    doc.name_new_step(since, "Redo");
+    assert_eq!(doc.undo_steps(), [Some("Rotate Pages".to_string()), None]);
+    assert_eq!(doc.redo_steps(), [Some("Delete Pages".to_string())]);
+    assert_eq!(doc.step_count(), since);
+    // A failed edit makes no step to name.
+    assert!(doc.delete_pages(&[0, 1, 2]).is_err());
+    doc.name_new_step(since, "Failed");
+    assert_eq!(doc.undo_steps().len(), 2);
+    assert!(doc.undo_steps().iter().all(|n| n.as_deref() != Some("Failed")));
+    // A new step clears what Redo would make again.
+    let since = doc.step_count();
+    doc.rotate_pages(&[0], 180).unwrap();
+    doc.name_new_step(since, "Rotate Pages");
+    assert!(doc.redo_steps().is_empty());
+    assert_eq!(doc.undo_steps().len(), 3);
+}

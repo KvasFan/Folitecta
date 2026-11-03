@@ -4,6 +4,20 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L004: a history of changes (0.27.0)
+
+- **Current state before:** Undo and Redo went one step at a time, with no way to see what a step
+  was.
+- **What:** `Snapshot::step` and `name` (carried by Undo and Redo to the state they keep),
+  `Document::step_count`, `name_new_step`, `undo_steps`, `redo_steps`; the command under way
+  (`commands::running_command`, kept while its window is open, the outermost of nested commands)
+  or the drawing tool names the step `AppState::with_active` sees made; `Pane::Changes`,
+  `view.changes`, `ui/panes/changes.rs`.
+- **Checked:** `document_ops.rs` (names kept through Undo and Redo, a failed edit names nothing);
+  self-test step `changes`.
+- **Open:** changes made in the background (text recognition finishing, for example) or by panes
+  without a command are called Change; the history holds the last 40 steps.
+
 ## 2026-11-03 — FOL-L012: scans the right way up (0.26.0)
 
 - **Current state before:** a sheet fed upside down or sideways stayed so; it had to be found and

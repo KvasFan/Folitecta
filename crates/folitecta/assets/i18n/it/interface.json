@@ -1,6 +1,10 @@
 {
   "app.name": "Folitecta",
   "app.tagline": "Un editor PDF libero e aperto scritto in Rust.",
+  "pane.changes.change": "Modifica",
+  "pane.changes.go": "Torna indietro o avanti fino a questo punto",
+  "pane.changes.none": "Nessuna modifica ancora",
+  "pane.changes.start": "Prima di queste modifiche",
   "filter.all": "Tutti",
   "filter.show_all": "Mostra tutti",
   "filter.title": "Mostra commenti",
@@ -190,6 +194,7 @@
   "pane.attachments": "Allegati",
   "pane.bookmarks": "Segnalibri",
   "pane.bookmarks.from_pages": "Uno per pagina",
+  "pane.changes": "Cronologia delle modifiche",
   "pane.comment-styles": "Stili dei commenti",
   "pane.comments": "Commenti",
   "pane.content": "Contenuto",

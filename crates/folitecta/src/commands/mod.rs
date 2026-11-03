@@ -576,11 +576,50 @@ pub fn is_partial(id: &str) -> bool {
     PARTIAL.contains(&id)
 }
 
+thread_local! {
+    /// The command under way: the changes it makes are undo steps named
+    /// after it, until it ends (with its window when it opens one).
+    static RUNNING: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+    /// How deep commands run inside commands: the outermost names the steps.
+    static DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// The name of the command under way, for the undo steps it makes.
+pub fn running_command() -> Option<String> {
+    RUNNING.with(|r| r.borrow().clone())
+}
+
+/// The command under way is over: its window closed, or it made its change.
+pub fn end_command() {
+    RUNNING.with(|r| *r.borrow_mut() = None);
+}
+
+/// Commands that move through the changes made, and make none to name.
+const UNNAMED: &[&str] = &["undo", "redo"];
+
 /// Run a command by registry id.
 pub fn dispatch(st: AppState, id: &str) {
     st.close_menus();
     if let Some(handler) = INDEX.get(id) {
+        let named = !UNNAMED.contains(&id) && DEPTH.get() == 0;
+        if named {
+            let label = registry()
+                .get(id)
+                .map(|c| {
+                    crate::i18n::cmd_label(st.lang(), c)
+                        .trim_end_matches('…')
+                        .to_string()
+                })
+                .unwrap_or_else(|| id.to_string());
+            RUNNING.with(|r| *r.borrow_mut() = Some(label));
+        }
+        DEPTH.set(DEPTH.get() + 1);
         handler(st);
+        DEPTH.set(DEPTH.get().saturating_sub(1));
+        // A command that opened a window goes on until the window closes.
+        if named && *st.dialog.peek() == Dialog::None {
+            end_command();
+        }
         return;
     }
     if VIEW_OPTIONS.contains(&id) {

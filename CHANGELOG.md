@@ -7,6 +7,8 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- History of Changes (View menu) lists the changes Undo takes back, each named after the command or
+  the tool that made it, and those Redo makes again; a click goes back or forward to any of them.
 - Clean Up Scans finds scanned pages upside down or sideways, by the letters of their lines
   (Latin letters reach up more often than down), and turns them upright in the same step, the
   picture left as it is; pages it cannot tell about are left alone.

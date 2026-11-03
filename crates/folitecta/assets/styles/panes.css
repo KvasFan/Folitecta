@@ -248,3 +248,11 @@
 .explorer-list { padding: 2px 4px; }
 .explorer-row { gap: 6px; }
 .explorer-thumb { width: 28px; height: 36px; object-fit: contain; background: #fff; border: 1px solid var(--border); border-radius: 2px; flex: none; }
+
+/* History of Changes: the undo steps, the current one marked, those Redo makes again faint. */
+.changes-list { display: flex; flex-direction: column; gap: 2px; padding: 4px; }
+.changes-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--radius-sm); border: 1px solid transparent; background: none; color: inherit; text-align: left; cursor: pointer; min-width: 0; font: inherit; }
+.changes-row:hover { background: var(--surface-3); }
+.changes-row.current { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.changes-row.ahead { opacity: 0.55; }
+.changes-row .changes-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

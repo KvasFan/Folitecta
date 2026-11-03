@@ -1716,6 +1716,7 @@
   "cmd.view.articles": "Articoli",
   "cmd.view.attachments": "Allegati",
   "cmd.view.bookmarks": "Segnalibri",
+  "cmd.view.changes": "Cronologia delle modifiche",
   "cmd.view.commentStyles": "Tavolozza stili commento",
   "cmd.view.comments": "Commenti",
   "cmd.view.content": "Contenuto",

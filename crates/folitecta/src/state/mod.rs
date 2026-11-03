@@ -286,7 +286,25 @@ impl AppState {
 
     // Setters usable through a shared copy of the state (signals are handles).
     #[track_caller]
+    /// The name of an undo step made now: the command under way, else the
+    /// tool that draws or edits, else a change.
+    fn step_name(&self) -> String {
+        if let Some(name) = crate::commands::running_command() {
+            return name;
+        }
+        let tool = *self.tool.peek();
+        let key = if matches!(tool, Tool::Hand | Tool::Select | Tool::Zoom | Tool::Loupe) {
+            "pane.changes.change"
+        } else {
+            tool.label_key()
+        };
+        crate::i18n::t(self.lang(), key)
+    }
+
     pub fn set_dialog(&self, v: Dialog) {
+        if v == Dialog::None {
+            crate::commands::end_command();
+        }
         let leaves_mail = *self.dialog.peek() == Dialog::Mail && v != Dialog::Mail;
         note_write();
         *self.dialog.write_unchecked() = v;
@@ -430,7 +448,12 @@ impl AppState {
         let (out, shown) = {
             let mut docs = self.docs_mut();
             let tab = docs.get_mut(idx)?;
+            let steps = tab.doc.step_count();
             let out = f(tab);
+            if tab.doc.step_count() > steps {
+                let name = self.step_name();
+                tab.doc.name_new_step(steps, &name);
+            }
             tab.refresh();
             (out, tab.layer_shown.take())
         };

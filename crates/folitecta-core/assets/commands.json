@@ -23385,6 +23385,17 @@
    "status": "planned"
   },
   {
+   "id": "view.changes",
+   "label": "History of Changes",
+   "parent": "view",
+   "menu": "view",
+   "ribbon": null,
+   "pane": null,
+   "kind": "toggle",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "view.fonts",
    "label": "Fonts",
    "parent": "view",

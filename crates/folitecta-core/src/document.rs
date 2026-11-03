@@ -61,6 +61,8 @@ pub struct Document {
     dirty: bool,
     undo: Vec<Snapshot>,
     redo: Vec<Snapshot>,
+    /// The number of the last undo step made (see [`Snapshot::step`]).
+    steps: u64,
     /// What the edit under way set aside, given back when it is abandoned.
     edit_backup: Option<EditBackup>,
     /// The permissions of the protection restrict changes (false for the
@@ -213,6 +215,11 @@ struct Snapshot {
     /// Whether the state lost the signed file it needs as its base, and that
     /// file (see `Document::signed_base_lost`).
     lost_base: Option<Option<Source>>,
+    /// The undo step it begins: numbered as made (0 for the states kept for
+    /// redo before a step had numbers), with the name the program gave it.
+    /// Undo and redo carry both to the state they keep.
+    step: u64,
+    name: Option<String>,
 }
 
 /// The key of the encryption of a protected document, to read the files it
@@ -632,6 +639,7 @@ impl Document {
             dirty: false,
             undo: Vec::new(),
             redo: Vec::new(),
+            steps: 0,
             edit_backup: None,
             permissions_apply: true,
             saves: 0,
@@ -698,6 +706,7 @@ impl Document {
             dirty: false,
             undo: Vec::new(),
             redo: Vec::new(),
+            steps: 0,
             helv_font: None,
             source_encrypted: false,
             protection: None,
@@ -766,6 +775,7 @@ impl Document {
             dirty: true,
             undo: Vec::new(),
             redo: Vec::new(),
+            steps: 0,
             edit_backup: None,
             permissions_apply: true,
             saves: 0,
@@ -1398,13 +1408,17 @@ impl Document {
             source: self.source.clone(),
             saves: self.saves,
             lost_base: self.signed_base_lost.clone(),
+            step: 0,
+            name: None,
         }
     }
 
     /// Record the current state before a mutation.
     pub fn begin_edit(&mut self) {
         self.start_changes();
-        let snapshot = self.snapshot_now();
+        self.steps += 1;
+        let mut snapshot = self.snapshot_now();
+        snapshot.step = self.steps;
         self.undo.push(snapshot.clone());
         let dropped = (self.undo.len() > UNDO_LIMIT).then(|| self.undo.remove(0));
         let redo = std::mem::take(&mut self.redo);
@@ -1571,14 +1585,46 @@ impl Document {
 
     pub fn undo(&mut self) -> Result<()> {
         let prev = self.undo.pop().ok_or(Error::NothingToUndo)?;
-        self.redo.push(self.snapshot_now());
+        let mut now = self.snapshot_now();
+        (now.step, now.name) = (prev.step, prev.name.clone());
+        self.redo.push(now);
         self.restore(prev)
     }
 
     pub fn redo(&mut self) -> Result<()> {
         let next = self.redo.pop().ok_or(Error::NothingToRedo)?;
-        self.undo.push(self.snapshot_now());
+        let mut now = self.snapshot_now();
+        (now.step, now.name) = (next.step, next.name.clone());
+        self.undo.push(now);
         self.restore(next)
+    }
+
+    /// The number of the last undo step made: it grows with every edit, and
+    /// Undo and Redo leave it as it is.
+    pub fn step_count(&self) -> u64 {
+        self.steps
+    }
+
+    /// Name the undo step made since `since` (a [`step_count`](Self::step_count)
+    /// taken before), when it has no name yet: what made it, for the history
+    /// of changes. Nothing happens when no step was made since.
+    pub fn name_new_step(&mut self, since: u64, name: &str) {
+        if let Some(top) = self.undo.last_mut() {
+            if top.step > since && top.name.is_none() {
+                top.name = Some(name.to_string());
+            }
+        }
+    }
+
+    /// The names of the steps Undo takes back, the oldest first (`None` for
+    /// a step made without a name).
+    pub fn undo_steps(&self) -> Vec<Option<String>> {
+        self.undo.iter().map(|s| s.name.clone()).collect()
+    }
+
+    /// The names of the steps Redo makes again, the next first.
+    pub fn redo_steps(&self) -> Vec<Option<String>> {
+        self.redo.iter().rev().map(|s| s.name.clone()).collect()
     }
 
     // ------------------------------------------------------------------

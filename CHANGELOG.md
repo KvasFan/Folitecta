@@ -7,6 +7,8 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- The article threads of a file whose pages are inserted come with its pages (a thread running on
+  pages left out stays out).
 - The Articles pane (View menu) lists the article threads of the document with their parts in
   reading order; a click shows the area of a part on its page.
 - Fix of the accessibility rule Table summary opens Table Summaries: each table of the tags with

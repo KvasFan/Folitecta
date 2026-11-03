@@ -354,3 +354,30 @@ fn article_threads_are_made_in_one_step() {
     doc.undo().unwrap();
     assert!(doc.articles().is_empty());
 }
+
+#[test]
+fn article_threads_come_with_the_pages_of_another_file() {
+    let mut other = Document::new_blank(2, 400.0, 500.0).unwrap();
+    other
+        .add_article(
+            "Feature",
+            &[(0, [36.0, 36.0, 364.0, 464.0]), (1, [36.0, 36.0, 364.0, 464.0])],
+        )
+        .unwrap();
+    let mut doc = Document::new_blank(1, 400.0, 500.0).unwrap();
+    doc.add_article("Lead", &[(0, [36.0, 36.0, 364.0, 464.0])])
+        .unwrap();
+    doc.insert_document(1, &other, None).unwrap();
+    let articles = doc.articles();
+    let titles: Vec<&str> = articles.iter().map(|a| a.title.as_str()).collect();
+    assert_eq!(titles, ["Lead", "Feature"]);
+    let pages: Vec<usize> = articles[1].beads.iter().map(|b| b.0).collect();
+    assert_eq!(pages, [1, 2]);
+    // Saved and read again.
+    let again = Document::from_bytes(doc.bytes().as_ref().clone(), None, None).unwrap();
+    assert_eq!(again.articles(), articles);
+    // Only one of its pages: the thread that ran on the other one does not come.
+    let mut part = Document::new_blank(1, 400.0, 500.0).unwrap();
+    part.insert_document(1, &other, Some(&[0])).unwrap();
+    assert!(part.articles().is_empty());
+}

@@ -295,6 +295,26 @@ impl Document {
             self.write_label_parts(&parts)?;
         }
 
+        // The article threads of the source, their beads on the pages that came
+        // (a thread that ran on pages left out was taken away with them).
+        let src_threads: Vec<Object> = src_catalog
+            .get(b"Threads")
+            .ok()
+            .and_then(|t| deref(&self.inner, t).as_array().ok())
+            .cloned()
+            .unwrap_or_default();
+        if !src_threads.is_empty() {
+            let catalog = self.inner.catalog_mut()?;
+            let mut threads = catalog
+                .get(b"Threads")
+                .ok()
+                .and_then(|t| t.as_array().ok())
+                .cloned()
+                .unwrap_or_default();
+            threads.extend(src_threads);
+            catalog.set("Threads", threads);
+        }
+
         // Form fields, with the fonts their appearances name.
         if let Some(form) = &src_form {
             let fields: Vec<Object> = src_fields.iter().map(|(id, _)| Object::Reference(*id)).collect();

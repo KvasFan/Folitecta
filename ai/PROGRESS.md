@@ -4,6 +4,16 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L015: articles that come along (0.35.0)
+
+- **Current state before:** the pages of another file came with their bead lists, but its threads
+  stayed out of the catalog, so its articles were lost.
+- **What:** `take_pages` adds the `/Threads` of the source (those left after its pages were
+  chosen) to those of the document.
+- **Checked:** `bookmarks.rs` (a thread of two pages inserted, saved and read again; one page of
+  the two inserted, the thread left out), `page_relations.rs`, `delivery.rs`.
+- **Open:** a thread of which only some pages are taken could be kept with those beads.
+
 ## 2026-11-03 — FOL-L022: articles (0.34.0)
 
 - **Current state before:** View › Articles was planned; article threads were only kept or taken

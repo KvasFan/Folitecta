@@ -460,6 +460,13 @@ Stories that run across columns and pages (FOL-L022).
    their beads followed round to the first) and shows the area of a bead with a click;
    `add_article` makes a thread in one undo step.
 
+### 0.35.0 — articles that come along
+
+The threads of the pages taken from another file (FOL-L015).
+
+1. ~~**FOL-L015 — article threads of an inserted file.**~~ Done: the threads of the source join the
+   `/Threads` of the document with the pages they run on.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -502,7 +509,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L015 | P1 | 🟡 | insert, delete, extract, duplicate, move, swap, reverse, replace, insert pictures, split documents, split/merge pages, combine files (a bookmark per file), find duplicate pages, delete empty pages; bookmarks, named destinations, links, fields, tags and layers follow the pages in and out: same-named fields and destinations of an inserted file get a suffix and are listed before OK, what deleting pages takes is named before OK, duplicated pages keep their comments to themselves and share their fields; page labels follow the pages, new pages joining the range where they land | Article threads of an inserted file. |
+| FOL-L015 | P1 | ✅ | insert, delete, extract, duplicate, move, swap, reverse, replace, insert pictures, split documents, split/merge pages, combine files (a bookmark per file), find duplicate pages, delete empty pages; bookmarks, named destinations, links, fields, tags and layers follow the pages in and out: same-named fields and destinations of an inserted file get a suffix and are listed before OK, what deleting pages takes is named before OK, duplicated pages keep their comments to themselves and share their fields; page labels follow the pages, new pages joining the range where they land; the article threads of an inserted file come with it | — |
 | FOL-L016 | P1/P2 | 🟡 | rotate, crop, crop to white margins, resize, margins, normalize, overlay, rasterize pages | Selective flattening. |
 | FOL-L017 | P1 | ✅ | watermarks, header and footer, Bates numbering (several files), background, page numbering, macros, Folitecta's marks tagged so they can be updated or removed; page labels read in every page range | — |
 

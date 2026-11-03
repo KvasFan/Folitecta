@@ -70,6 +70,65 @@ impl Document {
         Ok(count)
     }
 
+    /// The kinds (subtypes) and authors of the comments of `pages`, each
+    /// once, sorted: what Flatten Comments can choose among.
+    pub fn comment_kinds_and_authors(&self, pages: &[usize]) -> (Vec<String>, Vec<String>) {
+        let mut kinds = std::collections::BTreeSet::new();
+        let mut authors = std::collections::BTreeSet::new();
+        for &p in pages {
+            for a in self.annotations(p).unwrap_or_default() {
+                if matches!(a.subtype.as_str(), "Link" | "Popup" | "Widget") {
+                    continue;
+                }
+                kinds.insert(a.subtype.clone());
+                authors.insert(a.author.clone());
+            }
+        }
+        (kinds.into_iter().collect(), authors.into_iter().collect())
+    }
+
+    /// Flatten the comments of `pages` whose kind is among `kinds` (subtypes:
+    /// `Text`, `Square`, `Ink`, `Stamp`...) and, when `authors` is given,
+    /// whose author is among them (an empty author for comments without
+    /// one). One undo step; returns how many were merged.
+    pub fn flatten_comments_of(
+        &mut self,
+        pages: &[usize],
+        kinds: &[String],
+        authors: Option<&[String]>,
+    ) -> Result<usize> {
+        let n = self.page_count();
+        if let Some(p) = pages.iter().find(|p| **p >= n) {
+            return Err(Error::InvalidPage(*p));
+        }
+        // The author as written in the comment (a string, not a reference).
+        let wanted = |subtype: &[u8], d: &Dictionary| {
+            let kind = String::from_utf8_lossy(subtype);
+            let author = match d.get(b"T") {
+                Ok(Object::String(bytes, _)) => crate::util::decode_pdf_text(bytes),
+                _ => String::new(),
+            };
+            kinds.iter().any(|k| *k == kind) && authors.is_none_or(|list| list.contains(&author))
+        };
+        self.begin_edit();
+        let mut removed = HashSet::new();
+        let count = match self.flatten_where(pages, FlattenScope::Comments, None, &wanted, &mut removed) {
+            Ok(c) => c,
+            Err(e) => {
+                self.abandon_edit();
+                return Err(e);
+            }
+        };
+        if count == 0 {
+            // Nothing chosen: no undo step.
+            self.abandon_edit();
+            return Ok(0);
+        }
+        self.forget_objects(&removed);
+        self.commit()?;
+        Ok(count)
+    }
+
     /// Flatten annotations; `only` restricts the work to one `(page, index)`.
     pub(crate) fn flatten_internal(
         &mut self,
@@ -78,7 +137,7 @@ impl Document {
         only: Option<(usize, usize)>,
     ) -> Result<usize> {
         let mut removed = HashSet::new();
-        let count = self.flatten_where(pages, scope, only, &|_| true, &mut removed)?;
+        let count = self.flatten_where(pages, scope, only, &|_, _| true, &mut removed)?;
         self.forget_objects(&removed);
         Ok(count)
     }
@@ -95,7 +154,8 @@ impl Document {
         crate::util::prune_unreachable(&mut self.inner);
     }
 
-    /// Flatten the annotations of `scope` whose subtype `wanted` accepts. The
+    /// Flatten the annotations of `scope` that `wanted` accepts (it sees the
+    /// subtype and the dictionary of each). The
     /// annotations merged (and their pop-ups) leave the pages and are added
     /// to `removed`, for the caller to take out of the file in one pass
     /// ([`Document::forget_objects`]).
@@ -104,7 +164,7 @@ impl Document {
         pages: &[usize],
         scope: FlattenScope,
         only: Option<(usize, usize)>,
-        wanted: &dyn Fn(&[u8]) -> bool,
+        wanted: &dyn Fn(&[u8], &Dictionary) -> bool,
         removed: &mut HashSet<ObjectId>,
     ) -> Result<usize> {
         self.changing();
@@ -153,7 +213,7 @@ impl Document {
                     FlattenScope::FormFields => is_widget,
                     FlattenScope::All => true,
                 } && !NEVER.contains(&subtype.as_slice())
-                    && wanted(&subtype);
+                    && wanted(&subtype, &dict);
                 if !in_scope {
                     keep.push(item);
                     continue;

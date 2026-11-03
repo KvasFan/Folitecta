@@ -419,12 +419,31 @@ pub(super) fn Flatten() -> Element {
     let mode = use_signal(|| Scope::All);
     let range = use_signal(String::new);
     let mut what = use_signal(|| "comments".to_string());
+    // The kinds and authors of the comments of the document; those not
+    // ticked stay comments.
+    let (kinds, authors) = st
+        .read_active(|t| {
+            t.doc
+                .comment_kinds_and_authors(&(0..t.doc.page_count()).collect::<Vec<_>>())
+        })
+        .unwrap_or_default();
+    let mut kinds_off = use_signal(std::collections::HashSet::<String>::new);
+    let mut authors_off = use_signal(std::collections::HashSet::<String>::new);
+    let (all_kinds, all_authors) = (kinds.clone(), authors.clone());
     rsx! {
         Frame { title: t(lang, "dialog.flatten.title"),
             on_ok: move |_| match scope_pages(st, mode(), &range()) {
                 Ok(pages) => {
-                    let scope = match what().as_str() { "fields" => FlattenScope::FormFields, "all" => FlattenScope::All, _ => FlattenScope::Comments };
-                    apply_count(st, "toast.flattened", |tab| tab.doc.flatten(&pages, scope));
+                    let selective = what() == "comments" && (!kinds_off.read().is_empty() || !authors_off.read().is_empty());
+                    if selective {
+                        let chosen: Vec<String> = all_kinds.iter().filter(|k| !kinds_off.read().contains(*k)).cloned().collect();
+                        let by: Vec<String> = all_authors.iter().filter(|a| !authors_off.read().contains(*a)).cloned().collect();
+                        let by = (!authors_off.read().is_empty()).then_some(by);
+                        apply_count(st, "toast.flattened", |tab| tab.doc.flatten_comments_of(&pages, &chosen, by.as_deref()));
+                    } else {
+                        let scope = match what().as_str() { "fields" => FlattenScope::FormFields, "all" => FlattenScope::All, _ => FlattenScope::Comments };
+                        apply_count(st, "toast.flattened", |tab| tab.doc.flatten(&pages, scope));
+                    }
                 }
                 Err(e) => st.error(e),
             },
@@ -434,6 +453,46 @@ pub(super) fn Flatten() -> Element {
                     label { input { r#type: "radio", checked: what() == "comments", onchange: move |_| what.set("comments".into()) } "{t(lang, \"dialog.flatten.comments\")}" }
                     label { input { r#type: "radio", checked: what() == "fields", onchange: move |_| what.set("fields".into()) } "{t(lang, \"dialog.flatten.fields\")}" }
                     label { input { r#type: "radio", checked: what() == "all", onchange: move |_| what.set("all".into()) } "{t(lang, \"dialog.flatten.all\")}" }
+                }
+            }
+            if what() == "comments" && !kinds.is_empty() {
+                div { class: "field", label { "{t(lang, \"dialog.flatten.kinds\")}" }
+                    div { class: "check-row flatten-kinds",
+                        for k in kinds.iter().cloned() {
+                            {
+                                let on = !kinds_off.read().contains(&k);
+                                let name = crate::i18n::annot_name(lang, &k);
+                                let key = k.clone();
+                                rsx! {
+                                    label { key: "{key}", class: "check",
+                                        input { r#type: "checkbox", checked: on, "data-kind": "{k}",
+                                            onchange: move |_| { let mut off = kinds_off.write(); if !off.remove(&k) { off.insert(k.clone()); } } }
+                                        span { "{name}" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if authors.len() > 1 {
+                    div { class: "field", label { "{t(lang, \"dialog.flatten.authors\")}" }
+                        div { class: "check-row flatten-authors",
+                            for a in authors.iter().cloned() {
+                                {
+                                    let on = !authors_off.read().contains(&a);
+                                    let shown = if a.is_empty() { t(lang, "dialog.flatten.no_author") } else { a.clone() };
+                                    let key = a.clone();
+                                    rsx! {
+                                        label { key: "{key}", class: "check",
+                                            input { r#type: "checkbox", checked: on, "data-author": "{a}",
+                                                onchange: move |_| { let mut off = authors_off.write(); if !off.remove(&a) { off.insert(a.clone()); } } }
+                                            span { "{shown}" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             PageScope { mode, range }

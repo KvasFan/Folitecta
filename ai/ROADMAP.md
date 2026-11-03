@@ -496,6 +496,16 @@ Parts added to a thread and moved in it (FOL-L022).
 1. ~~**FOL-L022 — parts added and moved.**~~ Done: `add_article_parts` (the Article tool drawing for
    a chosen article, `TARGET`), `move_article_part`; the beads linked round again (`link_beads`).
 
+### 0.40.0 — chosen flattening, reading where clicked
+
+What is merged into the page, and where reading begins (FOL-L016, FOL-L042).
+
+1. ~~**FOL-L016 — selective flattening.**~~ Done: `comment_kinds_and_authors`,
+   `flatten_comments_of` (`flatten_where` sees each dictionary), the kinds and authors of the
+   Flatten Comments window.
+2. ~~**FOL-L042 — reading from a paragraph clicked on the page.**~~ Done: a double click with the
+   reading bar open reads from the paragraph under the pointer.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -539,7 +549,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
 | FOL-L015 | P1 | ✅ | insert, delete, extract, duplicate, move, swap, reverse, replace, insert pictures, split documents, split/merge pages, combine files (a bookmark per file), find duplicate pages, delete empty pages; bookmarks, named destinations, links, fields, tags and layers follow the pages in and out: same-named fields and destinations of an inserted file get a suffix and are listed before OK, what deleting pages takes is named before OK, duplicated pages keep their comments to themselves and share their fields; page labels follow the pages, new pages joining the range where they land; the article threads of an inserted file come with it | — |
-| FOL-L016 | P1/P2 | 🟡 | rotate, crop, crop to white margins, resize, margins, normalize, overlay, rasterize pages | Selective flattening. |
+| FOL-L016 | P1/P2 | ✅ | rotate, crop, crop to white margins, resize, margins, normalize, overlay, rasterize pages | — |
 | FOL-L017 | P1 | ✅ | watermarks, header and footer, Bates numbering (several files), background, page numbering, macros, Folitecta's marks tagged so they can be updated or removed; page labels read in every page range | — |
 
 ### Native editing
@@ -595,7 +605,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
 | FOL-L041 | P1 | 🟡 | accessibility check and report, auto-tagging of the document and of form fields, tags pane, reading order, alternate text | Row spans; manual checks listed in the report. |
-| FOL-L042 | P1 | 🟡 | English and Italian interface, keyboard shortcuts, themes (light, white, dark, black), short tool names with full tooltips; a reflow view; reading aloud with the voices of the system (web view, speech-dispatcher on Linux) | A keyboard-only and screen reader pass; words marked as they are read; reading from a paragraph clicked on the page itself. |
+| FOL-L042 | P1 | 🟡 | English and Italian interface, keyboard shortcuts, themes (light, white, dark, black), short tool names with full tooltips; a reflow view; reading aloud with the voices of the system (web view, speech-dispatcher on Linux) | A keyboard-only and screen reader pass; words marked as they are read. |
 | FOL-L043 | P2 | 🟡 | enable editing of PDF/A files; a PDF/A-2b preflight of 18 rules with findings by page and object, and conversion of a copy that fixes 14 of them (simple fonts that are not embedded become subsets of FreeSans, FreeSerif or FreeMono with the widths of the document) and declares PDF/A-2b only when nothing is left | Composite fonts without a ToUnicode map, characters no FreeFont face has; transparency and the other PDF/A rules; PDF/A-1, -3, PDF/X and PDF/UA profiles; a validator run as part of the checks (veraPDF was run by hand). |
 | FOL-L044 | P2 | 🟡 | conversion of the colours of a document to grey (content, drawings, pictures, comments and fields; what is left reported), a grey preview of the pages that changes nothing | ICC profiles and rendering intents, conversion to CMYK and selective conversion, spot colours, separations and overprint preview. |
 | FOL-L045 | P2 | 🟡 | space usage audit; recompression of the pictures of the document, of pages or of one selected picture, with presets (screen, e-book, print, archive) scaling pictures down to a resolution where they are drawn largest, an estimate picture by picture and a size report; never a larger picture | Fonts and other objects; MRC for scans; quality checks on the reopened file. |

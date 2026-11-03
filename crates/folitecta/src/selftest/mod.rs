@@ -438,6 +438,7 @@ mod steps_field_scripts;
 mod steps_field_text;
 mod steps_field_values;
 mod steps_files;
+mod steps_flatten_read;
 mod steps_follow_links;
 mod steps_fonts_pane;
 mod steps_formats;
@@ -582,6 +583,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "table_summaries" => Box::pin(steps_table_summaries::run(cx)),
             "articles" => Box::pin(steps_articles::run(cx)),
             "article_tool" => Box::pin(steps_article_tool::run(cx)),
+            "flatten_read" => Box::pin(steps_flatten_read::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -683,6 +685,7 @@ const STEPS: &[&str] = &[
     "table_summaries",
     "articles",
     "article_tool",
+    "flatten_read",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

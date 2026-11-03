@@ -921,11 +921,29 @@ pub(super) fn PageView(
             finish_drawing(st);
             return;
         }
+        let p = evt.element_coordinates();
+        let (x, y) = ((p.x as f32) / z, (p.y as f32) / z);
+        // With the reading bar open, a double click reads from the paragraph
+        // clicked.
+        if matches!(tool, Tool::Hand | Tool::Select) && crate::commands::option_on(st, "view.readAloud") {
+            let start = st
+                .read_active(|t| {
+                    let at = t.doc.page_text_layer(page)?.char_at(x, y)?;
+                    t.doc
+                        .reading_blocks(page..page + 1)
+                        .into_iter()
+                        .find(|b| b.start <= at && at < b.end.max(b.start + 1))
+                        .map(|b| b.start)
+                })
+                .flatten();
+            if let Some(start) = start {
+                crate::commands::read_aloud::read_from(st, page, start);
+                return;
+            }
+        }
         if tool != Tool::Select {
             return;
         }
-        let p = evt.element_coordinates();
-        let (x, y) = ((p.x as f32) / z, (p.y as f32) / z);
         let word = st
             .read_active(|t| {
                 t.doc

@@ -1080,7 +1080,13 @@ impl CopySource {
                 check()?;
                 match opts.comments {
                     CopyComments::Flatten => {
-                        work.flatten_where(&[p], FlattenScope::Comments, None, &comment, &mut gone)?;
+                        work.flatten_where(
+                            &[p],
+                            FlattenScope::Comments,
+                            None,
+                            &|s, _| comment(s),
+                            &mut gone,
+                        )?;
                     }
                     CopyComments::Remove => {
                         work.delete_comments_inner(&[p])?;

@@ -7,6 +7,8 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Flatten Comments chooses the kinds of comments and their authors: those left out stay comments.
+- With the reading bar open, a double click on a paragraph of a page reads aloud from there.
 - More parts can be drawn for an article from the Articles pane (Enter adds them), and its parts
   read earlier or later, one undo step each.
 - In the Articles pane an article can be renamed and deleted, and a part taken out of it (the parts

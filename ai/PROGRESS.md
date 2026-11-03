@@ -4,6 +4,19 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L016, FOL-L042: chosen flattening, reading where clicked (0.40.0)
+
+- **Current state before:** Flatten Comments merged every comment of the pages; reading from a
+  paragraph worked by a double click in the reflow view only.
+- **What:** `Document::comment_kinds_and_authors`, `flatten_comments_of` (the filter of
+  `flatten_where` now sees the dictionary; no undo step when nothing is chosen), the kinds and
+  authors of the Flatten window; the double click of the page with the reading bar open
+  (`reading_blocks`, `read_from`).
+- **Checked:** `document_ops_3.rs` (notes of one author flattened, a square of the same author and
+  the notes of another kept, nothing chosen and no step); self-test steps `flatten_read` and
+  `reading`.
+- **Open:** words marked as they are read.
+
 ## 2026-11-03 — FOL-L022: articles rearranged (0.39.0)
 
 - **Current state before:** a thread could lose parts but not gain them or change their order.

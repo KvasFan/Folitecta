@@ -165,3 +165,61 @@ fn pages_from_images() {
     assert!(Document::from_images(vec![]).is_err());
     assert_eq!(Document::image_size(&png_rgba(30, 20)).unwrap(), (30, 20));
 }
+
+#[test]
+fn comments_are_flattened_by_kind_and_author() {
+    let mut doc = Document::new_blank(1, 400.0, 500.0).unwrap();
+    doc.add_note(0, 50.0, 450.0, "First", "Anna", [1.0, 0.9, 0.2])
+        .unwrap();
+    doc.add_note(0, 90.0, 450.0, "Second", "Bruno", [1.0, 0.9, 0.2])
+        .unwrap();
+    doc.add_shape(
+        0,
+        Shape::Square,
+        [10.0, 10.0, 60.0, 60.0],
+        [1.0, 0.0, 0.0],
+        None,
+        2.0,
+        "Anna",
+        "",
+    )
+    .unwrap();
+    doc.clear_history();
+    let (kinds, authors) = doc.comment_kinds_and_authors(&[0]);
+    assert_eq!(kinds, ["Square", "Text"]);
+    assert_eq!(authors, ["Anna", "Bruno"]);
+    // Only the notes of Anna.
+    let n = doc
+        .flatten_comments_of(&[0], &["Text".to_string()], Some(&["Anna".to_string()]))
+        .unwrap();
+    assert_eq!(n, 1);
+    let left: Vec<(String, String)> = doc
+        .annotations(0)
+        .unwrap()
+        .into_iter()
+        .filter(|a| a.subtype != "Popup")
+        .map(|a| (a.subtype, a.author))
+        .collect();
+    assert_eq!(
+        left,
+        [
+            ("Text".to_string(), "Bruno".to_string()),
+            ("Square".to_string(), "Anna".to_string())
+        ]
+    );
+    // Nothing chosen: no change, no undo step.
+    assert_eq!(
+        doc.flatten_comments_of(&[0], &["Ink".to_string()], None).unwrap(),
+        0
+    );
+    doc.undo().unwrap();
+    assert!(!doc.can_undo());
+    assert_eq!(
+        doc.annotations(0)
+            .unwrap()
+            .iter()
+            .filter(|a| a.subtype != "Popup")
+            .count(),
+        3
+    );
+}

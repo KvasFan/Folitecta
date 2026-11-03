@@ -4,6 +4,17 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L022: articles (0.34.0)
+
+- **Current state before:** View › Articles was planned; article threads were only kept or taken
+  away with their pages.
+- **What:** `navigation/articles.rs` (`Article`, `Document::articles`, `add_article`), `Pane::Articles`
+  (`ui/panes/articles.rs`), `view.articles`.
+- **Checked:** `bookmarks.rs` (threads written by hand and by `add_article`, saved and read again,
+  undone); self-test step `articles`.
+- **Open:** an article tool to draw threads on the pages; reading a thread bead after bead with the
+  keyboard; threads of inserted files.
+
 ## 2026-11-03 — FOL-L041: table summaries (0.33.0)
 
 - **Current state before:** the check found tables without a summary, with no way to give them one

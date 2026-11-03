@@ -420,6 +420,7 @@ mod progress;
 /// Exercise the canvas tools with simulated input; returns the number of failures.
 mod steps_actions;
 mod steps_arrange;
+mod steps_articles;
 mod steps_barcodes;
 mod steps_bookmark_labels;
 mod steps_calc;
@@ -578,6 +579,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "presentation" => Box::pin(steps_presentation::run(cx)),
             "tab_drag" => Box::pin(steps_tab_drag::run(cx)),
             "table_summaries" => Box::pin(steps_table_summaries::run(cx)),
+            "articles" => Box::pin(steps_articles::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -677,6 +679,7 @@ const STEPS: &[&str] = &[
     "presentation",
     "tab_drag",
     "table_summaries",
+    "articles",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

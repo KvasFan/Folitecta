@@ -256,3 +256,8 @@
 .changes-row.current { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
 .changes-row.ahead { opacity: 0.55; }
 .changes-row .changes-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Articles: the threads and their beads. */
+.articles-list { display: flex; flex-direction: column; gap: 4px; padding: 4px; }
+.article-beads { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.article-bead { font-size: 12px; }

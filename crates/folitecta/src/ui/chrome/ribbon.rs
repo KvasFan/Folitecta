@@ -76,6 +76,7 @@ pub fn is_active(st: AppState, id: &str) -> bool {
         "view.signatures" => pane_on(Pane::Signatures),
         "view.fonts" => pane_on(Pane::Fonts),
         "view.changes" => pane_on(Pane::Changes),
+        "view.articles" => pane_on(Pane::Articles),
         "view.search" | "find" | "search" => pane_on(Pane::Search),
         "view.properties" => ui.show_right_pane,
         "view.darkPageMode" => ui.theme.is_dark(),

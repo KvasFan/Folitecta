@@ -267,3 +267,90 @@ fn bookmarks_to_the_same_page_at_other_places_are_no_duplicates() {
     // Half a point lower is the same place; the foot of the page is not.
     assert_eq!(doc.duplicate_bookmarks(), [vec![1]]);
 }
+
+#[test]
+fn article_threads_are_read_bead_by_bead() {
+    use lopdf::{Object, dictionary};
+    let mut doc = Document::new_blank(3, 400.0, 500.0).unwrap();
+    let pages: Vec<lopdf::ObjectId> = doc.inner().get_pages().into_values().collect();
+    {
+        let inner = doc.inner_mut();
+        // "Story": from the top of page 1 to page 3; a second thread of one bead.
+        let story = inner.new_object_id();
+        let (b1, b2) = (inner.new_object_id(), inner.new_object_id());
+        let bead = |thread, page, rect: [f32; 4], next, prev| {
+            Object::Dictionary(dictionary! {
+                "Type" => "Bead",
+                "T" => Object::Reference(thread),
+                "P" => Object::Reference(page),
+                "R" => rect.iter().map(|v| Object::Real(*v)).collect::<Vec<_>>(),
+                "N" => Object::Reference(next),
+                "V" => Object::Reference(prev),
+            })
+        };
+        inner
+            .objects
+            .insert(b1, bead(story, pages[0], [36.0, 250.0, 364.0, 464.0], b2, b2));
+        inner
+            .objects
+            .insert(b2, bead(story, pages[2], [36.0, 36.0, 364.0, 250.0], b1, b1));
+        inner.objects.insert(
+            story,
+            Object::Dictionary(dictionary! {
+                "Type" => "Thread",
+                "F" => Object::Reference(b1),
+                "I" => dictionary! { "Title" => Object::string_literal("Story") },
+            }),
+        );
+        let other = inner.new_object_id();
+        let b3 = inner.new_object_id();
+        inner
+            .objects
+            .insert(b3, bead(other, pages[1], [0.0, 0.0, 400.0, 500.0], b3, b3));
+        inner.objects.insert(
+            other,
+            Object::Dictionary(dictionary! { "Type" => "Thread", "F" => Object::Reference(b3) }),
+        );
+        inner.catalog_mut().unwrap().set(
+            "Threads",
+            vec![Object::Reference(story), Object::Reference(other)],
+        );
+    }
+    doc.commit().unwrap();
+    let articles = doc.articles();
+    assert_eq!(articles.len(), 2);
+    assert_eq!(articles[0].title, "Story");
+    assert_eq!(
+        articles[0].beads,
+        [(0, [36.0, 250.0, 364.0, 464.0]), (2, [36.0, 36.0, 364.0, 250.0])]
+    );
+    assert_eq!(articles[1].title, "");
+    assert_eq!(articles[1].beads, [(1, [0.0, 0.0, 400.0, 500.0])]);
+    // Saved and read again.
+    let again = Document::from_bytes(doc.bytes().as_ref().clone(), None, None).unwrap();
+    assert_eq!(again.articles(), articles);
+    assert!(
+        Document::new_blank(1, 100.0, 100.0)
+            .unwrap()
+            .articles()
+            .is_empty()
+    );
+}
+
+#[test]
+fn article_threads_are_made_in_one_step() {
+    let mut doc = Document::new_blank(2, 400.0, 500.0).unwrap();
+    doc.add_article(
+        "Lead",
+        &[(0, [36.0, 36.0, 200.0, 464.0]), (1, [36.0, 36.0, 364.0, 464.0])],
+    )
+    .unwrap();
+    let a = doc.articles();
+    assert_eq!(a.len(), 1);
+    assert_eq!(a[0].title, "Lead");
+    assert_eq!(a[0].beads.len(), 2);
+    assert!(doc.add_article("", &[]).is_err());
+    assert!(doc.add_article("", &[(5, [0.0; 4])]).is_err());
+    doc.undo().unwrap();
+    assert!(doc.articles().is_empty());
+}

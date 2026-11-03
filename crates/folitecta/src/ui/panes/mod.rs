@@ -18,6 +18,7 @@ mod search;
 mod thumbnails;
 
 pub mod accessibility;
+pub mod articles;
 pub mod attachments;
 pub mod bookmarks;
 pub mod changes;
@@ -48,6 +49,7 @@ fn pane_icon(p: &Pane) -> &'static str {
         Pane::Signatures => "signature",
         Pane::Fonts => "font",
         Pane::Changes => "undo",
+        Pane::Articles => "book",
         Pane::History => "history",
         Pane::Sessions => "window",
         Pane::Stamps => "tag",
@@ -233,6 +235,7 @@ pub fn PanePanel() -> Element {
             Pane::Signatures => rsx! { crate::ui::features::signatures::SignaturesPane {} },
             Pane::Fonts => rsx! { crate::ui::panes::fonts::FontsPane {} },
             Pane::Changes => rsx! { crate::ui::panes::changes::ChangesPane {} },
+            Pane::Articles => rsx! { crate::ui::panes::articles::ArticlesPane {} },
             Pane::Comparison => rsx! { crate::ui::features::compare::ComparisonPane {} },
             Pane::Tags => rsx! { crate::ui::panes::accessibility::TagsPane {} },
             Pane::Order => rsx! { crate::ui::panes::accessibility::OrderPane {} },

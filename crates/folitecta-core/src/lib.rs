@@ -43,7 +43,7 @@ pub use markup::{
     annot_copy, annots, appearance, arrange, calculator, comment_exchange, comment_review, comment_summary,
     flatten, grouping, markup_tools, media, signmarks, smooth, stamp_design, stamps, tables, ticks,
 };
-pub use navigation::{contents, layer_drawing, layers, links, outline};
+pub use navigation::{articles, contents, layer_drawing, layers, links, outline};
 pub(crate) use organize::typeset;
 pub use organize::{
     actions, attachments, combine, compare, csvdoc, delivery, doctools, email, export, greyscale, incoming,
@@ -59,6 +59,7 @@ pub use actions::{ActionSequence, BatchItem, FileResult, OutputRule, PageSet, St
 pub use annot_copy::AnnotSnapshot;
 pub use annots::{Annotation, Markup, Shape};
 pub use appearance::{AnnotStyle, LINE_ENDINGS, NOTE_ICONS};
+pub use articles::Article;
 pub use attachments::Attachment;
 pub use barcodes::{BarcodeKind, FoundBarcode};
 pub use buttons::{ButtonBehaviour, ButtonState};

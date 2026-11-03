@@ -359,6 +359,7 @@ pub const MENUS: &[(&str, &[Item])] = &[
                     Cmd("view.signatures"),
                     Cmd("view.fonts"),
                     Cmd("view.changes"),
+                    Cmd("view.articles"),
                     Cmd("view.search"),
                     Cmd("view.properties"),
                     Cmd("view.history"),

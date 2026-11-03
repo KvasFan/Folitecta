@@ -335,7 +335,7 @@ What PDF/A needs most: every font in the file (FOL-L043).
    of document found what the preflight missed — text painted in the initial black (DeviceGray),
    fonts written inside resources, comments without appearances, the actions and single
    appearances of buttons — all now checked and fixed; every copy declared PDF/A-2b passes it.
-### 0.22.0 — scans and recognition in bulk
+### 0.22.0 — scans and recognition in bulk (released in 0.23.0, 3 November 2026)
 
 Scanning where the document is, and text recognition on many files (FOL-L011, FOL-L013, FOL-L047).
 
@@ -347,7 +347,7 @@ Scanning where the document is, and text recognition on many files (FOL-L011, FO
    step (pages that already have text left out unless asked), so folders of files and the command
    line (`--run-actions`) get their text read; one engine shared by the core and the window.
 
-### 0.23.0 — choices of one's own
+### 0.23.0 — choices of one's own (released 3 November 2026)
 
 Tables and templates as the user wants them (FOL-L005, FOL-L010).
 

@@ -46,7 +46,7 @@
 </p>
 
 > [!NOTE]
-> **Folitecta 0.21.0 is a pre-release.** Every command of the full feature set is already in the
+> **Folitecta 0.23.0 is a pre-release.** Every command of the full feature set is already in the
 > interface; each release turns more of them into working operations, and the ones that are not
 > done yet open a roadmap notice. [docs/FEATURES.md](docs/FEATURES.md) lists the state of every
 > command; the limits of what works are written below and in
@@ -106,7 +106,8 @@
 
 ## What works today
 
-Version 0.21.0. The parts marked *new in 0.21.0* come with this release; those marked *new in
+Version 0.23.0. The parts marked *new in 0.23.0* come with this release (it holds the work planned
+as 0.22.0 too); those marked *new in 0.21.0* came with 0.21.0; those marked *new in
 0.20.0* came with 0.20.0; those marked *new in 0.19.0* came with 0.19.0; those marked *new in 0.18.0* came with 0.18.0; those marked *new in 0.17.0* came with 0.17.0; those marked *new in 0.16.0* came with 0.16.0; those marked *new in 0.15.0* came with 0.15.0; those marked *new in 0.14.0* came with 0.14.0; those marked *new in 0.13.0* came with 0.13.0; those marked *new in 0.12.0* came with 0.12.0; those marked *new in 0.11.0* came with 0.11.0; those marked *new in 0.10.0* came with 0.10.0; those marked *new in 0.9.0* came with 0.9.0; those marked *new in 0.8.0* came with 0.8.0; those marked *new in 0.7.0* came with 0.7.0; those marked *new in 0.6.0* came with 0.6.0; those marked *new in 0.5.0* came with 0.5.0; those marked *new in 0.4.0* came with 0.4.0, which 0.4.1 fixed (the
 office export from its dialog) and completed with shape tools that stay chosen; those marked
 *new in 0.3.0* came with 0.3.0, which 0.3.1 completed with shorter menus and a pencil pointer
@@ -119,7 +120,7 @@ of the right size on Linux; everything else was already in 0.2.1.
 | Large documents | Faster scrolling and zoom: pages are drawn in the order the window needs them, in tiles when zoomed in, and scrolling never waits for the program |
 | Text and search | Text layer with mouse selection, copy and select all; search with match case, whole words and accents ignored, words near each other (adjacent, same paragraph, page or document) in separate colours, also in comments, bookmarks, form fields, document information, attachments and links, or through the PDF files of a folder; grouped results with previous and next (`F3`); every result marked as highlight, underline, strikeout or redaction; word count; export to `.txt`; regular expressions, with ready patterns for e-mail addresses, phone numbers, dates, web addresses and bank accounts, and the results saved as CSV (*new in 0.14.0*); those of comments, bookmarks and the rest in the CSV too (*new in 0.17.0*) |
 | Page text | The Edit Text tool and the Insert, Replace and Delete Text commands of Edit › Text change the text drawn on the page (the rest of the line moves to make room); Find and Replace changes one occurrence or all of them in one undo step |
-| Text recognition (OCR) | Scanned pages, only the pictures in the pages, or an area read with PaddleOCR models run in pure Rust; English, Italian and 30 more languages of the Latin script. The text is written invisibly over the pages, so they can be searched and their text selected and copied; pictures can be made into a searchable document. Pages are read in the background with a progress bar and can be stopped; words read with doubt are then checked one by one, each shown with its picture, to correct, keep or remove (*new in 0.3.0*); the certainty of doubtful words chosen, dark borders of scans whitened in Clean Up Scans (*new in 0.20.0*) |
+| Text recognition (OCR) | Scanned pages, only the pictures in the pages, or an area read with PaddleOCR models run in pure Rust; English, Italian and 30 more languages of the Latin script. The text is written invisibly over the pages, so they can be searched and their text selected and copied; pictures can be made into a searchable document. Pages are read in the background with a progress bar and can be stopped; words read with doubt are then checked one by one, each shown with its picture, to correct, keep or remove (*new in 0.3.0*); the certainty of doubtful words chosen, dark borders of scans whitened in Clean Up Scans (*new in 0.20.0*); a Recognize Text step of action sequences reads folders of files (*new in 0.23.0*) |
 | Spelling | Spell Check and Replace goes through the words of the page text, comments and form fields that the dictionaries do not know (English and Italian included, more Hunspell dictionaries can be added, several languages at once), with suggestions, change once or everywhere, ignore once or everywhere, and your own words; misspelled words are marked on the page while its text is edited |
 | Comments | Sticky notes (eleven icons), text boxes, callouts, typewriter text, rectangles, ellipses, polygons, polylines, clouds, lines, arrows (shown as they will look while drawn), smooth pencil strokes with eraser, thicker where a pen presses harder; a quick panel of thickness, colours and fill shown with the Pencil, the free highlighter, the shape tools and the measuring tools, with the scale of the measures (*new in 0.5.0*), area and free highlights, text highlight, underline and strikeout, insert-text and replace-text marks and text correction, stamps (presets, custom text, images), file attachments, links (web address, page, named destination, file to open, script), each with a generated appearance. Style editor (colour, fill, opacity, thickness, dashes, line endings, text size and alignment) with per-tool defaults, named comment styles with a palette, style copy and paste. Select, move and resize with handles, nudge with the arrow keys, choose several with Shift to move, align, distribute, size alike and stack them, group them, copy, cut and paste across documents, flatten one or all, hide and show, delete. Text boxes, typewriter text, callouts and measurement labels take characters beyond Western European ones (Polish, Czech, Greek, Cyrillic, symbols, …), drawn with an embedded subset of GNU FreeFont FreeSans, so the text shows, prints and can be copied and found; text that cannot be drawn yet (right to left, joining or combining letters, characters the font lacks) is refused before any change, with the characters named |
 | Review | Replies, review states with history, check marks, filters, pop-up notes, comment summaries, export and import of comments as XFDF, FDF or PDF |
@@ -144,7 +145,7 @@ of the right size on Linux; everything else was already in 0.2.1.
 | History and sessions | Documents opened before, with thumbnails and pins; sessions of open documents saved and opened again |
 | Calculator, scripts and media | Accounting calculator tapes on the page; a JavaScript console with snippets and named document scripts, run by a sandboxed engine with a documented API (*new in 0.4.0*); sound and video comments with a media player |
 | Files and metadata | An explorer pane with places, folder filters, thumbnails of PDF files and lists of files; the document file renamed, moved or recycled; metadata templates and XMP; guides saved to files |
-| Document tools | Action sequences (rotating, deleting empty pages, recompressing, grey, comments, scripts, watermarks, page numbers, document information, PDF/A) run on the open document as one undo step or on files and folders with a result for each, also from the command line (*new in 0.4.0*); typed or RTF text as pages, a space usage audit, conversion of the colours to grey (pages, drawings, pictures, comments; spot colours and patterns reported and left), a PDF/A-2b preflight with conversion of a copy (declared PDF/A only when every rule checked is met), picture recompression (the whole document, a page or one selected picture; presets for the screen, e-books, print and archives that scale pictures down to a resolution; an estimate picture by picture before anything changes) (grey, PDF/A and recompression *new in 0.4.0*), document scripts, pages split at guides or cut to the crop box, leaving PDF/A; Convert to PDF/A embeds the fonts a document does not carry (Helvetica, Times, Courier, Arial and other simple fonts) as FreeFont subsets with the same widths, draws missing appearances, and its PDF/A-2b copies pass veraPDF (*new in 0.21.0*) |
+| Document tools | Action sequences (rotating, deleting empty pages, recompressing, grey, comments, scripts, watermarks, page numbers, document information, PDF/A) run on the open document as one undo step or on files and folders with a result for each, also from the command line (*new in 0.4.0*); typed or RTF text as pages, a space usage audit, conversion of the colours to grey (pages, drawings, pictures, comments; spot colours and patterns reported and left), a PDF/A-2b preflight with conversion of a copy (declared PDF/A only when every rule checked is met), picture recompression (the whole document, a page or one selected picture; presets for the screen, e-books, print and archives that scale pictures down to a resolution; an estimate picture by picture before anything changes) (grey, PDF/A and recompression *new in 0.4.0*), document scripts, pages split at guides or cut to the crop box, leaving PDF/A; Convert to PDF/A embeds the fonts a document does not carry (Helvetica, Times, Courier, Arial and other simple fonts) as FreeFont subsets with the same widths, draws missing appearances, and its PDF/A-2b copies pass veraPDF (*new in 0.21.0*); Symbol, ZapfDingbats and composite fonts embedded for PDF/A too (*new in 0.23.0*) |
 
 ## Downloads
 
@@ -152,7 +153,7 @@ of the right size on Linux; everything else was already in 0.2.1.
 the newest version is at the top, with the packages listed below and its notes, followed by the
 earlier versions. Versions up to 0.0.12 are also on the
 [GitLab releases](https://gitlab.com/tirael8308/folitecta/-/releases); later versions are published
-on GitHub only. `<version>` in the file names is the version number, for example `0.21.0`.
+on GitHub only. `<version>` in the file names is the version number, for example `0.23.0`.
 
 | System | File | Notes |
 |---|---|---|
@@ -298,8 +299,9 @@ limitations, and [docs/FEATURES.md](docs/FEATURES.md) the state of every command
 ## Roadmap
 
 [ai/ROADMAP.md](ai/ROADMAP.md) has the state of every requirement and the planned releases. The
-latest one, **0.21.0 — fonts for PDF/A**, embeds the fonts a document does not carry when it
-becomes PDF/A, and its copies are checked against an independent validator. Fuller PDF/A conversion
+latest one, **0.23.0 — choices of one's own**, embeds Symbol, ZapfDingbats and composite fonts for
+PDF/A, scans into the open document, reads the text of folders of files, and lets tables and
+templates be arranged as one wants. Fuller PDF/A conversion
 (embedding fonts), colour profiles beyond grey, fuller editing of vector paths, text recognition
 of scripts other than Latin, article threads, scanning on macOS, remote services and the other
 commands still marked as *planned* come later.

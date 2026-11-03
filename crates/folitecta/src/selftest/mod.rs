@@ -481,6 +481,7 @@ mod steps_search_patterns;
 mod steps_spelling;
 mod steps_split;
 mod steps_split_view;
+mod steps_table_fixes;
 mod steps_templates;
 mod steps_text;
 mod steps_timestamp;
@@ -566,6 +567,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "page_label_ranges" => Box::pin(steps_page_label_ranges::run(cx)),
             "scans_upright" => Box::pin(steps_scans_upright::run(cx)),
             "changes" => Box::pin(steps_changes::run(cx)),
+            "table_fixes" => Box::pin(steps_table_fixes::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -659,6 +661,7 @@ const STEPS: &[&str] = &[
     "page_label_ranges",
     "scans_upright",
     "changes",
+    "table_fixes",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

@@ -441,6 +441,8 @@
   "toast.tab_order": "Tab order: {order}",
   "toast.tab_order_fixed": "Pages with tab order following the structure: {count}",
   "toast.tab_order_manual": "The tab order follows the fields' order on each page; arrange it in the fields pane",
+  "toast.table_headers_made": "Tables given header cells: {count}",
+  "toast.table_spans_made": "Tables whose cells span their columns: {count}",
   "toast.tag_no_content": "The tag has no content on the pages",
   "toast.tag_no_text": "The tag has no text",
   "toast.template_applied": "Template applied",

@@ -195,12 +195,12 @@ pub const RULES: &[Rule] = &[
     Rule {
         id: "table_headers",
         category: "tables",
-        fix: Fix::None,
+        fix: Fix::Auto,
     },
     Rule {
         id: "table_regular",
         category: "tables",
-        fix: Fix::None,
+        fix: Fix::Auto,
     },
     Rule {
         id: "table_summary",

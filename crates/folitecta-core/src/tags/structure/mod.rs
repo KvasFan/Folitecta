@@ -324,6 +324,7 @@ mod edit;
 mod measure;
 mod order;
 mod read;
+mod tables;
 mod tagging;
 
 use content::*;

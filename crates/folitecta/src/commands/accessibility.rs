@@ -680,6 +680,8 @@ pub fn fix_rule(st: AppState, rule: &str) {
         "tagged_fields" => counted(st, "toast.fields_tagged", |d| d.tag_form_fields()),
         "tab_order" => counted(st, "toast.tab_order_fixed", |d| d.set_tab_order_structure()),
         "field_descriptions" => counted(st, "toast.descriptions_made", |d| d.fill_field_descriptions()),
+        "table_headers" => counted(st, "toast.table_headers_made", |d| d.fix_table_headers()),
+        "table_regular" => counted(st, "toast.table_spans_made", |d| d.fix_table_spans()),
         _ => st.toast(ToastKind::Info, t(st.lang(), "toast.no_fix"), ""),
     }
 }

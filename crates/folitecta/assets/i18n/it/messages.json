@@ -441,6 +441,8 @@
   "toast.tab_order": "Ordine di tabulazione: {order}",
   "toast.tab_order_fixed": "Pagine con ordine di tabulazione secondo la struttura: {count}",
   "toast.tab_order_manual": "L'ordine di tabulazione segue l'ordine dei campi in ogni pagina; disponilo nel pannello campi",
+  "toast.table_headers_made": "Tabelle con celle di intestazione aggiunte: {count}",
+  "toast.table_spans_made": "Tabelle con celle estese sulle loro colonne: {count}",
   "toast.tag_no_content": "Il tag non ha contenuto sulle pagine",
   "toast.tag_no_text": "Il tag non contiene testo",
   "toast.template_applied": "Modello applicato",

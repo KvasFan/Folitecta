@@ -621,18 +621,19 @@ fn a_kept_attachment_holding_an_old_file_is_no_earlier_version() {
 
 #[test]
 fn a_barcode_under_a_mark_leaves_no_payload_anywhere() {
-    let mut code = Document::from_text("Confidential code 4711 for Monday", TextLayout::default()).unwrap();
+    // A code no hex string holds: the covers carry a random hex tag.
+    let mut code = Document::from_text("Confidential code KZ47 for Monday", TextLayout::default()).unwrap();
     code.add_barcode(
         0,
         [72.0, 140.0, 272.0, 200.0],
         BarcodeKind::Code128,
-        "4711",
+        "KZ47",
         false,
     )
     .unwrap();
     let mut doc = Document::from_text("Page one\u{c}Page two", TextLayout::default()).unwrap();
     doc.overlay_document(&code, &[0, 1], false).unwrap();
-    mark_word(&mut doc, 0, "4711");
+    mark_word(&mut doc, 0, "KZ47");
     // The barcode was placed in display space.
     let bars = pdf_rect(&doc, 0, [60.0, 130.0, 285.0, 210.0]);
     doc.add_redaction(0, bars, "Reviewer").unwrap();
@@ -640,8 +641,8 @@ fn a_barcode_under_a_mark_leaves_no_payload_anywhere() {
     assert!(report.pages_as_pictures.is_empty(), "{report:?}");
     assert!(report.forms >= 2, "{report:?}");
     assert!(report.paths >= 1, "{report:?}");
-    assert!(!doc.page_text(0).contains("4711"));
-    assert!(doc.page_text(1).contains("4711"));
+    assert!(!doc.page_text(0).contains("KZ47"));
+    assert!(doc.page_text(1).contains("KZ47"));
     let check = check_now(&mut doc, &report);
     assert!(check.passed(), "{check:?}");
     let bytes = saved(&mut doc, "barcode");
@@ -652,7 +653,7 @@ fn a_barcode_under_a_mark_leaves_no_payload_anywhere() {
     for id in mine.difference(&theirs) {
         let o = lo.get_object(*id).unwrap();
         assert!(
-            !object_holds(o, b"4711"),
+            !object_holds(o, b"KZ47"),
             "object {id:?} of page 0 holds the code: {o:?}"
         );
         if let Ok(s) = o.as_stream() {

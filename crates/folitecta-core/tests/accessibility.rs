@@ -162,3 +162,121 @@ fn bookmarks_follow_heading_levels() {
     assert_eq!(outline[0].children[0].title, "Two");
     assert_eq!(outline[1].title, "Three");
 }
+
+/// The elements of the tags with their role, in order.
+fn elems(doc: &Document) -> Vec<folitecta_core::structure::StructElem> {
+    let mut out = Vec::new();
+    doc.structure().unwrap().walk(&mut |e, _| out.push(e.clone()));
+    out
+}
+
+/// A table of three rows tagged without content: three cells, three, two.
+fn bare_table(doc: &mut Document) {
+    let table = doc.add_struct_elem(None, None, "Table", "").unwrap();
+    for count in [3, 3, 2] {
+        let row = doc.add_struct_elem(Some(table), None, "TR", "").unwrap();
+        for _ in 0..count {
+            doc.add_struct_elem(Some(row), None, "TD", "").unwrap();
+        }
+    }
+}
+
+#[test]
+fn tables_get_header_cells_and_spans_in_one_step_each() {
+    let mut doc = Document::new_blank(1, 400.0, 500.0).unwrap();
+    doc.set_tagged(true).unwrap();
+    bare_table(&mut doc);
+    doc.clear_history();
+    let r = doc.accessibility_check();
+    assert_eq!(status(&r, "table_headers"), CheckStatus::Failed);
+    assert_eq!(status(&r, "table_regular"), CheckStatus::Failed);
+    assert_eq!(rule("table_headers").unwrap().fix, Fix::Auto);
+
+    assert_eq!(doc.fix_table_headers().unwrap(), 1);
+    let cells: Vec<_> = elems(&doc)
+        .into_iter()
+        .filter(|e| matches!(e.role.as_str(), "TH" | "TD"))
+        .collect();
+    let roles: Vec<&str> = cells.iter().map(|e| e.role.as_str()).collect();
+    assert_eq!(roles, ["TH", "TH", "TH", "TD", "TD", "TD", "TD", "TD"]);
+    assert!(
+        cells[0].attributes.contains(&"Table/Scope".to_string()),
+        "{:?}",
+        cells[0].attributes
+    );
+
+    // Nothing on the page tells where the cells are: the last cell of the
+    // short row spans the column left.
+    assert_eq!(doc.fix_table_spans().unwrap(), 1);
+    let cells: Vec<_> = elems(&doc)
+        .into_iter()
+        .filter(|e| matches!(e.role.as_str(), "TH" | "TD"))
+        .collect();
+    let spanning: Vec<usize> = (0..cells.len())
+        .filter(|i| cells[*i].attributes.iter().any(|a| a == "Table/ColSpan"))
+        .collect();
+    assert_eq!(spanning, [7]);
+    let r = doc.accessibility_check();
+    assert_eq!(status(&r, "table_headers"), CheckStatus::Passed);
+    assert_eq!(status(&r, "table_regular"), CheckStatus::Passed);
+    // Done once: nothing more to fix.
+    assert_eq!(doc.fix_table_headers().unwrap(), 0);
+    assert_eq!(doc.fix_table_spans().unwrap(), 0);
+    doc.undo().unwrap();
+    assert_eq!(
+        status(&doc.accessibility_check(), "table_regular"),
+        CheckStatus::Failed
+    );
+    doc.undo().unwrap();
+    assert!(!doc.can_undo());
+}
+
+#[test]
+fn a_cell_over_two_columns_spans_them() {
+    let mut doc = Document::from_csv(
+        "Name;Amount;Note\nRossi;12;paid\nBianchi;20;due\n",
+        Some(';'),
+        TextLayout::default(),
+        "",
+    )
+    .unwrap();
+    doc.set_tagged(true).unwrap();
+    let place = |doc: &Document, word: &str| {
+        let hit = doc.search(word, folitecta_core::SearchOptions::default());
+        let r = hit
+            .first()
+            .unwrap_or_else(|| panic!("{word} is on the page"))
+            .rects[0];
+        [r[0] - 1.0, r[1] - 1.0, r[2] + 1.0, r[3] + 1.0]
+    };
+    let table = doc.add_struct_elem(None, None, "Table", "").unwrap();
+    for words in [["Name", "Amount", "Note"], ["Rossi", "12", "paid"]] {
+        let row = doc.add_struct_elem(Some(table), None, "TR", "").unwrap();
+        for w in words {
+            let r = place(&doc, w);
+            doc.tag_area(0, r, "TD", Some(row), None).unwrap();
+        }
+    }
+    // The last row in two cells: Bianchi and 20 in one, then due.
+    let row = doc.add_struct_elem(Some(table), None, "TR", "").unwrap();
+    let (a, b) = (place(&doc, "Bianchi"), place(&doc, "20"));
+    doc.tag_area(
+        0,
+        [a[0], a[1].min(b[1]), b[2], a[3].max(b[3])],
+        "TD",
+        Some(row),
+        None,
+    )
+    .unwrap();
+    let due = place(&doc, "due");
+    doc.tag_area(0, due, "TD", Some(row), None).unwrap();
+
+    assert_eq!(doc.fix_table_spans().unwrap(), 1);
+    let cells: Vec<_> = elems(&doc).into_iter().filter(|e| e.role == "TD").collect();
+    assert_eq!(cells.len(), 8);
+    let spanning: Vec<usize> = (0..cells.len())
+        .filter(|i| cells[*i].attributes.iter().any(|a| a == "Table/ColSpan"))
+        .collect();
+    // The first cell of the last row, not its last as the order alone would say.
+    assert_eq!(spanning, [6]);
+}

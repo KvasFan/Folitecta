@@ -7,6 +7,9 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- The accessibility check fixes two rules of tables: a table without header cells gets them from
+  its first row (header cells of their column), and in a table whose rows have different numbers
+  of cells, the cells of the shorter rows span the columns their text covers on the page.
 - History of Changes (View menu) lists the changes Undo takes back, each named after the command or
   the tool that made it, and those Redo makes again; a click goes back or forward to any of them.
 - Clean Up Scans finds scanned pages upside down or sideways, by the letters of their lines

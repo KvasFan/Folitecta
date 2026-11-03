@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L041: tables that read right (0.28.0)
+
+- **Current state before:** the check found tables without header cells and with rows of
+  different lengths, but could not fix them.
+- **What:** `tags/structure/tables.rs`: `Document::fix_table_headers`, `fix_table_spans`,
+  attributes of the table owner set or added (`set_table_attribute`); cells placed by the left of
+  their text (lines and fills drawn around them left out); the two rules made `Fix::Auto`, wired
+  in `fix_rule`.
+- **Checked:** `accessibility.rs` (a table tagged without content; a CSV table tagged by area
+  with a cell over two columns); unit tests of the spans; self-test step `table_fixes`. The local
+  copy of CI failed once on `a_barcode_under_a_mark_leaves_no_payload_anywhere`: its code 4711 is
+  made of hex digits and the covers of a redaction carry a random hex tag, which held 4711 that
+  time (about one run in 5000); the code is now KZ47.
+- **Open:** cells spanning rows; tables split over pages; a summary of each table asked.
+
 ## 2026-11-03 — FOL-L004: a history of changes (0.27.0)
 
 - **Current state before:** Undo and Redo went one step at a time, with no way to see what a step

@@ -280,3 +280,42 @@ fn a_cell_over_two_columns_spans_them() {
     // The first cell of the last row, not its last as the order alone would say.
     assert_eq!(spanning, [6]);
 }
+
+#[test]
+fn tables_get_summaries_asked_for() {
+    let mut doc = Document::new_blank(1, 400.0, 500.0).unwrap();
+    doc.set_tagged(true).unwrap();
+    bare_table(&mut doc);
+    doc.clear_history();
+    assert_eq!(rule("table_summary").unwrap().fix, Fix::Ask);
+    assert_eq!(
+        status(&doc.accessibility_check(), "table_summary"),
+        CheckStatus::Failed
+    );
+    let tables = doc.table_summaries();
+    assert_eq!(tables.len(), 1);
+    assert_eq!(tables[0].1, "");
+    let id = tables[0].0.id;
+    assert_eq!(
+        doc.set_table_summaries(&[(id, "Sales by month".into())]).unwrap(),
+        1
+    );
+    assert_eq!(doc.table_summaries()[0].1, "Sales by month");
+    assert_eq!(
+        status(&doc.accessibility_check(), "table_summary"),
+        CheckStatus::Passed
+    );
+    // The same text again changes nothing; an empty one takes it away.
+    assert_eq!(
+        doc.set_table_summaries(&[(id, " Sales by month ".into())])
+            .unwrap(),
+        0
+    );
+    assert_eq!(doc.set_table_summaries(&[(id, String::new())]).unwrap(), 1);
+    assert_eq!(
+        status(&doc.accessibility_check(), "table_summary"),
+        CheckStatus::Failed
+    );
+    doc.undo().unwrap();
+    assert_eq!(doc.table_summaries()[0].1, "Sales by month");
+}

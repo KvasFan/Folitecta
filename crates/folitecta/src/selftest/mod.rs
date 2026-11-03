@@ -486,6 +486,7 @@ mod steps_split;
 mod steps_split_view;
 mod steps_tab_drag;
 mod steps_table_fixes;
+mod steps_table_summaries;
 mod steps_templates;
 mod steps_text;
 mod steps_timestamp;
@@ -576,6 +577,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "measures_ticks" => Box::pin(steps_measures_ticks::run(cx)),
             "presentation" => Box::pin(steps_presentation::run(cx)),
             "tab_drag" => Box::pin(steps_tab_drag::run(cx)),
+            "table_summaries" => Box::pin(steps_table_summaries::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -674,6 +676,7 @@ const STEPS: &[&str] = &[
     "measures_ticks",
     "presentation",
     "tab_drag",
+    "table_summaries",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

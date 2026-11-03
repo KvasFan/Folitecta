@@ -1,4 +1,8 @@
 {
+  "acc.table_summary_hint": "Say in a sentence what each table holds and how it is laid out; screen readers read it before the table. An empty summary takes it away.",
+  "acc.no_tables": "The tags have no tables.",
+  "acc.table": "Table",
+  "acc.table_summaries": "Table Summaries",
   "acc.autotag.replace_body": "The document already has tags. Automatic tagging replaces them with new ones made from the pages.",
   "acc.autotag.replace_title": "Tag the document again?",
   "acc.cat.alt": "Alternate text",

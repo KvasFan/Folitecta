@@ -402,6 +402,7 @@ pub fn Dialogs() -> Element {
         Dialog::RoleMap => rsx! { crate::ui::features::acc_dialogs::RoleMapDialog {} },
         Dialog::ClassMap => rsx! { crate::ui::features::acc_dialogs::ClassMapDialog {} },
         Dialog::AltText => rsx! { crate::ui::features::acc_dialogs::AltTextDialog {} },
+        Dialog::TableSummaries => rsx! { crate::ui::features::acc_dialogs::TableSummariesDialog {} },
         Dialog::AccOptions(pane) => rsx! { crate::ui::features::acc_dialogs::AccOptionsDialog { pane } },
         Dialog::RuleExplain(id) => rsx! { crate::ui::features::acc_dialogs::RuleExplainDialog { id } },
         Dialog::DocLanguage => rsx! { crate::ui::features::acc_dialogs::DocLanguageDialog {} },

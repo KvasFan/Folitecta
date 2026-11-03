@@ -682,6 +682,11 @@ pub fn fix_rule(st: AppState, rule: &str) {
         "field_descriptions" => counted(st, "toast.descriptions_made", |d| d.fill_field_descriptions()),
         "table_headers" => counted(st, "toast.table_headers_made", |d| d.fix_table_headers()),
         "table_regular" => counted(st, "toast.table_spans_made", |d| d.fix_table_spans()),
+        "table_summary" => {
+            if need_tags(st).is_some() {
+                st.set_dialog(Dialog::TableSummaries);
+            }
+        }
         _ => st.toast(ToastKind::Info, t(st.lang(), "toast.no_fix"), ""),
     }
 }

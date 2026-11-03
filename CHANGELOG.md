@@ -7,6 +7,8 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Fix of the accessibility rule Table summary opens Table Summaries: each table of the tags with
+  its picture and a summary to write, kept in the table attributes in one undo step.
 - Tabs can be dragged: dropped on another tab, a tab goes before it; dropped on the strip of the
   other group of tabs, it moves to that group.
 - Presentation (View menu) shows the pages one at a time on the whole screen: each comes in with the

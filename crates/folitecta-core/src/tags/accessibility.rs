@@ -205,7 +205,7 @@ pub const RULES: &[Rule] = &[
     Rule {
         id: "table_summary",
         category: "tables",
-        fix: Fix::None,
+        fix: Fix::Ask,
     },
     Rule {
         id: "list_items",

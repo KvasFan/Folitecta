@@ -444,6 +444,14 @@ Tabs arranged with the mouse (FOL-L002).
    (`reorder_tab`, the groups keeping the order of the tabs); dropped on the strip of the other
    group, it moves there (`move_tab_to_group`).
 
+### 0.33.0 — table summaries
+
+What a table holds, said before it is read (FOL-L041).
+
+1. ~~**FOL-L041 — a summary asked for each table.**~~ Done: the rule Table summary is fixed by
+   asking (`Fix::Ask`): Table Summaries shows every table with its picture
+   (`table_summaries`, `set_table_summaries`; an empty summary taken away).
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -542,7 +550,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L041 | P1 | 🟡 | accessibility check and report, auto-tagging of the document and of form fields, tags pane, reading order, alternate text | Row spans; a summary asked for each table; manual checks listed in the report. |
+| FOL-L041 | P1 | 🟡 | accessibility check and report, auto-tagging of the document and of form fields, tags pane, reading order, alternate text | Row spans; manual checks listed in the report. |
 | FOL-L042 | P1 | 🟡 | English and Italian interface, keyboard shortcuts, themes (light, white, dark, black), short tool names with full tooltips; a reflow view; reading aloud with the voices of the system (web view, speech-dispatcher on Linux) | A keyboard-only and screen reader pass; words marked as they are read; reading from a paragraph clicked on the page itself. |
 | FOL-L043 | P2 | 🟡 | enable editing of PDF/A files; a PDF/A-2b preflight of 18 rules with findings by page and object, and conversion of a copy that fixes 14 of them (simple fonts that are not embedded become subsets of FreeSans, FreeSerif or FreeMono with the widths of the document) and declares PDF/A-2b only when nothing is left | Composite fonts without a ToUnicode map, characters no FreeFont face has; transparency and the other PDF/A rules; PDF/A-1, -3, PDF/X and PDF/UA profiles; a validator run as part of the checks (veraPDF was run by hand). |
 | FOL-L044 | P2 | 🟡 | conversion of the colours of a document to grey (content, drawings, pictures, comments and fields; what is left reported), a grey preview of the pages that changes nothing | ICC profiles and rendering intents, conversion to CMYK and selective conversion, spot colours, separations and overprint preview. |

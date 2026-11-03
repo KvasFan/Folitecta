@@ -324,6 +324,72 @@ pub fn AltTextDialog() -> Element {
     }
 }
 
+/// A summary for each table of the tags, each shown with its picture.
+#[component]
+pub fn TableSummariesDialog() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let tables = st.read_active(|t| t.doc.table_summaries()).unwrap_or_default();
+    let mut texts = use_signal(|| tables.iter().map(|(_, s)| s.clone()).collect::<Vec<_>>());
+    let pictures: Vec<Option<String>> = tables
+        .iter()
+        .map(|(e, _)| {
+            let p = e.first_page()?;
+            st.read_active(|t| {
+                let r = t.doc.struct_rect(e, p)?;
+                let png = t
+                    .doc
+                    .render_region_png(p, [r[0] - 4.0, r[1] - 4.0, r[2] + 4.0, r[3] + 4.0], 1.2)
+                    .ok()?;
+                Some(format!(
+                    "data:image/png;base64,{}",
+                    base64::engine::general_purpose::STANDARD.encode(png)
+                ))
+            })
+            .flatten()
+        })
+        .collect();
+    let pages: Vec<usize> = tables
+        .iter()
+        .map(|(e, _)| e.first_page().map(|p| p + 1).unwrap_or(0))
+        .collect();
+    let ids: Vec<Id> = tables.iter().map(|(e, _)| e.id).collect();
+    let none = ids.is_empty();
+    rsx! {
+        Frame { title: t(lang, "acc.table_summaries"), wide: true,
+            on_ok: move |_| {
+                let list: Vec<(Id, String)> = ids.iter().copied().zip(texts()).collect();
+                match st.with_active(|t| t.doc.set_table_summaries(&list)) {
+                    Some(Ok(_)) => {
+                        done(st);
+                        if st.read_active(|t| t.acc.check.is_some()).unwrap_or(false) { run_check(st); }
+                    }
+                    Some(Err(e)) => st.error(e),
+                    None => {}
+                }
+            },
+            if none {
+                p { "{t(lang, \"acc.no_tables\")}" }
+            } else {
+                p { class: "hint", "{t(lang, \"acc.table_summary_hint\")}" }
+                div { class: "table-summaries",
+                    for (k, picture) in pictures.into_iter().enumerate() {
+                        div { key: "{k}", class: "table-summary",
+                            div { class: "muted", "{t(lang, \"acc.table\")} {k + 1} · {t(lang, \"status.page\")} {pages[k]}" }
+                            div { class: "alt-preview",
+                                if let Some(src) = picture { img { src: "{src}", alt: "" } } else { span { class: "muted", "{t(lang, \"alt.no_preview\")}" } }
+                            }
+                            textarea { class: "table-summary-text", rows: "2",
+                                value: "{texts.read().get(k).cloned().unwrap_or_default()}",
+                                oninput: move |e| { if let Some(x) = texts.write().get_mut(k) { *x = e.value(); } } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Options of an accessibility pane.
 #[component]
 pub fn AccOptionsDialog(pane: String) -> Element {

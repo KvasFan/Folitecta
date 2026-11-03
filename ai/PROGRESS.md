@@ -4,6 +4,17 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L041: table summaries (0.33.0)
+
+- **Current state before:** the check found tables without a summary, with no way to give them one
+  but editing the attributes by hand.
+- **What:** `Document::table_summaries`, `set_table_summaries` (`table_attribute`,
+  `remove_table_attribute`), the rule made `Fix::Ask`, `Dialog::TableSummaries`
+  (`TableSummariesDialog`).
+- **Checked:** `accessibility.rs` (set, the same text changing nothing, taken away, undone);
+  self-test step `table_summaries`.
+- **Open:** row spans; the summary is not asked when a table is tagged.
+
 ## 2026-11-03 — FOL-L002: tabs dragged (0.32.0)
 
 - **Current state before:** tabs moved between groups only by commands (Move Tab To Other Group)

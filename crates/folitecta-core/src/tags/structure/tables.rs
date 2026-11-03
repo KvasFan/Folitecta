@@ -119,6 +119,105 @@ impl Document {
         Ok(())
     }
 
+    /// Take `key` away from the table attributes of element `id`.
+    fn remove_table_attribute(&mut self, id: ObjectId, key: &[u8]) -> Result<()> {
+        let owned =
+            |d: &Dictionary| d.get(b"O").ok().and_then(|o| o.as_name().ok()) == Some(b"Table".as_slice());
+        let Some(attrs) = self.inner.get_dictionary(id)?.get(b"A").ok().cloned() else {
+            return Ok(());
+        };
+        let mut list = match attrs {
+            Object::Array(a) => a,
+            o => vec![o],
+        };
+        let mut refs = Vec::new();
+        for o in list.iter_mut() {
+            match o {
+                Object::Dictionary(d) if owned(d) => {
+                    d.remove(key);
+                }
+                Object::Reference(r) => refs.push(*r),
+                _ => {}
+            }
+        }
+        for r in refs {
+            if let Ok(d) = self.inner.get_dictionary_mut(r) {
+                if owned(d) {
+                    d.remove(key);
+                }
+            }
+        }
+        let a = if list.len() == 1 {
+            list.remove(0)
+        } else {
+            Object::Array(list)
+        };
+        self.inner.get_dictionary_mut(id)?.set("A", a);
+        Ok(())
+    }
+
+    /// The value of `key` among the table attributes of element `id`.
+    fn table_attribute(&self, id: ObjectId, key: &[u8]) -> Option<Object> {
+        let attrs = self.inner.get_dictionary(id).ok()?.get(b"A").ok()?;
+        let list = match deref(&self.inner, attrs) {
+            Object::Array(a) => a.clone(),
+            o => vec![o.clone()],
+        };
+        list.iter().find_map(|o| {
+            let d = deref(&self.inner, o).as_dict().ok()?;
+            (d.get(b"O").ok()?.as_name().ok()? == b"Table").then(|| d.get(key).ok().cloned())?
+        })
+    }
+
+    /// The tables of the tags with their summaries (empty when they have
+    /// none), in the order of the tags.
+    pub fn table_summaries(&self) -> Vec<(StructElem, String)> {
+        self.tag_tables()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|t| {
+                let summary = self
+                    .table_attribute(t.id, b"Summary")
+                    .and_then(|o| crate::util::text_of(&self.inner, &o))
+                    .unwrap_or_default();
+                (t, summary)
+            })
+            .collect()
+    }
+
+    /// Give tables their summaries (`/Summary` of the table attributes);
+    /// an empty text takes a summary away. One undo step; returns how many
+    /// tables changed.
+    pub fn set_table_summaries(&mut self, summaries: &[(ObjectId, String)]) -> Result<usize> {
+        let now: Vec<(ObjectId, String)> = self
+            .table_summaries()
+            .into_iter()
+            .map(|(t, s)| (t.id, s))
+            .collect();
+        let changes: Vec<(ObjectId, String)> = summaries
+            .iter()
+            .filter(|(id, text)| {
+                now.iter()
+                    .find(|(t, _)| t == id)
+                    .is_some_and(|(_, old)| old.trim() != text.trim())
+            })
+            .cloned()
+            .collect();
+        if changes.is_empty() {
+            return Ok(0);
+        }
+        self.edit_step(|doc| {
+            for (id, text) in &changes {
+                if text.trim().is_empty() {
+                    doc.remove_table_attribute(*id, b"Summary")?;
+                } else {
+                    doc.set_table_attribute(*id, "Summary", lopdf::text_string(text.trim()))?;
+                }
+            }
+            Ok(changes.len())
+        })
+    }
+
     /// The tables of the tags.
     fn tag_tables(&self) -> Result<Vec<StructElem>> {
         let tree = self

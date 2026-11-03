@@ -44,3 +44,9 @@
 .alt-preview { display: flex; align-items: center; justify-content: center; min-height: 120px; max-height: 240px; background: var(--surface-2); border-radius: var(--radius-sm); overflow: hidden; margin: 6px 0; }
 .alt-preview img { max-width: 100%; max-height: 240px; object-fit: contain; }
 .acc-excerpt { font-size: 12px; color: var(--muted); max-height: 80px; overflow: auto; border-left: 3px solid var(--border); padding-left: 8px; }
+
+/* Table Summaries: each table with its picture and its summary. */
+.table-summaries { display: flex; flex-direction: column; gap: 12px; max-height: 60vh; overflow: auto; }
+.table-summary { display: flex; flex-direction: column; gap: 6px; }
+.table-summary .alt-preview img { max-height: 160px; }
+.table-summary-text { width: 100%; }

@@ -1,4 +1,8 @@
 {
+  "acc.table_summary_hint": "Di' in una frase che cosa contiene ogni tabella e come è disposta; i lettori di schermo la leggono prima della tabella. Un riepilogo vuoto lo toglie.",
+  "acc.no_tables": "I tag non hanno tabelle.",
+  "acc.table": "Tabella",
+  "acc.table_summaries": "Riepiloghi delle tabelle",
   "acc.autotag.replace_body": "Il documento ha già dei tag. I tag automatici li sostituiscono con nuovi tag ricavati dalle pagine.",
   "acc.autotag.replace_title": "Applicare di nuovo i tag al documento?",
   "acc.cat.alt": "Testo alternativo",

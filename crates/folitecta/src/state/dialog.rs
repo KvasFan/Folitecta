@@ -331,6 +331,8 @@ pub enum Dialog {
     ClassMap,
     /// Alternate text of the figures.
     AltText,
+    /// Summaries of the tables of the tags.
+    TableSummaries,
     /// Options of an accessibility pane (its id).
     AccOptions(String),
     /// What a rule of the accessibility check means.

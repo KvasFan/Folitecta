@@ -39,6 +39,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         .ok()
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
+    // The parts of the thread on its pages, numbered by thread and part.
+    let marked = eval("return [...document.querySelectorAll('.article-part:not(.drawing)')].map(p => p.textContent.trim()).join(',');")
+        .await
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default();
     let _ = eval("document.querySelectorAll('.articles-list .article-bead')[1]?.click();").await;
     pause(700).await;
     let page = st.current_page();
@@ -51,7 +57,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     pause(300).await;
     cx.record(
         "articles: a story of two parts listed in the Articles pane; a click on the second shows its page",
-        listed == "Story" && parts == 2 && page == 2,
-        format!("listed {listed:?}, parts {parts}, page {page}"),
+        listed == "Story" && parts == 2 && marked.contains("1.1") && page == 2,
+        format!("listed {listed:?}, parts {parts}, marked {marked:?}, page {page}"),
     );
 }

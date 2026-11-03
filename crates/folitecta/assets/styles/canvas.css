@@ -169,3 +169,9 @@ textarea.field-input { resize: none; padding: 2px 3px; }
 .path-toolbar label.path-colour { display: inline-flex; align-items: center; gap: 2px; }
 .path-toolbar input[type=color] { width: 26px; height: 22px; padding: 0; border: none; background: none; }
 .path-toolbar .path-width { width: 52px; }
+
+/* Parts of article threads: drawn with the Article tool, or shown with the Articles pane. */
+.article-part { position: absolute; border: 2px solid rgba(40, 110, 200, 0.85); background: rgba(40, 110, 200, 0.08); pointer-events: none; box-sizing: border-box; }
+.article-part.drawing { border-style: dashed; border-color: rgba(200, 90, 20, 0.9); background: rgba(200, 90, 20, 0.08); }
+.article-part-n { position: absolute; left: 0; top: 0; padding: 1px 5px; font: 600 11px/1.4 sans-serif; color: #fff; background: rgba(40, 110, 200, 0.9); border-bottom-right-radius: 4px; }
+.article-part.drawing .article-part-n { background: rgba(200, 90, 20, 0.9); }

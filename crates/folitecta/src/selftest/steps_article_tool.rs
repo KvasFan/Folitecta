@@ -23,6 +23,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let _ = pointer_path(0, 1.0, &line((310.0, 80.0), (540.0, 700.0), 6), false).await;
     pause(300).await;
     let drawn = crate::commands::articles::DRAFT.peek().len();
+    // The parts drawn are shown on the page, numbered.
+    let shown = eval("return [...document.querySelectorAll('#pg-0 .article-part.drawing')].map(p => p.textContent.trim()).join(',');")
+        .await
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default();
     let _ = eval("document.querySelector('.app')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));").await;
     pause(400).await;
     let asked = matches!(*st.dialog.peek(), Dialog::ArticleTitle);
@@ -44,11 +50,14 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     cx.record(
         "article tool: two parts drawn, Enter asks the title, the thread runs through them in order",
         drawn == 2
+            && shown == "1,2"
             && asked
             && articles.len() == 1
             && articles[0].title == "Columns"
             && ordered
             && tool_after == crate::state::Tool::Hand,
-        format!("drawn {drawn}, asked {asked}, articles {articles:?}, tool after {tool_after:?}"),
+        format!(
+            "drawn {drawn}, shown {shown:?}, asked {asked}, articles {articles:?}, tool after {tool_after:?}"
+        ),
     );
 }

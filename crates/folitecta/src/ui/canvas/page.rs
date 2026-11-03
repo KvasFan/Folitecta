@@ -105,6 +105,9 @@ pub(super) fn PageView(
         /// Replace shows (rectangles, display space).
         spell_words: Vec<[f32; 4]>,
         spell_shown: Vec<[f32; 4]>,
+        /// Parts of article threads: their number, whether they are being
+        /// drawn with the Article tool, and their rectangle (display space).
+        article_parts: Vec<(String, bool, [f32; 4])>,
     }
     // The spell check marks words while its dialog is open, and while the
     // page text is edited with Spell Check on.
@@ -122,6 +125,17 @@ pub(super) fn PageView(
     let order_sel = current
         .then(|| st.peek_active(|t| t.acc.order).flatten())
         .flatten();
+    // Article parts: those drawn with the tool, and every thread's while
+    // the Articles pane is open.
+    let draft = if tool == Tool::Article {
+        crate::commands::articles::DRAFT.read().clone()
+    } else {
+        Vec::new()
+    };
+    let show_articles = {
+        let ui = st.ui.read();
+        ui.show_left_pane && ui.left_pane == "articles"
+    };
     let order_cells = st.value("order.cells") == "1";
     let order_only = st.value("order.tf") == "1";
     let show_tabs = option_on(st, "tool.editFields.showTabNumbers");
@@ -337,6 +351,25 @@ pub(super) fn PageView(
             };
             let (spell_words, spell_shown) =
                 crate::commands::spelling::page_marks(t, page, spell_checking, spell_editing);
+            let mut article_parts: Vec<(String, bool, [f32; 4])> = Vec::new();
+            if show_articles {
+                for (a, article) in t.doc.articles().iter().enumerate() {
+                    for (b, (p, r)) in article.beads.iter().enumerate() {
+                        if *p == page {
+                            article_parts.push((
+                                format!("{}.{}", a + 1, b + 1),
+                                false,
+                                pdf_rect_to_display(&size, *r),
+                            ));
+                        }
+                    }
+                }
+            }
+            for (b, (p, r)) in draft.iter().enumerate() {
+                if *p == page {
+                    article_parts.push(((b + 1).to_string(), true, pdf_rect_to_display(&size, *r)));
+                }
+            }
             Some(View {
                 size,
                 annots,
@@ -345,6 +378,7 @@ pub(super) fn PageView(
                 hits,
                 spell_words,
                 spell_shown,
+                article_parts,
                 sel,
                 caret,
                 guides,
@@ -953,6 +987,11 @@ pub(super) fn PageView(
                 }
                 for (i, r) in view.spell_shown.iter().enumerate() {
                     div { key: "spc{i}", class: "spell-current", style: "{css(*r)}" }
+                }
+                for (i, (label, drawing, r)) in view.article_parts.iter().enumerate() {
+                    div { key: "ap{i}", class: if *drawing { "article-part drawing" } else { "article-part" }, style: "{css(*r)}",
+                        span { class: "article-part-n", "{label}" }
+                    }
                 }
                 for (i, (class, r)) in cmp_marks.iter().enumerate() {
                     div { key: "c{i}", class: "{class}", style: "{css(*r)}" }

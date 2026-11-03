@@ -4,6 +4,16 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L022: articles seen on the page (0.37.0)
+
+- **Current state before:** the parts drawn with the Article tool were only counted by a message,
+  and the parts of the threads were not shown on the pages.
+- **What:** `article_parts` of the view of a page (the draft of the tool, the beads of every thread
+  while the Articles pane is open), `.article-part` boxes with their numbers.
+- **Checked:** self-test steps `article_tool` (the two parts drawn numbered 1 and 2) and `articles`
+  (the first part numbered 1.1).
+- **Open:** threads edited once made.
+
 ## 2026-11-03 — FOL-L022: the Article tool (0.36.0)
 
 - **Current state before:** threads could be listed and followed, and made only by the program.

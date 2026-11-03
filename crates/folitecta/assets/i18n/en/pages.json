@@ -425,6 +425,8 @@
   "scans.straighten": "Straighten askew pages",
   "scans.straighten_from": "Straighten from this angle (degrees)",
   "scans.summary": "Scanned pages: {scans} of {pages} · blank: {blank} · askew: {askew} · dark borders: {borders} · upside down or sideways: {turned}",
+  "scans.despeckle": "Remove specks from every scanned page",
+  "scans.black_white": "Make every scanned page black and white",
   "scans.turn": "Turn pages upside down or sideways upright",
   "scans.turn_180": "Upside down: turned",
   "scans.turn_270": "Sideways: turned a quarter counterclockwise",

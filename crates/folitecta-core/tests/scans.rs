@@ -199,3 +199,61 @@ fn pictures_without_text_are_not_turned() {
         assert_eq!(look.turn, 0);
     }
 }
+
+#[test]
+fn specks_go_and_pages_become_black_and_white_when_asked() {
+    let mut doc = scans();
+    // Specks of one pixel on the paper of the letter.
+    let mut px = doc.image_pixels(0, 0).unwrap();
+    let (w, h) = px.dimensions();
+    let paper = |px: &image::RgbaImage, x: u32, y: u32| {
+        (x.saturating_sub(2)..(x + 3).min(w))
+            .all(|i| (y.saturating_sub(2)..(y + 3).min(h)).all(|j| px.get_pixel(i, j)[0] > 200))
+    };
+    let mut specks = Vec::new();
+    for i in 0..2000u32 {
+        let (x, y) = ((i * 37) % w, (i * 53) % h);
+        if specks.len() < 300 && paper(&px, x, y) {
+            specks.push((x, y));
+        }
+    }
+    for &(x, y) in &specks {
+        px.put_pixel(x, y, Rgba([0, 0, 0, 255]));
+    }
+    let colors = doc.page_images(0).unwrap()[0].colors;
+    doc.replace_page_image(0, 0, &px, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0], colors)
+        .unwrap();
+    doc.clear_history();
+    let t = ScanThresholds {
+        despeckle: true,
+        black_white: true,
+        ..ScanThresholds::default()
+    };
+    let looks: Vec<_> = (0..4).filter_map(|p| doc.look_at_scan(p).unwrap()).collect();
+    let fixes = scan_fixes(&looks, &t);
+    // Not on the blank page, which goes; black and white last on each page.
+    assert!(
+        !fixes
+            .iter()
+            .any(|f| f.page() == 1 && !matches!(f, ScanFix::Delete { .. }))
+    );
+    assert!(matches!(fixes.last(), Some(ScanFix::BlackWhite { .. })));
+    let done = doc.clean_up_scans(&fixes).unwrap();
+    assert_eq!((done.despeckled, done.black_white), (2, 2));
+    assert_eq!(done.deleted, 1);
+    // The specks are gone; the page is one bit a pixel.
+    let after = doc.image_pixels(0, 0).unwrap();
+    let left = specks
+        .iter()
+        .filter(|&&(x, y)| after.get_pixel(x, y)[0] < 128)
+        .count();
+    assert!(
+        specks.len() > 200 && left * 20 < specks.len(),
+        "{left} of {} specks left",
+        specks.len()
+    );
+    assert_eq!(
+        doc.page_images(0).unwrap()[0].colors,
+        folitecta_core::pictures::Colors::BlackWhite
+    );
+}

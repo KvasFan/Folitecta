@@ -7,6 +7,8 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Clean Up Scans can remove the specks of the scanned pages it keeps and make them black and white,
+  in the same step as the other changes.
 - Flatten Comments chooses the kinds of comments and their authors: those left out stay comments.
 - With the reading bar open, a double click on a paragraph of a page reads aloud from there.
 - More parts can be drawn for an article from the Articles pane (Enter adds them), and its parts

@@ -4,6 +4,19 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L012: scans cleaner still (0.41.0)
+
+- **Current state before:** specks and black and white were picture tools, one picture at a
+  time, apart from Clean Up Scans.
+- **What:** `ScanThresholds::despeckle`, `black_white`, `ScanFix::Despeckle`, `ScanFix::BlackWhite`
+  (the median of 3 × 3 pixels, the conversion to one bit a pixel), `ScansCleaned::despeckled`,
+  `black_white`; the boxes of the window (`scans.despeckle`, `scans.blackWhite`, off), not listed
+  page by page.
+- **Checked:** `scans.rs` (300 specks on the paper gone, the page one bit a pixel, the blank page
+  left alone); self-test steps `scans_bw`, `scans`, `scans_upright`. The first run of `scans_bw`
+  had a page of two short lines, a blank side for the clean-up: it tried to delete the only page.
+- **Open:** fronts and backs interleaved.
+
 ## 2026-11-03 — FOL-L016, FOL-L042: chosen flattening, reading where clicked (0.40.0)
 
 - **Current state before:** Flatten Comments merged every comment of the pages; reading from a

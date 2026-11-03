@@ -52,6 +52,8 @@ pub fn CleanUpScansDialog() -> Element {
     let mut straighten = use_signal(|| st.value("scans.straighten") != "0");
     let mut whiten = use_signal(|| st.value("scans.whiten") != "0");
     let mut upright = use_signal(|| st.value("scans.turn") != "0");
+    let mut specks = use_signal(|| st.value("scans.despeckle") == "1");
+    let mut black_white = use_signal(|| st.value("scans.blackWhite") == "1");
     let mut left_out = use_signal(HashSet::<usize>::new);
 
     let run = SCAN.read().clone();
@@ -59,6 +61,8 @@ pub fn CleanUpScansDialog() -> Element {
     let thresholds = ScanThresholds {
         blank_ink: number(&blank(), defaults.blank_ink * 100.0) / 100.0,
         min_skew: number(&skew(), defaults.min_skew),
+        despeckle: specks(),
+        black_white: black_white(),
         ..defaults
     };
     let found = scan_fixes(&run.looks, &thresholds);
@@ -67,6 +71,8 @@ pub fn CleanUpScansDialog() -> Element {
         ScanFix::Straighten { .. } => straighten(),
         ScanFix::Whiten { .. } => whiten(),
         ScanFix::Turn { .. } => upright(),
+        ScanFix::Despeckle { .. } => specks(),
+        ScanFix::BlackWhite { .. } => black_white(),
     };
     let fixes: Vec<ScanFix> = found
         .iter()
@@ -114,6 +120,8 @@ pub fn CleanUpScansDialog() -> Element {
                 st.set_value("scans.straighten", if straighten() { "1" } else { "0" });
                 st.set_value("scans.whiten", if whiten() { "1" } else { "0" });
                 st.set_value("scans.turn", if upright() { "1" } else { "0" });
+                st.set_value("scans.despeckle", if specks() { "1" } else { "0" });
+                st.set_value("scans.blackWhite", if black_white() { "1" } else { "0" });
                 scans::apply(st, apply_fixes.clone());
             },
             p { class: "hint", "{t(lang, \"scans.hint\")}" }
@@ -145,6 +153,14 @@ pub fn CleanUpScansDialog() -> Element {
                 input { r#type: "checkbox", class: "scans-turn", checked: upright(), onchange: move |_| upright.toggle() }
                 span { "{t(lang, \"scans.turn\")}" }
             }
+            label { class: "check",
+                input { r#type: "checkbox", class: "scans-despeckle", checked: specks(), onchange: move |_| specks.toggle() }
+                span { "{t(lang, \"scans.despeckle\")}" }
+            }
+            label { class: "check",
+                input { r#type: "checkbox", class: "scans-black-white", checked: black_white(), onchange: move |_| black_white.toggle() }
+                span { "{t(lang, \"scans.black_white\")}" }
+            }
             if run.running {
                 div { class: "ocr-progress",
                     div { class: "ocr-bar", div { class: "ocr-fill", style: "width:{percent}%" } }
@@ -168,7 +184,8 @@ pub fn CleanUpScansDialog() -> Element {
                 p { class: "hint", "{t(lang, \"scans.clean\")}" }
             }
             div { class: "scans-list",
-                for f in found.iter().copied() {
+                // Specks and black and white are for every page kept: not listed.
+                for f in found.iter().copied().filter(|f| !matches!(f, ScanFix::Despeckle { .. } | ScanFix::BlackWhite { .. })) {
                     {
                         let (page, detail, kind_on) = match f {
                             ScanFix::Delete { page } => {
@@ -183,6 +200,7 @@ pub fn CleanUpScansDialog() -> Element {
                                 let how = t(lang, &format!("scans.turn_{degrees}"));
                                 (page, how, upright())
                             }
+                            ScanFix::Despeckle { page, .. } | ScanFix::BlackWhite { page, .. } => (page, String::new(), true),
                         };
                         let kind = match f {
                             ScanFix::Whiten { .. } => "w",

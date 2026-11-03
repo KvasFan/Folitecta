@@ -117,6 +117,8 @@ pub fn apply(st: AppState, fixes: Vec<ScanFix>) {
                         ("deleted", &done.deleted.to_string()),
                         ("whitened", &done.whitened.to_string()),
                         ("turned", &done.turned.to_string()),
+                        ("despeckled", &done.despeckled.to_string()),
+                        ("black_white", &done.black_white.to_string()),
                     ],
                 ),
                 "",

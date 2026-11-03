@@ -369,7 +369,7 @@
   "toast.scans_added": "{count} pagine scansionate aggiunte al documento",
   "toast.not_a_table": "Il documento non è stato creato da un file CSV: non ha opzioni di tabella",
   "toast.table_made": "La tabella è stata rifatta",
-  "toast.scans_done": "Pagine scansionate pulite — raddrizzate: {straightened}, girate per il verso giusto: {turned}, eliminate: {deleted}, sbiancate: {whitened}.",
+  "toast.scans_done": "Pagine scansionate pulite — raddrizzate: {straightened}, girate per il verso giusto: {turned}, eliminate: {deleted}, sbiancate: {whitened}, senza puntini: {despeckled}, in bianco e nero: {black_white}.",
   "toast.scripts_removed": "{count} script rimossi",
   "toast.scripts_removed_one": "{count} script rimosso",
   "toast.search_first": "Esegui prima una ricerca",

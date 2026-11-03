@@ -9,7 +9,7 @@ use image::{RgbaImage, imageops};
 
 use crate::document::Document;
 use crate::error::{Error, Result};
-use crate::imaging::{Edit, Work, skew_angle, upright_turn};
+use crate::imaging::{Edit, Format, Work, skew_angle, upright_turn};
 
 /// Share of the page a picture must cover for the page to be a scan.
 const SCAN_COVER: f32 = 0.85;
@@ -57,6 +57,10 @@ pub struct ScanThresholds {
     pub min_skew: f32,
     /// Dark borders count from this share of the side.
     pub min_border: f32,
+    /// Remove the specks of every scanned page that is kept.
+    pub despeckle: bool,
+    /// Make every scanned page that is kept black and white.
+    pub black_white: bool,
 }
 
 impl Default for ScanThresholds {
@@ -65,6 +69,8 @@ impl Default for ScanThresholds {
             blank_ink: 0.002,
             min_skew: 0.3,
             min_border: 0.003,
+            despeckle: false,
+            black_white: false,
         }
     }
 }
@@ -107,6 +113,10 @@ pub enum ScanFix {
     /// Turn the page clockwise by `degrees` (a quarter turn or more), so its
     /// text reads upright; the picture is left as it is.
     Turn { page: usize, degrees: i32 },
+    /// Remove the isolated specks of the picture.
+    Despeckle { page: usize, picture: usize },
+    /// Make the picture black and white (one bit a pixel).
+    BlackWhite { page: usize, picture: usize },
 }
 
 impl ScanFix {
@@ -115,7 +125,9 @@ impl ScanFix {
             ScanFix::Straighten { page, .. }
             | ScanFix::Delete { page }
             | ScanFix::Whiten { page, .. }
-            | ScanFix::Turn { page, .. } => page,
+            | ScanFix::Turn { page, .. }
+            | ScanFix::Despeckle { page, .. }
+            | ScanFix::BlackWhite { page, .. } => page,
         }
     }
 }
@@ -243,6 +255,19 @@ pub fn scan_fixes(looks: &[ScanLook], thresholds: &ScanThresholds) -> Vec<ScanFi
                 degrees: l.turn,
             });
         }
+        if thresholds.despeckle {
+            fixes.push(ScanFix::Despeckle {
+                page: l.page,
+                picture: l.picture,
+            });
+        }
+        // Last: the other changes are made on the colours.
+        if thresholds.black_white {
+            fixes.push(ScanFix::BlackWhite {
+                page: l.page,
+                picture: l.picture,
+            });
+        }
     }
     fixes
 }
@@ -262,6 +287,8 @@ pub struct ScansCleaned {
     pub deleted: usize,
     pub whitened: usize,
     pub turned: usize,
+    pub despeckled: usize,
+    pub black_white: usize,
 }
 
 impl Document {
@@ -341,7 +368,9 @@ impl Document {
                 }
                 let (page, picture) = match *f {
                     ScanFix::Straighten { page, picture, angle } if angle != 0.0 => (page, picture),
-                    ScanFix::Whiten { page, picture, .. } => (page, picture),
+                    ScanFix::Whiten { page, picture, .. }
+                    | ScanFix::Despeckle { page, picture }
+                    | ScanFix::BlackWhite { page, picture } => (page, picture),
                     _ => continue,
                 };
                 if delete.contains(&page) {
@@ -361,6 +390,14 @@ impl Document {
                     ScanFix::Whiten { borders, .. } => {
                         whiten(&mut work.pixels, borders);
                         done.whitened += 1;
+                    }
+                    ScanFix::Despeckle { .. } => {
+                        work.apply(Edit::Despeckle);
+                        done.despeckled += 1;
+                    }
+                    ScanFix::BlackWhite { .. } => {
+                        work.apply(Edit::Convert(Format::Bilevel));
+                        done.black_white += 1;
                     }
                     ScanFix::Delete { .. } | ScanFix::Turn { .. } => {}
                 }
@@ -501,6 +538,7 @@ mod tests {
             blank_ink: 0.0001,
             min_skew: 3.0,
             min_border: 0.5,
+            ..ScanThresholds::default()
         };
         assert!(scan_fixes(&looks, &strict).is_empty());
     }

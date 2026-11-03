@@ -439,6 +439,8 @@
   "scans.straighten": "Raddrizza le pagine storte",
   "scans.straighten_from": "Raddrizza da questo angolo (gradi)",
   "scans.summary": "Pagine scansionate: {scans} di {pages} · bianche: {blank} · storte: {askew} · bordi scuri: {borders} · capovolte o di lato: {turned}",
+  "scans.despeckle": "Togli i puntini da ogni pagina scansionata",
+  "scans.black_white": "Rendi in bianco e nero ogni pagina scansionata",
   "scans.turn": "Gira per il verso giusto le pagine capovolte o di lato",
   "scans.turn_180": "Capovolta: ruotata",
   "scans.turn_270": "Di lato: ruotata di un quarto in senso antiorario",

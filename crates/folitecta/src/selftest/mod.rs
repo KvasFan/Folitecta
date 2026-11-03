@@ -482,6 +482,7 @@ mod steps_review;
 mod steps_revocation;
 mod steps_scanning;
 mod steps_scans;
+mod steps_scans_bw;
 mod steps_scans_upright;
 mod steps_search_patterns;
 mod steps_spelling;
@@ -584,6 +585,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "articles" => Box::pin(steps_articles::run(cx)),
             "article_tool" => Box::pin(steps_article_tool::run(cx)),
             "flatten_read" => Box::pin(steps_flatten_read::run(cx)),
+            "scans_bw" => Box::pin(steps_scans_bw::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -686,6 +688,7 @@ const STEPS: &[&str] = &[
     "articles",
     "article_tool",
     "flatten_read",
+    "scans_bw",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

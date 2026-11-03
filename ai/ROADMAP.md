@@ -506,6 +506,14 @@ What is merged into the page, and where reading begins (FOL-L016, FOL-L042).
 2. ~~**FOL-L042 — reading from a paragraph clicked on the page.**~~ Done: a double click with the
    reading bar open reads from the paragraph under the pointer.
 
+### 0.41.0 — scans cleaner still
+
+Specks and black and white in the clean-up of scans (FOL-L012).
+
+1. ~~**FOL-L012 — despeckle and black and white in the same workflow.**~~ Done: `ScanThresholds`
+   `despeckle` and `black_white`, `ScanFix::Despeckle` and `ScanFix::BlackWhite` for every kept
+   scan (black and white last), counted in `ScansCleaned`; two boxes of the window.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -540,7 +548,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
 | FOL-L011 | P1 | 🟡 | scanning into a new document: SANE (`scanimage`) on Linux with its devices, sources, colour modes and resolutions and presets of them; the WIA dialogs on Windows; pages the size of the paper; backs scanned as a second stack put between the fronts; clean-up offered afterwards | Scanning on macOS (Image Capture); stopping the system's dialog on Windows. |
-| FOL-L012 | P1 | 🟡 | picture tools: turn, crop, straighten, filters, black and white; delete blank pages; Clean Up Scans: scanned pages (a picture covering 85% of the page) looked at in the background, blank sides (share of ink away from the edges), askew sheets and sheets upside down or sideways listed with thumbnails and thresholds, deleted, straightened and turned in one undo step | Despeckle and black and white in the same workflow; fronts and backs interleaved; sideways pages straightened when askew (their skew is not measured). |
+| FOL-L012 | P1 | 🟡 | picture tools: turn, crop, straighten, filters, black and white; delete blank pages; Clean Up Scans: scanned pages (a picture covering 85% of the page) looked at in the background, blank sides (share of ink away from the edges), askew sheets and sheets upside down or sideways listed with thumbnails and thresholds, deleted, straightened and turned in one undo step | Fronts and backs interleaved; sideways pages straightened when askew (their skew is not measured). |
 | FOL-L013 | P1 | 🟡 | local OCR (PaddleOCR models run by tract): pages, a selected area, pictures; invisible text tagged `OCR`, removed or replaced on demand; Latin-script languages | Editable text output; exclusions (existing text, fields, comments, logos); more scripts (models). |
 | FOL-L014 | P1 | 🟡 | words read with doubt (a letter below 0.8 probability) kept in the page as marked content and reviewed one by one: picture of the word, its place marked on the page, correct, keep, remove or skip, one undo step each; the review opens after recognition | Field recognition proposals. |
 

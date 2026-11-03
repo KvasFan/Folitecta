@@ -4,6 +4,15 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — release 0.23.0: check of the published packages
+
+- **What:** tag `v0.23.0` (`a467b21`, the work planned as 0.22.0 and 0.23.0): CI (39 min) and
+  release (36 min) workflows green, eight files.
+- **Found right:** SHA-256, data folders of Windows and Linux equal (the twelve FreeFont faces in
+  both), self-test steps `tools`, `ocr`, `spelling`, `unicode`, `preflight`, `csv_options` and
+  `my_templates` with the packaged Linux executable: 47 interactions, 0 problems.
+- **Open:** the Windows executable was not run here (no WebView2 runtime in Wine).
+
 ## 2026-11-03 — FOL-L015, FOL-L022: labels and bookmarks in order (0.24.0)
 
 - **Current state before:** page labels were ranges by position, so pages put inside a range took

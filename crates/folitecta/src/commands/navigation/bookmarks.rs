@@ -596,6 +596,32 @@ fn set_dest(st: AppState, from_selection: bool) {
     });
 }
 
+/// Delete the bookmarks that repeat one before them (same title, same
+/// place); their children take their place.
+fn delete_duplicates(st: AppState) {
+    if no_doc(st) {
+        return;
+    }
+    match st.with_active(|t| t.doc.remove_duplicate_bookmarks()) {
+        Some(Ok(0)) => st.toast(ToastKind::Info, t(st.lang(), "toast.no_duplicate_bookmarks"), ""),
+        Some(Ok(n)) => {
+            files::set_window_title(st);
+            select(st, None);
+            st.toast(
+                ToastKind::Ok,
+                tf(
+                    st.lang(),
+                    "toast.duplicate_bookmarks_removed",
+                    &[("count", &n.to_string())],
+                ),
+                "",
+            );
+        }
+        Some(Err(e)) => st.error(e),
+        None => {}
+    }
+}
+
 fn remove_invalid_dests(st: AppState) {
     if no_doc(st) {
         return;
@@ -625,6 +651,7 @@ handlers! {
     "bookmarksView.collapseAll" => |st| { st.with_active(|t| t.expanded_bookmarks.clear()); },
     "bookmarksView.deleteOnlyChildren" => |st| delete_selected(st, 1),
     "bookmarksView.deleteWithoutChildren" => |st| delete_selected(st, 2),
+    "bookmarksView.deleteDuplicates" => delete_duplicates,
     "bookmarksView.moveUp" => |st| reorder(st, |d, p| d.move_bookmark_up(p)),
     "bookmarksView.moveDown" => |st| reorder(st, |d, p| d.move_bookmark_down(p)),
     "bookmarksView.promote" => |st| reorder(st, |d, p| d.promote_bookmark(p)),

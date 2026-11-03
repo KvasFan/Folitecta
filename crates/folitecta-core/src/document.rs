@@ -1757,9 +1757,16 @@ impl Document {
     /// Pages of the tree that `ids` leaves out go with everything that
     /// belongs or leads to them (bookmarks, links, named destinations, form
     /// fields, tags: see `keep_only_pages`), so nothing of them stays in the
-    /// file.
+    /// file. The page labels follow the pages; new pages join the range of
+    /// labels where they land (see `labels_in_order`).
     pub(crate) fn set_page_order(&mut self, ids: Vec<ObjectId>) -> Result<()> {
         let old = self.page_ids();
+        let labels = self.has_page_labels().then(|| {
+            let at: std::collections::HashMap<ObjectId, usize> =
+                old.iter().enumerate().map(|(i, id)| (*id, i)).collect();
+            let order: Vec<Option<usize>> = ids.iter().map(|id| at.get(id).copied()).collect();
+            crate::pagetools::labels_in_order(&self.page_label_parts(), &order)
+        });
         let wanted: std::collections::HashSet<ObjectId> = ids.iter().copied().collect();
         if old.iter().any(|id| !wanted.contains(id)) {
             // New pages join the tree first, so the clean-up keeps them.
@@ -1776,6 +1783,9 @@ impl Document {
             self.keep_only_pages(&kept, &std::sync::atomic::AtomicBool::new(false))?;
         }
         self.write_page_tree(&ids)?;
+        if let Some(parts) = labels {
+            self.write_label_parts(&parts)?;
+        }
         self.inner.prune_objects();
         Ok(())
     }

@@ -421,6 +421,7 @@ mod progress;
 mod steps_actions;
 mod steps_arrange;
 mod steps_barcodes;
+mod steps_bookmark_labels;
 mod steps_calc;
 mod steps_cards;
 mod steps_contents;
@@ -558,6 +559,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "follow_links" => Box::pin(steps_follow_links::run(cx)),
             "field_values" => Box::pin(steps_field_values::run(cx)),
             "csv_options" => Box::pin(steps_csv_options::run(cx)),
+            "bookmark_labels" => Box::pin(steps_bookmark_labels::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -647,6 +649,7 @@ const STEPS: &[&str] = &[
     "follow_links",
     "field_values",
     "csv_options",
+    "bookmark_labels",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

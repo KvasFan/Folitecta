@@ -843,31 +843,8 @@ impl Document {
             left.threads = true;
         }
         if let Some(parts) = labels {
-            let mut ranges: Vec<(usize, String, String, i64)> = Vec::new();
-            let mut last: Option<(Vec<u8>, String, i64)> = None;
-            for (i, &p) in pages.iter().enumerate() {
-                let Some((style, prefix, value)) = parts.get(p).cloned() else {
-                    continue;
-                };
-                let goes_on = last.as_ref().is_some_and(|(s, x, v)| {
-                    *s == style && *x == prefix && (style.is_empty() || *v + 1 == value)
-                });
-                if !goes_on {
-                    let first = if style.is_empty() { 1 } else { value.max(1) };
-                    ranges.push((
-                        i,
-                        String::from_utf8_lossy(&style).to_string(),
-                        prefix.clone(),
-                        first,
-                    ));
-                }
-                last = Some((style, prefix, value));
-            }
-            let refs: Vec<(usize, &str, &str, i64)> = ranges
-                .iter()
-                .map(|(i, s, x, v)| (*i, s.as_str(), x.as_str(), *v))
-                .collect();
-            self.write_page_labels(&refs)?;
+            let kept: Vec<_> = pages.iter().filter_map(|&p| parts.get(p).cloned()).collect();
+            self.write_label_parts(&kept)?;
         }
 
         // The XFA form data holds the values of the fields that went.

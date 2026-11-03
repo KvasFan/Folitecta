@@ -1122,6 +1122,7 @@ pub const SUBMENUS: &[(&str, &[Item])] = &[
                     Sep,
                     Cmd("bookmarksView.deleteOnlyChildren"),
                     Cmd("bookmarksView.deleteWithoutChildren"),
+                    Cmd("bookmarksView.deleteDuplicates"),
                 ],
             ),
             Group(

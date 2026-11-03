@@ -217,6 +217,97 @@ fn all_paths(items: &[OutlineItem], prefix: &mut Vec<usize>, out: &mut Vec<Vec<u
     }
 }
 
+/// What makes two bookmarks the same: the title (spaces aside), the page,
+/// the view and the other action.
+type BookmarkKey = (String, Option<usize>, Option<DestView>, String);
+
+fn bookmark_key(item: &OutlineItem) -> BookmarkKey {
+    (
+        item.title.split_whitespace().collect::<Vec<_>>().join(" "),
+        item.page,
+        item.view.clone(),
+        item.action.clone(),
+    )
+}
+
+/// Two views of a page that show the same place, to within a point.
+fn same_view(a: &Option<DestView>, b: &Option<DestView>) -> bool {
+    let close = |x: &Option<f32>, y: &Option<f32>| match (x, y) {
+        (Some(x), Some(y)) => (x - y).abs() <= 1.0,
+        (None, None) => true,
+        _ => false,
+    };
+    match (a, b) {
+        (None, None) => true,
+        (Some(DestView::Fit), Some(DestView::Fit)) => true,
+        (Some(DestView::FitWidth(x)), Some(DestView::FitWidth(y))) => close(x, y),
+        (
+            Some(DestView::Xyz { left, top, zoom }),
+            Some(DestView::Xyz {
+                left: l,
+                top: t,
+                zoom: z,
+            }),
+        ) => close(left, l) && close(top, t) && zoom == z,
+        (Some(DestView::Rect(r)), Some(DestView::Rect(s))) => {
+            r.iter().zip(s).all(|(x, y)| (x - y).abs() <= 1.0)
+        }
+        _ => false,
+    }
+}
+
+/// Whether `item` repeats a bookmark met before it: the same title opening
+/// the same place. Bookmarks that open nothing are never duplicates.
+fn repeats(item: &OutlineItem, seen: &[BookmarkKey]) -> bool {
+    let key = bookmark_key(item);
+    if !item.valid || key.0.is_empty() {
+        return false;
+    }
+    seen.iter()
+        .any(|s| s.0 == key.0 && s.1 == key.1 && s.3 == key.3 && same_view(&s.2, &key.2))
+}
+
+/// The paths of the bookmarks that repeat one before them, in document order.
+fn find_duplicates(
+    items: &[OutlineItem],
+    prefix: &mut Vec<usize>,
+    seen: &mut Vec<BookmarkKey>,
+    out: &mut Vec<Vec<usize>>,
+) {
+    for (i, item) in items.iter().enumerate() {
+        prefix.push(i);
+        if repeats(item, seen) {
+            out.push(prefix.clone());
+        } else {
+            seen.push(bookmark_key(item));
+        }
+        find_duplicates(&item.children, prefix, seen, out);
+        prefix.pop();
+    }
+}
+
+/// `items` without the bookmarks that repeat one before them, their
+/// children in their place; returns how many went.
+fn drop_duplicates(items: Vec<OutlineItem>, seen: &mut Vec<BookmarkKey>) -> (Vec<OutlineItem>, usize) {
+    let mut out = Vec::with_capacity(items.len());
+    let mut gone = 0;
+    for mut item in items {
+        let children = std::mem::take(&mut item.children);
+        if repeats(&item, seen) {
+            let (kids, n) = drop_duplicates(children, seen);
+            gone += 1 + n;
+            out.extend(kids);
+        } else {
+            seen.push(bookmark_key(&item));
+            let (kids, n) = drop_duplicates(children, seen);
+            gone += n;
+            item.children = kids;
+            out.push(item);
+        }
+    }
+    (out, gone)
+}
+
 const KNOWN_KEYS: &[&[u8]] = &[
     b"Title", b"Parent", b"Prev", b"Next", b"First", b"Last", b"Count", b"Dest", b"A", b"C", b"F",
 ];
@@ -612,6 +703,26 @@ impl Document {
             }
             Ok(())
         })
+    }
+
+    /// Paths of the bookmarks that repeat one before them in document order:
+    /// the same title opening the same place (page and view, or the same
+    /// other action).
+    pub fn duplicate_bookmarks(&self) -> Vec<Vec<usize>> {
+        let mut out = Vec::new();
+        find_duplicates(&self.outline(), &mut Vec::new(), &mut Vec::new(), &mut out);
+        out
+    }
+
+    /// Delete the bookmarks [`duplicate_bookmarks`](Self::duplicate_bookmarks)
+    /// finds; the children of each take its place. One undo step, none when
+    /// there is nothing to delete; returns how many went.
+    pub fn remove_duplicate_bookmarks(&mut self) -> Result<usize> {
+        let (items, gone) = drop_duplicates(self.outline(), &mut Vec::new());
+        if gone > 0 {
+            self.set_outline(&items)?;
+        }
+        Ok(gone)
     }
 
     /// Rename the bookmark at `path`.

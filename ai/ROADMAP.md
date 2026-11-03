@@ -358,6 +358,19 @@ Tables and templates as the user wants them (FOL-L005, FOL-L010).
    of the gallery of its own (kept in its file), and a search box finds templates by name, group and
    file of origin.
 
+### 0.24.0 — labels and bookmarks in order
+
+Numbers that stay right when pages come and go, bookmarks without repeats (FOL-L015, FOL-L022).
+
+1. ~~**FOL-L015 — page labels follow the pages.**~~ Done: new pages join the range of labels where
+   they land and the rest of the range moves on; moved pages keep their labels
+   (`labels_in_order`, in `set_page_order` and in the pages taken from another file).
+2. ~~**FOL-L022 — page labels in the contents.**~~ Done: the entries of an inserted table of
+   contents carry the labels the pages have once it is in.
+3. ~~**FOL-L022 — duplicate cleanup.**~~ Done: Delete Duplicates in the Bookmarks pane deletes the
+   bookmarks that repeat one before them (same title, same page and view within a point, or the
+   same other action), their children kept.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -400,7 +413,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L015 | P1 | 🟡 | insert, delete, extract, duplicate, move, swap, reverse, replace, insert pictures, split documents, split/merge pages, combine files (a bookmark per file), find duplicate pages, delete empty pages; bookmarks, named destinations, links, fields, tags and layers follow the pages in and out: same-named fields and destinations of an inserted file get a suffix and are listed before OK, what deleting pages takes is named before OK, duplicated pages keep their comments to themselves and share their fields | Article threads of an inserted file; page labels of inserted pages follow the ranges where they land. |
+| FOL-L015 | P1 | 🟡 | insert, delete, extract, duplicate, move, swap, reverse, replace, insert pictures, split documents, split/merge pages, combine files (a bookmark per file), find duplicate pages, delete empty pages; bookmarks, named destinations, links, fields, tags and layers follow the pages in and out: same-named fields and destinations of an inserted file get a suffix and are listed before OK, what deleting pages takes is named before OK, duplicated pages keep their comments to themselves and share their fields; page labels follow the pages, new pages joining the range where they land | Article threads of an inserted file. |
 | FOL-L016 | P1/P2 | 🟡 | rotate, crop, crop to white margins, resize, margins, normalize, overlay, rasterize pages | Selective flattening. |
 | FOL-L017 | P1 | ✅ | watermarks, header and footer, Bates numbering (several files), background, page numbering, macros, Folitecta's marks tagged so they can be updated or removed | Logical page labels in every page selector. |
 
@@ -417,7 +430,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L022 | P1 | 🟡 | bookmarks (hierarchy, editing, export), links, named destinations, web links from text and barcodes; bookmarks from the headings found by text size (levels, running heads left out); a table of contents inserted from the bookmarks (leaders, page numbers, links) | Article threads; duplicate cleanup; page labels in the contents; headings found by font weight. |
+| FOL-L022 | P1 | 🟡 | bookmarks (hierarchy, editing, export), links, named destinations, web links from text and barcodes; bookmarks from the headings found by text size (levels, running heads left out); a table of contents inserted from the bookmarks (leaders, page numbers or labels, links); duplicate bookmarks deleted | Article threads; headings found by font weight (the renderer gives no weight for Type 1 fonts, the standard ones included). |
 | FOL-L023 | P1/P2 | ✅ | attachments, layers (visibility, properties, drawing and writing on the selected layer, comments and pictures moved between layers, comments of hidden layers hidden in the view, thumbnails, printing, summaries, the Comments pane and the pictures made of the pages (export, copy, snapshot), visibility expressions), audio/video with playback | Codec list and unsupported media report; layers given by membership dictionaries lost on export and paste; XFDF carries no layer; pictures inside reused drawings on layers. |
 | FOL-L024 | P2 | 🟡 | PDF portfolios: create, view, extract, print | Binder project with sources and regeneration. |
 

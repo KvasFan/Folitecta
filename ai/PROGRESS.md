@@ -4,6 +4,23 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L015, FOL-L022: labels and bookmarks in order (0.24.0)
+
+- **Current state before:** page labels were ranges by position, so pages put inside a range took
+  the labels of the pages they pushed on and moved pages took those of their new place (deleted
+  pages already left the others theirs); the contents listed plain page numbers; bookmarks given
+  twice (headings made into bookmarks after the ones there were) had to be deleted one by one.
+- **What:** `pagetools::labels_in_order`, `label_ranges`, `label_text`, `write_label_parts`,
+  applied by `set_page_order` and `take_pages`; `contents::entry_numbers`;
+  `Document::duplicate_bookmarks`, `remove_duplicate_bookmarks`; the command
+  `bookmarksView.deleteDuplicates`.
+- **Checked:** `page_tools.rs` (blank pages inside a range, after the front matter, before the
+  first page, copies, another file, reverse, move, delete, saved as ranges; no labels written for a
+  document without them), `contents.rs`, `bookmarks.rs`, `page_relations.rs`, `delivery.rs`;
+  self-test step `bookmark_labels`.
+- **Open:** a new page between two ranges joins the one before it; headings found by font weight
+  left out (no weight for Type 1 fonts).
+
 ## 2026-11-02 — release 0.17.0: check of the published packages
 
 - **What:** tag `v0.17.0` (`c9fc740`): CI (29 min) and release (35 min) workflows green, eight files.

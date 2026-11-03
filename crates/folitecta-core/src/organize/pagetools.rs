@@ -457,25 +457,17 @@ impl Document {
 
     /// Page labels (`/PageLabels` number tree) as shown to users; falls back to 1, 2, 3, ...
     pub fn page_labels(&self) -> Vec<String> {
-        self.page_label_parts()
-            .into_iter()
-            .map(|(style, prefix, value)| {
-                let number = match style.as_slice() {
-                    b"D" => value.to_string(),
-                    b"R" => roman(value).to_uppercase(),
-                    b"r" => roman(value),
-                    b"A" => letters(value).to_uppercase(),
-                    b"a" => letters(value),
-                    _ => String::new(),
-                };
-                format!("{prefix}{number}")
-            })
-            .collect()
+        self.page_label_parts().iter().map(label_text).collect()
+    }
+
+    /// Whether the document numbers its pages with labels of its own.
+    pub(crate) fn has_page_labels(&self) -> bool {
+        self.inner.catalog().is_ok_and(|c| c.has(b"PageLabels"))
     }
 
     /// The parts of the label of every page: numbering style (`D`, `R`, `r`,
     /// `A`, `a` or empty), prefix and number (1, 2, 3, ... without labels).
-    pub(crate) fn page_label_parts(&self) -> Vec<(Vec<u8>, String, i64)> {
+    pub(crate) fn page_label_parts(&self) -> Vec<LabelParts> {
         let n = self.page_count();
         let doc = &self.inner;
         let mut ranges: Vec<(usize, Dictionary)> = Vec::new();
@@ -553,6 +545,17 @@ impl Document {
         self.commit()
     }
 
+    /// Write the label of every page (see [`labels_in_order`]) as ranges,
+    /// without an undo step.
+    pub(crate) fn write_label_parts(&mut self, parts: &[LabelParts]) -> Result<()> {
+        let ranges = label_ranges(parts);
+        let refs: Vec<(usize, &str, &str, i64)> = ranges
+            .iter()
+            .map(|(i, s, x, v)| (*i, s.as_str(), x.as_str(), *v))
+            .collect();
+        self.write_page_labels(&refs)
+    }
+
     /// Write the page labels (see [`Document::set_page_labels`]) without an undo step.
     pub(crate) fn write_page_labels(&mut self, ranges: &[(usize, &str, &str, i64)]) -> Result<()> {
         if ranges.is_empty() {
@@ -610,6 +613,94 @@ impl Document {
         self.resize_pages(&differing, first.width, first.height, true)?;
         Ok(differing.len())
     }
+}
+
+/// The parts of a page label: numbering style (`D`, `R`, `r`, `A`, `a` or
+/// empty), prefix and number.
+pub(crate) type LabelParts = (Vec<u8>, String, i64);
+
+/// A page label as shown to users.
+pub(crate) fn label_text((style, prefix, value): &LabelParts) -> String {
+    let number = match style.as_slice() {
+        b"D" => value.to_string(),
+        b"R" => roman(*value).to_uppercase(),
+        b"r" => roman(*value),
+        b"A" => letters(*value).to_uppercase(),
+        b"a" => letters(*value),
+        _ => String::new(),
+    };
+    format!("{prefix}{number}")
+}
+
+/// Whether the label `b` goes on from the label `a` of the page before.
+fn goes_on(a: &LabelParts, b: &LabelParts) -> bool {
+    a.0 == b.0 && a.1 == b.1 && (b.0.is_empty() || a.2 + 1 == b.2)
+}
+
+/// The labels of the pages once they are put in `order`: `Some(i)` for the
+/// page now at `i`, `None` for a new page. A page keeps its label, wherever
+/// it goes; a new page joins the range of labels (pages numbered on from
+/// each other) of the page before it, or of the first page when it comes
+/// first, and the pages of that range after it move on by one, so no label
+/// is given twice.
+pub(crate) fn labels_in_order(parts: &[LabelParts], order: &[Option<usize>]) -> Vec<LabelParts> {
+    // The range of every page: the first page of its run of labels.
+    let mut range = vec![0usize; parts.len()];
+    for i in 1..parts.len() {
+        range[i] = if goes_on(&parts[i - 1], &parts[i]) {
+            range[i - 1]
+        } else {
+            i
+        };
+    }
+    let first = order.iter().flatten().copied().find(|i| *i < parts.len());
+    // How many new pages each range has taken so far.
+    let mut taken: std::collections::HashMap<usize, i64> = std::collections::HashMap::new();
+    let mut current: Option<usize> = None;
+    let mut out: Vec<LabelParts> = Vec::with_capacity(order.len());
+    for (k, slot) in order.iter().enumerate() {
+        if let Some(i) = slot.filter(|i| *i < parts.len()) {
+            let r = range[i];
+            let (style, prefix, value) = &parts[i];
+            out.push((
+                style.clone(),
+                prefix.clone(),
+                value + taken.get(&r).copied().unwrap_or(0),
+            ));
+            current = Some(r);
+            continue;
+        }
+        let label = match (current, out.last(), first) {
+            (Some(_), Some((style, prefix, value)), _) => (style.clone(), prefix.clone(), value + 1),
+            (_, _, Some(f)) => (parts[f].0.clone(), parts[f].1.clone(), parts[f].2 + k as i64),
+            _ => (b"D".to_vec(), String::new(), k as i64 + 1),
+        };
+        if let Some(r) = current.or(first.map(|f| range[f])) {
+            *taken.entry(r).or_default() += 1;
+        }
+        out.push(label);
+    }
+    out
+}
+
+/// The ranges `(first page, style, prefix, first number)` of the labels of
+/// every page.
+pub(crate) fn label_ranges(parts: &[LabelParts]) -> Vec<(usize, String, String, i64)> {
+    let mut ranges = Vec::new();
+    for (i, label) in parts.iter().enumerate() {
+        if i > 0 && goes_on(&parts[i - 1], label) {
+            continue;
+        }
+        let (style, prefix, value) = label;
+        let first = if style.is_empty() { 1 } else { (*value).max(1) };
+        ranges.push((
+            i,
+            String::from_utf8_lossy(style).to_string(),
+            prefix.clone(),
+            first,
+        ));
+    }
+    ranges
 }
 
 fn roman(mut n: i64) -> String {

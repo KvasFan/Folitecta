@@ -216,3 +216,54 @@ fn named_destinations_are_edited_and_references_follow_renames() {
     assert_eq!(doc.delete_named_destinations(&["start".into()]).unwrap(), 1);
     assert!(doc.named_destinations().is_empty());
 }
+
+#[test]
+fn duplicate_bookmarks_go_and_their_children_stay() {
+    let mut doc = doc_with_outline();
+    // "Part A" again, with a child of its own and a second "A.1".
+    doc.add_bookmark("Part A", 1, &[]).unwrap();
+    doc.add_bookmark("A.3", 5, &[3]).unwrap();
+    doc.add_bookmark("A.1", 2, &[3]).unwrap();
+    // The same title opening another page is no duplicate.
+    doc.add_bookmark("Intro", 5, &[]).unwrap();
+    doc.clear_history();
+    assert_eq!(doc.duplicate_bookmarks(), [vec![3], vec![3, 1]]);
+    assert_eq!(doc.remove_duplicate_bookmarks().unwrap(), 2);
+    assert_eq!(
+        titles(&doc),
+        [
+            (0, "Intro".to_string()),
+            (0, "Part A".to_string()),
+            (1, "A.1".to_string()),
+            (1, "A.2".to_string()),
+            (0, "Part B".to_string()),
+            (0, "A.3".to_string()),
+            (0, "Intro".to_string()),
+        ]
+    );
+    assert!(doc.duplicate_bookmarks().is_empty());
+    // Nothing more to remove: no undo step.
+    assert_eq!(doc.remove_duplicate_bookmarks().unwrap(), 0);
+    // One undo step brings them back.
+    doc.undo().unwrap();
+    assert_eq!(doc.bookmark_count(), 9);
+    assert!(!doc.can_undo());
+}
+
+#[test]
+fn bookmarks_to_the_same_page_at_other_places_are_no_duplicates() {
+    let mut doc = Document::new_blank(2, 400.0, 500.0).unwrap();
+    let view = |top| {
+        Some(DestView::Xyz {
+            left: None,
+            top: Some(top),
+            zoom: None,
+        })
+    };
+    let a = doc.new_bookmark_item("Notes", 1, view(400.0)).unwrap();
+    let b = doc.new_bookmark_item("Notes", 1, view(400.5)).unwrap();
+    let c = doc.new_bookmark_item("Notes", 1, view(120.0)).unwrap();
+    doc.set_outline(&[a, b, c]).unwrap();
+    // Half a point lower is the same place; the foot of the page is not.
+    assert_eq!(doc.duplicate_bookmarks(), [vec![1]]);
+}

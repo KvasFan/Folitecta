@@ -11,6 +11,7 @@ use crate::document::Document;
 use crate::error::{Error, Result};
 use crate::marks::display_to_pdf;
 use crate::outline::{DestView, OutlineItem};
+use crate::pagetools::{LabelParts, label_text, labels_in_order};
 use crate::typeset::{Align, Fonts, Sheet, Span, Style, Typeset, nest};
 
 /// A heading found in the text of a page.
@@ -201,8 +202,9 @@ impl Document {
     /// Insert before page `at` pages titled `title` listing the bookmarks
     /// that open a page of the document, indented by level, with dotted
     /// leaders to their page numbers (as the pages are numbered once these
-    /// are in); every entry is a link to its place. The pages have the size
-    /// of the first page. One undo step; returns how many pages were made.
+    /// are in, with the labels of the document when it has them); every
+    /// entry is a link to its place. The pages have the size of the first
+    /// page. One undo step; returns how many pages were made.
     pub fn insert_contents(&mut self, at: usize, title: &str) -> Result<usize> {
         let n = self.page_count();
         if at > n {
@@ -228,15 +230,16 @@ impl Document {
             margin: (first.width.min(first.height) * 0.09).clamp(36.0, 72.0),
         };
         // The numbers depend on how many pages the contents take.
+        let labels = self.has_page_labels().then(|| self.page_label_parts());
         let mut count = 1;
-        let mut ts = contents_pages(&entries, title, sheet, at, count)?;
+        let mut ts = contents_pages(&entries, title, sheet, at, count, labels.as_deref())?;
         for _ in 0..3 {
             let made = ts.cursor().0 + 1;
             if made == count {
                 break;
             }
             count = made;
-            ts = contents_pages(&entries, title, sheet, at, count)?;
+            ts = contents_pages(&entries, title, sheet, at, count, labels.as_deref())?;
         }
         let (fonts, pages) = ts.into_pages();
         let views: Vec<Option<DestView>> = entries.iter().map(|e| e.3.clone()).collect();
@@ -281,6 +284,38 @@ fn shifted(page: usize, at: usize, count: usize) -> usize {
     if page >= at { page + count } else { page }
 }
 
+/// The numbers of the pages of the entries once `count` pages are put
+/// before page `at`: their labels when the document has them (`labels`, the
+/// parts of the label of every page now), numbered on through the new pages.
+fn entry_numbers(
+    entries: &[(u8, String, usize, Option<DestView>)],
+    at: usize,
+    count: usize,
+    labels: Option<&[LabelParts]>,
+) -> Vec<String> {
+    let Some(parts) = labels else {
+        return entries
+            .iter()
+            .map(|e| (shifted(e.2, at, count) + 1).to_string())
+            .collect();
+    };
+    let order: Vec<Option<usize>> = (0..at)
+        .map(Some)
+        .chain(std::iter::repeat_n(None, count))
+        .chain((at..parts.len()).map(Some))
+        .collect();
+    let after = labels_in_order(parts, &order);
+    entries
+        .iter()
+        .map(|e| {
+            after
+                .get(shifted(e.2, at, count))
+                .map(label_text)
+                .unwrap_or_default()
+        })
+        .collect()
+}
+
 /// The contents set on pages of `sheet`, the numbers of the pages as they
 /// are once `count` pages are put before page `at`.
 fn contents_pages(
@@ -289,14 +324,13 @@ fn contents_pages(
     sheet: Sheet,
     at: usize,
     count: usize,
+    labels: Option<&[LabelParts]>,
 ) -> Result<Typeset> {
-    let numbers: Vec<String> = entries
-        .iter()
-        .map(|e| (shifted(e.2, at, count) + 1).to_string())
-        .collect();
+    let numbers = entry_numbers(entries, at, count, labels);
     let texts = std::iter::once(title)
         .chain([". 0123456789"])
-        .chain(entries.iter().map(|e| e.1.as_str()));
+        .chain(entries.iter().map(|e| e.1.as_str()))
+        .chain(numbers.iter().map(|n| n.as_str()));
     let fonts = Fonts::new(texts)?;
     let mut ts = Typeset::new(sheet, fonts);
     let size = 11.0f32;

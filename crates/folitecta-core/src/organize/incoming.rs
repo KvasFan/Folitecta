@@ -278,10 +278,22 @@ impl Document {
         // The pages.
         self.inherit_attributes(&src_pages);
         let mut ids = self.page_ids();
+        // The new pages join the range of labels where they land.
+        let labels = self.has_page_labels().then(|| {
+            let order: Vec<Option<usize>> = (0..at)
+                .map(Some)
+                .chain(std::iter::repeat_n(None, src_pages.len()))
+                .chain((at..ids.len()).map(Some))
+                .collect();
+            crate::pagetools::labels_in_order(&self.page_label_parts(), &order)
+        });
         let tail = ids.split_off(at);
         ids.extend(src_pages.iter().copied());
         ids.extend(tail);
         self.write_page_tree(&ids)?;
+        if let Some(parts) = labels {
+            self.write_label_parts(&parts)?;
+        }
 
         // Form fields, with the fonts their appearances name.
         if let Some(form) = &src_form {

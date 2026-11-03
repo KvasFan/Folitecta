@@ -2676,6 +2676,17 @@
    "status": "planned"
   },
   {
+   "id": "bookmarksView.deleteDuplicates",
+   "label": "Delete Duplicates",
+   "parent": "bookmarksView",
+   "menu": "view",
+   "ribbon": null,
+   "pane": "bookmarks",
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "bookmarksView.demote",
    "label": "Demote",
    "parent": "bookmarksView",

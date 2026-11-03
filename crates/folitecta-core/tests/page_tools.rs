@@ -151,6 +151,61 @@ fn transitions_and_labels() {
 }
 
 #[test]
+fn labels_follow_the_pages_and_new_pages_join_their_range() {
+    let mut doc = Document::new_blank(4, 595.0, 842.0).unwrap();
+    doc.set_page_labels(&[(0, "r", "", 1), (2, "D", "", 1)]).unwrap();
+    doc.clear_history();
+    let start = ["i", "ii", "1", "2"];
+    assert_eq!(doc.page_labels(), start);
+    // A blank page between "1" and "2" is "2", and the old "2" moves on.
+    doc.insert_blank_pages(3, 1, 595.0, 842.0).unwrap();
+    assert_eq!(doc.page_labels(), ["i", "ii", "1", "2", "3"]);
+    doc.undo().unwrap();
+    assert_eq!(doc.page_labels(), start);
+    // After "ii" new pages join the front matter.
+    doc.insert_blank_pages(2, 2, 595.0, 842.0).unwrap();
+    assert_eq!(doc.page_labels(), ["i", "ii", "iii", "iv", "1", "2"]);
+    doc.undo().unwrap();
+    // Before the first page a new page takes the first label.
+    doc.insert_blank_pages(0, 1, 595.0, 842.0).unwrap();
+    assert_eq!(doc.page_labels(), ["i", "ii", "iii", "1", "2"]);
+    doc.undo().unwrap();
+    // A copy is the next page of the range of its page.
+    doc.duplicate_pages(&[2]).unwrap();
+    assert_eq!(doc.page_labels(), ["i", "ii", "1", "2", "3"]);
+    doc.undo().unwrap();
+    // Pages of another file join the range where they land.
+    let other = Document::new_blank(2, 595.0, 842.0).unwrap();
+    doc.insert_document(4, &other, None).unwrap();
+    assert_eq!(doc.page_labels(), ["i", "ii", "1", "2", "3", "4"]);
+    doc.undo().unwrap();
+    // Moved pages keep their labels, and deleted pages leave the others theirs.
+    doc.reverse_pages().unwrap();
+    assert_eq!(doc.page_labels(), ["2", "1", "ii", "i"]);
+    doc.undo().unwrap();
+    doc.move_pages(&[0], 3).unwrap();
+    assert_eq!(doc.page_labels(), ["ii", "1", "2", "i"]);
+    doc.undo().unwrap();
+    doc.delete_pages(&[0]).unwrap();
+    assert_eq!(doc.page_labels(), ["ii", "1", "2"]);
+    doc.undo().unwrap();
+    assert_eq!(doc.page_labels(), start);
+    // Saved as ranges.
+    doc.insert_blank_pages(3, 1, 595.0, 842.0).unwrap();
+    let reopened = Document::from_bytes(doc.bytes().as_ref().clone(), None, None).unwrap();
+    assert_eq!(reopened.page_labels(), ["i", "ii", "1", "2", "3"]);
+}
+
+#[test]
+fn pages_without_labels_stay_without() {
+    let mut doc = Document::new_blank(2, 595.0, 842.0).unwrap();
+    doc.insert_blank_pages(1, 1, 595.0, 842.0).unwrap();
+    assert_eq!(doc.page_labels(), ["1", "2", "3"]);
+    let saved = lopdf::Document::load_mem(&doc.bytes()).unwrap();
+    assert!(!saved.catalog().unwrap().has(b"PageLabels"));
+}
+
+#[test]
 fn flatten_single_annotation_and_normalize() {
     let mut doc = doc_with_text();
     doc.add_shape(

@@ -200,6 +200,7 @@
   "cmd.bookmarksView.createOptions": "Opzioni di creazione",
   "cmd.bookmarksView.deleteOnlyChildren": "Elimina solo elementi figlio",
   "cmd.bookmarksView.deleteWithoutChildren": "Elimina senza elementi figlio",
+  "cmd.bookmarksView.deleteDuplicates": "Elimina duplicati",
   "cmd.bookmarksView.demote": "Abbassa di livello",
   "cmd.bookmarksView.ensureVisibility": "Mantieni visibile",
   "cmd.bookmarksView.expandAll": "Espandi tutto",

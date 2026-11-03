@@ -6,6 +6,18 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Delete Duplicates (Bookmarks pane menu) deletes the bookmarks that repeat one before them — the
+  same title opening the same place — in one undo step; their children stay, in their place.
+- Insert Table of Contents numbers the entries with the page labels of the document (i, ii, 1, 2,
+  A-1, …) when it has them, as they are once the contents are in.
+
+### Changed
+- Page labels follow the pages: new pages (blank, copies, pictures, pages of another file, the
+  contents) join the range of labels where they land and the pages after them in it move on, so no
+  label is given twice; moved pages keep their labels, as deleted pages already left the others
+  theirs. They used to stay with the positions.
+
 ## [0.23.0] - 2026-11-03
 
 ### Added

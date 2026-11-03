@@ -122,6 +122,38 @@ fn contents_list_the_bookmarks_with_their_new_page_numbers_and_links() {
 }
 
 #[test]
+fn contents_number_the_pages_with_their_labels() {
+    let mut doc = report();
+    let found = doc.find_headings();
+    doc.bookmarks_from_headings(&found, true).unwrap();
+    // The title page is "i", the rest are numbered from 1.
+    doc.set_page_labels(&[(0, "r", "", 1), (1, "D", "", 1)]).unwrap();
+    let n = doc.page_count();
+    // Put after the title page, the contents are "ii".
+    assert_eq!(doc.insert_contents(1, "Contents").unwrap(), 1);
+    let labels = doc.page_labels();
+    assert_eq!(labels.len(), n + 1);
+    assert_eq!(&labels[..3], ["i", "ii", "1"]);
+    let text = doc.page_text(1);
+    // Each entry with the label of its page.
+    let page = found[4].page;
+    let costs = &labels[if page >= 1 { page + 1 } else { page }];
+    assert!(text.contains("Costs . "), "{text}");
+    let after_costs = text.split("Costs").nth(1).unwrap();
+    let number = after_costs.split_whitespace().find(|w| *w != ".").unwrap();
+    assert_eq!(number, costs, "{text}");
+    // A heading of the title page is listed as "i".
+    let first = found.iter().position(|h| h.page == 0).unwrap();
+    let title = &found[first].title;
+    let after_title = text.split(title.as_str()).nth(1).unwrap();
+    assert_eq!(
+        after_title.split_whitespace().find(|w| *w != ".").unwrap(),
+        "i",
+        "{text}"
+    );
+}
+
+#[test]
 fn contents_need_bookmarks() {
     let mut doc = Document::from_text("No headings here.", TextLayout::default()).unwrap();
     assert!(doc.find_headings().is_empty());

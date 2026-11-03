@@ -7,6 +7,8 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- The Article tool (View menu): the rectangles drawn with it are the parts of a new article thread
+  in the order drawn; Enter asks its title and makes it, Escape drops it.
 - The article threads of a file whose pages are inserted come with its pages (a thread running on
   pages left out stays out).
 - The Articles pane (View menu) lists the article threads of the document with their parts in

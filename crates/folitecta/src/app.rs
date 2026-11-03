@@ -482,9 +482,15 @@ pub fn App() -> Element {
             } else {
                 commands::signatures::cancel_pending();
                 commands::signs::cancel_pending();
+                commands::articles::discard();
                 st.set_tool(Tool::Hand);
                 st.set_pending_image(None);
             }
+            return;
+        }
+        // The Article tool: Enter ends the article drawn.
+        if key == Key::Enter && *st.tool.peek() == Tool::Article && commands::articles::finish(st) {
+            evt.prevent_default();
             return;
         }
         // The edit text tool: Delete, Backspace and typing change the page text.

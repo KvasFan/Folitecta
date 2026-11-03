@@ -23189,6 +23189,17 @@
    "status": "planned"
   },
   {
+   "id": "tool.article",
+   "label": "Article Tool",
+   "parent": "view",
+   "menu": "view",
+   "ribbon": null,
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "view.articles",
    "label": "Articles",
    "parent": "view",

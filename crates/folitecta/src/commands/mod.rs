@@ -27,7 +27,9 @@ pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
     arrange, calculator, comment_styles, comments, format, media, review, stamps, tables, ticks,
 };
-pub(crate) use navigation::{attachments, bookmarks, explorer, history, layers, panes, portfolio, sessions};
+pub(crate) use navigation::{
+    articles, attachments, bookmarks, explorer, history, layers, panes, portfolio, sessions,
+};
 pub(crate) use protection::{policies, protect, redaction, revocation, signatures, signs};
 pub(crate) use text::{find_replace, read_aloud, search, spelling, textedit};
 pub(crate) use window::{edit, help, interface, qat, split_view, tab_groups, view};
@@ -118,6 +120,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     help::HANDLERS,
     qat::HANDLERS,
     mail::HANDLERS,
+    articles::HANDLERS,
 ];
 
 static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {

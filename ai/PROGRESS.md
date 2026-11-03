@@ -4,6 +4,17 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L022: the Article tool (0.36.0)
+
+- **Current state before:** threads could be listed and followed, and made only by the program.
+- **What:** `Tool::Article` (`tool.article`, View menu), `commands/navigation/articles.rs`
+  (`DRAFT`, `add_part`, `finish`, `make`, `discard`), Enter and Escape in the key handler of the
+  window, `Dialog::ArticleTitle`.
+- **Checked:** self-test steps `article_tool` (two columns drawn by pointer, Enter, a title) and
+  `articles`.
+- **Open:** the parts drawn are said by a message, not shown on the page; threads cannot be edited
+  once made.
+
 ## 2026-11-03 — FOL-L015: articles that come along (0.35.0)
 
 - **Current state before:** the pages of another file came with their bead lists, but its threads

@@ -405,6 +405,10 @@ pub(super) fn finish_create(
             crate::commands::barcodes::read_area(st, page, [x0, y0, x1, y1]);
             None
         }
+        Tool::Article if !tiny => {
+            crate::commands::articles::add_part(st, page, rect);
+            None
+        }
         Tool::OcrRegion if !tiny => {
             crate::commands::ocr::read_area(st, page, [x0, y0, x1, y1]);
             None

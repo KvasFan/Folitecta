@@ -92,6 +92,8 @@ pub enum Tool {
     TextCorrection,
     /// Draw the area of a page whose text is read (OCR).
     OcrRegion,
+    /// Draw the parts of a new article thread.
+    Article,
 }
 
 impl Tool {
@@ -190,6 +192,7 @@ impl Tool {
             Tool::EditText => "tool.editContent.text",
             Tool::TextCorrection => "tool.textCorrectionMarkup",
             Tool::OcrRegion => "document.OCRSelRgn",
+            Tool::Article => "tool.article",
         }
     }
 
@@ -257,6 +260,7 @@ impl Tool {
             Tool::EditText => "tool.edit_text",
             Tool::TextCorrection => "tool.text_correction",
             Tool::OcrRegion => "tool.ocr_region",
+            Tool::Article => "tool.article",
         }
     }
 

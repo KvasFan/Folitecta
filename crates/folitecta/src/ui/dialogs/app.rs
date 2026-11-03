@@ -485,3 +485,19 @@ pub(super) fn WordCount(words: usize, chars: usize) -> Element {
     let lang = st.lang();
     rsx! { Frame { title: t(lang, "cmd.document.wordCount"), div { class: "kv", span { class: "k", "{t(lang, \"dialog.wordcount.words\")}" } span { class: "v", "{words}" } span { class: "k", "{t(lang, \"dialog.wordcount.chars\")}" } span { class: "v", "{chars}" } } } }
 }
+
+/// The title of the article drawn with the Article tool.
+#[component]
+pub(super) fn ArticleTitle() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let title = use_signal(String::new);
+    let parts = crate::commands::articles::DRAFT.read().len();
+    rsx! {
+        Frame { title: t(lang, "dialog.article.title"),
+            on_ok: move |_| crate::commands::articles::make(st, &title()),
+            p { class: "hint", "{tf(lang, \"dialog.article.parts\", &[(\"count\", &parts.to_string())])}" }
+            Text { label: t(lang, "dialog.article.name"), value: title, autofocus: true }
+        }
+    }
+}

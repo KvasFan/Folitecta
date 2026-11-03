@@ -467,6 +467,13 @@ The threads of the pages taken from another file (FOL-L015).
 1. ~~**FOL-L015 — article threads of an inserted file.**~~ Done: the threads of the source join the
    `/Threads` of the document with the pages they run on.
 
+### 0.36.0 — the Article tool
+
+Article threads drawn on the pages (FOL-L022).
+
+1. ~~**FOL-L022 — an article tool.**~~ Done: `Tool::Article`, its parts kept until Enter
+   (`commands::articles`, `Dialog::ArticleTitle`) and made with `add_article`.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -526,7 +533,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L022 | P1 | 🟡 | bookmarks (hierarchy, editing, export), links, named destinations, web links from text and barcodes; bookmarks from the headings found by text size (levels, running heads left out); a table of contents inserted from the bookmarks (leaders, page numbers or labels, links); duplicate bookmarks deleted; article threads listed and followed | An article tool to draw threads on the pages; headings found by font weight (the renderer gives no weight for Type 1 fonts, the standard ones included). |
+| FOL-L022 | P1 | 🟡 | bookmarks (hierarchy, editing, export), links, named destinations, web links from text and barcodes; bookmarks from the headings found by text size (levels, running heads left out); a table of contents inserted from the bookmarks (leaders, page numbers or labels, links); duplicate bookmarks deleted; article threads listed and followed | Parts of an article shown while drawn, threads edited (parts added, moved, taken away); headings found by font weight (the renderer gives no weight for Type 1 fonts, the standard ones included). |
 | FOL-L023 | P1/P2 | ✅ | attachments, layers (visibility, properties, drawing and writing on the selected layer, comments and pictures moved between layers, comments of hidden layers hidden in the view, thumbnails, printing, summaries, the Comments pane and the pictures made of the pages (export, copy, snapshot), visibility expressions), audio/video with playback | Codec list and unsupported media report; layers given by membership dictionaries lost on export and paste; XFDF carries no layer; pictures inside reused drawings on layers. |
 | FOL-L024 | P2 | 🟡 | PDF portfolios: create, view, extract, print | Binder project with sources and regeneration. |
 

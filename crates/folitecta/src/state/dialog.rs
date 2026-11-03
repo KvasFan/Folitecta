@@ -333,6 +333,8 @@ pub enum Dialog {
     AltText,
     /// Summaries of the tables of the tags.
     TableSummaries,
+    /// The title of the article drawn with the Article tool.
+    ArticleTitle,
     /// Options of an accessibility pane (its id).
     AccOptions(String),
     /// What a rule of the accessibility check means.

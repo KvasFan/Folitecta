@@ -352,6 +352,30 @@ pub(super) fn SwapPages() -> Element {
     }
 }
 
+/// The fronts scanned first, then the backs: the backs put between them.
+#[component]
+pub(super) fn InterleavePages() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let n = st.page_count();
+    let fronts = use_signal(|| n.div_ceil(2).to_string());
+    let mut reversed = use_signal(|| true);
+    rsx! {
+        Frame { title: cmd_label(lang, registry().get("document.interleavePages").unwrap()),
+            on_ok: move |_| {
+                let f: usize = fronts().trim().parse().unwrap_or(n.div_ceil(2));
+                apply(st, |tab| tab.doc.interleave_backs(f, reversed()));
+            },
+            p { class: "hint", "{t(lang, \"dialog.interleave.hint\")}" }
+            div { class: "field-grid", Num { label: t(lang, "dialog.interleave.fronts"), value: fronts, min: "1", max: n.to_string() } }
+            label { class: "check",
+                input { r#type: "checkbox", class: "interleave-reversed", checked: reversed(), onchange: move |_| reversed.toggle() }
+                span { "{t(lang, \"dialog.interleave.reversed\")}" }
+            }
+        }
+    }
+}
+
 #[component]
 pub(super) fn ExportImages() -> Element {
     let st = use_context::<AppState>();

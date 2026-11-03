@@ -11,6 +11,8 @@ All notable changes to Folitecta are documented here. The format follows
   lists without naming it in its content is no longer counted.
 
 ### Added
+- Interleave Fronts and Backs (Document menu) puts the backs scanned after the fronts between them,
+  scanned from the last or from the first.
 - Clean Up Scans can remove the specks of the scanned pages it keeps and make them black and white,
   in the same step as the other changes.
 - Flatten Comments chooses the kinds of comments and their authors: those left out stay comments.

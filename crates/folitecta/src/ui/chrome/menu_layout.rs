@@ -528,6 +528,7 @@ pub const MENUS: &[(&str, &[Item])] = &[
                     Cmd("document.duplicatePages"),
                     Cmd("document.swapPages"),
                     Cmd("document.reversePageOrder"),
+                    Cmd("document.interleavePages"),
                     Cmd("document.mergePages"),
                     Sep,
                     Cmd("document.findDuplicates"),

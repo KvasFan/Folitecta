@@ -1,4 +1,7 @@
 {
+  "dialog.interleave.reversed": "I retri sono stati scansionati dall'ultimo al primo",
+  "dialog.interleave.fronts": "Fronti (le prime pagine)",
+  "dialog.interleave.hint": "Per pagine scansionate in due pile: prima tutti i fronti, poi tutti i retri. I retri vanno tra i fronti, in un solo passo da annullare.",
   "dialog.article.parts": "L'articolo passa per le {count} parti disegnate, in quest'ordine.",
   "dialog.article.name": "Titolo dell'articolo",
   "dialog.article.rename": "Rinomina articolo",

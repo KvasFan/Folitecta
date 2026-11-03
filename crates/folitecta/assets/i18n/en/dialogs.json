@@ -1,4 +1,7 @@
 {
+  "dialog.interleave.reversed": "The backs were scanned from the last to the first",
+  "dialog.interleave.fronts": "Fronts (the first pages)",
+  "dialog.interleave.hint": "For pages scanned as two stacks: first all the fronts, then all the backs. The backs go between the fronts, in one undo step.",
   "dialog.article.parts": "The article runs through the {count} parts drawn, in that order.",
   "dialog.article.name": "Title of the article",
   "dialog.article.rename": "Rename Article",

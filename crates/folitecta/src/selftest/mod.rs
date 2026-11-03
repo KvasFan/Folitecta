@@ -445,6 +445,7 @@ mod steps_formats;
 mod steps_frames;
 mod steps_grey;
 mod steps_groups;
+mod steps_interleave;
 mod steps_jumps;
 mod steps_layer_drawing;
 mod steps_layout;
@@ -586,6 +587,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "article_tool" => Box::pin(steps_article_tool::run(cx)),
             "flatten_read" => Box::pin(steps_flatten_read::run(cx)),
             "scans_bw" => Box::pin(steps_scans_bw::run(cx)),
+            "interleave" => Box::pin(steps_interleave::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -689,6 +691,7 @@ const STEPS: &[&str] = &[
     "article_tool",
     "flatten_read",
     "scans_bw",
+    "interleave",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

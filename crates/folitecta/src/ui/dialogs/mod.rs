@@ -265,6 +265,7 @@ pub fn Dialogs() -> Element {
         Dialog::AddMargins => rsx! { AddMargins {} },
         Dialog::MovePages => rsx! { MovePages {} },
         Dialog::SwapPages => rsx! { SwapPages {} },
+        Dialog::InterleavePages => rsx! { InterleavePages {} },
         Dialog::Watermark => rsx! { Watermark {} },
         Dialog::HeaderFooter => rsx! { HeaderFooter {} },
         Dialog::PageNumbers => rsx! { PageNumbers { bates: false } },

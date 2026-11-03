@@ -168,6 +168,7 @@ handlers! {
     "document.reversePageOrder" => |st| doc_op(st, |t| t.doc.reverse_pages()),
     "document.movePages" => |st| doc_dialog(st, Dialog::MovePages),
     "document.swapPages" => |st| doc_dialog(st, Dialog::SwapPages),
+    "document.interleavePages" => |st| doc_dialog(st, Dialog::InterleavePages),
     "document.replacePages" => |st| { if !no_doc(st) { files::pick_file_for(st, files::PickPurpose::Replace) } },
     "document.overlayPages" => |st| { if !no_doc(st) { files::pick_file_for(st, files::PickPurpose::Overlay) } },
     "document.findDuplicates" => find_duplicates,

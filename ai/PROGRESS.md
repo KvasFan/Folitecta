@@ -4,6 +4,15 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L012: fronts and backs (0.43.0)
+
+- **Current state before:** backs were put between the fronts only while scanning with the
+  scanning window; a file scanned elsewhere in two stacks stayed in that order.
+- **What:** the command `document.interleavePages`, `Dialog::InterleavePages` (fronts: half the
+  pages, rounded up; backs from the last: on), through `Document::interleave_backs`.
+- **Checked:** self-test step `interleave`; the unit tests of `duplex_order`.
+- **Open:** sideways pages straightened when askew.
+
 ## 2026-11-03 — FOL-L004: fonts that are used (0.42.0)
 
 - **Current state before:** the Fonts pane counted every font a resource dictionary listed, also

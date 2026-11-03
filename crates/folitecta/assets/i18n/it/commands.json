@@ -563,6 +563,7 @@
   "cmd.document.replaceFonts": "Sostituisci caratteri…",
   "cmd.document.replacePages": "Sostituisci pagine…",
   "cmd.document.resizePages": "Ridimensiona pagine…",
+  "cmd.document.interleavePages": "Alterna fronti e retri…",
   "cmd.document.reversePageOrder": "Inverti ordine pagine",
   "cmd.document.rotatePages": "Ruota pagine…",
   "cmd.document.rotatePages.180": "Ruota di 180°",

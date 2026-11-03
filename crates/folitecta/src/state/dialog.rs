@@ -91,6 +91,8 @@ pub enum Dialog {
     AddMargins,
     MovePages,
     SwapPages,
+    /// Fronts and backs scanned in two stacks put in order.
+    InterleavePages,
     Watermark,
     HeaderFooter,
     PageNumbers,

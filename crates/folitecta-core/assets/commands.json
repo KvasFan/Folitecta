@@ -7486,6 +7486,17 @@
    "status": "planned"
   },
   {
+   "id": "document.interleavePages",
+   "label": "Interleave Fronts and Backs…",
+   "parent": "document",
+   "menu": "document",
+   "ribbon": null,
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "document.reversePageOrder",
    "label": "Reverse Page Order",
    "parent": "document",

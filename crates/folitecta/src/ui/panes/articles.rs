@@ -6,7 +6,16 @@ use folitecta_core::DestView;
 
 use crate::i18n::{t, tf};
 use crate::icons::Icon;
-use crate::state::AppState;
+use crate::state::{AppState, Dialog};
+
+/// Run an edit of the articles and say what went wrong.
+fn edit(st: AppState, f: impl FnOnce(&mut folitecta_core::Document) -> folitecta_core::Result<()>) {
+    match st.with_active(|t| f(&mut t.doc)) {
+        Some(Ok(())) => crate::files::set_window_title(st),
+        Some(Err(e)) => st.error(e.to_string()),
+        None => {}
+    }
+}
 
 #[component]
 pub fn ArticlesPane() -> Element {
@@ -26,15 +35,28 @@ pub fn ArticlesPane() -> Element {
                         a.title.clone()
                     };
                     let beads = tf(lang, "pane.articles.beads", &[("count", &a.beads.len().to_string())]);
+                    let own = a.title.clone();
                     rsx! {
                         div { key: "{k}", class: "list-item article",
-                            div { class: "title", Icon { name: "book" } "{title}" }
+                            div { class: "title", Icon { name: "book" } span { class: "grow", "{title}" }
+                                button { class: "ibtn article-rename", title: "{t(lang, \"pane.articles.rename\")}",
+                                    onclick: move |_| st.set_dialog(Dialog::ArticleRename { index: k, title: own.clone() }),
+                                    Icon { name: "pencil" } }
+                                button { class: "ibtn article-delete", title: "{t(lang, \"pane.articles.delete\")}",
+                                    onclick: move |_| edit(st, |d| d.delete_article(k)),
+                                    Icon { name: "delete" } }
+                            }
                             div { class: "meta", "{beads}" }
                             div { class: "article-beads",
                                 for (j, (page, rect)) in a.beads.into_iter().enumerate() {
-                                    button { key: "{j}", class: "linkish article-bead",
-                                        onclick: move |_| st.go_to_dest(page, Some(DestView::Rect(rect))),
-                                        "{j + 1}. {t(lang, \"status.page\")} {page + 1}"
+                                    span { key: "{j}", class: "article-part-row",
+                                        button { class: "linkish article-bead",
+                                            onclick: move |_| st.go_to_dest(page, Some(DestView::Rect(rect))),
+                                            "{j + 1}. {t(lang, \"status.page\")} {page + 1}"
+                                        }
+                                        button { class: "ibtn small article-part-delete", title: "{t(lang, \"pane.articles.delete_part\")}",
+                                            onclick: move |_| edit(st, |d| d.delete_article_part(k, j)),
+                                            "×" }
                                     }
                                 }
                             }

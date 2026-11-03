@@ -1,6 +1,6 @@
 //! Interaction step: articles — a story running from page 1 to page 3 is
 //! listed in the Articles pane with its two parts; a click on the second
-//! shows page 3.
+//! shows page 3; a part taken out, the article renamed, then deleted.
 
 use crate::state::Pane;
 
@@ -48,6 +48,28 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let _ = eval("document.querySelectorAll('.articles-list .article-bead')[1]?.click();").await;
     pause(700).await;
     let page = st.current_page();
+    // The first part taken out, the article renamed, then deleted.
+    let _ = eval("document.querySelector('.articles-list .article-part-delete')?.click();").await;
+    pause(400).await;
+    let parts_left = st
+        .read_active(|t| t.doc.articles().first().map(|a| a.beads.len()))
+        .flatten();
+    let _ = eval("document.querySelector('.articles-list .article-rename')?.click();").await;
+    pause(400).await;
+    let _ = eval(
+        "const i = document.querySelector('.dialog input'); if (i) { i.value = 'Renamed'; i.dispatchEvent(new Event('input', { bubbles: true })); }",
+    )
+    .await;
+    pause(200).await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(400).await;
+    let renamed = st
+        .read_active(|t| t.doc.articles().first().map(|a| a.title.clone()))
+        .flatten()
+        .unwrap_or_default();
+    let _ = eval("document.querySelector('.articles-list .article-delete')?.click();").await;
+    pause(400).await;
+    let left = st.read_active(|t| t.doc.articles().len()).unwrap_or(9);
     {
         let mut ui = st.ui_mut();
         ui.show_left_pane = was_open;
@@ -57,7 +79,15 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     pause(300).await;
     cx.record(
         "articles: a story of two parts listed in the Articles pane; a click on the second shows its page",
-        listed == "Story" && parts == 2 && marked.contains("1.1") && page == 2,
-        format!("listed {listed:?}, parts {parts}, marked {marked:?}, page {page}"),
+        listed == "Story"
+            && parts == 2
+            && marked.contains("1.1")
+            && page == 2
+            && parts_left == Some(1)
+            && renamed == "Renamed"
+            && left == 0,
+        format!(
+            "listed {listed:?}, parts {parts}, marked {marked:?}, page {page}, parts left {parts_left:?}, renamed {renamed:?}, articles left {left}"
+        ),
     );
 }

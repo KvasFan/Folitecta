@@ -404,6 +404,9 @@ pub fn Dialogs() -> Element {
         Dialog::AltText => rsx! { crate::ui::features::acc_dialogs::AltTextDialog {} },
         Dialog::TableSummaries => rsx! { crate::ui::features::acc_dialogs::TableSummariesDialog {} },
         Dialog::ArticleTitle => rsx! { app::ArticleTitle {} },
+        Dialog::ArticleRename { index, title } => {
+            rsx! { app::ArticleRename { index: index, title: title.clone() } }
+        }
         Dialog::AccOptions(pane) => rsx! { crate::ui::features::acc_dialogs::AccOptionsDialog { pane } },
         Dialog::RuleExplain(id) => rsx! { crate::ui::features::acc_dialogs::RuleExplainDialog { id } },
         Dialog::DocLanguage => rsx! { crate::ui::features::acc_dialogs::DocLanguageDialog {} },

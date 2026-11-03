@@ -381,3 +381,37 @@ fn article_threads_come_with_the_pages_of_another_file() {
     part.insert_document(1, &other, Some(&[0])).unwrap();
     assert!(part.articles().is_empty());
 }
+
+#[test]
+fn articles_are_renamed_cut_and_deleted_one_step_each() {
+    let mut doc = Document::new_blank(3, 400.0, 500.0).unwrap();
+    let r = [36.0, 36.0, 364.0, 464.0];
+    doc.add_article("Long", &[(0, r), (1, r), (2, r)]).unwrap();
+    doc.add_article("Short", &[(1, r)]).unwrap();
+    doc.clear_history();
+    doc.rename_article(0, "Feature").unwrap();
+    assert_eq!(doc.articles()[0].title, "Feature");
+    // The first part out: the thread begins with the second.
+    doc.delete_article_part(0, 0).unwrap();
+    let pages: Vec<usize> = doc.articles()[0].beads.iter().map(|b| b.0).collect();
+    assert_eq!(pages, [1, 2]);
+    // The middle one out of three would join the others; here the last.
+    doc.delete_article_part(0, 1).unwrap();
+    let pages: Vec<usize> = doc.articles()[0].beads.iter().map(|b| b.0).collect();
+    assert_eq!(pages, [1]);
+    // The last part of an article takes it away.
+    doc.delete_article_part(1, 0).unwrap();
+    assert_eq!(doc.articles().len(), 1);
+    doc.delete_article(0).unwrap();
+    assert!(doc.articles().is_empty());
+    assert!(doc.delete_article(0).is_err());
+    // Saved and read again, nothing left behind.
+    let again = Document::from_bytes(doc.bytes().as_ref().clone(), None, None).unwrap();
+    assert!(again.articles().is_empty());
+    for _ in 0..5 {
+        doc.undo().unwrap();
+    }
+    let titles: Vec<String> = doc.articles().into_iter().map(|a| a.title).collect();
+    assert_eq!(titles, ["Long", "Short"]);
+    assert_eq!(doc.articles()[0].beads.len(), 3);
+}

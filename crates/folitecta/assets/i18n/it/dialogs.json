@@ -1,6 +1,7 @@
 {
   "dialog.article.parts": "L'articolo passa per le {count} parti disegnate, in quest'ordine.",
   "dialog.article.name": "Titolo dell'articolo",
+  "dialog.article.rename": "Rinomina articolo",
   "dialog.article.title": "Nuovo articolo",
   "dialog.about.body": "Folitecta è un editor PDF libero scritto interamente in Rust con interfaccia Dioxus. Rendering con hayro, modello del documento con lopdf.",
   "dialog.about.license": "Distribuito con licenza MIT.",

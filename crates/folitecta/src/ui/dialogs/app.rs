@@ -501,3 +501,26 @@ pub(super) fn ArticleTitle() -> Element {
         }
     }
 }
+
+/// A new title for an article of the Articles pane.
+#[component]
+pub(super) fn ArticleRename(index: usize, title: String) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let name = use_signal(|| title.clone());
+    rsx! {
+        Frame { title: t(lang, "dialog.article.rename"),
+            on_ok: move |_| {
+                match st.with_active(|t| t.doc.rename_article(index, &name())) {
+                    Some(Ok(())) => {
+                        crate::files::set_window_title(st);
+                        st.set_dialog(Dialog::None);
+                    }
+                    Some(Err(e)) => st.error(e.to_string()),
+                    None => {}
+                }
+            },
+            Text { label: t(lang, "dialog.article.name"), value: name, autofocus: true }
+        }
+    }
+}

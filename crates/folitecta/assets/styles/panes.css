@@ -261,3 +261,7 @@
 .articles-list { display: flex; flex-direction: column; gap: 4px; padding: 4px; }
 .article-beads { display: flex; flex-wrap: wrap; gap: 4px 10px; }
 .article-bead { font-size: 12px; }
+.articles-list .article .title .ibtn { padding: 2px; }
+.article-part-row { display: inline-flex; align-items: center; gap: 2px; }
+.article-part-delete { font-size: 11px; line-height: 1; padding: 0 4px; opacity: 0.6; }
+.article-part-delete:hover { opacity: 1; }

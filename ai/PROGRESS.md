@@ -4,6 +4,16 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L022: articles edited (0.38.0)
+
+- **Current state before:** a thread could not be changed once made.
+- **What:** `threads` (the objects of the threads and beads, behind `articles`), `rename_article`,
+  `delete_article`, `delete_article_part`, `unlist_bead`; `Dialog::ArticleRename` and the buttons
+  of the Articles pane.
+- **Checked:** `bookmarks.rs` (renamed, the first and the last parts taken out, the last part taking
+  the article, deleted, saved, five undo steps back); self-test step `articles`.
+- **Open:** parts added to a thread or moved in it.
+
 ## 2026-11-03 — FOL-L022: articles seen on the page (0.37.0)
 
 - **Current state before:** the parts drawn with the Article tool were only counted by a message,

@@ -192,6 +192,52 @@ fn to_other_group(st: AppState, side_by_side: bool) {
     set(st, g);
 }
 
+/// Move tab `id` to group `to` (dropped on its strip), the groups placed as
+/// they are; it becomes the tab worked in.
+pub fn move_tab_to_group(st: AppState, id: u64, to: usize) {
+    let Some(g) = st.groups.peek().clone() else {
+        return;
+    };
+    if to > 1 || g.group_of(id) == Some(to) {
+        return;
+    }
+    let Some(i) = st.docs.peek().iter().position(|t| t.id == id) else {
+        return;
+    };
+    st.set_active(i);
+    to_other_group(st, g.side_by_side);
+}
+
+/// Put tab `id` just before tab `before` among the tabs (and in its group),
+/// the tab worked in staying the same.
+pub fn reorder_tab(st: AppState, id: u64, before: u64) {
+    if id == before {
+        return;
+    }
+    let (_, active) = tabs(st);
+    {
+        let mut docs = st.docs_mut();
+        let Some(from) = docs.iter().position(|t| t.id == id) else {
+            return;
+        };
+        let tab = docs.remove(from);
+        let to = docs.iter().position(|t| t.id == before).unwrap_or(docs.len());
+        docs.insert(to, tab);
+    }
+    let order: Vec<u64> = st.docs.peek().iter().map(|t| t.id).collect();
+    // The copy taken first: the guard of `peek` lives to the end of the statement.
+    let groups = st.groups.peek().clone();
+    if let Some(mut g) = groups {
+        for group in g.tabs.iter_mut() {
+            group.sort_by_key(|t| order.iter().position(|o| o == t));
+        }
+        *st.groups.write_unchecked() = Some(g);
+    }
+    if let Some(i) = order.iter().position(|t| *t == active) {
+        st.set_active(i);
+    }
+}
+
 /// Move the active tab to the other group, the groups placed as they are.
 fn move_tab(st: AppState) {
     let side = st.groups.peek().as_ref().is_none_or(|g| g.side_by_side);

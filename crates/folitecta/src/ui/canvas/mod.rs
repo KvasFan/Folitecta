@@ -246,6 +246,9 @@ fn tab_label(name: &str, mid: bool) -> String {
     format!("{head}…{tail}")
 }
 
+/// The tab being dragged over the tab strips.
+static DRAGGED_TAB: GlobalSignal<Option<u64>> = Signal::global(|| None);
+
 /// The tab strip: of every tab, or of one group of tabs.
 #[component]
 fn DocTabs(#[props(default)] group: Option<usize>) -> Element {
@@ -298,10 +301,35 @@ fn DocTabs(#[props(default)] group: Option<usize>) -> Element {
             (i, t.id, tab_label(&label, mid), tip, t.doc.is_dirty())
         })
         .collect();
+    // A tab dropped on a tab goes before it; on another group's strip, into
+    // that group.
+    let drop_tab = move |before: Option<u64>| {
+        let Some(dragged) = DRAGGED_TAB.write().take() else {
+            return;
+        };
+        if let Some(g) = group {
+            commands::tab_groups::move_tab_to_group(st, dragged, g);
+        }
+        if let Some(before) = before {
+            commands::tab_groups::reorder_tab(st, dragged, before);
+        }
+        files::set_window_title(st);
+        if grouped {
+            commands::split_view::show_pages(st);
+        }
+    };
     rsx! {
         div { class: if focused { "doc-tabs" } else { "doc-tabs unfocused" },
+            ondragover: move |e| e.prevent_default(),
+            ondrop: move |e| { e.prevent_default(); drop_tab(None); },
             for (i, id, title, tip, dirty) in tabs.into_iter() {
                 button { class: if shown.map_or(i == active, |s| s == id) { "doc-tab active" } else { "doc-tab" }, key: "{id}", title: "{tip}",
+                    draggable: "true",
+                    "data-tab": "{id}",
+                    ondragstart: move |_| *DRAGGED_TAB.write() = Some(id),
+                    ondragend: move |_| *DRAGGED_TAB.write() = None,
+                    ondragover: move |e| e.prevent_default(),
+                    ondrop: move |e| { e.prevent_default(); e.stop_propagation(); drop_tab(Some(id)); },
                     onclick: move |_| {
                         st.set_active(i);
                         files::set_window_title(st);

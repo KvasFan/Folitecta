@@ -7,6 +7,8 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Tabs can be dragged: dropped on another tab, a tab goes before it; dropped on the strip of the
+  other group of tabs, it moves to that group.
 - Presentation (View menu) shows the pages one at a time on the whole screen: each comes in with the
   transition its page sets (fade, wipe, split, blinds, box, push, uncover) for its time, and goes on
   by itself after the seconds the page shows; arrows, Space, Page Up and Down, Home, End and a click

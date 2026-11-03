@@ -4,6 +4,17 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L002: tabs dragged (0.32.0)
+
+- **Current state before:** tabs moved between groups only by commands (Move Tab To Other Group)
+  and could not be put in another order.
+- **What:** `tab_groups::move_tab_to_group`, `reorder_tab`; the tab strips take tabs dropped on
+  them (`DRAGGED_TAB`, the drag events of the tabs and of the strip). The first run of the
+  self-test stopped the program: the guard of `groups.peek()` lived through an `if let` that wrote
+  the groups; the copy is now taken first.
+- **Checked:** self-test steps `tab_drag` (drag events of the web view) and `groups`.
+- **Open:** tabs dragged out to another window or to the desktop.
+
 ## 2026-11-03 — FOL-L001: presentation (0.31.0)
 
 - **Current state before:** transitions and display times could be set on pages (Page

@@ -1,6 +1,9 @@
 //! The fonts a document draws with: those of its pages, of the forms and
 //! patterns they use and of the appearances of comments and fields, each
 //! with its kind, whether the file holds it and the pages it appears on.
+//! A font, graphics state or form a resource dictionary lists counts only
+//! when the content that owns the resources names it (`Tf`, `gs`, `Do`);
+//! when that content cannot be read, everything listed counts.
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
@@ -129,16 +132,56 @@ fn dict_of<'a>(doc: &'a lopdf::Document, o: &'a Object) -> Option<&'a Dictionary
     }
 }
 
-/// The fonts of `res` and of what it draws with.
+/// The names a content stream uses: fonts (`Tf`), graphics states (`gs`)
+/// and forms and pictures (`Do`). `None` when it cannot be read.
+struct Used {
+    fonts: HashSet<Vec<u8>>,
+    states: HashSet<Vec<u8>>,
+    forms: HashSet<Vec<u8>>,
+}
+
+fn used_names(content: &[u8]) -> Option<Used> {
+    let ops = lopdf::content::Content::decode(content).ok()?.operations;
+    let mut used = Used {
+        fonts: HashSet::new(),
+        states: HashSet::new(),
+        forms: HashSet::new(),
+    };
+    for op in ops {
+        let set = match op.operator.as_str() {
+            "Tf" => &mut used.fonts,
+            "gs" => &mut used.states,
+            "Do" => &mut used.forms,
+            _ => continue,
+        };
+        if let Some(Object::Name(n)) = op.operands.first() {
+            set.insert(n.clone());
+        }
+    }
+    Some(used)
+}
+
+/// Whether `name` of a resource dictionary is used (everything is when the
+/// content could not be read).
+fn uses(used: Option<&Used>, pick: impl Fn(&Used) -> &HashSet<Vec<u8>>, name: &[u8]) -> bool {
+    used.is_none_or(|u| pick(u).contains(name))
+}
+
+/// The fonts of `res` that `used` names (all when `None`), and of what it
+/// draws with.
 fn walk(
     doc: &lopdf::Document,
     res: &Dictionary,
+    used: Option<&Used>,
     page: usize,
     seen: &mut HashSet<ObjectId>,
     found: &mut Found,
 ) {
     if let Some(fonts) = res.get(b"Font").ok().and_then(|f| dict_of(doc, f)) {
         for (name, font) in fonts.iter() {
+            if !uses(used, |u| &u.fonts, name) {
+                continue;
+            }
             if let Some(font) = dict_of(doc, font) {
                 found.entry(key_of(doc, font, name)).or_default().insert(page);
             }
@@ -146,6 +189,9 @@ fn walk(
     }
     if let Some(states) = res.get(b"ExtGState").ok().and_then(|s| dict_of(doc, s)) {
         for (name, state) in states.iter() {
+            if !uses(used, |u| &u.states, name) {
+                continue;
+            }
             let font = dict_of(doc, state)
                 .and_then(|s| s.get(b"Font").ok())
                 .and_then(|f| deref(doc, f).as_array().ok())
@@ -160,7 +206,11 @@ fn walk(
         let Some(list) = res.get(kind).ok().and_then(|l| dict_of(doc, l)) else {
             continue;
         };
-        for (_, item) in list.iter() {
+        for (name, item) in list.iter() {
+            // Patterns are named by colour operators: all of them count.
+            if kind == b"XObject" && !uses(used, |u| &u.forms, name) {
+                continue;
+            }
             drawn(doc, item, page, seen, found);
         }
     }
@@ -177,7 +227,16 @@ fn drawn(doc: &lopdf::Document, item: &Object, page: usize, seen: &mut HashSet<O
         .and_then(|d| d.get(b"Resources").ok())
         .and_then(|r| dict_of(doc, r))
     {
-        walk(doc, inner, page, seen, found);
+        // The content of the form, pattern or appearance.
+        let used = match deref(doc, item) {
+            Object::Stream(s) => s
+                .decompressed_content()
+                .ok()
+                .or_else(|| Some(s.content.clone()))
+                .and_then(|c| used_names(&c)),
+            _ => None,
+        };
+        walk(doc, inner, used.as_ref(), page, seen, found);
     }
 }
 
@@ -189,7 +248,15 @@ impl Document {
         for page in 0..self.page_count() {
             let Ok(id) = self.page_id(page) else { continue };
             let mut seen = HashSet::new();
-            walk(doc, &page_resources(doc, id), page, &mut seen, &mut found);
+            let used = used_names(&doc.get_page_content(id));
+            walk(
+                doc,
+                &page_resources(doc, id),
+                used.as_ref(),
+                page,
+                &mut seen,
+                &mut found,
+            );
             let annots = doc
                 .get_dictionary(id)
                 .ok()

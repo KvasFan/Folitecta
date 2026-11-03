@@ -6,6 +6,10 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- The Fonts pane lists only the fonts the pages draw with: a font a page, a form or an appearance
+  lists without naming it in its content is no longer counted.
+
 ### Added
 - Clean Up Scans can remove the specks of the scanned pages it keeps and make them black and white,
   in the same step as the other changes.

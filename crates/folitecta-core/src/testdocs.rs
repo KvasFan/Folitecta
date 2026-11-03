@@ -1775,7 +1775,7 @@ pub fn fonts_doc() -> Vec<u8> {
             "BBox" => vec![0.into(), 0.into(), 100.into(), 100.into()],
             "Resources" => dictionary! { "Font" => dictionary! { "B" => body } },
         },
-        Vec::new(),
+        b"BT /B 10 Tf ET".to_vec(),
     ));
     let descendant = b.doc.add_object(dictionary! {
         "Type" => "Font", "Subtype" => "CIDFontType2", "BaseFont" => "Elsewhere",
@@ -1793,16 +1793,17 @@ pub fn fonts_doc() -> Vec<u8> {
             "BBox" => vec![0.into(), 0.into(), 10.into(), 10.into()],
             "Resources" => dictionary! { "Font" => dictionary! { "D" => drawn } },
         },
-        Vec::new(),
+        b"BT /D 10 Tf ET".to_vec(),
     ));
     let note = b.doc.add_object(dictionary! {
         "Type" => "Annot", "Subtype" => "FreeText",
         "Rect" => vec![10.into(), 10.into(), 20.into(), 20.into()],
         "AP" => dictionary! { "N" => look },
     });
+    // The content names each font (without drawing with it) and draws the form.
     b.page(
         (200.0, 200.0),
-        Vec::new(),
+        b"BT /H 12 Tf ET /Fm Do".to_vec(),
         dictionary! {
             "Font" => dictionary! { "H" => Object::Dictionary(dictionary! {
                 "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica",
@@ -1813,7 +1814,7 @@ pub fn fonts_doc() -> Vec<u8> {
     );
     b.page(
         (200.0, 200.0),
-        Vec::new(),
+        b"BT /C 12 Tf ET /Fm Do".to_vec(),
         dictionary! {
             "Font" => dictionary! { "C" => composite },
             "XObject" => dictionary! { "Fm" => form },

@@ -4,6 +4,18 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L004: fonts that are used (0.42.0)
+
+- **Current state before:** the Fonts pane counted every font a resource dictionary listed, also
+  those that the content never used (files often share one dictionary among pages).
+- **What:** `fonts/used.rs`: `used_names` (the names of `Tf`, `gs` and `Do` in a content stream),
+  `walk` keeping only those of the page content or of the stream of the form, pattern or appearance
+  (all of them when it cannot be read; patterns always). The fixture `fonts_doc` names its fonts in
+  its content now: its pages had no content at all.
+- **Checked:** `used_fonts.rs` (a font listed and never named left out), `pdfa_fonts.rs`, `pdfa.rs`,
+  the unit tests of the core; self-test step `fonts_pane`.
+- **Open:** fonts named only inside Type 3 glyphs.
+
 ## 2026-11-03 — FOL-L012: scans cleaner still (0.41.0)
 
 - **Current state before:** specks and black and white were picture tools, one picture at a

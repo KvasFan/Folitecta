@@ -4,6 +4,18 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L028, FOL-L029: measures and marks kept (0.30.0)
+
+- **Current state before:** the depth of a volume was asked once, when it was drawn; the styles of
+  tick marks were one setting, changed by hand each time.
+- **What:** `Document::volume_depth`, `set_volume_depth` (the label drawn again by
+  `refresh_appearance`); the Depth field of the Properties pane; `ticks::sets`, `save_set`,
+  `delete_set` (`tick.sets`, JSON) and their row in the tick marks window.
+- **Checked:** `markup_tools.rs` (depth read, changed, refused when not more than zero or not a
+  volume, undone); unit test of the sets; self-test step `measures_ticks`.
+- **Open:** the depth has no unit of its own (that of the scale). The sets are saved values of
+  the settings, so exporting and importing the settings carries them.
+
 ## 2026-11-03 — FOL-L014: words read with doubt, found (0.29.0)
 
 - **Current state before:** words read with doubt were seen only in the review of text

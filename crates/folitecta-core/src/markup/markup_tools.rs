@@ -343,6 +343,46 @@ impl Document {
         self.finish_annotation(page_id, annot)
     }
 
+    /// The volume measurement `index` of `page` (place among the annotations
+    /// of the page) and its dictionary, when it is one.
+    fn volume_at(&self, page: usize, index: usize) -> Option<(ObjectId, &Dictionary)> {
+        let id = self
+            .annotations(page)
+            .ok()?
+            .into_iter()
+            .find(|a| a.index == index)?
+            .id?;
+        let d = self.inner.get_dictionary(id).ok()?;
+        (d.get(b"IT").ok().and_then(|n| n.as_name().ok()) == Some(VOLUME.as_bytes())).then_some((id, d))
+    }
+
+    /// The depth of the volume measurement `index` of `page`, in the unit of
+    /// its scale, when it is a volume.
+    pub fn volume_depth(&self, page: usize, index: usize) -> Option<f32> {
+        let (_, d) = self.volume_at(page, index)?;
+        d.get(b"FolitectaDepth")
+            .ok()
+            .and_then(|v| num(deref(&self.inner, v)))
+    }
+
+    /// Change the depth of the volume measurement `index` of `page`; the
+    /// volume it shows follows. One undo step.
+    pub fn set_volume_depth(&mut self, page: usize, index: usize, depth: f32) -> Result<()> {
+        if !depth.is_finite() || depth <= 0.0 {
+            return Err(Error::Invalid("the depth must be more than zero".into()));
+        }
+        let (id, _) = self
+            .volume_at(page, index)
+            .ok_or_else(|| Error::Invalid("the comment is not a volume measurement".into()))?;
+        self.edit_step(|doc| {
+            let d = doc.inner.get_dictionary_mut(id)?;
+            d.set("FolitectaDepth", depth);
+            d.set("M", Object::string_literal(crate::util::pdf_date_now()));
+            doc.refresh_appearance(id)?;
+            Ok(())
+        })
+    }
+
     /// Measurement comments of the whole document as `(page, kind, value text)`.
     pub fn measurements(&self) -> Vec<(usize, String, String)> {
         let mut out = Vec::new();

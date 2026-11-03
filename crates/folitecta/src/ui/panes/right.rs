@@ -49,6 +49,7 @@ pub fn RightPane() -> Element {
             let all = tab.doc.annotation_layers(p, i);
             (tab.doc.annotation_layer(p, i), all.len() > 1)
         });
+        let depth = tab.selected_annot.and_then(|(p, i)| tab.doc.volume_depth(p, i));
         (
             info,
             tab.page,
@@ -61,6 +62,7 @@ pub fn RightPane() -> Element {
             tab.doc.is_dirty(),
             label,
             (layers, sel_layer),
+            depth,
         )
     });
     rsx! {
@@ -69,7 +71,7 @@ pub fn RightPane() -> Element {
                 button { class: "ibtn", title: "{t(lang, \"dialog.close\")}", onclick: move |_| { st.ui_mut().show_right_pane = false; st.save_prefs(); }, "×" }
             }
             div { class: "pane-body props",
-                if let Some((info, page, size, annots, links, images, marks, selected, dirty, label, (layers, sel_layer))) = data {
+                if let Some((info, page, size, annots, links, images, marks, selected, dirty, label, (layers, sel_layer), depth)) = data {
                     div { class: "prop-head", "{t(lang, \"props.document\")}" }
                     {prop(t(lang, "dialog.props.title_field"), if info.title.is_empty() { "—".into() } else { info.title.clone() })}
                     {prop(t(lang, "dialog.props.author"), if info.author.is_empty() { "—".into() } else { info.author.clone() })}
@@ -129,6 +131,24 @@ pub fn RightPane() -> Element {
                                         }
                                     }
                                 }
+                            }
+                        }
+                        if let Some(depth) = depth {
+                            div { class: "prop prop-select",
+                                span { class: "k", "{t(lang, \"props.depth\")}" }
+                                input { class: "volume-depth", r#type: "number", min: "0", step: "any", value: "{depth}",
+                                    onchange: move |e| {
+                                        let Ok(v) = e.value().trim().replace(',', ".").parse::<f32>() else { return };
+                                        let r = st.with_active(|t| {
+                                            let (p, i) = t.selected_annot?;
+                                            Some(t.doc.set_volume_depth(p, i, v))
+                                        });
+                                        match r.flatten() {
+                                            Some(Err(e)) => st.error(e.to_string()),
+                                            Some(Ok(())) => crate::files::set_window_title(st),
+                                            None => {}
+                                        }
+                                    } }
                             }
                         }
                         if !a.contents.is_empty() {

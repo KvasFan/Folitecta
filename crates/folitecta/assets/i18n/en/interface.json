@@ -199,6 +199,7 @@
   "pos.top_center": "Top center",
   "pos.top_left": "Top left",
   "pos.top_right": "Top right",
+  "props.depth": "Depth",
   "props.annotations": "Comments on page",
   "props.document": "Document",
   "props.images": "Images on page",

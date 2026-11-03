@@ -448,6 +448,7 @@ mod steps_layout;
 mod steps_left_behind;
 mod steps_links;
 mod steps_lists_out;
+mod steps_measures_ticks;
 mod steps_my_templates;
 mod steps_names_text;
 mod steps_note_icon;
@@ -570,6 +571,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "changes" => Box::pin(steps_changes::run(cx)),
             "table_fixes" => Box::pin(steps_table_fixes::run(cx)),
             "doubtful_words" => Box::pin(steps_doubtful_words::run(cx)),
+            "measures_ticks" => Box::pin(steps_measures_ticks::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -665,6 +667,7 @@ const STEPS: &[&str] = &[
     "changes",
     "table_fixes",
     "doubtful_words",
+    "measures_ticks",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

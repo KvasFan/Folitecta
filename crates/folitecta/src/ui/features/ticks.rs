@@ -35,6 +35,8 @@ pub fn TickMarksDialog() -> Element {
     let mut next = use_signal(|| start.next.to_string());
     let mut size = use_signal(|| format!("{}", start.size));
     let mut color = use_signal(|| crate::util::color_hex(start.color));
+    let mut set_name = use_signal(String::new);
+    let saved = ticks::sets(st);
     let settings = move || TickSettings {
         shape: shape(),
         sequence: sequence(),
@@ -79,6 +81,34 @@ pub fn TickMarksDialog() -> Element {
                 p { class: "hint tick-counts", "{t(lang, \"dialog.tick.in_document\")} {counted}" }
             }
             p { class: "hint", "{t(lang, \"dialog.tick.hint\")}" }
+            div { class: "field", label { "{t(lang, \"dialog.tick.sets\")}" }
+                div { class: "row tick-sets",
+                    select { class: "tick-set",
+                        onchange: move |e| {
+                            let name = e.value();
+                            if let Some((_, s)) = ticks::sets(st).into_iter().find(|(n, _)| *n == name) {
+                                shape.set(s.shape);
+                                sequence.set(s.sequence);
+                                size.set(format!("{}", s.size));
+                                color.set(crate::util::color_hex(s.color));
+                                set_name.set(name);
+                            }
+                        },
+                        option { value: "", selected: !saved.iter().any(|(n, _)| *n == set_name()), "—" }
+                        for (name, _) in saved.iter() {
+                            option { key: "{name}", value: "{name}", selected: *name == set_name(), "{name}" }
+                        }
+                    }
+                    input { class: "tick-set-name grow", placeholder: "{t(lang, \"dialog.tick.set_name\")}", value: "{set_name}",
+                        oninput: move |e| set_name.set(e.value()) }
+                    button { class: "tbtn tick-set-save", disabled: set_name().trim().is_empty(),
+                        onclick: move |_| ticks::save_set(st, &set_name(), &settings()),
+                        "{t(lang, \"dialog.tick.save_set\")}" }
+                    button { class: "tbtn tick-set-delete", disabled: !saved.iter().any(|(n, _)| *n == set_name()),
+                        onclick: move |_| { ticks::delete_set(st, &set_name()); set_name.set(String::new()); },
+                        "{t(lang, \"label.delete\")}" }
+                }
+            }
             div { class: "field", label { "{t(lang, \"dialog.tick.shape\")}" }
                 div { class: "tick-shapes",
                     for (s, name) in shapes {
@@ -107,7 +137,7 @@ pub fn TickMarksDialog() -> Element {
             }
             div { class: "field-grid",
                 div { class: "field", label { "{t(lang, \"dialog.tick.size\")}" }
-                    input { r#type: "number", min: "4", max: "200", value: "{size}", oninput: move |e| size.set(e.value()) }
+                    input { class: "tick-size", r#type: "number", min: "4", max: "200", value: "{size}", oninput: move |e| size.set(e.value()) }
                 }
                 div { class: "field", label { "{t(lang, \"dialog.watermark.color\")}" }
                     input { r#type: "color", value: "{color}", oninput: move |e| color.set(e.value()) }

@@ -284,4 +284,15 @@ fn angles_radii_and_volumes_are_measured() {
             .is_err()
     );
     assert_eq!(doc.annotations(0).unwrap().len(), 4);
+
+    // The depth of the volume changed: 3 m deep is 19.35 m³, one undo step.
+    assert_eq!(doc.volume_depth(0, 3), Some(2.0));
+    assert_eq!(doc.volume_depth(0, 2), None);
+    doc.set_volume_depth(0, 3, 3.0).unwrap();
+    assert_eq!(doc.volume_depth(0, 3), Some(3.0));
+    assert_eq!(doc.annotations(0).unwrap()[3].contents, "19,35 m\u{b3}");
+    assert!(doc.set_volume_depth(0, 3, -1.0).is_err());
+    assert!(doc.set_volume_depth(0, 2, 3.0).is_err());
+    doc.undo().unwrap();
+    assert_eq!(doc.annotations(0).unwrap()[3].contents, "12,90 m\u{b3}");
 }

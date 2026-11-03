@@ -7,6 +7,10 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- The depth of a volume measurement can be changed in the Properties pane of the selected
+  measurement; the volume it shows follows.
+- The tick marks window keeps saved sets of styles (shape, sequence, size, colour) by name, chosen
+  again from a list.
 - The words text recognition read with doubt join the spell check (Words Read with Doubt, on), even
   when the dictionaries know them: Change writes the correction in their place and Ignore keeps them
   as read, and either way they are checked. The search can keep only the results on such words.

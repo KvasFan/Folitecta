@@ -489,6 +489,13 @@ Threads changed after they are made (FOL-L022).
    `delete_article_part` (the beads around joined, the first replaced, the beads taken off the
    lists of their pages), with their buttons in the Articles pane.
 
+### 0.39.0 — articles rearranged
+
+Parts added to a thread and moved in it (FOL-L022).
+
+1. ~~**FOL-L022 — parts added and moved.**~~ Done: `add_article_parts` (the Article tool drawing for
+   a chosen article, `TARGET`), `move_article_part`; the beads linked round again (`link_beads`).
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -548,7 +555,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L022 | P1 | 🟡 | bookmarks (hierarchy, editing, export), links, named destinations, web links from text and barcodes; bookmarks from the headings found by text size (levels, running heads left out); a table of contents inserted from the bookmarks (leaders, page numbers or labels, links); duplicate bookmarks deleted; article threads listed and followed | Parts added to a thread or moved in it; headings found by font weight (the renderer gives no weight for Type 1 fonts, the standard ones included). |
+| FOL-L022 | P1 | 🟡 | bookmarks (hierarchy, editing, export), links, named destinations, web links from text and barcodes; bookmarks from the headings found by text size (levels, running heads left out); a table of contents inserted from the bookmarks (leaders, page numbers or labels, links); duplicate bookmarks deleted; article threads listed and followed | Headings found by font weight (the renderer gives no weight for Type 1 fonts, the standard ones included). |
 | FOL-L023 | P1/P2 | ✅ | attachments, layers (visibility, properties, drawing and writing on the selected layer, comments and pictures moved between layers, comments of hidden layers hidden in the view, thumbnails, printing, summaries, the Comments pane and the pictures made of the pages (export, copy, snapshot), visibility expressions), audio/video with playback | Codec list and unsupported media report; layers given by membership dictionaries lost on export and paste; XFDF carries no layer; pictures inside reused drawings on layers. |
 | FOL-L024 | P2 | 🟡 | PDF portfolios: create, view, extract, print | Binder project with sources and regeneration. |
 

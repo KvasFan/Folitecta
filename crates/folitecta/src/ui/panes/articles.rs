@@ -36,9 +36,13 @@ pub fn ArticlesPane() -> Element {
                     };
                     let beads = tf(lang, "pane.articles.beads", &[("count", &a.beads.len().to_string())]);
                     let own = a.title.clone();
+                    let count = a.beads.len();
                     rsx! {
                         div { key: "{k}", class: "list-item article",
                             div { class: "title", Icon { name: "book" } span { class: "grow", "{title}" }
+                                button { class: "ibtn article-add-parts", title: "{t(lang, \"pane.articles.add_parts\")}",
+                                    onclick: move |_| crate::commands::articles::add_parts(st, k),
+                                    Icon { name: "insert" } }
                                 button { class: "ibtn article-rename", title: "{t(lang, \"pane.articles.rename\")}",
                                     onclick: move |_| st.set_dialog(Dialog::ArticleRename { index: k, title: own.clone() }),
                                     Icon { name: "pencil" } }
@@ -48,12 +52,18 @@ pub fn ArticlesPane() -> Element {
                             }
                             div { class: "meta", "{beads}" }
                             div { class: "article-beads",
-                                for (j, (page, rect)) in a.beads.into_iter().enumerate() {
+                                for (j, (page, rect)) in a.beads.iter().copied().enumerate() {
                                     span { key: "{j}", class: "article-part-row",
                                         button { class: "linkish article-bead",
                                             onclick: move |_| st.go_to_dest(page, Some(DestView::Rect(rect))),
                                             "{j + 1}. {t(lang, \"status.page\")} {page + 1}"
                                         }
+                                        button { class: "ibtn small article-part-earlier", title: "{t(lang, \"pane.articles.earlier\")}", disabled: j == 0,
+                                            onclick: move |_| edit(st, |d| d.move_article_part(k, j, j.saturating_sub(1))),
+                                            "‹" }
+                                        button { class: "ibtn small article-part-later", title: "{t(lang, \"pane.articles.later\")}", disabled: j + 1 >= count,
+                                            onclick: move |_| edit(st, |d| d.move_article_part(k, j, j + 1)),
+                                            "›" }
                                         button { class: "ibtn small article-part-delete", title: "{t(lang, \"pane.articles.delete_part\")}",
                                             onclick: move |_| edit(st, |d| d.delete_article_part(k, j)),
                                             "×" }

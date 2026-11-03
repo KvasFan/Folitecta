@@ -18,6 +18,8 @@
   "toast.bookmarks_imported": "Aggiunti {count} segnalibri",
   "toast.bookmarks_imported_one": "Aggiunto {count} segnalibro",
   "toast.article_made_one": "Articolo fatto di {count} parte",
+  "toast.article_parts_added": "Parti aggiunte all'articolo: {count}",
+  "toast.article_add_parts": "Disegna le nuove parti nell'ordine in cui si leggono; Invio le aggiunge, Esc le scarta",
   "toast.article_made": "Articolo fatto di {count} parti",
   "toast.article_part_detail": "Disegna la parte seguente, o premi Invio per terminare l'articolo",
   "toast.article_part": "Parte {count} dell'articolo",

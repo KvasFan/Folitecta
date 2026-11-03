@@ -41,6 +41,40 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     pause(500).await;
     let articles = st.read_active(|t| t.doc.articles()).unwrap_or_default();
     let tool_after = *st.tool.peek();
+
+    // One more part from the Articles pane, then the first part read later.
+    let (was_open, was_pane) = {
+        let ui = st.ui.peek();
+        (ui.show_left_pane, ui.left_pane.clone())
+    };
+    crate::commands::show_pane(st, crate::state::Pane::Articles);
+    pause(400).await;
+    let _ = eval("document.querySelector('.articles-list .article-add-parts')?.click();").await;
+    pause(300).await;
+    let _ = pointer_path(0, 1.0, &line((50.0, 720.0), (540.0, 800.0), 6), false).await;
+    pause(300).await;
+    let _ = eval("document.querySelector('.app')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));").await;
+    pause(400).await;
+    let added = st
+        .read_active(|t| t.doc.articles().first().map(|a| a.beads.len()))
+        .flatten();
+    let _ = eval("document.querySelector('.articles-list .article-part-later')?.click();").await;
+    pause(400).await;
+    // The right column (x 310) now first.
+    let moved = st
+        .read_active(|t| {
+            t.doc
+                .articles()
+                .first()
+                .and_then(|a| a.beads.first().map(|b| b.1[0]))
+        })
+        .flatten()
+        .unwrap_or_default();
+    {
+        let mut ui = st.ui_mut();
+        ui.show_left_pane = was_open;
+        ui.left_pane = was_pane;
+    }
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
     // Left part first: the first bead lies left of the second.
@@ -48,16 +82,18 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         .first()
         .is_some_and(|a| a.beads.len() == 2 && a.beads[0].1[0] < a.beads[1].1[0]);
     cx.record(
-        "article tool: two parts drawn, Enter asks the title, the thread runs through them in order",
+        "article tool: two parts drawn, Enter asks the title, the thread runs through them in order; one more added from the Articles pane, the first moved later",
         drawn == 2
             && shown == "1,2"
             && asked
             && articles.len() == 1
             && articles[0].title == "Columns"
             && ordered
-            && tool_after == crate::state::Tool::Hand,
+            && tool_after == crate::state::Tool::Hand
+            && added == Some(3)
+            && (moved - 310.0).abs() < 5.0,
         format!(
-            "drawn {drawn}, shown {shown:?}, asked {asked}, articles {articles:?}, tool after {tool_after:?}"
+            "drawn {drawn}, shown {shown:?}, asked {asked}, articles {articles:?}, tool after {tool_after:?}, parts after adding {added:?}, first part at x {moved}"
         ),
     );
 }

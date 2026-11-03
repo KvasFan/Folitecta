@@ -125,6 +125,84 @@ impl Document {
         })
     }
 
+    /// Link the beads `ids` of thread `thread` round in that order: each to
+    /// the next and the one before, the first marked as the start.
+    fn link_beads(&mut self, thread: lopdf::ObjectId, ids: &[lopdf::ObjectId]) -> Result<()> {
+        let n = ids.len();
+        for (k, id) in ids.iter().enumerate() {
+            let d = self.inner.get_dictionary_mut(*id)?;
+            d.set("N", Object::Reference(ids[(k + 1) % n]));
+            d.set("V", Object::Reference(ids[(k + n - 1) % n]));
+            if k == 0 {
+                d.set("T", Object::Reference(thread));
+            } else {
+                d.remove(b"T");
+            }
+        }
+        self.inner
+            .get_dictionary_mut(thread)?
+            .set("F", Object::Reference(ids[0]));
+        Ok(())
+    }
+
+    /// Add `beads` (page and area, PDF user space) at the end of article
+    /// `index`. One undo step.
+    pub fn add_article_parts(&mut self, index: usize, beads: &[(usize, [f32; 4])]) -> Result<()> {
+        if beads.is_empty() {
+            return Ok(());
+        }
+        let t = self.thread_to_edit(index)?;
+        let thread = t.id.unwrap_or((0, 0));
+        let pages = self.page_ids();
+        let page_ids = beads
+            .iter()
+            .map(|(p, _)| pages.get(*p).copied().ok_or(Error::InvalidPage(*p)))
+            .collect::<Result<Vec<_>>>()?;
+        self.edit_step(|doc| {
+            let mut ids: Vec<lopdf::ObjectId> = t.beads.iter().map(|b| b.0).collect();
+            for ((_, r), page) in beads.iter().zip(&page_ids) {
+                let id = doc.inner.new_object_id();
+                doc.inner.objects.insert(
+                    id,
+                    Object::Dictionary(dictionary! {
+                        "Type" => "Bead",
+                        "P" => Object::Reference(*page),
+                        "R" => r.iter().map(|v| Object::Real(*v)).collect::<Vec<_>>(),
+                    }),
+                );
+                let page = doc.inner.get_dictionary_mut(*page)?;
+                let mut list = page
+                    .get(b"B")
+                    .ok()
+                    .and_then(|b| b.as_array().ok())
+                    .cloned()
+                    .unwrap_or_default();
+                list.push(Object::Reference(id));
+                page.set("B", list);
+                ids.push(id);
+            }
+            doc.link_beads(thread, &ids)
+        })
+    }
+
+    /// Move part `from` of article `index` to place `to` among its parts.
+    /// One undo step.
+    pub fn move_article_part(&mut self, index: usize, from: usize, to: usize) -> Result<()> {
+        let t = self.thread_to_edit(index)?;
+        let n = t.beads.len();
+        if from >= n || to >= n {
+            return Err(Error::Invalid("there is no such part".into()));
+        }
+        if from == to {
+            return Ok(());
+        }
+        let thread = t.id.unwrap_or((0, 0));
+        let mut ids: Vec<lopdf::ObjectId> = t.beads.iter().map(|b| b.0).collect();
+        let moved = ids.remove(from);
+        ids.insert(to, moved);
+        self.edit_step(|doc| doc.link_beads(thread, &ids))
+    }
+
     /// Take bead `id` off the list of beads of its page.
     fn unlist_bead(&mut self, id: lopdf::ObjectId) -> Result<()> {
         let page = self

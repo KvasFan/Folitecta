@@ -18,6 +18,8 @@
   "toast.bookmarks_imported": "Added {count} bookmarks",
   "toast.bookmarks_imported_one": "Added {count} bookmark",
   "toast.article_made_one": "Article made of {count} part",
+  "toast.article_parts_added": "Parts added to the article: {count}",
+  "toast.article_add_parts": "Draw the new parts in the order they are read; Enter adds them, Escape drops them",
   "toast.article_made": "Article made of {count} parts",
   "toast.article_part_detail": "Draw the next part, or press Enter to end the article",
   "toast.article_part": "Part {count} of the article",

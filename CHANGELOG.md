@@ -7,6 +7,8 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- More parts can be drawn for an article from the Articles pane (Enter adds them), and its parts
+  read earlier or later, one undo step each.
 - In the Articles pane an article can be renamed and deleted, and a part taken out of it (the parts
   around it join; the last part takes the article with it), one undo step each.
 - The parts of article threads are drawn on the pages, numbered: those being drawn with the Article

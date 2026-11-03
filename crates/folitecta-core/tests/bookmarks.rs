@@ -415,3 +415,26 @@ fn articles_are_renamed_cut_and_deleted_one_step_each() {
     assert_eq!(titles, ["Long", "Short"]);
     assert_eq!(doc.articles()[0].beads.len(), 3);
 }
+
+#[test]
+fn parts_are_added_to_articles_and_moved_in_them() {
+    let mut doc = Document::new_blank(3, 400.0, 500.0).unwrap();
+    let r = |x: f32| [x, 36.0, x + 100.0, 464.0];
+    doc.add_article("Story", &[(0, r(10.0))]).unwrap();
+    doc.clear_history();
+    doc.add_article_parts(0, &[(1, r(20.0)), (2, r(30.0))]).unwrap();
+    let pages = |doc: &Document| doc.articles()[0].beads.iter().map(|b| b.0).collect::<Vec<_>>();
+    assert_eq!(pages(&doc), [0, 1, 2]);
+    // The last part first, then the first part last.
+    doc.move_article_part(0, 2, 0).unwrap();
+    assert_eq!(pages(&doc), [2, 0, 1]);
+    doc.move_article_part(0, 0, 2).unwrap();
+    assert_eq!(pages(&doc), [0, 1, 2]);
+    assert!(doc.move_article_part(0, 3, 0).is_err());
+    let again = Document::from_bytes(doc.bytes().as_ref().clone(), None, None).unwrap();
+    assert_eq!(pages(&again), [0, 1, 2]);
+    doc.undo().unwrap();
+    doc.undo().unwrap();
+    doc.undo().unwrap();
+    assert_eq!(pages(&doc), [0]);
+}

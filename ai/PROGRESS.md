@@ -4,6 +4,17 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L022: articles rearranged (0.39.0)
+
+- **Current state before:** a thread could lose parts but not gain them or change their order.
+- **What:** `Document::add_article_parts`, `move_article_part`, `link_beads`; the Article tool
+  drawing for the article chosen in the pane (`commands::articles::TARGET`, `add_parts`), the
+  buttons Add Parts, Earlier and Later.
+- **Checked:** `bookmarks.rs` (two parts added, moved first and back, saved, three undo steps);
+  self-test steps `article_tool` (a part added from the pane, the first moved later) and
+  `articles`.
+- **Open:** parts dragged in the pane.
+
 ## 2026-11-03 — FOL-L022: articles edited (0.38.0)
 
 - **Current state before:** a thread could not be changed once made.

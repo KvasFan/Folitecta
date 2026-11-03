@@ -4,6 +4,19 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-03 — FOL-L001: presentation (0.31.0)
+
+- **Current state before:** transitions and display times could be set on pages (Page
+  Transitions), but nothing played them; full screen showed the document as it is edited.
+- **What:** `ui/features/presentation.rs` (`SHOWING`, `start`, `stop`, the keys, the next page
+  coming by itself, a CSS animation for each kind of transition), `Document::page_display_time`,
+  the command `view.presentation`; leaving it goes to the page shown once the window has its size
+  again.
+- **Checked:** `page_tools.rs`; self-test step `presentation` (fade, the third page by itself,
+  Escape).
+- **Open:** the directions and dimensions of the transitions (`/Di`, `/Dm`) are not followed;
+  links, form fields, sound and video do not work in the pictures shown.
+
 ## 2026-11-03 — FOL-L028, FOL-L029: measures and marks kept (0.30.0)
 
 - **Current state before:** the depth of a volume was asked once, when it was drawn; the styles of

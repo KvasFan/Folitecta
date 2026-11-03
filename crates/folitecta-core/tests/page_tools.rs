@@ -138,6 +138,8 @@ fn transitions_and_labels() {
     doc.set_page_transition(&[0, 1], Some("Dissolve"), 1.5, Some(4.0))
         .unwrap();
     assert_eq!(doc.page_transition(0), Some(("Dissolve".to_string(), 1.5)));
+    assert_eq!(doc.page_display_time(0), Some(4.0));
+    assert_eq!(doc.page_display_time(2), None);
     assert!(doc.set_page_transition(&[0], Some("Explode"), 1.0, None).is_err());
     doc.set_page_transition(&[0], None, 0.0, None).unwrap();
     assert_eq!(doc.page_transition(0), None);

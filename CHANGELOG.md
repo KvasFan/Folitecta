@@ -7,6 +7,10 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Presentation (View menu) shows the pages one at a time on the whole screen: each comes in with the
+  transition its page sets (fade, wipe, split, blinds, box, push, uncover) for its time, and goes on
+  by itself after the seconds the page shows; arrows, Space, Page Up and Down, Home, End and a click
+  move, Escape ends on the page shown.
 - The depth of a volume measurement can be changed in the Properties pane of the selected
   measurement; the volume it shows follows.
 - The tick marks window keeps saved sets of styles (shape, sequence, size, colour) by name, chosen

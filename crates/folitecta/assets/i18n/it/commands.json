@@ -1726,6 +1726,7 @@
   "cmd.view.docTabsGroup": "Schede documento",
   "cmd.view.fields": "Campi",
   "cmd.view.fonts": "Font",
+  "cmd.view.presentation": "Presentazione",
   "cmd.view.fullScreen": "Schermo intero",
   "cmd.view.fullScreenExit": "Esci da schermo intero",
   "cmd.view.goto": "Vai a",

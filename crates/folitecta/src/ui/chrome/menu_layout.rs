@@ -340,6 +340,7 @@ pub const MENUS: &[(&str, &[Item])] = &[
             Cmd("view.layout"),
             Cmd("view.rotate"),
             Cmd("view.fullScreen"),
+            Cmd("view.presentation"),
             Sep,
             Cmd("view.reflow"),
             Cmd("view.readAloud"),

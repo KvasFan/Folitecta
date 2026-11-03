@@ -455,6 +455,14 @@ impl Document {
         Some((s, dur))
     }
 
+    /// Seconds page `page` shows in a presentation before the next comes by
+    /// itself (`/Dur`), when it sets them.
+    pub fn page_display_time(&self, page: usize) -> Option<f32> {
+        let id = self.page_id(page).ok()?;
+        let d = self.inner.get_dictionary(id).ok()?;
+        num(deref(&self.inner, d.get(b"Dur").ok()?)).filter(|s| *s > 0.0)
+    }
+
     /// Page labels (`/PageLabels` number tree) as shown to users; falls back to 1, 2, 3, ...
     pub fn page_labels(&self) -> Vec<String> {
         self.page_label_parts().iter().map(label_text).collect()

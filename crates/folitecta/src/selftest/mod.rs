@@ -465,6 +465,7 @@ mod steps_permissions;
 mod steps_pictures;
 mod steps_policies;
 mod steps_preflight;
+mod steps_presentation;
 mod steps_print;
 mod steps_protection;
 mod steps_qat;
@@ -572,6 +573,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "table_fixes" => Box::pin(steps_table_fixes::run(cx)),
             "doubtful_words" => Box::pin(steps_doubtful_words::run(cx)),
             "measures_ticks" => Box::pin(steps_measures_ticks::run(cx)),
+            "presentation" => Box::pin(steps_presentation::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -668,6 +670,7 @@ const STEPS: &[&str] = &[
     "table_fixes",
     "doubtful_words",
     "measures_ticks",
+    "presentation",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

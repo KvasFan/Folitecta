@@ -110,6 +110,7 @@ handlers! {
     "view.rotate.CW" => |st| { st.with_active(|t| t.view_rotation = (t.view_rotation + 90) % 360); },
     "view.rotate.CCW" => |st| { st.with_active(|t| t.view_rotation = (t.view_rotation + 270) % 360); },
     "view.rotate.reset" => |st| { st.with_active(|t| t.view_rotation = 0); },
+    "view.presentation" => |st| { if !no_doc(st) { crate::ui::features::presentation::start(st) } },
     "view.fullScreen" => |st| { let on = !(st.fullscreen)(); st.set_fullscreen(on); dioxus::desktop::window().set_fullscreen(on); },
     "view.fullScreenExit" => |st| { st.set_fullscreen(false); dioxus::desktop::window().set_fullscreen(false); },
     "view.theme.default" => |st| set_theme(st, Theme::Light),

@@ -625,6 +625,7 @@ pub fn App() -> Element {
             ui::chrome::palette::Palette {}
             ui::chrome::toasts::Toasts {}
             ui::chrome::layout::DragShield {}
+            ui::features::presentation::Presentation {}
         }
         ui::dialogs::PrintView {}
     }

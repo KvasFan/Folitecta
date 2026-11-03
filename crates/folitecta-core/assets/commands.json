@@ -23410,6 +23410,17 @@
    "status": "planned"
   },
   {
+   "id": "view.presentation",
+   "label": "Presentation",
+   "parent": "view",
+   "menu": "view",
+   "ribbon": null,
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "view.fullScreen",
    "label": "Full Screen",
    "parent": "view",

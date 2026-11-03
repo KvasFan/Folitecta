@@ -428,6 +428,14 @@ What a measurement and a tick mark were set up with, changed or kept (FOL-L028, 
 2. ~~**FOL-L029 — saved sets of tick styles.**~~ Done: named sets of shape, sequence, size and colour
    in the tick marks window (`tick.sets`).
 
+### 0.31.0 — presentation
+
+Documents shown as slides (FOL-L001).
+
+1. ~~**FOL-L001 — presentation mode with transitions.**~~ Done: View › Presentation shows the
+   page pictures fitted to the screen, with the transitions of Page Transitions played as
+   animations and the display time of each page (`page_display_time`) moving on by itself.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -441,7 +449,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L001 | P1 | 🟡 | hayro rendering on worker threads with one queue per document ranked by the window, pages near the view only, small previews, tiles at high zoom, pages redrawn only when they change, scrolling and Ctrl+wheel without waiting for the program; thumbnails, single/continuous/two-page layouts, right-to-left option, loupe, pan and zoom, split window, view rotation, full screen, password-protected files (decrypted in memory) | Certificate-encrypted files; presentation mode with transitions; a test corpus (transparency, scans, rotated pages); HiDPI and pinch zoom measurements. |
+| FOL-L001 | P1 | 🟡 | hayro rendering on worker threads with one queue per document ranked by the window, pages near the view only, small previews, tiles at high zoom, pages redrawn only when they change, scrolling and Ctrl+wheel without waiting for the program; thumbnails, single/continuous/two-page layouts, right-to-left option, loupe, pan and zoom, split window, view rotation, full screen, password-protected files (decrypted in memory) | Certificate-encrypted files; a test corpus (transparency, scans, rotated pages); HiDPI and pinch zoom measurements. |
 | FOL-L002 | P1 | 🟡 | document tabs, split window, sessions (save/open), recovery of unsaved documents at the next start; two tab groups (side by side or stacked, tabs moved, shared out, gathered); a saved document moved to a new window, a new empty window | Tabs dragged between groups and windows; all tabs of other windows gathered into one. |
 | FOL-L003 | P1 | 🟡 | search pane, Find and Replace, search in folders, annotate results, regular expressions, results as CSV | Embedded or local indexes. |
 | FOL-L004 | P1 | 🟡 | panes for thumbnails, bookmarks, comments, attachments, layers, fields, links, destinations, signatures, fonts, tags, reading order, content, the history of changes; properties pane; document properties and XMP | Object inspector; fonts a page lists without using them count in the Fonts pane; names for the changes made outside commands and tools (they are called Change). |

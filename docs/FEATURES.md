@@ -1,13 +1,13 @@
 # Folitecta feature matrix
 
-Generated from the command registry for version 0.23.0. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
+Generated from the command registry for version 0.43.0. Every command of the full feature set is present in the user interface; this table records which ones perform their function today.
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1481 |
+| ✅ available | 1487 |
 | 🟡 partial | 58 |
-| ⬜ planned | 464 |
-| total | 2003 |
+| ⬜ planned | 463 |
+| total | 2008 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -244,7 +244,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | 3D Model Tree | `view.3DModelTree` | ⬜ planned |
 | Accessibility Checker | `view.accChecker` | ✅ available |
 | Accessibility Report | `view.accReport` | ✅ available |
-| Articles | `view.articles` | ⬜ planned |
+| Articles | `view.articles` | ✅ available |
 | Attachments | `view.attachments` | ✅ available |
 | Bookmarks | `view.bookmarks` | ✅ available |
 | Classic UI | `view.switchToClassicUI` | ✅ available |
@@ -1460,7 +1460,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Accessibility Checker | `view.accChecker` | ✅ available |
 | Accessibility Report | `accReportView` | ✅ available |
 | Accessibility Report | `view.accReport` | ✅ available |
-| Articles | `view.articles` | ⬜ planned |
+| Article Tool | `tool.article` | ✅ available |
+| Articles | `view.articles` | ✅ available |
 | Attachments Pane | `attachmentsView` | ✅ available |
 | Bookmarks Pane | `bookmarksView` | 🟡 partial |
 | Checker | `chekerView` | ✅ available |
@@ -1484,6 +1485,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Highlight | `highlight` | ✅ available |
 | Highlight Links | `view.highlightLinks` | ✅ available |
 | History | `view.history` | ✅ available |
+| History of Changes | `view.changes` | ✅ available |
 | Inertial Scroll | `inertialScroll` | ⬜ planned |
 | Invert Vertical Axis | `view.mathY` | ✅ available |
 | JavaScript Console | `jsConsole` | ✅ available |
@@ -1512,6 +1514,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Panes | `view.panesGroup` | ⬜ planned |
 | Portfolio | `view.portfolio` | ✅ available |
 | Portfolio Tools | `view.portfolioTools` | ✅ available |
+| Presentation | `view.presentation` | ✅ available |
 | Read Aloud | `view.readAloud` | ✅ available |
 | Recovery Pane | `recoveryView` | ⬜ planned |
 | Reflow | `view.reflow` | ✅ available |
@@ -1621,6 +1624,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Insert Scanned Pages… | `document.insertScannedPages` | ⬜ planned |
 | Insert Table of Contents… | `document.insertContents` | ✅ available |
 | Insert Text… | `document.insertText` | ✅ available |
+| Interleave Fronts and Backs… | `document.interleavePages` | ✅ available |
 | Java Script | `javaScript` | ✅ available |
 | JavaScript Edit Snippets | `jsEditSnippets` | ✅ available |
 | JavaScript List | `javaScriptList` | ✅ available |
@@ -1905,6 +1909,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `bookmarksView.createOptions` | View › Bookmarks Pane › Create Options | ✅ available |
 | `bookmarksView.deleteOnlyChildren` | View › Bookmarks Pane › Delete Only Children | ✅ available |
 | `bookmarksView.deleteWithoutChildren` | View › Bookmarks Pane › Delete Without Children | ✅ available |
+| `bookmarksView.deleteDuplicates` | View › Bookmarks Pane › Delete Duplicates | ✅ available |
 | `bookmarksView.demote` | View › Bookmarks Pane › Demote | ✅ available |
 | `bookmarksView.ensureVisibility` | View › Bookmarks Pane › Ensure Visibility | ✅ available |
 | `bookmarksView.expandAll` | View › Bookmarks Pane › Expand All | ✅ available |

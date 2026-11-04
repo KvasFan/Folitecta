@@ -6,9 +6,7 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
-### Fixed
-- The Fonts pane lists only the fonts the pages draw with: a font a page, a form or an appearance
-  lists without naming it in its content is no longer counted.
+## [0.43.0] - 2026-11-04
 
 ### Added
 - Interleave Fronts and Backs (Document menu) puts the backs scanned after the fronts between them,
@@ -66,6 +64,10 @@ All notable changes to Folitecta are documented here. The format follows
   contents) join the range of labels where they land and the pages after them in it move on, so no
   label is given twice; moved pages keep their labels, as deleted pages already left the others
   theirs. They used to stay with the positions.
+
+### Fixed
+- The Fonts pane lists only the fonts the pages draw with: a font a page, a form or an appearance
+  lists without naming it in its content is no longer counted.
 
 ## [0.23.0] - 2026-11-03
 

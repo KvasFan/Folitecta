@@ -358,7 +358,7 @@ Tables and templates as the user wants them (FOL-L005, FOL-L010).
    of the gallery of its own (kept in its file), and a search box finds templates by name, group and
    file of origin.
 
-### 0.24.0 — labels and bookmarks in order
+### 0.24.0 — labels and bookmarks in order (released in 0.43.0, 4 November 2026)
 
 Numbers that stay right when pages come and go, bookmarks without repeats (FOL-L015, FOL-L022).
 
@@ -371,7 +371,7 @@ Numbers that stay right when pages come and go, bookmarks without repeats (FOL-L
    bookmarks that repeat one before them (same title, same page and view within a point, or the
    same other action), their children kept.
 
-### 0.25.0 — labels in every page selector
+### 0.25.0 — labels in every page selector (released in 0.43.0, 4 November 2026)
 
 Pages chosen by the numbers printed on them (FOL-L017).
 
@@ -379,7 +379,7 @@ Pages chosen by the numbers printed on them (FOL-L017).
    box, the mail window and the pages of the other file in Replace Pages read page labels as Print
    did (`parse_pages_labelled`, `range_labels`), behind the preference Use Page Labels.
 
-### 0.26.0 — scans the right way up
+### 0.26.0 — scans the right way up (released in 0.43.0, 4 November 2026)
 
 Sheets fed the wrong way round (FOL-L012).
 
@@ -388,7 +388,7 @@ Sheets fed the wrong way round (FOL-L012).
    (`imaging::upright_turn`); the page is turned by its rotation, counting the placement of the
    picture and the rotation it has (`ScanFix::Turn`, `ScansCleaned`).
 
-### 0.27.0 — a history of changes
+### 0.27.0 — a history of changes (released in 0.43.0, 4 November 2026)
 
 Undo steps with names, and a way back to any of them (FOL-L004).
 
@@ -398,7 +398,7 @@ Undo steps with names, and a way back to any of them (FOL-L004).
    `AppState::with_active`); the History of Changes pane lists them and goes back or forward to
    any with a click.
 
-### 0.28.0 — tables that read right
+### 0.28.0 — tables that read right (released in 0.43.0, 4 November 2026)
 
 Tables of the tags that a screen reader can follow (FOL-L041).
 
@@ -408,7 +408,7 @@ Tables of the tags that a screen reader can follow (FOL-L041).
    rows `/ColSpan`: the columns their text covers, measured against the widest row, or the last
    cell the rest when the page does not tell.
 
-### 0.29.0 — words read with doubt, found
+### 0.29.0 — words read with doubt, found (released in 0.43.0, 4 November 2026)
 
 The doubtful words of text recognition where words are looked for (FOL-L014).
 
@@ -419,7 +419,7 @@ The doubtful words of text recognition where words are looked for (FOL-L014).
 2. ~~**FOL-L014 — doubtful words in the search.**~~ Done: Only Words Read with Doubt keeps the
    results on them (`hits_on_doubtful`).
 
-### 0.30.0 — measures and marks kept
+### 0.30.0 — measures and marks kept (released in 0.43.0, 4 November 2026)
 
 What a measurement and a tick mark were set up with, changed or kept (FOL-L028, FOL-L029).
 
@@ -428,7 +428,7 @@ What a measurement and a tick mark were set up with, changed or kept (FOL-L028, 
 2. ~~**FOL-L029 — saved sets of tick styles.**~~ Done: named sets of shape, sequence, size and colour
    in the tick marks window (`tick.sets`).
 
-### 0.31.0 — presentation
+### 0.31.0 — presentation (released in 0.43.0, 4 November 2026)
 
 Documents shown as slides (FOL-L001).
 
@@ -436,7 +436,7 @@ Documents shown as slides (FOL-L001).
    page pictures fitted to the screen, with the transitions of Page Transitions played as
    animations and the display time of each page (`page_display_time`) moving on by itself.
 
-### 0.32.0 — tabs dragged
+### 0.32.0 — tabs dragged (released in 0.43.0, 4 November 2026)
 
 Tabs arranged with the mouse (FOL-L002).
 
@@ -444,7 +444,7 @@ Tabs arranged with the mouse (FOL-L002).
    (`reorder_tab`, the groups keeping the order of the tabs); dropped on the strip of the other
    group, it moves there (`move_tab_to_group`).
 
-### 0.33.0 — table summaries
+### 0.33.0 — table summaries (released in 0.43.0, 4 November 2026)
 
 What a table holds, said before it is read (FOL-L041).
 
@@ -452,7 +452,7 @@ What a table holds, said before it is read (FOL-L041).
    asking (`Fix::Ask`): Table Summaries shows every table with its picture
    (`table_summaries`, `set_table_summaries`; an empty summary taken away).
 
-### 0.34.0 — articles
+### 0.34.0 — articles (released in 0.43.0, 4 November 2026)
 
 Stories that run across columns and pages (FOL-L022).
 
@@ -460,28 +460,28 @@ Stories that run across columns and pages (FOL-L022).
    their beads followed round to the first) and shows the area of a bead with a click;
    `add_article` makes a thread in one undo step.
 
-### 0.35.0 — articles that come along
+### 0.35.0 — articles that come along (released in 0.43.0, 4 November 2026)
 
 The threads of the pages taken from another file (FOL-L015).
 
 1. ~~**FOL-L015 — article threads of an inserted file.**~~ Done: the threads of the source join the
    `/Threads` of the document with the pages they run on.
 
-### 0.36.0 — the Article tool
+### 0.36.0 — the Article tool (released in 0.43.0, 4 November 2026)
 
 Article threads drawn on the pages (FOL-L022).
 
 1. ~~**FOL-L022 — an article tool.**~~ Done: `Tool::Article`, its parts kept until Enter
    (`commands::articles`, `Dialog::ArticleTitle`) and made with `add_article`.
 
-### 0.37.0 — articles seen on the page
+### 0.37.0 — articles seen on the page (released in 0.43.0, 4 November 2026)
 
 Where the parts of an article are (FOL-L022).
 
 1. ~~**FOL-L022 — parts of articles shown.**~~ Done: boxes numbered by thread and part
    (`View::article_parts` of the page), dashed for the parts being drawn.
 
-### 0.38.0 — articles edited
+### 0.38.0 — articles edited (released in 0.43.0, 4 November 2026)
 
 Threads changed after they are made (FOL-L022).
 
@@ -489,14 +489,14 @@ Threads changed after they are made (FOL-L022).
    `delete_article_part` (the beads around joined, the first replaced, the beads taken off the
    lists of their pages), with their buttons in the Articles pane.
 
-### 0.39.0 — articles rearranged
+### 0.39.0 — articles rearranged (released in 0.43.0, 4 November 2026)
 
 Parts added to a thread and moved in it (FOL-L022).
 
 1. ~~**FOL-L022 — parts added and moved.**~~ Done: `add_article_parts` (the Article tool drawing for
    a chosen article, `TARGET`), `move_article_part`; the beads linked round again (`link_beads`).
 
-### 0.40.0 — chosen flattening, reading where clicked
+### 0.40.0 — chosen flattening, reading where clicked (released in 0.43.0, 4 November 2026)
 
 What is merged into the page, and where reading begins (FOL-L016, FOL-L042).
 
@@ -506,7 +506,7 @@ What is merged into the page, and where reading begins (FOL-L016, FOL-L042).
 2. ~~**FOL-L042 — reading from a paragraph clicked on the page.**~~ Done: a double click with the
    reading bar open reads from the paragraph under the pointer.
 
-### 0.41.0 — scans cleaner still
+### 0.41.0 — scans cleaner still (released in 0.43.0, 4 November 2026)
 
 Specks and black and white in the clean-up of scans (FOL-L012).
 
@@ -514,7 +514,7 @@ Specks and black and white in the clean-up of scans (FOL-L012).
    `despeckle` and `black_white`, `ScanFix::Despeckle` and `ScanFix::BlackWhite` for every kept
    scan (black and white last), counted in `ScansCleaned`; two boxes of the window.
 
-### 0.42.0 — fonts that are used
+### 0.42.0 — fonts that are used (released in 0.43.0, 4 November 2026)
 
 The Fonts pane without the fonts nothing draws with (FOL-L004).
 
@@ -522,7 +522,7 @@ The Fonts pane without the fonts nothing draws with (FOL-L004).
    is read for the names it uses (`Tf`, `gs`, `Do`); what it does not name does not count, and
    everything counts when the content cannot be read.
 
-### 0.43.0 — fronts and backs
+### 0.43.0 — fronts and backs (released 4 November 2026)
 
 Two stacks of scans put in order after scanning (FOL-L012).
 

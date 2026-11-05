@@ -40,6 +40,8 @@ pub enum EngineKind {
 pub enum Spoken {
     Ended(u64),
     Failed(u64, String),
+    /// The engine begins the word at this character of the text spoken.
+    Word(u64, usize),
 }
 
 /// The sending end of the ends of utterances, and its receiving end until
@@ -127,6 +129,8 @@ window.folitectaSpeech = window.folitectaSpeech || (() => {
       if (v) { u.voice = v; u.lang = v.lang; }
       u.rate = rate;
       u.onend = () => { if (current === u) current = null; send(['end', id]); };
+      // Where each word begins, in characters (not UTF-16 units) of the text.
+      u.onboundary = e => { if (e.name === undefined || e.name === 'word') send(['word', id, Array.from(text.slice(0, e.charIndex)).length]); };
       u.onerror = e => { if (current === u) current = null; send(['error', id, String(e.error || 'error')]); };
       current = u;
       s.speak(u);
@@ -158,6 +162,11 @@ async fn web_ready() {
             let id = m.get(1).and_then(|v| v.as_u64()).unwrap_or(0);
             match m.first().and_then(|v| v.as_str()) {
                 Some("end") => tell(Spoken::Ended(id)),
+                Some("word") => {
+                    if let Some(at) = m.get(2).and_then(|v| v.as_u64()) {
+                        tell(Spoken::Word(id, at as usize));
+                    }
+                }
                 Some("error") => {
                     let why = m.get(2).and_then(|v| v.as_str()).unwrap_or("error").to_string();
                     tell(Spoken::Failed(id, why))
@@ -230,7 +239,22 @@ pub fn speak(id: u64, text: &str, voice: &str, rate: f32) {
                 said.push(text.to_string());
             }
             set_stand_in_paused(false);
+            // Where each word begins, told at once: the stand-in takes no
+            // longer than before for a paragraph.
+            let words: Vec<usize> = text
+                .char_indices()
+                .scan(true, |space, (_, c)| {
+                    let begins = *space && !c.is_whitespace();
+                    *space = c.is_whitespace();
+                    Some(begins)
+                })
+                .enumerate()
+                .filter_map(|(i, b)| b.then_some(i))
+                .collect();
             dioxus::core::spawn_forever(async move {
+                for at in words {
+                    tell(Spoken::Word(id, at));
+                }
                 tokio::time::sleep(std::time::Duration::from_millis(60)).await;
                 while stand_in_paused() {
                     tokio::time::sleep(std::time::Duration::from_millis(20)).await;

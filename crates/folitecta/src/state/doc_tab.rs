@@ -172,6 +172,8 @@ pub struct DocTab {
     /// The paragraph being read aloud: its page and the rectangles of its
     /// lines (display points).
     pub reading: Option<(usize, Vec<[f32; 4]>)>,
+    /// The word being read, on its page (rectangles, display space).
+    pub reading_word: Option<(usize, Vec<[f32; 4]>)>,
     /// Signature validation results, and the state they are for (see
     /// `commands::signatures::status_key`).
     pub sig_status: Option<(
@@ -356,6 +358,7 @@ impl DocTab {
             selected_dest: None,
             flash: None,
             reading: None,
+            reading_word: None,
             sig_status: None,
             revocation: Default::default(),
             revocation_gen: 0,

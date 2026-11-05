@@ -109,6 +109,28 @@ pub(crate) fn message(text: &str) -> String {
     format!("{one}\r\n.\r\n")
 }
 
+/// `text` as SSML with a mark before every word, named after the character
+/// the word begins at (`w12`).
+pub(crate) fn marked(text: &str) -> String {
+    let mut out = String::from("<speak>");
+    let mut space = true;
+    for (i, c) in text.chars().enumerate() {
+        if space && !c.is_whitespace() {
+            out.push_str(&format!("<mark name=\"w{i}\"/>"));
+        }
+        space = c.is_whitespace();
+        match c {
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '&' => out.push_str("&amp;"),
+            '"' => out.push_str("&quot;"),
+            _ => out.push(c),
+        }
+    }
+    out.push_str("</speak>");
+    out
+}
+
 /// The speed of speech-dispatcher (-100 to 100, 0 normal) for a rate of
 /// speech (0.5 to 2, 1 normal): half and double speed at the ends.
 pub(crate) fn ssip_rate(rate: f32) -> i32 {
@@ -194,6 +216,8 @@ struct Session {
     voice: Option<String>,
     rate: Option<i32>,
     voices: Vec<Voice>,
+    /// The service takes SSML and tells its marks: each word is marked.
+    marks: bool,
 }
 
 impl Session {
@@ -233,6 +257,17 @@ impl Session {
             return;
         };
         match b.code {
+            // An index mark: the word that begins at its character.
+            700 => {
+                if let Some(at) = b
+                    .data
+                    .get(2)
+                    .and_then(|m| m.strip_prefix('w'))
+                    .and_then(|n| n.parse().ok())
+                {
+                    tell(Spoken::Word(id, at));
+                }
+            }
             702 => {
                 self.spoken.remove(&msg);
                 tell(Spoken::Ended(id));
@@ -265,6 +300,11 @@ impl Session {
             .is_some_and(|b| b.ok())
             && self
                 .request("SET self NOTIFICATION cancel on")
+                .is_some_and(|b| b.ok());
+        // The words read: a mark before each, told back as it is reached.
+        self.marks = self.request("SET self SSML_MODE on").is_some_and(|b| b.ok())
+            && self
+                .request("SET self NOTIFICATION index_marks on")
                 .is_some_and(|b| b.ok());
         // One paragraph at a time, each sent when the one before ends.
         let _ = self.request("SET self PRIORITY text");
@@ -310,7 +350,12 @@ impl Session {
             failed();
             return;
         }
-        if self.stream.write_all(message(text).as_bytes()).is_err() {
+        let text = if self.marks {
+            marked(text)
+        } else {
+            text.to_string()
+        };
+        if self.stream.write_all(message(&text).as_bytes()).is_err() {
             failed();
             return;
         }
@@ -402,6 +447,7 @@ fn open(path: &Path) -> Option<Sender<Msg>> {
         voice: None,
         rate: None,
         voices: Vec::new(),
+        marks: false,
     };
     if !session.start() {
         let _ = session.stream.shutdown(Shutdown::Both);
@@ -526,6 +572,14 @@ pub fn cancel() {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn words_are_marked_by_the_character_they_begin_at() {
+        assert_eq!(
+            marked("Two <words> & more"),
+            "<speak><mark name=\"w0\"/>Two <mark name=\"w4\"/>&lt;words&gt; <mark name=\"w12\"/>&amp; <mark name=\"w14\"/>more</speak>"
+        );
+    }
+
     use super::*;
     use std::io::Cursor;
     use std::os::unix::net::UnixListener;

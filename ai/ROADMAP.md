@@ -530,6 +530,15 @@ Two stacks of scans put in order after scanning (FOL-L012).
    (`document.interleavePages`) with the number of fronts and the order of the backs, through
    `interleave_backs`.
 
+### 0.44.0 — words marked as they are read
+
+Following the voice word by word (FOL-L042).
+
+1. ~~**FOL-L042 — words marked as they are read.**~~ Done: the engines tell where each word begins
+   (`Spoken::Word`: the `boundary` events of the web view's speech, the index marks of
+   speech-dispatcher with a mark before every word in SSML), the word found on the page through
+   the characters the read text comes from (`read_word`, `joined_map`) and marked.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -629,7 +638,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
 | FOL-L041 | P1 | 🟡 | accessibility check and report, auto-tagging of the document and of form fields, tags pane, reading order, alternate text | Row spans; manual checks listed in the report. |
-| FOL-L042 | P1 | 🟡 | English and Italian interface, keyboard shortcuts, themes (light, white, dark, black), short tool names with full tooltips; a reflow view; reading aloud with the voices of the system (web view, speech-dispatcher on Linux) | A keyboard-only and screen reader pass; words marked as they are read. |
+| FOL-L042 | P1 | 🟡 | English and Italian interface, keyboard shortcuts, themes (light, white, dark, black), short tool names with full tooltips; a reflow view; reading aloud with the voices of the system (web view, speech-dispatcher on Linux) | A keyboard-only and screen reader pass; words marked tried with real voices on each system. |
 | FOL-L043 | P2 | 🟡 | enable editing of PDF/A files; a PDF/A-2b preflight of 18 rules with findings by page and object, and conversion of a copy that fixes 14 of them (simple fonts that are not embedded become subsets of FreeSans, FreeSerif or FreeMono with the widths of the document) and declares PDF/A-2b only when nothing is left | Composite fonts without a ToUnicode map, characters no FreeFont face has; transparency and the other PDF/A rules; PDF/A-1, -3, PDF/X and PDF/UA profiles; a validator run as part of the checks (veraPDF was run by hand). |
 | FOL-L044 | P2 | 🟡 | conversion of the colours of a document to grey (content, drawings, pictures, comments and fields; what is left reported), a grey preview of the pages that changes nothing | ICC profiles and rendering intents, conversion to CMYK and selective conversion, spot colours, separations and overprint preview. |
 | FOL-L045 | P2 | 🟡 | space usage audit; recompression of the pictures of the document, of pages or of one selected picture, with presets (screen, e-book, print, archive) scaling pictures down to a resolution where they are drawn largest, an estimate picture by picture and a size report; never a larger picture | Fonts and other objects; MRC for scans; quality checks on the reopened file. |

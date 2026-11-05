@@ -4,6 +4,37 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-05 — release 0.43.0: check of the published packages
+
+- **What:** tag `v0.43.0` (`d4e7d5c`, the work planned as 0.24.0 to 0.43.0): CI green (43 min);
+  in the release workflow the three builds were green, but the publishing job was not started
+  ("the account is locked due to a billing issue"). The release was made by hand with
+  `gh release create` from the files of the three builds and `docs/RELEASE_NOTES.md` of the tag,
+  as the job would have.
+- **Found right:** eight files, SHA-256, data folders of Windows and Linux equal (the twelve
+  FreeFont faces in both), self-test steps `tools`, `ocr`, `spelling`, `unicode`, `preflight`,
+  `scans_upright`, `presentation`, `articles` with the packaged Linux executable: 47 interactions,
+  0 problems.
+- **Open:** the account's billing has to be settled before the next workflow runs; the Windows
+  executable was not run here (no WebView2 runtime in Wine).
+
+## 2026-11-05 — FOL-L042: words marked as they are read (0.44.0)
+
+- **Current state before:** the paragraph read was marked, not the word.
+- **What:** `Spoken::Word`; the web view's speech sends its `boundary` events (in characters, not
+  UTF-16 units); speech-dispatcher gets SSML with a mark `w<character>` before every word when it
+  takes `SSML_MODE` and index marks (code 700 events); the stand-in tells every word at once;
+  `Document::read_word` and `joined_map` (the characters of the page each character read comes
+  from); `DocTab::reading_word`, the `.reading-word` mark of the page.
+- **Checked:** `reading.rs` (words found by their offsets, also from inside a word), the unit
+  tests of the map (a word broken at the end of a line) and of the marks; self-test steps `flatten_read` (a word marked while
+  reading) and `reading`. The first run made the stand-in wait between words, which made a long
+  paragraph outlast the step `reading`; it tells the words at once now. In the whole run the
+  step still failed: every word drew the page again, which slowed the window; words that come
+  together are now marked once, the last of them.
+- **Open:** tried with real voices on Windows, macOS and Linux (no engine here); the reflow view
+  marks paragraphs only.
+
 ## 2026-11-03 — FOL-L012: fronts and backs (0.43.0)
 
 - **Current state before:** backs were put between the fronts only while scanning with the

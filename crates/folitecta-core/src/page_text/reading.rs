@@ -23,34 +23,54 @@ pub struct ReadBlock {
 /// The text of characters `a..b` of a page: lines joined with spaces, a word
 /// broken by a hyphen at the end of a line joined again.
 fn joined(chars: &[char]) -> String {
-    let mut out = String::new();
+    joined_map(chars).0
+}
+
+/// [`joined`], with the place in `chars` of every character of the text.
+fn joined_map(chars: &[char]) -> (String, Vec<usize>) {
+    let mut out: Vec<(char, usize)> = Vec::new();
     let mut i = 0;
     while i < chars.len() {
         let c = chars[i];
         if c == '\n' {
-            let end = out.trim_end();
+            while out.last().is_some_and(|(c, _)| *c == ' ') {
+                out.pop();
+            }
             let after = chars[i + 1..].iter().find(|c| !c.is_whitespace()).copied();
             // A hyphen right after a letter at the end of the line: a word
             // broken (before a small letter) or a compound (before a capital).
-            let hyphen = end.ends_with('-')
-                && end.chars().rev().nth(1).is_some_and(|p| p.is_alphabetic())
+            let n = out.len();
+            let hyphen = n >= 2
+                && out[n - 1].0 == '-'
+                && out[n - 2].0.is_alphabetic()
                 && after.is_some_and(|a| a.is_alphabetic());
             if hyphen {
-                let keep = end.len() - usize::from(after.is_some_and(|a| a.is_lowercase()));
-                out.truncate(keep);
+                if after.is_some_and(|a| a.is_lowercase()) {
+                    out.pop();
+                }
                 // The next line follows with no space.
                 while chars.get(i + 1).is_some_and(|c| c.is_whitespace()) {
                     i += 1;
                 }
-            } else if !out.ends_with(' ') {
-                out.push(' ');
+            } else if out.last().is_some_and(|(c, _)| *c != ' ') {
+                out.push((' ', i));
+            }
+        } else if c.is_whitespace() {
+            if out.last().is_some_and(|(c, _)| *c != ' ') {
+                out.push((' ', i));
             }
         } else {
-            out.push(c);
+            out.push((c, i));
         }
         i += 1;
     }
-    out.split_whitespace().collect::<Vec<_>>().join(" ")
+    while out.last().is_some_and(|(c, _)| *c == ' ') {
+        out.pop();
+    }
+    (
+        out.iter().map(|(c, _)| *c).collect(),
+        out.iter().map(|(_, i)| *i).collect(),
+    )
 }
 
 /// Sizes in half points.
@@ -71,6 +91,33 @@ fn without_digits(text: &str) -> String {
 }
 
 impl Document {
+    /// The characters of the page text of the word that begins at character
+    /// `offset` of the text of `block` (as it is read): `[start, end)`.
+    /// `None` when the block's text is not that of its page any more.
+    pub fn read_word(&self, block: &ReadBlock, offset: usize) -> Option<(usize, usize)> {
+        let layers = self.text_layers();
+        let chars: Vec<char> = layers.get(block.page)?.text.chars().collect();
+        let (a, b) = (block.start.min(chars.len()), block.end.min(chars.len()));
+        let (text, map) = joined_map(&chars[a..b]);
+        if text != block.text {
+            return None;
+        }
+        let spoken: Vec<char> = text.chars().collect();
+        // From the start of the word the offset falls in to its end.
+        let mut first = offset.min(spoken.len().checked_sub(1)?);
+        while first > 0 && !spoken[first - 1].is_whitespace() {
+            first -= 1;
+        }
+        let mut last = first;
+        while last + 1 < spoken.len() && !spoken[last + 1].is_whitespace() {
+            last += 1;
+        }
+        if spoken[first].is_whitespace() {
+            return None;
+        }
+        Some((a + map[first], a + map[last] + 1))
+    }
+
     /// The paragraphs of pages `pages` as they are read (see the module).
     pub fn reading_blocks(&self, pages: std::ops::Range<usize>) -> Vec<ReadBlock> {
         let layers = self.text_layers();
@@ -193,5 +240,18 @@ mod tests {
         assert_eq!(joined(&chars("well -\nknown")), "well - known");
         assert_eq!(joined(&chars("Rhein-\nMain")), "Rhein-Main");
         assert_eq!(without_digits("Page 12 of 40"), without_digits("page 3 of 40"));
+    }
+
+    #[test]
+    fn every_character_read_has_its_place_on_the_page() {
+        let source = chars("an exam-\nple  of it");
+        let (text, map) = joined_map(&source);
+        assert_eq!(text, "an example of it");
+        assert_eq!(map.len(), text.chars().count());
+        // "ple" comes from the second line, "of" after two spaces.
+        assert_eq!(source[map[7]], 'p');
+        assert_eq!(map[7], 9);
+        assert_eq!(source[map[11]], 'o');
+        assert_eq!(map[11], 14);
     }
 }

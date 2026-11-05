@@ -2,7 +2,6 @@
 //! author left out flattens only the others'; with the reading bar open, a
 //! double click on the second paragraph of a page reads from it.
 
-use crate::commands::read_aloud::READ;
 use crate::state::Zoom;
 
 use super::*;
@@ -78,9 +77,12 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         ))
         .await;
     }
-    for _ in 0..40 {
-        pause(25).await;
-        if READ.peek().running {
+    // While it reads, the word read is marked on the page.
+    let mut word_marked = false;
+    for _ in 0..80 {
+        pause(10).await;
+        if st.read_active(|t| t.reading_word.is_some()).unwrap_or(false) {
+            word_marked = true;
             break;
         }
     }
@@ -94,10 +96,13 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
     cx.record(
-        "Flatten Comments with an author left out keeps that author's notes; a double click on a paragraph reads from it",
+        "Flatten Comments with an author left out keeps that author's notes; a double click on a paragraph reads from it, the word read marked",
         // The stand-in voice says the paragraphs at once: the first said is
         // where the reading began.
-        left == ["Bruno"] && second.is_some() && said.first().is_some_and(|s| s.starts_with("The second")),
-        format!("notes left {left:?}, second paragraph at {second:?}, said {said:?}"),
+        left == ["Bruno"]
+            && second.is_some()
+            && said.first().is_some_and(|s| s.starts_with("The second"))
+            && word_marked,
+        format!("notes left {left:?}, second paragraph at {second:?}, said {said:?}, word marked {word_marked}"),
     );
 }

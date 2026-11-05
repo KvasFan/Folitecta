@@ -6,6 +6,10 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- While a page is read aloud, the word being read is marked on it, as the voice reaches it (the
+  voices of the system on Windows and macOS, speech-dispatcher on Linux).
+
 ## [0.43.0] - 2026-11-04
 
 ### Added

@@ -54,3 +54,26 @@ fn documents_are_read_paragraph_by_paragraph() {
     let last = doc.page_count() - 1;
     assert!(doc.reading_blocks(last..last + 1).iter().all(|b| b.page == last));
 }
+
+#[test]
+fn the_word_read_is_found_on_its_page() {
+    let doc = folitecta_core::Document::from_text(
+        "The first paragraph of the page.\n\nThe second paragraph, read word by word.",
+        folitecta_core::TextLayout::default(),
+    )
+    .unwrap();
+    let blocks = doc.reading_blocks(0..1);
+    let second = blocks.iter().find(|b| b.text.starts_with("The second")).unwrap();
+    let text = doc.page_text(0);
+    let chars: Vec<char> = text.chars().collect();
+    let word = |offset: usize| {
+        doc.read_word(second, offset)
+            .map(|(a, b)| chars[a..b].iter().collect::<String>())
+    };
+    // "paragraph," begins at 11 of what is read; an offset inside it finds it too.
+    assert_eq!(word(11).as_deref(), Some("paragraph,"));
+    assert_eq!(word(14).as_deref(), Some("paragraph,"));
+    assert_eq!(word(0).as_deref(), Some("The"));
+    let last = second.text.chars().count() - 1;
+    assert_eq!(word(last).as_deref(), Some("word."));
+}

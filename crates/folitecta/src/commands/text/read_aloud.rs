@@ -63,10 +63,32 @@ pub fn voice(st: AppState) -> String {
 pub fn follow(st: AppState) {
     let Some(mut rx) = speech::events() else { return };
     dioxus::core::spawn_forever(async move {
-        while let Some(ev) = rx.recv().await {
+        let mut next: Option<Spoken> = None;
+        loop {
+            let ev = match next.take() {
+                Some(ev) => ev,
+                None => match rx.recv().await {
+                    Some(ev) => ev,
+                    None => break,
+                },
+            };
             let (id, failed) = match ev {
                 Spoken::Ended(id) => (id, None),
                 Spoken::Failed(id, why) => (id, Some(why)),
+                Spoken::Word(mut id, mut at) => {
+                    // Words that came together: only the last is marked.
+                    while let Ok(more) = rx.try_recv() {
+                        match more {
+                            Spoken::Word(i, a) => (id, at) = (i, a),
+                            other => {
+                                next = Some(other);
+                                break;
+                            }
+                        }
+                    }
+                    mark_word(st, id, at);
+                    continue;
+                }
             };
             let current = {
                 let r = READ.peek();
@@ -221,6 +243,27 @@ pub fn go_to(st: AppState, i: usize) {
     speech::speak(id, &block.text, &voice(st), rate(st));
 }
 
+/// Mark the word utterance `id` begins at character `at` of its text.
+fn mark_word(st: AppState, id: u64, at: usize) {
+    let block = {
+        let r = READ.peek();
+        if !r.running || r.utterance != id || st.read_active(|t| t.id) != Some(r.tab) {
+            return;
+        }
+        r.blocks.get(r.current).cloned()
+    };
+    let Some(b) = block else { return };
+    let rects = st
+        .read_active(|t| {
+            let (a, e) = t.doc.read_word(&b, at)?;
+            t.doc.text_layer(b.page).map(|l| l.range_rects(a, e))
+        })
+        .flatten();
+    if let Some(rects) = rects {
+        st.with_active(|t| t.reading_word = Some((b.page, rects)));
+    }
+}
+
 /// Mark the paragraph read on its page and bring it into view (the reflow
 /// view keeps it in view itself).
 fn mark(st: AppState, b: &ReadBlock) {
@@ -241,7 +284,10 @@ fn mark(st: AppState, b: &ReadBlock) {
         .unwrap_or_default();
     let page = b.page;
     let top = rects.first().map(|r| r[1]);
-    st.with_active(|t| t.reading = Some((page, rects)));
+    st.with_active(|t| {
+        t.reading = Some((page, rects));
+        t.reading_word = None;
+    });
     if option_on(st, "view.reflow") {
         return;
     }
@@ -329,6 +375,7 @@ pub fn stop(st: AppState) {
         let mut docs = st.docs_mut();
         if let Some(t) = docs.iter_mut().find(|t| t.id == tab) {
             t.reading = None;
+            t.reading_word = None;
         }
     }
 }

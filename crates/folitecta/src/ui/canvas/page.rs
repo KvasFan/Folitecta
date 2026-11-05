@@ -89,6 +89,8 @@ pub(super) fn PageView(
         boxes: Vec<(&'static str, [f32; 4])>,
         /// The lines of the paragraph read aloud.
         reading: Vec<[f32; 4]>,
+        /// The word being read aloud.
+        reading_word: Vec<[f32; 4]>,
         /// Tab order and calculation order numbers of the form fields: label, calculation, rectangle.
         field_marks: Vec<(String, bool, [f32; 4])>,
         /// Reading order boxes: label, selected, rectangle (display space).
@@ -395,6 +397,12 @@ pub(super) fn PageView(
                 },
                 reading: t
                     .reading
+                    .as_ref()
+                    .filter(|(p, _)| *p == page)
+                    .map(|(_, r)| r.clone())
+                    .unwrap_or_default(),
+                reading_word: t
+                    .reading_word
                     .as_ref()
                     .filter(|(p, _)| *p == page)
                     .map(|(_, r)| r.clone())
@@ -1234,6 +1242,9 @@ pub(super) fn PageView(
                 }
                 for (i, r) in view.reading.iter().enumerate() {
                     div { key: "rd{i}", class: "reading-mark", style: "{css(*r)}" }
+                }
+                for (i, r) in view.reading_word.iter().enumerate() {
+                    div { key: "rw{i}", class: "reading-word", style: "{css(*r)}" }
                 }
                 for pv in view.popups.iter().cloned() {
                     PopupNote { key: "pn{pv.index}", page, view: pv, zoom: z, size, view_rotation, area_w: inner_w, area_h: inner_h }

@@ -4,6 +4,22 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-05 — FOL-L009: pictures in the office exports (0.45.0)
+
+- **Current state before:** DOCX, RTF and HTML held the text only; the pictures were counted as
+  left out.
+- **What:** `organize/office.rs`: `Piece::Picture`, `Picture` (data, JPEG or PNG, pixels, size),
+  `office_pictures` (place by the top on the page, specks and the scan of a page with text left
+  out) and `office_picture` (the JPEG data when it is the only filter and the picture upright, the
+  pixels as PNG, the page drawn over a turned or mirrored picture); `docx_picture` (inline drawing,
+  `rIdImg<n>`, `word/media`), `\pngblip` and `\jpegblip` in RTF, `data:` addresses in HTML;
+  `OfficeExport::pictures` and the report of the window.
+- **Checked:** `office.rs` (the picture between the paragraphs at 40 points in EMU, its PNG of
+  20 × 20 pixels in `word/media`, its RTF and HTML; a photograph kept as JPEG; a speck left out; a
+  page that is only a picture exported); the exports opened by pandoc 3 (`OFFICE_DUMP`): the
+  picture extracted at 0.56 in, before "Results"; self-test step `office`.
+- **Open:** tables as tables; the pictures of reused drawings (forms) are not exported.
+
 ## 2026-11-05 — release 0.43.0: check of the published packages
 
 - **What:** tag `v0.43.0` (`d4e7d5c`, the work planned as 0.24.0 to 0.43.0): CI green (43 min);

@@ -530,7 +530,7 @@ Two stacks of scans put in order after scanning (FOL-L012).
    (`document.interleavePages`) with the number of fronts and the order of the backs, through
    `interleave_backs`.
 
-### 0.44.0 — words marked as they are read
+### 0.44.0 — words marked as they are read (released in 0.45.0, 5 November 2026)
 
 Following the voice word by word (FOL-L042).
 
@@ -538,6 +538,16 @@ Following the voice word by word (FOL-L042).
    (`Spoken::Word`: the `boundary` events of the web view's speech, the index marks of
    speech-dispatcher with a mark before every word in SSML), the word found on the page through
    the characters the read text comes from (`read_word`, `joined_map`) and marked.
+
+### 0.45.0 — pictures in the office exports (released 5 November 2026)
+
+Word, rich text and web pages with the pictures of the pages (FOL-L009).
+
+1. ~~**FOL-L009 — pictures exported.**~~ Done: the pictures of each page go among its paragraphs by
+   their place (before the first paragraph below their top), at their size on the page (no wider
+   than the text): inline drawings with `word/media` in DOCX, `\pngblip` and `\jpegblip` in RTF,
+   data addresses in HTML; JPEG data kept as it is, other pictures as PNG, those turned or
+   mirrored drawn from the page; specks and the scan of a page with text left out and counted.
 
 ### Later
 
@@ -565,7 +575,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L006 | P2 | 🟡 | e-mail messages (EML) made into documents: header lines, text, attachments embedded | Mail archives; office formats and HTML need a local engine decision. |
 | FOL-L007 | P2 | ⬜ | — | File associations (`help.fileAssoc`), virtual printer, office add-ins. |
 | FOL-L008 | P2 | ⬜ | — | XPS/OXPS, metafiles, CAD: engine decision first. |
-| FOL-L009 | P1/P2 | 🟡 | export to pictures (PNG, JPEG, TIFF, …), text, embedded pictures, attachments, split and extracted documents; the text as editable Word (DOCX), rich text (RTF) and web page (HTML) documents, headings and paragraphs in reading order, page breaks on request, a report of what is left out | Pictures, tables with their columns and number types (XLSX), PPTX, page fidelity layouts, accessible text export. |
+| FOL-L009 | P1/P2 | 🟡 | export to pictures (PNG, JPEG, TIFF, …), text, embedded pictures, attachments, split and extracted documents; the text as editable Word (DOCX), rich text (RTF) and web page (HTML) documents, headings and paragraphs in reading order, page breaks on request, a report of what is left out | Tables with their columns and number types (XLSX), PPTX, page fidelity layouts, accessible text export. |
 | FOL-L010 | P1 | 🟡 | stamps have categories and favourites; a gallery of document templates (papers, week and month planners, a to-do list, a letter, meeting notes, an invoice that adds itself up) on any paper, in the language of the interface; the user's own templates (Save as Template…, My templates in the gallery with origin, date, version and the fonts they need; new documents from them, rename, remove) | — |
 
 ### Scanning and OCR

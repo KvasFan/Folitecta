@@ -88,6 +88,7 @@ pub fn write_export(st: AppState, format: OfficeFormat, all: bool, page_breaks: 
                     &[
                         ("paragraphs", &out.paragraphs.to_string()),
                         ("headings", &out.headings.to_string()),
+                        ("pictures", &out.pictures.to_string()),
                     ],
                 );
                 for (what, k) in &out.left_out {

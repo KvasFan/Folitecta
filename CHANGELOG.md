@@ -6,7 +6,14 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-11-05
+
 ### Added
+- The export to Word (DOCX), rich text (RTF) and web page (HTML) carries the pictures of the pages,
+  each where it stands among the paragraphs and at the size it has on the page: photographs kept as
+  JPEG, the other pictures as PNG, turned or mirrored ones as the page shows them; the web page
+  holds them in itself. Specks, and the picture of a scanned page whose text is exported, are left
+  out and counted.
 - While a page is read aloud, the word being read is marked on it, as the voice reaches it (the
   voices of the system on Windows and macOS, speech-dispatcher on Linux).
 

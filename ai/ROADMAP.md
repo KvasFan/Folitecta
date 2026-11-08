@@ -670,6 +670,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    lines running down measured on the picture turned a quarter; when the way up cannot be told, it
    is told on a copy straightened by the skew, as it lies and turned a quarter.
 
+### 0.65.0 — chosen pages to grey (on `main`, untagged)
+
+1. ~~**FOL-L044 — selective conversion.**~~ Done: `convert_pages_to_grey` and
+   `estimate_pages_grey` (what only those pages reach changes; shared objects counted as kept);
+   the pages of the Convert Colours to Grey window.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -771,7 +777,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L041 | P1 | 🟡 | accessibility check and report, auto-tagging of the document and of form fields, tags pane, reading order, alternate text | Cells spanning rows in the middle of a row; manual checks listed in the report. |
 | FOL-L042 | P1 | 🟡 | English and Italian interface, keyboard shortcuts, themes (light, white, dark, black), short tool names with full tooltips; a reflow view; reading aloud with the voices of the system (web view, speech-dispatcher on Linux) | A keyboard-only and screen reader pass; words marked tried with real voices on each system. |
 | FOL-L043 | P2 | 🟡 | enable editing of PDF/A files; a PDF/A-2b preflight of 18 rules with findings by page and object, and conversion of a copy that fixes 14 of them (simple fonts that are not embedded become subsets of FreeSans, FreeSerif or FreeMono with the widths of the document) and declares PDF/A-2b only when nothing is left | Composite fonts without a ToUnicode map, characters no FreeFont face has; transparency and the other PDF/A rules; PDF/A-1, -3, PDF/X and PDF/UA profiles; a validator run as part of the checks (veraPDF was run by hand). |
-| FOL-L044 | P2 | 🟡 | conversion of the colours of a document to grey (content, drawings, pictures, comments and fields; what is left reported), a grey preview of the pages that changes nothing | ICC profiles and rendering intents, conversion to CMYK and selective conversion, spot colours, separations and overprint preview. |
+| FOL-L044 | P2 | 🟡 | conversion of the colours of a document to grey (content, drawings, pictures, comments and fields; what is left reported), a grey preview of the pages that changes nothing | ICC profiles and rendering intents, conversion to CMYK, spot colours, separations and overprint preview. |
 | FOL-L045 | P2 | 🟡 | space usage audit; recompression of the pictures of the document, of pages or of one selected picture, with presets (screen, e-book, print, archive) scaling pictures down to a resolution where they are drawn largest, an estimate picture by picture and a size report; never a larger picture; fonts, pictures and colour profiles held several times kept once, unused objects removed | Font subsets merged; MRC for scans; quality checks on the reopened file. |
 | FOL-L046 | P1/P2 | 🟡 | a print window of its own with a sheet preview and the printers of the computer: ranges by number or label, odd/even, reverse, copies and collation, comments and fields, fit/actual/shrink/custom scale, paper by page, 2–16 pages per sheet, booklet, poster, two-sided order, colour; jobs sent directly (IPP with a vector print file on Linux and macOS, GDI pictures up to 600 dpi on Windows); Save as PDF; print permissions; portfolio printing of its own files | Verification on real printers (order, scale, margins, counts); vector output on Windows; booklets on both sides without a duplex printer. |
 

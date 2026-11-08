@@ -109,6 +109,7 @@
   "grey.kept.pattern": "patterns",
   "grey.kept.picture": "pictures that cannot be read",
   "grey.kept.shading": "shadings",
+  "grey.kept.shared": "pictures and drawings other pages share",
   "grey.kept.spot": "spot colours",
   "grey.nothing": "Nothing to convert: the document is already grey.",
   "grey.title": "Convert Colours to Grey",

@@ -139,3 +139,45 @@ fn spot_colours_are_left_and_counted() {
     let text = String::from_utf8_lossy(&doc.inner().get_page_content(pid)).to_string();
     assert!(text.contains("/CS0 cs") && !text.contains(" rg"), "{text}");
 }
+
+#[test]
+fn chosen_pages_become_grey_and_what_others_share_stays() {
+    use folitecta_core::testdocs::Builder;
+    let mut b = Builder::new();
+    let png = picture(image::ImageFormat::Png);
+    let rgb = image::load_from_memory(&png).unwrap().to_rgb8();
+    let picture_object = |b: &mut Builder| {
+        let mut z = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        std::io::Write::write_all(&mut z, rgb.as_raw()).unwrap();
+        b.image(80, 60, "DeviceRGB", 8, "FlateDecode", z.finish().unwrap())
+    };
+    let shared = picture_object(&mut b);
+    let own = picture_object(&mut b);
+    let content =
+        b"1 0 0 rg 20 20 100 50 re f q 80 0 0 60 200 200 cm /S Do Q q 80 0 0 60 200 300 cm /O Do Q".to_vec();
+    for _ in 0..2 {
+        b.page(
+            (400.0, 400.0),
+            content.clone(),
+            dictionary! { "XObject" => dictionary! { "S" => Object::Reference(shared), "O" => Object::Reference(own) } },
+            vec![],
+        );
+    }
+    let mut doc = Document::from_bytes(b.finish(), None, None).unwrap();
+    // Page 0 draws the second picture too: both pictures are shared.
+    let estimate = doc.estimate_pages_grey(&[1]).unwrap();
+    assert_eq!(estimate.pictures, 0, "{estimate:?}");
+    assert_eq!(estimate.kept.get("shared"), Some(&2), "{estimate:?}");
+    assert_eq!(estimate.colours, 1, "{estimate:?}");
+    let r = doc.convert_pages_to_grey(&[1]).unwrap();
+    assert_eq!(r.colours, 1);
+    let text = |doc: &Document, p: usize| {
+        let id = doc.page_ids()[p];
+        String::from_utf8_lossy(&doc.inner().get_page_content(id)).to_string()
+    };
+    assert!(text(&doc, 0).contains("1 0 0 rg"), "{}", text(&doc, 0));
+    assert!(!text(&doc, 1).contains(" rg"), "{}", text(&doc, 1));
+    // The whole document: the pictures too.
+    let all = doc.convert_to_grey().unwrap();
+    assert_eq!(all.pictures, 2, "{all:?}");
+}

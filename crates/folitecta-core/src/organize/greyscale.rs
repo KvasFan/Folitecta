@@ -5,9 +5,11 @@
 //! colours of comments and form fields. What is not converted is counted
 //! and left as it was: patterns, spot colours (Separation, DeviceN), Lab
 //! colours, shadings, pictures inline in the content and pictures that
-//! cannot be read. One undo step; the view's grey preview only simulates.
+//! cannot be read. The whole document, or chosen pages: then what other
+//! pages share stays in colour. One undo step; the view's grey preview
+//! only simulates.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use lopdf::content::{Content, Operation};
 use lopdf::{Dictionary, Object, ObjectId, Stream};
@@ -325,11 +327,50 @@ impl Document {
 
     /// Convert every colour of the document to grey (one undo step).
     pub fn convert_to_grey(&mut self) -> Result<GreyReport> {
+        self.convert_grey_of(None)
+    }
+
+    /// What converting the colours of `pages` to grey would do (nothing
+    /// changes).
+    pub fn estimate_pages_grey(&self, pages: &[usize]) -> Result<GreyReport> {
+        let mut copy = self.duplicate()?;
+        copy.convert_pages_to_grey(pages)
+    }
+
+    /// Convert the colours of `pages` to grey (one undo step): their
+    /// content, and the pictures, drawings, comments and fields only they
+    /// use; what other pages share stays in colour (counted as `shared`).
+    pub fn convert_pages_to_grey(&mut self, pages: &[usize]) -> Result<GreyReport> {
+        self.convert_grey_of(Some(pages))
+    }
+
+    fn convert_grey_of(&mut self, pages: Option<&[usize]>) -> Result<GreyReport> {
         let mut report = GreyReport::default();
         let doc = &self.inner;
         let mut replaced: HashMap<ObjectId, Object> = HashMap::new();
+        // The pages chosen, and the objects only they reach.
+        let scope = pages.map(|chosen| {
+            let (mut mine, mut others) = (Vec::new(), Vec::new());
+            for (i, id) in self.page_ids().into_iter().enumerate() {
+                if chosen.contains(&i) {
+                    mine.push(id);
+                } else {
+                    others.push(id);
+                }
+            }
+            let reach_mine = reach(doc, &mine);
+            let reach_others = reach(doc, &others);
+            let own: HashSet<ObjectId> = reach_mine.difference(&reach_others).copied().collect();
+            let shared: HashSet<ObjectId> = reach_mine.intersection(&reach_others).copied().collect();
+            (mine.into_iter().collect::<HashSet<ObjectId>>(), own, shared)
+        });
+        let outside = |id: &ObjectId| scope.as_ref().is_some_and(|(_, own, _)| !own.contains(id));
+        let shared = |id: &ObjectId| scope.as_ref().is_some_and(|(_, _, s)| s.contains(id));
         // Page contents, with the resources of their pages.
         for (_, pid) in doc.get_pages() {
+            if scope.as_ref().is_some_and(|(mine, _, _)| !mine.contains(&pid)) {
+                continue;
+            }
             let Ok(page) = doc.get_dictionary(pid) else {
                 continue;
             };
@@ -344,6 +385,11 @@ impl Document {
                 Ok(Object::Array(a)) => a.iter().filter_map(|x| x.as_reference().ok()).collect(),
                 _ => Vec::new(),
             };
+            if contents.iter().any(outside) {
+                // Content other pages draw too.
+                report.keep("shared");
+                continue;
+            }
             if contents.len() == 1 {
                 let id = contents[0];
                 if let Ok(Object::Stream(s)) = doc.get_object(id) {
@@ -373,6 +419,12 @@ impl Document {
         for (id, obj) in &doc.objects {
             let Object::Stream(s) = obj else { continue };
             let subtype = s.dict.get(b"Subtype").ok().and_then(|n| n.as_name().ok());
+            if outside(id) {
+                if shared(id) && matches!(subtype, Some(b"Form" | b"Image")) {
+                    report.keep("shared");
+                }
+                continue;
+            }
             match subtype {
                 Some(b"Form") => {
                     let resources = s
@@ -475,7 +527,7 @@ impl Document {
         let mut dicts: Vec<(ObjectId, Dictionary)> = Vec::new();
         for (id, obj) in &doc.objects {
             let Object::Dictionary(d) = obj else { continue };
-            if !(d.has(b"Rect") && d.has(b"Subtype")) {
+            if !(d.has(b"Rect") && d.has(b"Subtype")) || outside(id) {
                 continue;
             }
             let mut nd = d.clone();
@@ -525,6 +577,66 @@ impl Document {
         self.commit()?;
         Ok(report)
     }
+}
+
+/// The objects pages reach through their content, resources and comments
+/// (never other pages, nor what links and actions name).
+fn reach(doc: &lopdf::Document, pages: &[ObjectId]) -> HashSet<ObjectId> {
+    fn refs(o: &Object, out: &mut Vec<ObjectId>) {
+        match o {
+            Object::Reference(r) => out.push(*r),
+            Object::Array(a) => a.iter().for_each(|x| refs(x, out)),
+            Object::Dictionary(d) => {
+                for (k, v) in d.iter() {
+                    if !matches!(
+                        k.as_slice(),
+                        b"Parent"
+                            | b"P"
+                            | b"Dest"
+                            | b"D"
+                            | b"Pg"
+                            | b"Next"
+                            | b"Prev"
+                            | b"First"
+                            | b"Last"
+                            | b"A"
+                            | b"AA"
+                    ) {
+                        refs(v, out);
+                    }
+                }
+            }
+            Object::Stream(s) => refs(&Object::Dictionary(s.dict.clone()), out),
+            _ => {}
+        }
+    }
+    let mut stack = Vec::new();
+    for pid in pages {
+        if let Ok(d) = doc.get_dictionary(*pid) {
+            for key in [b"Contents".as_slice(), b"Resources", b"Annots"] {
+                if let Ok(v) = d.get(key) {
+                    refs(v, &mut stack);
+                }
+            }
+        }
+    }
+    let mut seen = HashSet::new();
+    while let Some(id) = stack.pop() {
+        if !seen.insert(id) {
+            continue;
+        }
+        let Some(o) = doc.objects.get(&id) else { continue };
+        let is_page = o
+            .as_dict()
+            .ok()
+            .and_then(|d| d.get(b"Type").ok())
+            .and_then(|t| t.as_name().ok())
+            .is_some_and(|t| t == b"Page" || t == b"Pages");
+        if !is_page {
+            refs(o, &mut stack);
+        }
+    }
+    seen
 }
 
 #[cfg(test)]

@@ -56,6 +56,8 @@ All notable changes to Folitecta are documented here. The format follows
 - The Fields pane names picture fields as such, not as buttons.
 - Clean Up Scans tells the way up of sheets fed askew too, and measures the skew of sheets lying
   sideways: a sheet both askew and sideways is straightened and turned in the same step.
+- Convert Colours to Grey can convert the current page only; pictures and drawings other pages
+  share stay in colour and are counted.
 
 ### Changed
 - Text recognition no longer writes again what a page already shows as text, a comment or a form

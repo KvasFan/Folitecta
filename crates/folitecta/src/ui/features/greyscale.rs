@@ -3,7 +3,7 @@
 
 use dioxus::prelude::*;
 
-use crate::commands::greyscale::{self, GREY};
+use crate::commands::greyscale::{self, GREY, GREY_ALL};
 use crate::i18n::{t, tf};
 use crate::state::AppState;
 use crate::ui::dialogs::Frame;
@@ -37,6 +37,12 @@ pub fn ConvertGreyDialog() -> Element {
     rsx! {
         Frame { title: t(lang, "grey.title"), ok_label: t(lang, "grey.convert"), ok_disabled: !ready,
             on_ok: move |_| greyscale::convert(st),
+            div { class: "field", label { "{t(lang, \"office.pages\")}" }
+                select { class: "grey-pages", onchange: move |e| greyscale::set_all(st, e.value() == "all"),
+                    option { value: "all", selected: GREY_ALL(), "{t(lang, \"office.pages.all\")}" }
+                    option { value: "current", selected: !GREY_ALL(), "{t(lang, \"office.pages.current\")}" }
+                }
+            }
             div { class: "callout grey-summary", "{summary}" }
             if !kept.is_empty() {
                 p { class: "hint grey-kept", "{t(lang, \"grey.kept\")} {kept.join(\", \")}" }

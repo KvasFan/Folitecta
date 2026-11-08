@@ -4,6 +4,19 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L044: chosen pages to grey (0.65.0)
+
+- **Current state before:** the whole document became grey or nothing.
+- **What:** `greyscale.rs`: `convert_grey_of` with the pages chosen (`convert_pages_to_grey`,
+  `estimate_pages_grey`; `convert_to_grey` for all): `reach` (what pages reach through their
+  content, resources and comments, never other pages nor what links name); content, pictures,
+  drawings, comments and fields change only when the other pages do not reach them, else they are
+  counted as `shared`. The window: all pages or the current one, the estimate made again.
+- **Checked:** `greyscale.rs` (two pages sharing two pictures: the second page's colour becomes
+  grey, the first keeps its red, the pictures stay and are counted; then the whole document: both
+  pictures), the earlier grey tests; self-test step `grey`.
+- **Open:** a copy of a shared picture made grey for the chosen pages only.
+
 ## 2026-11-08 — FOL-L012: sideways sheets fed askew (0.64.0)
 
 - **Current state before:** the way up of a sheet was not told when it was askew (the rows of its

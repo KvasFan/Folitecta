@@ -631,6 +631,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    `portable` marker beside the program for `settings` beside it, through
    `FOLITECTA_CONFIG_DIR` before anything starts; the folder in About.
 
+### 0.57.0 — nodes added and removed (on `main`, untagged)
+
+1. ~~**FOL-L021 — nodes added and removed.**~~ Done: `add_path_node` (a straight segment after a
+   node), `remove_path_node` (its segment goes; the first node hands the start to the next line;
+   rectangles refused; two nodes kept); double clicks in the shape editor.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -684,7 +690,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L018 | P0 | 🟡 | text boxes, typewriter text, callouts, measurement labels, text stamps, designed stamps, tables, calculator tapes, page marks (watermarks, headers and footers, page and Bates numbers), comment summaries, text and e-mail documents, form fields, digital and typed signatures, media posters, redaction overlay text: an embedded subset of GNU FreeFont FreeSans with ToUnicode for text beyond WinAnsi (bold stroked), refusals named before the change and while typing; other generated text uses the standard Helvetica with WinAnsi | Arabic and shaping (no letters in the embedded font), Hebrew points; a choice of substitute font; the `/DA` font; font inspection and replacement; the other producers: OCR and barcodes. |
 | FOL-L019 | P1 | 🟡 | Edit Text tool (content stream editing), insert/replace/delete page text, find and replace in page text, spell checking with corrections | Paragraph reflow inside an area, joining/splitting blocks, scope for shared form objects. |
 | FOL-L020 | P1/P2 | 🟡 | pictures pane and editor: replace, crop, turn, filters, export | Inline and nested pictures, colour profile preservation report, raster editor mode. |
-| FOL-L021 | P2 | 🟡 | the vector paths a page draws chosen with a click (Edit Content › Shapes), their nodes dragged, their stroke and fill colours and line width changed, deleted — in the page content, one undo step each | Paths inside reused drawings, adding and removing nodes, clipping paths, gradients and shadings, transparency, numeric transforms of several paths. |
+| FOL-L021 | P2 | 🟡 | the vector paths a page draws chosen with a click (Edit Content › Shapes), their nodes dragged, their stroke and fill colours and line width changed, deleted — in the page content, one undo step each | Paths inside reused drawings, nodes of curves made smooth or corner, clipping paths, gradients and shadings, transparency, numeric transforms of several paths. |
 
 ### Navigation, containers and embedded content
 

@@ -290,6 +290,7 @@
   "sheets.title": "Export Tables",
   "paths.delete": "Delete the path",
   "paths.fill": "Fill colour",
+  "paths.node_hint": "Drag to move it, double-click to remove it; double-click the path to add a node",
   "paths.stroke": "Line colour",
   "paths.width": "Line width",
   "picture.app": "App for pictures",

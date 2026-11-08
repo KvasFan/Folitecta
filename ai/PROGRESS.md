@@ -4,6 +4,20 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L021: nodes added and removed (0.57.0)
+
+- **Current state before:** the nodes of a path could be moved, not added or removed.
+- **What:** `paths.rs`: `add_path_node` (an `l` after the operation of the node, the point in the
+  path's own space), `remove_path_node` (its operation removed; an `m` passes the start to the
+  next `l`, refused before a curve; rectangles refused; at least two operations kept). The app:
+  `segment_before` (the segment nearest the pointer), `add_node` and `remove_node`, double clicks
+  on the chosen path and on a node, a hint on the nodes; a click on a node without a move writes
+  nothing (`NodeDrag::from`), so a double click leaves no empty undo steps.
+- **Checked:** `paths.rs` (a node added after the first, the far one removed, the first removed,
+  two kept, rectangles refused, three undo steps), the unit test of `segment_before`; self-test step
+  `paths` (a node added on the bottom edge of a triangle at its middle, then removed).
+- **Open:** smooth and corner nodes of curves; nodes of rectangles (a rectangle made a polygon).
+
 ## 2026-11-08 — FOL-L050: settings that travel (0.56.0)
 
 - **Current state before:** the settings were always in the user's folders (the self-test alone

@@ -1,7 +1,8 @@
 //! Interaction step: Edit Paths — a click on a filled rectangle of the page
 //! chooses it (its nodes shown with the bar of its colours); one of its
 //! nodes dragged changes the page content; the fill made green; the path
-//! deleted; each change undone.
+//! deleted; each change undone. On the triangle, a double click on its
+//! bottom edge adds a node there, a double click on that node removes it.
 
 use super::*;
 
@@ -114,6 +115,48 @@ layer.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left
         .read_active(|t| t.doc.page_paths(0).ok().and_then(|p| p.get(1).map(|x| x.bounds)))
         .flatten()
         .unwrap_or_default();
+    // The triangle: a node added on its bottom edge, then removed.
+    let triangle_nodes = |st: AppState| {
+        st.read_active(|t| {
+            t.doc
+                .page_paths(0)
+                .ok()
+                .and_then(|p| p.first().map(|x| x.nodes.len()))
+        })
+        .flatten()
+        .unwrap_or(0)
+    };
+    let _ = eval(
+        "const b = document.querySelectorAll('#canvas .path-box')[0]; if (b) { const r = b.getBoundingClientRect(); b.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: r.left + r.width / 2, clientY: r.bottom - 3 })); }",
+    )
+    .await;
+    pause(400).await;
+    let _ = eval(
+        "const b = document.querySelector('#canvas .path-box.selected'); if (b) { const r = b.getBoundingClientRect(); b.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: r.left + r.width / 2, clientY: r.bottom - 3 })); }",
+    )
+    .await;
+    pause(400).await;
+    let added = triangle_nodes(st);
+    let new_node = st
+        .read_active(|t| {
+            t.doc
+                .page_paths(0)
+                .ok()
+                .and_then(|p| p.first().map(|x| x.nodes[1].at))
+        })
+        .flatten()
+        .unwrap_or_default();
+    let _ = eval(
+        "const n = document.querySelectorAll('#canvas .path-node')[1]; if (n) { const r = n.getBoundingClientRect(); n.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: r.left + 5, clientY: r.top + 5 })); }",
+    )
+    .await;
+    pause(400).await;
+    let removed = triangle_nodes(st);
+    cx.record(
+        "edit paths: a double click on a path adds a node on its nearest edge, one on a node removes it",
+        added == 4 && (new_node[0] - 100.0).abs() < 4.0 && (new_node[1] - 40.0).abs() < 4.0 && removed == 3,
+        format!("nodes after adding {added} (the new one at {new_node:?}), after removing {removed}"),
+    );
     st.set_tool(Tool::Hand);
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;

@@ -296,6 +296,7 @@
   "sheets.title": "Esporta tabelle",
   "paths.delete": "Elimina il tracciato",
   "paths.fill": "Colore del riempimento",
+  "paths.node_hint": "Trascina per spostarlo, doppio clic per rimuoverlo; doppio clic sul tracciato per aggiungere un nodo",
   "paths.stroke": "Colore della linea",
   "paths.width": "Spessore della linea",
   "picture.app": "App per le immagini",

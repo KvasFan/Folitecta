@@ -40,6 +40,8 @@ All notable changes to Folitecta are documented here. The format follows
 - Folitecta can travel with its settings: with a file or folder named `portable` beside the
   program, the settings, digital IDs, trusted certificates and recovery copies are kept in the
   folder `settings` beside it; `--settings <folder>` chooses another one. About shows the folder.
+- Edit Content › Shapes adds and removes nodes: a double click on the chosen path adds a node on
+  its nearest edge, a double click on a node removes it; one undo step each.
 
 ### Changed
 - Text recognition no longer writes again what a page already shows as text, a comment or a form

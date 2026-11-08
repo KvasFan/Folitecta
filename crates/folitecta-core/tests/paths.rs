@@ -94,3 +94,33 @@ fn the_lines_of_a_template_are_paths() {
     ];
     assert!(doc.path_at(0, mid[0], mid[1] + 1.0, 3.0).is_some());
 }
+
+#[test]
+fn nodes_are_added_and_removed() {
+    let mut doc = drawing();
+    let at = |doc: &Document| -> Vec<[f32; 2]> {
+        doc.page_paths(0).unwrap()[0].nodes.iter().map(|n| n.at).collect()
+    };
+    assert_eq!(at(&doc), vec![[20.0, 20.0], [120.0, 20.0], [70.0, 100.0]]);
+    // A node after the first: a straight segment to it.
+    doc.add_path_node(0, 0, 0, [70.0, 0.0]).unwrap();
+    assert_eq!(
+        at(&doc),
+        vec![[20.0, 20.0], [70.0, 0.0], [120.0, 20.0], [70.0, 100.0]]
+    );
+    // The node at the far corner goes: its neighbours are joined.
+    doc.remove_path_node(0, 0, 2).unwrap();
+    assert_eq!(at(&doc), vec![[20.0, 20.0], [70.0, 0.0], [70.0, 100.0]]);
+    // The first goes: the path starts at the next one.
+    doc.remove_path_node(0, 0, 0).unwrap();
+    assert_eq!(at(&reopened(&doc)), vec![[70.0, 0.0], [70.0, 100.0]]);
+    // Two nodes stay; a rectangle has none to add or remove.
+    assert!(doc.remove_path_node(0, 0, 0).is_err());
+    assert!(doc.add_path_node(0, 1, 0, [10.0, 10.0]).is_err());
+    assert!(doc.remove_path_node(0, 1, 0).is_err());
+    // Each change one undo step.
+    doc.undo().unwrap();
+    doc.undo().unwrap();
+    doc.undo().unwrap();
+    assert_eq!(at(&doc), vec![[20.0, 20.0], [120.0, 20.0], [70.0, 100.0]]);
+}

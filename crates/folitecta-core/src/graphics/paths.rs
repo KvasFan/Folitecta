@@ -335,6 +335,70 @@ impl Document {
         self.write_page_content(page, &content)
     }
 
+    /// Add a node to path `path` of page `page` at `at` (PDF user space of
+    /// the page), after node `after`: a straight segment to it, from where
+    /// the segment holding that node ends. Not for rectangles. One undo step.
+    pub fn add_path_node(&mut self, page: usize, path: usize, after: usize, at: [f32; 2]) -> Result<()> {
+        let (mut content, base) = self.page_content_ops(page)?;
+        let paths = find_paths(&content, base);
+        let p = paths
+            .get(path)
+            .ok_or_else(|| Error::Invalid("no such path".into()))?;
+        let n = p
+            .nodes
+            .get(after)
+            .ok_or_else(|| Error::Invalid("no such node".into()))?;
+        if content.operations[n.op].operator == "re" {
+            return Err(Error::Invalid("a rectangle has no nodes to add".into()));
+        }
+        let user = Affine::new(p.to_user) * Point::new(at[0] as f64, at[1] as f64);
+        content.operations.insert(
+            n.op + 1,
+            Operation::new(
+                "l",
+                vec![Object::Real(user.x as f32), Object::Real(user.y as f32)],
+            ),
+        );
+        self.write_page_content(page, &content)
+    }
+
+    /// Remove node `node` of path `path` of page `page`: the segment that
+    /// ends there goes, its neighbours are joined (the first node: the path
+    /// starts at the next one). Not for rectangles; a path keeps two nodes.
+    /// One undo step.
+    pub fn remove_path_node(&mut self, page: usize, path: usize, node: usize) -> Result<()> {
+        let (mut content, base) = self.page_content_ops(page)?;
+        let paths = find_paths(&content, base);
+        let p = paths
+            .get(path)
+            .ok_or_else(|| Error::Invalid("no such path".into()))?;
+        let n = p
+            .nodes
+            .get(node)
+            .ok_or_else(|| Error::Invalid("no such node".into()))?;
+        let mut ops: Vec<usize> = p.nodes.iter().map(|n| n.op).collect();
+        ops.dedup();
+        if ops.len() <= 2 {
+            return Err(Error::Invalid(
+                "a path keeps at least two nodes: delete the path instead".into(),
+            ));
+        }
+        match content.operations[n.op].operator.as_str() {
+            "re" => return Err(Error::Invalid("a rectangle has no nodes to remove".into())),
+            "m" => {
+                // The next segment, a line, starts the path instead.
+                let next = content.operations.get_mut(n.op + 1);
+                match next {
+                    Some(op) if op.operator == "l" => op.operator = "m".into(),
+                    _ => return Err(Error::Invalid("the first node of a curve stays".into())),
+                }
+            }
+            _ => {}
+        }
+        content.operations.remove(n.op);
+        self.write_page_content(page, &content)
+    }
+
     /// Change the colours or the line width of path `path` of page `page`
     /// (`None`: as it is).
     pub fn set_path_style(

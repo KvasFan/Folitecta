@@ -1046,12 +1046,26 @@ pub(super) fn PageView(
                     }
                 }
                 for (i, r) in view.paths.iter().copied() {
-                    div { key: "pa{i}", class: if view.path_sel.as_ref().is_some_and(|(p, _, _)| p.index == i) { "path-box selected" } else { "path-box" },
-                        style: "{grown(r)}",
-                        onmousedown: move |e| {
-                            e.stop_propagation();
-                            crate::commands::paths::choose(st, page, i);
-                        },
+                    {
+                        let nodes = view.path_sel.as_ref().filter(|(p, _, _)| p.index == i).map(|(_, n, _)| n.clone());
+                        rsx! {
+                            div { key: "pa{i}", class: if nodes.is_some() { "path-box selected" } else { "path-box" },
+                                style: "{grown(r)}",
+                                onmousedown: move |e| {
+                                    e.stop_propagation();
+                                    crate::commands::paths::choose(st, page, i);
+                                },
+                                // On the chosen path: a node where the pointer is.
+                                ondoubleclick: move |e| {
+                                    e.stop_propagation();
+                                    if let Some(nodes) = &nodes {
+                                        let p = e.element_coordinates();
+                                        let at = [r[0] - 2.0 + p.x as f32 / z, r[1] - 2.0 + p.y as f32 / z];
+                                        crate::commands::paths::add_node(st, page, i, nodes, at);
+                                    }
+                                },
+                            }
+                        }
                     }
                 }
                 if let Some((path, nodes, rect)) = view.path_sel.clone() {
@@ -1064,9 +1078,15 @@ pub(super) fn PageView(
                                     let at = dragged.filter(|d| d.node == k).map(|d| d.at).unwrap_or(pt);
                                     rsx! {
                                         div { key: "pn{k}", class: "path-node", style: "left:{at[0] * z - 5.0}px;top:{at[1] * z - 5.0}px",
+                                            title: "{crate::i18n::t(st.lang(), \"paths.node_hint\")}",
                                             onmousedown: move |e| {
                                                 e.stop_propagation();
-                                                *crate::commands::paths::NODE_DRAG.write() = Some(crate::commands::paths::NodeDrag { page, path: index, node: k, at: pt });
+                                                *crate::commands::paths::NODE_DRAG.write() = Some(crate::commands::paths::NodeDrag { page, path: index, node: k, at: pt, from: pt });
+                                            },
+                                            ondoubleclick: move |e| {
+                                                e.stop_propagation();
+                                                *crate::commands::paths::NODE_DRAG.write() = None;
+                                                crate::commands::paths::remove_node(st, page, index, k);
                                             },
                                         }
                                     }

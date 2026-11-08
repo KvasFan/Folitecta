@@ -1,7 +1,8 @@
 //! Edit Paths (FOL-L021): the tool of Edit Content › Shapes. A click chooses
-//! a path the page draws; its nodes are dragged to move them; the bar over
-//! it changes its colours and width or deletes it. Every change is one
-//! undo step of the document.
+//! a path the page draws; its nodes are dragged to move them, a double
+//! click on a node removes it, a double click on the path adds one on the
+//! nearest segment; the bar over it changes its colours and width or
+//! deletes it. Every change is one undo step of the document.
 
 use dioxus::prelude::*;
 use folitecta_core::marks::display_to_pdf;
@@ -17,6 +18,8 @@ pub struct NodeDrag {
     pub path: usize,
     pub node: usize,
     pub at: [f32; 2],
+    /// Where it was when the drag began.
+    pub from: [f32; 2],
 }
 
 pub static NODE_DRAG: GlobalSignal<Option<NodeDrag>> = Signal::global(|| None);
@@ -44,6 +47,10 @@ pub fn clear(st: AppState) {
 pub fn drop_node(st: AppState) {
     let Some(d) = *NODE_DRAG.peek() else { return };
     *NODE_DRAG.write() = None;
+    // A click without a move (the first of a double click) changes nothing.
+    if (d.at[0] - d.from[0]).abs() < 0.01 && (d.at[1] - d.from[1]).abs() < 0.01 {
+        return;
+    }
     let result = st.with_active(|t| {
         let size = t.doc.page_size(d.page)?;
         let (x, y) = display_to_pdf(&size, d.at[0], size.height - d.at[1]);
@@ -54,6 +61,50 @@ pub fn drop_node(st: AppState) {
         Some(Err(e)) => st.error(st.core_error_text(&e)),
         None => {}
     }
+}
+
+fn report(st: AppState, result: Option<folitecta_core::Result<()>>) {
+    match result {
+        Some(Ok(())) => crate::files::set_window_title(st),
+        Some(Err(e)) => st.error(st.core_error_text(&e)),
+        None => {}
+    }
+}
+
+/// The node of `nodes` (display points) after which a node at `at` goes:
+/// the start of the segment nearest to it.
+pub fn segment_before(nodes: &[[f32; 2]], at: [f32; 2]) -> usize {
+    let dist = |a: [f32; 2], b: [f32; 2]| {
+        let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
+        let len = dx * dx + dy * dy;
+        let t = if len > 0.0 {
+            (((at[0] - a[0]) * dx + (at[1] - a[1]) * dy) / len).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let (px, py) = (a[0] + t * dx - at[0], a[1] + t * dy - at[1]);
+        px * px + py * py
+    };
+    (0..nodes.len().saturating_sub(1))
+        .min_by(|i, j| dist(nodes[*i], nodes[i + 1]).total_cmp(&dist(nodes[*j], nodes[j + 1])))
+        .unwrap_or(0)
+}
+
+/// Add a node to the path chosen at `at` (display points of the page),
+/// on the segment nearest to it.
+pub fn add_node(st: AppState, page: usize, path: usize, nodes: &[[f32; 2]], at: [f32; 2]) {
+    let after = segment_before(nodes, at);
+    let result = st.with_active(|t| {
+        let size = t.doc.page_size(page)?;
+        let (x, y) = display_to_pdf(&size, at[0], size.height - at[1]);
+        t.doc.add_path_node(page, path, after, [x, y])
+    });
+    report(st, result);
+}
+
+/// Remove node `node` of the path chosen.
+pub fn remove_node(st: AppState, page: usize, path: usize, node: usize) {
+    report(st, st.with_active(|t| t.doc.remove_path_node(page, path, node)));
 }
 
 /// Change the colours or the width of the path chosen.
@@ -117,6 +168,14 @@ handlers! {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_node_goes_on_the_nearest_segment() {
+        let nodes = [[0.0, 0.0], [100.0, 0.0], [100.0, 100.0]];
+        assert_eq!(segment_before(&nodes, [50.0, 3.0]), 0);
+        assert_eq!(segment_before(&nodes, [97.0, 60.0]), 1);
+        assert_eq!(segment_before(&[[1.0, 1.0]], [5.0, 5.0]), 0);
+    }
 
     #[test]
     fn colours_of_colour_inputs() {

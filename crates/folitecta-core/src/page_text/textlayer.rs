@@ -278,6 +278,18 @@ fn strongly_right_to_left(c: char) -> bool {
 /// A line starts an item of a list: a bullet or dash then a space, a number
 /// of at most three digits then `.` or `)` and a space, or a letter then `)`
 /// (not `.`: "J. Smith" at the start of a line is a name).
+/// The mark of a list item and its text, and whether it is numbered (a
+/// number or a letter, not a bullet); None when `text` is no list item.
+pub(crate) fn list_mark(text: &str) -> Option<(bool, String, String)> {
+    if !list_item(text) {
+        return None;
+    }
+    let t = text.trim_start();
+    let (mark, rest) = t.split_once(char::is_whitespace)?;
+    let numbered = mark.chars().next().is_some_and(|c| c.is_alphanumeric());
+    Some((numbered, mark.to_string(), rest.trim_start().to_string()))
+}
+
 fn list_item(line: &str) -> bool {
     let t = line.trim_start();
     let mut chars = t.chars();

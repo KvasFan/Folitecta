@@ -16,6 +16,7 @@ use base64::Engine;
 use crate::document::Document;
 use crate::error::{Error, Result};
 use crate::pictures::Colors;
+use crate::textlayer::list_mark;
 use crate::xml::escape_text;
 use crate::zip::{ZipEntry, write};
 
@@ -209,6 +210,17 @@ fn docx(pieces: &[Piece], title: &str, breaks: bool) -> Result<Vec<u8>> {
             page = p.page();
         }
         match p {
+            Piece::Text { level: 0, text, .. } if list_mark(text).is_some() => {
+                // An item of a list: its mark, a tab, its text, hanging.
+                let (_, mark, rest) = list_mark(text).unwrap_or_default();
+                body.push_str(&format!(
+                    "<w:p><w:pPr><w:ind w:left=\"360\" w:hanging=\"360\"/></w:pPr>\
+                     <w:r><w:t xml:space=\"preserve\">{}</w:t></w:r><w:r><w:tab/></w:r>\
+                     <w:r><w:t xml:space=\"preserve\">{}</w:t></w:r></w:p>",
+                    escape_text(&clean(&mark)),
+                    escape_text(&clean(&rest))
+                ));
+            }
             Piece::Text { level, text, .. } => {
                 let style = match level {
                     0 => String::new(),
@@ -352,9 +364,14 @@ fn rtf(pieces: &[Piece], breaks: bool) -> Vec<u8> {
             page = p.page();
         }
         match p {
-            Piece::Text { level: 0, text, .. } => {
-                out.push_str(&format!("\\pard\\sa120 {}\\par\n", rtf_text(text)))
-            }
+            Piece::Text { level: 0, text, .. } => match list_mark(text) {
+                Some((_, mark, rest)) => out.push_str(&format!(
+                    "\\pard\\sa60\\li360\\fi-360 {}\\tab {}\\par\n",
+                    rtf_text(&mark),
+                    rtf_text(&rest)
+                )),
+                None => out.push_str(&format!("\\pard\\sa120 {}\\par\n", rtf_text(text))),
+            },
             Piece::Text { level, text, .. } => {
                 let l = (*level).min(3);
                 let size = [36, 30, 26][(l - 1) as usize];
@@ -413,10 +430,33 @@ fn rtf(pieces: &[Piece], breaks: bool) -> Vec<u8> {
 fn html(pieces: &[Piece], title: &str, lang: &str, breaks: bool) -> Vec<u8> {
     let mut body = String::new();
     let mut page = pieces.first().map(Piece::page).unwrap_or(0);
+    // The list open: numbered or not.
+    let mut list: Option<bool> = None;
+    let close = |body: &mut String, list: &mut Option<bool>| {
+        if let Some(numbered) = list.take() {
+            body.push_str(if numbered { "</ol>\n" } else { "</ul>\n" });
+        }
+    };
     for p in pieces {
+        let item = match p {
+            Piece::Text { level: 0, text, .. } => list_mark(text),
+            _ => None,
+        };
+        if item.as_ref().map(|i| i.0) != list {
+            close(&mut body, &mut list);
+        }
         if breaks && p.page() != page {
+            close(&mut body, &mut list);
             body.push_str("<hr class=\"page\">\n");
             page = p.page();
+        }
+        if let Some((numbered, _, rest)) = item {
+            if list.is_none() {
+                body.push_str(if numbered { "<ol>\n" } else { "<ul>\n" });
+                list = Some(numbered);
+            }
+            body.push_str(&format!("<li>{}</li>\n", escape_text(&clean(&rest))));
+            continue;
         }
         match p {
             Piece::Text { level, text, .. } => {
@@ -458,6 +498,7 @@ fn html(pieces: &[Piece], title: &str, lang: &str, breaks: bool) -> Vec<u8> {
             }
         }
     }
+    close(&mut body, &mut list);
     let lang = if lang.is_empty() { "en" } else { lang };
     format!(
         "<!DOCTYPE html>\n<html lang=\"{}\">\n<head>\n<meta charset=\"utf-8\">\n<title>{}</title>\n\

@@ -396,7 +396,7 @@ fn mixed_report() -> Document {
     let md = format!(
         "# Quarterly report\n\nThis report sums up the quarter. {filler}\n\n![Logo](logo.png)\n\n## Sales\n\n\
          Text before the table.\n\n| Region | Q1 | Q2 |\n|---|---:|---:|\n| North | 1,200 | 1,350 |\n| South | 800 | 950 |\n| East | 450 | 500 |\n\n\
-         Text after the table.\n\n![Chart](chart.png)\n\n## Notes\n\n- First note\n- Second note\n\n{more}\n\n## Costs\n\n\
+         Text after the table.\n\n![Chart](chart.png)\n\n## Notes\n\n- First note\n- Second note\n\nSteps:\n\n1. Plan the work\n2. Do the work\n\n{more}\n\n## Costs\n\n\
          | Item | Cost |\n|---|---:|\n| Rent | 3,000 |\n| Wages | 12,500 |\n| Travel | 900 |\n\nClosing words.\n"
     );
     let doc = Document::from_markdown_in(&md, TextLayout::default(), "Quarterly report", Some(&dir)).unwrap();
@@ -466,8 +466,10 @@ fn a_mixed_report_keeps_its_pictures_and_tables_in_place() {
     for once in ["North", "Wages", "Text after the table", "First note"] {
         assert_eq!(body.matches(once).count(), 1, "{once}");
     }
-    // The two items of the list are two paragraphs.
+    // The items of the lists are items: a mark, a tab, the text, hanging.
     assert!(!body.contains("First note • Second note"), "{body}");
+    assert_eq!(body.matches("w:hanging=\"360\"").count(), 4, "{body}");
+    assert!(body.contains("<w:t xml:space=\"preserve\">1.</w:t></w:r><w:r><w:tab/></w:r><w:r><w:t xml:space=\"preserve\">Plan the work</w:t>"), "{body}");
     // The web page: the same order, the pictures in it, the tables as tables.
     let page = String::from_utf8(html.bytes).unwrap();
     let marks_html = [
@@ -494,4 +496,17 @@ fn a_mixed_report_keeps_its_pictures_and_tables_in_place() {
         from += i + m.len();
     }
     assert_eq!(page.matches("<table>").count(), 2);
+    assert!(
+        page.contains("<ul>\n<li>First note</li>\n<li>Second note</li>\n</ul>"),
+        "{page}"
+    );
+    assert!(
+        page.contains("<ol>\n<li>Plan the work</li>\n<li>Do the work</li>\n</ol>"),
+        "{page}"
+    );
+    let rtf = String::from_utf8(doc.export_office(OfficeFormat::Rtf, 0..n, false).unwrap().bytes).unwrap();
+    assert!(
+        rtf.contains("\\li360\\fi-360 1.\\tab Plan the work\\par"),
+        "{rtf}"
+    );
 }

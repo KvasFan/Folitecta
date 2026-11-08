@@ -4,6 +4,19 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L009: lists in the office exports (0.68.0)
+
+- **Current state before:** list items were exported as plain paragraphs with their marks.
+- **What:** `textlayer.rs`: `list_mark` (the mark, the text, numbered or not); `office.rs`: in HTML
+  consecutive items in `<ul>` or `<ol>` (closed by any other piece and before a page break), the
+  marks dropped; in DOCX the mark, a tab and the text under `w:ind left 360 hanging 360`; in RTF
+  `\li360\fi-360` with `\tab`.
+- **Checked:** `office.rs` (the report with a bullet list and a numbered list: four hanging items
+  in DOCX with "1." then a tab, `<ul>` and `<ol>` with their items in HTML, the hanging item in
+  RTF); pandoc 3 reads the web page's lists as a bullet list and a numbered list; self-test steps
+  `office`, `reading`, `table_export`.
+- **Open:** lists nested in lists (one level is written).
+
 ## 2026-11-08 — FOL-L009, FOL-L005: office exports checked on a whole report (0.67.0)
 
 - **Asked by the user:** DOCX and HTML exports must carry pictures and tables correctly together

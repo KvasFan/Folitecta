@@ -60,6 +60,9 @@ All notable changes to Folitecta are documented here. The format follows
   share stay in colour and are counted.
 - View › Snap › To Objects snaps drawing and measuring to the corners and line ends the page draws.
 
+- The exports to Word, rich text and web page write lists as lists: bullet and numbered items in
+  `<ul>` and `<ol>` in the web page, items with their mark and a hanging indent in Word and RTF.
+
 ### Fixed
 - The pictures of Markdown files were drawn mirrored down the page (the first one at the bottom,
   covering the text); they stand where the file has them.

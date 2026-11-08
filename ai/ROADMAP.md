@@ -688,6 +688,11 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    read back: pictures of Markdown placed from the bottom as `add_image` measures (they were
    mirrored), list items started as paragraphs of their own (`list_item`).
 
+### 0.68.0 — lists in the office exports (on `main`, untagged)
+
+1. ~~**FOL-L009 — lists as lists.**~~ Done: `list_mark`; `ul` and `ol` in HTML, items with a
+   hanging indent in DOCX (`w:ind`, a tab after the mark) and RTF (`\li360\fi-360`).
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with

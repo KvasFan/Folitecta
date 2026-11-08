@@ -131,6 +131,7 @@ handlers! {
     "view.fonts" => |st| toggle_pane(st, Pane::Fonts),
     "view.changes" => |st| toggle_pane(st, Pane::Changes),
     "view.articles" => |st| toggle_pane(st, Pane::Articles),
+    "view.measurements" => |st| toggle_pane(st, Pane::Measurements),
     "view.search" => |st| toggle_pane(st, Pane::Search),
     "view.properties" => |st| { let v = !st.ui.read().show_right_pane; st.ui_mut().show_right_pane = v; st.save_prefs(); },
     "view.toggleAllCmdPanes" => |st| { let v = !st.ui.read().show_left_pane; st.ui_mut().show_left_pane = v; st.save_prefs(); },

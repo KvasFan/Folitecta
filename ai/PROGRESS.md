@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L028: measurements pane (0.61.0)
+
+- **Current state before:** measurements were exported as CSV only.
+- **What:** `markup_tools.rs`: `Measurement` and `measurement_list` (page, index, kind, value,
+  rectangle; `measurements` built on it), `measure_parts` (number and unit, decimal comma or
+  point, thousands), `measure_totals` (by unit, none when a value cannot be read). The app: the
+  Measurements pane (`Pane::Measurements`, `view.measurements` in Tools › Measure and the View
+  ribbon): kinds with their count and total (not for angles), each measurement opening its place
+  and chosen; Export as CSV.
+- **Checked:** `markup_tools.rs` (two distances listed with their places, 38.1 mm in total, values
+  read with either decimal mark, totals by unit, none for a value that is not one); self-test
+  steps `measurements_pane`, `measures_ticks`, `panes`. A full local check started while this was
+  being written failed on a test file changed during the run; it is run again.
+- **Open:** a snapping profile for the measuring tools.
+
 ## 2026-11-08 — FOL-L026: the history of a comment (0.60.0)
 
 - **Current state before:** the Review History window listed the review states only.

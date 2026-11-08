@@ -265,3 +265,8 @@
 .article-part-row { display: inline-flex; align-items: center; gap: 2px; }
 .article-part-delete { font-size: 11px; line-height: 1; padding: 0 4px; opacity: 0.6; }
 .article-part-delete:hover { opacity: 1; }
+
+/* Measurements: the measurement comments by kind, with totals. */
+.measurements-list { display: flex; flex-direction: column; gap: 6px; padding: 4px; }
+.measure-group { display: flex; flex-direction: column; gap: 2px; }
+.measure-item { font-size: 12px; text-align: left; }

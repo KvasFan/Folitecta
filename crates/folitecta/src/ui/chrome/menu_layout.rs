@@ -951,6 +951,7 @@ pub const SUBMENUS: &[(&str, &[Item])] = &[
                 "measure",
                 &[
                     Cmd("tool.calibrate"),
+                    Cmd("view.measurements"),
                     Cmd("tool.clearMeasure"),
                     Cmd("tool.convertToMeasure"),
                     Cmd("tool.convertLinesToPolyline"),

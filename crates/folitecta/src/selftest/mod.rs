@@ -457,6 +457,7 @@ mod steps_layout;
 mod steps_left_behind;
 mod steps_links;
 mod steps_lists_out;
+mod steps_measurements_pane;
 mod steps_measures_ticks;
 mod steps_my_templates;
 mod steps_names_text;
@@ -604,6 +605,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "compare_pictures" => Box::pin(steps_compare_pictures::run(cx)),
             "inspector" => Box::pin(steps_inspector::run(cx)),
             "comment_history" => Box::pin(steps_comment_history::run(cx)),
+            "measurements_pane" => Box::pin(steps_measurements_pane::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -716,6 +718,7 @@ const STEPS: &[&str] = &[
     "compare_pictures",
     "inspector",
     "comment_history",
+    "measurements_pane",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

@@ -39,6 +39,62 @@ impl Default for MeasureScale {
 }
 
 /// A number with `decimals` places and the separators of a measurement.
+/// A measurement comment: where it is, its kind (`Distance`, `Perimeter`,
+/// `Area`, `Angle`, `Radius`, `Volume`) and the value it shows.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Measurement {
+    pub page: usize,
+    /// Its index among the annotations of the page.
+    pub index: usize,
+    pub kind: String,
+    pub value: String,
+    /// Its rectangle (PDF user space).
+    pub rect: [f32; 4],
+}
+
+/// The number and the unit of a measured value (`12,5 mm` → 12.5, `mm`);
+/// a comma before at most two digits at the end is a decimal comma.
+pub fn measure_parts(value: &str) -> Option<(f64, String)> {
+    let v = value.trim();
+    let end = v
+        .char_indices()
+        .find(|(_, c)| {
+            !(c.is_ascii_digit() || matches!(c, '.' | ',' | '-' | '\u{2212}' | ' ' | '\u{a0}' | '\''))
+        })
+        .map(|(i, _)| i)
+        .unwrap_or(v.len());
+    let (num, unit) = v.split_at(end);
+    let digits: String = num
+        .chars()
+        .filter(|c| !matches!(c, ' ' | '\u{a0}' | '\''))
+        .collect();
+    let digits = digits.replace('\u{2212}', "-");
+    let n = match (digits.rfind('.'), digits.rfind(',')) {
+        (Some(p), Some(c)) if c > p => digits.replace('.', "").replace(',', "."),
+        (Some(_), Some(_)) => digits.replace(',', ""),
+        (None, Some(c)) if digits.len() - c - 1 <= 2 => digits.replace(',', "."),
+        (None, Some(_)) => digits.replace(',', ""),
+        _ => digits,
+    };
+    let unit = unit.trim().to_string();
+    n.parse().ok().filter(|_| !unit.is_empty()).map(|x| (x, unit))
+}
+
+/// The totals of `values` by unit, when every value has a number and a unit.
+pub fn measure_totals<'a>(values: impl IntoIterator<Item = &'a str>) -> Vec<(f64, String)> {
+    let mut out: Vec<(f64, String)> = Vec::new();
+    for v in values {
+        let Some((n, unit)) = measure_parts(v) else {
+            return Vec::new();
+        };
+        match out.iter_mut().find(|(_, u)| *u == unit) {
+            Some(t) => t.0 += n,
+            None => out.push((n, unit)),
+        }
+    }
+    out
+}
+
 pub fn format_measure(v: f32, decimals: usize, decimal_sep: &str, group_sep: &str) -> String {
     let text = format!("{:.*}", decimals, v.abs());
     let (int, frac) = text.split_once('.').unwrap_or((&text, ""));
@@ -385,6 +441,14 @@ impl Document {
 
     /// Measurement comments of the whole document as `(page, kind, value text)`.
     pub fn measurements(&self) -> Vec<(usize, String, String)> {
+        self.measurement_list()
+            .into_iter()
+            .map(|m| (m.page, m.kind, m.value))
+            .collect()
+    }
+
+    /// Measurement comments of the whole document with their places.
+    pub fn measurement_list(&self) -> Vec<Measurement> {
         let mut out = Vec::new();
         for p in 0..self.page_count() {
             for a in self.annotations(p).unwrap_or_default() {
@@ -407,7 +471,13 @@ impl Document {
                     VOLUME => "Volume",
                     _ => continue,
                 };
-                out.push((p, kind.to_string(), a.contents.clone()));
+                out.push(Measurement {
+                    page: p,
+                    index: a.index,
+                    kind: kind.to_string(),
+                    value: a.contents.clone(),
+                    rect: a.rect,
+                });
             }
         }
         out

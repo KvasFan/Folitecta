@@ -196,6 +196,7 @@ pub const PANES: &[(&str, &str)] = &[
     ("fonts", "Fonts"),
     ("changes", "History of Changes"),
     ("articles", "Articles"),
+    ("measurements", "Measurements"),
     ("content", "Content"),
     ("stamps", "Stamps"),
     ("history", "History"),

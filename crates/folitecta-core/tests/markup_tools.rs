@@ -296,3 +296,40 @@ fn angles_radii_and_volumes_are_measured() {
     doc.undo().unwrap();
     assert_eq!(doc.annotations(0).unwrap()[3].contents, "12,90 m\u{b3}");
 }
+
+#[test]
+fn measurements_are_listed_with_their_places_and_totals() {
+    use folitecta_core::{measure_parts, measure_totals};
+    let mut doc = blank();
+    let mm = MeasureScale::default();
+    for (a, b) in [((100.0, 100.0), (172.0, 100.0)), ((100.0, 150.0), (136.0, 150.0))] {
+        doc.add_measurement(0, MeasureKind::Distance, &[a, b], &style(), &mm, "t")
+            .unwrap();
+    }
+    let list = doc.measurement_list();
+    assert_eq!(list.len(), 2);
+    assert_eq!(
+        (list[1].page, list[1].index, list[1].kind.as_str()),
+        (0, 1, "Distance")
+    );
+    assert!(list[0].rect[2] > list[0].rect[0]);
+    // 25.4 mm and 12.7 mm.
+    let totals = measure_totals(list.iter().map(|m| m.value.as_str()));
+    assert_eq!(totals.len(), 1);
+    assert!(
+        (totals[0].0 - 38.1).abs() < 1e-9 && totals[0].1 == "mm",
+        "{totals:?}"
+    );
+    assert_eq!(measure_parts("12,5 cm"), Some((12.5, "cm".into())));
+    assert_eq!(measure_parts("1.234,5 m\u{b2}"), Some((1234.5, "m\u{b2}".into())));
+    assert_eq!(measure_parts("1,234 ft"), Some((1234.0, "ft".into())));
+    assert_eq!(measure_parts("45°"), Some((45.0, "°".into())));
+    assert_eq!(measure_parts("abc"), None);
+    // Values that cannot be read add up to nothing.
+    assert!(measure_totals(["3 mm", "?"]).is_empty());
+    // Different units: a total each.
+    assert_eq!(
+        measure_totals(["3 mm", "2 m", "1 mm"]),
+        vec![(4.0, "mm".to_string()), (2.0, "m".to_string())]
+    );
+}

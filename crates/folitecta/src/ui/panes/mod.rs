@@ -29,6 +29,7 @@ pub mod fields;
 pub mod fonts;
 pub mod history;
 pub mod layers;
+pub mod measurements;
 pub mod right;
 
 pub use search::*;
@@ -50,6 +51,7 @@ fn pane_icon(p: &Pane) -> &'static str {
         Pane::Fonts => "font",
         Pane::Changes => "undo",
         Pane::Articles => "book",
+        Pane::Measurements => "ruler",
         Pane::History => "history",
         Pane::Sessions => "window",
         Pane::Stamps => "tag",
@@ -236,6 +238,7 @@ pub fn PanePanel() -> Element {
             Pane::Fonts => rsx! { crate::ui::panes::fonts::FontsPane {} },
             Pane::Changes => rsx! { crate::ui::panes::changes::ChangesPane {} },
             Pane::Articles => rsx! { crate::ui::panes::articles::ArticlesPane {} },
+            Pane::Measurements => rsx! { crate::ui::panes::measurements::MeasurementsPane {} },
             Pane::Comparison => rsx! { crate::ui::features::compare::ComparisonPane {} },
             Pane::Tags => rsx! { crate::ui::panes::accessibility::TagsPane {} },
             Pane::Order => rsx! { crate::ui::panes::accessibility::OrderPane {} },

@@ -362,6 +362,7 @@ pub const RIBBON: &[RTab] = &[
                     "tool.editFields.mode.button",
                     "tool.editFields.mode.image",
                     "tool.editFields.mode.signature",
+                    "forms.findFields",
                     "fieldsView.tabOrder"
                 ]
             ),

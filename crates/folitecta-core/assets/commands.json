@@ -9545,6 +9545,20 @@
    "status": "planned"
   },
   {
+   "id": "forms.findFields",
+   "label": "Find Form Fields…",
+   "parent": "forms",
+   "menu": "form",
+   "ribbon": {
+    "tab": "form",
+    "group": "fields"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "forms.reset",
    "label": "Reset Form",
    "parent": "forms",

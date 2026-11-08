@@ -439,6 +439,7 @@ mod steps_field_scripts;
 mod steps_field_text;
 mod steps_field_values;
 mod steps_files;
+mod steps_find_fields;
 mod steps_flatten_read;
 mod steps_follow_links;
 mod steps_fonts_pane;
@@ -594,6 +595,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "table_export" => Box::pin(steps_table_export::run(cx)),
             "picture_field" => Box::pin(steps_picture_field::run(cx)),
             "duplicates" => Box::pin(steps_duplicates::run(cx)),
+            "find_fields" => Box::pin(steps_find_fields::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -701,6 +703,7 @@ const STEPS: &[&str] = &[
     "table_export",
     "picture_field",
     "duplicates",
+    "find_fields",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",
@@ -1190,6 +1193,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("recompress", Dialog::Recompress(false)),
         ("export-office", Dialog::ExportOffice),
         ("export-tables", Dialog::ExportTables),
+        ("find-fields", Dialog::FindFields),
         ("preflight", Dialog::Preflight),
         ("convert-grey", Dialog::ConvertGrey),
         ("insert-text", Dialog::InsertTextPages),

@@ -4,6 +4,28 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L014: form fields found (0.50.0)
+
+- **Current state before:** fields were drawn one by one with the field tools.
+- **What:** `interactive/field_finder.rs`: `find_form_fields` (display space: runs of four
+  underscores or more; lines at least 40 points long and at most 2.5 high with nothing written in
+  the 16 points above; rectangles stroked and empty: squares of 6 to 24 points as check boxes,
+  boxes 40 points wide or more as text fields, several lines above 30 points high; page borders
+  left out; labels from the words before a field on its line, after a square, or above a box,
+  their last or first five words without marks at the ends; proposals overlapping widgets or each
+  other left out), `FieldProposal`, `add_found_fields` (names from the labels, a number added when
+  taken, the label as the tooltip; one undo step, none of them when one fails);
+  `paths.rs`: `PagePath::rectangles`. Find Form Fields (`forms.findFields`, Form menu and ribbon,
+  `Dialog::FindFields`) with the kind, words and page of each, all or the current page.
+  `testdocs::flat_form_doc`.
+- **Checked:** `form_design.rs` (a flat form: underscores after "Name:", a line after "Date:", a
+  square before "I agree to the terms", a box under "Comments" found in that order with their
+  places, the rule under a heading not; added with those names, none proposed again, "Name 2" for
+  a second, two undo steps), the paths tests; self-test step `find_fields` (four listed, added
+  through the dialog, one undo step).
+- **Open:** scanned forms (their lines are in the picture); combs of boxes for one character each;
+  radio groups from rows of squares.
+
 ## 2026-11-08 — FOL-L045: repeated fonts and pictures kept once (0.49.0)
 
 - **Current state before:** documents combined from others kept every copy of their fonts and

@@ -380,3 +380,51 @@ fn fields_are_copied_in_rows_and_columns() {
     assert_eq!(doc.page_tab_order(0), "R");
     assert!(doc.calculation_order().is_empty());
 }
+
+fn flat_form() -> Document {
+    Document::from_bytes(folitecta_core::testdocs::flat_form_doc(), None, None).unwrap()
+}
+
+#[test]
+fn the_fields_a_flat_form_leaves_room_for_are_found_and_added() {
+    let mut doc = flat_form();
+    let found = doc.find_form_fields(0..1);
+    let got: Vec<(NewField, bool, &str)> = found
+        .iter()
+        .map(|f| (f.kind, f.multiline, f.label.as_str()))
+        .collect();
+    assert_eq!(
+        got,
+        vec![
+            (NewField::Text, false, "Name"),
+            (NewField::Text, false, "Date"),
+            (NewField::CheckBox, false, "I agree to the terms"),
+            (NewField::Text, true, "Comments"),
+        ],
+        "{found:#?}"
+    );
+    // The field over the line sits on it, from its start to its end.
+    let date = found[1].rect;
+    assert!(
+        (date[0] - 100.0).abs() < 1.0 && (date[2] - 300.0).abs() < 1.0 && (date[1] - 720.0).abs() < 1.0,
+        "{date:?}"
+    );
+    // The check box is the square.
+    let check = found[2].rect;
+    assert!(
+        (check[0] - 50.0).abs() < 1.0 && (check[3] - 692.0).abs() < 1.0,
+        "{check:?}"
+    );
+
+    assert_eq!(doc.add_found_fields(&found).unwrap(), 4);
+    let names: Vec<String> = doc.form_fields().into_iter().map(|f| f.name).collect();
+    assert_eq!(names, vec!["Name", "Date", "I agree to the terms", "Comments"]);
+    // Where fields are now, nothing is proposed again.
+    assert!(doc.find_form_fields(0..1).is_empty());
+    // A second proposal with a name taken gets a number.
+    doc.add_found_fields(&found[..1]).unwrap();
+    assert!(doc.form_fields().iter().any(|f| f.name == "Name 2"));
+    doc.undo().unwrap();
+    doc.undo().unwrap();
+    assert!(doc.form_fields().is_empty());
+}

@@ -38,7 +38,9 @@ pub mod protection;
 pub mod tags;
 
 pub use graphics::{barcodes, images, imaging, paths, pictures};
-pub use interactive::{buttons, form_calc, form_data, form_design, form_format, forms, js, scripts};
+pub use interactive::{
+    buttons, field_finder, form_calc, form_data, form_design, form_format, forms, js, scripts,
+};
 pub use markup::{
     annot_copy, annots, appearance, arrange, calculator, comment_exchange, comment_review, comment_summary,
     flatten, grouping, markup_tools, media, signmarks, smooth, stamp_design, stamps, tables, ticks,
@@ -73,6 +75,7 @@ pub use document::{DocInfo, DocSnapshot, Document, PageSize, PreparedSave, Prote
 pub use duplicates::Deduplicated;
 pub use error::{Error, Result};
 pub use export::ImageFormat;
+pub use field_finder::FieldProposal;
 pub use flatten::FlattenScope;
 pub use fonts::{AppearanceFont, FontKind, GlyphProblem, UsedFont};
 pub use form_calc::{CalcOp, Calculation};

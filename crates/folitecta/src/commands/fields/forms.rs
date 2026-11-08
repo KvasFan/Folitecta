@@ -182,6 +182,7 @@ handlers! {
     "tool.editFields.mode.list" => |st| select_tool(st, Tool::FieldList),
     "tool.editFields.mode.button" => |st| select_tool(st, Tool::FieldButton),
     "tool.editFields.mode.image" => |st| select_tool(st, Tool::FieldPicture),
+    "forms.findFields" => |st| { if st.allowed(folitecta_core::Restricted::Modify) { crate::commands::doc_dialog(st, crate::state::Dialog::FindFields) } },
     "tool.editFields.mode.signature" => |st| select_tool(st, Tool::FieldSignature),
     "tool.editFields.keepMode" => |st| { let on = !crate::commands::option_on(st, "tool.keepSelected"); st.set_option("tool.keepSelected", on); },
     "tool.editFields.renameField" => |st| with_selected_field(st, |st, _| show_properties(st)),

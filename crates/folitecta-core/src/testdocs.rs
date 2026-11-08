@@ -1038,6 +1038,25 @@ pub fn embedded_fonts(b: &mut Builder) -> Dictionary {
     dictionary! { "F1" => f1, "F2" => f2, "F3" => f3, "F4" => helv }
 }
 
+/// A flat form of one page: a run of underscores after "Name:", a line
+/// after "Date:", a square before "I agree to the terms", a box under
+/// "Comments", and a rule under a heading (no place to write).
+pub fn flat_form_doc() -> Vec<u8> {
+    let content = "BT /F1 12 Tf 50 760 Td (Name: ______________________) Tj ET\n\
+        BT /F1 12 Tf 50 722 Td (Date:) Tj ET\n100 720 m 300 720 l S\n\
+        50 680 12 12 re S\nBT /F1 12 Tf 68 682 Td (I agree to the terms) Tj ET\n\
+        BT /F1 12 Tf 50 645 Td (Comments) Tj ET\n50 560 300 80 re S\n\
+        BT /F3 12 Tf 50 520 Td (Heading) Tj ET\n50 517 m 300 517 l S\n";
+    let mut b = Builder::new();
+    b.page(
+        (595.0, 842.0),
+        content.as_bytes().to_vec(),
+        dictionary! { "Font" => standard_fonts() },
+        vec![],
+    );
+    b.finish()
+}
+
 /// Two pages, each with its own copy of the same embedded fonts and of the
 /// same picture (64 × 64, compressed): a document put together from others.
 pub fn repeated_doc() -> Vec<u8> {

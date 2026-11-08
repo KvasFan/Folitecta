@@ -46,6 +46,46 @@ pub struct PagePath {
     to_user: [f64; 6],
 }
 
+impl PagePath {
+    /// The upright rectangles the path is made of (PDF user space): each of
+    /// its `re`, or the path itself when it joins four corners with
+    /// straight lines; none when it is anything else.
+    pub fn rectangles(&self) -> Vec<[f32; 4]> {
+        let of = |a: [f32; 2], b: [f32; 2]| [a[0].min(b[0]), a[1].min(b[1]), a[0].max(b[0]), a[1].max(b[1])];
+        let boxes: Vec<[f32; 4]> = self
+            .nodes
+            .windows(2)
+            .filter(|w| w[1].corner && w[0].op == w[1].op)
+            .map(|w| of(w[0].at, w[1].at))
+            .collect();
+        if !boxes.is_empty() {
+            // Only rectangles: no other line or curve in the path.
+            return if boxes.len() * 2 == self.nodes.len() {
+                boxes
+            } else {
+                Vec::new()
+            };
+        }
+        if !(4..=5).contains(&self.nodes.len()) {
+            return Vec::new();
+        }
+        let b = self.bounds;
+        let near = |v: f32, a: f32| (v - a).abs() < 0.5;
+        let mut corners: Vec<(bool, bool)> = Vec::new();
+        for n in &self.nodes {
+            let (x, y) = (n.at[0], n.at[1]);
+            if !(near(x, b[0]) || near(x, b[2])) || !(near(y, b[1]) || near(y, b[3])) {
+                return Vec::new();
+            }
+            let c = (near(x, b[2]), near(y, b[3]));
+            if !corners.contains(&c) {
+                corners.push(c);
+            }
+        }
+        if corners.len() == 4 { vec![b] } else { Vec::new() }
+    }
+}
+
 #[derive(Clone, Copy)]
 struct State {
     ctm: Affine,

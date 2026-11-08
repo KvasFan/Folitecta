@@ -13,6 +13,7 @@ pub mod doctools;
 pub mod field_editor;
 pub mod field_format;
 pub mod fileops;
+pub mod find_fields;
 pub mod find_replace;
 pub mod form_calc;
 pub mod form_fill;

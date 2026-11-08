@@ -18,6 +18,10 @@ All notable changes to Folitecta are documented here. The format follows
 - Merge Duplicate Fonts and Pictures (Document › Optimize) keeps once the fonts, font programs,
   pictures and colour profiles a document holds several times, as documents put together from
   others do, and removes what nothing uses any more; one undo step.
+- Find Form Fields (Form menu) proposes the fields a flat form leaves room for: runs of
+  underscores and lines with nothing written on them, empty boxes (of several lines when tall) and
+  small squares as check boxes, each named after the words beside it; the chosen ones are added in
+  one undo step.
 
 ## [0.45.0] - 2026-11-05
 

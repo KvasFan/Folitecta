@@ -4,10 +4,10 @@ Generated from the command registry for version 0.45.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1490 |
+| ✅ available | 1491 |
 | 🟡 partial | 58 |
 | ⬜ planned | 462 |
-| total | 2010 |
+| total | 2011 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -673,6 +673,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Show Tab Numbers | `tool.editFields.showTabNumbers` | ✅ available |
 | Field Editor | `editFields` | ✅ available |
 | ↳ Items | `editFields.items` | ✅ available |
+| Find Form Fields… | `forms.findFields` | ✅ available |
 | Listbox | `listbox` | ✅ available |
 | ↳ Items | `listbox.items` | ✅ available |
 | Select | `fieldsView.select` | ✅ available |
@@ -700,6 +701,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Forms | `forms` | 🟡 partial |
 | ↳ Email Form Data… | `forms.emailData` | ✅ available |
 | ↳ Export Data… | `forms.exportData` | ✅ available |
+| ↳ Find Form Fields… | `forms.findFields` | ✅ available |
 | ↳ Highlight Form Fields | `forms.highlight` | ✅ available |
 | ↳ Import Data… | `forms.importData` | ✅ available |
 | ↳ Manage Form Data | `forms.manageData` | ⬜ planned |

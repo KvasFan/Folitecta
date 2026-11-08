@@ -451,6 +451,8 @@ pub enum Dialog {
     ExportOffice,
     /// Export the tables found on the pages.
     ExportTables,
+    /// Fields found on a flat form, to add.
+    FindFields,
     /// Preflight against PDF/A-2b and conversion.
     Preflight,
     /// Converting the colours of the document to grey.

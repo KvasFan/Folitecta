@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L037, FOL-L047: hidden information removed, more steps (0.52.0)
+
+- **Current state before:** sanitizing ran only with a redaction; action sequences had 12 steps.
+- **What:** `sanitize.rs`: `Document::sanitize` (the parts chosen without quotes, through
+  `sanitize_in`, one undo step, refused for signed documents and without the permission to change
+  the document). `actions.rs`: `Step::Sanitize` (four parts, each on unless the JSON says so),
+  `Step::MergeDuplicates`, `Step::FindFormFields` (15 steps). The app: Remove Hidden Information
+  (`document.sanitize`, `Dialog::Sanitize`, the parts with what `sanitize_preview` finds, Remove
+  as a danger button), the settings of the sanitize step, the names of the three steps.
+- **Checked:** `actions.rs` (a flat form with an attachment and an author: the three steps add 4
+  fields, remove the attachment and the author, one undo step; the steps through JSON with a part
+  left out), `redaction_sanitize.rs`; self-test steps `sanitize` (the attachment shown, removed with
+  the author, back with one undo), `actions` and `redaction`.
+- **Open:** steps that split documents or protect them (a password kept in a sequence file).
+
 ## 2026-11-08 — FOL-L005: pictures in Markdown (0.51.0)
 
 - **Current state before:** every Markdown picture was shown by its description in brackets.

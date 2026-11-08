@@ -673,6 +673,7 @@ pub const MENUS: &[(&str, &[Item])] = &[
                     Cmd("redaction"),
                     Cmd("document.applyRedactions"),
                     Cmd("overlay"),
+                    Cmd("document.sanitize"),
                 ],
             ),
             Sep,

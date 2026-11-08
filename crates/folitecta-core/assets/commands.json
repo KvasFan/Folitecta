@@ -7444,6 +7444,20 @@
    "status": "planned"
   },
   {
+   "id": "document.sanitize",
+   "label": "Remove Hidden Information…",
+   "parent": "document",
+   "menu": "document",
+   "ribbon": {
+    "tab": "protect",
+    "group": "redact"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "document.redaction",
    "label": "Redaction",
    "parent": "document",

@@ -211,5 +211,17 @@
   "signs.save": "Salva nella libreria",
   "signs.signature": "Firma",
   "signs.title": "Firme e iniziali",
-  "signs.type": "Digita"
+  "signs.type": "Digita",
+  "sanitize.done": "Informazioni nascoste rimosse",
+  "sanitize.done.attachments": "{count} allegati",
+  "sanitize.done.hidden": "{count} elementi nascosti",
+  "sanitize.done.metadata": "metadati",
+  "sanitize.done.scripts": "{count} script",
+  "sanitize.found": "{count} nel documento",
+  "sanitize.found_none": "nessuno nel documento",
+  "sanitize.found_some": "presenti",
+  "sanitize.hint": "Quanto scelto viene rimosso da tutto il documento, in un solo passo di annullamento. Salva poi il documento: il file viene riscritto per intero, così ne spariscono anche le versioni precedenti.",
+  "sanitize.nothing": "Il documento non conteneva nessuna delle informazioni nascoste scelte",
+  "sanitize.remove": "Rimuovi",
+  "sanitize.title": "Rimuovi informazioni nascoste"
 }

@@ -51,6 +51,38 @@ fn step_settings(st: AppState, i: usize, step: &Step) -> Element {
                 option { value: "even", selected: pages == PageSet::Even, "{t(lang, \"sequence.pages.even\")}" }
             }
         },
+        Step::Sanitize {
+            metadata,
+            attachments,
+            hidden,
+            scripts,
+        } => {
+            let flags = [metadata, attachments, hidden, scripts];
+            let with = move |k: usize| {
+                let mut f = flags;
+                f[k] = !f[k];
+                Step::Sanitize {
+                    metadata: f[0],
+                    attachments: f[1],
+                    hidden: f[2],
+                    scripts: f[3],
+                }
+            };
+            let parts: Vec<(usize, &str, String)> = ["metadata", "attachments", "hidden", "scripts"]
+                .into_iter()
+                .enumerate()
+                .map(|(k, key)| (k, key, t(lang, &format!("sequence.sanitize.{key}"))))
+                .collect();
+            rsx! {
+                for (k, key, label) in parts {
+                    label { key: "{key}", class: "check",
+                        input { r#type: "checkbox", class: "actions-sanitize-{key}", checked: flags[k],
+                            onchange: move |_| set(with(k)) }
+                        span { "{label}" }
+                    }
+                }
+            }
+        }
         Step::Ocr { all_pages } => rsx! {
             label { class: "check",
                 input { r#type: "checkbox", class: "actions-ocr-all", checked: all_pages,

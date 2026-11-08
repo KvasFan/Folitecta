@@ -597,6 +597,14 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    picture, `from_markdown_in` with the folder of the file, `Typeset::picture` (placed on the
    page, drawn when the document is made); the others shown by their description.
 
+### 0.52.0 — hidden information removed, more steps (on `main`, untagged)
+
+1. ~~**FOL-L037 — sanitizing on its own.**~~ Done: `Document::sanitize` (metadata, attachments,
+   hidden content, scripts; one undo step; signed documents refused) and Remove Hidden
+   Information (`document.sanitize`) with the preview of each part.
+2. ~~**FOL-L047 — more steps.**~~ Done: `Step::Sanitize`, `Step::MergeDuplicates`,
+   `Step::FindFormFields`, with their settings in the Action Sequences window.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -706,7 +714,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L047 | P2 | 🟡 | page-mark macros; action sequences of 11 kinds of steps kept as JSON, run on the open document as one undo step or on files and folders (a plan with collisions, a result and a log per file, cancel), and from the command line (`--run-actions`, a line of JSON per file, exit status) with the same code | Interactive steps, portfolios as inputs, more steps (splitting, protection), scheduling through the system. |
+| FOL-L047 | P2 | 🟡 | page-mark macros; action sequences of 11 kinds of steps kept as JSON, run on the open document as one undo step or on files and folders (a plan with collisions, a result and a log per file, cancel), and from the command line (`--run-actions`, a line of JSON per file, exit status) with the same code | Interactive steps, portfolios as inputs, steps that split or protect, scheduling through the system. |
 | FOL-L048 | P2 | ⬜ | — | On-device AI engine decision. |
 | FOL-L049 | P2 | ⬜ | — | 3D viewer and authoring. |
 | FOL-L050 | P1/P2 | 🟡 | preferences, shortcuts, ribbon and classic interface with short menus (submenus by subject), Quick Access Toolbar, command palette, settings export/import/reset, resizable panes and ribbon | Toolbox profiles, plug-ins, portable/administrative settings. |

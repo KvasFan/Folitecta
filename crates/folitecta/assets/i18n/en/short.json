@@ -70,6 +70,7 @@
   "short.document.exportTables": "Tables",
   "short.document.mergeDuplicates": "Duplicates",
   "short.forms.findFields": "Find fields",
+  "short.document.sanitize": "Hidden info",
   "short.document.extractPages": "Extract",
   "short.document.findDuplicates": "Duplicates",
   "short.document.headerAndFooter": "Header",

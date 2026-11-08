@@ -26,6 +26,11 @@ All notable changes to Folitecta are documented here. The format follows
   own is read from the folder of the file and drawn at its size (96 pixels to the inch, no wider
   than the text); pictures within text, on the web or that cannot be read are shown by their
   description.
+- Remove Hidden Information (Document › Redaction, Protect ribbon) removes metadata, attached
+  files, hidden content and risky scripts from the whole document without redacting anything,
+  showing first what the document holds of each; one undo step.
+- Action sequences have three more steps: remove hidden information (its parts chosen), merge
+  duplicate fonts and pictures, and add the form fields found.
 
 ## [0.45.0] - 2026-11-05
 

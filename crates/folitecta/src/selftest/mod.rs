@@ -484,6 +484,7 @@ mod steps_redaction_crop;
 mod steps_relations;
 mod steps_review;
 mod steps_revocation;
+mod steps_sanitize;
 mod steps_scanning;
 mod steps_scans;
 mod steps_scans_bw;
@@ -596,6 +597,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "picture_field" => Box::pin(steps_picture_field::run(cx)),
             "duplicates" => Box::pin(steps_duplicates::run(cx)),
             "find_fields" => Box::pin(steps_find_fields::run(cx)),
+            "sanitize" => Box::pin(steps_sanitize::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -704,6 +706,7 @@ const STEPS: &[&str] = &[
     "picture_field",
     "duplicates",
     "find_fields",
+    "sanitize",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",
@@ -1194,6 +1197,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("export-office", Dialog::ExportOffice),
         ("export-tables", Dialog::ExportTables),
         ("find-fields", Dialog::FindFields),
+        ("sanitize", Dialog::Sanitize),
         ("preflight", Dialog::Preflight),
         ("convert-grey", Dialog::ConvertGrey),
         ("insert-text", Dialog::InsertTextPages),

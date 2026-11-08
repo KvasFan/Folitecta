@@ -329,7 +329,8 @@ pub const RIBBON: &[RTab] = &[
                     "tool.annot.redaction",
                     "document.applyRedactions",
                     "annots.applyRedactions",
-                    "addAnnotsBySearchResult.redaction"
+                    "addAnnotsBySearchResult.redaction",
+                    "document.sanitize"
                 ]
             ),
             group!(

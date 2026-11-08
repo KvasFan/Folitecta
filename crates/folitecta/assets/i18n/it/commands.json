@@ -513,6 +513,7 @@
   "cmd.document.exportBookmarks": "Esporta tutti i segnalibri…",
   "cmd.document.exportOffice": "Esporta in formati da ufficio…",
   "cmd.document.exportTables": "Esporta tabelle…",
+  "cmd.document.sanitize": "Rimuovi informazioni nascoste…",
   "cmd.forms.findFields": "Trova campi del modulo…",
   "cmd.document.mergeDuplicates": "Unisci tipi di carattere e immagini doppi",
   "cmd.document.exportSelBookmarks": "Esporta segnalibri selezionati…",

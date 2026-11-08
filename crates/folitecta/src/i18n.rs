@@ -129,7 +129,7 @@ const AREAS: &[(&str, &[&str])] = &[
             "tab_order",
         ],
     ),
-    ("protect", &["sig", "signs", "policy"]),
+    ("protect", &["sig", "signs", "policy", "sanitize"]),
     ("accessibility", &["acc", "tags", "alt", "order", "content"]),
     ("search", &["search", "findrepl", "spell"]),
     ("short", &["short"]),

@@ -211,5 +211,17 @@
   "signs.save": "Save to the library",
   "signs.signature": "Signature",
   "signs.title": "Signatures and initials",
-  "signs.type": "Type"
+  "signs.type": "Type",
+  "sanitize.done": "Hidden information removed",
+  "sanitize.done.attachments": "{count} attachments",
+  "sanitize.done.hidden": "{count} hidden items",
+  "sanitize.done.metadata": "metadata",
+  "sanitize.done.scripts": "{count} scripts",
+  "sanitize.found": "{count} in the document",
+  "sanitize.found_none": "none in the document",
+  "sanitize.found_some": "present",
+  "sanitize.hint": "What is chosen is removed from the whole document, in one undo step. Save the document afterwards: the file is written again whole, so earlier versions inside it go too.",
+  "sanitize.nothing": "The document held none of the hidden information chosen",
+  "sanitize.remove": "Remove",
+  "sanitize.title": "Remove Hidden Information"
 }

@@ -508,6 +508,29 @@ impl Document {
         }
     }
 
+    /// Remove on its own the hidden information `opts` chooses (metadata,
+    /// attachments, hidden content, scripts; there is no removed text to be
+    /// quoted). One undo step; refused for signed documents, whose signed
+    /// revisions would change.
+    pub fn sanitize(&mut self, opts: &SanitizeOptions) -> Result<SanitizeReport> {
+        self.require(crate::security::Restricted::Modify)?;
+        if self.signatures().iter().any(|s| s.signed) {
+            return Err(crate::error::Error::Invalid(
+                "the document is signed: removing hidden information would change what was signed".into(),
+            ));
+        }
+        let opts = SanitizeOptions {
+            quoting: false,
+            ..opts.clone()
+        };
+        let mut report = SanitizeReport::default();
+        self.edit_step(|doc| {
+            report = doc.sanitize_in(&opts, &[]);
+            Ok(())
+        })?;
+        Ok(report)
+    }
+
     /// Apply the chosen sanitizing parts (no undo step: the redaction makes one).
     pub(crate) fn sanitize_in(&mut self, opts: &SanitizeOptions, terms: &[Term]) -> SanitizeReport {
         let mut r = SanitizeReport::default();

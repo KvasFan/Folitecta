@@ -453,6 +453,8 @@ pub enum Dialog {
     ExportTables,
     /// Fields found on a flat form, to add.
     FindFields,
+    /// Remove hidden information.
+    Sanitize,
     /// Preflight against PDF/A-2b and conversion.
     Preflight,
     /// Converting the colours of the document to grey.

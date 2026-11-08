@@ -186,3 +186,45 @@ fn a_sequence_recognizes_the_text_of_scanned_pages() {
     assert!(json.contains("\"ocr\""), "{json}");
     assert_eq!(ActionSequence::from_json(&json).unwrap(), seq);
 }
+
+#[test]
+fn hidden_information_duplicates_and_form_fields_as_steps() {
+    // A flat form with an attachment and an author.
+    let mut doc = Document::from_bytes(folitecta_core::testdocs::flat_form_doc(), None, None).unwrap();
+    doc.add_attachment("notes.txt", b"private notes".to_vec(), "", None)
+        .unwrap();
+    doc.set_info("Form", "A. Writer", "", "").unwrap();
+    doc.clear_history();
+    let seq = ActionSequence {
+        name: "Publish the form".into(),
+        steps: vec![
+            Step::new("find-form-fields").unwrap(),
+            Step::new("sanitize").unwrap(),
+            Step::new("merge-duplicates").unwrap(),
+        ],
+    };
+    // The steps keep their settings through JSON, every part on by default.
+    let again = ActionSequence::from_json(&seq.to_json()).unwrap();
+    assert_eq!(again, seq);
+    let partial =
+        ActionSequence::from_json(r#"{"name":"x","steps":[{"action":"sanitize","attachments":false}]}"#)
+            .unwrap();
+    assert_eq!(
+        partial.steps,
+        vec![Step::Sanitize {
+            metadata: true,
+            attachments: false,
+            hidden: true,
+            scripts: true
+        }]
+    );
+    let log = doc.run_actions(&seq).unwrap();
+    assert_eq!(log.len(), 3, "{log:?}");
+    assert!(log[0].contains("added 4 form fields"), "{log:?}");
+    assert_eq!(doc.form_fields().len(), 4);
+    assert!(doc.attachments().is_empty());
+    assert!(doc.info().author.is_empty(), "{:?}", doc.info());
+    doc.undo().unwrap();
+    assert!(doc.form_fields().is_empty());
+    assert_eq!(doc.attachments().len(), 1);
+}

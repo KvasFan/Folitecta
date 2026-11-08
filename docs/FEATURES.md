@@ -4,10 +4,10 @@ Generated from the command registry for version 0.45.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1491 |
+| ✅ available | 1492 |
 | 🟡 partial | 58 |
 | ⬜ planned | 462 |
-| total | 2011 |
+| total | 2012 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -613,6 +613,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Add Code Set | `redaction.addTextCodeSet` | ✅ available |
 | ↳ Overlay | `redaction.overlay` | ✅ available |
 | ↳ Overlay Type | `redaction.overlayType` | ✅ available |
+| Remove Hidden Information… | `document.sanitize` | ✅ available |
 
 **Document Security**
 
@@ -1662,6 +1663,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Redaction | `redaction` | ✅ available |
 | Remove All Web Links | `removeAllWebLinks` | ✅ available |
 | Remove Cropped Content | `document.removeCroppedContent` | 🟡 partial |
+| Remove Hidden Information… | `document.sanitize` | ✅ available |
 | Review Recognized Text… | `document.ocrReview` | ✅ available |
 | Security Policies | `secPoliciesList` | ✅ available |
 | Show Problem Details… | `document.showProblems` | ⬜ planned |

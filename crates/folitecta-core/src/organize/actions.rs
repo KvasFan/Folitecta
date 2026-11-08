@@ -42,6 +42,10 @@ fn default_opacity() -> f32 {
     0.3
 }
 
+fn yes() -> bool {
+    true
+}
+
 fn default_position() -> String {
     "bottom-center".into()
 }
@@ -95,11 +99,26 @@ pub enum Step {
         #[serde(default)]
         all_pages: bool,
     },
+    /// Remove hidden information: the parts chosen (all by default).
+    Sanitize {
+        #[serde(default = "yes")]
+        metadata: bool,
+        #[serde(default = "yes")]
+        attachments: bool,
+        #[serde(default = "yes")]
+        hidden: bool,
+        #[serde(default = "yes")]
+        scripts: bool,
+    },
+    /// Keep once the fonts and pictures held several times.
+    MergeDuplicates,
+    /// Add the fields a flat form leaves room for.
+    FindFormFields,
 }
 
 impl Step {
     /// The ids of the steps, in the order they are offered.
-    pub const IDS: [&'static str; 12] = [
+    pub const IDS: [&'static str; 15] = [
         "rotate",
         "delete-empty-pages",
         "recompress",
@@ -111,6 +130,9 @@ impl Step {
         "page-numbers",
         "info",
         "ocr",
+        "find-form-fields",
+        "sanitize",
+        "merge-duplicates",
         "pdf-a",
     ];
 
@@ -128,6 +150,9 @@ impl Step {
             Step::Info { .. } => "info",
             Step::PdfA => "pdf-a",
             Step::Ocr { .. } => "ocr",
+            Step::Sanitize { .. } => "sanitize",
+            Step::MergeDuplicates => "merge-duplicates",
+            Step::FindFormFields => "find-form-fields",
         }
     }
 
@@ -162,6 +187,14 @@ impl Step {
             },
             "pdf-a" => Step::PdfA,
             "ocr" => Step::Ocr { all_pages: false },
+            "sanitize" => Step::Sanitize {
+                metadata: true,
+                attachments: true,
+                hidden: true,
+                scripts: true,
+            },
+            "merge-duplicates" => Step::MergeDuplicates,
+            "find-form-fields" => Step::FindFormFields,
             _ => return None,
         })
     }
@@ -282,6 +315,41 @@ impl Step {
                     let written = doc.add_ocr_text(&read)?;
                     format!("recognized the text of {written} pages")
                 }
+            }
+            Step::Sanitize {
+                metadata,
+                attachments,
+                hidden,
+                scripts,
+            } => {
+                let opts = crate::redaction::SanitizeOptions {
+                    metadata: *metadata,
+                    attachments: *attachments,
+                    hidden: *hidden,
+                    scripts: *scripts,
+                    ..crate::redaction::SanitizeOptions::none()
+                };
+                let r = doc.sanitize(&opts)?;
+                format!(
+                    "removed metadata: {}, {} attachments, {} hidden items and {} hidden layers, {} scripts",
+                    if r.metadata { "yes" } else { "none" },
+                    r.attachments,
+                    r.hidden,
+                    r.hidden_layers,
+                    r.scripts
+                )
+            }
+            Step::MergeDuplicates => {
+                let d = doc.merge_duplicates()?;
+                format!(
+                    "kept {} repeated objects once, removed {} unused",
+                    d.merged, d.unused
+                )
+            }
+            Step::FindFormFields => {
+                let found = doc.find_form_fields(0..n);
+                let k = doc.add_found_fields(&found)?;
+                format!("added {k} form fields")
             }
             Step::PdfA => {
                 let outcome = doc.make_pdfa()?;

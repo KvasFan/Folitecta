@@ -114,8 +114,14 @@ pub fn FieldsPane() -> Element {
     let mode = sort_mode(st);
     let manual = manual_order(st);
     let full = option_on(st, "fieldsView.showFullNames");
-    let Some((fields, selected, collapsed, orders)) = st.read_active(|t| {
+    let Some((fields, selected, collapsed, orders, pictures)) = st.read_active(|t| {
         let fields = t.doc.form_fields();
+        // Push buttons that take a picture while the form is filled.
+        let pictures: std::collections::HashSet<(u32, u16)> = fields
+            .iter()
+            .filter(|f| f.kind == FieldKind::PushButton && t.doc.is_picture_field(f.id))
+            .map(|f| f.id)
+            .collect();
         let orders: BTreeMap<usize, Vec<(u32, u16)>> = if manual {
             (0..t.doc.page_count())
                 .map(|p| (p, t.doc.widget_order(p)))
@@ -129,6 +135,7 @@ pub fn FieldsPane() -> Element {
             t.selected_fields.clone(),
             t.collapsed_fields.clone(),
             orders,
+            pictures,
         )
     }) else {
         return rsx! {};
@@ -235,7 +242,13 @@ pub fn FieldsPane() -> Element {
                         let is_sel = selected.contains(&f.id);
                         let style = format!("padding-left:{}px", 6 + depth * 14 + 16);
                         let kind = kind_name(lang, &f.kind);
-                        let kind_text = if f.barcode { t(lang, "fieldkind.barcode") } else { kind };
+                        let kind_text = if f.barcode {
+                            t(lang, "fieldkind.barcode")
+                        } else if pictures.contains(&f.id) {
+                            t(lang, "fieldkind.picture")
+                        } else {
+                            kind
+                        };
                         let is_check = matches!(f.kind, FieldKind::CheckBox | FieldKind::RadioButton);
                         let editable = matches!(f.kind, FieldKind::Text | FieldKind::ComboBox | FieldKind::ListBox) && !f.read_only;
                         let checked = !f.value.is_empty() && f.value != "Off";

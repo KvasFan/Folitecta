@@ -111,6 +111,7 @@
   "fieldcopies.title": "Create multiple copies",
   "fieldkind.barcode": "Barcode",
   "fieldkind.button": "Button",
+  "fieldkind.picture": "Picture",
   "fieldkind.check": "Check box",
   "fieldkind.combo": "Combo box",
   "fieldkind.list": "List box",

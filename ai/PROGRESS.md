@@ -4,6 +4,13 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L031: picture fields named in the Fields pane (0.63.0)
+
+- **What:** `panes/fields.rs`: the push buttons that are picture fields found once per drawing of
+  the pane (`is_picture_field`) and shown as "Picture" (`fieldkind.picture`), closing the item left
+  open in 0.48.0.
+- **Checked:** self-test step `picture_field` (the pane shows "Picture").
+
 ## 2026-11-08 — FOL-L041: cells over several rows (0.62.0)
 
 - **Current state before:** short rows of tagged tables got column spans only; a row starting in a

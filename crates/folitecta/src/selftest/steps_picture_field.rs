@@ -38,6 +38,17 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         .read_active(|t| t.doc.page_widgets(0).into_iter().next())
         .flatten();
     let picture_field = st.read_active(|t| t.doc.is_picture_field(field)).unwrap_or(false);
+    // The Fields pane calls it a picture field.
+    crate::commands::dispatch(st, "view.fields");
+    pause(400).await;
+    let pane_kind = eval("return Array.from(document.querySelectorAll('.field-row .chip, .tree-item .chip')).map(c => c.textContent).join('|');")
+        .await
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default();
+    let named_picture = pane_kind.contains(&crate::i18n::t(st.lang(), "fieldkind.picture"));
+    crate::commands::dispatch(st, "view.fields");
+    pause(200).await;
     crate::commands::buttons::answer_picture(picture.clone());
     if let Some(w) = &widget {
         crate::ui::features::form_fill::fill_field(st, 0, w);
@@ -59,7 +70,10 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     pause(300).await;
     cx.record(
         "picture field: the tool is chosen; a picture field clicked while filling takes the picture chosen and shows it, one undo step",
-        tool_ok && picture_field && widget.is_some() && shown && undone,
-        format!("tool {tool_ok}, picture field {picture_field}, widget {}, shown {shown}, undone {undone}", widget.is_some()),
+        tool_ok && picture_field && named_picture && widget.is_some() && shown && undone,
+        format!(
+            "tool {tool_ok}, picture field {picture_field}, in the pane {pane_kind:?}, widget {}, shown {shown}, undone {undone}",
+            widget.is_some()
+        ),
     );
 }

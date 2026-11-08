@@ -53,6 +53,7 @@ All notable changes to Folitecta are documented here. The format follows
   total of each kind whose values share their units; a click shows a measurement on its page.
 - The accessibility fix of table spans also finds cells that span rows: a row starting further
   right leaves its first columns to the cells above them.
+- The Fields pane names picture fields as such, not as buttons.
 
 ### Changed
 - Text recognition no longer writes again what a page already shows as text, a comment or a form

@@ -65,6 +65,9 @@ All notable changes to Folitecta are documented here. The format follows
 - Tables exported to Word and rich text have columns as wide as their contents, the table no wider
   than the text.
 
+- The exports to Word, rich text and web page carry the values of form fields as text in their
+  place: a filled invoice keeps its lines in its table and its addresses under their labels.
+
 ### Fixed
 - The pictures of Markdown files were drawn mirrored down the page (the first one at the bottom,
   covering the text); they stand where the file has them.

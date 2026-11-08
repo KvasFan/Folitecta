@@ -698,6 +698,11 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
 1. ~~**FOL-L009 — column widths.**~~ Done: `table_widths` (the longest cell of each column, up to
    40 characters; scaled down to the text width) in DOCX and RTF.
 
+### 0.70.0 — form values in the office exports (on `main`, untagged)
+
+1. ~~**FOL-L009 — filled forms exported.**~~ Done: the export reads a copy whose fields are
+   flattened; the text inside the fields' areas goes by its place on the page.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with

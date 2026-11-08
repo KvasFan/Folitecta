@@ -247,7 +247,7 @@
   "office.format.docx": "Word document (DOCX)",
   "office.format.html": "Web page (HTML)",
   "office.format.rtf": "Rich text (RTF)",
-  "office.hint": "The text is exported in reading order as editable paragraphs and headings, the tables found on the pages as tables, with the pictures of the pages where they stand among them; comments are not exported. The picture of a scanned page whose text is exported is left out. The document itself is never written.",
+  "office.hint": "The text is exported in reading order as editable paragraphs and headings, the tables found on the pages as tables, with the pictures of the pages where they stand among them and the values of form fields in their place; comments are not exported. The picture of a scanned page whose text is exported is left out. The document itself is never written.",
   "office.left_out.comments": "Not exported: {count} comments",
   "office.left_out.comments_one": "Not exported: 1 comment",
   "office.left_out.pictures": "Not exported: {count} pictures (specks, or scans whose text is exported)",

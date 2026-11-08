@@ -4,6 +4,23 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — FOL-L009: form values in the office exports (0.70.0)
+
+- **Found:** exporting other kinds of documents (the invoice template, two columns of text, a CSV
+  table) to DOCX and HTML and reading them with pandoc: the invoice's 49 fields were left out (the
+  values typed in a form were lost) and its item table had only its head row.
+- **What:** `office.rs`: `export_office` reads a copy whose form fields are flattened
+  (`FlattenScope::FormFields`, the path kept for the title; the document itself unchanged; the
+  fields are left out as before when the copy cannot be flattened); `office_export_of` takes the
+  areas of the fields: the text inside them, drawn after the page once flattened, is placed by its
+  top like pictures and tables, not at the end of the page.
+- **Checked:** `office.rs` `the_values_of_form_fields_are_exported_in_their_place` (an invoice
+  with two lines and an address: the address after "Bill to", the lines as cells of the table, no
+  comments counted as left out; a text field's value exported, a ticked check box adds no stray
+  characters; the document unchanged); pandoc 3 reads the filled invoice in that order; self-test
+  steps `office`, `table_export`, `field_values`.
+- **Open:** check boxes are not shown (a ☑ could be written); empty calculated fields show their 0.
+
 ## 2026-11-08 — local check of 0.66.0 to 0.69.0
 
 - **What:** `target/preflight.sh` at `0ae4a7f`: formatting, clippy for the three systems, the

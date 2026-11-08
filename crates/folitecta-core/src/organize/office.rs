@@ -542,7 +542,9 @@ fn html(pieces: &[Piece], title: &str, lang: &str, breaks: bool) -> Vec<u8> {
 
 impl Document {
     /// The text of `pages` as an editable document in `format`; with
-    /// `page_breaks` each page begins on a page of its own.
+    /// `page_breaks` each page begins on a page of its own. The values of
+    /// form fields are exported as the text they show, in their place (read
+    /// from a copy whose fields are flattened).
     pub fn export_office(
         &self,
         format: OfficeFormat,
@@ -554,6 +556,50 @@ impl Document {
         if pages.start >= pages.end || pages.end > n {
             return Err(Error::InvalidPage(pages.end.saturating_sub(1)));
         }
+        let has_fields = pages.clone().any(|p| {
+            self.annotations(p)
+                .is_ok_and(|a| a.iter().any(|x| x.subtype == "Widget"))
+        });
+        if has_fields {
+            // Where the fields are (display space): their text, drawn after
+            // the page once flattened, goes by its place.
+            let areas: Vec<(usize, [f32; 4])> = pages
+                .clone()
+                .flat_map(|p| {
+                    let size = self.page_size(p).ok();
+                    self.annotations(p)
+                        .unwrap_or_default()
+                        .into_iter()
+                        .filter(|a| a.subtype == "Widget")
+                        .filter_map(move |a| {
+                            size.as_ref()
+                                .map(|s| (p, crate::marks::pdf_rect_to_display(s, a.rect)))
+                        })
+                })
+                .collect();
+            let list: Vec<usize> = pages.clone().collect();
+            let flat = self.duplicate().and_then(|mut copy| {
+                copy.flatten(&list, crate::flatten::FlattenScope::FormFields)?;
+                copy.set_path(self.path().map(|p| p.to_path_buf()));
+                Ok(copy)
+            });
+            // When the copy cannot be flattened, the fields are left out.
+            if let Ok(flat) = flat {
+                return flat.office_export_of(format, pages, page_breaks, &areas);
+            }
+        }
+        self.office_export_of(format, pages, page_breaks, &[])
+    }
+
+    /// The export of `pages`; the text inside `fields` (page and area, in
+    /// display space) goes by its place on the page, not by when it is drawn.
+    fn office_export_of(
+        &self,
+        format: OfficeFormat,
+        pages: Range<usize>,
+        page_breaks: bool,
+        fields: &[(usize, [f32; 4])],
+    ) -> Result<OfficeExport> {
         let blocks: Vec<_> = self
             .reading_blocks(pages.clone())
             .into_iter()
@@ -591,19 +637,45 @@ impl Document {
                     )
                 }))
                 .collect();
-            placed.sort_by(|a, b| a.0.total_cmp(&b.0));
-            let mut placed = placed.into_iter().peekable();
+            // The text of fields, placed by its top like a picture.
+            let in_field = |r: &[f32; 4]| {
+                let (x, y) = ((r[0] + r[2]) / 2.0, (r[1] + r[3]) / 2.0);
+                fields.iter().any(|(p, f)| {
+                    *p == page && x >= f[0] - 1.0 && x <= f[2] + 1.0 && y >= f[1] - 1.0 && y <= f[3] + 1.0
+                })
+            };
+            let mut flowing = Vec::new();
             for b in texts {
                 let rects = layers
                     .get(page)
                     .map(|l| l.range_rects(b.start, b.end))
                     .unwrap_or_default();
+                let mostly = |f: &dyn Fn(&[f32; 4]) -> bool| {
+                    !rects.is_empty() && rects.iter().filter(|r| f(r)).count() * 2 > rects.len()
+                };
+                if mostly(&within) {
+                    continue;
+                }
+                if !fields.is_empty() && mostly(&in_field) {
+                    let top = rects.first().map(|r| r[1]).unwrap_or(0.0);
+                    placed.push((
+                        top,
+                        Piece::Text {
+                            page,
+                            level: b.level,
+                            text: b.text.clone(),
+                        },
+                    ));
+                } else {
+                    flowing.push((b, rects));
+                }
+            }
+            placed.sort_by(|a, b| a.0.total_cmp(&b.0));
+            let mut placed = placed.into_iter().peekable();
+            for (b, rects) in flowing {
                 let top = rects.first().map(|r| r[1]).unwrap_or(0.0);
                 while let Some((_, piece)) = placed.next_if(|(t, _)| *t <= top) {
                     pieces.push(piece);
-                }
-                if !rects.is_empty() && rects.iter().filter(|r| within(r)).count() * 2 > rects.len() {
-                    continue;
                 }
                 pieces.push(Piece::Text {
                     page,

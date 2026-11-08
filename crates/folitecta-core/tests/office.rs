@@ -510,3 +510,85 @@ fn a_mixed_report_keeps_its_pictures_and_tables_in_place() {
         "{rtf}"
     );
 }
+
+#[test]
+fn the_values_of_form_fields_are_exported_in_their_place() {
+    use folitecta_core::{FieldProps, NewField};
+    // A filled invoice: its lines are fields.
+    let mut doc = Document::from_template(
+        folitecta_core::Template::Invoice,
+        &folitecta_core::TemplateOptions::default(),
+    )
+    .unwrap();
+    for (name, value) in [
+        ("Item1", "Consulting"),
+        ("Qty1", "2"),
+        ("Price1", "100"),
+        ("Item2", "Travel"),
+        ("Qty2", "1"),
+        ("Price2", "45"),
+        ("BillTo", "Rossi S.p.A."),
+    ] {
+        let f = doc.form_fields().into_iter().find(|f| f.name == name).unwrap().id;
+        doc.set_field_value(f, value).unwrap();
+    }
+    // And a check box on a page of its own, ticked.
+    let mut form = Document::new_blank(1, 400.0, 400.0).unwrap();
+    let props = FieldProps {
+        name: "Agree".into(),
+        ..FieldProps::default()
+    };
+    let check = form
+        .add_form_field(0, NewField::CheckBox, [40.0, 300.0, 54.0, 314.0], &props)
+        .unwrap();
+    let text = form
+        .add_form_field(
+            0,
+            NewField::Text,
+            [70.0, 296.0, 300.0, 316.0],
+            &FieldProps {
+                name: "Who".into(),
+                ..FieldProps::default()
+            },
+        )
+        .unwrap();
+    form.set_field_value(text, "Ada Lovelace").unwrap();
+    let on = form
+        .form_fields()
+        .into_iter()
+        .find(|f| f.id == check)
+        .unwrap()
+        .options
+        .first()
+        .cloned()
+        .unwrap_or_else(|| "Yes".into());
+    form.set_field_value(check, &on).unwrap();
+
+    let before = doc.bytes();
+    let out = doc
+        .export_office(OfficeFormat::Html, 0..doc.page_count(), false)
+        .unwrap();
+    let page = String::from_utf8(out.bytes).unwrap();
+    assert_eq!(doc.bytes(), before, "the document itself is unchanged");
+    if let Ok(dir) = std::env::var("OFFICE_DUMP") {
+        std::fs::write(format!("{dir}/filled-invoice.html"), &page).unwrap();
+    }
+    for value in ["Consulting", "Travel", "Rossi S.p.A."] {
+        assert!(page.contains(value), "{value}: {page}");
+    }
+    // The address after "Bill to", the lines in the table, before the totals.
+    let at = |m: &str| page.find(m).unwrap_or_else(|| panic!("{m}"));
+    assert!(
+        at("Bill to") < at("Rossi S.p.A.") && at("Rossi S.p.A.") < at("<table>"),
+        "{page}"
+    );
+    assert!(page.contains("<td>Consulting</td>"), "{page}");
+    assert!(
+        !out.left_out.iter().any(|(k, _)| *k == "comments"),
+        "{:?}",
+        out.left_out
+    );
+    let out = form.export_office(OfficeFormat::Html, 0..1, false).unwrap();
+    let page = String::from_utf8(out.bytes).unwrap();
+    assert!(page.contains("Ada Lovelace"), "{page}");
+}

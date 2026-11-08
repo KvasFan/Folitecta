@@ -257,3 +257,28 @@ fn specks_go_and_pages_become_black_and_white_when_asked() {
         folitecta_core::pictures::Colors::BlackWhite
     );
 }
+
+#[test]
+fn a_sheet_both_sideways_and_askew_is_straightened_and_turned() {
+    let mut doc = Document::from_text(&prose(40), TextLayout::default()).unwrap();
+    doc.rasterize_pages(&[0], 100.0, false).unwrap();
+    // Fed 2 degrees askew, and sideways.
+    let px = doc.image_pixels(0, 0).unwrap();
+    let askew = turn(&px, 2.0, Rgba([255, 255, 255, 255]));
+    let sideways = image::imageops::rotate90(&askew);
+    let colors = doc.page_images(0).unwrap()[0].colors;
+    doc.replace_page_image(0, 0, &sideways, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0], colors)
+        .unwrap();
+    doc.clear_history();
+    let look = doc.look_at_scan(0).unwrap().unwrap();
+    let t = ScanThresholds::default();
+    assert_eq!(look.turn, 270, "{look:?}");
+    assert!(look.askew(&t) && (look.skew.abs() - 2.0).abs() < 0.3, "{look:?}");
+    let fixes = scan_fixes(&[look], &t);
+    let done = doc.clean_up_scans(&fixes).unwrap();
+    assert_eq!((done.straightened, done.turned), (1, 1), "{done:?}");
+    // Its lines run straight down the picture now, straight across the page.
+    let straight = image::imageops::rotate90(&doc.image_pixels(0, 0).unwrap());
+    assert!(skew_angle(&straight).abs() < 0.3, "{}", skew_angle(&straight));
+    assert_eq!(doc.look_at_scan(0).unwrap().unwrap().turn, 0);
+}

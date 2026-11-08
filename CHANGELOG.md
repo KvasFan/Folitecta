@@ -54,6 +54,8 @@ All notable changes to Folitecta are documented here. The format follows
 - The accessibility fix of table spans also finds cells that span rows: a row starting further
   right leaves its first columns to the cells above them.
 - The Fields pane names picture fields as such, not as buttons.
+- Clean Up Scans tells the way up of sheets fed askew too, and measures the skew of sheets lying
+  sideways: a sheet both askew and sideways is straightened and turned in the same step.
 
 ### Changed
 - Text recognition no longer writes again what a page already shows as text, a comment or a form

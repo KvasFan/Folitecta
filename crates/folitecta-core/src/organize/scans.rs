@@ -9,7 +9,7 @@ use image::{RgbaImage, imageops};
 
 use crate::document::Document;
 use crate::error::{Error, Result};
-use crate::imaging::{Edit, Format, Work, skew_angle, upright_turn};
+use crate::imaging::{Edit, Format, Work, skew_angle, turn as turned_by, upright_turn};
 
 /// Share of the page a picture must cover for the page to be a scan.
 const SCAN_COVER: f32 = 0.85;
@@ -272,6 +272,39 @@ pub fn scan_fixes(looks: &[ScanLook], thresholds: &ScanThresholds) -> Vec<ScanFi
     fixes
 }
 
+/// How a scanned picture must turn to read upright (`upright_turn`) and
+/// how askew its lines are. Lines running down are measured across, on the
+/// picture turned a quarter (a turn keeps the angle); when the way up
+/// cannot be told, it is told again on a copy straightened by the skew,
+/// as it lies and turned a quarter.
+fn way_and_skew(px: &image::RgbaImage) -> (Option<i32>, f32) {
+    let white = image::Rgba([255, 255, 255, 255]);
+    let straight = |p: &image::RgbaImage, a: f32| {
+        if a.abs() >= 0.05 {
+            turned_by(p, -a, white)
+        } else {
+            p.clone()
+        }
+    };
+    match upright_turn(px) {
+        Some(t @ (90 | 270)) => (Some(t), skew_angle(&image::imageops::rotate90(px))),
+        Some(t) => (Some(t), skew_angle(px)),
+        None => {
+            let s = skew_angle(px);
+            if let Some(t @ (0 | 180)) = upright_turn(&straight(px, s)) {
+                return (Some(t), s);
+            }
+            let quarter = image::imageops::rotate90(px);
+            let s2 = skew_angle(&quarter);
+            match upright_turn(&straight(&quarter, s2)) {
+                // The quarter turned copy reads upright after `t` more.
+                Some(t @ (0 | 180)) => (Some((t + 90) % 360), s2),
+                _ => (None, s),
+            }
+        }
+    }
+}
+
 /// Degrees clockwise a picture placed with `matrix` shows its pixels turned,
 /// to the nearest quarter turn.
 fn placed_turn(matrix: &[f64; 6]) -> i32 {
@@ -323,14 +356,13 @@ impl Document {
             .map(|im| placed_turn(&im.matrix))
             .unwrap_or(0)
             + self.page_size_of(self.page_id(page)?).rotation;
-        let turn = upright_turn(&px)
-            .map(|t| (t - shown).rem_euclid(360))
-            .unwrap_or(0);
+        let (lines, skew) = way_and_skew(&px);
+        let turn = lines.map(|t| (t - shown).rem_euclid(360)).unwrap_or(0);
         Ok(Some(ScanLook {
             page,
             picture,
             ink: ink_share(&px),
-            skew: skew_angle(&px),
+            skew,
             borders: dark_borders(&px),
             turn,
         }))

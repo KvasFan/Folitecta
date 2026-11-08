@@ -4,6 +4,18 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L012: sideways sheets fed askew (0.64.0)
+
+- **Current state before:** the way up of a sheet was not told when it was askew (the rows of its
+  lines blur), and the skew of a sideways sheet was measured across its lines running down.
+- **What:** `scans.rs`: `way_and_skew` (`upright_turn` first; lines running down: the skew of the
+  picture turned a quarter; no answer: the picture straightened by its skew and asked again, then
+  turned a quarter, straightened and asked: 0 or 180 there means 90 or 270 for the sheet).
+- **Checked:** `scans.rs` (a letter fed 2° askew and turned sideways: turn 270 and skew 2°,
+  straightened and turned in one clean-up, then straight and upright; the other scan tests);
+  self-test steps `scans`, `scans_upright`, `scans_bw`.
+- **Open:** scripts other than Latin letters.
+
 ## 2026-11-08 — FOL-L031: picture fields named in the Fields pane (0.63.0)
 
 - **What:** `panes/fields.rs`: the push buttons that are picture fields found once per drawing of

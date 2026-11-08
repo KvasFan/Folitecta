@@ -2,7 +2,8 @@
 //! leaves to write in, proposed as fields to add: runs of underscores and
 //! lines drawn with nothing written on them (a text field above each),
 //! empty boxes (a text field in each, of several lines when tall) and small
-//! squares (a check box). Each is named after the words beside it ("Name:"
+//! squares (a check box); a row of three squares or more side by side is a
+//! comb, a text field of one character a square. Each is named after the words beside it ("Name:"
 //! before a line, "I agree" after a square, "Comments" above a box). Places
 //! where a field already is are left out.
 
@@ -26,6 +27,8 @@ pub struct FieldProposal {
     pub rect: [f32; 4],
     /// The words beside it, the name it will have (empty: none found).
     pub label: String,
+    /// A comb: its number of squares, one character each (0: none).
+    pub comb: u32,
 }
 
 /// The height of a text field over a line, in points.
@@ -117,7 +120,7 @@ fn page_proposals(
     text: &PageText,
     paths: &[crate::paths::PagePath],
     size: &PageSize,
-) -> Vec<(NewField, bool, [f32; 4], String)> {
+) -> Vec<(NewField, bool, [f32; 4], String, u32)> {
     let mut out = Vec::new();
     // Runs of underscores in the text.
     let chars: Vec<char> = text.text.chars().collect();
@@ -144,7 +147,7 @@ fn page_proposals(
         if label.is_empty() {
             label = tidy(&words_in(text, band, (r[2], r[2] + LABEL_REACH), false), false);
         }
-        out.push((NewField::Text, false, field, label));
+        out.push((NewField::Text, false, field, label, 0));
     }
     for p in paths.iter().filter(|p| p.stroked || p.filled) {
         let rects = p.rectangles();
@@ -168,7 +171,7 @@ fn page_proposals(
                 }
                 let band = (field[1] - 2.0, field[3] + 1.0);
                 let label = tidy(&words_in(text, band, (b[0] - LABEL_REACH, b[0]), true), true);
-                out.push((NewField::Text, false, field, label));
+                out.push((NewField::Text, false, field, label, 0));
             } else if p.stroked && !rects.is_empty() && !has_text(text, b) {
                 let square = (6.0..=24.0).contains(&w) && (w - h).abs() <= 0.25 * w;
                 let band = (b[1] - 2.0, b[3] + 2.0);
@@ -177,7 +180,7 @@ fn page_proposals(
                     if label.is_empty() {
                         label = tidy(&words_in(text, band, (b[0] - LABEL_REACH, b[0]), true), true);
                     }
-                    out.push((NewField::CheckBox, false, b, label));
+                    out.push((NewField::CheckBox, false, b, label, 0));
                 } else if w >= 40.0 && (10.0..=300.0).contains(&h) {
                     let line_band = (b[1], (b[1] + 18.0).min(b[3]));
                     let mut label = tidy(&words_in(text, line_band, (b[0] - LABEL_REACH, b[0]), true), true);
@@ -186,10 +189,47 @@ fn page_proposals(
                         label = tidy(&words_in(text, (b[1] - 16.0, b[1]), (b[0], b[2]), false), false);
                     }
                     let inset = [b[0] + 1.0, b[1] + 1.0, b[2] - 1.0, b[3] - 1.0];
-                    out.push((NewField::Text, h > 30.0, inset, label));
+                    out.push((NewField::Text, h > 30.0, inset, label, 0));
                 }
             }
         }
+    }
+    combs(text, out)
+}
+
+/// Rows of three squares or more side by side, alike, become one comb.
+fn combs(
+    text: &PageText,
+    found: Vec<(NewField, bool, [f32; 4], String, u32)>,
+) -> Vec<(NewField, bool, [f32; 4], String, u32)> {
+    let (mut squares, mut out): (Vec<_>, Vec<_>) = found.into_iter().partition(|p| p.0 == NewField::CheckBox);
+    squares.sort_by(|a, b| a.2[1].total_cmp(&b.2[1]).then(a.2[0].total_cmp(&b.2[0])));
+    let mut i = 0;
+    while i < squares.len() {
+        let mut j = i + 1;
+        while j < squares.len() {
+            let (a, b) = (squares[j - 1].2, squares[j].2);
+            let side = |r: [f32; 4]| (r[2] - r[0], r[3] - r[1]);
+            let alike = (side(a).0 - side(b).0).abs() <= 1.0 && (side(a).1 - side(b).1).abs() <= 1.0;
+            let beside = (a[1] - b[1]).abs() <= 1.5 && b[0] - a[2] <= 2.0 && b[0] - a[2] >= -1.0;
+            if !(alike && beside) {
+                break;
+            }
+            j += 1;
+        }
+        if j - i >= 3 {
+            let (first, last) = (squares[i].2, squares[j - 1].2);
+            let r = [first[0], first[1], last[2], last[3]];
+            let band = (r[1] - 2.0, r[3] + 2.0);
+            let mut label = tidy(&words_in(text, band, (r[0] - LABEL_REACH, r[0]), true), true);
+            if label.is_empty() {
+                label = tidy(&words_in(text, band, (r[2], r[2] + LABEL_REACH), false), false);
+            }
+            out.push((NewField::Text, false, r, label, (j - i) as u32));
+        } else {
+            out.extend(squares[i..j].iter().cloned());
+        }
+        i = j;
     }
     out
 }
@@ -214,7 +254,7 @@ impl Document {
                         .collect()
                 })
                 .unwrap_or_default();
-            let mut kept: Vec<(NewField, bool, [f32; 4], String)> = Vec::new();
+            let mut kept: Vec<(NewField, bool, [f32; 4], String, u32)> = Vec::new();
             for p in page_proposals(text, &paths, &size) {
                 let clash = |r: [f32; 4]| overlap(r, p.2) > 0.3 * area(p.2).min(area(r)).max(1.0);
                 if taken.iter().any(|r| clash(*r)) || kept.iter().any(|k| clash(k.2)) {
@@ -223,13 +263,17 @@ impl Document {
                 kept.push(p);
             }
             kept.sort_by(|a, b| a.2[1].total_cmp(&b.2[1]).then(a.2[0].total_cmp(&b.2[0])));
-            out.extend(kept.into_iter().map(|(kind, multiline, r, label)| FieldProposal {
-                page,
-                kind,
-                multiline,
-                rect: to_pdf(&size, r),
-                label,
-            }));
+            out.extend(
+                kept.into_iter()
+                    .map(|(kind, multiline, r, label, comb)| FieldProposal {
+                        page,
+                        kind,
+                        multiline,
+                        rect: to_pdf(&size, r),
+                        label,
+                        comb,
+                    }),
+            );
         }
         out
     }
@@ -258,6 +302,8 @@ impl Document {
                 name,
                 tooltip: f.label.clone(),
                 multiline: f.multiline,
+                comb: f.comb > 1,
+                max_len: f.comb,
                 ..FieldProps::default()
             };
             if let Err(e) = self.add_form_field(f.page, f.kind, f.rect, &props) {

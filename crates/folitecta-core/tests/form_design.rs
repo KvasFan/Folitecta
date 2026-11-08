@@ -428,3 +428,43 @@ fn the_fields_a_flat_form_leaves_room_for_are_found_and_added() {
     doc.undo().unwrap();
     assert!(doc.form_fields().is_empty());
 }
+
+#[test]
+fn a_row_of_squares_side_by_side_is_a_comb() {
+    let mut content = String::from("BT /F1 11 Tf 40 702 Td (Tax code) Tj ET\n");
+    for k in 0..5 {
+        content.push_str(&format!("{} 700 14 14 re S\n", 100 + 14 * k));
+    }
+    // Two squares apart: check boxes.
+    content.push_str("40 650 10 10 re S\nBT /F1 11 Tf 56 651 Td (Yes) Tj ET\n100 650 10 10 re S\nBT /F1 11 Tf 116 651 Td (No) Tj ET\n");
+    let mut b = folitecta_core::testdocs::Builder::new();
+    let mut res = lopdf::Dictionary::new();
+    res.set("Font", folitecta_core::testdocs::standard_fonts());
+    b.page((595.0, 842.0), content.into_bytes(), res, vec![]);
+    let mut doc = Document::from_bytes(b.finish(), None, None).unwrap();
+    let found = doc.find_form_fields(0..1);
+    let got: Vec<(NewField, &str, u32)> = found.iter().map(|f| (f.kind, f.label.as_str(), f.comb)).collect();
+    assert_eq!(
+        got,
+        vec![
+            (NewField::Text, "Tax code", 5),
+            (NewField::CheckBox, "Yes", 0),
+            (NewField::CheckBox, "No", 0),
+        ],
+        "{found:#?}"
+    );
+    let comb = found[0].rect;
+    assert!(
+        (comb[0] - 100.0).abs() < 1.0 && (comb[2] - 170.0).abs() < 1.0,
+        "{comb:?}"
+    );
+    doc.add_found_fields(&found).unwrap();
+    let id = doc
+        .form_fields()
+        .into_iter()
+        .find(|f| f.name == "Tax code")
+        .unwrap()
+        .id;
+    let props = doc.field_props(id).unwrap();
+    assert!(props.comb && props.max_len == 5, "{props:?}");
+}

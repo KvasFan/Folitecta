@@ -45,6 +45,8 @@ All notable changes to Folitecta are documented here. The format follows
 - A web link can be opened without asking from then on for its whole site (Always open links to
   …); Preferences lists those sites and asks again for all of them on request. The command line
   help names every option.
+- Find Form Fields makes a row of three squares or more side by side one text field of one
+  character a square (a comb), named after the words before it.
 
 ### Changed
 - Text recognition no longer writes again what a page already shows as text, a comment or a form

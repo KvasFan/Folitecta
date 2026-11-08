@@ -4,6 +4,19 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L014: combs found (0.59.0)
+
+- **Current state before:** Find Form Fields proposed a check box for every small square, also
+  for the rows of squares a form leaves for one character each.
+- **What:** `field_finder.rs`: `combs` (the squares sorted by line, runs of squares of the same
+  size within a point, tops within 1.5 points, at most 2 points apart; three or more make one text
+  field over the run, named by the words before it or after it), `FieldProposal::comb`;
+  `add_found_fields` sets `comb` and `max_len`; the dialog says "Text, n characters in boxes".
+- **Checked:** `form_design.rs` (five touching squares after "Tax code" → one comb of five over
+  them, two squares apart → two check boxes; the field added with comb and maximum length 5), the
+  flat form as before; self-test steps `find_fields` and `actions`.
+- **Open:** radio groups from rows of squares; combs drawn as one rectangle with dividers.
+
 ## 2026-11-08 — FOL-L052: sites opened without asking (0.58.0)
 
 - **Current state before:** a link that reaches outside the document was asked every time, unless

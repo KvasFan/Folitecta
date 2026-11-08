@@ -643,6 +643,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    `allow_site`, `forget_sites`, `needs_asking` (`follow.rs`), the choice in the question of a web
    link, the list in Preferences.
 
+### 0.59.0 — combs found (on `main`, untagged)
+
+1. ~~**FOL-L014 — combs.**~~ Done: `combs` (`field_finder.rs`): squares alike and side by side
+   (at most 2 points apart), three or more, become one comb text field (`FieldProposal::comb`,
+   `max_len`).
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with

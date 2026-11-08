@@ -85,6 +85,7 @@ pub fn FindFieldsDialog() -> Element {
                                 }
                                 span {
                                     b { {match (p.kind, p.multiline) {
+                                        _ if p.comb > 1 => tf(lang, "fields.find.comb", &[("count", &p.comb.to_string())]),
                                         (NewField::CheckBox, _) => t(lang, "fieldkind.check"),
                                         (_, true) => t(lang, "fields.find.text_lines"),
                                         _ => t(lang, "fieldkind.text"),

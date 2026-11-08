@@ -455,6 +455,8 @@ pub enum Dialog {
     FindFields,
     /// Remove hidden information.
     Sanitize,
+    /// The objects of the file.
+    Inspector,
     /// Preflight against PDF/A-2b and conversion.
     Preflight,
     /// Converting the colours of the document to grey.

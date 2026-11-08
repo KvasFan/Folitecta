@@ -18,6 +18,7 @@ pub mod find_replace;
 pub mod form_calc;
 pub mod form_fill;
 pub mod greyscale;
+pub mod inspect;
 pub mod javascript;
 pub mod macros;
 pub mod mail;

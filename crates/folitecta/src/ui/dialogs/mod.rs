@@ -461,6 +461,7 @@ pub fn Dialogs() -> Element {
         Dialog::ExportTables => rsx! { crate::ui::features::table_export::ExportTablesDialog {} },
         Dialog::FindFields => rsx! { crate::ui::features::find_fields::FindFieldsDialog {} },
         Dialog::Sanitize => rsx! { crate::ui::features::sanitize::SanitizeDialog {} },
+        Dialog::Inspector => rsx! { crate::ui::features::inspect::InspectorDialog {} },
         Dialog::Preflight => rsx! { crate::ui::features::preflight::PreflightDialog {} },
         Dialog::ConvertGrey => rsx! { crate::ui::features::greyscale::ConvertGreyDialog {} },
         Dialog::FieldItems => rsx! { crate::ui::features::field_editor::FieldItemsDialog {} },

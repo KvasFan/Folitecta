@@ -485,6 +485,7 @@ pub const RIBBON: &[RTab] = &[
                     "document.discardPDFA",
                     "document.replaceFonts",
                     "document.audit",
+                    "document.inspectObjects",
                     "document.wordCount",
                     "document.detectImageBarcode",
                     "document.detectBarcodes",

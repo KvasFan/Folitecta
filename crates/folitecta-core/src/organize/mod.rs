@@ -12,6 +12,7 @@ pub mod email;
 pub mod export;
 pub mod greyscale;
 pub mod incoming;
+pub mod inspect;
 pub mod markdown;
 pub mod marks;
 pub mod metadata;

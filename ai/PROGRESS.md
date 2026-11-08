@@ -4,6 +4,22 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L004: object inspector (0.54.0)
+
+- **Current state before:** the objects of a file could only be read with other programs.
+- **What:** `organize/inspect.rs`: `InspectPath` (trailer or object, then steps; `title`),
+  `Document::inspect` (the value at the path: its summary, entries with kind, summary and the path
+  they open: inside the value, or the object a reference names), `StreamView` (bytes written and
+  decoded, the data as text when 95% of it is printable, else its first 512 bytes in hexadecimal,
+  at most 64 KiB), `object_count`; refused when copying is forbidden. The app: the Object
+  Inspector window (`document.inspectObjects`, `Dialog::Inspector`): Back, Trailer, Current page,
+  an object by its number, rows that open what they lead to.
+- **Checked:** `doctools.rs` (trailer → catalog → page tree → `/Kids` → the first page, its
+  `/MediaBox`, its content streams as text, a path that is not there refused); self-test step
+  `inspector` (the trailer, `/Root`, Current page, Back).
+- **Open:** editing values; search among the objects; objects inside object streams are shown as
+  loaded (lopdf reads them out of their streams).
+
 ## 2026-11-08 — FOL-L035: pictures compared (0.53.0)
 
 - **Current state before:** only the words of two documents were compared.

@@ -128,3 +128,54 @@ fn marking_many_results_is_one_undo_step() {
     doc.undo().unwrap();
     assert!(doc.annotations(0).unwrap().is_empty());
 }
+
+#[test]
+fn the_objects_of_the_file_are_inspected_from_the_trailer_down() {
+    use folitecta_core::InspectPath;
+    let doc = folitecta_core::Document::from_text("Hello inspector", Default::default()).unwrap();
+    let trailer = doc.inspect(&InspectPath::trailer()).unwrap();
+    let root = trailer.entries.iter().find(|e| e.key == "/Root").unwrap();
+    assert_eq!(root.kind, "reference");
+    assert!(root.summary.contains("/Catalog"), "{root:?}");
+    let catalog = doc.inspect(root.open.as_ref().unwrap()).unwrap();
+    let pages = catalog.entries.iter().find(|e| e.key == "/Pages").unwrap();
+    let tree = doc.inspect(pages.open.as_ref().unwrap()).unwrap();
+    let kids = tree.entries.iter().find(|e| e.key == "/Kids").unwrap();
+    assert_eq!(kids.kind, "array");
+    // Inside an array of the object: a step, then the page it names.
+    let list = doc.inspect(kids.open.as_ref().unwrap()).unwrap();
+    assert_eq!(list.path.steps, vec!["/Kids".to_string()]);
+    assert!(
+        list.path.title().ends_with("obj › /Kids"),
+        "{}",
+        list.path.title()
+    );
+    let page = doc.inspect(list.entries[0].open.as_ref().unwrap()).unwrap();
+    assert_eq!(page.path.object, Some(doc.page_ids()[0]));
+    let media = page.entries.iter().find(|e| e.key == "/MediaBox").unwrap();
+    assert!(
+        media.summary.starts_with('[') && media.open.is_some(),
+        "{media:?}"
+    );
+    // The content stream: its data read as text.
+    let contents = page.entries.iter().find(|e| e.key == "/Contents").unwrap();
+    let at = doc.inspect(contents.open.as_ref().unwrap()).unwrap();
+    // One stream, or an array of them (the text in one of them).
+    let streams: Vec<_> = match at.stream {
+        Some(s) => vec![s],
+        None => at
+            .entries
+            .iter()
+            .filter_map(|e| doc.inspect(e.open.as_ref()?).ok()?.stream)
+            .collect(),
+    };
+    assert!(streams.iter().all(|s| s.is_text), "{streams:?}");
+    assert!(streams.iter().any(|s| s.text.contains("Tj")), "{streams:?}");
+    // A place that is not there.
+    let wrong = InspectPath {
+        object: Some(doc.page_ids()[0]),
+        steps: vec!["/Nothing".into()],
+    };
+    assert!(doc.inspect(&wrong).is_err());
+    assert!(doc.object_count() > 5);
+}

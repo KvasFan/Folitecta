@@ -608,6 +608,7 @@ pub const MENUS: &[(&str, &[Item])] = &[
                     Cmd("document.mergeDuplicates"),
                     Cmd("document.replaceFonts"),
                     Cmd("document.audit"),
+                    Cmd("document.inspectObjects"),
                     Sep,
                     Cmd("document.preflight"),
                     Cmd("document.convertToPDFA"),

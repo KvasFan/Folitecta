@@ -346,6 +346,7 @@ handlers! {
     "document.recompressImages" => |st| doc_dialog(st, Dialog::Recompress(false)),
     "document.recompressImage" => |st| doc_dialog(st, Dialog::Recompress(true)),
     "document.mergeDuplicates" => merge_duplicates,
+    "document.inspectObjects" => |st| { if st.allowed(folitecta_core::Restricted::Copy) { doc_dialog(st, Dialog::Inspector) } },
     "document.sanitize" => |st| { if st.allowed(folitecta_core::Restricted::Modify) { doc_dialog(st, Dialog::Sanitize) } },
     "document.insertText" => |st| doc_dialog(st, Dialog::InsertTextPages),
     "document.insertRTF" => insert_rtf,

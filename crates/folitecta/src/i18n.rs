@@ -110,6 +110,7 @@ const AREAS: &[(&str, &[&str])] = &[
             "sequence",
             "office",
             "sheets",
+            "inspect",
             "templates",
             "preflight",
             "grey",

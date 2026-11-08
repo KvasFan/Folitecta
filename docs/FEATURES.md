@@ -4,10 +4,10 @@ Generated from the command registry for version 0.45.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1492 |
+| ✅ available | 1493 |
 | 🟡 partial | 58 |
 | ⬜ planned | 462 |
-| total | 2012 |
+| total | 2013 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -1014,6 +1014,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Zoom Out | `imageEditor.zoomOut` | ✅ available |
 | ↳ Zoom in | `imageEditor.zoomIn` | ✅ available |
 | Merge Duplicate Fonts and Pictures | `document.mergeDuplicates` | ✅ available |
+| Object Inspector… | `document.inspectObjects` | ✅ available |
 | Recompress Images | `recompressImages` | ⬜ planned |
 | ↳ Edit… | `recompressImages.edit` | ⬜ planned |
 | Recompress Images… | `document.recompressImages` | ✅ available |
@@ -1647,6 +1648,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | OCR Images… | `document.ocrImages` | ✅ available |
 | OCR Image… | `OCRImage` | ✅ available |
 | OCR Selected Region… | `document.OCRSelRgn` | ✅ available |
+| Object Inspector… | `document.inspectObjects` | ✅ available |
 | Options… | `document.options` | ⬜ planned |
 | Overlay | `overlay` | ✅ available |
 | Overlay Pages… | `document.overlayPages` | ✅ available |

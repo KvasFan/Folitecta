@@ -448,6 +448,7 @@ mod steps_formats;
 mod steps_frames;
 mod steps_grey;
 mod steps_groups;
+mod steps_inspector;
 mod steps_interleave;
 mod steps_jumps;
 mod steps_layer_drawing;
@@ -600,6 +601,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "find_fields" => Box::pin(steps_find_fields::run(cx)),
             "sanitize" => Box::pin(steps_sanitize::run(cx)),
             "compare_pictures" => Box::pin(steps_compare_pictures::run(cx)),
+            "inspector" => Box::pin(steps_inspector::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -710,6 +712,7 @@ const STEPS: &[&str] = &[
     "find_fields",
     "sanitize",
     "compare_pictures",
+    "inspector",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",
@@ -1201,6 +1204,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("export-tables", Dialog::ExportTables),
         ("find-fields", Dialog::FindFields),
         ("sanitize", Dialog::Sanitize),
+        ("inspector", Dialog::Inspector),
         ("preflight", Dialog::Preflight),
         ("convert-grey", Dialog::ConvertGrey),
         ("insert-text", Dialog::InsertTextPages),

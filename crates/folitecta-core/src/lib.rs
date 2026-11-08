@@ -49,8 +49,8 @@ pub use navigation::{articles, contents, layer_drawing, layers, links, outline};
 pub(crate) use organize::typeset;
 pub use organize::{
     actions, attachments, combine, compare, csvdoc, delivery, doctools, duplicates, email, export, greyscale,
-    incoming, markdown, marks, metadata, office, pages, pagetools, pdfa, portfolio, print, recompress,
-    scanning, scans, sheets, templates, textdoc, user_templates,
+    incoming, inspect, markdown, marks, metadata, office, pages, pagetools, pdfa, portfolio, print,
+    recompress, scanning, scans, sheets, templates, textdoc, user_templates,
 };
 pub(crate) use page_text::{content_edit, content_lex};
 pub use page_text::{ocr, page_tables, reading, search, spelling, text, textedit, textlayer, textops};
@@ -85,6 +85,7 @@ pub use form_format::{FieldCheck, FieldFormat};
 pub use forms::{FieldKind, FilledFields, FormField, SignatureInfo};
 pub use greyscale::GreyReport;
 pub use incoming::Arrival;
+pub use inspect::{InspectEntry, InspectPath, Inspected, StreamView};
 pub use layers::{Layer, LayerNode};
 pub use links::{ButtonAction, Link, LinkTarget, NamedDestination};
 pub use marks::{MACROS, MarkPosition, TextMarkOptions};

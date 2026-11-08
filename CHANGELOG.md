@@ -15,6 +15,9 @@ All notable changes to Folitecta are documented here. The format follows
   a head row and numbers aligned to the right, in their place among the paragraphs.
 - Picture fields (Form › Picture Field): a field that takes a picture when it is clicked while the
   form is filled, and shows it alone; picture fields made by other programs work the same way.
+- Merge Duplicate Fonts and Pictures (Document › Optimize) keeps once the fonts, font programs,
+  pictures and colour profiles a document holds several times, as documents put together from
+  others do, and removes what nothing uses any more; one undo step.
 
 ## [0.45.0] - 2026-11-05
 

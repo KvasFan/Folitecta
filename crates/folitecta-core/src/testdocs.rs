@@ -1038,6 +1038,40 @@ pub fn embedded_fonts(b: &mut Builder) -> Dictionary {
     dictionary! { "F1" => f1, "F2" => f2, "F3" => f3, "F4" => helv }
 }
 
+/// Two pages, each with its own copy of the same embedded fonts and of the
+/// same picture (64 × 64, compressed): a document put together from others.
+pub fn repeated_doc() -> Vec<u8> {
+    use std::io::Write;
+    let mut b = Builder::new();
+    let pixels: Vec<u8> = (0..64 * 64 * 3).map(|i| (i % 251) as u8).collect();
+    for page in 0..2 {
+        let fonts = embedded_fonts(&mut b);
+        let mut z = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+        let _ = z.write_all(&pixels);
+        let picture = b.image(
+            64,
+            64,
+            "DeviceRGB",
+            8,
+            "FlateDecode",
+            z.finish().unwrap_or_default(),
+        );
+        let content = format!(
+            "BT /F1 12 Tf 50 780 Td (Page {} in the first font) Tj ET\n\
+             BT /F2 12 Tf 50 760 Td (and in the second) Tj ET\n\
+             q 100 0 0 100 50 500 cm /Im0 Do Q\n",
+            page + 1
+        );
+        b.page(
+            (595.0, 842.0),
+            content.into_bytes(),
+            dictionary! { "Font" => fonts, "XObject" => dictionary! { "Im0" => picture } },
+            vec![],
+        );
+    }
+    b.finish()
+}
+
 /// The glyph ids of `text` in the composite font `/F3`, as a hex string.
 fn cid_hex(text: &str) -> String {
     text.bytes()

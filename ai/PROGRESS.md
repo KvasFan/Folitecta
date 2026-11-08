@@ -4,6 +4,27 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L045: repeated fonts and pictures kept once (0.49.0)
+
+- **Current state before:** documents combined from others kept every copy of their fonts and
+  pictures; only pictures could be made smaller.
+- **What:** `organize/duplicates.rs`: `canon` (a writing of an object where dictionary keys are in
+  order, the length of a stream left out and its data by SHA-256), `candidates` (pictures, fonts,
+  font descriptors and what fonts and descriptors refer to: programs, ToUnicode and CID maps,
+  widths, encodings; ICC profiles of `[/ICCBased …]`; never a page, comment, field or content
+  stream), `merge` in up to eight rounds, `Document::merge_duplicates` on a copy (no undo step when
+  nothing changes), `prune_objects`, `Deduplicated`; refused for signed documents and without the
+  permission to change the document. Merge Duplicate Fonts and Pictures
+  (`document.mergeDuplicates`, Document › Optimize and the Convert ribbon) with its report.
+  `testdocs::repeated_doc`.
+- **Checked:** `recompress.rs` (two pages each with their own TrueType, CFF and composite fonts and
+  picture: 10 copies merged, 2 font programs, 4 fonts and 1 picture left, the text of both pages
+  and their pictures as before, smaller, opened again; nothing left to merge gives no step; Undo;
+  three alike notes on three pages stay three), the unit test of `canon`; self-test steps
+  `duplicates` and `recompress`.
+- **Open:** subsets of the same font are not merged (their programs differ); Type 3 fonts; pictures
+  within content streams.
+
 ## 2026-11-08 — FOL-L031: picture fields (0.48.0)
 
 - **Current state before:** push buttons could be given pictures in the designer only; a click on

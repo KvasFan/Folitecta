@@ -430,6 +430,7 @@ mod steps_changes;
 mod steps_contents;
 mod steps_csv_options;
 mod steps_doubtful_words;
+mod steps_duplicates;
 mod steps_effects;
 mod steps_email;
 mod steps_features;
@@ -592,6 +593,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "interleave" => Box::pin(steps_interleave::run(cx)),
             "table_export" => Box::pin(steps_table_export::run(cx)),
             "picture_field" => Box::pin(steps_picture_field::run(cx)),
+            "duplicates" => Box::pin(steps_duplicates::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -698,6 +700,7 @@ const STEPS: &[&str] = &[
     "interleave",
     "table_export",
     "picture_field",
+    "duplicates",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

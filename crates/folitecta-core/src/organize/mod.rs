@@ -7,6 +7,7 @@ pub mod compare;
 pub mod csvdoc;
 pub mod delivery;
 pub mod doctools;
+pub mod duplicates;
 pub mod email;
 pub mod export;
 pub mod greyscale;

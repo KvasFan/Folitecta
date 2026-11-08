@@ -605,6 +605,7 @@ pub const MENUS: &[(&str, &[Item])] = &[
                     Cmd("document.recompressImages"),
                     Cmd("document.recompressImage"),
                     Cmd("recompressImages"),
+                    Cmd("document.mergeDuplicates"),
                     Cmd("document.replaceFonts"),
                     Cmd("document.audit"),
                     Sep,

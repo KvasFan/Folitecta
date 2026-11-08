@@ -169,3 +169,90 @@ fn transparent_pictures_and_larger_results_are_left_alone() {
     assert_eq!(doc.bytes(), before, "a worse result is never written");
     assert!(!doc.can_undo());
 }
+
+// Fonts and pictures held several times kept once.
+
+use folitecta_core::testdocs::repeated_doc;
+
+fn count(doc: &Document, what: impl Fn(&lopdf::Object) -> bool) -> usize {
+    doc.inner().objects.values().filter(|o| what(o)).count()
+}
+
+fn is_font_file(o: &lopdf::Object) -> bool {
+    o.as_stream().is_ok_and(|s| {
+        s.dict.has(b"Length1")
+            || s.dict.get(b"Subtype").ok().and_then(|n| n.as_name().ok()) == Some(b"Type1C")
+    })
+}
+
+fn is_picture(o: &lopdf::Object) -> bool {
+    o.as_stream()
+        .is_ok_and(|s| s.dict.get(b"Subtype").ok().and_then(|n| n.as_name().ok()) == Some(b"Image"))
+}
+
+fn is_font(o: &lopdf::Object) -> bool {
+    o.as_dict()
+        .is_ok_and(|d| d.get(b"Type").ok().and_then(|n| n.as_name().ok()) == Some(b"Font"))
+}
+
+#[test]
+fn fonts_and_pictures_held_twice_are_kept_once() {
+    let mut doc = Document::from_bytes(repeated_doc(), None, None).unwrap();
+    let text_before: Vec<String> = (0..2).map(|p| doc.page_text(p)).collect();
+    let size_before = doc.bytes().len();
+    assert_eq!(count(&doc, is_font_file), 4);
+    assert_eq!(count(&doc, is_picture), 2);
+    assert_eq!(count(&doc, is_font), 8);
+
+    let done = doc.merge_duplicates().unwrap();
+    // Per copy: two font programs, three descriptors, four fonts, a picture.
+    assert_eq!(done.merged, 10, "{done:?}");
+    assert!(done.bytes > 64 * 64 / 2, "{done:?}");
+    assert_eq!(count(&doc, is_font_file), 2);
+    assert_eq!(count(&doc, is_picture), 1);
+    assert_eq!(count(&doc, is_font), 4);
+    // The pages read and draw as before, from the objects kept.
+    let text_after: Vec<String> = (0..2).map(|p| doc.page_text(p)).collect();
+    assert_eq!(text_before, text_after);
+    assert_eq!(doc.page_images(0).unwrap().len(), 1);
+    assert_eq!(doc.page_images(1).unwrap().len(), 1);
+    assert!(
+        doc.bytes().len() < size_before,
+        "{} {size_before}",
+        doc.bytes().len()
+    );
+    let again = Document::from_bytes(doc.bytes().as_ref().clone(), None, None).unwrap();
+    assert_eq!(
+        (0..2).map(|p| again.page_text(p)).collect::<Vec<_>>(),
+        text_before
+    );
+
+    // Nothing left to merge: no change, no undo step.
+    assert_eq!(doc.merge_duplicates().unwrap(), Default::default());
+    doc.undo().unwrap();
+    assert_eq!(count(&doc, is_picture), 2);
+}
+
+#[test]
+fn pages_and_comments_that_are_alike_stay_apart() {
+    let mut doc = Document::new_blank(3, 300.0, 300.0).unwrap();
+    for p in 0..3 {
+        doc.add_note(p, 50.0, 50.0, "same", "Tester", [1.0, 1.0, 0.0])
+            .unwrap();
+    }
+    let pages = doc.page_count();
+    let notes: usize = (0..3).map(|p| doc.annotations(p).unwrap().len()).sum();
+    doc.merge_duplicates().unwrap();
+    assert_eq!(doc.page_count(), pages);
+    assert_eq!(
+        (0..3).map(|p| doc.annotations(p).unwrap().len()).sum::<usize>(),
+        notes
+    );
+    // Changing the note of one page leaves the others alone.
+    doc.delete_annotation(0, 0).unwrap();
+    assert_eq!(
+        doc.annotations(1).unwrap().len(),
+        doc.annotations(2).unwrap().len()
+    );
+    assert!(!doc.annotations(1).unwrap().is_empty());
+}

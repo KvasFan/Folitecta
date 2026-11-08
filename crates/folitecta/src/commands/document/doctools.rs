@@ -172,6 +172,36 @@ pub(crate) fn remove_cropped_now(st: AppState, pages: &[usize]) {
     }
 }
 
+/// Keep once the fonts and pictures the document holds several times.
+fn merge_duplicates(st: AppState) {
+    if no_doc(st) || !st.allowed(folitecta_core::Restricted::Modify) {
+        return;
+    }
+    let lang = st.lang();
+    match st.with_active(|t| t.doc.merge_duplicates()) {
+        Some(Ok(d)) if d.merged == 0 && d.unused == 0 => {
+            st.toast(ToastKind::Info, t(lang, "toast.duplicates_none"), "")
+        }
+        Some(Ok(d)) => {
+            crate::files::set_window_title(st);
+            st.toast(
+                ToastKind::Ok,
+                tf(lang, "toast.duplicates_done", &[("count", &d.merged.to_string())]),
+                tf(
+                    lang,
+                    "toast.duplicates_detail",
+                    &[
+                        ("unused", &d.unused.to_string()),
+                        ("size", &crate::util::human_size(d.bytes)),
+                    ],
+                ),
+            );
+        }
+        Some(Err(e)) => st.core_error(&e),
+        None => {}
+    }
+}
+
 fn insert_rtf(st: AppState) {
     if no_doc(st) {
         return;
@@ -315,6 +345,7 @@ handlers! {
     "document.audit" => |st| doc_dialog(st, Dialog::SpaceAudit),
     "document.recompressImages" => |st| doc_dialog(st, Dialog::Recompress(false)),
     "document.recompressImage" => |st| doc_dialog(st, Dialog::Recompress(true)),
+    "document.mergeDuplicates" => merge_duplicates,
     "document.insertText" => |st| doc_dialog(st, Dialog::InsertTextPages),
     "document.insertRTF" => insert_rtf,
     "document.highlightFile" => highlight_from_file,

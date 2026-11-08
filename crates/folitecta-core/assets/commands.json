@@ -7416,6 +7416,20 @@
    "status": "planned"
   },
   {
+   "id": "document.mergeDuplicates",
+   "label": "Merge Duplicate Fonts and Pictures",
+   "parent": "document",
+   "menu": "document",
+   "ribbon": {
+    "tab": "convert",
+    "group": "enhancePages"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "document.recompressImages",
    "label": "Recompress Images…",
    "parent": "document",

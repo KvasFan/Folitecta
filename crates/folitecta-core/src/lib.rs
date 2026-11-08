@@ -46,9 +46,9 @@ pub use markup::{
 pub use navigation::{articles, contents, layer_drawing, layers, links, outline};
 pub(crate) use organize::typeset;
 pub use organize::{
-    actions, attachments, combine, compare, csvdoc, delivery, doctools, email, export, greyscale, incoming,
-    markdown, marks, metadata, office, pages, pagetools, pdfa, portfolio, print, recompress, scanning, scans,
-    sheets, templates, textdoc, user_templates,
+    actions, attachments, combine, compare, csvdoc, delivery, doctools, duplicates, email, export, greyscale,
+    incoming, markdown, marks, metadata, office, pages, pagetools, pdfa, portfolio, print, recompress,
+    scanning, scans, sheets, templates, textdoc, user_templates,
 };
 pub(crate) use page_text::{content_edit, content_lex};
 pub use page_text::{ocr, page_tables, reading, search, spelling, text, textedit, textlayer, textops};
@@ -70,6 +70,7 @@ pub use comment_summary::{SummaryEntry, SummaryLabels, SummaryLayout, SummaryOpt
 pub use contents::Heading;
 pub use delivery::{CopyComments, CopyFacts, CopyOptions, CopySignatures, CopySource, LeftOut, PreparedCopy};
 pub use document::{DocInfo, DocSnapshot, Document, PageSize, PreparedSave, ProtectionKey};
+pub use duplicates::Deduplicated;
 pub use error::{Error, Result};
 pub use export::ImageFormat;
 pub use flatten::FlattenScope;

@@ -4,10 +4,10 @@ Generated from the command registry for version 0.45.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1489 |
+| ✅ available | 1490 |
 | 🟡 partial | 58 |
 | ⬜ planned | 462 |
-| total | 2009 |
+| total | 2010 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -1010,6 +1010,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Zoom | `imageEditor.zoom` | ✅ available |
 | ↳ Zoom Out | `imageEditor.zoomOut` | ✅ available |
 | ↳ Zoom in | `imageEditor.zoomIn` | ✅ available |
+| Merge Duplicate Fonts and Pictures | `document.mergeDuplicates` | ✅ available |
 | Recompress Images | `recompressImages` | ⬜ planned |
 | ↳ Edit… | `recompressImages.edit` | ⬜ planned |
 | Recompress Images… | `document.recompressImages` | ✅ available |
@@ -1633,6 +1634,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | JavaScript Snippet | `jssnippet` | ✅ available |
 | Layer Actions | `dao` | ⬜ planned |
 | Link | `link` | ⬜ planned |
+| Merge Duplicate Fonts and Pictures | `document.mergeDuplicates` | ✅ available |
 | More Page Tools | `document.pagesMore` | ⬜ planned |
 | New Document from Selection… | `document.createNewDocFromSel` | ✅ available |
 | New Stamp from Active Document | `document.createStampFromActiveDoc` | ✅ available |

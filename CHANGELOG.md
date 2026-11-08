@@ -58,6 +58,7 @@ All notable changes to Folitecta are documented here. The format follows
   sideways: a sheet both askew and sideways is straightened and turned in the same step.
 - Convert Colours to Grey can convert the current page only; pictures and drawings other pages
   share stay in colour and are counted.
+- View › Snap › To Objects snaps drawing and measuring to the corners and line ends the page draws.
 
 ### Changed
 - Text recognition no longer writes again what a page already shows as text, a comment or a form

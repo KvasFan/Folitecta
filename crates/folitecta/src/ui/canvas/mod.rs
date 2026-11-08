@@ -16,7 +16,7 @@ use crate::ui::features::form_fill::{FieldInput, fill_field};
 use folitecta_core::render_service::TILE;
 
 mod create;
-mod geometry;
+pub(crate) mod geometry;
 mod page;
 mod popups;
 mod preview;

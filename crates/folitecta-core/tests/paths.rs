@@ -124,3 +124,22 @@ fn nodes_are_added_and_removed() {
     doc.undo().unwrap();
     assert_eq!(at(&doc), vec![[20.0, 20.0], [120.0, 20.0], [70.0, 100.0]]);
 }
+
+#[test]
+fn drawings_snap_to_the_corners_and_ends_of_the_paths() {
+    let doc = drawing();
+    let points = doc.snap_points(0);
+    // The triangle's three nodes, the rectangle's four corners.
+    for p in [
+        [20.0, 20.0],
+        [120.0, 20.0],
+        [70.0, 100.0],
+        [150.0, 150.0],
+        [210.0, 150.0],
+        [210.0, 190.0],
+        [150.0, 190.0],
+    ] {
+        assert!(points.contains(&p), "{p:?} in {points:?}");
+    }
+    assert_eq!(points.len(), 7, "{points:?}");
+}

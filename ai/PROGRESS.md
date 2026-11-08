@@ -4,6 +4,18 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L028: snapping to what the page draws (0.66.0)
+
+- **Current state before:** drawing and measuring snapped to the grid and guides only.
+- **What:** `paths.rs`: `snap_points` (the nodes of paths, the four corners of rectangles). The app:
+  `geometry.rs` `object_points` (in display space, kept for tab, page and revision),
+  `nearest_point`, `snap` tries the objects first (6 screen pixels) when `view.snap.toObjects` (a
+  planned command, now an option of View › Snap) is on.
+- **Checked:** `paths.rs` (the triangle's nodes and the rectangle's corners), the unit test of
+  `nearest_point`; self-test steps `snap_objects` (a point near a corner of a box lands on it, a
+  far one stays, none with the option off), `measures_ticks`, `paths`.
+- **Open:** middles of lines, intersections, a marker of the point snapped to.
+
 ## 2026-11-08 — local check of 0.62.0 to 0.65.0
 
 - **What:** `target/preflight.sh` at `626b4e6`: formatting, clippy for the three systems, the

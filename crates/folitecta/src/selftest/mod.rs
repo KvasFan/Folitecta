@@ -494,6 +494,7 @@ mod steps_scans;
 mod steps_scans_bw;
 mod steps_scans_upright;
 mod steps_search_patterns;
+mod steps_snap_objects;
 mod steps_spelling;
 mod steps_split;
 mod steps_split_view;
@@ -606,6 +607,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "inspector" => Box::pin(steps_inspector::run(cx)),
             "comment_history" => Box::pin(steps_comment_history::run(cx)),
             "measurements_pane" => Box::pin(steps_measurements_pane::run(cx)),
+            "snap_objects" => Box::pin(steps_snap_objects::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -719,6 +721,7 @@ const STEPS: &[&str] = &[
     "inspector",
     "comment_history",
     "measurements_pane",
+    "snap_objects",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

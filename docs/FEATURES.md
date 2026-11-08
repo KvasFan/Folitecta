@@ -4,10 +4,10 @@ Generated from the command registry for version 0.45.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1493 |
+| ✅ available | 1495 |
 | 🟡 partial | 58 |
-| ⬜ planned | 462 |
-| total | 2013 |
+| ⬜ planned | 461 |
+| total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -232,7 +232,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Settings | `view.snap.settings` | ⬜ planned |
 | ↳ To Grid | `view.snap.toGrid` | ✅ available |
 | ↳ To Guides | `view.snap.toGuides` | ✅ available |
-| ↳ To Objects | `view.snap.toObjects` | ⬜ planned |
+| ↳ To Objects | `view.snap.toObjects` | ✅ available |
 | Snap | `view.snapGroup` | ⬜ planned |
 | Thin Lines | `view.thinLines` | ⬜ planned |
 | Transparency Grid | `view.showTranspGrid` | ✅ available |
@@ -271,6 +271,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Lock All Cmd Panes | `view.lockAllCmdPanes` | ⬜ planned |
 | Lock Unlock All Cmd Bars | `view.lockUnlockAllCmdBars` | ⬜ planned |
 | Lock Unlock All Cmd Panes | `view.lockUnlockAllCmdPanes` | ⬜ planned |
+| Measurements | `view.measurements` | ✅ available |
 | Measuring | `view.toolbar.measuring` | ✅ available |
 | Menu Bar | `view.toolbar.menu` | ✅ available |
 | Mouse-Optimized UI | `view.switchToMouseUI` | ✅ available |
@@ -1505,6 +1506,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Lock Unlock All Cmd Panes | `view.lockUnlockAllCmdPanes` | ⬜ planned |
 | Loupe | `loupeView` | 🟡 partial |
 | Loupe | `view.loupe` | ✅ available |
+| Measurements | `view.measurements` | ✅ available |
 | Mouse-Optimized UI | `view.switchToMouseUI` | ✅ available |
 | Named Destinations Pane | `pdfNamedDestsView` | ✅ available |
 | Order | `view.order` | ✅ available |

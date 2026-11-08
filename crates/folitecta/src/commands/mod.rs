@@ -217,6 +217,7 @@ pub const VIEW_OPTIONS: &[&str] = &[
     "view.snap",
     "view.snap.toGrid",
     "view.snap.toGuides",
+    "view.snap.toObjects",
     "view.layout.r2l",
     "view.layout.showCover",
     "view.layout.showGaps",

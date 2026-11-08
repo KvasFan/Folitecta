@@ -255,6 +255,24 @@ impl Document {
         Ok(find_paths(&content, base))
     }
 
+    /// The points of page `page` that drawings can be snapped to (PDF user
+    /// space): the nodes of its paths, the four corners of its rectangles.
+    pub fn snap_points(&self, page: usize) -> Vec<[f32; 2]> {
+        let mut out = Vec::new();
+        for p in self.page_paths(page).unwrap_or_default() {
+            let rects = p.rectangles();
+            if rects.is_empty() {
+                out.extend(p.nodes.iter().map(|n| n.at));
+            } else {
+                for r in rects {
+                    out.extend([[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]]);
+                }
+            }
+        }
+        out.dedup();
+        out
+    }
+
     /// The topmost path of page `page` near `(x, y)` (page space), within
     /// `tolerance` points of its bounds.
     pub fn path_at(&self, page: usize, x: f32, y: f32, tolerance: f32) -> Option<PagePath> {

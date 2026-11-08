@@ -4,6 +4,20 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L041: cells over several rows (0.62.0)
+
+- **Current state before:** short rows of tagged tables got column spans only; a row starting in a
+  later column was given up.
+- **What:** `tables.rs`: `starts_by_place` (the column each cell starts in, any first one),
+  `spans_of`; `fix_table_spans` keeps the owner of every column row after row: the columns before
+  the first cell of a row go to the cells above them, which get `/RowSpan` (2, then one more for
+  each further row); column spans as before, only for short rows.
+- **Checked:** `accessibility.rs` (a CSV table whose third row has no cell under "Fruit": "Fruit"
+  spans two rows, no column spans, the table regular; the earlier span tests), the unit tests;
+  self-test steps `table_fixes`, `table_summaries`.
+- **Open:** a cell spanning rows in the middle of a row (told from a column span only by its
+  height).
+
 ## 2026-11-08 — local check of 0.56.0 to 0.61.0
 
 - **What:** `target/preflight.sh` at `3429f6e`: formatting, clippy for the three systems, the

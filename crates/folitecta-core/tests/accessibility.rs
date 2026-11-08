@@ -319,3 +319,51 @@ fn tables_get_summaries_asked_for() {
     doc.undo().unwrap();
     assert_eq!(doc.table_summaries()[0].1, "Sales by month");
 }
+
+#[test]
+fn a_cell_over_two_rows_spans_them() {
+    let mut doc = Document::from_csv(
+        "Kind;Name;Price\nFruit;Apples;3\n;Pears;4\nGreens;Leeks;2\n",
+        Some(';'),
+        TextLayout::default(),
+        "",
+    )
+    .unwrap();
+    doc.set_tagged(true).unwrap();
+    let place = |doc: &Document, word: &str| {
+        let hit = doc.search(word, folitecta_core::SearchOptions::default());
+        let r = hit
+            .first()
+            .unwrap_or_else(|| panic!("{word} is on the page"))
+            .rects[0];
+        [r[0] - 1.0, r[1] - 1.0, r[2] + 1.0, r[3] + 1.0]
+    };
+    let table = doc.add_struct_elem(None, None, "Table", "").unwrap();
+    // The row of Pears has no cell under Fruit: Fruit spans two rows.
+    for words in [
+        vec!["Kind", "Name", "Price"],
+        vec!["Fruit", "Apples", "3"],
+        vec!["Pears", "4"],
+        vec!["Greens", "Leeks", "2"],
+    ] {
+        let row = doc.add_struct_elem(Some(table), None, "TR", "").unwrap();
+        for w in words {
+            let r = place(&doc, w);
+            doc.tag_area(0, r, "TD", Some(row), None).unwrap();
+        }
+    }
+    assert_eq!(doc.fix_table_spans().unwrap(), 1);
+    let cells: Vec<_> = elems(&doc).into_iter().filter(|e| e.role == "TD").collect();
+    let with = |key: &str| -> Vec<usize> {
+        (0..cells.len())
+            .filter(|i| cells[*i].attributes.iter().any(|a| a == key))
+            .collect()
+    };
+    // Fruit (the fourth cell) spans down; no cell spans columns.
+    assert_eq!(with("Table/RowSpan"), [3]);
+    assert!(with("Table/ColSpan").is_empty());
+    assert_eq!(
+        status(&doc.accessibility_check(), "table_regular"),
+        CheckStatus::Passed
+    );
+}

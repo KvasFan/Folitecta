@@ -51,6 +51,8 @@ All notable changes to Folitecta are documented here. The format follows
   the states set on it and when it last changed, with their authors, oldest first.
 - A Measurements pane (Tools › Measure) lists the measurements of the document by kind with the
   total of each kind whose values share their units; a click shows a measurement on its page.
+- The accessibility fix of table spans also finds cells that span rows: a row starting further
+  right leaves its first columns to the cells above them.
 
 ### Changed
 - Text recognition no longer writes again what a page already shows as text, a comment or a form

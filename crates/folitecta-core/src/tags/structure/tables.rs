@@ -1,6 +1,7 @@
 //! Tables of the tags made readable (FOL-L041): header cells for the tables
-//! that have none, and the columns a cell spans in the rows that have fewer
-//! cells than the others.
+//! that have none, the columns a cell spans in the rows that have fewer
+//! cells than the others, and the rows a cell spans down when a row below
+//! it starts further right.
 
 use lopdf::{Dictionary, Object, ObjectId, dictionary};
 
@@ -45,7 +46,18 @@ fn has_spans(table: &StructElem) -> bool {
 /// the left edges of the cells of the widest row (`columns`) and of the row
 /// (`lefts`): a cell starts at the column whose edge is nearest. `None` when
 /// the edges do not tell (missing, or two cells in one column).
+#[cfg(test)]
 fn spans_by_place(columns: &[f32], lefts: &[f32]) -> Option<Vec<usize>> {
+    let starts = starts_by_place(columns, lefts)?;
+    if starts.first() != Some(&0) {
+        return None;
+    }
+    Some(spans_of(&starts, columns.len()))
+}
+
+/// The column each cell of a row starts in, from their left edges: the
+/// column whose edge is nearest. `None` when the edges do not tell.
+fn starts_by_place(columns: &[f32], lefts: &[f32]) -> Option<Vec<usize>> {
     let nearest = |x: f32| {
         columns
             .iter()
@@ -54,12 +66,20 @@ fn spans_by_place(columns: &[f32], lefts: &[f32]) -> Option<Vec<usize>> {
             .map(|(i, _)| i)
     };
     let starts: Vec<usize> = lefts.iter().map(|x| nearest(*x)).collect::<Option<_>>()?;
-    if starts.first() != Some(&0) || starts.windows(2).any(|w| w[0] >= w[1]) {
+    if starts.is_empty() || starts.windows(2).any(|w| w[0] >= w[1]) {
         return None;
     }
+    Some(starts)
+}
+
+/// The columns cells starting at `starts` span, up to the next one, the
+/// last to the end of the `width` columns.
+fn spans_of(starts: &[usize], width: usize) -> Vec<usize> {
     let mut spans: Vec<usize> = starts.windows(2).map(|w| w[1] - w[0]).collect();
-    spans.push(columns.len() - starts.last()?);
-    Some(spans)
+    if let Some(last) = starts.last() {
+        spans.push(width.saturating_sub(*last).max(1));
+    }
+    spans
 }
 
 /// The columns each cell of a row of `count` cells spans when the page does
@@ -269,8 +289,10 @@ impl Document {
     /// cells, the cells of the shorter rows span columns (`/ColSpan`): those
     /// their text covers on the page, measured against the cells of the
     /// widest row; when the page does not tell, the last cell of the row
-    /// spans the columns left. One undo step; returns how many tables
-    /// changed.
+    /// spans the columns left. A short row whose first cell stands in a
+    /// later column leaves the columns before it to the cells above them,
+    /// which span rows down to it (`/RowSpan`). One undo step; returns how
+    /// many tables changed.
     pub fn fix_table_spans(&mut self) -> Result<usize> {
         // The text of a cell, not the lines and fills drawn around it.
         let left = |doc: &Document, e: &StructElem| -> Option<f32> {
@@ -284,6 +306,7 @@ impl Document {
             x
         };
         let mut changes: Vec<(ObjectId, usize)> = Vec::new();
+        let mut row_spans: Vec<(ObjectId, usize)> = Vec::new();
         let mut tables = 0;
         for table in self.tag_tables()? {
             if has_spans(&table) {
@@ -299,32 +322,70 @@ impl Document {
                 .find(|r| cells(r).len() == width)
                 .and_then(|r| cells(r).iter().map(|c| left(self, c)).collect());
             let mut changed = false;
+            // The cell each column belongs to, row after row.
+            let mut owner: Vec<Option<ObjectId>> = vec![None; width];
+            let mut downs: Vec<(ObjectId, usize)> = Vec::new();
             for row in &rows {
                 let row_cells = cells(row);
-                if row_cells.is_empty() || row_cells.len() >= width {
+                if row_cells.is_empty() {
                     continue;
                 }
                 let lefts: Option<Vec<f32>> = row_cells.iter().map(|c| left(self, c)).collect();
-                let spans = columns
+                let placed = columns
                     .as_deref()
                     .zip(lefts.as_deref())
-                    .and_then(|(c, l)| spans_by_place(c, l))
-                    .unwrap_or_else(|| spans_by_order(row_cells.len(), width));
-                for (cell, span) in row_cells.iter().zip(spans) {
-                    if span > 1 {
-                        changes.push((cell.id, span));
+                    .and_then(|(c, l)| starts_by_place(c, l));
+                let starts = match placed {
+                    Some(s) => s,
+                    None if row_cells.len() >= width => (0..row_cells.len()).collect(),
+                    None => {
+                        // The order alone: one column each, the last the rest.
+                        let spans = spans_by_order(row_cells.len(), width);
+                        let mut at = 0;
+                        spans
+                            .iter()
+                            .map(|s| {
+                                let start = at;
+                                at += s;
+                                start
+                            })
+                            .collect()
+                    }
+                };
+                // The columns before the first cell: the cells above span down.
+                let mut above: Vec<ObjectId> =
+                    owner[..starts[0].min(width)].iter().flatten().copied().collect();
+                above.dedup();
+                for id in above {
+                    match downs.iter_mut().find(|(o, _)| *o == id) {
+                        Some((_, n)) => *n += 1,
+                        None => downs.push((id, 2)),
+                    }
+                }
+                let spans = spans_of(&starts, width);
+                for ((cell, span), start) in row_cells.iter().zip(&spans).zip(&starts) {
+                    if *span > 1 && row_cells.len() < width {
+                        changes.push((cell.id, *span));
                         changed = true;
+                    }
+                    for col in owner.iter_mut().skip(*start).take(*span) {
+                        *col = Some(cell.id);
                     }
                 }
             }
+            changed |= !downs.is_empty();
+            row_spans.extend(downs);
             tables += usize::from(changed);
         }
-        if changes.is_empty() {
+        if changes.is_empty() && row_spans.is_empty() {
             return Ok(0);
         }
         self.edit_step(|doc| {
             for (id, span) in &changes {
                 doc.set_table_attribute(*id, "ColSpan", Object::Integer(*span as i64))?;
+            }
+            for (id, span) in &row_spans {
+                doc.set_table_attribute(*id, "RowSpan", Object::Integer(*span as i64))?;
             }
             Ok(tables)
         })

@@ -466,6 +466,7 @@ mod steps_paths;
 mod steps_pencil;
 mod steps_perf;
 mod steps_permissions;
+mod steps_picture_field;
 mod steps_pictures;
 mod steps_policies;
 mod steps_preflight;
@@ -590,6 +591,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "scans_bw" => Box::pin(steps_scans_bw::run(cx)),
             "interleave" => Box::pin(steps_interleave::run(cx)),
             "table_export" => Box::pin(steps_table_export::run(cx)),
+            "picture_field" => Box::pin(steps_picture_field::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -695,6 +697,7 @@ const STEPS: &[&str] = &[
     "scans_bw",
     "interleave",
     "table_export",
+    "picture_field",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

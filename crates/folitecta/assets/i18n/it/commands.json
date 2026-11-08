@@ -1644,6 +1644,7 @@
   "cmd.tool.editFields.keepMode": "Mantieni modalità",
   "cmd.tool.editFields.mode": "Tipo di campo",
   "cmd.tool.editFields.mode.button": "Pulsante",
+  "cmd.tool.editFields.mode.image": "Campo immagine",
   "cmd.tool.editFields.mode.check": "Casella di controllo",
   "cmd.tool.editFields.mode.combo": "Casella combinata",
   "cmd.tool.editFields.mode.list": "Casella di riepilogo",

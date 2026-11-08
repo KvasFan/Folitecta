@@ -86,6 +86,7 @@ pub const TOOLBARS: &[(&str, &[&str])] = &[
             "tool.editFields.mode.combo",
             "tool.editFields.mode.list",
             "tool.editFields.mode.button",
+            "tool.editFields.mode.image",
         ],
     ),
     (

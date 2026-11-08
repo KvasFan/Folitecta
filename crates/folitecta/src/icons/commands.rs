@@ -127,6 +127,7 @@ const BY_ID: &[(&str, &str)] = &[
     ("tool.editFields.mode.combo", "combo"),
     ("tool.editFields.mode.list", "listbox"),
     ("tool.editFields.mode.button", "button"),
+    ("tool.editFields.mode.image", "image"),
     ("tool.editFields.mode.signature", "signature"),
     // Accounting calculator.
     ("ac.addLine", "insert"),

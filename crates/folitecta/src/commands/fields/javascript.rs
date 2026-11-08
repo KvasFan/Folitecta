@@ -140,6 +140,10 @@ fn apply_ops(st: AppState, ops: &[Value]) -> usize {
                     info_changes.push((key, op["value"].as_str().unwrap_or("").to_string()));
                 }
             }
+            "importIcon" => {
+                crate::commands::buttons::import_icon(st, op["name"].as_str().unwrap_or("").to_string());
+                applied += 1;
+            }
             "reset" => {
                 if let Some(Ok(_)) = st.with_active(|t| t.doc.reset_form()) {
                     applied += 1;
@@ -247,13 +251,16 @@ pub fn run(st: AppState, code: String) {
 /// Run a script of the document, on a press of its button: in the same
 /// sandbox as the console (no files, no network), within the time limit, its
 /// alerts and failures as messages.
-pub async fn run_of_document(st: AppState, code: String) {
+pub async fn run_of_document(st: AppState, code: String, target: Option<String>) {
     if code.trim().is_empty() {
         return;
     }
     let ctx = context(st);
     let limit = std::time::Duration::from_secs(timeout_secs(st));
-    let job = tokio::task::spawn_blocking(move || folitecta_core::js::run_script(&code, &ctx, None));
+    // A button's script knows the button as `event.target`.
+    let event = target.map(|name| json!({ "target": name, "name": "Mouse Up", "type": "Field" }));
+    let job =
+        tokio::task::spawn_blocking(move || folitecta_core::js::run_script(&code, &ctx, event.as_ref()));
     let run = match tokio::time::timeout(limit, job).await {
         Ok(Ok(run)) => run,
         Ok(Err(e)) => {

@@ -71,7 +71,7 @@ pub fn fill_field(st: AppState, page: usize, w: &PageWidget) {
                 st.toast(ToastKind::Info, t(st.lang(), "toast.button_actions"), "");
                 return;
             }
-            crate::commands::navigation::follow::run_actions(st, actions);
+            crate::commands::navigation::follow::run_actions(st, actions, Some(w.name.clone()));
         }
         FieldKind::Signature => st.toast(ToastKind::Info, t(st.lang(), "toast.signature_field"), ""),
         FieldKind::Unknown(_) => {}

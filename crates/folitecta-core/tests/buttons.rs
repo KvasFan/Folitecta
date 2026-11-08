@@ -78,3 +78,55 @@ fn pictures_of_the_states_and_the_highlight_mode() {
             .is_err()
     );
 }
+
+#[test]
+fn a_picture_field_asks_for_its_picture_and_shows_it_alone() {
+    let mut doc = Document::new_blank(1, 400.0, 300.0).unwrap();
+    let field = doc
+        .add_form_field(
+            0,
+            NewField::Picture,
+            [40.0, 40.0, 200.0, 160.0],
+            &FieldProps::default(),
+        )
+        .unwrap();
+    let plain = doc
+        .add_form_field(
+            0,
+            NewField::PushButton,
+            [220.0, 40.0, 300.0, 70.0],
+            &FieldProps::default(),
+        )
+        .unwrap();
+    let f = doc.form_fields().into_iter().find(|f| f.id == field).unwrap();
+    assert_eq!(f.name, "Picture1");
+    assert_eq!(f.kind, folitecta_core::FieldKind::PushButton);
+    assert!(doc.is_picture_field(field) && !doc.is_picture_field(plain));
+    // Its script, as other programs write it, asks for the picture.
+    let actions = doc.button_actions(field);
+    let Some(folitecta_core::ButtonAction::Script(code)) = actions.first() else {
+        panic!("{actions:?}");
+    };
+    assert_eq!(code, folitecta_core::form_design::PICTURE_SCRIPT);
+    let ctx = serde_json::json!({ "fields": { "Picture1": { "type": "button", "value": "" } } });
+    let event = serde_json::json!({ "target": "Picture1", "name": "Mouse Up" });
+    let run = folitecta_core::js::run_script(code, &ctx, Some(&event));
+    assert!(run.ok, "{run:?}");
+    assert_eq!(
+        run.ops,
+        vec![serde_json::json!({ "op": "importIcon", "name": "Picture1" })]
+    );
+
+    // The picture given, alone: no caption under it.
+    doc.set_button_icon(field, ButtonState::Up, Some(picture()))
+        .unwrap();
+    let normal = appearance(&doc, field, b"N").unwrap();
+    assert!(
+        normal.contains("/FoliIcon Do") && !normal.contains(" Tj"),
+        "{normal}"
+    );
+    // Saved and opened again, it is still a picture field with its picture.
+    let again = Document::from_bytes(doc.bytes().as_ref().clone(), None, None).unwrap();
+    assert!(again.is_picture_field(field));
+    assert_eq!(again.button_icons(field), [true, false, false]);
+}

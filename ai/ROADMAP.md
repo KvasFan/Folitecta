@@ -567,6 +567,14 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    HTML (`table`, `th`, `td.n`) exports in place of the paragraphs inside them, before the first
    paragraph below their top; `OfficeExport::tables` in the report.
 
+### 0.48.0 — picture fields (on `main`, untagged)
+
+1. ~~**FOL-L031 — picture fields.**~~ Done: `NewField::Picture` (a push button showing its picture
+   alone, `/TP 1`, whose script is `event.target.buttonImportIcon();` as other programs write it),
+   `is_picture_field`; `buttonImportIcon()` of the script API asks the program for a picture;
+   button scripts know their button as `event.target`; the Picture Field tool
+   (`tool.editFields.mode.image`).
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -645,7 +653,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L031 | P1 | 🟡 | form designer for every field type and a date field (format of the language, a calendar while filling, dates that do not exist refused), items of choice fields, pictures of push buttons, tab order, align/duplicate, fill & sign; duplicated pages share their fields, inserted ones get renamed (FOL-L015) | Picture fields. |
+| FOL-L031 | P1 | 🟡 | form designer for every field type and a date field (format of the language, a calendar while filling, dates that do not exist refused), items of choice fields, pictures of push buttons, tab order, align/duplicate, fill & sign; duplicated pages share their fields, inserted ones get renamed (FOL-L015); picture fields that take a picture when clicked while filling | — |
 | FOL-L032 | P1 | 🟡 | XFDF/FDF/CSV/TXT import and export, filling copies from table rows, calculation order, simple calculations computed in Rust; number, percentage, date, time and special formats and number ranges chosen in the properties and checked when a value is committed (the standard `AF…` scripts) | Named XML profiles, page templates. |
 | FOL-L033 | P2 | ⬜ | — | XFA engine decision. |
 | FOL-L034 | P2 | 🟡 | document scripts and actions listed and edited; a sandboxed engine (Boa, loop and recursion limits, nothing of the system in reach) with a documented API for the console, the calculate, format and validate scripts of fields (typed in their properties) and the `AF…` functions of forms; console time limit | Keystroke scripts while typing, page and document events, a database bridge. |

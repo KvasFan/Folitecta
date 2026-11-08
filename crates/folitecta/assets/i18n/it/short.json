@@ -219,6 +219,7 @@
   "short.tool.editContent": "Contenuto",
   "short.tool.editFields": "Progetta",
   "short.tool.editFields.mode.button": "Pulsante",
+  "short.tool.editFields.mode.image": "Immagine",
   "short.tool.editFields.mode.check": "Spunta",
   "short.tool.editFields.mode.combo": "Combinata",
   "short.tool.editFields.mode.date": "Data",

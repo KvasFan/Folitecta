@@ -1119,7 +1119,7 @@ pub(super) fn PageView(
                         onclick: move |e| {
                             e.stop_propagation();
                             let actions = st.read_active(|t| t.doc.link_actions(page, index)).unwrap_or_default();
-                            crate::commands::navigation::follow::run_actions(st, actions);
+                            crate::commands::navigation::follow::run_actions(st, actions, None);
                         },
                     }
                 }

@@ -13,6 +13,8 @@ All notable changes to Folitecta are documented here. The format follows
   the numbers of the table) or as CSV. The File menu gathers the exports in one submenu.
 - The export to Word, rich text and web page writes the tables found on the pages as tables, with
   a head row and numbers aligned to the right, in their place among the paragraphs.
+- Picture fields (Form › Picture Field): a field that takes a picture when it is clicked while the
+  form is filled, and shows it alone; picture fields made by other programs work the same way.
 
 ## [0.45.0] - 2026-11-05
 

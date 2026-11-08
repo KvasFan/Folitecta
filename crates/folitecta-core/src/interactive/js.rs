@@ -19,6 +19,7 @@ pub const API: &[&str] = &[
     "this.numFields",
     "this.getField(name).value / valueAsString / name / type / readonly / required",
     "this.getNthFieldName(n)",
+    "field.buttonImportIcon(): the user is asked for a picture for the push button",
     "this.info.Title / Author / Subject / Keywords, this.title / author / subject / keywords",
     "this.documentFileName, this.path, this.filesize, this.dirty",
     "this.resetForm()",
@@ -49,7 +50,8 @@ pub struct ScriptRun {
     /// Console and alert lines: kind (`out`, `alert`) and text.
     pub out: Vec<(String, String)>,
     /// The changes asked for: `{op: "field", name, value}`, `{op: "page",
-    /// page}`, `{op: "info", key, value}`, `{op: "reset"}`, `{op: "clear"}`.
+    /// page}`, `{op: "info", key, value}`, `{op: "reset"}`, `{op: "clear"}`,
+    /// `{op: "importIcon", name}` (a picture asked for a push button).
     pub ops: Vec<Value>,
     /// The event after the script: its value and whether it was accepted.
     pub event_value: Option<String>,
@@ -82,6 +84,7 @@ const PRELUDE: &str = r#"
       get value() { return f.value; },
       set value(v) { f.value = v == null ? '' : String(v); ops.push({ op: 'field', name, value: f.value }); },
       get valueAsString() { return String(f.value); },
+      buttonImportIcon() { ops.push({ op: 'importIcon', name }); return 0; },
     };
   };
   const infoData = Object.assign({}, ctx.info || {});

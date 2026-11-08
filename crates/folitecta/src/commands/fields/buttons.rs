@@ -1,5 +1,6 @@
 //! Push buttons: a picture chosen for each state (up, pressed, pointed
-//! at) of the chosen button, and how it reacts to a click.
+//! at) of the chosen button, and how it reacts to a click; the picture of a
+//! picture field chosen while the form is filled.
 
 use dioxus::prelude::*;
 use folitecta_core::{ButtonBehaviour, ButtonState, FieldKind};
@@ -53,6 +54,55 @@ pub fn choose_icon(st: AppState, state: ButtonState) {
         let data = file.read().await;
         let r = st.with_active(|t| t.doc.set_button_icon(field, state, Some(data)));
         done(st, page, index, r);
+    });
+}
+
+/// The picture the self-test gives to the next picture field.
+static ANSWER: std::sync::Mutex<Option<std::path::PathBuf>> = std::sync::Mutex::new(None);
+
+/// Let the next picture field take the picture `path` without asking.
+pub fn answer_picture(path: std::path::PathBuf) {
+    *ANSWER.lock().unwrap_or_else(|e| e.into_inner()) = Some(path);
+}
+
+/// A script asked for a picture for the push button `name` (a picture
+/// field clicked while filling): the picture chosen goes into it, one undo
+/// step.
+pub fn import_icon(st: AppState, name: String) {
+    let Some(field) = st
+        .read_active(|t| {
+            t.doc
+                .form_fields()
+                .into_iter()
+                .find(|f| f.name == name)
+                .map(|f| f.id)
+        })
+        .flatten()
+    else {
+        return;
+    };
+    dioxus::core::spawn_forever(async move {
+        let answer = ANSWER.lock().unwrap_or_else(|e| e.into_inner()).take();
+        let data = match answer {
+            Some(path) => match std::fs::read(&path) {
+                Ok(d) => d,
+                Err(e) => {
+                    st.error(format!("{}: {e}", path.display()));
+                    return;
+                }
+            },
+            None => {
+                let Some(file) = files::image_dialog().pick_file().await else {
+                    return;
+                };
+                file.read().await
+            }
+        };
+        match st.with_active(|t| t.doc.set_button_icon(field, ButtonState::Up, Some(data))) {
+            Some(Ok(())) => files::set_window_title(st),
+            Some(Err(e)) => st.error(e),
+            None => {}
+        }
     });
 }
 

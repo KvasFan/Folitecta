@@ -219,6 +219,7 @@
   "short.tool.editContent": "Content",
   "short.tool.editFields": "Edit form",
   "short.tool.editFields.mode.button": "Button",
+  "short.tool.editFields.mode.image": "Picture",
   "short.tool.editFields.mode.check": "Checkbox",
   "short.tool.editFields.mode.combo": "Combo",
   "short.tool.editFields.mode.date": "Date",

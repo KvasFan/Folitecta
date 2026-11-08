@@ -21981,7 +21981,7 @@
   },
   {
    "id": "tool.editFields.mode.image",
-   "label": "Image",
+   "label": "Picture Field",
    "parent": "tool.editFields.mode",
    "menu": "form",
    "ribbon": {

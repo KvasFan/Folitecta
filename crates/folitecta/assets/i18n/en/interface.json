@@ -314,6 +314,7 @@
   "tool.ellipse": "Ellipse",
   "tool.eraser": "Eraser",
   "tool.field_button": "Button",
+  "tool.field_picture": "Picture field",
   "tool.field_check": "Check box",
   "tool.field_combo": "Combo box",
   "tool.field_date": "Date field",

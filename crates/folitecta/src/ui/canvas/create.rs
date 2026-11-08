@@ -12,6 +12,7 @@ pub(super) fn create_field(st: AppState, page: usize, size: &PageSize, tool: Too
         NewField::CheckBox | NewField::RadioButton => (14.0, 14.0),
         NewField::ListBox => (160.0, 64.0),
         NewField::PushButton => (90.0, 24.0),
+        NewField::Picture => (120.0, 90.0),
         NewField::Signature => (180.0, 48.0),
     };
     let rect = if tiny {

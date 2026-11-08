@@ -64,6 +64,8 @@ pub enum Tool {
     FieldCombo,
     FieldList,
     FieldButton,
+    /// A push button that takes a picture while the form is filled.
+    FieldPicture,
     FieldSignature,
     /// Draw the rectangle of a digital signature.
     SignArea,
@@ -176,6 +178,7 @@ impl Tool {
             Tool::FieldCombo => "tool.editFields.mode.combo",
             Tool::FieldList => "tool.editFields.mode.list",
             Tool::FieldButton => "tool.editFields.mode.button",
+            Tool::FieldPicture => "tool.editFields.mode.image",
             Tool::FieldSignature => "tool.editFields.mode.signature",
             Tool::SignArea => "tool.digisig",
             Tool::PlaceSignature => "tool.sign.and.initials",
@@ -244,6 +247,7 @@ impl Tool {
             Tool::FieldCombo => "tool.field_combo",
             Tool::FieldList => "tool.field_list",
             Tool::FieldButton => "tool.field_button",
+            Tool::FieldPicture => "tool.field_picture",
             Tool::FieldSignature => "tool.field_signature",
             Tool::SignArea => "tool.sign_area",
             Tool::PlaceSignature => "tool.place_signature",
@@ -275,6 +279,7 @@ impl Tool {
             Tool::FieldCombo => F::ComboBox,
             Tool::FieldList => F::ListBox,
             Tool::FieldButton => F::PushButton,
+            Tool::FieldPicture => F::Picture,
             Tool::FieldSignature => F::Signature,
             _ => return None,
         })

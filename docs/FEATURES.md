@@ -4,9 +4,9 @@ Generated from the command registry for version 0.45.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1488 |
+| ✅ available | 1489 |
 | 🟡 partial | 58 |
-| ⬜ planned | 463 |
+| ⬜ planned | 462 |
 | total | 2009 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -2434,7 +2434,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `tool.editFields.mode.check` | Form › Tool › Edit Form › Field Type › Check | ✅ available |
 | `tool.editFields.mode.combo` | Form › Tool › Edit Form › Field Type › Combo Box | ✅ available |
 | `tool.editFields.mode.date` | Form › Tool › Edit Form › Field Type › Date | ✅ available |
-| `tool.editFields.mode.image` | Form › Tool › Edit Form › Field Type › Image | ⬜ planned |
+| `tool.editFields.mode.image` | Form › Tool › Edit Form › Field Type › Picture Field | ✅ available |
 | `tool.editFields.mode.list` | Form › Tool › Edit Form › Field Type › List | ✅ available |
 | `tool.editFields.mode.radio` | Form › Tool › Edit Form › Field Type › Radio | ✅ available |
 | `tool.editFields.mode.select` | Form › Tool › Edit Form › Field Type › Select | ✅ available |

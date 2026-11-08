@@ -142,6 +142,16 @@ impl Document {
         self.commit()
     }
 
+    /// Whether field `field` is a picture field: a push button whose script
+    /// asks for a picture when it is clicked (`buttonImportIcon`, as other
+    /// programs make them too).
+    pub fn is_picture_field(&self, field: ObjectId) -> bool {
+        self.push_button_widgets(field).is_ok()
+            && self.button_actions(field).iter().any(|a| {
+                matches!(a, crate::links::ButtonAction::Script(code) if code.contains("buttonImportIcon"))
+            })
+    }
+
     /// Which states of a push button have a picture (up, down, rollover).
     pub fn button_icons(&self, field: ObjectId) -> [bool; 3] {
         let Some(wid) = self.field_widgets(field).first().copied() else {

@@ -4,6 +4,24 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L031: picture fields (0.48.0)
+
+- **Current state before:** push buttons could be given pictures in the designer only; a click on
+  a button ran its scripts with no `event.target`, and `buttonImportIcon` did not exist.
+- **What:** `form_design.rs`: `NewField::Picture` (`Picture1`…, `/MK /TP 1`, the action
+  `PICTURE_SCRIPT`), copies of a picture field stay picture fields; `buttons.rs`:
+  `is_picture_field` (a push button whose actions call `buttonImportIcon`); `js.rs`: the field
+  object's `buttonImportIcon()` gives the op `importIcon`. The app: `run_actions` takes the button
+  pressed, `run_of_document` makes it `event.target`; the op asks for a picture
+  (`buttons::import_icon`, the file window or the self-test's answer) and sets it as the up
+  picture, one undo step; `Tool::FieldPicture` for the planned command
+  `tool.editFields.mode.image` (Form ribbon and toolbar, 120 × 90 points when clicked).
+- **Checked:** `buttons.rs` (the field's name, kind, script and its op through the script engine
+  with the button as `event.target`, the picture shown without a caption, saved and opened again);
+  the unit tests of the script engine; self-test steps `picture_field` (the tool chosen; a click
+  while filling sets the answered picture; one undo step) and `field_items`.
+- **Open:** the Fields pane calls a picture field a button; a picture taken from a PDF page.
+
 ## 2026-11-08 — FOL-L009: tables in the office exports (0.47.0)
 
 - **Current state before:** the cells of a table were exported as paragraphs, one after the other.

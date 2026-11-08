@@ -21,8 +21,14 @@ pub enum NewField {
     ComboBox,
     ListBox,
     PushButton,
+    /// A push button that takes a picture when clicked while filling (its
+    /// script calls `buttonImportIcon`), the picture alone in it.
+    Picture,
     Signature,
 }
+
+/// The script of a picture field: the picture asked for when it is clicked.
+pub const PICTURE_SCRIPT: &str = "event.target.buttonImportIcon();";
 
 /// Editable properties of a field and its widget.
 #[derive(Debug, Clone, PartialEq)]
@@ -265,6 +271,7 @@ impl Document {
                 NewField::ComboBox => "Combo",
                 NewField::ListBox => "List",
                 NewField::PushButton => "Button",
+                NewField::Picture => "Picture",
                 NewField::Signature => "Signature",
             };
             self.unique_field_name(base)
@@ -303,6 +310,10 @@ impl Document {
         }
         if let Some(c) = props.fill_color {
             mk.set("BG", color_arr(c));
+        }
+        if kind == NewField::Picture {
+            // The picture alone, once it has one.
+            mk.set("TP", 1);
         }
         if kind == NewField::PushButton {
             mk.set(
@@ -413,6 +424,14 @@ impl Document {
                     NewField::PushButton => {
                         widget.set("FT", "Btn");
                         ff |= FF_PUSH;
+                    }
+                    NewField::Picture => {
+                        widget.set("FT", "Btn");
+                        ff |= FF_PUSH;
+                        widget.set(
+                            "A",
+                            dictionary! { "S" => "JavaScript", "JS" => lopdf::text_string(PICTURE_SCRIPT) },
+                        );
                     }
                     NewField::Signature => {
                         widget.set("FT", "Sig");
@@ -793,6 +812,7 @@ impl Document {
             crate::forms::FieldKind::CheckBox => NewField::CheckBox,
             crate::forms::FieldKind::ComboBox => NewField::ComboBox,
             crate::forms::FieldKind::ListBox => NewField::ListBox,
+            crate::forms::FieldKind::PushButton if self.is_picture_field(field) => NewField::Picture,
             crate::forms::FieldKind::PushButton => NewField::PushButton,
             crate::forms::FieldKind::Signature => NewField::Signature,
             _ => return Err(Error::Invalid("radio groups cannot be copied this way".into())),

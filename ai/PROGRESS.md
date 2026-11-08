@@ -4,6 +4,29 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L005: pictures in Markdown (0.51.0)
+
+- **Current state before:** every Markdown picture was shown by its description in brackets.
+- **What:** `markdown.rs`: while a paragraph is read, the parts of a picture carry a mark with its
+  address (`PICTURE`); a paragraph that is only one picture becomes `Block::Picture` (`paragraph`),
+  the marks are dropped elsewhere (`plain_inlines`, `unmark`); `picture` reads it from the folder
+  (relative paths, `file://`, `%20`; nothing from the web or `data:`), `render` sizes it at 96
+  pixels to the inch within the text width and 80% of the page height, else shows the
+  description; `Document::from_markdown_in`. `typeset.rs`: `Typeset::picture`, drawn with
+  `add_image` in `finish`. The app passes the folder of the opened file (`document_from_text`).
+- **Checked:** `markdown_csv.rs` (a picture from a subfolder with a space in its name at 30 points,
+  a wide one as wide as the text, one within text, one missing and one on the web shown by their
+  descriptions, none drawn without the folder), the unit test of the blocks; self-test steps
+  `office`, `reading`, `contents`.
+- **Open:** pictures within lines of text; SVG pictures; pictures on the web (never fetched).
+
+## 2026-11-08 — local check of 0.46.0 to 0.50.0
+
+- **What:** `target/preflight.sh` at `3a70111`: formatting, clippy for Linux, Windows and macOS,
+  the workspace tests (94 test programs, about 23 GB), the release build, the licences (591
+  libraries), the whole self-test (361 interactions, 0 problems) and the Linux package
+  (`folitecta-0.45.0-linux-x64.tar.gz`, 46 MB, checksum and `--version`): all passed.
+
 ## 2026-11-08 — FOL-L014: form fields found (0.50.0)
 
 - **Current state before:** fields were drawn one by one with the field tools.

@@ -227,3 +227,47 @@ fn csv_without_records_or_with_text_the_font_lacks_is_refused() {
     let err = Document::from_csv("a,b\n漢,字\n", None, TextLayout::default(), "").unwrap_err();
     assert!(matches!(err, Error::Glyphs(_)), "{err:?}");
 }
+
+#[test]
+fn pictures_standing_alone_are_drawn_from_the_folder_of_the_file() {
+    let dir = std::env::temp_dir().join(format!("folitecta-md-pictures-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("img")).unwrap();
+    image::RgbImage::from_pixel(40, 20, image::Rgb([200, 30, 30]))
+        .save(dir.join("img/red square.png"))
+        .unwrap();
+    // Wider than the text: made as wide as it.
+    image::RgbImage::from_pixel(2000, 500, image::Rgb([30, 30, 200]))
+        .save(dir.join("wide.png"))
+        .unwrap();
+    let md = "# Pictures\n\n![A red square](img/red%20square.png)\n\nText with ![inline](wide.png) inside.\n\n\
+              ![Wide](wide.png)\n\n![Missing](nope.png)\n\n![On the web](https://example.org/a.png)\n";
+    let layout = TextLayout::default();
+    let doc = Document::from_markdown_in(md, layout, "", Some(&dir)).unwrap();
+    let pictures = doc.page_images(0).unwrap();
+    assert_eq!(pictures.len(), 2, "{pictures:?}");
+    let text = doc.page_text(0);
+    assert!(text.contains("[inline]"), "{text}");
+    assert!(
+        text.contains("[Missing]") && text.contains("[On the web]"),
+        "{text}"
+    );
+    assert!(
+        !text.contains("[A red square]") && !text.contains("[Wide]"),
+        "{text}"
+    );
+    // The small one at 96 pixels to the inch, the wide one as wide as the text.
+    let mut widths: Vec<f32> = pictures.iter().map(|p| p.rect[2] - p.rect[0]).collect();
+    widths.sort_by(f32::total_cmp);
+    assert!((widths[0] - 30.0).abs() < 0.5, "{widths:?}");
+    let text_width = layout.page_width
+        - 2.0
+            * layout
+                .margin
+                .clamp(18.0, layout.page_width.min(layout.page_height) / 4.0);
+    assert!((widths[1] - text_width).abs() < 1.0, "{widths:?} {text_width}");
+    // Without the folder, every picture is shown by its description.
+    let plain = Document::from_markdown(md, layout, "").unwrap();
+    assert!(plain.page_images(0).unwrap().is_empty());
+    assert!(plain.page_text(0).contains("[A red square]"));
+    let _ = std::fs::remove_dir_all(&dir);
+}

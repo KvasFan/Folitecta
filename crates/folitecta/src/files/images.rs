@@ -214,14 +214,18 @@ pub(crate) fn made_from_text(path: &Path) -> bool {
 }
 
 /// A new document made from the text file `name` (UTF-8, or Latin-1 when
-/// not valid UTF-8): Markdown set with its styles, CSV as a table, other
-/// text as it is.
-pub(crate) fn document_from_text(name: &str, bytes: Vec<u8>) -> folitecta_core::Result<Document> {
+/// not valid UTF-8): Markdown set with its styles (its pictures read from
+/// `folder`), CSV as a table, other text as it is.
+pub(crate) fn document_from_text(
+    name: &str,
+    bytes: Vec<u8>,
+    folder: Option<&Path>,
+) -> folitecta_core::Result<Document> {
     let text = decode_text(bytes);
     let (stem, ext) = name.rsplit_once('.').unwrap_or((name, ""));
     let layout = folitecta_core::TextLayout::default();
     let mut doc = match ext.to_ascii_lowercase().as_str() {
-        "md" | "markdown" => Document::from_markdown(&text, layout, "")?,
+        "md" | "markdown" => Document::from_markdown_in(&text, layout, "", folder)?,
         "csv" => Document::from_csv(&text, None, layout, stem)?,
         "tsv" => Document::from_csv(&text, Some('\t'), layout, stem)?,
         _ => Document::from_text(&text, layout)?,
@@ -264,7 +268,7 @@ pub fn open_text_file(st: AppState, path: &Path) {
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default();
     match std::fs::read(path) {
-        Ok(data) => match document_from_text(&name, data.clone()) {
+        Ok(data) => match document_from_text(&name, data.clone(), path.parent()) {
             Ok(doc) => {
                 open_document_tab(st, doc);
                 remember_table(st, &name, data);
@@ -294,7 +298,7 @@ pub fn new_from_text_file(st: AppState) {
         };
         let name = file.file_name();
         let bytes = file.read().await;
-        match document_from_text(&name, bytes.clone()) {
+        match document_from_text(&name, bytes.clone(), file.path().parent()) {
             Ok(doc) => {
                 open_document_tab(st, doc);
                 remember_table(st, &name, bytes);

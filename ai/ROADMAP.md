@@ -591,6 +591,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    before, after or above them, none where a widget is; `add_found_fields` in one undo step with
    names made unique; Find Form Fields (`forms.findFields`) lists them to choose.
 
+### 0.51.0 — pictures in Markdown (on `main`, untagged)
+
+1. ~~**FOL-L005 — Markdown pictures.**~~ Done: `Block::Picture` for a paragraph that is only a
+   picture, `from_markdown_in` with the folder of the file, `Typeset::picture` (placed on the
+   page, drawn when the document is made); the others shown by their description.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -613,7 +619,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L005 | P1 | 🟡 | blank pages, from images, from text files, from the clipboard, combine files; Markdown (CommonMark, tables, task lists; headings as bookmarks, links, code, quotes) and CSV (separator guessed, local numbers right-aligned, header repeated, wide tables sideways) set by a small typesetter | RTF with styles; Markdown pictures, CSS and formulas. |
+| FOL-L005 | P1 | 🟡 | blank pages, from images, from text files, from the clipboard, combine files; Markdown (CommonMark, tables, task lists; headings as bookmarks, links, code, quotes) and CSV (separator guessed, local numbers right-aligned, header repeated, wide tables sideways) set by a small typesetter | RTF with styles; Markdown pictures on the web, CSS and formulas. |
 | FOL-L006 | P2 | 🟡 | e-mail messages (EML) made into documents: header lines, text, attachments embedded | Mail archives; office formats and HTML need a local engine decision. |
 | FOL-L007 | P2 | ⬜ | — | File associations (`help.fileAssoc`), virtual printer, office add-ins. |
 | FOL-L008 | P2 | ⬜ | — | XPS/OXPS, metafiles, CAD: engine decision first. |

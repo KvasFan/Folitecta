@@ -22,6 +22,10 @@ All notable changes to Folitecta are documented here. The format follows
   underscores and lines with nothing written on them, empty boxes (of several lines when tall) and
   small squares as check boxes, each named after the words beside it; the chosen ones are added in
   one undo step.
+- Markdown files opened as documents show their pictures: a picture standing as a paragraph of its
+  own is read from the folder of the file and drawn at its size (96 pixels to the inch, no wider
+  than the text); pictures within text, on the web or that cannot be read are shown by their
+  description.
 
 ## [0.45.0] - 2026-11-05
 

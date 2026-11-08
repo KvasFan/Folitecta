@@ -230,6 +230,8 @@ pub(crate) struct Typeset {
     /// Bars drawn beside every line (block quotes): their x.
     pub bars: Vec<f32>,
     marks: Vec<Mark>,
+    /// Pictures: page, data, rectangle (PDF user space).
+    pictures: Vec<(usize, Vec<u8>, [f32; 4])>,
 }
 
 impl Typeset {
@@ -244,6 +246,7 @@ impl Typeset {
             y: sheet.height - sheet.margin,
             bars: Vec::new(),
             marks: Vec::new(),
+            pictures: Vec::new(),
         }
     }
 
@@ -618,6 +621,17 @@ impl Typeset {
         Ok(())
     }
 
+    /// A picture of `w` × `h` points at `x0` below the cursor (on a new page
+    /// when it does not fit), drawn when the document is made.
+    pub fn picture(&mut self, data: Vec<u8>, w: f32, h: f32, x0: f32) {
+        self.need(h);
+        let top = self.y;
+        self.pictures
+            .push((self.pages.len() - 1, data, [x0, top - h, x0 + w, top]));
+        self.draw_bars(top, top - h);
+        self.y -= h;
+    }
+
     /// A horizontal rule across `x0`..`x1`, `gap` points below the cursor.
     pub fn rule(&mut self, x0: f32, x1: f32, gap: f32, gray: f32) {
         self.need(gap * 2.0);
@@ -819,6 +833,7 @@ impl Typeset {
             fonts,
             pages,
             marks,
+            pictures,
             ..
         } = self;
         let mut doc = Document::new_blank(pages.len(), sheet.width, sheet.height)?;
@@ -833,6 +848,14 @@ impl Typeset {
             }
         }
         fonts.finish(&mut doc, &ids)?;
+        for (page, data, r) in pictures {
+            // On the page as shown: from the top.
+            doc.add_image(
+                page,
+                data,
+                Some([r[0], sheet.height - r[3], r[2], sheet.height - r[1]]),
+            )?;
+        }
         if !marks.is_empty() {
             let mut items: Vec<(u8, OutlineItem)> = Vec::new();
             for m in &marks {

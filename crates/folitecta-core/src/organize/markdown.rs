@@ -2,9 +2,14 @@
 //! task lists, read with pulldown-cmark and set with [`crate::typeset`]:
 //! headings (which become bookmarks), paragraphs with bold, italic, code,
 //! struck text and links, lists, block quotes, code blocks, rules and tables.
-//! Pictures are shown by their description; HTML is shown as text.
+//! A picture standing as a paragraph of its own is drawn, read from the
+//! folder of the file (at 96 pixels to the inch, no wider than the text);
+//! one within text, one that cannot be read and one on the web are shown by
+//! their description. HTML is shown as text.
 
 use pulldown_cmark::{Alignment, Event, Options, Parser, Tag, TagEnd};
+
+use std::path::Path;
 
 use crate::document::Document;
 use crate::error::Result;
@@ -25,6 +30,11 @@ enum Block {
     Quote(Vec<Block>),
     Code(String),
     Rule,
+    /// A picture as a paragraph of its own: where it is, its description.
+    Picture {
+        src: String,
+        alt: String,
+    },
     Table {
         aligns: Vec<Align>,
         head: Vec<Vec<Span>>,
@@ -33,6 +43,10 @@ enum Block {
 }
 
 type Events<'a> = std::iter::Peekable<Parser<'a>>;
+
+/// The link the parts of a picture carry while a paragraph is read: this,
+/// then where the picture is.
+const PICTURE: &str = "\u{0}picture:";
 
 fn is_inline_start(tag: &Tag) -> bool {
     matches!(
@@ -114,8 +128,10 @@ fn inlines(ev: &mut Events, implicit: bool) -> Vec<Span> {
                 links.pop();
             }
             // A picture is shown by its description, in brackets.
-            Event::Start(Tag::Image { .. }) => {
+            Event::Start(Tag::Image { dest_url, .. }) => {
                 images += 1;
+                links.push(format!("{PICTURE}{dest_url}"));
+                let link = links.last().cloned();
                 push(
                     &mut spans,
                     "[",
@@ -129,6 +145,7 @@ fn inlines(ev: &mut Events, implicit: bool) -> Vec<Span> {
             Event::End(TagEnd::Image) => {
                 images = images.saturating_sub(1);
                 push(&mut spans, "]", style, link);
+                links.pop();
             }
             Event::Text(t)
             | Event::Html(t)
@@ -144,6 +161,55 @@ fn inlines(ev: &mut Events, implicit: bool) -> Vec<Span> {
         }
     }
     spans
+}
+
+/// [`inlines`] without the marks of pictures: their parts take the link
+/// they stand in.
+fn plain_inlines(ev: &mut Events, implicit: bool) -> Vec<Span> {
+    unmark(inlines(ev, implicit))
+}
+
+fn unmark(spans: Vec<Span>) -> Vec<Span> {
+    spans
+        .into_iter()
+        .map(|mut s| {
+            if s.link.as_deref().is_some_and(|l| l.starts_with(PICTURE)) {
+                s.link = None;
+            }
+            s
+        })
+        .collect()
+}
+
+/// A paragraph: a picture when it holds only one, else its text.
+fn paragraph(ev: &mut Events) -> Block {
+    let spans = inlines(ev, false);
+    let srcs: Vec<&str> = spans
+        .iter()
+        .filter(|s| !s.text.trim().is_empty())
+        .map(|s| {
+            s.link
+                .as_deref()
+                .and_then(|l| l.strip_prefix(PICTURE))
+                .unwrap_or("")
+        })
+        .collect();
+    match srcs.first() {
+        Some(src) if !src.is_empty() && srcs.iter().all(|s| s == src) => {
+            let text: String = spans.iter().map(|s| s.text.as_str()).collect();
+            let alt = text
+                .trim()
+                .trim_start_matches('[')
+                .trim_end_matches(']')
+                .trim()
+                .to_string();
+            Block::Picture {
+                src: src.to_string(),
+                alt,
+            }
+        }
+        _ => Block::Paragraph(unmark(spans)),
+    }
 }
 
 /// The text of a code block or an HTML block, up to its end.
@@ -164,7 +230,7 @@ fn cells(ev: &mut Events) -> Vec<Vec<Span>> {
     let mut out = Vec::new();
     while let Some(e) = ev.next() {
         match e {
-            Event::Start(Tag::TableCell) => out.push(inlines(ev, false)),
+            Event::Start(Tag::TableCell) => out.push(plain_inlines(ev, false)),
             Event::End(_) => break,
             _ => {}
         }
@@ -179,7 +245,7 @@ fn blocks(ev: &mut Events) -> Vec<Block> {
     while let Some(e) = ev.peek() {
         match e {
             Event::Start(tag) if is_inline_start(tag) => {
-                out.push(Block::Plain(inlines(ev, true)));
+                out.push(Block::Plain(plain_inlines(ev, true)));
                 continue;
             }
             Event::Text(_)
@@ -190,7 +256,7 @@ fn blocks(ev: &mut Events) -> Vec<Block> {
             | Event::HardBreak
             | Event::FootnoteReference(_)
             | Event::TaskListMarker(_) => {
-                out.push(Block::Plain(inlines(ev, true)));
+                out.push(Block::Plain(plain_inlines(ev, true)));
                 continue;
             }
             _ => {}
@@ -201,8 +267,8 @@ fn blocks(ev: &mut Events) -> Vec<Block> {
             Event::Rule => out.push(Block::Rule),
             Event::Html(t) | Event::DisplayMath(t) => out.push(Block::Code(t.trim_end().to_string())),
             Event::Start(tag) => match tag {
-                Tag::Paragraph => out.push(Block::Paragraph(inlines(ev, false))),
-                Tag::Heading { level, .. } => out.push(Block::Heading(level as u8, inlines(ev, false))),
+                Tag::Paragraph => out.push(paragraph(ev)),
+                Tag::Heading { level, .. } => out.push(Block::Heading(level as u8, plain_inlines(ev, false))),
                 Tag::BlockQuote(_) => out.push(Block::Quote(blocks(ev))),
                 Tag::CodeBlock(_) | Tag::HtmlBlock => out.push(Block::Code(raw_text(ev))),
                 Tag::List(start) => {
@@ -260,6 +326,7 @@ fn texts<'a>(blocks: &'a [Block], out: &mut Vec<&'a str>) {
             Block::List { items, .. } => items.iter().for_each(|i| texts(i, out)),
             Block::Quote(b) => texts(b, out),
             Block::Code(t) => out.push(t),
+            Block::Picture { alt, .. } => out.push(alt),
             Block::Rule => {}
             Block::Table { head, rows, .. } => {
                 head.iter().for_each(|c| spans(c, out));
@@ -279,12 +346,30 @@ const QUOTE: [f32; 3] = [0.32, 0.34, 0.38];
 /// Sizes of headings, by level, as a share of the body size.
 const HEADING: [f32; 6] = [2.0, 1.6, 1.3, 1.15, 1.0, 0.95];
 
-struct Ctx {
+#[derive(Clone, Copy)]
+struct Ctx<'a> {
     size: f32,
     x0: f32,
     width: f32,
     color: [f32; 3],
     depth: usize,
+    /// The folder pictures are read from.
+    folder: Option<&'a Path>,
+}
+
+/// The picture `src` (a path, from `folder` when relative), with its size
+/// in pixels; none for addresses on the web and what cannot be read.
+fn picture(src: &str, folder: Option<&Path>) -> Option<(Vec<u8>, (f32, f32))> {
+    let folder = folder?;
+    let src = src.strip_prefix("file://").unwrap_or(src);
+    if src.contains("://") || src.starts_with("data:") || src.is_empty() {
+        return None;
+    }
+    let decoded = src.replace("%20", " ");
+    let path = folder.join(decoded);
+    let data = std::fs::read(path).ok()?;
+    let image = crate::images::image_object(data.clone()).ok()?;
+    Some((data, (image.width, image.height)))
 }
 
 fn render(ts: &mut Typeset, blocks: &[Block], cx: &Ctx) -> Result<()> {
@@ -376,6 +461,28 @@ fn render(ts: &mut Typeset, blocks: &[Block], cx: &Ctx) -> Result<()> {
             Block::Rule => {
                 ts.rule(cx.x0, cx.x0 + cx.width, size * 0.6, 0.75);
             }
+            Block::Picture { src, alt } => match picture(src, cx.folder) {
+                Some((data, (pw, ph))) => {
+                    // 96 pixels to the inch, no wider than the text nor taller
+                    // than most of the page.
+                    let (w, h) = (pw * 0.75, ph * 0.75);
+                    let tallest = (ts.sheet.height - 2.0 * ts.sheet.margin) * 0.8;
+                    let s = (cx.width / w).min(tallest / h).min(1.0);
+                    ts.picture(data, w * s, h * s, cx.x0);
+                    ts.space(size * 0.8);
+                }
+                None => {
+                    let shown = Span::styled(
+                        format!("[{alt}]"),
+                        Style {
+                            italic: true,
+                            ..Style::default()
+                        },
+                    );
+                    ts.paragraph(&[shown], size, leading, cx.x0, cx.width, cx.color, Align::Left)?;
+                    ts.space(size * 0.6);
+                }
+            },
             Block::Table { aligns, head, rows } => {
                 let ts_size = size * 0.92;
                 let pad = ts_size * 0.45;
@@ -392,7 +499,19 @@ fn render(ts: &mut Typeset, blocks: &[Block], cx: &Ctx) -> Result<()> {
 impl Document {
     /// A new document made from Markdown `text`, on pages of `layout`; the
     /// headings become bookmarks. Text that cannot be drawn is refused.
+    /// Pictures are shown by their description (see [`Document::from_markdown_in`]).
     pub fn from_markdown(text: &str, layout: TextLayout, title: &str) -> Result<Document> {
+        Document::from_markdown_in(text, layout, title, None)
+    }
+
+    /// [`Document::from_markdown`] with the pictures that stand as
+    /// paragraphs drawn, read from `folder` (the folder of the file).
+    pub fn from_markdown_in(
+        text: &str,
+        layout: TextLayout,
+        title: &str,
+        folder: Option<&Path>,
+    ) -> Result<Document> {
         let blocks = parse(text);
         let mut all = vec!["•–0123456789.[]x "];
         texts(&blocks, &mut all);
@@ -411,6 +530,7 @@ impl Document {
             width: ts.right() - ts.left(),
             color: TEXT,
             depth: 0,
+            folder,
         };
         render(&mut ts, &blocks, &cx)?;
         // The title: the one given, else the first heading.
@@ -467,12 +587,28 @@ mod tests {
     }
 
     #[test]
-    fn task_lists_and_pictures_are_text() {
-        let b = parse("- [x] done\n- [ ] to do\n\n![a chart](chart.png)\n");
+    fn task_lists_and_pictures() {
+        let b =
+            parse("- [x] done\n- [ ] to do\n\n![a chart](chart.png)\n\nSee ![a chart](chart.png) here.\n");
         let Block::List { items, .. } = &b[0] else {
             panic!("{b:?}")
         };
         assert!(matches!(&items[0][0], Block::Plain(s) if plain_text(s) == "[x] done"));
-        assert!(matches!(&b[1], Block::Paragraph(s) if plain_text(s) == "[a chart]" && s[0].style.italic));
+        // A picture on its own is a picture; within text, its description.
+        assert_eq!(
+            b[1],
+            Block::Picture {
+                src: "chart.png".into(),
+                alt: "a chart".into()
+            }
+        );
+        let Block::Paragraph(s) = &b[2] else {
+            panic!("{b:?}")
+        };
+        assert_eq!(plain_text(s), "See [a chart] here.");
+        assert!(
+            s.iter()
+                .any(|x| x.text.contains("a chart") && x.style.italic && x.link.is_none())
+        );
     }
 }

@@ -4,6 +4,12 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — local check of 0.66.0 to 0.69.0
+
+- **What:** `target/preflight.sh` at `0ae4a7f`: formatting, clippy for the three systems, the
+  workspace tests (94 test programs), the release build, the licences, the whole self-test (369
+  interactions, 0 problems) and the Linux package (46 MB): all passed.
+
 ## 2026-11-08 — FOL-L009: table columns by their contents (0.69.0)
 
 - **Current state before:** the tables of the Word and RTF exports were as wide as the text, their

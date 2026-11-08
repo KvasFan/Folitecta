@@ -263,6 +263,9 @@ fn summary(st: AppState) {
     );
     for (i, d) in c.result.differences.iter().enumerate() {
         let line = match d.kind {
+            DiffKind::Changed if d.picture => t(lang, "compare.picture_changed"),
+            DiffKind::Inserted if d.picture => t(lang, "compare.picture_inserted"),
+            DiffKind::Deleted if d.picture => t(lang, "compare.picture_deleted"),
             DiffKind::Changed => tf(
                 lang,
                 "compare.line_changed",

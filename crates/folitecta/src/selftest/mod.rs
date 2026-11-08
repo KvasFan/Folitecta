@@ -427,6 +427,7 @@ mod steps_bookmark_labels;
 mod steps_calc;
 mod steps_cards;
 mod steps_changes;
+mod steps_compare_pictures;
 mod steps_contents;
 mod steps_csv_options;
 mod steps_doubtful_words;
@@ -598,6 +599,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "duplicates" => Box::pin(steps_duplicates::run(cx)),
             "find_fields" => Box::pin(steps_find_fields::run(cx)),
             "sanitize" => Box::pin(steps_sanitize::run(cx)),
+            "compare_pictures" => Box::pin(steps_compare_pictures::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -707,6 +709,7 @@ const STEPS: &[&str] = &[
     "duplicates",
     "find_fields",
     "sanitize",
+    "compare_pictures",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",

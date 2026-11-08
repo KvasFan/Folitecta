@@ -1,5 +1,7 @@
 //! Comparing the text of two documents word by word: what was inserted,
-//! deleted or changed, with its place on the pages of both documents.
+//! deleted or changed, with its place on the pages of both documents; and
+//! their pictures, page against page: a picture added, removed, replaced by
+//! another where it stood, or moved.
 
 use crate::document::Document;
 
@@ -45,6 +47,9 @@ pub struct Difference {
     pub old_page: usize,
     /// Page of the new document near the difference (also for deletions).
     pub new_page: usize,
+    /// A difference of pictures (no text): `old` and `new` hold where the
+    /// pictures are.
+    pub picture: bool,
 }
 
 /// Result of a comparison.
@@ -179,6 +184,106 @@ fn page_map(shared: &[(usize, usize)], new_pages: usize, old_pages: usize) -> Ve
         .collect()
 }
 
+/// The pictures of a page: a digest of their data and size, and where they
+/// are (display space).
+fn pictures_of(doc: &Document, page: usize) -> Vec<(u64, [f32; 4])> {
+    use std::hash::{Hash, Hasher};
+    let (Ok(images), Ok(size)) = (doc.page_images(page), doc.page_size(page)) else {
+        return Vec::new();
+    };
+    images
+        .iter()
+        .map(|im| {
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            if let Ok(s) = doc.inner().get_object(im.object).and_then(|o| o.as_stream()) {
+                s.content.hash(&mut h);
+            }
+            (im.width, im.height).hash(&mut h);
+            (h.finish(), crate::marks::pdf_rect_to_display(&size, im.rect))
+        })
+        .collect()
+}
+
+/// More than half of the smaller of `a` and `b` is shared.
+fn mostly_over(a: [f32; 4], b: [f32; 4]) -> bool {
+    let w = (a[2].min(b[2]) - a[0].max(b[0])).max(0.0);
+    let h = (a[3].min(b[3]) - a[1].max(b[1])).max(0.0);
+    let area = |r: [f32; 4]| (r[2] - r[0]).max(0.0) * (r[3] - r[1]).max(0.0);
+    w * h > 0.5 * area(a).min(area(b))
+}
+
+/// The differences of the pictures of `old` and `new`: the pictures of each
+/// old page against those of the new pages shown beside it (`page_map`).
+fn picture_differences(old: &Document, new: &Document, page_map: &[usize]) -> Vec<Difference> {
+    let span = |page: usize, r: [f32; 4]| PageSpan {
+        page,
+        start: 0,
+        end: 0,
+        rects: vec![r],
+    };
+    let diff =
+        |kind, o: Option<(usize, [f32; 4])>, n: Option<(usize, [f32; 4])>, old_page, new_page| Difference {
+            kind,
+            old: o.map(|(p, r)| vec![span(p, r)]).unwrap_or_default(),
+            new: n.map(|(p, r)| vec![span(p, r)]).unwrap_or_default(),
+            old_text: String::new(),
+            new_text: String::new(),
+            old_page,
+            new_page,
+            picture: true,
+        };
+    let mut out = Vec::new();
+    for q in 0..old.page_count() {
+        let olds = pictures_of(old, q);
+        let pages: Vec<usize> = (0..page_map.len()).filter(|p| page_map[*p] == q).collect();
+        // An old page no new page stands beside: its pictures went with it,
+        // shown by the new page before where it was.
+        let near = page_map.iter().rposition(|o| *o < q).unwrap_or(0);
+        let news: Vec<(usize, u64, [f32; 4])> = pages
+            .iter()
+            .flat_map(|p| pictures_of(new, *p).into_iter().map(move |(k, r)| (*p, k, r)))
+            .collect();
+        let mut used = vec![false; olds.len()];
+        let mut left = Vec::new();
+        for &(p, key, r) in &news {
+            // The same picture: the unused one nearest to where it is now.
+            let same = (0..olds.len())
+                .filter(|i| !used[*i] && olds[*i].0 == key)
+                .min_by(|a, b| {
+                    let d = |i: usize| (olds[i].1[0] - r[0]).abs() + (olds[i].1[1] - r[1]).abs();
+                    d(*a).total_cmp(&d(*b))
+                });
+            match same {
+                Some(i) => {
+                    used[i] = true;
+                    let moved = olds[i].1.iter().zip(r).any(|(a, b)| (a - b).abs() > 3.0);
+                    if moved {
+                        out.push(diff(DiffKind::Changed, Some((q, olds[i].1)), Some((p, r)), q, p));
+                    }
+                }
+                None => left.push((p, r)),
+            }
+        }
+        for (p, r) in left {
+            // Another picture where one stood: replaced.
+            match (0..olds.len()).find(|i| !used[*i] && mostly_over(olds[*i].1, r)) {
+                Some(i) => {
+                    used[i] = true;
+                    out.push(diff(DiffKind::Changed, Some((q, olds[i].1)), Some((p, r)), q, p));
+                }
+                None => out.push(diff(DiffKind::Inserted, None, Some((p, r)), q, p)),
+            }
+        }
+        let shown = pages.first().copied().unwrap_or(near);
+        for (i, (_, r)) in olds.iter().enumerate() {
+            if !used[i] {
+                out.push(diff(DiffKind::Deleted, Some((q, *r)), None, q, shown));
+            }
+        }
+    }
+    out
+}
+
 impl Document {
     /// Compare the words of this (old) document with `new`. `ignore_case`
     /// treats "Word" and "word" as equal.
@@ -215,6 +320,7 @@ impl Document {
                 new_text: nw.iter().map(|w| w.text.as_str()).collect::<Vec<_>>().join(" "),
                 old_page: near(&wa, i0),
                 new_page: near(&wb, j0),
+                picture: false,
             });
         };
         let pages: Vec<(usize, usize)> = pairs.iter().map(|&(pi, pj)| (wb[pj].page, wa[pi].page)).collect();
@@ -224,13 +330,17 @@ impl Document {
             j = pj + 1;
         }
         emit(i, wa.len(), j, wb.len());
+        let page_map = page_map(&pages, new.page_count(), self.page_count());
+        diffs.extend(picture_differences(self, new, &page_map));
+        // In the order of the new document; text before pictures on a page.
+        diffs.sort_by_key(|d| (d.new_page, d.picture));
         Comparison {
             differences: diffs,
             old_pages: self.page_count(),
             new_pages: new.page_count(),
             old_words: wa.len(),
             new_words: wb.len(),
-            page_map: page_map(&pages, new.page_count(), self.page_count()),
+            page_map,
         }
     }
 }

@@ -605,6 +605,13 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
 2. ~~**FOL-L047 — more steps.**~~ Done: `Step::Sanitize`, `Step::MergeDuplicates`,
    `Step::FindFormFields`, with their settings in the Action Sequences window.
 
+### 0.53.0 — pictures compared (on `main`, untagged)
+
+1. ~~**FOL-L035 — picture differences.**~~ Done: `picture_differences` pairs the pictures of each
+   old page with those of the new pages beside it (`page_map`) by a digest of their data and
+   size: moved, replaced where one stood, added, removed; `Difference::picture`, listed and marked
+   with the text differences.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -692,7 +699,7 @@ FOL-C001–C005 and C007–C014 (R4).
 
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
-| FOL-L035 | P1 | 🟡 | text comparison of two documents with a report; side by side, the old document following the new one page for page (pages matched by the words they share), differences marked on both | Geometry and picture differences; following in the horizontal layout and from the old document. |
+| FOL-L035 | P1 | 🟡 | text comparison of two documents with a report; side by side, the old document following the new one page for page (pages matched by the words they share), differences marked on both | Differences of drawings (paths) and of pictures encoded differently; following in the horizontal layout and from the old document. |
 | FOL-L036 | P0 | 🟡 | passwords and permissions with AES-256 (default) or AES-128, security policies; every string and stream encrypted, the strings of stream dictionaries included; files opened encrypted are saved with the same encryption, passwords and permissions; protected documents signed, certified and time-stamped encrypted (encrypted updates keep the signatures); derived documents keep the protection, imports from protected files refused; print permissions applied; the other permissions kept when the file is opened with the user password (changes of a forbidden kind taken back, exports of text and pictures refused, the owner password asked); Save Unrestricted Copy and new passwords need the owner password when anything is forbidden | Certificate (public-key) encryption; the sorting of changes leans to allowing (an object of unknown kind counts as changing the document; what only follows a change is no change); the copy permission covers page text and pictures, not comments, form data or bookmarks. |
 | FOL-L037 | P0 | 🟡 | mark areas and search results for redaction; apply by content (glyphs, picture pixels, vector paths, inline pictures, Type 3 text and the content of reused drawings under the marks removed, the rest stays text, comments and fields over the marks removed with their values, overlay codes upright on rotated pages, whole-file rewrite so earlier revisions go) or as pictures (chosen, or for pages that cannot be edited); sanitizing chosen when applying (metadata, attachments, hidden content, quotes of the removed words, scripts); the new file checked before it is written | Quadrilateral marks (a slanted line is removed by its bounding rectangle); content outside the crop box of pages without marks when pages are drawn as pictures; quotes in page text, comments and field values reported, not changed; the width of a removed word can be measured; patterns and drawings other pages draw stay for them (reported). |
 | FOL-L038 | P1 | ✅ | handwritten signatures and initials, placed on several pages, kept apart from digital signatures | — |

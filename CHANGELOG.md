@@ -31,6 +31,8 @@ All notable changes to Folitecta are documented here. The format follows
   showing first what the document holds of each; one undo step.
 - Action sequences have three more steps: remove hidden information (its parts chosen), merge
   duplicate fonts and pictures, and add the form fields found.
+- Compare Documents also compares the pictures of the pages: a picture added, removed, replaced
+  where it stood or moved is a difference of its own, listed and marked on both documents.
 
 ## [0.45.0] - 2026-11-05
 

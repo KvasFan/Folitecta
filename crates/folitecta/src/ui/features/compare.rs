@@ -96,6 +96,7 @@ pub fn ComparisonPane() -> Element {
                     rsx! {
                         div { class: "{class}", key: "{i}", onclick: move |_| goto(st, i),
                             div { class: "title", span { class: "{kclass}", "{kind}" } span { class: "muted", "{pages}" } }
+                            if d.picture { div { class: "body snippet cmp-picture", "{t(lang, \"compare.picture\")}" } }
                             if !d.old_text.is_empty() { div { class: "body snippet cmp-old", "{d.old_text}" } }
                             if !d.new_text.is_empty() { div { class: "body snippet cmp-new", "{d.new_text}" } }
                         }

@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L035: pictures compared (0.53.0)
+
+- **Current state before:** only the words of two documents were compared.
+- **What:** `compare.rs`: `pictures_of` (a digest of the data of each picture with its size, its
+  place in display space), `picture_differences` (the old page against the new pages shown beside
+  it: the same picture nearest first, moved when more than 3 points away; another one over more
+  than half of an old one replaces it; the rest added or removed; pictures of old pages no new
+  page stands beside are removed), `Difference::picture`; the differences sorted by new page, text
+  first. The app: "A picture" in the list, the lines of the summary document.
+- **Checked:** `compare.rs` (a picture kept, one moved, one added, one replaced: three differences
+  in order with their places; the same document: none; a picture taken away: one deletion), the
+  unit tests; self-test steps `compare_pictures` (a replaced picture listed as a picture and
+  marked) and `panes` (the comparison side by side).
+- **Open:** the same picture encoded differently counts as replaced; drawings (paths).
+
 ## 2026-11-08 — FOL-L037, FOL-L047: hidden information removed, more steps (0.52.0)
 
 - **Current state before:** sanitizing ran only with a redaction; action sequences had 12 steps.

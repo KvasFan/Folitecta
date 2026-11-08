@@ -275,6 +275,28 @@ fn strongly_right_to_left(c: char) -> bool {
     )
 }
 
+/// A line starts an item of a list: a bullet or dash then a space, a number
+/// of at most three digits then `.` or `)` and a space, or a letter then `)`
+/// (not `.`: "J. Smith" at the start of a line is a name).
+fn list_item(line: &str) -> bool {
+    let t = line.trim_start();
+    let mut chars = t.chars();
+    match chars.next() {
+        Some('•' | '◦' | '▪' | '‣' | '–' | '—' | '-' | '*' | '·') => {
+            chars.next().is_some_and(char::is_whitespace)
+        }
+        Some(_) => {
+            let head: String = t.chars().take_while(|c| c.is_alphanumeric()).collect();
+            let n = head.chars().count();
+            let rest: Vec<char> = t.chars().skip(n).take(2).collect();
+            let digits = (1..=3).contains(&n) && head.chars().all(|c| c.is_ascii_digit());
+            (digits && matches!(rest.as_slice(), ['.' | ')', ' ']))
+                || (n == 1 && !digits && rest == [')', ' '])
+        }
+        None => false,
+    }
+}
+
 /// Glyphs come in the order they are drawn, from left to right: the lines
 /// with right-to-left letters are put in the order they are read, text and
 /// glyph map together, so search, copying and marks find the right glyphs.
@@ -576,11 +598,19 @@ impl PageText {
     }
 
     /// Character ranges of the paragraphs: lines separated by a vertical gap
-    /// larger than most of a line, or starting a new column.
+    /// larger than most of a line, starting a new column, or starting with
+    /// the mark of an item of a list (`•`, `–`, `1.`, `a)`).
     pub fn paragraphs(&self) -> Vec<(usize, usize)> {
+        let chars: Vec<char> = self.text.chars().collect();
         let mut out: Vec<(usize, usize)> = Vec::new();
         let mut prev: Option<&TextLine> = None;
         for l in &self.lines {
+            let line: String = chars
+                .get(l.start..l.end.min(chars.len()))
+                .unwrap_or(&[])
+                .iter()
+                .collect();
+            let item = list_item(&line);
             let new_para = match prev {
                 None => true,
                 Some(p) => {
@@ -590,7 +620,7 @@ impl PageText {
                     // text under it) are paragraphs of their own.
                     let lh = (l.bbox[3] - l.bbox[1]).max(1.0);
                     let resized = lh > h * 1.2 || h > lh * 1.2;
-                    gap > h * 0.7 || l.bbox[1] < p.bbox[1] - h || resized
+                    gap > h * 0.7 || l.bbox[1] < p.bbox[1] - h || resized || item
                 }
             };
             match out.last_mut() {
@@ -865,6 +895,37 @@ mod reading_tests {
         for logical in ["שלום", "שלום 12", "שלום (abc)", "abc שלום def", "שלום עולם"]
         {
             assert_eq!(read(&crate::fonts::visual_order(logical)), logical);
+        }
+    }
+}
+
+#[cfg(test)]
+mod list_tests {
+    use super::*;
+
+    #[test]
+    fn lines_that_start_items_of_lists() {
+        for yes in [
+            "• First",
+            "– dash",
+            "- minus",
+            "1. one",
+            "12) twelve",
+            "a) letter",
+            "  3. indented",
+        ] {
+            assert!(list_item(yes), "{yes}");
+        }
+        for no in [
+            "J. Smith wrote",
+            "1.5 metres",
+            "2026. A year",
+            "word",
+            "•no space",
+            "",
+            "1234. too long",
+        ] {
+            assert!(!list_item(no), "{no}");
         }
     }
 }

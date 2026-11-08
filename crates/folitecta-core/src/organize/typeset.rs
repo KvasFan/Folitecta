@@ -849,12 +849,9 @@ impl Typeset {
         }
         fonts.finish(&mut doc, &ids)?;
         for (page, data, r) in pictures {
-            // On the page as shown: from the top.
-            doc.add_image(
-                page,
-                data,
-                Some([r[0], sheet.height - r[3], r[2], sheet.height - r[1]]),
-            )?;
+            // `add_image` measures from the bottom of the page, as the
+            // pictures were set (the pages are upright).
+            doc.add_image(page, data, Some(r))?;
         }
         if !marks.is_empty() {
             let mut items: Vec<(u8, OutlineItem)> = Vec::new();

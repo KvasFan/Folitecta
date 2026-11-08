@@ -375,3 +375,123 @@ fn tables_go_into_the_office_exports_as_tables() {
         std::fs::write(format!("{dir}/stock.rtf"), &rtf).unwrap();
     }
 }
+
+/// A report as people write them: headings, paragraphs, a logo, a table
+/// between two paragraphs, a chart, a list, and a second page with another
+/// table; made from Markdown with its pictures.
+fn mixed_report() -> Document {
+    let dir = std::env::temp_dir().join(format!("folitecta-mixed-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    image::RgbImage::from_fn(120, 60, |x, _| image::Rgb([20, 60 + (x as u8), 160]))
+        .save(dir.join("logo.png"))
+        .unwrap();
+    image::RgbImage::from_fn(600, 300, |x, y| image::Rgb([(x / 3) as u8, (y / 2) as u8, 90]))
+        .save(dir.join("chart.png"))
+        .unwrap();
+    let filler = "The figures of the quarter are set out below with the regions that sold them. ".repeat(6);
+    let more = (0..14)
+        .map(|i| format!("Paragraph {i} of the notes. {filler}"))
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    let md = format!(
+        "# Quarterly report\n\nThis report sums up the quarter. {filler}\n\n![Logo](logo.png)\n\n## Sales\n\n\
+         Text before the table.\n\n| Region | Q1 | Q2 |\n|---|---:|---:|\n| North | 1,200 | 1,350 |\n| South | 800 | 950 |\n| East | 450 | 500 |\n\n\
+         Text after the table.\n\n![Chart](chart.png)\n\n## Notes\n\n- First note\n- Second note\n\n{more}\n\n## Costs\n\n\
+         | Item | Cost |\n|---|---:|\n| Rent | 3,000 |\n| Wages | 12,500 |\n| Travel | 900 |\n\nClosing words.\n"
+    );
+    let doc = Document::from_markdown_in(&md, TextLayout::default(), "Quarterly report", Some(&dir)).unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+    doc
+}
+
+#[test]
+fn a_mixed_report_keeps_its_pictures_and_tables_in_place() {
+    let doc = mixed_report();
+    let n = doc.page_count();
+    assert!(n >= 2, "{n}");
+    let docx = doc.export_office(OfficeFormat::Docx, 0..n, false).unwrap();
+    let html = doc.export_office(OfficeFormat::Html, 0..n, false).unwrap();
+    if let Ok(dir) = std::env::var("OFFICE_DUMP") {
+        std::fs::write(format!("{dir}/mixed.docx"), &docx.bytes).unwrap();
+        std::fs::write(format!("{dir}/mixed.html"), &html.bytes).unwrap();
+        std::fs::write(format!("{dir}/mixed.pdf"), doc.bytes().as_ref()).unwrap();
+    }
+    // The pictures where the report has them: the logo up, the chart below.
+    let pictures = doc.page_images(0).unwrap();
+    let (logo, chart) = (&pictures[0], &pictures[1]);
+    assert_eq!((logo.width, chart.width), (120, 600));
+    assert!(logo.rect[1] > chart.rect[3], "{:?} {:?}", logo.rect, chart.rect);
+    assert_eq!((docx.headings, docx.tables, docx.pictures), (4, 2, 2), "{docx:?}");
+    assert!(docx.left_out.is_empty(), "{:?}", docx.left_out);
+    // In the Word document: everything once, in the order of the report.
+    let parts = read(&docx.bytes).unwrap();
+    let body = String::from_utf8(
+        parts
+            .iter()
+            .find(|p| p.name == "word/document.xml")
+            .unwrap()
+            .data
+            .clone(),
+    )
+    .unwrap();
+    let order = |text: &str, marks: &[&str]| -> Vec<usize> {
+        marks
+            .iter()
+            .map(|m| text.find(m).unwrap_or_else(|| panic!("{m} missing")))
+            .collect()
+    };
+    let marks = [
+        "Quarterly report",
+        "This report sums up",
+        "rIdImg1",
+        "Sales",
+        "Text before the table",
+        "North",
+        "Text after the table",
+        "rIdImg2",
+        "Notes",
+        "First note",
+        "Second note",
+        "Paragraph 13",
+        "Costs",
+        "Wages",
+        "Closing words",
+    ];
+    let at = order(&body, &marks);
+    assert!(
+        at.windows(2).all(|w| w[0] < w[1]),
+        "{:?}",
+        marks.iter().zip(&at).collect::<Vec<_>>()
+    );
+    for once in ["North", "Wages", "Text after the table", "First note"] {
+        assert_eq!(body.matches(once).count(), 1, "{once}");
+    }
+    // The two items of the list are two paragraphs.
+    assert!(!body.contains("First note • Second note"), "{body}");
+    // The web page: the same order, the pictures in it, the tables as tables.
+    let page = String::from_utf8(html.bytes).unwrap();
+    let marks_html = [
+        "Quarterly report",
+        "This report sums up",
+        "data:image/png",
+        "Sales",
+        "Text before the table",
+        "<td>North</td>",
+        "Text after the table",
+        "data:image/png",
+        "Notes",
+        "First note",
+        "Second note",
+        "Costs",
+        "<td>Wages</td>",
+        "Closing words",
+    ];
+    let mut from = 0;
+    for m in marks_html {
+        let i = page[from..]
+            .find(m)
+            .unwrap_or_else(|| panic!("{m} missing after {from}"));
+        from += i + m.len();
+    }
+    assert_eq!(page.matches("<table>").count(), 2);
+}

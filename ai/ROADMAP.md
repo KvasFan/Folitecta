@@ -681,6 +681,13 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
 1. ~~**FOL-L028 — snapping profile.**~~ Done: `snap_points` (path nodes, rectangle corners) and the
    planned `view.snap.toObjects`, before the grid and guides, kept per tab, page and revision.
 
+### 0.67.0 — office exports checked on a whole report (on `main`, untagged)
+
+1. ~~**FOL-L009, FOL-L005 — pictures and tables with the text.**~~ Done: a report made from
+   Markdown with pictures, two tables over two pages and a list, exported to DOCX and HTML and
+   read back: pictures of Markdown placed from the bottom as `add_image` measures (they were
+   mirrored), list items started as paragraphs of their own (`list_item`).
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with

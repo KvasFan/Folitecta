@@ -60,6 +60,12 @@ All notable changes to Folitecta are documented here. The format follows
   share stay in colour and are counted.
 - View › Snap › To Objects snaps drawing and measuring to the corners and line ends the page draws.
 
+### Fixed
+- The pictures of Markdown files were drawn mirrored down the page (the first one at the bottom,
+  covering the text); they stand where the file has them.
+- The items of a list are paragraphs of their own in the exports, in reading aloud and in the
+  reflow view, not one paragraph.
+
 ### Changed
 - Text recognition no longer writes again what a page already shows as text, a comment or a form
   field: on pages that are partly scanned only the scanned part gets text, and an area read again

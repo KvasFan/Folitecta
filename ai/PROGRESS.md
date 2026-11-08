@@ -4,6 +4,29 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L009, FOL-L005: office exports checked on a whole report (0.67.0)
+
+- **Asked by the user:** DOCX and HTML exports must carry pictures and tables correctly together
+  with the text, in the coming releases.
+- **Found:** a report made from Markdown (headings, a logo, a table between two paragraphs, a
+  chart, a list, many paragraphs, a second table on page 2) exported in order, its tables right,
+  but (1) the pictures of the Markdown document itself were mirrored down the page: `finish` gave
+  `add_image` a rectangle measured from the top while it measures from the bottom, so the chart
+  covered the heading and the table; the test of 0.51.0 checked widths only; (2) the two items of
+  the list were one paragraph.
+- **What:** `typeset.rs`: the rectangle passed as set. `textlayer.rs`: `list_item` (a bullet or a
+  dash and a space, a number of up to three digits with `.` or `)`, a letter with `)`), a line
+  starting an item starts a paragraph (`paragraphs`, used by the exports, reading aloud and the
+  reflow view).
+- **Checked:** `office.rs` `a_mixed_report_keeps_its_pictures_and_tables_in_place` (the logo above
+  the chart on the page; in DOCX 15 marks in the report's order, the cells and list items once,
+  two pictures, two tables; in HTML the same order with the pictures in the page and two tables),
+  the unit test of `list_item`, `markdown_csv.rs`, `reading.rs`, `text_layer.rs`; pandoc 3 reads
+  the logo at 1.25 in after the introduction, the table between its paragraphs, the chart at
+  6.25 in, the two items, the second table; self-test steps `office`, `reading`, `flatten_read`,
+  `contents`, `table_export`, `panes`.
+- **Open:** lists as real lists in DOCX and HTML (they are paragraphs with their marks).
+
 ## 2026-11-08 — FOL-L028: snapping to what the page draws (0.66.0)
 
 - **Current state before:** drawing and measuring snapped to the grid and guides only.

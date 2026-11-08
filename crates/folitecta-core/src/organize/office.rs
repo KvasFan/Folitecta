@@ -120,14 +120,42 @@ fn has_head(rows: &[Vec<String>]) -> bool {
     rows.len() > 1 && rows[0].iter().all(|c| !numeric(c)) && rows[1..].iter().flatten().any(|c| numeric(c))
 }
 
-/// A table of a Word document, as wide as the text, its columns even.
+/// The widths of the columns of a table, in twips: as wide as their longest
+/// cell (counted up to 40 characters, at 110 twips a character with room
+/// on both sides), scaled down to `total` when they would be wider.
+fn table_widths(rows: &[Vec<String>], total: usize) -> Vec<usize> {
+    let columns = rows.iter().map(Vec::len).max().unwrap_or(1).max(1);
+    let natural: Vec<usize> = (0..columns)
+        .map(|c| {
+            let chars = rows
+                .iter()
+                .filter_map(|r| r.get(c))
+                .map(|s| s.chars().count())
+                .max()
+                .unwrap_or(0)
+                .clamp(3, 40);
+            chars * 110 + 200
+        })
+        .collect();
+    let sum: usize = natural.iter().sum();
+    if sum <= total {
+        natural
+    } else {
+        natural.iter().map(|w| w * total / sum).collect()
+    }
+}
+
+/// A table of a Word document, its columns as wide as their contents, the
+/// whole no wider than the text.
 fn docx_table(rows: &[Vec<String>]) -> String {
-    let columns = rows.first().map(Vec::len).unwrap_or(1).max(1);
     // Twips: 20 to the point.
-    let total = (TEXT_WIDTH * 20.0) as usize;
-    let width = total / columns;
+    let widths = table_widths(rows, (TEXT_WIDTH * 20.0) as usize);
+    let total: usize = widths.iter().sum();
     let head = has_head(rows);
-    let grid = format!("<w:gridCol w:w=\"{width}\"/>").repeat(columns);
+    let grid: String = widths
+        .iter()
+        .map(|w| format!("<w:gridCol w:w=\"{w}\"/>"))
+        .collect();
     let border =
         |side: &str| format!("<w:{side} w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"808080\"/>");
     let mut out = format!(
@@ -148,7 +176,7 @@ fn docx_table(rows: &[Vec<String>]) -> String {
         if bold {
             out.push_str("<w:trPr><w:tblHeader/></w:trPr>");
         }
-        for cell in row {
+        for (cell, width) in row.iter().zip(&widths) {
             let jc = if numeric(cell) {
                 "<w:jc w:val=\"right\"/>"
             } else {
@@ -382,8 +410,7 @@ fn rtf(pieces: &[Piece], breaks: bool) -> Vec<u8> {
                 ));
             }
             Piece::Table { rows, .. } => {
-                let columns = rows.first().map(Vec::len).unwrap_or(1).max(1);
-                let width = (TEXT_WIDTH * 20.0) as usize / columns;
+                let widths = table_widths(rows, (TEXT_WIDTH * 20.0) as usize);
                 let head = has_head(rows);
                 let border = "\\clbrdrt\\brdrs\\brdrw10\\clbrdrl\\brdrs\\brdrw10\\clbrdrb\\brdrs\\brdrw10\\clbrdrr\\brdrs\\brdrw10";
                 for (r, row) in rows.iter().enumerate() {
@@ -391,8 +418,10 @@ fn rtf(pieces: &[Piece], breaks: bool) -> Vec<u8> {
                     if head && r == 0 {
                         out.push_str("\\trhdr");
                     }
-                    for k in 0..columns {
-                        out.push_str(&format!("{border}\\cellx{}", (k + 1) * width));
+                    let mut right = 0;
+                    for w in &widths {
+                        right += w;
+                        out.push_str(&format!("{border}\\cellx{right}"));
                     }
                     out.push('\n');
                     for cell in row {

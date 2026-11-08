@@ -225,6 +225,7 @@ pub(super) fn Prefs() -> Element {
     let lang = st.lang();
     let prefs = st.ui.read().clone();
     let author = use_signal(|| prefs.author.clone());
+    let sites = crate::commands::navigation::follow::allowed_sites(st);
     rsx! {
         Frame { title: t(lang, "dialog.prefs.title"), on_ok: move |_| { st.ui_mut().author = author(); st.save_prefs(); st.set_dialog(Dialog::None); },
             div { class: "field-grid",
@@ -256,6 +257,12 @@ pub(super) fn Prefs() -> Element {
                     onchange: move |_| crate::commands::dispatch(st, "view.ribbonLabels") }
                 span { "{t(lang, \"dialog.prefs.labels\")}" }
             }
+            if !sites.is_empty() {
+                div { class: "row prefs-sites", style: "gap:8px;align-items:center;flex-wrap:wrap",
+                    span { class: "hint", {tf(lang, "dialog.prefs.sites", &[("list", &sites.join(", "))])} }
+                    button { class: "tbtn prefs-forget-sites", onclick: move |_| crate::commands::navigation::follow::forget_sites(st), "{t(lang, \"dialog.prefs.sites_forget\")}" }
+                }
+            }
             label { class: "check", title: "{t(lang, \"dialog.prefs.page_labels.hint\")}",
                 input { r#type: "checkbox", class: "prefs-page-labels", checked: crate::commands::option_on(st, "pages.useLabels"),
                     onchange: move |e| st.set_option("pages.useLabels", e.checked()) }
@@ -272,7 +279,7 @@ pub(super) fn CommandLine() -> Element {
     rsx! {
         Frame { title: t(lang, "cmd.help.cmdline"),
             pre { class: "mono", style: "user-select:text; white-space: pre-wrap",
-                "folitecta [FILE.pdf ...]        open files\nfolitecta --features-md OUT.md  write the feature matrix\nfolitecta --version\nfolitecta --help"
+                "folitecta [FILE.pdf ...]           open files\nfolitecta --settings DIR [FILE ...] keep the settings in DIR\nfolitecta --run-actions SEQ.json [--output DIR] [--suffix TEXT] [--overwrite] FILES...\n                                   run an action sequence on files and folders\nfolitecta --features-md OUT.md     write the feature matrix\nfolitecta --version\nfolitecta --help"
             }
         }
     }
@@ -463,6 +470,12 @@ pub(super) fn OpenTarget(tab: u64, target: folitecta_core::LinkTarget) -> Elemen
     let st = use_context::<AppState>();
     let lang = st.lang();
     let mut trust = use_signal(|| false);
+    let mut always = use_signal(|| false);
+    let site = match &target {
+        folitecta_core::LinkTarget::Uri(u) => crate::commands::navigation::follow::web_site(u),
+        _ => None,
+    };
+    let site_ok = site.clone();
     let (body, what) = match &target {
         folitecta_core::LinkTarget::Uri(u) => ("dialog.open_target.web", u.clone()),
         folitecta_core::LinkTarget::Launch(f) => ("dialog.open_target.file", f.clone()),
@@ -478,11 +491,18 @@ pub(super) fn OpenTarget(tab: u64, target: folitecta_core::LinkTarget) -> Elemen
                         d.trust_links = true;
                     }
                 }
+                if let (true, Some(s)) = (always(), &site_ok) {
+                    crate::commands::navigation::follow::allow_site(st, s);
+                }
                 crate::commands::navigation::follow::open(st, &target);
             },
             p { "{t(lang, body)}" }
             div { class: "kv", span { class: "v open-target", "{what}" } }
             label { class: "check", input { class: "open-target-trust", r#type: "checkbox", checked: trust(), onchange: move |_| trust.set(!trust()) } span { "{t(lang, \"dialog.open_target.trust\")}" } }
+            if let Some(s) = site {
+                label { class: "check", input { class: "open-target-always", r#type: "checkbox", checked: always(), onchange: move |_| always.set(!always()) }
+                    span { {tf(lang, "dialog.open_target.always", &[("site", &s)])} } }
+            }
         }
     }
 }

@@ -42,6 +42,9 @@ All notable changes to Folitecta are documented here. The format follows
   folder `settings` beside it; `--settings <folder>` chooses another one. About shows the folder.
 - Edit Content › Shapes adds and removes nodes: a double click on the chosen path adds a node on
   its nearest edge, a double click on a node removes it; one undo step each.
+- A web link can be opened without asking from then on for its whole site (Always open links to
+  …); Preferences lists those sites and asks again for all of them on request. The command line
+  help names every option.
 
 ### Changed
 - Text recognition no longer writes again what a page already shows as text, a comment or a form

@@ -4,6 +4,20 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L052: sites opened without asking (0.58.0)
+
+- **Current state before:** a link that reaches outside the document was asked every time, unless
+  the document was trusted for the session.
+- **What:** `follow.rs`: `web_site` (scheme and host of an `http` or `https` address, lower case,
+  none with a user name), the settings value `links.allowedSites` (`allowed_sites`, `allow_site`,
+  `forget_sites`), `needs_asking` (trusted document, or a web address on an allowed site: not
+  asked). The question of a web link offers "Always open links to <site> without asking";
+  Preferences lists the sites with "Ask again for all of them". The command line help window lists
+  `--settings` and `--run-actions`.
+- **Checked:** the unit test of `web_site`; self-test step `follow_links` (the choice offered, an
+  allowed site not asked, another site asked, asked again once forgotten), `panes`.
+- **Open:** files and other documents named by links are asked every time.
+
 ## 2026-11-08 — FOL-L021: nodes added and removed (0.57.0)
 
 - **Current state before:** the nodes of a path could be moved, not added or removed.

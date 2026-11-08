@@ -637,6 +637,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    node), `remove_path_node` (its segment goes; the first node hands the start to the next line;
    rectangles refused; two nodes kept); double clicks in the shape editor.
 
+### 0.58.0 — sites opened without asking (on `main`, untagged)
+
+1. ~~**FOL-L052 — the answer to a link kept.**~~ Done: `web_site`, `allowed_sites`,
+   `allow_site`, `forget_sites`, `needs_asking` (`follow.rs`), the choice in the question of a web
+   link, the list in Preferences.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -756,7 +762,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
 | FOL-L051 | P0 | 🟡 | undo/redo of every edit; every PDF save (Save, Save As, copies, protected copies, signed files), the exports (pictures, text, attachments, form data, comments, Office documents, digital IDs) and the settings written to a temporary file and renamed over the target only when complete; recovery copies the same way, never for encrypted documents; signed documents saved as incremental updates; files of sessions with their format and version | — |
-| FOL-L052 | P0 | 🟡 | page tree normalized before every page edit; pages that leave take the bookmarks, destinations, links, fields, tags and opening view tied to them (nothing of them stays in the file), pages that arrive bring theirs, and what cannot be kept is reported before OK; a relations corpus (`relations_corpus.rs`: bookmarks, destinations, links by array, name and action, fields over several pages, radio groups, comments with pop-ups and replies, tags with their parent tree) through every page operation, saved and reopened; external actions not executed on opening; links and buttons followed with a question before anything outside the document opens, programs never started | Relations of portfolio and attachment documents; the answer to an external link kept only for the session (not saved with the file). |
+| FOL-L052 | P0 | 🟡 | page tree normalized before every page edit; pages that leave take the bookmarks, destinations, links, fields, tags and opening view tied to them (nothing of them stays in the file), pages that arrive bring theirs, and what cannot be kept is reported before OK; a relations corpus (`relations_corpus.rs`: bookmarks, destinations, links by array, name and action, fields over several pages, radio groups, comments with pop-ups and replies, tags with their parent tree) through every page operation, saved and reopened; external actions not executed on opening; links and buttons followed with a question before anything outside the document opens, programs never started | Relations of portfolio and attachment documents; files and other documents named by links are asked every time (only web sites can be allowed). |
 | FOL-L053 | P1 | 🟡 | real attachments through the mail program (Simple MAPI, Mail, `xdg-email`), ZIP, EML drafts; the attachment dialog: current state or saved file, pages, comments kept/flattened/removed, form data and comments as files, sizes and previews, protected copies kept protected, failures reported in the dialog | A check with real mail programs; Extract Pages, Split and Delete Pages onto the same page copies (layers and XFA follow page subsets). |
 
 ### Remote services

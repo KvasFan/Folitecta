@@ -1,7 +1,9 @@
 //! Following the links and buttons of a document. What stays inside it —
 //! a page, a destination, a named action, clearing the form — runs at once;
 //! what reaches outside — a web address, a file, another document — is
-//! named and asked first, unless the document was trusted for the session.
+//! named and asked first, unless the document was trusted for the session
+//! or the web address is on a site the user chose to open without asking
+//! (kept in the settings, forgotten from the Preferences).
 //! Programs are never started from a document, and form data is never sent.
 
 use std::path::PathBuf;
@@ -33,6 +35,60 @@ fn is_program(path: &std::path::Path) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
         .is_some_and(|e| PROGRAMS.contains(&e.to_ascii_lowercase().as_str()))
+}
+
+/// The settings value of the sites whose links open without asking.
+const SITES: &str = "links.allowedSites";
+
+/// The site of a web address (`https://Example.org:8080/a` →
+/// `https://example.org:8080`); none for other addresses.
+pub fn web_site(url: &str) -> Option<String> {
+    let (scheme, rest) = url.trim().split_once("://")?;
+    let scheme = scheme.to_ascii_lowercase();
+    if scheme != "http" && scheme != "https" {
+        return None;
+    }
+    let host = rest.split(['/', '?', '#']).next()?;
+    // Never a site with a user name in it (`https://a@b`).
+    if host.is_empty() || host.contains('@') {
+        return None;
+    }
+    Some(format!("{scheme}://{}", host.to_ascii_lowercase()))
+}
+
+/// The sites whose links open without asking.
+pub fn allowed_sites(st: AppState) -> Vec<String> {
+    st.value(SITES)
+        .lines()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// Open the links to `site` without asking from now on.
+pub fn allow_site(st: AppState, site: &str) {
+    let mut sites = allowed_sites(st);
+    if !sites.iter().any(|s| s == site) {
+        sites.push(site.to_string());
+        st.set_value(SITES, sites.join("\n"));
+    }
+}
+
+/// Ask again for every site.
+pub fn forget_sites(st: AppState) {
+    st.set_value(SITES, "");
+}
+
+/// Whether `target` of document `tab` is asked before it opens.
+pub fn needs_asking(st: AppState, target: &LinkTarget) -> bool {
+    if st.read_active(|t| t.trust_links).unwrap_or(false) {
+        return false;
+    }
+    match target {
+        LinkTarget::Uri(u) => web_site(u).is_none_or(|s| !allowed_sites(st).contains(&s)),
+        _ => true,
+    }
 }
 
 /// Follow `target`, a link or button of the active document.
@@ -92,9 +148,8 @@ pub fn follow(st: AppState, target: LinkTarget) {
                     return;
                 }
             }
-            let trusted = st.read_active(|t| t.trust_links).unwrap_or(false);
             match st.read_active(|t| t.id) {
-                Some(tab) if !trusted => st.set_dialog(Dialog::OpenTarget { tab, target }),
+                Some(tab) if needs_asking(st, &target) => st.set_dialog(Dialog::OpenTarget { tab, target }),
                 _ => open(st, &target),
             }
         }
@@ -151,5 +206,26 @@ pub fn open(st: AppState, target: &LinkTarget) {
             }
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_site_of_a_web_address() {
+        assert_eq!(
+            web_site("https://Example.org/a/b?c#d").as_deref(),
+            Some("https://example.org")
+        );
+        assert_eq!(
+            web_site("HTTP://example.org:8080").as_deref(),
+            Some("http://example.org:8080")
+        );
+        assert_eq!(web_site("mailto:a@example.org"), None);
+        assert_eq!(web_site("ftp://example.org/x"), None);
+        assert_eq!(web_site("https://user@example.org/"), None);
+        assert_eq!(web_site("https:///x"), None);
     }
 }

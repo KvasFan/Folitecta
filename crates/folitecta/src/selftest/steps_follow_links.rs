@@ -60,8 +60,29 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         .ok()
         .and_then(|v| v.as_str().map(str::to_string))
         .unwrap_or_default();
+    let always_offered = eval("return document.querySelectorAll('.dialog .open-target-always').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        == Some(1);
     st.set_dialog(Dialog::None);
     pause(200).await;
+    // A site opened without asking from now on, then asked again.
+    let link = folitecta_core::LinkTarget::Uri("https://example.org/other/page".into());
+    let asked_before = crate::commands::navigation::follow::needs_asking(st, &link);
+    crate::commands::navigation::follow::allow_site(st, "https://example.org");
+    let asked_allowed = crate::commands::navigation::follow::needs_asking(st, &link);
+    let other_site = crate::commands::navigation::follow::needs_asking(
+        st,
+        &folitecta_core::LinkTarget::Uri("https://example.com/".into()),
+    );
+    crate::commands::navigation::follow::forget_sites(st);
+    let asked_again = crate::commands::navigation::follow::needs_asking(st, &link);
+    cx.record(
+        "follow links: a web site chosen to open without asking is not asked again, others are, and it is forgotten on request",
+        always_offered && asked_before && !asked_allowed && other_site && asked_again,
+        format!("offered {always_offered}, asked before {asked_before}, when allowed {asked_allowed}, another site {other_site}, forgotten {asked_again}"),
+    );
 
     click_link(0, 2).await;
     let program_dialog = !matches!(*st.dialog.peek(), Dialog::None);

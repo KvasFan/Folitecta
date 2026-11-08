@@ -4,6 +4,12 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — local check of 0.56.0 to 0.61.0
+
+- **What:** `target/preflight.sh` at `3429f6e`: formatting, clippy for the three systems, the
+  workspace tests (94 test programs), the release build, the licences, the whole self-test (368
+  interactions, 0 problems) and the Linux package (46 MB): all passed.
+
 ## 2026-11-08 — FOL-L028: measurements pane (0.61.0)
 
 - **Current state before:** measurements were exported as CSV only.

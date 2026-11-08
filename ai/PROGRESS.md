@@ -4,6 +4,12 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — local check of 0.62.0 to 0.65.0
+
+- **What:** `target/preflight.sh` at `626b4e6`: formatting, clippy for the three systems, the
+  workspace tests (94 test programs), the release build, the licences, the whole self-test (368
+  interactions, 0 problems) and the Linux package (46 MB): all passed.
+
 ## 2026-11-08 — FOL-L044: chosen pages to grey (0.65.0)
 
 - **Current state before:** the whole document became grey or nothing.

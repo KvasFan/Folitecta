@@ -4,6 +4,17 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L009: table columns by their contents (0.69.0)
+
+- **Current state before:** the tables of the Word and RTF exports were as wide as the text, their
+  columns even.
+- **What:** `office.rs`: `table_widths` (110 twips a character of the longest cell, from 3 to 40
+  characters, 200 twips of room; scaled to the width of the text when wider); `docx_table` writes
+  them in `w:tblW`, `w:gridCol` and `w:tcW`, RTF in `\cellx`.
+- **Checked:** the unit test of `table_widths` (a long column over twice a short one, narrower than
+  the text; a wide table scaled down in its shares), `office.rs`; pandoc 3 reads the two tables of
+  the report as narrow tables; self-test steps `office`, `reading`, `table_export`.
+
 ## 2026-11-08 — FOL-L009: lists in the office exports (0.68.0)
 
 - **Current state before:** list items were exported as plain paragraphs with their marks.

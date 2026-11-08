@@ -62,6 +62,8 @@ All notable changes to Folitecta are documented here. The format follows
 
 - The exports to Word, rich text and web page write lists as lists: bullet and numbered items in
   `<ul>` and `<ol>` in the web page, items with their mark and a hanging indent in Word and RTF.
+- Tables exported to Word and rich text have columns as wide as their contents, the table no wider
+  than the text.
 
 ### Fixed
 - The pictures of Markdown files were drawn mirrored down the page (the first one at the bottom,

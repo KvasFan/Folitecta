@@ -693,6 +693,11 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
 1. ~~**FOL-L009 — lists as lists.**~~ Done: `list_mark`; `ul` and `ol` in HTML, items with a
    hanging indent in DOCX (`w:ind`, a tab after the mark) and RTF (`\li360\fi-360`).
 
+### 0.69.0 — table columns by their contents (on `main`, untagged)
+
+1. ~~**FOL-L009 — column widths.**~~ Done: `table_widths` (the longest cell of each column, up to
+   40 characters; scaled down to the text width) in DOCX and RTF.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with

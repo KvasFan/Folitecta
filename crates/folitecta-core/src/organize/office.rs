@@ -107,7 +107,7 @@ impl Piece {
 const TEXT_WIDTH: f32 = 481.0;
 
 /// Characters XML does not allow.
-fn clean(text: &str) -> String {
+pub(crate) fn clean(text: &str) -> String {
     text.chars()
         .filter(|c| matches!(c, '\t' | '\n' | '\r') || (*c >= ' ' && !matches!(*c, '\u{fffe}' | '\u{ffff}')))
         .collect()

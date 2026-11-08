@@ -109,6 +109,7 @@ const AREAS: &[(&str, &[&str])] = &[
             "paths",
             "sequence",
             "office",
+            "sheets",
             "templates",
             "preflight",
             "grey",

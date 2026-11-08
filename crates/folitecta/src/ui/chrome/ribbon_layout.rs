@@ -465,6 +465,7 @@ pub const RIBBON: &[RTab] = &[
                 [
                     "document.export.toImages",
                     "document.exportOffice",
+                    "document.exportTables",
                     "export",
                     "document.exportBookmarks"
                 ]

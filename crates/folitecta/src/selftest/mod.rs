@@ -490,6 +490,7 @@ mod steps_spelling;
 mod steps_split;
 mod steps_split_view;
 mod steps_tab_drag;
+mod steps_table_export;
 mod steps_table_fixes;
 mod steps_table_summaries;
 mod steps_templates;
@@ -588,6 +589,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "flatten_read" => Box::pin(steps_flatten_read::run(cx)),
             "scans_bw" => Box::pin(steps_scans_bw::run(cx)),
             "interleave" => Box::pin(steps_interleave::run(cx)),
+            "table_export" => Box::pin(steps_table_export::run(cx)),
             "fonts_pane" => Box::pin(steps_fonts_pane::run(cx)),
             "lists_out" => Box::pin(steps_lists_out::run(cx)),
             "ocr_sequence" => Box::pin(steps_ocr_sequence::run(cx)),
@@ -692,6 +694,7 @@ const STEPS: &[&str] = &[
     "flatten_read",
     "scans_bw",
     "interleave",
+    "table_export",
     "fonts_pane",
     "lists_out",
     "ocr_sequence",
@@ -1180,6 +1183,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("space-audit", Dialog::SpaceAudit),
         ("recompress", Dialog::Recompress(false)),
         ("export-office", Dialog::ExportOffice),
+        ("export-tables", Dialog::ExportTables),
         ("preflight", Dialog::Preflight),
         ("convert-grey", Dialog::ConvertGrey),
         ("insert-text", Dialog::InsertTextPages),

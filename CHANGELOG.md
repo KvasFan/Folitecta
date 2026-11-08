@@ -6,6 +6,12 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Export Tables (File › Export) finds the tables in the text of the pages, whatever order they are
+  drawn in, lists them with their page and size to choose, and writes them as a workbook (XLSX: a
+  sheet for each table, numbers and percentages kept as numbers, the decimal comma or point told by
+  the numbers of the table) or as CSV. The File menu gathers the exports in one submenu.
+
 ## [0.45.0] - 2026-11-05
 
 ### Added

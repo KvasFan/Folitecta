@@ -549,6 +549,17 @@ Word, rich text and web pages with the pictures of the pages (FOL-L009).
    data addresses in HTML; JPEG data kept as it is, other pictures as PNG, those turned or
    mirrored drawn from the page; specks and the scan of a page with text left out and counted.
 
+### 0.46.0 — tables out of the pages (on `main`, untagged)
+
+The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
+
+1. ~~**FOL-L030, FOL-L009 — tables found and exported.**~~ Done: `page_tables` finds rows by the
+   lines glyphs share across the page (not by the order they are drawn in), cells by gaps wider
+   than a word space and columns by the gaps the rows leave free one under the other (a row
+   wrapped in a cell joined again, running text in columns refused); `export_tables` writes a
+   workbook (`sheets.rs`: inline strings, numbers and percentages with their formats, a bold head)
+   or CSV; Export Tables lists the tables found to choose.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -575,7 +586,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L006 | P2 | 🟡 | e-mail messages (EML) made into documents: header lines, text, attachments embedded | Mail archives; office formats and HTML need a local engine decision. |
 | FOL-L007 | P2 | ⬜ | — | File associations (`help.fileAssoc`), virtual printer, office add-ins. |
 | FOL-L008 | P2 | ⬜ | — | XPS/OXPS, metafiles, CAD: engine decision first. |
-| FOL-L009 | P1/P2 | 🟡 | export to pictures (PNG, JPEG, TIFF, …), text, embedded pictures, attachments, split and extracted documents; the text as editable Word (DOCX), rich text (RTF) and web page (HTML) documents, headings and paragraphs in reading order, page breaks on request, a report of what is left out | Tables with their columns and number types (XLSX), PPTX, page fidelity layouts, accessible text export. |
+| FOL-L009 | P1/P2 | 🟡 | export to pictures (PNG, JPEG, TIFF, …), text, embedded pictures, attachments, split and extracted documents; the text as editable Word (DOCX), rich text (RTF) and web page (HTML) documents, headings and paragraphs in reading order, page breaks on request, a report of what is left out; the tables found in the text of the pages as a workbook (XLSX, numbers kept as numbers) or CSV | Tables as tables in DOCX, RTF and HTML; PPTX, page fidelity layouts, accessible text export. |
 | FOL-L010 | P1 | 🟡 | stamps have categories and favourites; a gallery of document templates (papers, week and month planners, a to-do list, a letter, meeting notes, an invoice that adds itself up) on any paper, in the language of the interface; the user's own templates (Save as Template…, My templates in the gallery with origin, date, version and the fonts they need; new documents from them, rename, remove) | — |
 
 ### Scanning and OCR
@@ -621,7 +632,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L027 | P1/P2 | 🟡 | text stamps, stamp designer with dynamic values, favourites and recent stamps | Symbol libraries with fields asked when placed. |
 | FOL-L028 | P2 | 🟡 | distance, perimeter, area, angle, radius and diameter, volume (area by a depth), calibration, CSV export of measures, a quick panel with the scale; the tools stay chosen | Snapping profile; measure info pane. |
 | FOL-L029 | P2 | ✅ | calculator with an editable tape placed as a comment; tick marks (check, cross, dot, numbers, letters, roman numerals, plain or circled) placed in series with a click and counted in their window, with saved sets of their styles | — |
-| FOL-L030 | P1/P2 | ✅ | barcodes written (vector) and read (rxing), tables as generated objects | Table extraction from PDF pages (P2). |
+| FOL-L030 | P1/P2 | ✅ | barcodes written (vector) and read (rxing), tables as generated objects; tables found in the text of the pages (rows, cells and columns by the gaps between them) and exported | Cells spanning several columns are put in the first; tables drawn as pictures need text recognition first. |
 
 ### Forms and scripts
 

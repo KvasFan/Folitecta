@@ -4,6 +4,32 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L030, FOL-L009: tables out of the pages (0.46.0)
+
+- **Current state before:** tables were made as generated objects; nothing found the tables a page
+  draws, and no export wrote a spreadsheet.
+- **What:** `page_text/page_tables.rs`: `find_tables` (upright glyphs grouped into rows by their
+  middles, runs of glyphs apart by more than 0.6 em as cells, runs of rows with two cells or more
+  within 2.8 lines of each other, the column gaps found by a sweep that at most a sixth of the rows
+  may cross, a closer row with an empty first column joined to the row above, at least three full
+  rows or two of three columns, columns of more than 30 letters a cell refused as running text),
+  `Document::page_tables`, `FoundTable`; `organize/sheets.rs`: `export_tables`, `TableFormat`,
+  `cell_value` (thousands in groups of three, decimals, signs, parentheses, percentages; codes with
+  a nought in front stay words), the decimal mark told by the numbers of the table or the language
+  of the document, the workbook of inline strings with column widths and four styles. Export
+  Tables (`document.exportTables`, `Dialog::ExportTables`): the tables found on all pages or the
+  current one, each chosen with its page, size and first row; the report of tables, rows and
+  numbers. The File menu holds the three exports in the submenu Export, as it was at its 22 rows.
+- **Checked:** `office.rs` (a table set from CSV found again cell for cell; a table drawn column by
+  column with right-aligned numbers between a title and a line of text; two columns of running
+  text and the report of the office tests found no table; the workbook's parts well-formed, the
+  numbers, percentages and negative number in parentheses; CSV; decimal commas of an Italian
+  table), unit tests of `cell_value` and the sheet names; the workbook read by openpyxl 3 (bold
+  head, `0%` and `0.00%`, −3.1); self-test steps `table_export` and `permissions` (the command asks
+  for the owner password when copying is forbidden).
+- **Open:** tables as tables in the office exports; cells spanning columns; ruled tables whose
+  cells touch (no gap) are not split.
+
 ## 2026-11-05 — FOL-L009: pictures in the office exports (0.45.0)
 
 - **Current state before:** DOCX, RTF and HTML held the text only; the pictures were counted as

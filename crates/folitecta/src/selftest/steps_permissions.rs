@@ -151,6 +151,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     for command in [
         "document.export",
         "document.exportOffice",
+        "document.exportTables",
         "searchView.results.save",
     ] {
         crate::commands::dispatch(st, command);

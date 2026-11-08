@@ -3,6 +3,7 @@
 pub(crate) mod content_edit;
 pub(crate) mod content_lex;
 pub mod ocr;
+pub mod page_tables;
 pub(crate) mod probe;
 pub mod reading;
 pub mod search;

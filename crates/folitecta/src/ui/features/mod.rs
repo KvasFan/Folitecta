@@ -45,6 +45,7 @@ pub mod spelling;
 pub mod split;
 pub mod stamps;
 pub mod style_editor;
+pub mod table_export;
 pub mod tables;
 pub mod templates;
 pub mod ticks;

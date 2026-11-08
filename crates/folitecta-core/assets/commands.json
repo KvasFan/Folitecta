@@ -6786,6 +6786,20 @@
    "status": "planned"
   },
   {
+   "id": "document.exportTables",
+   "label": "Export Tables…",
+   "parent": "document",
+   "menu": "file",
+   "ribbon": {
+    "tab": "convert",
+    "group": "export"
+   },
+   "pane": null,
+   "kind": "command",
+   "shortcut": null,
+   "status": "planned"
+  },
+  {
    "id": "document.exportBookmarks",
    "label": "Export All Bookmarks…",
    "parent": "document",

@@ -21,7 +21,7 @@ pub(crate) mod text;
 pub(crate) mod window;
 pub(crate) use document::{
     actions, barcodes, compare, convert, doctools, file, fileops, greyscale, macros, mail, ocr, office,
-    pages, paths, pictures, preflight, print, scanning, scans, sources, split, templates,
+    pages, paths, pictures, preflight, print, scanning, scans, sources, split, table_export, templates,
 };
 pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
@@ -92,6 +92,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     greyscale::HANDLERS,
     actions::HANDLERS,
     office::HANDLERS,
+    table_export::HANDLERS,
     paths::HANDLERS,
     scanning::HANDLERS,
     scans::HANDLERS,

@@ -118,8 +118,14 @@ pub const MENUS: &[(&str, &[Item])] = &[
                 ],
             ),
             Sep,
-            Cmd("export"),
-            Cmd("document.exportOffice"),
+            Group(
+                "exportAs",
+                &[
+                    Cmd("export"),
+                    Cmd("document.exportOffice"),
+                    Cmd("document.exportTables"),
+                ],
+            ),
             Group(
                 "send",
                 &[

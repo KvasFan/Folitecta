@@ -22,4 +22,5 @@ pub(crate) mod scanning;
 pub(crate) mod scans;
 pub(crate) mod sources;
 pub(crate) mod split;
+pub(crate) mod table_export;
 pub(crate) mod templates;

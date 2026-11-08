@@ -449,6 +449,8 @@ pub enum Dialog {
     Actions,
     /// Export to office formats.
     ExportOffice,
+    /// Export the tables found on the pages.
+    ExportTables,
     /// Preflight against PDF/A-2b and conversion.
     Preflight,
     /// Converting the colours of the document to grey.

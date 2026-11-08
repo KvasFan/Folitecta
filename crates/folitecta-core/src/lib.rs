@@ -48,10 +48,10 @@ pub(crate) use organize::typeset;
 pub use organize::{
     actions, attachments, combine, compare, csvdoc, delivery, doctools, email, export, greyscale, incoming,
     markdown, marks, metadata, office, pages, pagetools, pdfa, portfolio, print, recompress, scanning, scans,
-    templates, textdoc, user_templates,
+    sheets, templates, textdoc, user_templates,
 };
 pub(crate) use page_text::{content_edit, content_lex};
-pub use page_text::{ocr, reading, search, spelling, text, textedit, textlayer, textops};
+pub use page_text::{ocr, page_tables, reading, search, spelling, text, textedit, textlayer, textops};
 pub use protection::{digsig, redaction, security};
 pub use tags::{accessibility, structure};
 
@@ -88,6 +88,7 @@ pub use markup_tools::{MeasureKind, MeasureScale};
 pub use ocr::{DOUBTFUL_BELOW, DoubtfulWord, OcrEngine, OcrLine, OcrModels, OcrOptions, OcrWord, PageOcr};
 pub use office::{OfficeExport, OfficeFormat};
 pub use outline::{BookmarkTarget, DestView, OutlineItem};
+pub use page_tables::FoundTable;
 pub use pagetools::{Sides, TRANSITIONS};
 pub use paths::{PagePath, PathNode};
 pub use pdfa::{Conversion, Finding, Preflight};
@@ -104,6 +105,7 @@ pub use scripts::ScriptInfo;
 pub use security::{
     EncryptionInfo, EncryptionProfile, PasswordIssue, Protection, Restricted, SecurityPermissions,
 };
+pub use sheets::{CellValue, TableFormat, TablesExport};
 pub use signmarks::SignatureMark;
 pub use spelling::{DictionaryFile, Misspelling, SpellOptions, SpellPlace, SpellScope, Speller};
 pub use stamps::STAMP_PRESETS;

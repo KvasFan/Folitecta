@@ -175,3 +175,147 @@ fn jpeg_pictures_stay_jpeg_and_specks_are_left_out() {
     let out = only.export_office(OfficeFormat::Html, 0..1, false).unwrap();
     assert_eq!((out.pictures, out.paragraphs), (1, 0));
 }
+
+// Tables found in the text of the pages and exported as spreadsheets.
+
+use folitecta_core::testdocs::{Builder, standard_fonts, text_doc};
+use folitecta_core::{CellValue, TableFormat};
+
+const CSV: &str = "Fruit,Price,Share\nApples,\"1,234.50\",12%\nPears,7.25,8.5%\nPlums,(3.10),80%\n";
+
+fn rows_of_csv() -> Vec<Vec<String>> {
+    vec![
+        vec!["Fruit".into(), "Price".into(), "Share".into()],
+        vec!["Apples".into(), "1,234.50".into(), "12%".into()],
+        vec!["Pears".into(), "7.25".into(), "8.5%".into()],
+        vec!["Plums".into(), "(3.10)".into(), "80%".into()],
+    ]
+}
+
+#[test]
+fn a_table_set_from_csv_is_found_again() {
+    let doc = Document::from_csv(CSV, None, TextLayout::default(), "Fruit").unwrap();
+    let tables = doc.page_tables(0..doc.page_count());
+    assert_eq!(tables.len(), 1, "{tables:?}");
+    assert_eq!(tables[0].page, 0);
+    assert_eq!(tables[0].rows, rows_of_csv());
+    let b = tables[0].bbox;
+    assert!(b[0] < b[2] && b[1] < b[3], "{b:?}");
+}
+
+#[test]
+fn a_table_drawn_column_by_column_comes_out_in_rows() {
+    // Each column drawn whole before the next, the numbers right-aligned,
+    // a title above and a line of text below that are not part of it.
+    let mut c = String::from("BT /F3 14 Tf 60 780 Td (Stock at the end of the month) Tj ET\n");
+    let names = ["Item", "Bolts", "Nuts", "Washers"];
+    let counts = ["Count", "1200", "85", "7"];
+    for (k, name) in names.iter().enumerate() {
+        c.push_str(&format!("BT /F1 10 Tf 60 {} Td ({name}) Tj ET\n", 740 - 16 * k));
+    }
+    for (k, count) in counts.iter().enumerate() {
+        // Right-aligned at 300: about 5.6 points a digit.
+        let x = 300.0 - 5.6 * count.len() as f32;
+        c.push_str(&format!("BT /F1 10 Tf {x} {} Td ({count}) Tj ET\n", 740 - 16 * k));
+    }
+    c.push_str(
+        "BT /F2 10 Tf 60 640 Td (The counts are taken by hand on the last Friday of each month.) Tj ET\n",
+    );
+    let mut b = Builder::new();
+    b.page((595.0, 842.0), c.into_bytes(), dictionary_fonts(), vec![]);
+    let doc = Document::from_bytes(b.finish(), None, None).unwrap();
+    let tables = doc.page_tables(0..1);
+    assert_eq!(tables.len(), 1, "{tables:?}");
+    assert_eq!(
+        tables[0].rows,
+        vec![
+            vec!["Item".to_string(), "Count".into()],
+            vec!["Bolts".into(), "1200".into()],
+            vec!["Nuts".into(), "85".into()],
+            vec!["Washers".into(), "7".into()],
+        ]
+    );
+}
+
+fn dictionary_fonts() -> lopdf::Dictionary {
+    let mut d = lopdf::Dictionary::new();
+    d.set("Font", standard_fonts());
+    d
+}
+
+#[test]
+fn columns_of_running_text_are_no_table() {
+    let doc = Document::from_bytes(text_doc(2), None, None).unwrap();
+    assert_eq!(doc.page_tables(0..2), vec![]);
+    let doc = document();
+    assert_eq!(doc.page_tables(0..doc.page_count()), vec![]);
+}
+
+#[test]
+fn tables_become_a_workbook_and_csv() {
+    let doc = Document::from_csv(CSV, None, TextLayout::default(), "Fruit").unwrap();
+    let tables = doc.page_tables(0..1);
+    let names = vec!["Page 1".to_string()];
+    let out = doc.export_tables(&tables, TableFormat::Xlsx, &names).unwrap();
+    assert_eq!((out.tables, out.rows, out.numbers), (1, 4, 6));
+    let parts = read(&out.bytes).unwrap();
+    let part =
+        |name: &str| String::from_utf8(parts.iter().find(|p| p.name == name).unwrap().data.clone()).unwrap();
+    for p in &parts {
+        if p.name.ends_with(".xml") || p.name.ends_with(".rels") {
+            let text = std::str::from_utf8(&p.data).unwrap();
+            let body = &text[text.find("?>").map(|i| i + 2).unwrap_or(0)..];
+            assert!(folitecta_core::xml::parse(body).is_ok(), "{}", p.name);
+        }
+    }
+    assert!(part("xl/workbook.xml").contains("<sheet name=\"Page 1\" sheetId=\"1\" r:id=\"rId1\"/>"));
+    let sheet = part("xl/worksheets/sheet1.xml");
+    assert!(
+        sheet.contains("<c r=\"A1\" t=\"inlineStr\" s=\"1\"><is><t xml:space=\"preserve\">Fruit</t>"),
+        "{sheet}"
+    );
+    assert!(sheet.contains("<c r=\"B2\"><v>1234.5</v></c>"), "{sheet}");
+    assert!(sheet.contains("<c r=\"C2\" s=\"2\"><v>0.12</v></c>"), "{sheet}");
+    assert!(sheet.contains("<c r=\"C3\" s=\"3\"><v>0.085</v></c>"), "{sheet}");
+    assert!(sheet.contains("<c r=\"B4\"><v>-3.1</v></c>"), "{sheet}");
+    assert!(sheet.contains("<dimension ref=\"A1:C4\"/>"), "{sheet}");
+    // OFFICE_DUMP=<dir> writes the workbook, to open it elsewhere.
+    if let Ok(dir) = std::env::var("OFFICE_DUMP") {
+        std::fs::write(format!("{dir}/tables.xlsx"), &out.bytes).unwrap();
+    }
+
+    let csv = doc.export_tables(&tables, TableFormat::Csv, &names).unwrap();
+    assert_eq!(
+        String::from_utf8(csv.bytes).unwrap(),
+        "\"Fruit\",\"Price\",\"Share\"\n\"Apples\",\"1,234.50\",\"12%\"\n\"Pears\",\"7.25\",\"8.5%\"\n\"Plums\",\"(3.10)\",\"80%\"\n"
+    );
+    assert!(doc.export_tables(&[], TableFormat::Csv, &[]).is_err());
+}
+
+#[test]
+fn decimal_commas_are_told_by_the_numbers_of_the_table() {
+    let csv = "Città;Abitanti;Quota\nRoma;2.749.031;4,6%\nMilano;1.371.498;2,3%\nNapoli;909.048;1,5%\n";
+    let doc = Document::from_csv(csv, None, TextLayout::default(), "Città").unwrap();
+    let tables = doc.page_tables(0..1);
+    assert_eq!(tables.len(), 1, "{tables:?}");
+    let out = doc
+        .export_tables(&tables, TableFormat::Xlsx, &["Città".into()])
+        .unwrap();
+    let parts = read(&out.bytes).unwrap();
+    let sheet = String::from_utf8(
+        parts
+            .iter()
+            .find(|p| p.name == "xl/worksheets/sheet1.xml")
+            .unwrap()
+            .data
+            .clone(),
+    )
+    .unwrap();
+    assert!(sheet.contains("<c r=\"B2\"><v>2749031</v></c>"), "{sheet}");
+    assert!(sheet.contains("<c r=\"C2\" s=\"3\"><v>0.046</v></c>"), "{sheet}");
+    assert_eq!(out.numbers, 6);
+    assert_eq!(
+        folitecta_core::sheets::cell_value("Roma", true),
+        CellValue::Text("Roma".into())
+    );
+}

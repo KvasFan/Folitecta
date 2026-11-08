@@ -78,6 +78,7 @@
   "menu.group.draw": "Draw",
   "menu.group.drawing": "Drawing",
   "menu.group.editContent": "Edit Content",
+  "menu.group.exportAs": "Export",
   "menu.group.fileOnDisk": "File on Disk",
   "menu.group.format": "Format",
   "menu.group.history": "History and Sessions",

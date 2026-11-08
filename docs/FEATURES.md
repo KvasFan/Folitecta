@@ -4,10 +4,10 @@ Generated from the command registry for version 0.45.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1487 |
+| ✅ available | 1488 |
 | 🟡 partial | 58 |
 | ⬜ planned | 463 |
-| total | 2008 |
+| total | 2009 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
 
@@ -940,6 +940,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Export | `export` | ✅ available |
 | Export All Bookmarks… | `document.exportBookmarks` | ✅ available |
 | Export Selected Bookmarks… | `document.exportSelBookmarks` | ✅ available |
+| Export Tables… | `document.exportTables` | ✅ available |
 | Export to CSV… | `linksView.exportToCSV` | ✅ available |
 | Export to Office Formats… | `document.exportOffice` | ✅ available |
 | Export… | `linksView.export` | ✅ available |
@@ -1261,6 +1262,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Email Methods | `emailMethods` | ⬜ planned |
 | Email as ZIP… | `sendByEmailZip` | ✅ available |
 | Explorer | `explorer` | ✅ available |
+| Export Tables… | `document.exportTables` | ✅ available |
 | Export to Office Formats… | `document.exportOffice` | ✅ available |
 | Folder Filters | `folderExts` | ✅ available |
 | From Clipboard… | `newDocClipboard` | ✅ available |

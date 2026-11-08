@@ -319,3 +319,59 @@ fn decimal_commas_are_told_by_the_numbers_of_the_table() {
         CellValue::Text("Roma".into())
     );
 }
+
+#[test]
+fn tables_go_into_the_office_exports_as_tables() {
+    let md = "# Stock\n\nThe stock at the end of the month.\n\n| Item | Count | Share |\n|---|---:|---:|\n| Bolts | 1200 | 60% |\n| Nuts | 85 | 30% |\n| Washers | 7 | 10% |\n\nCounted by hand.\n";
+    let doc = Document::from_markdown(md, TextLayout::default(), "Stock").unwrap();
+    let out = doc.export_office(OfficeFormat::Docx, 0..1, false).unwrap();
+    assert_eq!(out.tables, 1);
+    let parts = read(&out.bytes).unwrap();
+    let body = String::from_utf8(
+        parts
+            .iter()
+            .find(|p| p.name == "word/document.xml")
+            .unwrap()
+            .data
+            .clone(),
+    )
+    .unwrap();
+    assert!(folitecta_core::xml::parse(&body[body.find("?>").unwrap() + 2..]).is_ok());
+    assert_eq!(body.matches("<w:tbl>").count(), 1, "{body}");
+    assert_eq!(body.matches("<w:tr>").count(), 4, "{body}");
+    assert_eq!(body.matches("<w:tc>").count(), 12, "{body}");
+    // The cells once, in the table; the text around it as paragraphs, in order.
+    assert_eq!(body.matches("Washers").count(), 1, "{body}");
+    let (month, table, hand) = (
+        body.find("end of the month").unwrap(),
+        body.find("<w:tbl>").unwrap(),
+        body.find("Counted by hand").unwrap(),
+    );
+    assert!(month < table && table < hand, "{body}");
+    assert!(body.contains("<w:tblHeader/>"), "{body}");
+    assert!(
+        body.contains("<w:jc w:val=\"right\"/></w:pPr><w:r><w:t xml:space=\"preserve\">1200</w:t>"),
+        "{body}"
+    );
+
+    let html = String::from_utf8(doc.export_office(OfficeFormat::Html, 0..1, false).unwrap().bytes).unwrap();
+    assert!(
+        html.contains("<tr><th>Item</th><th>Count</th><th>Share</th></tr>"),
+        "{html}"
+    );
+    assert!(
+        html.contains("<tr><td>Nuts</td><td class=\"n\">85</td><td class=\"n\">30%</td></tr>"),
+        "{html}"
+    );
+    assert_eq!(html.matches("Nuts").count(), 1);
+
+    let rtf = String::from_utf8(doc.export_office(OfficeFormat::Rtf, 0..1, false).unwrap().bytes).unwrap();
+    assert_eq!(rtf.matches("\\row").count(), 4, "{rtf}");
+    assert!(rtf.contains("\\pard\\intbl\\qr 85\\cell"), "{rtf}");
+    assert!(rtf.contains("\\trhdr"), "{rtf}");
+    if let Ok(dir) = std::env::var("OFFICE_DUMP") {
+        std::fs::write(format!("{dir}/stock.docx"), &out.bytes).unwrap();
+        std::fs::write(format!("{dir}/stock.html"), &html).unwrap();
+        std::fs::write(format!("{dir}/stock.rtf"), &rtf).unwrap();
+    }
+}

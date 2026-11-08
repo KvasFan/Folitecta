@@ -1,8 +1,8 @@
 //! Interaction step: Export to Office Formats — the dialog offers the
 //! formats; a document exported to Word and to a web page (written beside
 //! the self-test's files, as the save dialog would): the headings and the
-//! text in them, the picture of the page in both, the document itself
-//! unchanged.
+//! text in them, the table as a table and the picture of the page in both,
+//! the document itself unchanged.
 
 use super::*;
 
@@ -16,7 +16,7 @@ async fn text(js: &str) -> String {
 
 pub(super) async fn run(cx: &mut Ctx<'_>) {
     let st = cx.st;
-    let md = "# Annual report\n\nThe first paragraph of the report.\n\n## Results\n\nThe results are good.\n";
+    let md = "# Annual report\n\nThe first paragraph of the report.\n\n## Results\n\nThe results are good.\n\n| Region | Sales | Share |\n|---|---:|---:|\n| North | 1200 | 60% |\n| South | 600 | 30% |\n| East | 200 | 10% |\n";
     let made = folitecta_core::Document::from_markdown(md, folitecta_core::TextLayout::default(), "Report")
         .and_then(|mut d| {
             let img = image::RgbImage::from_pixel(30, 20, image::Rgb([40, 120, 200]));
@@ -73,7 +73,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(200).await;
     cx.record(
-        "export to office formats: three formats offered; Word and web page written with the headings, the text and the picture; the document unchanged",
+        "export to office formats: three formats offered; Word and web page written with the headings, the text, the table as a table and the picture; the document unchanged",
         formats == "3"
             && body.contains("Heading1")
             && body.contains("Annual report")
@@ -82,6 +82,9 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             && media == 1
             && body.contains("r:embed=\"rIdImg1\"")
             && page.contains("data:image/png;base64,")
+            && body.matches("<w:tr>").count() == 4
+            && page.contains("<th>Region</th>")
+            && page.contains("<td class=\"n\">600</td>")
             && unchanged,
         format!(
             "formats {formats}, docx {} bytes with {media} pictures, html {} bytes, unchanged {unchanged}",

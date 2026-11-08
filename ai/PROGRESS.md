@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L009: tables in the office exports (0.47.0)
+
+- **Current state before:** the cells of a table were exported as paragraphs, one after the other.
+- **What:** `organize/office.rs`: `Piece::Table`; on each page the tables of `find_tables` are
+  placed with the pictures by their top, and a paragraph whose lines lie mostly inside a table is
+  left out (its text is in the cells); `docx_table` (as wide as the text, even columns, borders,
+  `w:tblHeader`, numbers right, a paragraph after it), RTF rows (`\trowd`, `\trhdr`, `\qr`), HTML
+  `table` with `th` for a head of words over numbers and `td class="n"`; `OfficeExport::tables`,
+  "{tables} tables" in the report of the window.
+- **Checked:** `office.rs` (a Markdown table between two paragraphs: one `w:tbl` of 4 rows and 12
+  cells in its place, each cell once; the head and the numbers in HTML and RTF); the three files
+  read by pandoc 3 as one table of 3 × 4 between the same paragraphs; self-test steps `office`
+  (with a table in its document) and `table_export`.
+- **Open:** cells spanning columns; column widths by their contents.
+
 ## 2026-11-08 — FOL-L030, FOL-L009: tables out of the pages (0.46.0)
 
 - **Current state before:** tables were made as generated objects; nothing found the tables a page

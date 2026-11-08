@@ -11,6 +11,8 @@ All notable changes to Folitecta are documented here. The format follows
   drawn in, lists them with their page and size to choose, and writes them as a workbook (XLSX: a
   sheet for each table, numbers and percentages kept as numbers, the decimal comma or point told by
   the numbers of the table) or as CSV. The File menu gathers the exports in one submenu.
+- The export to Word, rich text and web page writes the tables found on the pages as tables, with
+  a head row and numbers aligned to the right, in their place among the paragraphs.
 
 ## [0.45.0] - 2026-11-05
 

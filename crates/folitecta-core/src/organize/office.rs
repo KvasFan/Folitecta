@@ -1,8 +1,10 @@
 //! Export to office formats (FOL-L009): the text of the pages as editable
 //! documents — Word (DOCX), rich text (RTF) and web pages (HTML) — made of
-//! the paragraphs and headings of the reading order and the pictures of the
-//! pages where they stand among them, at the size they have on the page,
-//! with a page break where each page began when asked. What is not
+//! the paragraphs and headings of the reading order, the tables found in
+//! the text of the pages as tables (their text not repeated as paragraphs)
+//! and the pictures of the pages where they stand among them, at the size
+//! they have on the page, with a page break where each page began when
+//! asked. What is not
 //! exported (comments, the picture of a scanned page whose text is
 //! exported, specks) is counted for the report; the original is never
 //! written.
@@ -51,6 +53,8 @@ pub struct OfficeExport {
     pub bytes: Vec<u8>,
     pub paragraphs: usize,
     pub headings: usize,
+    /// The tables exported as tables.
+    pub tables: usize,
     /// The pictures exported.
     pub pictures: usize,
     /// What the export leaves out: `pictures`, `comments`; how many.
@@ -92,14 +96,75 @@ impl Picture {
 enum Piece {
     Text { page: usize, level: u8, text: String },
     Picture { page: usize, picture: Picture },
+    Table { page: usize, rows: Vec<Vec<String>> },
 }
 
 impl Piece {
     fn page(&self) -> usize {
         match self {
-            Piece::Text { page, .. } | Piece::Picture { page, .. } => *page,
+            Piece::Text { page, .. } | Piece::Picture { page, .. } | Piece::Table { page, .. } => *page,
         }
     }
+}
+
+/// A cell holds a number (either way of marking decimals).
+fn numeric(cell: &str) -> bool {
+    use crate::sheets::{CellValue, cell_value};
+    !matches!(cell_value(cell, false), CellValue::Text(_))
+        || !matches!(cell_value(cell, true), CellValue::Text(_))
+}
+
+/// The first row of a table heads it: all words over numbers.
+fn has_head(rows: &[Vec<String>]) -> bool {
+    rows.len() > 1 && rows[0].iter().all(|c| !numeric(c)) && rows[1..].iter().flatten().any(|c| numeric(c))
+}
+
+/// A table of a Word document, as wide as the text, its columns even.
+fn docx_table(rows: &[Vec<String>]) -> String {
+    let columns = rows.first().map(Vec::len).unwrap_or(1).max(1);
+    // Twips: 20 to the point.
+    let total = (TEXT_WIDTH * 20.0) as usize;
+    let width = total / columns;
+    let head = has_head(rows);
+    let grid = format!("<w:gridCol w:w=\"{width}\"/>").repeat(columns);
+    let border =
+        |side: &str| format!("<w:{side} w:val=\"single\" w:sz=\"4\" w:space=\"0\" w:color=\"808080\"/>");
+    let mut out = format!(
+        "<w:tbl><w:tblPr><w:tblW w:w=\"{total}\" w:type=\"dxa\"/><w:tblBorders>{}{}{}{}{}{}</w:tblBorders>\
+         <w:tblCellMar><w:left w:w=\"80\" w:type=\"dxa\"/><w:right w:w=\"80\" w:type=\"dxa\"/></w:tblCellMar>\
+         <w:tblLook w:val=\"0020\" w:firstRow=\"1\"/></w:tblPr><w:tblGrid>{}</w:tblGrid>",
+        border("top"),
+        border("left"),
+        border("bottom"),
+        border("right"),
+        border("insideH"),
+        border("insideV"),
+        grid
+    );
+    for (r, row) in rows.iter().enumerate() {
+        let bold = head && r == 0;
+        out.push_str("<w:tr>");
+        if bold {
+            out.push_str("<w:trPr><w:tblHeader/></w:trPr>");
+        }
+        for cell in row {
+            let jc = if numeric(cell) {
+                "<w:jc w:val=\"right\"/>"
+            } else {
+                ""
+            };
+            let b = if bold { "<w:rPr><w:b/></w:rPr>" } else { "" };
+            out.push_str(&format!(
+                "<w:tc><w:tcPr><w:tcW w:w=\"{width}\" w:type=\"dxa\"/></w:tcPr>\
+                 <w:p><w:pPr><w:spacing w:after=\"0\"/>{jc}</w:pPr><w:r>{b}<w:t xml:space=\"preserve\">{}</w:t></w:r></w:p></w:tc>",
+                escape_text(&clean(cell))
+            ));
+        }
+        out.push_str("</w:tr>");
+    }
+    // A paragraph after it: Word wants one between a table and what follows.
+    out.push_str("</w:tbl><w:p/>");
+    out
 }
 
 /// Points of the text of a page of A4 with the margins of the exports
@@ -154,6 +219,7 @@ fn docx(pieces: &[Piece], title: &str, breaks: bool) -> Result<Vec<u8>> {
                     escape_text(&clean(text))
                 ));
             }
+            Piece::Table { rows, .. } => body.push_str(&docx_table(rows)),
             Piece::Picture { picture, .. } => {
                 let n = media.len() + 1;
                 body.push_str(&docx_picture(n, picture));
@@ -298,6 +364,33 @@ fn rtf(pieces: &[Piece], breaks: bool) -> Vec<u8> {
                     rtf_text(text)
                 ));
             }
+            Piece::Table { rows, .. } => {
+                let columns = rows.first().map(Vec::len).unwrap_or(1).max(1);
+                let width = (TEXT_WIDTH * 20.0) as usize / columns;
+                let head = has_head(rows);
+                let border = "\\clbrdrt\\brdrs\\brdrw10\\clbrdrl\\brdrs\\brdrw10\\clbrdrb\\brdrs\\brdrw10\\clbrdrr\\brdrs\\brdrw10";
+                for (r, row) in rows.iter().enumerate() {
+                    out.push_str("\\trowd\\trgaph80");
+                    if head && r == 0 {
+                        out.push_str("\\trhdr");
+                    }
+                    for k in 0..columns {
+                        out.push_str(&format!("{border}\\cellx{}", (k + 1) * width));
+                    }
+                    out.push('\n');
+                    for cell in row {
+                        let align = if numeric(cell) { "\\qr" } else { "\\ql" };
+                        let (b, b0) = if head && r == 0 {
+                            ("\\b ", "\\b0")
+                        } else {
+                            ("", "")
+                        };
+                        out.push_str(&format!("\\pard\\intbl{align} {b}{}{b0}\\cell\n", rtf_text(cell)));
+                    }
+                    out.push_str("\\row\n");
+                }
+                out.push_str("\\pard\\sa120\\par\n");
+            }
             Piece::Picture { picture, .. } => {
                 // Twips: 20 to the point.
                 let (w, h) = picture.shown(TEXT_WIDTH);
@@ -333,6 +426,25 @@ fn html(pieces: &[Piece], title: &str, lang: &str, breaks: bool) -> Vec<u8> {
                     l => body.push_str(&format!("<h{n}>{text}</h{n}>\n", n = l.min(&3))),
                 }
             }
+            Piece::Table { rows, .. } => {
+                let head = has_head(rows);
+                body.push_str("<table>\n");
+                for (r, row) in rows.iter().enumerate() {
+                    body.push_str("<tr>");
+                    for cell in row {
+                        let text = escape_text(&clean(cell));
+                        if head && r == 0 {
+                            body.push_str(&format!("<th>{text}</th>"));
+                        } else if numeric(cell) {
+                            body.push_str(&format!("<td class=\"n\">{text}</td>"));
+                        } else {
+                            body.push_str(&format!("<td>{text}</td>"));
+                        }
+                    }
+                    body.push_str("</tr>\n");
+                }
+                body.push_str("</table>\n");
+            }
             Piece::Picture { picture, .. } => {
                 // In the page itself, so the file is whole on its own.
                 let (w, h) = picture.size;
@@ -350,7 +462,8 @@ fn html(pieces: &[Piece], title: &str, lang: &str, breaks: bool) -> Vec<u8> {
     format!(
         "<!DOCTYPE html>\n<html lang=\"{}\">\n<head>\n<meta charset=\"utf-8\">\n<title>{}</title>\n\
          <style>body{{font-family:sans-serif;max-width:46em;margin:2em auto;line-height:1.5;padding:0 1em}}\
-         hr.page{{border:none;break-before:page}}img{{max-width:100%;height:auto}}</style>\n</head>\n<body>\n{body}</body>\n</html>\n",
+         hr.page{{border:none;break-before:page}}img{{max-width:100%;height:auto}}\
+         table{{border-collapse:collapse;margin:1em 0}}th,td{{border:1px solid #999;padding:.2em .5em;text-align:left}}td.n{{text-align:right}}</style>\n</head>\n<body>\n{body}</body>\n</html>\n",
         escape_text(lang),
         escape_text(&clean(title))
     )
@@ -376,23 +489,51 @@ impl Document {
             .into_iter()
             .filter(|b| !b.text.trim().is_empty())
             .collect();
-        // Page by page, each picture before the first paragraph below its top.
+        // Page by page, each picture and table before the first paragraph
+        // below its top; the paragraphs inside a table are its cells.
         let mut pieces: Vec<Piece> = Vec::new();
         let mut skipped = 0;
         let layers = self.text_layers();
         for page in pages.clone() {
             let texts: Vec<_> = blocks.iter().filter(|b| b.page == page).collect();
-            let (mut pictures, left) = self.office_pictures(page, !texts.is_empty());
+            let (pictures, left) = self.office_pictures(page, !texts.is_empty());
             skipped += left;
-            pictures.sort_by(|a, b| a.0.total_cmp(&b.0));
-            let mut pictures = pictures.into_iter().peekable();
+            let tables = layers
+                .get(page)
+                .map(crate::page_tables::find_tables)
+                .unwrap_or_default();
+            let within = |r: &[f32; 4]| {
+                let (x, y) = ((r[0] + r[2]) / 2.0, (r[1] + r[3]) / 2.0);
+                tables
+                    .iter()
+                    .any(|(b, _)| x >= b[0] - 2.0 && x <= b[2] + 2.0 && y >= b[1] - 2.0 && y <= b[3] + 2.0)
+            };
+            let mut placed: Vec<(f32, Piece)> = pictures
+                .into_iter()
+                .map(|(top, picture)| (top, Piece::Picture { page, picture }))
+                .chain(tables.iter().map(|(b, rows)| {
+                    (
+                        b[1],
+                        Piece::Table {
+                            page,
+                            rows: rows.clone(),
+                        },
+                    )
+                }))
+                .collect();
+            placed.sort_by(|a, b| a.0.total_cmp(&b.0));
+            let mut placed = placed.into_iter().peekable();
             for b in texts {
-                let top = layers
+                let rects = layers
                     .get(page)
-                    .and_then(|l| l.range_rects(b.start, b.end).first().map(|r| r[1]))
-                    .unwrap_or(0.0);
-                while let Some((_, picture)) = pictures.next_if(|(t, _)| *t <= top) {
-                    pieces.push(Piece::Picture { page, picture });
+                    .map(|l| l.range_rects(b.start, b.end))
+                    .unwrap_or_default();
+                let top = rects.first().map(|r| r[1]).unwrap_or(0.0);
+                while let Some((_, piece)) = placed.next_if(|(t, _)| *t <= top) {
+                    pieces.push(piece);
+                }
+                if !rects.is_empty() && rects.iter().filter(|r| within(r)).count() * 2 > rects.len() {
+                    continue;
                 }
                 pieces.push(Piece::Text {
                     page,
@@ -400,9 +541,7 @@ impl Document {
                     text: b.text.clone(),
                 });
             }
-            for (_, picture) in pictures {
-                pieces.push(Piece::Picture { page, picture });
-            }
+            pieces.extend(placed.map(|(_, piece)| piece));
         }
         if pieces.is_empty() {
             return Err(Error::Invalid(
@@ -448,6 +587,7 @@ impl Document {
                 .iter()
                 .filter(|p| matches!(p, Piece::Text { level, .. } if *level > 0))
                 .count(),
+            tables: pieces.iter().filter(|p| matches!(p, Piece::Table { .. })).count(),
             pictures: pieces
                 .iter()
                 .filter(|p| matches!(p, Piece::Picture { .. }))

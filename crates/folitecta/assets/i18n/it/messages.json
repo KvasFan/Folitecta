@@ -205,6 +205,7 @@
   "toast.nothing_to_redo": "Niente da ripetere",
   "toast.nothing_to_undo": "Niente da annullare",
   "toast.ocr_area_written": "Il testo è stato scritto sulla pagina.",
+  "toast.ocr_area_there": "La pagina ha già questo testo: non è stato scritto nulla.",
   "toast.ocr_done": "Testo riconosciuto — pagine: {pages}, righe: {lines}.",
   "toast.ocr_doubtful": "Parole incerte da controllare: {count}.",
   "toast.ocr_no_text": "Nell'area non è stato trovato testo.",

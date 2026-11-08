@@ -857,6 +857,70 @@ fn doubts(data: &[u8]) -> Vec<Doubt> {
 
 /// Content stream operations that write `words` invisibly (text render
 /// mode 3) over a page, each word stretched to the place it was read at.
+/// The box of a quad of pixels, in display points.
+fn quad_box(quad: &[[f32; 2]; 4], scale: f32) -> [f32; 4] {
+    let xs = quad.iter().map(|p| p[0] / scale);
+    let ys = quad.iter().map(|p| p[1] / scale);
+    [
+        xs.clone().fold(f32::MAX, f32::min),
+        ys.clone().fold(f32::MAX, f32::min),
+        xs.fold(f32::MIN, f32::max),
+        ys.fold(f32::MIN, f32::max),
+    ]
+}
+
+/// Most of box `b` lies under `places`.
+fn covered(b: [f32; 4], places: &[[f32; 4]]) -> bool {
+    let area = ((b[2] - b[0]) * (b[3] - b[1])).max(0.01);
+    let under: f32 = places
+        .iter()
+        .map(|p| (b[2].min(p[2]) - b[0].max(p[0])).max(0.0) * (b[3].min(p[3]) - b[1].max(p[1])).max(0.0))
+        .sum();
+    under >= 0.4 * area
+}
+
+/// `read` without the words (and lines without words) lying mostly under
+/// `places` (display points), and how many words were left out.
+fn without_places(read: &PageOcr, places: &[[f32; 4]]) -> (PageOcr, usize) {
+    let mut left_out = 0;
+    let mut out = read.clone();
+    out.lines = read
+        .lines
+        .iter()
+        .filter_map(|line| {
+            if line.words.is_empty() {
+                if covered(quad_box(&line.quad, read.scale), places) {
+                    left_out += 1;
+                    return None;
+                }
+                return Some(line.clone());
+            }
+            let words: Vec<OcrWord> = line
+                .words
+                .iter()
+                .filter(|w| {
+                    let gone = covered(quad_box(&w.quad, read.scale), places);
+                    left_out += usize::from(gone);
+                    !gone
+                })
+                .cloned()
+                .collect();
+            if words.is_empty() {
+                return None;
+            }
+            let mut kept = line.clone();
+            kept.text = words
+                .iter()
+                .map(|w| w.text.as_str())
+                .collect::<Vec<_>>()
+                .join(" ");
+            kept.words = words;
+            Some(kept)
+        })
+        .collect();
+    (out, left_out)
+}
+
 fn ocr_content(size: &PageSize, read: &PageOcr, font: &str) -> Vec<u8> {
     let (scale, lines) = (read.scale, &read.lines);
     let to_pdf = |p: [f32; 2]| display_to_pdf(size, p[0] / scale, size.height - p[1] / scale);
@@ -930,12 +994,59 @@ impl Document {
         self.write_ocr_text(std::slice::from_ref(result), false)
     }
 
+    /// The places of page `page` (display points) whose text must not be
+    /// written again by text recognition: the letters of the text the page
+    /// has (without the text recognition wrote before, when it is
+    /// `replaced`), and its comments and form fields.
+    fn ocr_exclusions(&self, page: usize, replaced: bool) -> Vec<[f32; 4]> {
+        let earlier = replaced && !self.ocr_streams(page).is_empty();
+        let layer = if earlier {
+            // The page as it will be: the earlier recognition taken away.
+            self.duplicate().ok().and_then(|mut probe| {
+                probe.strip_marks(&[page], &[OCR_MARK]).ok()?;
+                probe.commit().ok()?;
+                probe.text_layers().get(page).cloned()
+            })
+        } else {
+            self.text_layers().get(page).cloned()
+        };
+        let mut places: Vec<[f32; 4]> = layer
+            .map(|l| {
+                l.glyphs
+                    .iter()
+                    .filter(|g| !g.text.trim().is_empty())
+                    .map(|g| g.bbox)
+                    .collect()
+            })
+            .unwrap_or_default();
+        if let (Ok(annots), Ok(size)) = (self.annotations(page), self.page_size(page)) {
+            places.extend(
+                annots
+                    .into_iter()
+                    .filter(|a| !matches!(a.subtype.as_str(), "Link" | "Popup"))
+                    .map(|a| crate::marks::pdf_rect_to_display(&size, a.rect)),
+            );
+        }
+        places
+    }
+
     fn write_ocr_text(&mut self, results: &[PageOcr], replace: bool) -> Result<usize> {
         let ids = self.page_ids();
         for r in results {
             if r.page >= ids.len() {
                 return Err(Error::InvalidPage(r.page));
             }
+        }
+        // What the page shows already as text, a comment or a field is not
+        // written again.
+        let results: Vec<PageOcr> = results
+            .iter()
+            .map(|r| without_places(r, &self.ocr_exclusions(r.page, replace)).0)
+            .collect();
+        let results = results.as_slice();
+        if !replace && results.iter().all(|r| r.lines.is_empty()) {
+            // Nothing new: no change, no undo step.
+            return Ok(0);
         }
         self.begin_edit();
         if replace {

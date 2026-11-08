@@ -332,3 +332,54 @@ fn search_results_on_doubtful_words_are_told() {
     let hits = doc.search("nunber", opts);
     assert_eq!(doc.hits_on_doubtful(&hits), [false]);
 }
+
+/// A word read at `rect` (display points), at 2 pixels a point.
+fn word_at(text: &str, r: [f32; 4]) -> folitecta_core::OcrWord {
+    let s = 2.0;
+    folitecta_core::OcrWord {
+        text: text.into(),
+        quad: [
+            [r[0] * s, r[1] * s],
+            [r[2] * s, r[1] * s],
+            [r[2] * s, r[3] * s],
+            [r[0] * s, r[3] * s],
+        ],
+        confidence: 0.99,
+    }
+}
+
+#[test]
+fn what_a_page_shows_as_text_a_comment_or_a_field_is_not_written_again() {
+    // A page with a line of real text at the top, a note and a field.
+    let mut doc = folitecta_core::Document::from_text("Printed heading", Default::default()).unwrap();
+    let size = doc.page_size(0).unwrap();
+    let heading = doc.text_layers()[0].range_rects(0, 7)[0];
+    doc.add_note(0, 300.0, 300.0, "a note", "Tester", [1.0, 1.0, 0.0])
+        .unwrap();
+    let note = folitecta_core::marks::pdf_rect_to_display(&size, doc.annotations(0).unwrap()[0].rect);
+    doc.clear_history();
+    let words = vec![
+        word_at("Printed", heading),
+        word_at("Scanned", [100.0, 400.0, 160.0, 412.0]),
+        word_at("Noted", note),
+    ];
+    let read = folitecta_core::PageOcr {
+        page: 0,
+        scale: 2.0,
+        lines: vec![folitecta_core::OcrLine {
+            text: "Printed Scanned Noted".into(),
+            quad: words[0].quad,
+            words,
+            confidence: 0.99,
+        }],
+        doubt_below: folitecta_core::DOUBTFUL_BELOW,
+    };
+    assert_eq!(doc.add_ocr_text(std::slice::from_ref(&read)).unwrap(), 1);
+    let text = doc.page_text(0);
+    assert_eq!(text.matches("Printed").count(), 1, "{text}");
+    assert!(text.contains("Scanned") && !text.contains("Noted"), "{text}");
+    // Read again over its own recognition: written once, as before.
+    doc.add_ocr_text(std::slice::from_ref(&read)).unwrap();
+    let text = doc.page_text(0);
+    assert_eq!(text.matches("Scanned").count(), 1, "{text}");
+}

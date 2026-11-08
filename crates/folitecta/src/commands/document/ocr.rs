@@ -323,6 +323,10 @@ pub fn write_area(st: AppState) {
         return;
     };
     match with_tab(st, tab, |t| t.doc.append_ocr_text(&r)) {
+        Some(Ok(0)) => {
+            st.set_dialog(Dialog::None);
+            st.toast(ToastKind::Info, t(st.lang(), "toast.ocr_area_there"), "");
+        }
         Some(Ok(_)) => {
             files::set_window_title(st);
             st.set_dialog(Dialog::None);

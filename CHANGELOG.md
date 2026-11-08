@@ -37,6 +37,11 @@ All notable changes to Folitecta are documented here. The format follows
   trailer, the current page or an object by its number, each entry with what it holds and opening
   what it leads to, a stream with its data as text or in hexadecimal. It changes nothing.
 
+### Changed
+- Text recognition no longer writes again what a page already shows as text, a comment or a form
+  field: on pages that are partly scanned only the scanned part gets text, and an area read again
+  is not written twice (the program says so).
+
 ## [0.45.0] - 2026-11-05
 
 ### Added

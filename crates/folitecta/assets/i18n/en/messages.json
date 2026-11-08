@@ -205,6 +205,7 @@
   "toast.nothing_to_redo": "Nothing to redo",
   "toast.nothing_to_undo": "Nothing to undo",
   "toast.ocr_area_written": "The text was written on the page.",
+  "toast.ocr_area_there": "The page has this text already: nothing was written.",
   "toast.ocr_done": "Text recognized — pages: {pages}, lines: {lines}.",
   "toast.ocr_doubtful": "Doubtful words to check: {count}.",
   "toast.ocr_no_text": "No text was found in the area.",

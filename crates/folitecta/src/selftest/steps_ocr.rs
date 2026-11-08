@@ -1,7 +1,7 @@
 //! Interaction step 54: text recognition — a page that is only a picture of
 //! its text is read with OCR Pages, after which a search finds its words; an
-//! area of it read with the area tool shows its text, which is copied and
-//! written on the page. The words read with doubt are reviewed one by one:
+//! area of it read with the area tool shows its text, which is copied; written
+//! on the page, it is not written twice (the page has it already). The words read with doubt are reviewed one by one:
 //! one corrected with Enter, one kept, one skipped and then taken away.
 
 use crate::commands::ocr::JOB;
@@ -80,12 +80,15 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     let streams = st
         .read_active(|t| t.doc.marks_on_page(0).iter().filter(|m| *m == "OCR").count())
         .unwrap_or(0);
+    let once = st
+        .read_active(|t| t.doc.page_text(0).matches("quick").count())
+        .unwrap_or(0);
     st.set_dialog(Dialog::None);
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
 
     cx.record(
-        "text recognition: a picture of a page read with OCR Pages and found by a search; an area read, copied and written on the page",
+        "text recognition: a picture of a page read with OCR Pages and found by a search; an area read and copied, not written twice",
         before.trim().is_empty()
             && started
             && text.contains("quick brown fox")
@@ -93,9 +96,11 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             && found == 1
             && closed
             && area_text.contains("quick brown fox")
-            && streams == 2,
+            // The area was read already with the page: not written twice.
+            && streams == 1
+            && once == 1,
         format!(
-            "before {before:?}, started {started}, text {text:?}, found {found}, closed {closed}, area {area_text:?}, streams {streams}"
+            "before {before:?}, started {started}, text {text:?}, found {found}, closed {closed}, area {area_text:?}, streams {streams}, written once {once}"
         ),
     );
     review(cx).await;

@@ -4,6 +4,22 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L013: recognition that leaves out what is there (0.55.0)
+
+- **Current state before:** text recognition wrote everything it read, also over the text a page
+  already had, over comments and fields, and an area read again was written a second time.
+- **What:** `ocr.rs`: `ocr_exclusions` (the glyph boxes of the page's text, read from a copy
+  without the earlier recognition when `add_ocr_text` replaces it; the rectangles of annotations
+  but links and pop-ups), `without_places` (words, or lines without words, 40% or more under
+  those places left out, line texts made again), `write_ocr_text` filters before writing and
+  returns 0 without an undo step when an area brings nothing new; the app says so
+  (`toast.ocr_area_there`).
+- **Checked:** `ocr.rs` (a word read over the heading, one over a note and one elsewhere: only the
+  last written; read again, written once), the other recognition tests with the models; self-test
+  steps `ocr` (now: the area read again is not written twice), `doubtful_words`, `ocr_sequence`,
+  `spelling`.
+- **Open:** logos and other pictures that are not text.
+
 ## 2026-11-08 — FOL-L004: object inspector (0.54.0)
 
 - **Current state before:** the objects of a file could only be read with other programs.

@@ -625,6 +625,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    without the earlier recognition when it is replaced, and the rectangles of comments and fields)
    and `without_places` before the text is written; nothing new: no change, no undo step.
 
+### 0.56.0 — settings that travel (on `main`, untagged)
+
+1. ~~**FOL-L050 — portable settings.**~~ Done: `portable.rs`: `--settings <folder>`, or a
+   `portable` marker beside the program for `settings` beside it, through
+   `FOLITECTA_CONFIG_DIR` before anything starts; the folder in About.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -737,7 +743,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L047 | P2 | 🟡 | page-mark macros; action sequences of 11 kinds of steps kept as JSON, run on the open document as one undo step or on files and folders (a plan with collisions, a result and a log per file, cancel), and from the command line (`--run-actions`, a line of JSON per file, exit status) with the same code | Interactive steps, portfolios as inputs, steps that split or protect, scheduling through the system. |
 | FOL-L048 | P2 | ⬜ | — | On-device AI engine decision. |
 | FOL-L049 | P2 | ⬜ | — | 3D viewer and authoring. |
-| FOL-L050 | P1/P2 | 🟡 | preferences, shortcuts, ribbon and classic interface with short menus (submenus by subject), Quick Access Toolbar, command palette, settings export/import/reset, resizable panes and ribbon | Toolbox profiles, plug-ins, portable/administrative settings. |
+| FOL-L050 | P1/P2 | 🟡 | preferences, shortcuts, ribbon and classic interface with short menus (submenus by subject), Quick Access Toolbar, command palette, settings export/import/reset, resizable panes and ribbon | Toolbox profiles, plug-ins, administrative settings. |
 
 ### Integrity contracts and sharing
 

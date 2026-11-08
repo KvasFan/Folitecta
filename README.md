@@ -210,6 +210,11 @@ chmod +x ~/.local/bin/folitecta
 
 ## Command line
 
+Folitecta can travel with its settings, on a USB stick for example: put an empty file named
+`portable` beside the program, and the settings, digital IDs, trusted certificates and recovery
+copies are kept in the folder `settings` beside it. `folitecta --settings <folder>` keeps them in
+another folder. Help › About shows the folder in use.
+
 Action sequences (Tools › Action Sequences…, exported as JSON) also run without a window, the
 same way they run in it:
 

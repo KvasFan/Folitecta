@@ -15,6 +15,7 @@ mod keystore;
 mod mail;
 mod memory;
 mod perf;
+mod portable;
 mod printing;
 mod private_files;
 mod recovery;
@@ -44,7 +45,7 @@ pub struct SelfTest(pub Option<selftest::SelfTestConfig>);
 
 fn print_usage() {
     println!(
-        "Folitecta {}\n\nUsage: folitecta [FILE.pdf ...]\n       folitecta --features-md <output.md>\n       folitecta --run-actions <sequence.json> [--output <folder>] [--suffix <text>] [--overwrite] <file or folder> ...\n       folitecta --ui-selftest <output-dir>\n       folitecta --version\n       folitecta --help",
+        "Folitecta {}\n\nUsage: folitecta [--settings <folder>] [FILE.pdf ...]\n       folitecta --features-md <output.md>\n       folitecta --run-actions <sequence.json> [--output <folder>] [--suffix <text>] [--overwrite] <file or folder> ...\n       folitecta --ui-selftest <output-dir>\n       folitecta --version\n       folitecta --help",
         folitecta_core::VERSION
     );
 }
@@ -90,6 +91,10 @@ fn main() {
         .map(|i| selftest::SelfTestConfig {
             dir: PathBuf::from(args.get(i + 1).cloned().unwrap_or_else(|| "ui-selftest".into())),
         });
+    if selftest.is_none() {
+        // Settings kept with the program, or in a folder chosen.
+        portable::apply(&args);
+    }
     if let Some(cfg) = &selftest {
         // Keep the user's settings untouched while the self-test changes options.
         // SAFETY: called before any other thread is started.
@@ -104,9 +109,16 @@ fn main() {
     folitecta_core::ocr::set_model_dirs(commands::ocr::model_dirs());
     std::thread::spawn(folitecta_core::fonts::preload);
     let skip_value = selftest.as_ref().map(|c| c.dir.display().to_string());
+    let settings_value = args
+        .iter()
+        .position(|a| a == "--settings")
+        .and_then(|i| args.get(i + 1))
+        .cloned();
     let files: Vec<PathBuf> = args
         .into_iter()
-        .filter(|a| !a.starts_with("--") && Some(a) != skip_value.as_ref())
+        .filter(|a| {
+            !a.starts_with("--") && Some(a) != skip_value.as_ref() && Some(a) != settings_value.as_ref()
+        })
         .map(PathBuf::from)
         .collect();
 

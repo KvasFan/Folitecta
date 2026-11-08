@@ -108,6 +108,10 @@ pub(super) fn About() -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
     let icon = icon_data_url();
+    let settings = crate::state::app_data_dir()
+        .map(|d| d.display().to_string())
+        .unwrap_or_default();
+    let portable = crate::portable::active();
     rsx! {
         Frame { title: t(lang, "dialog.about.title"),
             div { class: "about",
@@ -117,6 +121,10 @@ pub(super) fn About() -> Element {
                     div { class: "ver", "Version {folitecta_core::VERSION}" }
                     p { "{t(lang, \"dialog.about.body\")}" }
                     p { "{t(lang, \"dialog.about.license\")}" }
+                    p { class: "hint about-settings",
+                        {crate::i18n::tf(lang, "dialog.about.settings", &[("path", &settings)])}
+                        if portable { " {t(lang, \"dialog.about.portable\")}" }
+                    }
                     ul {
                         li { "Rendering: hayro (Apache-2.0 OR MIT)" }
                         li { "Document model: lopdf (MIT)" }

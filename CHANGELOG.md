@@ -37,6 +37,10 @@ All notable changes to Folitecta are documented here. The format follows
   trailer, the current page or an object by its number, each entry with what it holds and opening
   what it leads to, a stream with its data as text or in hexadecimal. It changes nothing.
 
+- Folitecta can travel with its settings: with a file or folder named `portable` beside the
+  program, the settings, digital IDs, trusted certificates and recovery copies are kept in the
+  folder `settings` beside it; `--settings <folder>` chooses another one. About shows the folder.
+
 ### Changed
 - Text recognition no longer writes again what a page already shows as text, a comment or a form
   field: on pages that are partly scanned only the scanned part gets text, and an area read again

@@ -8,6 +8,8 @@
   "dialog.article.title": "New Article",
   "dialog.about.body": "Folitecta is a free PDF editor written entirely in Rust with a Dioxus user interface. Rendering by hayro, document model by lopdf.",
   "dialog.about.license": "Released under the MIT License.",
+  "dialog.about.portable": "(kept with the program)",
+  "dialog.about.settings": "Settings folder: {path}",
   "dialog.about.title": "About Folitecta",
   "dialog.add": "Add",
   "dialog.apply": "Apply",

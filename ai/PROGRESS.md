@@ -4,6 +4,26 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L050: settings that travel (0.56.0)
+
+- **Current state before:** the settings were always in the user's folders (the self-test alone
+  chose another one through `FOLITECTA_CONFIG_DIR`).
+- **What:** `crates/folitecta/src/portable.rs`: `settings_folder` (`--settings <folder>`, else
+  `settings` beside the program when `portable` lies beside it), `apply` at the start of `main`
+  (the folder made, `FOLITECTA_CONFIG_DIR` and `FOLITECTA_PORTABLE` set before any thread; not for
+  the self-test, not over a folder already chosen), `active`; the value of `--settings` is not
+  taken for a file to open; About shows the settings folder and whether it travels.
+- **Checked:** the unit test of `settings_folder` (no marker, marker, the option, the option
+  without a folder); a copy of the release program with `portable` beside it made `settings` beside
+  itself; self-test steps `tools` and `panes`.
+- **Open:** administrative settings (locked options).
+
+## 2026-11-08 — local check of 0.51.0 to 0.55.0
+
+- **What:** `target/preflight.sh` at `cc4ec41`: formatting, clippy for the three systems, the
+  workspace tests (94 test programs), the release build, the licences, the whole self-test (364
+  interactions, 0 problems) and the Linux package (46 MB): all passed.
+
 ## 2026-11-08 — FOL-L013: recognition that leaves out what is there (0.55.0)
 
 - **Current state before:** text recognition wrote everything it read, also over the text a page

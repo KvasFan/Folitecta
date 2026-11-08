@@ -4,6 +4,15 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — FOL-L030: tables of filled forms (0.71.0)
+
+- **Found:** Export Tables had the same gap as the office exports: the values typed in form fields
+  were not in the tables found.
+- **What:** `page_tables.rs`: `page_tables` flattens the form fields of a copy when the pages have
+  any (`tables_of_text` reads the text).
+- **Checked:** `office.rs` (a filled invoice line found as a row with its computed amount);
+  self-test steps `table_export`, `office`.
+
 ## 2026-11-09 — FOL-L009: form values in the office exports (0.70.0)
 
 - **Found:** exporting other kinds of documents (the invoice template, two columns of text, a CSV

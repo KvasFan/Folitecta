@@ -67,6 +67,7 @@ All notable changes to Folitecta are documented here. The format follows
 
 - The exports to Word, rich text and web page carry the values of form fields as text in their
   place: a filled invoice keeps its lines in its table and its addresses under their labels.
+- Export Tables finds the tables of filled forms with the values typed in them.
 
 ### Fixed
 - The pictures of Markdown files were drawn mirrored down the page (the first one at the bottom,

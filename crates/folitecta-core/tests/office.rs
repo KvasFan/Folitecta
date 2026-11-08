@@ -592,3 +592,23 @@ fn the_values_of_form_fields_are_exported_in_their_place() {
     let page = String::from_utf8(out.bytes).unwrap();
     assert!(page.contains("Ada Lovelace"), "{page}");
 }
+
+#[test]
+fn the_tables_of_a_filled_form_hold_its_values() {
+    let mut doc = Document::from_template(
+        folitecta_core::Template::Invoice,
+        &folitecta_core::TemplateOptions::default(),
+    )
+    .unwrap();
+    for (name, value) in [("Item1", "Consulting"), ("Qty1", "2"), ("Price1", "100")] {
+        let f = doc.form_fields().into_iter().find(|f| f.name == name).unwrap().id;
+        doc.set_field_value(f, value).unwrap();
+    }
+    let tables = doc.page_tables(0..1);
+    let rows: Vec<&Vec<String>> = tables.iter().flat_map(|t| t.rows.iter()).collect();
+    assert!(
+        rows.iter()
+            .any(|r| r.iter().any(|c| c == "Consulting") && r.iter().any(|c| c == "200")),
+        "{tables:#?}"
+    );
+}

@@ -296,8 +296,28 @@ pub fn find_tables(text: &PageText) -> Vec<([f32; 4], Vec<Vec<String>>)> {
 }
 
 impl Document {
-    /// The tables found in the text of `pages`, page by page from the top.
+    /// The tables found in the text of `pages`, page by page from the top;
+    /// the values of form fields count as text where they are shown (read
+    /// from a copy whose fields are flattened).
     pub fn page_tables(&self, pages: Range<usize>) -> Vec<FoundTable> {
+        let has_fields = pages.clone().any(|p| {
+            self.annotations(p)
+                .is_ok_and(|a| a.iter().any(|x| x.subtype == "Widget"))
+        });
+        if has_fields {
+            let list: Vec<usize> = pages.clone().collect();
+            let flat = self.duplicate().and_then(|mut copy| {
+                copy.flatten(&list, crate::flatten::FlattenScope::FormFields)?;
+                Ok(copy)
+            });
+            if let Ok(flat) = flat {
+                return flat.tables_of_text(pages);
+            }
+        }
+        self.tables_of_text(pages)
+    }
+
+    fn tables_of_text(&self, pages: Range<usize>) -> Vec<FoundTable> {
         let layers = self.text_layers();
         pages
             .filter_map(|p| layers.get(p).map(|l| (p, l)))

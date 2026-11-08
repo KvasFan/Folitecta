@@ -119,22 +119,32 @@ pub(super) fn ReviewHistoryDialog(page: usize, index: usize) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
     let history = st
-        .read_active(|t| t.doc.review_history(page, index))
+        .read_active(|t| t.doc.comment_history(page, index))
         .and_then(|r| r.ok())
         .unwrap_or_default();
+    let what = move |e: &folitecta_core::HistoryEvent| match e {
+        folitecta_core::HistoryEvent::Created => t(lang, "review.history.created"),
+        folitecta_core::HistoryEvent::Changed => t(lang, "review.history.changed"),
+        folitecta_core::HistoryEvent::Reply(text) => tf(lang, "review.history.reply", &[("text", text)]),
+        folitecta_core::HistoryEvent::State(_, state) => tf(
+            lang,
+            "review.history.state",
+            &[("state", &review_name(lang, state))],
+        ),
+    };
     rsx! {
         Frame { title: t(lang, "cmd.annot.reviewHistory"),
             if history.is_empty() {
                 div { class: "hint", "{t(lang, \"review.no_history\")}" }
             } else {
                 table { class: "grid-table",
-                    thead { tr { th { "{t(lang, \"dialog.summary.by_date\")}" } th { "{t(lang, \"dialog.summary.by_author\")}" } th { "{t(lang, \"review.state\")}" } } }
+                    thead { tr { th { "{t(lang, \"dialog.summary.by_date\")}" } th { "{t(lang, \"dialog.summary.by_author\")}" } th { "{t(lang, \"review.history.what\")}" } } }
                     tbody {
                         for (i, h) in history.into_iter().enumerate() {
-                            tr { key: "{i}",
+                            tr { key: "{i}", class: "history-entry",
                                 td { "{h.date}" }
                                 td { "{h.author}" }
-                                td { "{review_name(lang, &h.state)}" }
+                                td { {what(&h.event)} }
                             }
                         }
                     }

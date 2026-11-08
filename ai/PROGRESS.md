@@ -4,6 +4,17 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-08 — FOL-L026: the history of a comment (0.60.0)
+
+- **Current state before:** the Review History window listed the review states only.
+- **What:** `comment_review.rs`: `comment_history` (the comment made, by its creation date and
+  author; its replies by theirs; the states set on it by their modification dates; "changed" when
+  it was modified after it was made; ordered by the digits of their dates), `HistoryEntry`,
+  `HistoryEvent`. The Review History window shows date, author and what happened.
+- **Checked:** `comment_review.rs` (a note by Ada, a reply and a state by Ben: three entries in
+  order); self-test steps `comment_history` and `review`.
+- **Open:** the earlier texts of a changed comment (the file keeps none).
+
 ## 2026-11-08 — FOL-L014: combs found (0.59.0)
 
 - **Current state before:** Find Form Fields proposed a check box for every small square, also

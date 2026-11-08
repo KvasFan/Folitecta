@@ -67,7 +67,7 @@ pub use barcodes::{BarcodeKind, FoundBarcode};
 pub use buttons::{ButtonBehaviour, ButtonState};
 pub use commands::{Command, CommandKind, Registry, Status, registry};
 pub use comment_exchange::{CommentFormat, LeftOutReply, UndrawableComment};
-pub use comment_review::{CommentInfo, REVIEW_STATES, StateChange};
+pub use comment_review::{CommentInfo, HistoryEntry, HistoryEvent, REVIEW_STATES, StateChange};
 pub use comment_summary::{SummaryEntry, SummaryLabels, SummaryLayout, SummaryOptions, SummarySort};
 pub use contents::Heading;
 pub use delivery::{CopyComments, CopyFacts, CopyOptions, CopySignatures, CopySource, LeftOut, PreparedCopy};

@@ -63,6 +63,28 @@ pub struct StateChange {
     pub state: String,
 }
 
+/// What happened to a comment.
+#[derive(Debug, Clone, PartialEq)]
+pub enum HistoryEvent {
+    Created,
+    /// A reply, with its text.
+    Reply(String),
+    /// A state set: its model (`Review`, `Marked`) and state.
+    State(String, String),
+    /// The comment itself changed last.
+    Changed,
+}
+
+/// One moment of the history of a comment.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HistoryEntry {
+    /// As shown, and as written (`D:...`, for the order).
+    pub date: String,
+    pub raw: String,
+    pub author: String,
+    pub event: HistoryEvent,
+}
+
 fn flags_of(d: &Dictionary) -> i64 {
     d.get(b"F").ok().and_then(|f| f.as_i64().ok()).unwrap_or(0)
 }
@@ -282,6 +304,66 @@ impl Document {
             .collect();
         out.sort_by(|a, b| a.0.cmp(&b.0));
         Ok(out.into_iter().map(|(_, s)| s).collect())
+    }
+
+    /// The history of a comment, oldest first: when it was made, its replies
+    /// and the states set on it, and when it was last changed (when that is
+    /// after it was made). What carries no date comes first.
+    pub fn comment_history(&self, page: usize, index: usize) -> Result<Vec<HistoryEntry>> {
+        let parent = self.annotation_object(page, index)?;
+        let doc = &self.inner;
+        let infos = self.comment_infos();
+        let me = infos
+            .iter()
+            .find(|c| c.id == parent)
+            .ok_or_else(|| Error::Invalid("not a comment".into()))?;
+        let raw_of = |id: ObjectId, key: &[u8]| {
+            doc.get_dictionary(id)
+                .ok()
+                .and_then(|d| dict_text(doc, d, key))
+                .unwrap_or_default()
+        };
+        let created_raw = raw_of(parent, b"CreationDate");
+        let mut out = vec![HistoryEntry {
+            date: me.created.clone(),
+            raw: created_raw.clone(),
+            author: me.author.clone(),
+            event: HistoryEvent::Created,
+        }];
+        for c in infos.iter().filter(|c| c.reply_to == Some(parent)) {
+            let event = if c.is_state {
+                let d = doc.get_dictionary(c.id)?;
+                HistoryEvent::State(
+                    dict_text(doc, d, b"StateModel").unwrap_or_else(|| "Review".into()),
+                    dict_text(doc, d, b"State").unwrap_or_default(),
+                )
+            } else {
+                HistoryEvent::Reply(c.contents.clone())
+            };
+            let (date, raw) = if c.is_state || c.created.is_empty() {
+                (c.modified.clone(), c.modified_raw.clone())
+            } else {
+                (c.created.clone(), raw_of(c.id, b"CreationDate"))
+            };
+            out.push(HistoryEntry {
+                date,
+                raw,
+                author: c.author.clone(),
+                event,
+            });
+        }
+        // Dates compare by their digits: D:YYYYMMDDHHmmSS.
+        let key = |raw: &str| raw.trim_start_matches("D:").chars().take(14).collect::<String>();
+        if !me.modified_raw.is_empty() && key(&me.modified_raw) > key(&created_raw) {
+            out.push(HistoryEntry {
+                date: me.modified.clone(),
+                raw: me.modified_raw.clone(),
+                author: me.author.clone(),
+                event: HistoryEvent::Changed,
+            });
+        }
+        out.sort_by_key(|e| key(&e.raw));
+        Ok(out)
     }
 
     /// Set or clear annotation flag bits (one undo step).

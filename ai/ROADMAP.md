@@ -649,6 +649,11 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    (at most 2 points apart), three or more, become one comb text field (`FieldProposal::comb`,
    `max_len`).
 
+### 0.60.0 — the history of a comment (on `main`, untagged)
+
+1. ~~**FOL-L026 — history of a comment.**~~ Done: `comment_history` (made, replies, states,
+   last change; `HistoryEntry`, `HistoryEvent`), shown in the Review History window.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -717,7 +722,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | Id | P | State | What exists | Gaps and next sub-task |
 |---|---|---|---|---|
 | FOL-L025 | P1 | ✅ | every markup and drawing comment, styles and named styles, lock, grouping, align/distribute/order, eraser, clouds, the quick panel of thickness, colours and fill of the drawing and measuring tools, pen pressure for the Pencil | Pressure tried with real tablets on Windows, macOS and Linux (stand-in pen events so far); tilt of the pen; check appearances in a second reader. |
-| FOL-L026 | P1 | ✅ | comments pane with filters, replies, review states, XFDF/FDF/PDF exchange, comment summaries, comments as CSV | History of a comment. |
+| FOL-L026 | P1 | ✅ | comments pane with filters, replies, review states, XFDF/FDF/PDF exchange, comment summaries, comments as CSV, the history of each comment | The earlier texts of a changed comment (PDF keeps none). |
 | FOL-L027 | P1/P2 | 🟡 | text stamps, stamp designer with dynamic values, favourites and recent stamps | Symbol libraries with fields asked when placed. |
 | FOL-L028 | P2 | 🟡 | distance, perimeter, area, angle, radius and diameter, volume (area by a depth), calibration, CSV export of measures, a quick panel with the scale; the tools stay chosen | Snapping profile; measure info pane. |
 | FOL-L029 | P2 | ✅ | calculator with an editable tape placed as a comment; tick marks (check, cross, dot, numbers, letters, roman numerals, plain or circled) placed in series with a click and counted in their window, with saved sets of their styles | — |

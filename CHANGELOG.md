@@ -47,6 +47,8 @@ All notable changes to Folitecta are documented here. The format follows
   help names every option.
 - Find Form Fields makes a row of three squares or more side by side one text field of one
   character a square (a comb), named after the words before it.
+- The history of a comment (Comments pane, Review History) tells when it was made, its replies,
+  the states set on it and when it last changed, with their authors, oldest first.
 
 ### Changed
 - Text recognition no longer writes again what a page already shows as text, a comment or a form

@@ -132,3 +132,27 @@ fn lines_flip_their_ends() {
     assert_eq!(style.line_start, "OpenArrow");
     assert_eq!(style.line_end, "None");
 }
+
+#[test]
+fn the_history_of_a_comment_tells_what_happened_to_it() {
+    use folitecta_core::HistoryEvent;
+    let mut doc = folitecta_core::Document::new_blank(1, 400.0, 400.0).unwrap();
+    doc.add_note(0, 50.0, 50.0, "Check the figures", "Ada", [1.0, 1.0, 0.0])
+        .unwrap();
+    let note = doc.annotations(0).unwrap()[0].index;
+    doc.add_reply(0, note, "They are right", "Ben").unwrap();
+    doc.set_review_state(0, note, "Review", "Accepted", "Ben", "")
+        .unwrap();
+    let history = doc.comment_history(0, note).unwrap();
+    let events: Vec<(&str, &HistoryEvent)> = history.iter().map(|h| (h.author.as_str(), &h.event)).collect();
+    assert_eq!(
+        events,
+        vec![
+            ("Ada", &HistoryEvent::Created),
+            ("Ben", &HistoryEvent::Reply("They are right".into())),
+            ("Ben", &HistoryEvent::State("Review".into(), "Accepted".into())),
+        ],
+        "{history:#?}"
+    );
+    assert!(history.iter().all(|h| !h.date.is_empty()), "{history:#?}");
+}

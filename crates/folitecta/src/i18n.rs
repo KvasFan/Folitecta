@@ -62,6 +62,7 @@ const AREAS: &[(&str, &[&str])] = &[
         "comments",
         &[
             "annot",
+            "blend",
             "style",
             "styles",
             "le",

@@ -25,6 +25,18 @@ pub struct PathNode {
     corner: bool,
 }
 
+/// What a node of a path becomes (Edit Paths › Convert).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NodeKind {
+    /// The segments on both sides of it straight lines.
+    Straight,
+    /// A sharp corner: its own handles drawn into it, the curves kept.
+    Corner,
+    /// A smooth node: its handles on one line through it, straight
+    /// segments beside it made curves.
+    Smooth,
+}
+
 /// A path the page content draws.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PagePath {
@@ -417,6 +429,149 @@ impl Document {
         self.write_page_content(page, &content)
     }
 
+    /// Convert node `node` of path `path` of page `page` (a handle of a
+    /// curve stands for the node it belongs to) to `kind`. Not for
+    /// rectangles. One undo step.
+    pub fn convert_path_node(&mut self, page: usize, path: usize, node: usize, kind: NodeKind) -> Result<()> {
+        let (mut content, base) = self.page_content_ops(page)?;
+        let paths = find_paths(&content, base);
+        let p = paths
+            .get(path)
+            .ok_or_else(|| Error::Invalid("no such path".into()))?;
+        let n = p
+            .nodes
+            .get(node)
+            .ok_or_else(|| Error::Invalid("no such node".into()))?;
+        let ops = &mut content.operations;
+        // The operation that ends at the node.
+        let at = match (ops[n.op].operator.as_str(), n.operand) {
+            ("re", _) => return Err(Error::Invalid("the corners of a rectangle stay corners".into())),
+            ("c", 0) | ("y", 0) => {
+                n.op.checked_sub(1)
+                    .ok_or_else(|| Error::Invalid("a curve without a start".into()))?
+            }
+            _ => n.op,
+        };
+        let segment = |o: &Operation| matches!(o.operator.as_str(), "l" | "c" | "v" | "y");
+        let end = |o: &Operation| -> Option<[f64; 2]> {
+            let v = nums(&o.operands)?;
+            (v.len() >= 2).then(|| [v[v.len() - 2], v[v.len() - 1]])
+        };
+        // Curves written short (`v`, `y`) written whole, from their start.
+        let whole = |ops: &mut Vec<Operation>, k: usize| -> Option<()> {
+            let start = end(&ops[k.checked_sub(1)?])?;
+            let v = nums(&ops[k].operands)?;
+            let full = match (ops[k].operator.as_str(), v.as_slice()) {
+                ("v", [x2, y2, x3, y3]) => vec![start[0], start[1], *x2, *y2, *x3, *y3],
+                ("y", [x1, y1, x3, y3]) => vec![*x1, *y1, *x3, *y3, *x3, *y3],
+                _ => return Some(()),
+            };
+            ops[k] = Operation::new("c", full.into_iter().map(|x| Object::Real(x as f32)).collect());
+            Some(())
+        };
+        let ending = (at > p.first && segment(&ops[at])).then_some(at);
+        let after = (at < p.last && at + 1 >= p.first && segment(&ops[at + 1])).then_some(at + 1);
+        for k in [ending, after].into_iter().flatten() {
+            whole(ops, k).ok_or_else(|| Error::Invalid("a curve without a start".into()))?;
+        }
+        let point = end(&ops[at]).ok_or_else(|| Error::Invalid("a node without numbers".into()))?;
+        let set = |op: &mut Operation, k: usize, v: [f64; 2]| {
+            op.operands[k] = Object::Real(v[0] as f32);
+            op.operands[k + 1] = Object::Real(v[1] as f32);
+        };
+        let start_of = |ops: &Vec<Operation>, k: usize| end(&ops[k - 1]);
+        let lerp = |a: [f64; 2], b: [f64; 2], t: f64| [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+        match kind {
+            NodeKind::Straight => {
+                for k in [ending, after].into_iter().flatten() {
+                    if ops[k].operator == "c" {
+                        let e = end(&ops[k]).unwrap_or(point);
+                        ops[k] =
+                            Operation::new("l", vec![Object::Real(e[0] as f32), Object::Real(e[1] as f32)]);
+                    }
+                }
+            }
+            NodeKind::Corner => {
+                if let Some(k) = ending.filter(|k| ops[*k].operator == "c") {
+                    set(&mut ops[k], 2, point);
+                }
+                if let Some(k) = after.filter(|k| ops[*k].operator == "c") {
+                    set(&mut ops[k], 0, point);
+                }
+            }
+            NodeKind::Smooth => {
+                // The neighbours of the node, and where its handles are now.
+                let before = ending.and_then(|k| start_of(ops, k));
+                let next = after.and_then(|k| end(&ops[k]));
+                let handle_in = ending.and_then(|k| {
+                    (ops[k].operator == "c")
+                        .then(|| nums(&ops[k].operands).map(|v| [v[2], v[3]]))
+                        .flatten()
+                });
+                let handle_out = after.and_then(|k| {
+                    (ops[k].operator == "c")
+                        .then(|| nums(&ops[k].operands).map(|v| [v[0], v[1]]))
+                        .flatten()
+                });
+                let len = |a: [f64; 2], b: [f64; 2]| ((b[0] - a[0]).powi(2) + (b[1] - a[1]).powi(2)).sqrt();
+                let unit = |v: [f64; 2]| {
+                    let l = (v[0] * v[0] + v[1] * v[1]).sqrt();
+                    (l > 1e-9).then(|| [v[0] / l, v[1] / l])
+                };
+                // The direction through the node: from the handle (or the
+                // node) before it to the one after it.
+                let from = handle_in.filter(|h| len(*h, point) > 1e-6).or(before);
+                let to = handle_out.filter(|h| len(*h, point) > 1e-6).or(next);
+                let dir = match (from, to) {
+                    (Some(a), Some(b)) => unit([b[0] - a[0], b[1] - a[1]]),
+                    (Some(a), None) => unit([point[0] - a[0], point[1] - a[1]]),
+                    (None, Some(b)) => unit([b[0] - point[0], b[1] - point[1]]),
+                    (None, None) => None,
+                }
+                .ok_or_else(|| Error::Invalid("the node has no segments to make smooth".into()))?;
+                if let (Some(k), Some(b)) = (ending, before) {
+                    let reach = handle_in
+                        .map(|h| len(h, point))
+                        .filter(|l| *l > 1e-6)
+                        .unwrap_or(len(b, point) / 3.0);
+                    let h = [point[0] - dir[0] * reach, point[1] - dir[1] * reach];
+                    if ops[k].operator == "c" {
+                        set(&mut ops[k], 2, h);
+                    } else {
+                        let c1 = lerp(b, point, 1.0 / 3.0);
+                        ops[k] = Operation::new(
+                            "c",
+                            [c1[0], c1[1], h[0], h[1], point[0], point[1]]
+                                .into_iter()
+                                .map(|x| Object::Real(x as f32))
+                                .collect(),
+                        );
+                    }
+                }
+                if let (Some(k), Some(e)) = (after, next) {
+                    let reach = handle_out
+                        .map(|h| len(point, h))
+                        .filter(|l| *l > 1e-6)
+                        .unwrap_or(len(point, e) / 3.0);
+                    let h = [point[0] + dir[0] * reach, point[1] + dir[1] * reach];
+                    if ops[k].operator == "c" {
+                        set(&mut ops[k], 0, h);
+                    } else {
+                        let c2 = lerp(point, e, 2.0 / 3.0);
+                        ops[k] = Operation::new(
+                            "c",
+                            [h[0], h[1], c2[0], c2[1], e[0], e[1]]
+                                .into_iter()
+                                .map(|x| Object::Real(x as f32))
+                                .collect(),
+                        );
+                    }
+                }
+            }
+        }
+        self.write_page_content(page, &content)
+    }
+
     /// Change the colours or the line width of path `path` of page `page`
     /// (`None`: as it is).
     pub fn set_path_style(
@@ -474,6 +629,87 @@ impl Document {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A page drawing `content`, and the operations of its content after
+    /// converting node `node` of its first path to `kind`.
+    fn converted(content: &str, node: usize, kind: NodeKind) -> Vec<String> {
+        let mut b = crate::testdocs::Builder::new();
+        b.page(
+            (200.0, 200.0),
+            content.as_bytes().to_vec(),
+            Dictionary::new(),
+            vec![],
+        );
+        let mut doc = Document::from_bytes(b.finish(), None, None).unwrap();
+        doc.convert_path_node(0, 0, node, kind).unwrap();
+        let (c, _) = doc.page_content_ops(0).unwrap();
+        c.operations
+            .iter()
+            .map(|o| {
+                let v: Vec<String> = nums(&o.operands)
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|x| format!("{}", (x * 100.0).round() / 100.0))
+                    .collect();
+                format!("{} {}", v.join(" "), o.operator).trim().to_string()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_corner_between_lines_made_smooth() {
+        // 0,0 → 90,0 → 90,90: the middle node.
+        let ops = converted("0 0 m 90 0 l 90 90 l S", 1, NodeKind::Smooth);
+        assert_eq!(
+            ops,
+            vec![
+                "0 0 m",
+                "30 0 68.79 -21.21 90 0 c",
+                "111.21 21.21 90 60 90 90 c",
+                "S"
+            ],
+        );
+    }
+
+    #[test]
+    fn curves_made_straight_and_corner() {
+        let curve = "0 0 m 0 50 40 60 50 50 c 60 40 100 50 100 0 c S";
+        // The handles of the middle node drawn into it.
+        assert_eq!(
+            converted(curve, 2, NodeKind::Corner),
+            vec!["0 0 m", "0 50 50 50 50 50 c", "50 50 100 50 100 0 c", "S"],
+        );
+        // Its handle on the next curve stands for it as well.
+        assert_eq!(
+            converted(curve, 3, NodeKind::Straight),
+            vec!["0 0 m", "50 50 l", "100 0 l", "S"],
+        );
+        // `v` written whole first (its first handle on the node: none);
+        // the handles on the line from the node before to the node after,
+        // a third of each segment long.
+        assert_eq!(
+            converted("0 0 m 50 50 l 80 50 100 0 v S", 1, NodeKind::Smooth),
+            vec![
+                "0 0 m",
+                "16.67 16.67 26.43 50 50 50 c",
+                "73.57 50 80 50 100 0 c",
+                "S"
+            ],
+        );
+    }
+
+    #[test]
+    fn rectangles_keep_their_corners() {
+        let mut b = crate::testdocs::Builder::new();
+        b.page(
+            (200.0, 200.0),
+            b"10 10 50 50 re f".to_vec(),
+            Dictionary::new(),
+            vec![],
+        );
+        let mut doc = Document::from_bytes(b.finish(), None, None).unwrap();
+        assert!(doc.convert_path_node(0, 0, 1, NodeKind::Smooth).is_err());
+    }
 
     #[test]
     fn paths_with_their_nodes_colours_and_matrix() {

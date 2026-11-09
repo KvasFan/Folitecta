@@ -165,6 +165,7 @@ textarea.field-input { resize: none; padding: 2px 3px; }
 .path-box:hover { border-color: var(--accent); }
 .path-box.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .path-node { position: absolute; width: 10px; height: 10px; border: 2px solid var(--accent); background: #fff; border-radius: 2px; cursor: move; z-index: 6; }
+.path-node.chosen { background: var(--accent); }
 .path-drag-layer { position: absolute; inset: 0; cursor: move; z-index: 7; }
 .path-toolbar label.path-colour { display: inline-flex; align-items: center; gap: 2px; }
 .path-toolbar input[type=color] { width: 26px; height: 22px; padding: 0; border: none; background: none; }

@@ -1072,12 +1072,13 @@ pub(super) fn PageView(
                     {
                         let dragged = crate::commands::paths::NODE_DRAG.read().filter(|d| d.page == page && d.path == path.index);
                         let index = path.index;
+                        let chosen = crate::commands::paths::NODE_SEL.read().filter(|(p, q, _)| *p == page && *q == index).map(|(_, _, k)| k);
                         rsx! {
                             for (k, pt) in nodes.iter().copied().enumerate() {
                                 {
                                     let at = dragged.filter(|d| d.node == k).map(|d| d.at).unwrap_or(pt);
                                     rsx! {
-                                        div { key: "pn{k}", class: "path-node", style: "left:{at[0] * z - 5.0}px;top:{at[1] * z - 5.0}px",
+                                        div { key: "pn{k}", class: if chosen == Some(k) { "path-node chosen" } else { "path-node" }, style: "left:{at[0] * z - 5.0}px;top:{at[1] * z - 5.0}px",
                                             title: "{crate::i18n::t(st.lang(), \"paths.node_hint\")}",
                                             onmousedown: move |e| {
                                                 e.stop_propagation();
@@ -1114,6 +1115,7 @@ pub(super) fn PageView(
                                     stroked: path.stroked,
                                     filled: path.filled,
                                     width: path.width,
+                                    node_chosen: chosen.is_some(),
                                 }
                             }
                         }

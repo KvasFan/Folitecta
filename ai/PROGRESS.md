@@ -4,6 +4,25 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — FOL-L021: nodes made smooth, corner or straight (0.78.0)
+
+- **Current state before:** the nodes of a path could be moved, added and removed, not converted
+  (Path Editing › Convert and Anchors › Add were planned).
+- **What:** `paths.rs` `convert_path_node` with `NodeKind`: the operation ending at the node (a
+  handle of a curve stands for its node), the segments on both sides (`v`/`y` written whole as
+  `c` first); Straight makes curves `l`, Corner sets the node's handles on it, Smooth puts both
+  handles on the line from the handle (or node) before to the one after, keeping their lengths or
+  a third of the segment, a line beside it made a `c`. App: `NODE_SEL` (a press and release
+  without a move chooses the node, shown filled), the bar of the path gets Corner, Smooth,
+  Straight and Add Node buttons when a node is chosen; `pathedit.convert.*` and
+  `pathedit.anchors.add` (a node halfway to the next one) as commands, a note when no node is
+  chosen.
+- **Checked:** `paths.rs`: a corner between lines made smooth (exact operations), curves made
+  corner and straight (a handle standing for its node), `v` made smooth, rectangles refused;
+  self-test step `paths` (5 interactions, 0 problems): the top node of the triangle chosen, four
+  buttons, Smooth makes 5 nodes, Convert › Straight 3 again; app tests (152) and clippy.
+- **Open:** three-point arcs, circles and rectangles; clipping paths.
+
 ## 2026-11-09 — local check of 0.74.0 to 0.77.0
 
 - **What:** `target/preflight.sh` at `9ca8758`: formatting, clippy for the three systems, the

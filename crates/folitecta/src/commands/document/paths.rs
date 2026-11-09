@@ -1,8 +1,10 @@
 //! Edit Paths (FOL-L021): the tool of Edit Content › Shapes. A click chooses
 //! a path the page draws; its nodes are dragged to move them, a double
 //! click on a node removes it, a double click on the path adds one on the
-//! nearest segment; the bar over it changes its colours and width or
-//! deletes it. Every change is one undo step of the document.
+//! nearest segment; a click on a node chooses it, and Convert makes it a
+//! corner, smooth or straight, Anchors › Add puts a node after it; the bar
+//! over the path changes its colours and width or deletes it. Every change
+//! is one undo step of the document.
 
 use dioxus::prelude::*;
 use folitecta_core::marks::display_to_pdf;
@@ -24,6 +26,15 @@ pub struct NodeDrag {
 
 pub static NODE_DRAG: GlobalSignal<Option<NodeDrag>> = Signal::global(|| None);
 
+/// The node chosen with a click: page, path and node.
+pub static NODE_SEL: GlobalSignal<Option<(usize, usize, usize)>> = Signal::global(|| None);
+
+/// The node chosen on the path chosen.
+pub fn chosen_node(st: AppState) -> Option<(usize, usize, usize)> {
+    let (page, path) = selected(st)?;
+    NODE_SEL.peek().filter(|(p, q, _)| *p == page && *q == path)
+}
+
 /// The path chosen, as page and index, when the tool is Edit Paths.
 pub fn selected(st: AppState) -> Option<(usize, usize)> {
     st.read_active(|t| t.path_sel)
@@ -34,6 +45,7 @@ pub fn selected(st: AppState) -> Option<(usize, usize)> {
 pub fn choose(st: AppState, page: usize, index: usize) {
     if st.read_active(|t| t.path_sel) != Some(Some((page, index))) {
         st.with_active(|t| t.path_sel = Some((page, index)));
+        *NODE_SEL.write() = None;
     }
 }
 
@@ -47,8 +59,9 @@ pub fn clear(st: AppState) {
 pub fn drop_node(st: AppState) {
     let Some(d) = *NODE_DRAG.peek() else { return };
     *NODE_DRAG.write() = None;
-    // A click without a move (the first of a double click) changes nothing.
+    // A click without a move (the first of a double click) chooses the node.
     if (d.at[0] - d.from[0]).abs() < 0.01 && (d.at[1] - d.from[1]).abs() < 0.01 {
+        *NODE_SEL.write() = Some((d.page, d.path, d.node));
         return;
     }
     let result = st.with_active(|t| {
@@ -104,7 +117,66 @@ pub fn add_node(st: AppState, page: usize, path: usize, nodes: &[[f32; 2]], at: 
 
 /// Remove node `node` of the path chosen.
 pub fn remove_node(st: AppState, page: usize, path: usize, node: usize) {
+    *NODE_SEL.write() = None;
     report(st, st.with_active(|t| t.doc.remove_path_node(page, path, node)));
+}
+
+/// The node chosen made `kind`; without one, a note says how to choose it.
+fn convert(st: AppState, kind: folitecta_core::NodeKind) {
+    let Some((page, path, node)) = chosen_node(st) else {
+        st.toast(
+            crate::state::ToastKind::Info,
+            crate::i18n::t(st.lang(), "paths.choose_node"),
+            "",
+        );
+        return;
+    };
+    report(
+        st,
+        st.with_active(|t| t.doc.convert_path_node(page, path, node, kind)),
+    );
+}
+
+fn corner(st: AppState) {
+    convert(st, folitecta_core::NodeKind::Corner);
+}
+
+fn smooth(st: AppState) {
+    convert(st, folitecta_core::NodeKind::Smooth);
+}
+
+fn straight(st: AppState) {
+    convert(st, folitecta_core::NodeKind::Straight);
+}
+
+/// A node halfway along the segment after the node chosen.
+fn add_after(st: AppState) {
+    let Some((page, path, node)) = chosen_node(st) else {
+        st.toast(
+            crate::state::ToastKind::Info,
+            crate::i18n::t(st.lang(), "paths.choose_node"),
+            "",
+        );
+        return;
+    };
+    let result = st.with_active(|t| {
+        let paths = t.doc.page_paths(page)?;
+        let nodes = &paths
+            .get(path)
+            .ok_or_else(|| folitecta_core::Error::Invalid("no such path".into()))?
+            .nodes;
+        let (a, b) = match (nodes.get(node), nodes.get(node + 1)) {
+            (Some(a), Some(b)) => (a.at, b.at),
+            _ => {
+                return Err(folitecta_core::Error::Invalid(
+                    "the last node has no segment after it".into(),
+                ));
+            }
+        };
+        t.doc
+            .add_path_node(page, path, node, [(a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0])
+    });
+    report(st, result);
 }
 
 /// Change the colours or the width of the path chosen.
@@ -163,6 +235,10 @@ fn tool(st: AppState) {
 
 handlers! {
     "tool.editContent.shapes" => tool,
+    "pathedit.convert.corner" => corner,
+    "pathedit.convert.smooth" => smooth,
+    "pathedit.convert.straight" => straight,
+    "pathedit.anchors.add" => add_after,
 }
 
 #[cfg(test)]

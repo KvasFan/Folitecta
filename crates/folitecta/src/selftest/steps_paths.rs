@@ -2,7 +2,9 @@
 //! chooses it (its nodes shown with the bar of its colours); one of its
 //! nodes dragged changes the page content; the fill made green; the path
 //! deleted; each change undone. On the triangle, a double click on its
-//! bottom edge adds a node there, a double click on that node removes it.
+//! bottom edge adds a node there, a double click on that node removes it; a
+//! click on its top node chooses it, Smooth on the bar makes the edge to it
+//! a curve, Convert › Straight makes it straight again.
 
 use super::*;
 
@@ -156,6 +158,34 @@ layer.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left
         "edit paths: a double click on a path adds a node on its nearest edge, one on a node removes it",
         added == 4 && (new_node[0] - 100.0).abs() < 4.0 && (new_node[1] - 40.0).abs() < 4.0 && removed == 3,
         format!("nodes after adding {added} (the new one at {new_node:?}), after removing {removed}"),
+    );
+    // The top node of the triangle chosen with a click (a press and a
+    // release without a move), then converted.
+    let _ = eval(
+        "const n = document.querySelectorAll('#canvas .path-node')[2]; if (n) { const r = n.getBoundingClientRect(); n.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: r.left + 5, clientY: r.top + 5 })); }",
+    )
+    .await;
+    pause(300).await;
+    let _ = eval(
+        "const layer = document.querySelector('#canvas .path-drag-layer'); if (layer) layer.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));",
+    )
+    .await;
+    pause(400).await;
+    let chosen = number("return document.querySelectorAll('#canvas .path-node.chosen').length;").await;
+    let buttons = number("return document.querySelectorAll('#canvas .path-node-cmd').length;").await;
+    let _ = eval(
+        "const b = document.querySelector('#canvas .path-node-cmd[data-cmd=\"pathedit.convert.smooth\"]'); if (b) b.click();",
+    )
+    .await;
+    pause(400).await;
+    let curved = triangle_nodes(st);
+    crate::commands::dispatch(st, "pathedit.convert.straight");
+    pause(400).await;
+    let straight = triangle_nodes(st);
+    cx.record(
+        "edit paths: a click chooses a node; Smooth on the bar makes the edge to it a curve, Convert › Straight a line again",
+        chosen == 1.0 && buttons == 4.0 && curved == 5 && straight == 3,
+        format!("chosen {chosen}, buttons {buttons}, nodes when smooth {curved}, when straight {straight}"),
     );
     st.set_tool(Tool::Hand);
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);

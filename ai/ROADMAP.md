@@ -746,6 +746,14 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
 1. ~~**FOL-L009 — notes in PPTX.**~~ Done: a notes master (with its theme) and a notes page for
    each slide, the paragraphs of its page as the notes (up to 20 000 characters).
 
+### 0.78.0 — nodes made smooth, corner or straight (on `main`, untagged)
+
+1. ~~**FOL-L021 — Convert and Anchors › Add.**~~ Done: `convert_path_node` (`NodeKind`: straight
+   lines on both sides, a sharp corner with the node's own handles drawn into it, or a smooth node
+   with its handles on one line through it, straight sides made curves a third of their length
+   out); a click on a node of the chosen path chooses it, and the bar over the path or Edit ›
+   Path Editing converts it or adds a node halfway to the next one.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

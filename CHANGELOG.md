@@ -7,6 +7,10 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Edit Content › Shapes: a click on a node of the chosen path chooses it; Convert makes it a sharp
+  corner, smooth (its handles on one line, straight sides made curves) or straight (the segments
+  at it made lines), and Anchors › Add puts a node halfway to the next one, from the bar over the
+  path or Edit › Path Editing; one undo step each.
 - The exports to Word, rich text and web page write check boxes and radio buttons as ☑ or ☐ before
   their labels, or in their table cells, as they are set.
 - Lists within lists keep their levels in the exports to Word, rich text and web page: the web page

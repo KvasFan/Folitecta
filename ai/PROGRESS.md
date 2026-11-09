@@ -4,6 +4,24 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — FOL-L009: ballot marks in the office exports (0.74.0)
+
+- **Found:** check boxes and radio buttons were left out of the DOCX, RTF and HTML exports (the
+  flattened appearance draws a ZapfDingbats tick the text layer does not read, and nothing for a
+  box that is off), so a filled form lost its answers.
+- **What:** `office.rs`: `ballots` lists the check box and radio widgets of the pages with their
+  state (`/AS` not `Off`); the flattened copy hides them and `write_ballots` writes invisible
+  Helvetica text whose ToUnicode map reads `a` as ☐ and `b` as ☑, at the size of and just before the
+  first glyph after the box on its line (within three box heights), else where the box stands;
+  `join_ballots` puts a block that is only a mark before the block starting just after it on its
+  line, since the text of the page orders lines as they are drawn.
+- **Checked:** `office.rs` `check_boxes_and_radio_buttons_are_exported_as_ballot_marks` (two
+  check boxes and a radio group before their labels, a table with a column of check boxes: HTML,
+  the DOCX body and RTF `\u9745?`/`\u9744?`); pandoc reads the page back as "☑ I agree to the
+  terms" and a table with ☑/☐ cells; core tests and clippy; self-test steps `office`,
+  `permissions` (8 interactions, 0 problems).
+- **Open:** combo and list boxes are exported as the value they show.
+
 ## 2026-11-09 — 0.73.0 published by hand
 
 - **What:** the tag `v0.73.0` started CI and Release on GitHub, but no job ran ("account is locked

@@ -6,6 +6,10 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- The exports to Word, rich text and web page write check boxes and radio buttons as ☑ or ☐ before
+  their labels, or in their table cells, as they are set.
+
 ## [0.73.0] - 2026-11-09
 
 Holds the work planned as 0.46.0 to 0.73.0, and 0.44.0 and 0.45.0 below, which were never

@@ -719,6 +719,14 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    theme and a slide for each page with its picture at 144 dpi, centred and as large as the slide
    (the size of the first page) holds, the page's text as its description; `OfficeFormat::Pptx`.
 
+### 0.74.0 — ballot marks in the office exports (on `main`, untagged)
+
+1. ~~**FOL-L009 — check boxes and radio buttons.**~~ Done: the export reads them from their state,
+   not from their appearance (hidden in the flattened copy): an invisible mark that reads ☑ or ☐
+   is written just before the words after the box on its line, or where the box stands, and a
+   block that is only a mark goes before its label (`join_ballots`); in tables the mark is the
+   cell.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with
@@ -745,7 +753,7 @@ FOL-C001–C005 and C007–C014 (R4).
 | FOL-L006 | P2 | 🟡 | e-mail messages (EML) made into documents: header lines, text, attachments embedded | Mail archives; office formats and HTML need a local engine decision. |
 | FOL-L007 | P2 | ⬜ | — | File associations (`help.fileAssoc`), virtual printer, office add-ins. |
 | FOL-L008 | P2 | ⬜ | — | XPS/OXPS, metafiles, CAD: engine decision first. |
-| FOL-L009 | P1/P2 | 🟡 | export to pictures (PNG, JPEG, TIFF, …), text, embedded pictures, attachments, split and extracted documents; the text as editable Word (DOCX), rich text (RTF) and web page (HTML) documents, headings and paragraphs in reading order, page breaks on request, a report of what is left out; the tables found in the text of the pages as a workbook (XLSX, numbers kept as numbers) or CSV, and as tables in the Word, rich text and web page exports | Slides with editable text (PPTX holds pictures of the pages), page fidelity layouts, accessible text export. |
+| FOL-L009 | P1/P2 | 🟡 | export to pictures (PNG, JPEG, TIFF, …), text, embedded pictures, attachments, split and extracted documents; the text as editable Word (DOCX), rich text (RTF) and web page (HTML) documents, headings and paragraphs in reading order, page breaks on request, a report of what is left out; the tables found in the text of the pages as a workbook (XLSX, numbers kept as numbers) or CSV, and as tables in the Word, rich text and web page exports; check boxes and radio buttons as ☑ or ☐ | Slides with editable text (PPTX holds pictures of the pages), page fidelity layouts, accessible text export. |
 | FOL-L010 | P1 | 🟡 | stamps have categories and favourites; a gallery of document templates (papers, week and month planners, a to-do list, a letter, meeting notes, an invoice that adds itself up) on any paper, in the language of the interface; the user's own templates (Save as Template…, My templates in the gallery with origin, date, version and the fonts they need; new documents from them, rename, remove) | — |
 
 ### Scanning and OCR

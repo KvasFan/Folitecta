@@ -747,3 +747,121 @@ fn pages_become_the_slides_of_a_presentation() {
     let img = image::load_from_memory(picture).unwrap();
     assert!(img.width() > 1000, "{}", img.width());
 }
+
+#[test]
+fn check_boxes_and_radio_buttons_are_exported_as_ballot_marks() {
+    use folitecta_core::{FieldProps, NewField};
+    // Labels drawn on the page, a box before each; a radio group of two,
+    // and a table whose last column holds check boxes.
+    let mut c = String::new();
+    for (y, label) in [
+        (702, "I agree to the terms"),
+        (672, "Send me the news"),
+        (642, "Pay by card"),
+        (612, "Pay by transfer"),
+    ] {
+        c.push_str(&format!("BT /F1 12 Tf 80 {y} Td ({label}) Tj ET\n"));
+    }
+    c.push_str("BT /F1 12 Tf 60 560 Td (Item) Tj ET BT /F1 12 Tf 200 560 Td (Price) Tj ET BT /F1 12 Tf 300 560 Td (Paid) Tj ET\n");
+    for (k, (item, price)) in [("Bolts", "12"), ("Nuts", "7"), ("Washers", "3")]
+        .iter()
+        .enumerate()
+    {
+        let y = 540 - 20 * k;
+        c.push_str(&format!(
+            "BT /F1 12 Tf 60 {y} Td ({item}) Tj ET BT /F1 12 Tf 200 {y} Td ({price}) Tj ET\n"
+        ));
+    }
+    let mut b = Builder::new();
+    b.page((595.0, 842.0), c.into_bytes(), dictionary_fonts(), vec![]);
+    let mut doc = Document::from_bytes(b.finish(), None, None).unwrap();
+    let field = |doc: &mut Document, kind, rect, name: &str, export: &str| {
+        let props = FieldProps {
+            name: name.into(),
+            export_value: export.into(),
+            ..FieldProps::default()
+        };
+        doc.add_form_field(0, kind, rect, &props).unwrap()
+    };
+    let agree = field(
+        &mut doc,
+        NewField::CheckBox,
+        [60.0, 700.0, 72.0, 712.0],
+        "Agree",
+        "Yes",
+    );
+    field(
+        &mut doc,
+        NewField::CheckBox,
+        [60.0, 670.0, 72.0, 682.0],
+        "News",
+        "Yes",
+    );
+    field(
+        &mut doc,
+        NewField::RadioButton,
+        [60.0, 640.0, 72.0, 652.0],
+        "Pay",
+        "Card",
+    );
+    field(
+        &mut doc,
+        NewField::RadioButton,
+        [60.0, 610.0, 72.0, 622.0],
+        "Pay",
+        "Transfer",
+    );
+    let mut paid = Vec::new();
+    for k in 0..3 {
+        let y = 538.0 - 20.0 * k as f32;
+        paid.push(field(
+            &mut doc,
+            NewField::CheckBox,
+            [300.0, y, 312.0, y + 12.0],
+            &format!("Paid{k}"),
+            "Yes",
+        ));
+    }
+    doc.set_field_value(agree, "Yes").unwrap();
+    let pay = doc
+        .form_fields()
+        .into_iter()
+        .find(|f| f.name == "Pay")
+        .unwrap()
+        .id;
+    doc.set_field_value(pay, "Transfer").unwrap();
+    doc.set_field_value(paid[0], "Yes").unwrap();
+    doc.set_field_value(paid[2], "Yes").unwrap();
+
+    let before = doc.bytes();
+    let out = doc.export_office(OfficeFormat::Html, 0..1, false).unwrap();
+    assert_eq!(doc.bytes(), before, "the document itself is unchanged");
+    let page = String::from_utf8(out.bytes).unwrap();
+    if let Ok(dir) = std::env::var("OFFICE_DUMP") {
+        std::fs::write(format!("{dir}/ballots.html"), &page).unwrap();
+    }
+    for line in [
+        "☑ I agree to the terms",
+        "☐ Send me the news",
+        "☐ Pay by card",
+        "☑ Pay by transfer",
+    ] {
+        assert!(page.contains(line), "{line}: {page}");
+    }
+    for cell in ["<td>☑</td>", "<td>☐</td>"] {
+        assert!(page.contains(cell), "{cell}: {page}");
+    }
+    assert_eq!(page.matches("<tr>").count(), 4, "{page}");
+    // Word and rich text carry them too.
+    let docx = doc.export_office(OfficeFormat::Docx, 0..1, false).unwrap();
+    let parts = read(&docx.bytes).unwrap();
+    let body = parts
+        .iter()
+        .find(|p| p.name == "word/document.xml")
+        .map(|p| String::from_utf8_lossy(&p.data).to_string())
+        .unwrap();
+    assert!(body.contains("☑ I agree to the terms"), "{body}");
+    let rtf = doc.export_office(OfficeFormat::Rtf, 0..1, false).unwrap();
+    let rtf = String::from_utf8(rtf.bytes).unwrap();
+    assert!(rtf.contains("\\u9745?") && rtf.contains("\\u9744?"), "{rtf}");
+}

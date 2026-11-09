@@ -9,6 +9,7 @@
 //! exported, specks) is counted for the report; the original is never
 //! written.
 
+use lopdf::dictionary;
 use std::ops::Range;
 
 use base64::Engine;
@@ -550,6 +551,57 @@ fn html(pieces: &[Piece], title: &str, lang: &str, breaks: bool) -> Vec<u8> {
     .into_bytes()
 }
 
+/// A block that is only the mark of a check box or radio button goes before
+/// the block that begins just after it on its line (its label): the mark is
+/// drawn apart from the words, so the text of the page has it on its own.
+fn join_ballots(blocks: &mut Vec<crate::ReadBlock>, layers: &[crate::textlayer::PageText]) {
+    let first_rect = |b: &crate::ReadBlock| {
+        layers
+            .get(b.page)
+            .and_then(|l| l.range_rects(b.start, b.end).first().copied())
+    };
+    let mut k = 0;
+    while k < blocks.len() {
+        let mark = blocks[k].text.trim();
+        if !matches!(mark, "☐" | "☑") {
+            k += 1;
+            continue;
+        }
+        let Some(r) = first_rect(&blocks[k]) else {
+            k += 1;
+            continue;
+        };
+        let h = (r[3] - r[1]).max(1.0);
+        let mid = (r[1] + r[3]) / 2.0;
+        let label = (0..blocks.len())
+            .filter(|&j| j != k && blocks[j].page == blocks[k].page)
+            .find(|&j| {
+                first_rect(&blocks[j]).is_some_and(|q| {
+                    ((q[1] + q[3]) / 2.0 - mid).abs() <= 0.5 * h
+                        && q[0] >= r[2] - 1.0
+                        && q[0] - r[2] <= 2.0 * h
+                })
+            });
+        match label {
+            Some(j) => {
+                let text = format!("{mark} {}", blocks[j].text.trim_start());
+                blocks[j].text = text;
+                blocks.remove(k);
+            }
+            None => k += 1,
+        }
+    }
+}
+
+/// A check box or radio button widget and its state.
+struct Ballot {
+    page: usize,
+    id: lopdf::ObjectId,
+    /// Its area (PDF space).
+    rect: [f32; 4],
+    on: bool,
+}
+
 impl Document {
     /// The text of `pages` as an editable document in `format`; with
     /// `page_breaks` each page begins on a page of its own. The values of
@@ -600,8 +652,18 @@ impl Document {
                 })
                 .collect();
             let list: Vec<usize> = pages.clone().collect();
+            let ballots = self.ballots(pages.clone());
             let flat = self.duplicate().and_then(|mut copy| {
+                // Check boxes and radio buttons go as a ballot mark of their
+                // state, not as what their appearance draws.
+                for b in &ballots {
+                    if let Ok(d) = copy.inner.get_dictionary_mut(b.id) {
+                        let flags = d.get(b"F").ok().and_then(|f| f.as_i64().ok()).unwrap_or(0);
+                        d.set("F", flags | 2);
+                    }
+                }
                 copy.flatten(&list, crate::flatten::FlattenScope::FormFields)?;
+                copy.write_ballots(&ballots)?;
                 copy.set_path(self.path().map(|p| p.to_path_buf()));
                 Ok(copy)
             });
@@ -613,6 +675,120 @@ impl Document {
         self.office_export_of(format, pages, page_breaks, &[])
     }
 
+    /// The check boxes and radio buttons of `pages`, each widget with its
+    /// page, area (PDF space) and whether it is on.
+    fn ballots(&self, pages: Range<usize>) -> Vec<Ballot> {
+        let buttons: std::collections::HashSet<lopdf::ObjectId> = self
+            .form_fields()
+            .into_iter()
+            .filter(|f| matches!(f.kind, crate::FieldKind::CheckBox | crate::FieldKind::RadioButton))
+            .flat_map(|f| f.widgets)
+            .collect();
+        let buttons = &buttons;
+        pages
+            .flat_map(|page| {
+                self.annotations(page)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter_map(move |a| {
+                        let id = a.id.filter(|id| buttons.contains(id))?;
+                        (!a.hidden).then_some((page, id, a.rect))
+                    })
+            })
+            .map(|(page, id, rect)| {
+                let on = self
+                    .inner
+                    .get_dictionary(id)
+                    .ok()
+                    .and_then(|d| d.get(b"AS").ok())
+                    .and_then(|s| s.as_name().ok())
+                    .is_some_and(|n| n != b"Off");
+                Ballot { page, id, rect, on }
+            })
+            .collect()
+    }
+
+    /// Writes the mark of each of `ballots` as invisible text that reads ☑ or
+    /// ☐: just before the words that follow the box on its line (its label),
+    /// or where the box stands.
+    fn write_ballots(&mut self, ballots: &[Ballot]) -> Result<()> {
+        if ballots.is_empty() {
+            return Ok(());
+        }
+        let layers = self.text_layers();
+        self.begin_edit();
+        // Helvetica, its `a` and `b` read as the two marks.
+        let map = b"/CIDInit /ProcSet findresource begin 12 dict begin begincmap\n\
+/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n\
+/CMapName /Folitecta-Ballots def /CMapType 2 def\n\
+1 begincodespacerange <00> <FF> endcodespacerange\n\
+2 beginbfchar <61> <2610> <62> <2611> endbfchar\n\
+endcmap CMapName currentdict /CMap defineresource pop end end\n";
+        let cmap = self
+            .inner
+            .add_object(lopdf::Stream::new(lopdf::Dictionary::new(), map.to_vec()));
+        let font = self.inner.add_object(dictionary! {
+            "Type" => "Font",
+            "Subtype" => "Type1",
+            "BaseFont" => "Helvetica",
+            "Encoding" => "WinAnsiEncoding",
+            "ToUnicode" => cmap,
+        });
+        let ids = self.page_ids();
+        let mut pages: Vec<usize> = ballots.iter().map(|b| b.page).collect();
+        pages.dedup();
+        for page in pages {
+            let Some(&page_id) = ids.get(page) else { continue };
+            let size = self.page_size(page)?;
+            let mut content = String::new();
+            for b in ballots.iter().filter(|b| b.page == page) {
+                let r = crate::marks::pdf_rect_to_display(&size, b.rect);
+                let h = (r[3] - r[1]).max(1.0);
+                let em = (h * 0.9).clamp(6.0, 14.0);
+                let mid = (r[1] + r[3]) / 2.0;
+                // The words after the box on its line, within three of its sizes.
+                let label = layers.get(page).and_then(|l| {
+                    l.glyphs
+                        .iter()
+                        .filter(|g| !g.text.trim().is_empty())
+                        .filter(|g| {
+                            let m = (g.bbox[1] + g.bbox[3]) / 2.0;
+                            (m - mid).abs() <= h.max(g.size) * 0.5
+                                && g.bbox[0] >= r[2] - 0.5
+                                && g.bbox[0] - r[2] <= 3.0 * h.max(g.size)
+                        })
+                        .min_by(|a, b| a.bbox[0].total_cmp(&b.bbox[0]))
+                });
+                let (em, x) = match label {
+                    Some(g) => {
+                        let em = g.size.clamp(4.0, 24.0);
+                        (em, g.bbox[0] - 0.556 * em - 0.35 * em)
+                    }
+                    None => (em, r[0]),
+                };
+                // Baseline: the middle of the mark on the middle of the box.
+                let base = mid + 0.3 * em;
+                let (u, v) = (x, size.height - base);
+                let o = crate::marks::display_to_pdf(&size, u, v);
+                let ex = crate::marks::display_to_pdf(&size, u + 1.0, v);
+                let ey = crate::marks::display_to_pdf(&size, u, v + 1.0);
+                content.push_str(&format!(
+                    "BT 3 Tr /FolBallot {em:.2} Tf {:.4} {:.4} {:.4} {:.4} {:.2} {:.2} Tm ({}) Tj ET\n",
+                    ex.0 - o.0,
+                    ex.1 - o.1,
+                    ey.0 - o.0,
+                    ey.1 - o.1,
+                    o.0,
+                    o.1,
+                    if b.on { "b" } else { "a" },
+                ));
+            }
+            self.add_page_resource(page_id, "Font", "FolBallot", lopdf::Object::Reference(font))?;
+            self.append_page_content(page_id, format!("q\n{content}Q\n").into_bytes(), None)?;
+        }
+        self.commit()
+    }
+
     /// The export of `pages`; the text inside `fields` (page and area, in
     /// display space) goes by its place on the page, not by when it is drawn.
     fn office_export_of(
@@ -622,16 +798,17 @@ impl Document {
         page_breaks: bool,
         fields: &[(usize, [f32; 4])],
     ) -> Result<OfficeExport> {
-        let blocks: Vec<_> = self
+        let layers = self.text_layers();
+        let mut blocks: Vec<_> = self
             .reading_blocks(pages.clone())
             .into_iter()
             .filter(|b| !b.text.trim().is_empty())
             .collect();
+        join_ballots(&mut blocks, &layers);
         // Page by page, each picture and table before the first paragraph
         // below its top; the paragraphs inside a table are its cells.
         let mut pieces: Vec<Piece> = Vec::new();
         let mut skipped = 0;
-        let layers = self.text_layers();
         for page in pages.clone() {
             let texts: Vec<_> = blocks.iter().filter(|b| b.page == page).collect();
             let (pictures, left) = self.office_pictures(page, !texts.is_empty());

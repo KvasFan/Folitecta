@@ -129,17 +129,26 @@ fn nodes_are_added_and_removed() {
 fn drawings_snap_to_the_corners_and_ends_of_the_paths() {
     let doc = drawing();
     let points = doc.snap_points(0);
-    // The triangle's three nodes, the rectangle's four corners.
+    // The triangle's three nodes and the middles of its sides (the one that
+    // closes it too), the rectangle's four corners and the middles of its
+    // sides; nothing else (no two sides cross).
     for p in [
         [20.0, 20.0],
         [120.0, 20.0],
         [70.0, 100.0],
+        [70.0, 20.0],
+        [95.0, 60.0],
+        [45.0, 60.0],
         [150.0, 150.0],
         [210.0, 150.0],
         [210.0, 190.0],
         [150.0, 190.0],
+        [180.0, 150.0],
+        [210.0, 170.0],
+        [180.0, 190.0],
+        [150.0, 170.0],
     ] {
         assert!(points.contains(&p), "{p:?} in {points:?}");
     }
-    assert_eq!(points.len(), 7, "{points:?}");
+    assert_eq!(points.len(), 14, "{points:?}");
 }

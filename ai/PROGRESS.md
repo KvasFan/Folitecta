@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — FOL-L028, FOL-L021: snapping to middles and crossings, fill rule (0.80.0)
+
+- **Current state before:** snapping to objects took nodes and the corners of rectangles only
+  (the gap of FOL-L028); Fill Rule was planned.
+- **What:** `paths.rs`: `straight_segments` (lines and closing edges, from the nodes found and the
+  operations of the path), `crossing` (inside both segments), `snap_points` with the middles of
+  the segments and of the sides of rectangles and the crossings of the first 400 segments, close
+  points kept once; `PagePath::even_odd`, `set_path_fill_rule` (`f`/`F`, `B`, `b` with or without
+  `*`; a path that is not filled refused). App: `fillRule` on the chosen path, a note of the rule.
+- **Checked:** `paths.rs` `middles_and_crossings_are_snap_points`, `the_fill_rule_of_a_path`;
+  self-test steps `paths` and `snap_objects` (9 interactions, 0 problems): the middle of a line
+  and of the side of a box, Fill Rule even-odd and undone; clippy on the workspace.
+- **Open:** Remove Clip (a clip removed changes all that is drawn under it, not only the path
+  chosen).
+
 ## 2026-11-09 — FOL-L021: shapes through three points (0.79.0)
 
 - **Current state before:** Path Editing › 3 Point (Arc, Circle, Rect) planned.

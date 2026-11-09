@@ -137,6 +137,59 @@ fn three_point_ops(shape: ThreePoint, points: [[f32; 2]; 3]) -> Result<Vec<Opera
     Ok(ops)
 }
 
+/// The straight segments of path `p` of `content` (page space): its lines
+/// and the edges that close its subpaths.
+fn straight_segments(content: &Content, p: &PagePath) -> Vec<([f32; 2], [f32; 2])> {
+    // The point each operation ends at, from the nodes found.
+    let mut ends: std::collections::HashMap<usize, [f32; 2]> = std::collections::HashMap::new();
+    for n in &p.nodes {
+        ends.insert(n.op, n.at);
+    }
+    let mut out = Vec::new();
+    let (mut current, mut start): (Option<[f32; 2]>, Option<[f32; 2]>) = (None, None);
+    for k in p.first..=p.last {
+        let op = content.operations[k].operator.as_str();
+        let end = ends.get(&k).copied();
+        match op {
+            "m" => {
+                current = end;
+                start = end;
+            }
+            "l" => {
+                if let (Some(a), Some(b)) = (current, end) {
+                    out.push((a, b));
+                }
+                current = end;
+            }
+            "c" | "v" | "y" => current = end,
+            "h" | "s" | "b" | "b*" => {
+                if let (Some(a), Some(b)) = (current, start) {
+                    if a != b {
+                        out.push((a, b));
+                    }
+                }
+                current = start;
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+/// Where segments `s` and `t` cross, inside both.
+fn crossing(s: ([f32; 2], [f32; 2]), t: ([f32; 2], [f32; 2])) -> Option<[f32; 2]> {
+    let (p, r) = (s.0, [s.1[0] - s.0[0], s.1[1] - s.0[1]]);
+    let (q, u) = (t.0, [t.1[0] - t.0[0], t.1[1] - t.0[1]]);
+    let den = r[0] * u[1] - r[1] * u[0];
+    if den.abs() < 1e-6 {
+        return None;
+    }
+    let qp = [q[0] - p[0], q[1] - p[1]];
+    let a = (qp[0] * u[1] - qp[1] * u[0]) / den;
+    let b = (qp[0] * r[1] - qp[1] * r[0]) / den;
+    ((0.0..=1.0).contains(&a) && (0.0..=1.0).contains(&b)).then(|| [p[0] + a * r[0], p[1] + a * r[1]])
+}
+
 /// A path the page content draws.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PagePath {
@@ -151,6 +204,8 @@ pub struct PagePath {
     pub stroke: Option<[f32; 3]>,
     pub fill: Option<[f32; 3]>,
     pub width: f32,
+    /// Filled by the even-odd rule (else the nonzero winding rule).
+    pub even_odd: bool,
     /// The operations of the path: its first construction and its painting.
     first: usize,
     last: usize,
@@ -336,6 +391,7 @@ fn find_paths(content: &Content, base: Affine) -> Vec<PagePath> {
                             stroke: state.stroke,
                             fill: state.fill,
                             width: state.width,
+                            even_odd: o.ends_with('*'),
                             first: start,
                             last: i,
                             to_user: state.ctm.inverse().as_coeffs(),
@@ -368,21 +424,51 @@ impl Document {
     }
 
     /// The points of page `page` that drawings can be snapped to (PDF user
-    /// space): the nodes of its paths, the four corners of its rectangles.
+    /// space): the nodes of its paths, the four corners of its rectangles,
+    /// the middles of their straight segments and where two of them cross.
     pub fn snap_points(&self, page: usize) -> Vec<[f32; 2]> {
+        let Ok((content, base)) = self.page_content_ops(page) else {
+            return Vec::new();
+        };
         let mut out = Vec::new();
-        for p in self.page_paths(page).unwrap_or_default() {
+        let mut segments: Vec<([f32; 2], [f32; 2])> = Vec::new();
+        for p in find_paths(&content, base) {
             let rects = p.rectangles();
             if rects.is_empty() {
                 out.extend(p.nodes.iter().map(|n| n.at));
+                segments.extend(straight_segments(&content, &p));
             } else {
                 for r in rects {
-                    out.extend([[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]]);
+                    let c = [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]];
+                    out.extend(c);
+                    segments.extend((0..4).map(|k| (c[k], c[(k + 1) % 4])));
                 }
             }
         }
-        out.dedup();
-        out
+        out.extend(
+            segments
+                .iter()
+                .map(|(a, b)| [(a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0]),
+        );
+        // Where two segments cross (a page of many lines: the first ones).
+        let few = &segments[..segments.len().min(400)];
+        for (i, s) in few.iter().enumerate() {
+            for t in &few[i + 1..] {
+                if let Some(x) = crossing(*s, *t) {
+                    out.push(x);
+                }
+            }
+        }
+        let mut kept: Vec<[f32; 2]> = Vec::with_capacity(out.len());
+        for p in out {
+            if !kept
+                .iter()
+                .any(|k| (k[0] - p[0]).abs() < 0.25 && (k[1] - p[1]).abs() < 0.25)
+            {
+                kept.push(p);
+            }
+        }
+        kept
     }
 
     /// The topmost path of page `page` near `(x, y)` (page space), within
@@ -741,6 +827,23 @@ impl Document {
         self.write_page_content(page, &Content { operations: ops })
     }
 
+    /// Fill path `path` of page `page` by the even-odd rule or by the
+    /// nonzero winding rule. One undo step.
+    pub fn set_path_fill_rule(&mut self, page: usize, path: usize, even_odd: bool) -> Result<()> {
+        let (mut content, base) = self.page_content_ops(page)?;
+        let paths = find_paths(&content, base);
+        let p = paths
+            .get(path)
+            .ok_or_else(|| Error::Invalid("no such path".into()))?;
+        if !p.filled {
+            return Err(Error::Invalid("the path is not filled".into()));
+        }
+        let op = &mut content.operations[p.last];
+        let plain = op.operator.trim_end_matches('*').replace('F', "f");
+        op.operator = if even_odd { format!("{plain}*") } else { plain };
+        self.write_page_content(page, &content)
+    }
+
     /// Delete path `path` of page `page`.
     pub fn delete_path(&mut self, page: usize, path: usize) -> Result<()> {
         let (content, base) = self.page_content_ops(page)?;
@@ -907,6 +1010,59 @@ mod tests {
         );
         doc.undo().unwrap();
         assert_eq!(doc.page_paths(0).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn middles_and_crossings_are_snap_points() {
+        let mut b = crate::testdocs::Builder::new();
+        let content =
+            b"10 10 m 110 10 l S 30 0 m 30 100 l S 200 200 m 260 200 l 230 260 l h S 300 300 40 20 re f";
+        b.page((400.0, 400.0), content.to_vec(), Dictionary::new(), vec![]);
+        let doc = Document::from_bytes(b.finish(), None, None).unwrap();
+        let points = doc.snap_points(0);
+        let has = |x: f32, y: f32| {
+            points
+                .iter()
+                .any(|p| (p[0] - x).abs() < 0.01 && (p[1] - y).abs() < 0.01)
+        };
+        // Ends, middles and the crossing of the two lines.
+        for (x, y) in [
+            (10.0, 10.0),
+            (110.0, 10.0),
+            (60.0, 10.0),
+            (30.0, 50.0),
+            (30.0, 10.0),
+        ] {
+            assert!(has(x, y), "{x},{y}: {points:?}");
+        }
+        // The middle of the edge that closes the triangle.
+        assert!(has(215.0, 230.0), "{points:?}");
+        // The corners and the middles of the sides of the rectangle.
+        for (x, y) in [(340.0, 320.0), (320.0, 300.0), (340.0, 310.0)] {
+            assert!(has(x, y), "{x},{y}: {points:?}");
+        }
+    }
+
+    #[test]
+    fn the_fill_rule_of_a_path() {
+        let mut b = crate::testdocs::Builder::new();
+        b.page(
+            (200.0, 200.0),
+            b"10 10 m 90 10 l 50 90 l h F 0 0 m 5 5 l S".to_vec(),
+            Dictionary::new(),
+            vec![],
+        );
+        let mut doc = Document::from_bytes(b.finish(), None, None).unwrap();
+        assert!(!doc.page_paths(0).unwrap()[0].even_odd);
+        doc.set_path_fill_rule(0, 0, true).unwrap();
+        assert!(doc.page_paths(0).unwrap()[0].even_odd);
+        doc.set_path_fill_rule(0, 0, false).unwrap();
+        let (c, _) = doc.page_content_ops(0).unwrap();
+        assert!(c.operations.iter().any(|o| o.operator == "f"));
+        assert!(
+            doc.set_path_fill_rule(0, 1, true).is_err(),
+            "a line is not filled"
+        );
     }
 
     #[test]

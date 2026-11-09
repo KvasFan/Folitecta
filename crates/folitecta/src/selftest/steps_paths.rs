@@ -189,6 +189,34 @@ layer.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left
         chosen == 1.0 && buttons == 4.0 && curved == 5 && straight == 3,
         format!("chosen {chosen}, buttons {buttons}, nodes when smooth {curved}, when straight {straight}"),
     );
+    // Fill Rule on the rectangle: even-odd, then undone.
+    crate::commands::paths::choose(st, 0, 1);
+    pause(200).await;
+    crate::commands::dispatch(st, "fillRule");
+    pause(300).await;
+    let even_odd = st
+        .read_active(|t| {
+            t.doc
+                .page_paths(0)
+                .ok()
+                .and_then(|p| p.get(1).map(|x| x.even_odd))
+        })
+        .flatten();
+    crate::commands::dispatch(st, "undo");
+    pause(300).await;
+    let nonzero = st
+        .read_active(|t| {
+            t.doc
+                .page_paths(0)
+                .ok()
+                .and_then(|p| p.get(1).map(|x| x.even_odd))
+        })
+        .flatten();
+    cx.record(
+        "edit paths: Fill Rule fills the chosen path by the even-odd rule, undone",
+        even_odd == Some(true) && nonzero == Some(false),
+        format!("after Fill Rule {even_odd:?}, after undo {nonzero:?}"),
+    );
     // A circle through three clicks (display points, y down): centre 300,250
     // and radius 50 on the page.
     let count = |st: AppState| {

@@ -248,6 +248,42 @@ fn three_point(st: AppState, shape: folitecta_core::ThreePoint) {
     select_tool(st, Tool::ThreePoint(shape));
 }
 
+/// The chosen path filled by the other rule (nonzero or even-odd).
+fn fill_rule(st: AppState) {
+    let Some((page, index)) = selected(st) else {
+        st.toast(
+            crate::state::ToastKind::Info,
+            crate::i18n::t(st.lang(), "paths.choose_path"),
+            "",
+        );
+        return;
+    };
+    let result = st.with_active(|t| {
+        let even_odd = t
+            .doc
+            .page_paths(page)?
+            .get(index)
+            .map(|p| p.even_odd)
+            .unwrap_or(false);
+        t.doc
+            .set_path_fill_rule(page, index, !even_odd)
+            .map(|_| !even_odd)
+    });
+    match result {
+        Some(Ok(even_odd)) => {
+            crate::files::set_window_title(st);
+            let key = if even_odd {
+                "paths.even_odd"
+            } else {
+                "paths.nonzero"
+            };
+            st.toast(crate::state::ToastKind::Info, crate::i18n::t(st.lang(), key), "");
+        }
+        Some(Err(e)) => st.error(st.core_error_text(&e)),
+        None => {}
+    }
+}
+
 fn arc(st: AppState) {
     three_point(st, folitecta_core::ThreePoint::Arc);
 }
@@ -262,6 +298,7 @@ fn rect(st: AppState) {
 
 handlers! {
     "tool.editContent.shapes" => tool,
+    "fillRule" => fill_rule,
     "pathedit.3point.arc" => arc,
     "pathedit.3point.circle" => circle,
     "pathedit.3point.rect" => rect,

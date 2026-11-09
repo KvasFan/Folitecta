@@ -4,6 +4,22 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — FOL-L021: shapes through three points (0.79.0)
+
+- **Current state before:** Path Editing › 3 Point (Arc, Circle, Rect) planned.
+- **What:** `paths.rs`: `ThreePoint`, `circle_through` (circumcentre; points on one line refused),
+  `arc_curves` (pieces of at most a quarter turn, handles `4/3·tan(φ/4)·r`), `three_point_ops`
+  (rectangle: a side from the first point to the second, the height the distance of the third
+  from it, turned as the side is; arc: anticlockwise when the second point lies that way, else
+  clockwise), `add_three_point_shape` appends `q RG w … S Q` to the page content in one undo step.
+  App: `Tool::ThreePoint(shape)` is a multi-click tool finished by its third point, drawn with the
+  Line tool's colour and width; the three commands choose it.
+- **Checked:** `paths.rs` `shapes_through_three_points` (the circle's bounds, upper and lower half
+  arcs by the second point, a turned rectangle's corners, points on one line refused, one undo);
+  self-test step `paths` (6 interactions, 0 problems): three clicks draw the circle of centre
+  300,250 and radius 50, undone; app tests and clippy.
+- **Open:** clipping paths (Remove Clip), fill rule.
+
 ## 2026-11-09 — FOL-L021: nodes made smooth, corner or straight (0.78.0)
 
 - **Current state before:** the nodes of a path could be moved, added and removed, not converted

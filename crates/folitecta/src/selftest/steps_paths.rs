@@ -4,7 +4,9 @@
 //! deleted; each change undone. On the triangle, a double click on its
 //! bottom edge adds a node there, a double click on that node removes it; a
 //! click on its top node chooses it, Smooth on the bar makes the edge to it
-//! a curve, Convert › Straight makes it straight again.
+//! a curve, Convert › Straight makes it straight again. Path Editing › 3
+//! Point › Circle and three clicks draw a circle through them in the page
+//! content, undone in one step.
 
 use super::*;
 
@@ -186,6 +188,38 @@ layer.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left
         "edit paths: a click chooses a node; Smooth on the bar makes the edge to it a curve, Convert › Straight a line again",
         chosen == 1.0 && buttons == 4.0 && curved == 5 && straight == 3,
         format!("chosen {chosen}, buttons {buttons}, nodes when smooth {curved}, when straight {straight}"),
+    );
+    // A circle through three clicks (display points, y down): centre 300,250
+    // and radius 50 on the page.
+    let count = |st: AppState| {
+        st.read_active(|t| t.doc.page_paths(0).map(|p| p.len()).unwrap_or(0))
+            .unwrap_or(0)
+    };
+    let before = count(st);
+    crate::commands::dispatch(st, "pathedit.3point.circle");
+    pause(300).await;
+    let z = crate::commands::current_zoom(st);
+    for p in [(250.0, 150.0), (300.0, 100.0), (350.0, 150.0)] {
+        let _ = pointer_path(0, z, &[p], false).await;
+        pause(250).await;
+    }
+    pause(300).await;
+    let circle = st
+        .read_active(|t| t.doc.page_paths(0).ok().and_then(|p| p.last().map(|x| x.bounds)))
+        .flatten()
+        .unwrap_or_default();
+    let drawn = count(st);
+    crate::commands::dispatch(st, "undo");
+    pause(300).await;
+    let undone = count(st);
+    let near = circle
+        .iter()
+        .zip([250.0, 200.0, 350.0, 300.0])
+        .all(|(a, b)| (a - b).abs() < 3.0);
+    cx.record(
+        "edit paths: 3 Point › Circle and three clicks draw a circle through them in the page content, undone in one step",
+        drawn == before + 1 && near && undone == before,
+        format!("paths {before} → {drawn} → {undone} after undo, the circle within {circle:?}"),
     );
     st.set_tool(Tool::Hand);
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);

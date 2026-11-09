@@ -754,6 +754,14 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    out); a click on a node of the chosen path chooses it, and the bar over the path or Edit ›
    Path Editing converts it or adds a node halfway to the next one.
 
+### 0.79.0 — shapes through three points (on `main`, untagged)
+
+1. ~~**FOL-L021 — 3 Point › Arc, Circle, Rect.**~~ Done: `add_three_point_shape` (`ThreePoint`):
+   the circle through three points (four quarter curves), the arc from the first through the
+   second to the third (the way that passes the second, in quarter-turn curves) and the rectangle
+   with one side from the first to the second as high as the third is from it, stroked with the
+   colour and width of the Line tool, in the page content; a tool finished by its third click.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

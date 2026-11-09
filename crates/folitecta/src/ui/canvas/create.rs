@@ -161,6 +161,16 @@ pub fn finish_drawing(st: AppState) {
                 &author,
             )
             .map(|_| ()),
+        Tool::ThreePoint(shape) if pdf.len() >= 3 => {
+            let line = style("Line");
+            t.doc.add_three_point_shape(
+                page,
+                shape,
+                [[pdf[0].0, pdf[0].1], [pdf[1].0, pdf[1].1], [pdf[2].0, pdf[2].1]],
+                line.color.unwrap_or([0.0; 3]),
+                line.width,
+            )
+        }
         Tool::Angle if pdf.len() >= 3 => t
             .doc
             .add_angle_measure(page, [pdf[0], pdf[1], pdf[2]], &style("Angle"), &scale, &author)

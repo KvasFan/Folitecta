@@ -37,6 +37,106 @@ pub enum NodeKind {
     Smooth,
 }
 
+/// A shape drawn with three clicks (Edit › Path Editing › 3 Point).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ThreePoint {
+    /// From the first point through the second to the third.
+    Arc,
+    /// Through the three points.
+    Circle,
+    /// One side from the first point to the second, as high as the third.
+    Rect,
+}
+
+/// The circle through three points: centre and radius; None when they are
+/// on one line.
+fn circle_through(a: [f64; 2], b: [f64; 2], c: [f64; 2]) -> Option<([f64; 2], f64)> {
+    let d = 2.0 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1]));
+    let size = (b[0] - a[0]).abs() + (b[1] - a[1]).abs() + (c[0] - a[0]).abs() + (c[1] - a[1]).abs();
+    if d.abs() < 1e-6 * size.max(1.0) * size.max(1.0) {
+        return None;
+    }
+    let sq = |p: [f64; 2]| p[0] * p[0] + p[1] * p[1];
+    let x = (sq(a) * (b[1] - c[1]) + sq(b) * (c[1] - a[1]) + sq(c) * (a[1] - b[1])) / d;
+    let y = (sq(a) * (c[0] - b[0]) + sq(b) * (a[0] - c[0]) + sq(c) * (b[0] - a[0])) / d;
+    let r = ((a[0] - x).powi(2) + (a[1] - y).powi(2)).sqrt();
+    Some(([x, y], r))
+}
+
+/// Curves (`c` operands) along a circle from angle `from`, `sweep` radians
+/// (negative: clockwise), in pieces of at most a quarter turn.
+fn arc_curves(centre: [f64; 2], r: f64, from: f64, sweep: f64) -> Vec<[f64; 6]> {
+    let n = (sweep.abs() / std::f64::consts::FRAC_PI_2).ceil().max(1.0) as usize;
+    let step = sweep / n as f64;
+    let k = 4.0 / 3.0 * (step / 4.0).tan();
+    let at = |t: f64| [centre[0] + r * t.cos(), centre[1] + r * t.sin()];
+    (0..n)
+        .map(|i| {
+            let (t0, t1) = (from + step * i as f64, from + step * (i + 1) as f64);
+            let (p0, p1) = (at(t0), at(t1));
+            [
+                p0[0] - k * r * t0.sin(),
+                p0[1] + k * r * t0.cos(),
+                p1[0] + k * r * t1.sin(),
+                p1[1] - k * r * t1.cos(),
+                p1[0],
+                p1[1],
+            ]
+        })
+        .collect()
+}
+
+/// The operations of `shape` through `points` (PDF user space).
+fn three_point_ops(shape: ThreePoint, points: [[f32; 2]; 3]) -> Result<Vec<Operation>> {
+    let [a, b, c] = points.map(|p| [p[0] as f64, p[1] as f64]);
+    let real = |v: &[f64]| v.iter().map(|x| Object::Real(*x as f32)).collect::<Vec<_>>();
+    let on_a_line = || Error::Invalid("the three points are on one line".into());
+    let mut ops = Vec::new();
+    match shape {
+        ThreePoint::Rect => {
+            let (dx, dy) = (b[0] - a[0], b[1] - a[1]);
+            let len = (dx * dx + dy * dy).sqrt();
+            if len < 1e-6 {
+                return Err(on_a_line());
+            }
+            let n = [-dy / len, dx / len];
+            let h = (c[0] - a[0]) * n[0] + (c[1] - a[1]) * n[1];
+            if h.abs() < 1e-3 {
+                return Err(on_a_line());
+            }
+            let up = |p: [f64; 2]| [p[0] + n[0] * h, p[1] + n[1] * h];
+            ops.push(Operation::new("m", real(&a)));
+            for p in [b, up(b), up(a)] {
+                ops.push(Operation::new("l", real(&p)));
+            }
+            ops.push(Operation::new("h", Vec::new()));
+        }
+        ThreePoint::Circle => {
+            let (o, r) = circle_through(a, b, c).ok_or_else(on_a_line)?;
+            ops.push(Operation::new("m", real(&[o[0] + r, o[1]])));
+            for v in arc_curves(o, r, 0.0, std::f64::consts::TAU) {
+                ops.push(Operation::new("c", real(&v)));
+            }
+            ops.push(Operation::new("h", Vec::new()));
+        }
+        ThreePoint::Arc => {
+            let (o, r) = circle_through(a, b, c).ok_or_else(on_a_line)?;
+            let angle = |p: [f64; 2]| (p[1] - o[1]).atan2(p[0] - o[0]);
+            let tau = std::f64::consts::TAU;
+            let turn = |from: f64, to: f64| (to - from).rem_euclid(tau);
+            let (ta, tb, tc) = (angle(a), angle(b), angle(c));
+            // Anticlockwise when the second point is on the way, else clockwise.
+            let ccw = turn(ta, tc);
+            let sweep = if turn(ta, tb) <= ccw { ccw } else { ccw - tau };
+            ops.push(Operation::new("m", real(&a)));
+            for v in arc_curves(o, r, ta, sweep) {
+                ops.push(Operation::new("c", real(&v)));
+            }
+        }
+    }
+    Ok(ops)
+}
+
 /// A path the page content draws.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PagePath {
@@ -572,6 +672,34 @@ impl Document {
         self.write_page_content(page, &content)
     }
 
+    /// Draw `shape` through `points` (PDF user space of the page) on page
+    /// `page`, stroked in `colour` `width` points wide, in the page content.
+    /// One undo step.
+    pub fn add_three_point_shape(
+        &mut self,
+        page: usize,
+        shape: ThreePoint,
+        points: [[f32; 2]; 3],
+        colour: [f32; 3],
+        width: f32,
+    ) -> Result<()> {
+        let page_id = self.page_id(page)?;
+        let mut ops = vec![
+            Operation::new("q", Vec::new()),
+            Operation::new("RG", colour.iter().map(|v| Object::Real(*v)).collect()),
+            Operation::new("w", vec![Object::Real(width.max(0.0))]),
+        ];
+        ops.extend(three_point_ops(shape, points)?);
+        ops.push(Operation::new("S", Vec::new()));
+        ops.push(Operation::new("Q", Vec::new()));
+        let data = Content { operations: ops }
+            .encode()
+            .map_err(|e| Error::Invalid(format!("the shape cannot be written: {e}")))?;
+        self.begin_edit();
+        self.append_page_content(page_id, data, None)?;
+        self.commit()
+    }
+
     /// Change the colours or the line width of path `path` of page `page`
     /// (`None`: as it is).
     pub fn set_path_style(
@@ -696,6 +824,89 @@ mod tests {
                 "S"
             ],
         );
+    }
+
+    #[test]
+    fn shapes_through_three_points() {
+        let mut b = crate::testdocs::Builder::new();
+        b.page((300.0, 300.0), Vec::new(), Dictionary::new(), vec![]);
+        let mut doc = Document::from_bytes(b.finish(), None, None).unwrap();
+        let near = |a: [f32; 4], b: [f32; 4]| a.iter().zip(b).all(|(x, y)| (x - y).abs() < 0.6);
+        // The circle through three points of the circle of centre 150,150 and radius 50.
+        doc.add_three_point_shape(
+            0,
+            ThreePoint::Circle,
+            [[100.0, 150.0], [150.0, 200.0], [200.0, 150.0]],
+            [1.0, 0.0, 0.0],
+            2.0,
+        )
+        .unwrap();
+        let paths = doc.page_paths(0).unwrap();
+        assert_eq!(paths.len(), 1);
+        assert!(paths[0].stroked && !paths[0].filled);
+        assert_eq!(paths[0].stroke, Some([1.0, 0.0, 0.0]));
+        // The nodes of four quarters: the handles reach out to the box.
+        assert!(
+            near(paths[0].bounds, [100.0, 100.0, 200.0, 200.0]),
+            "{:?}",
+            paths[0].bounds
+        );
+        // The upper half: from the left through the top to the right.
+        doc.add_three_point_shape(
+            0,
+            ThreePoint::Arc,
+            [[100.0, 150.0], [150.0, 200.0], [200.0, 150.0]],
+            [0.0; 3],
+            1.0,
+        )
+        .unwrap();
+        let arc = &doc.page_paths(0).unwrap()[1];
+        assert!(near(arc.bounds, [100.0, 150.0, 200.0, 200.0]), "{:?}", arc.bounds);
+        assert_eq!(arc.nodes.len(), 1 + 2 * 3, "two quarters");
+        // The lower half when the second point is below.
+        doc.add_three_point_shape(
+            0,
+            ThreePoint::Arc,
+            [[100.0, 150.0], [150.0, 100.0], [200.0, 150.0]],
+            [0.0; 3],
+            1.0,
+        )
+        .unwrap();
+        let arc = &doc.page_paths(0).unwrap()[2];
+        assert!(near(arc.bounds, [100.0, 100.0, 200.0, 150.0]), "{:?}", arc.bounds);
+        // A rectangle turned: a side from 100,100 to 130,140, as high as the
+        // third point is from it (12).
+        doc.add_three_point_shape(
+            0,
+            ThreePoint::Rect,
+            [[100.0, 100.0], [130.0, 140.0], [100.0, 120.0]],
+            [0.0; 3],
+            1.0,
+        )
+        .unwrap();
+        let rect = &doc.page_paths(0).unwrap()[3];
+        let corners: Vec<[f32; 2]> = rect
+            .nodes
+            .iter()
+            .map(|n| [(n.at[0] * 10.0).round() / 10.0, (n.at[1] * 10.0).round() / 10.0])
+            .collect();
+        assert_eq!(
+            corners,
+            vec![[100.0, 100.0], [130.0, 140.0], [120.4, 147.2], [90.4, 107.2]]
+        );
+        // Three points on one line make nothing; one undo step a shape.
+        assert!(
+            doc.add_three_point_shape(
+                0,
+                ThreePoint::Circle,
+                [[0.0, 0.0], [10.0, 10.0], [20.0, 20.0]],
+                [0.0; 3],
+                1.0
+            )
+            .is_err()
+        );
+        doc.undo().unwrap();
+        assert_eq!(doc.page_paths(0).unwrap().len(), 3);
     }
 
     #[test]

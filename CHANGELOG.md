@@ -11,6 +11,9 @@ All notable changes to Folitecta are documented here. The format follows
   corner, smooth (its handles on one line, straight sides made curves) or straight (the segments
   at it made lines), and Anchors › Add puts a node halfway to the next one, from the bar over the
   path or Edit › Path Editing; one undo step each.
+- Edit › Path Editing › 3 Point draws an arc from the first click through the second to the third,
+  a circle through three clicks or a rectangle with one side between the first two clicks as high
+  as the third, in the page content with the colour and width of the Line tool.
 - The exports to Word, rich text and web page write check boxes and radio buttons as ☑ or ☐ before
   their labels, or in their table cells, as they are set.
 - Lists within lists keep their levels in the exports to Word, rich text and web page: the web page

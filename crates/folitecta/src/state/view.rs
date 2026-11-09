@@ -96,6 +96,9 @@ pub enum Tool {
     OcrRegion,
     /// Draw the parts of a new article thread.
     Article,
+    /// Three clicks: an arc, a circle or a rectangle drawn in the page
+    /// content (Edit › Path Editing › 3 Point).
+    ThreePoint(folitecta_core::ThreePoint),
 }
 
 impl Tool {
@@ -196,6 +199,9 @@ impl Tool {
             Tool::TextCorrection => "tool.textCorrectionMarkup",
             Tool::OcrRegion => "document.OCRSelRgn",
             Tool::Article => "tool.article",
+            Tool::ThreePoint(folitecta_core::ThreePoint::Arc) => "pathedit.3point.arc",
+            Tool::ThreePoint(folitecta_core::ThreePoint::Circle) => "pathedit.3point.circle",
+            Tool::ThreePoint(folitecta_core::ThreePoint::Rect) => "pathedit.3point.rect",
         }
     }
 
@@ -265,6 +271,9 @@ impl Tool {
             Tool::TextCorrection => "tool.text_correction",
             Tool::OcrRegion => "tool.ocr_region",
             Tool::Article => "tool.article",
+            Tool::ThreePoint(folitecta_core::ThreePoint::Arc) => "tool.three_point_arc",
+            Tool::ThreePoint(folitecta_core::ThreePoint::Circle) => "tool.three_point_circle",
+            Tool::ThreePoint(folitecta_core::ThreePoint::Rect) => "tool.three_point_rect",
         }
     }
 
@@ -296,6 +305,7 @@ impl Tool {
                 | Tool::Area
                 | Tool::Angle
                 | Tool::Volume
+                | Tool::ThreePoint(_)
         )
     }
 }

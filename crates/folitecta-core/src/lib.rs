@@ -95,7 +95,7 @@ pub use office::{OfficeExport, OfficeFormat};
 pub use outline::{BookmarkTarget, DestView, OutlineItem};
 pub use page_tables::FoundTable;
 pub use pagetools::{Sides, TRANSITIONS};
-pub use paths::{NodeKind, PagePath, PathNode};
+pub use paths::{NodeKind, PagePath, PathNode, ThreePoint};
 pub use pdfa::{Conversion, Finding, Preflight};
 pub use reading::ReadBlock;
 pub use recompress::{

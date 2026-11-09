@@ -223,7 +223,14 @@ pub fn colour_hex(c: [f32; 3]) -> String {
 
 /// Check state of the tool.
 pub fn paths_state(st: AppState, id: &str) -> Option<bool> {
-    (id == "tool.editContent.shapes").then(|| (st.tool)() == Tool::EditPaths)
+    let tool = (st.tool)();
+    match id {
+        "tool.editContent.shapes" => Some(tool == Tool::EditPaths),
+        "pathedit.3point.arc" => Some(tool == Tool::ThreePoint(folitecta_core::ThreePoint::Arc)),
+        "pathedit.3point.circle" => Some(tool == Tool::ThreePoint(folitecta_core::ThreePoint::Circle)),
+        "pathedit.3point.rect" => Some(tool == Tool::ThreePoint(folitecta_core::ThreePoint::Rect)),
+        _ => None,
+    }
 }
 
 fn tool(st: AppState) {
@@ -233,8 +240,31 @@ fn tool(st: AppState) {
     select_tool(st, Tool::EditPaths);
 }
 
+/// Draw an arc, a circle or a rectangle with three clicks.
+fn three_point(st: AppState, shape: folitecta_core::ThreePoint) {
+    if no_doc(st) {
+        return;
+    }
+    select_tool(st, Tool::ThreePoint(shape));
+}
+
+fn arc(st: AppState) {
+    three_point(st, folitecta_core::ThreePoint::Arc);
+}
+
+fn circle(st: AppState) {
+    three_point(st, folitecta_core::ThreePoint::Circle);
+}
+
+fn rect(st: AppState) {
+    three_point(st, folitecta_core::ThreePoint::Rect);
+}
+
 handlers! {
     "tool.editContent.shapes" => tool,
+    "pathedit.3point.arc" => arc,
+    "pathedit.3point.circle" => circle,
+    "pathedit.3point.rect" => rect,
     "pathedit.convert.corner" => corner,
     "pathedit.convert.smooth" => smooth,
     "pathedit.convert.straight" => straight,

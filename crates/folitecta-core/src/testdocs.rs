@@ -366,6 +366,40 @@ pub fn photo_doc(pages: usize) -> Vec<u8> {
     b.finish()
 }
 
+/// One picture (20 × 20, red) drawn three times: twice on the first page,
+/// once on the second.
+pub fn shared_picture_doc() -> Vec<u8> {
+    let mut b = Builder::new();
+    let px: Vec<u8> = (0..20 * 20).flat_map(|_| [200u8, 30, 30]).collect();
+    let mut s = Stream::new(
+        dictionary! {
+            "Type" => "XObject",
+            "Subtype" => "Image",
+            "Width" => 20,
+            "Height" => 20,
+            "ColorSpace" => "DeviceRGB",
+            "BitsPerComponent" => 8,
+        },
+        px,
+    );
+    let _ = s.compress();
+    let img = b.doc.add_object(s);
+    let res = || dictionary! { "XObject" => dictionary! { "Im0" => img } };
+    b.page(
+        (300.0, 300.0),
+        b"q 60 0 0 60 20 20 cm /Im0 Do Q q 60 0 0 60 150 150 cm /Im0 Do Q\n".to_vec(),
+        res(),
+        vec![],
+    );
+    b.page(
+        (300.0, 300.0),
+        b"q 80 0 0 80 100 100 cm /Im0 Do Q\n".to_vec(),
+        res(),
+        vec![],
+    );
+    b.finish()
+}
+
 /// Scanned A4 pages at 300 dpi (2480×3508): grey JPEG pages and a last page
 /// in black and white (1 bit, Flate).
 pub fn scan_doc(pages: usize) -> Vec<u8> {

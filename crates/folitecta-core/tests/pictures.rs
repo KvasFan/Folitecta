@@ -436,3 +436,25 @@ fn a_turn_everywhere_needs_drawings_of_the_same_shape() {
         2
     );
 }
+
+#[test]
+fn a_picture_drawn_three_times_is_replaced_everywhere() {
+    let mut doc = Document::from_bytes(folitecta_core::testdocs::shared_picture_doc(), None, None).unwrap();
+    assert_eq!(doc.image_drawings(0, 0), 3);
+    assert_eq!(doc.image_drawings(1, 0), 3);
+    assert_eq!(doc.image_drawings(1, 5), 0);
+    let colors = doc.page_images(0).unwrap()[0].colors;
+    let green = image::RgbaImage::from_pixel(10, 10, image::Rgba([20, 160, 60, 255]));
+    let n = doc
+        .replace_image_everywhere(1, 0, &green, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0], colors)
+        .unwrap();
+    assert_eq!(n, 3);
+    for (page, index) in [(0, 0), (0, 1), (1, 0)] {
+        let px = doc.image_pixels(page, index).unwrap();
+        assert_eq!(px.dimensions(), (10, 10), "{page} {index}");
+        assert!(px.get_pixel(5, 5).0[1] > 120, "{page} {index}");
+    }
+    // One undo step brings the red one back everywhere.
+    doc.undo().unwrap();
+    assert!(doc.image_pixels(0, 1).unwrap().get_pixel(5, 5).0[0] > 150);
+}

@@ -1,5 +1,6 @@
 //! Interaction step 42: pictures selected on the page, edited straight away,
-//! in the picture editor and in another app.
+//! in the picture editor and in another app; a picture drawn three times
+//! replaced everywhere at once (Replace All Image Instances).
 
 use super::*;
 use crate::commands::pictures::{EDITOR, EXTERNAL, edit_outside, external_changed};
@@ -298,6 +299,42 @@ if (img) {
         "a picture from the clipboard replaces the selected one",
         copied && replaced.is_some_and(|(size, p)| size == (40, 20) && p[1] > 120 && p[0] < 60),
         format!("copied {copied}, {replaced:?}"),
+    );
+    // A picture drawn twice on the first page and once on the second,
+    // replaced everywhere as Replace All Image Instances does with the file
+    // chosen.
+    let shared =
+        folitecta_core::Document::from_bytes(folitecta_core::testdocs::shared_picture_doc(), None, None);
+    let mut everywhere = None;
+    let mut said = false;
+    if let Ok(doc) = shared {
+        crate::files::open_document_tab(st, doc);
+        let tab = st.read_active(|t| t.id).unwrap_or(0);
+        pause(400).await;
+        st.set_tool(Tool::EditImages);
+        st.with_active(|t| t.image_sel = Some((0, 1)));
+        let green = image::RgbaImage::from_pixel(10, 10, image::Rgba([20, 160, 60, 255]));
+        crate::commands::pictures::replace_where(st, green, true);
+        pause(500).await;
+        everywhere = st.read_active(|t| {
+            [(0, 0), (0, 1), (1, 0)]
+                .iter()
+                .filter(|(p, i)| {
+                    t.doc
+                        .image_pixels(*p, *i)
+                        .is_ok_and(|px| px.dimensions() == (10, 10) && px.get_pixel(5, 5).0[1] > 120)
+                })
+                .count()
+        });
+        said = st.toasts.peek().iter().any(|t| t.title.contains('3'));
+        st.set_tool(Tool::Hand);
+        crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
+        pause(300).await;
+    }
+    cx.record(
+        "a picture drawn three times is replaced everywhere at once, and the count is said",
+        everywhere == Some(3) && said,
+        format!("replaced {everywhere:?} of 3, said {said}"),
     );
     st.set_tool(Tool::Hand);
     pause(300).await;

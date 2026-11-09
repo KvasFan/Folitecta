@@ -150,7 +150,11 @@ fn load(st: AppState, page: usize, index: usize) -> Option<(Origin, Work)> {
 /// since the picture was taken (its place may then hold another picture).
 /// Returns the revision of the document afterwards.
 fn store(st: AppState, at: Origin, work: &Work) -> Option<u64> {
-    let everywhere = option_on(st, "editImage.applyToAll");
+    store_where(st, at, work, option_on(st, "editImage.applyToAll"))
+}
+
+/// [`store`], on every drawing of the picture when `everywhere`.
+fn store_where(st: AppState, at: Origin, work: &Work, everywhere: bool) -> Option<u64> {
     let r = with_tab(st, at.tab, |t| {
         if t.doc.revision() != at.rev {
             return Ok(None);
@@ -687,6 +691,12 @@ pub fn update_from_outside(st: AppState) {
 /// the page): the new picture keeps the centre of the old one and fits its
 /// longer side, as a picture edited elsewhere does.
 fn replace_with(st: AppState, pixels: image::RgbaImage) {
+    replace_where(st, pixels, option_on(st, "editImage.applyToAll"));
+}
+
+/// Put `pixels` in place of the picture chosen, and of every other drawing
+/// of it when `everywhere` (saying how many there were).
+pub(crate) fn replace_where(st: AppState, pixels: image::RgbaImage, everywhere: bool) {
     let Some((page, index)) = target(st) else { return };
     let current = st
         .read_active(|t| {
@@ -702,9 +712,39 @@ fn replace_with(st: AppState, pixels: image::RgbaImage) {
         page,
         index,
     };
-    if store(st, at, &work).is_some() {
-        st.toast(ToastKind::Ok, t(st.lang(), "toast.picture_replaced"), "");
+    let drawings = everywhere
+        .then(|| st.read_active(|t| t.doc.image_drawings(page, index)))
+        .flatten()
+        .unwrap_or(1);
+    if store_where(st, at, &work, everywhere).is_some() {
+        if everywhere && drawings > 1 {
+            let text =
+                t(st.lang(), "toast.picture_replaced_everywhere").replace("{n}", &drawings.to_string());
+            st.toast(ToastKind::Ok, text, "");
+        } else {
+            st.toast(ToastKind::Ok, t(st.lang(), "toast.picture_replaced"), "");
+        }
     }
+}
+
+/// Replace every drawing of the picture chosen with a picture from a file.
+fn replace_everywhere_from_file(st: AppState) {
+    if target(st).is_none() {
+        return;
+    }
+    spawn(async move {
+        let Some(file) = rfd::AsyncFileDialog::new()
+            .add_filter(t(st.lang(), "dialog.picture_files"), &crate::files::PICTURE_EXTS)
+            .pick_file()
+            .await
+        else {
+            return;
+        };
+        match image::open(file.path()) {
+            Ok(img) => replace_where(st, img.to_rgba8(), true),
+            Err(e) => st.error(e.to_string()),
+        }
+    });
 }
 
 /// Replace the picture with one from a file.
@@ -829,6 +869,7 @@ handlers! {
     "editImage.editType" => |st| st.set_dialog(Dialog::PictureSettings),
     "replaceImage" => replace_from_file,
     "replaceImageClipboard" => replace_from_clipboard,
+    "replaceAllImageInstances" => replace_everywhere_from_file,
     "imageEditor.rotate90CW" => |st| operate(st, Op::Edit(Edit::RotateRight)),
     "imageEditor.rotate90CCW" => |st| operate(st, Op::Edit(Edit::RotateLeft)),
     "imageEditor.flipHorizontal" => |st| operate(st, Op::Edit(Edit::FlipHorizontal)),

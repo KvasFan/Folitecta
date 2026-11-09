@@ -4,6 +4,19 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — FOL-L020: every drawing of a picture replaced (0.81.0)
+
+- **Current state before:** a picture was replaced everywhere only with the picture editor's
+  "apply to all" option on; Replace All Image Instances was planned.
+- **What:** core `image_drawings` (the drawings of the same picture object on every page);
+  `testdocs::shared_picture_doc` (one picture drawn twice on page 1, once on page 2). App:
+  `replace_where(st, pixels, everywhere)` (Replace Image keeps the option), `store_where`,
+  `replaceAllImageInstances` asks for the file and replaces every drawing, the toast says how many.
+- **Checked:** `pictures.rs` `a_picture_drawn_three_times_is_replaced_everywhere` (three
+  drawings counted, all three green, one undo step); self-test step `pictures` (11 interactions,
+  0 problems): the three drawings replaced, "3" said; clippy on the workspace.
+- **Open:** Edit Object and object groups; the content filters of Edit Content.
+
 ## 2026-11-09 — FOL-L028, FOL-L021: snapping to middles and crossings, fill rule (0.80.0)
 
 - **Current state before:** snapping to objects took nodes and the corners of rectangles only

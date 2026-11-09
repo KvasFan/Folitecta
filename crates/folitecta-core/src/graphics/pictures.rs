@@ -1113,6 +1113,26 @@ impl Document {
         Ok(())
     }
 
+    /// How many times the document draws the `index`-th picture of page
+    /// `page` (the same picture object, on any page); 0 when there is none.
+    pub fn image_drawings(&self, page: usize, index: usize) -> usize {
+        let Ok(pid) = self.page_id(page) else { return 0 };
+        let j = joined(&self.inner, pid);
+        let Some(id) = draws(&self.inner, pid, &j.data).get(index).map(|d| d.id) else {
+            return 0;
+        };
+        self.page_ids()
+            .into_iter()
+            .map(|p| {
+                let j = joined(&self.inner, p);
+                draws(&self.inner, p, &j.data)
+                    .iter()
+                    .filter(|d| d.id == id)
+                    .count()
+            })
+            .sum()
+    }
+
     /// Like [`Document::replace_page_image`], for every drawing of the
     /// picture: the picture object itself changes, and every page that draws
     /// it moves it the same way. Returns how many drawings there are.

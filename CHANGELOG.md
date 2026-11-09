@@ -16,6 +16,8 @@ All notable changes to Folitecta are documented here. The format follows
   as the third, in the page content with the colour and width of the Line tool.
 - View › Snap › To Objects also snaps to the middles of straight lines and of the sides of boxes,
   and to where two lines cross.
+- Replace All Image Instances puts a picture from a file in place of the chosen one wherever the
+  document draws it, and says how many places that was.
 - Fill Rule fills the chosen path by the even-odd rule (overlapping parts left empty) or by the
   nonzero rule, and says which.
 - The exports to Word, rich text and web page write check boxes and radio buttons as ☑ or ☐ before

@@ -4,6 +4,17 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — release 0.73.0
+
+- **What:** version 0.73.0 (holds 0.44.0 to 0.73.0; 0.45.0 was never published): CHANGELOG,
+  release notes, README, roadmap, feature matrix (1495 available, 58 partial, 461 planned).
+- **Checked:** `target/preflight.sh` at `50945fe`: formatting, clippy for the three systems, the
+  workspace tests, the release build, the licences, the whole self-test (369 interactions, 0
+  problems) and the Linux package `folitecta-0.73.0-linux-x64.tar.gz` (46 MB): all passed. The
+  office exports read back with pandoc: the mixed report keeps its 2 pictures and 2 tables among
+  the paragraphs in DOCX and HTML (lists as `<ul>`/`<ol>` in HTML), the stock list and the filled
+  invoice their tables.
+
 ## 2026-11-09 — local check of 0.70.0 to 0.73.0
 
 - **What:** `target/preflight.sh` at `8ee79f3`: formatting, clippy for the three systems, the

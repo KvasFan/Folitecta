@@ -471,6 +471,40 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
                 .unwrap_or(false),
             format!("{color:?}"),
         );
+        // Line Join lands on the corners; round corners, multiply, a fill
+        // opacity of its own.
+        crate::commands::dispatch(st, "lineJoin");
+        pause(400).await;
+        let focused = eval("return !!document.activeElement?.closest('.style-join');")
+            .await
+            .ok()
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let change = |selector: &str, value: &str| {
+            format!(
+                "const c = document.querySelector('.style-editor {selector}'); if (c) {{ c.value = '{value}'; c.dispatchEvent(new Event('change', {{ bubbles: true }})); }}"
+            )
+        };
+        let _ = eval(&change(".style-join select", "1")).await;
+        pause(400).await;
+        let _ = eval(&change(".style-blend select", "Multiply")).await;
+        pause(400).await;
+        // A fill first, when it has none.
+        let _ = eval("const c = document.querySelector('.style-editor .style-fill input[type=checkbox]'); if (c && c.checked) c.click();").await;
+        pause(400).await;
+        let _ = eval("const c = document.querySelector('.style-editor .style-fill-opacity input[type=checkbox]'); if (c) c.click();").await;
+        pause(400).await;
+        let _ = eval(&change(".style-fill-opacity input[type=range]", "40")).await;
+        pause(500).await;
+        let more = st.read_active(|t| t.doc.annotation_style(0, i).ok()).flatten();
+        cx.record(
+            "style editor: Line Join lands on the corners; round corners, multiply blending and a fill opacity of its own",
+            focused
+                && more.as_ref().is_some_and(|s| {
+                    s.line_join == 1 && s.blend == "Multiply" && s.fill_opacity.is_some_and(|o| (o - 0.4).abs() < 0.01)
+                }),
+            format!("focused {focused}, {:?}", more.map(|s| (s.line_join, s.blend, s.fill_opacity))),
+        );
         let _ = capture_window(&dir.join("interaction-style-editor.png"));
         st.ui_mut().show_right_pane = false;
     } else {

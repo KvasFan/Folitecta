@@ -144,7 +144,10 @@ impl Document {
         let f = fmt_num;
         let mut body = String::new();
         let mut resources = Dictionary::new();
-        let mut blend = "Normal";
+        // The blend mode chosen; highlights multiply when none is.
+        let chosen_blend = (style.blend != "Normal" && super::BLEND_MODES.contains(&style.blend.as_str()))
+            .then_some(style.blend.as_str());
+        let mut blend = chosen_blend.unwrap_or("Normal");
         let stroke_setup = |body: &mut String| {
             body.push_str(&format!("{} w ", f(w)));
             if style.dashed {
@@ -352,7 +355,7 @@ impl Document {
                 let c = style.color.unwrap_or([1.0, 0.9, 0.2]);
                 body.push_str(&rgb(c, "rg"));
                 body.push_str(&rgb(c, "RG"));
-                if subtype == "Highlight" {
+                if subtype == "Highlight" && chosen_blend.is_none() {
                     blend = "Multiply";
                 }
                 let mut all = Vec::new();
@@ -683,7 +686,8 @@ impl Document {
             }
             _ => return Ok(false),
         }
-        let mut gs = dictionary! { "GS0" => dictionary! { "CA" => style.opacity, "ca" => style.opacity, "BM" => blend } };
+        let fill_opacity = style.fill_opacity.unwrap_or(style.opacity);
+        let mut gs = dictionary! { "GS0" => dictionary! { "CA" => style.opacity, "ca" => fill_opacity, "BM" => blend } };
         if subtype == "Redact" {
             gs.set(
                 "GS1",
@@ -691,7 +695,15 @@ impl Document {
             );
         }
         resources.set("ExtGState", gs);
-        let content = format!("q /GS0 gs {body}Q");
+        // The ends and corners of every line of the appearance.
+        let mut ends = String::new();
+        if style.line_cap > 0 {
+            ends.push_str(&format!("{} J ", style.line_cap.min(2)));
+        }
+        if style.line_join > 0 {
+            ends.push_str(&format!("{} j ", style.line_join.min(2)));
+        }
+        let content = format!("q /GS0 gs {ends}{body}Q");
         let stream = Stream::new(
             dictionary! {
                 "Type" => "XObject",

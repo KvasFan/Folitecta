@@ -20,6 +20,15 @@ pub struct Stored {
     font_size: f32,
     text_color: [f32; 3],
     align: u8,
+    // Added in 0.82.0: styles kept before have none of them.
+    #[serde(default)]
+    line_cap: u8,
+    #[serde(default)]
+    line_join: u8,
+    #[serde(default)]
+    blend: String,
+    #[serde(default)]
+    fill_opacity: Option<f32>,
 }
 
 impl Default for Stored {
@@ -41,6 +50,10 @@ impl From<&AnnotStyle> for Stored {
             font_size: s.font_size,
             text_color: s.text_color,
             align: s.align,
+            line_cap: s.line_cap,
+            line_join: s.line_join,
+            blend: s.blend.clone(),
+            fill_opacity: s.fill_opacity,
         }
     }
 }
@@ -58,6 +71,14 @@ impl From<Stored> for AnnotStyle {
             font_size: s.font_size.clamp(2.0, 400.0),
             text_color: s.text_color,
             align: s.align.min(2),
+            line_cap: s.line_cap.min(2),
+            line_join: s.line_join.min(2),
+            blend: if folitecta_core::BLEND_MODES.contains(&s.blend.as_str()) {
+                s.blend
+            } else {
+                "Normal".into()
+            },
+            fill_opacity: s.fill_opacity.map(|v| v.clamp(0.0, 1.0)),
         }
     }
 }

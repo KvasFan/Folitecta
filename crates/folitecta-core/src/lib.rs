@@ -60,7 +60,7 @@ pub use tags::{accessibility, structure};
 pub use actions::{ActionSequence, BatchItem, FileResult, OutputRule, PageSet, Step};
 pub use annot_copy::AnnotSnapshot;
 pub use annots::{Annotation, Markup, Shape};
-pub use appearance::{AnnotStyle, LINE_ENDINGS, NOTE_ICONS};
+pub use appearance::{AnnotStyle, BLEND_MODES, LINE_ENDINGS, NOTE_ICONS};
 pub use articles::Article;
 pub use attachments::Attachment;
 pub use barcodes::{BarcodeKind, FoundBarcode};

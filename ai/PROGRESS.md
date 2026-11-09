@@ -4,6 +4,23 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — FOL-L026: ends, corners, blending and fill opacity of comments (0.82.0)
+
+- **Current state before:** Line Cap, Line Join, Blend Mode and Stroke Opacity were planned; a
+  comment had one opacity for lines and fills, highlights alone multiplied.
+- **What:** core `AnnotStyle::{line_cap, line_join, blend, fill_opacity}`, `BLEND_MODES`;
+  `apply_style` writes `FolitectaLineCap`/`FolitectaLineJoin` (removed at 0), `/BM` (removed for
+  Normal) and `/ca` (removed when none of its own); `style_of` reads them back; the appearance
+  starts with `J`/`j` and its graphics state takes the blend mode and the fill opacity. App: rows
+  for fill opacity (its own or as the lines), blending, line ends and corners in the style editor;
+  named and default styles keep them (`serde(default)` for styles kept before); `lineCap`,
+  `lineJoin`, `blendMode`, `strokeOpacity` show the properties pane focused on their row.
+- **Checked:** `annot_style.rs` `line_ends_corners_blending_and_fill_opacity` (kept in the file, a
+  quarter of blue inside a whole black border, back to the defaults the entries go); self-test
+  step `tools` (31 interactions, 0 problems): Line Join focuses the corners, round corners,
+  Multiply and 40% fill opacity set on the polygon; clippy on the workspace.
+- **Open:** Underline Style, Highlight Mode of links, text fill and stroke colours.
+
 ## 2026-11-09 — FOL-L020: every drawing of a picture replaced (0.81.0)
 
 - **Current state before:** a picture was replaced everywhere only with the picture editor's

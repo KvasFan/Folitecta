@@ -77,7 +77,38 @@ pub struct AnnotStyle {
     pub text_color: [f32; 3],
     /// Text alignment of text boxes: 0 left, 1 centre, 2 right (`/Q`).
     pub align: u8,
+    /// Ends of lines: 0 butt, 1 round, 2 projecting square
+    /// (`/FolitectaLineCap`, drawn in the appearance).
+    pub line_cap: u8,
+    /// Corners of lines: 0 mitre, 1 round, 2 bevel (`/FolitectaLineJoin`).
+    pub line_join: u8,
+    /// How the comment is blended with the page (`/BM`): `Normal`,
+    /// `Multiply`, `Screen`, `Darken`, `Lighten`… (see [`BLEND_MODES`]).
+    pub blend: String,
+    /// Opacity of fills, when it differs from the opacity of lines (`/ca`).
+    pub fill_opacity: Option<f32>,
 }
+
+/// The blend modes a comment can be drawn with (PDF 32000-2, 11.3.5).
+pub const BLEND_MODES: [&str; 12] = [
+    "Normal",
+    "Multiply",
+    "Screen",
+    "Overlay",
+    "Darken",
+    "Lighten",
+    "ColorDodge",
+    "ColorBurn",
+    "HardLight",
+    "SoftLight",
+    "Difference",
+    "Exclusion",
+];
+
+/// Folitecta's entries for the ends and corners of a comment's lines (PDF has
+/// none for comments; the appearance draws them for every reader).
+pub(crate) const LINE_CAP: &str = "FolitectaLineCap";
+pub(crate) const LINE_JOIN: &str = "FolitectaLineJoin";
 
 impl Default for AnnotStyle {
     fn default() -> Self {
@@ -92,8 +123,21 @@ impl Default for AnnotStyle {
             font_size: 12.0,
             text_color: [0.0, 0.0, 0.0],
             align: 0,
+            line_cap: 0,
+            line_join: 0,
+            blend: "Normal".into(),
+            fill_opacity: None,
         }
     }
+}
+
+/// A number from 0 to 2 under `key` (0 when missing).
+fn small(d: &Dictionary, key: &str) -> u8 {
+    d.get(key.as_bytes())
+        .ok()
+        .and_then(|v| v.as_i64().ok())
+        .unwrap_or(0)
+        .clamp(0, 2) as u8
 }
 
 fn name_of(d: &Dictionary, key: &[u8]) -> Option<String> {
@@ -239,6 +283,20 @@ impl Document {
                 .and_then(|q| q.as_i64().ok())
                 .unwrap_or(0)
                 .clamp(0, 2) as u8,
+            line_cap: small(d, LINE_CAP),
+            line_join: small(d, LINE_JOIN),
+            blend: name_of(d, b"BM")
+                .filter(|b| BLEND_MODES.contains(&b.as_str()))
+                .unwrap_or_else(|| "Normal".into()),
+            fill_opacity: d
+                .get(b"ca")
+                .ok()
+                .and_then(|v| num(deref(doc, v)))
+                .map(|v| v.clamp(0.0, 1.0))
+                .filter(|ca| {
+                    let ca_all = d.get(b"CA").ok().and_then(|v| num(deref(doc, v))).unwrap_or(1.0);
+                    (ca - ca_all).abs() > 0.001
+                }),
         }
     }
 
@@ -376,6 +434,26 @@ pub(crate) fn apply_style(d: &mut Dictionary, subtype: &str, style: &AnnotStyle)
         }
     }
     d.set("CA", style.opacity.clamp(0.0, 1.0));
+    match style.fill_opacity {
+        Some(ca) => d.set("ca", ca.clamp(0.0, 1.0)),
+        None => {
+            d.remove(b"ca");
+        }
+    }
+    let mut set_or_remove = |key: &str, v: u8| {
+        if v == 0 {
+            d.remove(key.as_bytes());
+        } else {
+            d.set(key, v.min(2) as i64);
+        }
+    };
+    set_or_remove(LINE_CAP, style.line_cap);
+    set_or_remove(LINE_JOIN, style.line_join);
+    if style.blend == "Normal" || !BLEND_MODES.contains(&style.blend.as_str()) {
+        d.remove(b"BM");
+    } else {
+        d.set("BM", Object::Name(style.blend.as_bytes().to_vec()));
+    }
     let mut bs = dictionary! { "W" => style.width.max(0.0), "S" => if style.dashed { "D" } else { "S" } };
     if style.dashed {
         let w = style.width.max(0.5);

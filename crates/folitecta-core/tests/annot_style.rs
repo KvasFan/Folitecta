@@ -215,3 +215,49 @@ fn markups_and_notes_restyle() {
     assert!(doc.set_annotation_style(0, 5, &AnnotStyle::default()).is_err());
     let _ = doc.render_page_png(0, 1.0).unwrap();
 }
+
+#[test]
+fn line_ends_corners_blending_and_fill_opacity() {
+    let mut doc = blank();
+    let style = AnnotStyle {
+        color: Some([0.0, 0.0, 0.0]),
+        fill: Some([0.0, 0.0, 1.0]),
+        opacity: 1.0,
+        fill_opacity: Some(0.25),
+        width: 6.0,
+        line_cap: 1,
+        line_join: 2,
+        blend: "Multiply".into(),
+        ..AnnotStyle::default()
+    };
+    doc.add_shape_styled(0, Shape::Square, [50.0, 50.0, 150.0, 150.0], &style, "t", "")
+        .unwrap();
+    // Kept in the file, read again the same.
+    let doc = Document::from_bytes(doc.bytes().to_vec(), None, None).unwrap();
+    let back = doc.annotation_style(0, 0).unwrap();
+    assert_eq!((back.line_cap, back.line_join), (1, 2));
+    assert_eq!(back.blend, "Multiply");
+    assert_eq!(back.fill_opacity, Some(0.25));
+    assert_eq!(back.opacity, 1.0);
+    // A quarter of blue inside, the border black and whole.
+    let centre = pixel(&doc, 100.0, 100.0);
+    assert!(
+        centre[0] > 170 && centre[0] < 215 && centre[2] > 240,
+        "{centre:?}"
+    );
+    let edge = pixel(&doc, 50.5, 100.0);
+    assert!(edge[0] < 40 && edge[2] < 40, "{edge:?}");
+    // Back to the defaults: the entries go.
+    let mut doc = doc;
+    doc.set_annotation_style(0, 0, &AnnotStyle::default()).unwrap();
+    let back = doc.annotation_style(0, 0).unwrap();
+    assert_eq!(
+        (
+            back.line_cap,
+            back.line_join,
+            back.blend.as_str(),
+            back.fill_opacity
+        ),
+        (0, 0, "Normal", None)
+    );
+}

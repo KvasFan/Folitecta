@@ -184,6 +184,23 @@ pub fn StyleEditor() -> Element {
     let fill = style.fill;
     let s = style.clone();
     let opacity_pct = (style.opacity * 100.0).round() as i32;
+    let fill_pct = (style.fill_opacity.unwrap_or(style.opacity) * 100.0).round() as i32;
+    let fill_own = style.fill_opacity.is_some();
+    let cap_labels: Vec<(usize, String)> = ["butt", "round", "square"]
+        .iter()
+        .enumerate()
+        .map(|(k, n)| (k, t(lang, &format!("style.cap_{n}"))))
+        .collect();
+    let join_labels: Vec<(usize, String)> = ["miter", "round", "bevel"]
+        .iter()
+        .enumerate()
+        .map(|(k, n)| (k, t(lang, &format!("style.join_{n}"))))
+        .collect();
+    let blend_labels: Vec<(&'static str, String)> = folitecta_core::BLEND_MODES
+        .iter()
+        .map(|n| (*n, t(lang, &format!("blend.{n}"))))
+        .collect();
+    let blend_now = style.blend.clone();
     let ends_label = |name: &str| t(lang, &format!("le.{name}"));
     rsx! {
         div { class: "style-editor",
@@ -201,7 +218,7 @@ pub fn StyleEditor() -> Element {
                 }
             }
             if caps.fill {
-                div { class: "style-row",
+                div { class: "style-row style-fill",
                     label { "{t(lang, \"style.fill\")}" }
                     input { r#type: "color", value: "{color_hex(fill.unwrap_or([1.0, 1.0, 1.0]))}",
                         onchange: { let s = s.clone(); move |e: Event<FormData>| { let mut n = s.clone(); n.fill = Some(parse_color(&e.value())); apply(n); } },
@@ -212,12 +229,44 @@ pub fn StyleEditor() -> Element {
                     }
                 }
             }
-            div { class: "style-row",
+            div { class: "style-row style-opacity",
                 label { "{t(lang, \"style.opacity\")}" }
                 input { r#type: "range", min: "5", max: "100", step: "5", value: "{opacity_pct}",
                     onchange: { let s = s.clone(); move |e: Event<FormData>| { if let Ok(v) = e.value().parse::<f32>() { let mut n = s.clone(); n.opacity = (v / 100.0).clamp(0.05, 1.0); apply(n); } } },
                 }
                 span { class: "muted value", "{opacity_pct}%" }
+            }
+            if caps.fill && fill.is_some() {
+                div { class: "style-row style-fill-opacity",
+                    label { "{t(lang, \"style.fill_opacity\")}" }
+                    input { r#type: "range", min: "0", max: "100", step: "5", value: "{fill_pct}", disabled: !fill_own,
+                        onchange: { let s = s.clone(); move |e: Event<FormData>| { if let Ok(v) = e.value().parse::<f32>() { let mut n = s.clone(); n.fill_opacity = Some((v / 100.0).clamp(0.0, 1.0)); apply(n); } } },
+                    }
+                    label { class: "check mini",
+                        input { r#type: "checkbox", checked: fill_own, onchange: { let s = s.clone(); move |_| { let mut n = s.clone(); n.fill_opacity = if n.fill_opacity.is_some() { None } else { Some(n.opacity) }; apply(n); } } }
+                        span { "{t(lang, \"style.own\")} {fill_pct}%" }
+                    }
+                }
+            }
+            div { class: "style-row style-blend",
+                label { "{t(lang, \"style.blend\")}" }
+                select { onchange: { let s = s.clone(); move |e: Event<FormData>| { let mut n = s.clone(); n.blend = e.value(); apply(n); } },
+                    for (name, label) in blend_labels.iter() { option { key: "{name}", value: "{name}", selected: blend_now == *name, "{label}" } }
+                }
+            }
+            if caps.width {
+                div { class: "style-row style-cap",
+                    label { "{t(lang, \"style.line_cap\")}" }
+                    select { onchange: { let s = s.clone(); move |e: Event<FormData>| { if let Ok(v) = e.value().parse::<u8>() { let mut n = s.clone(); n.line_cap = v.min(2); apply(n); } } },
+                        for (k, label) in cap_labels.iter() { option { key: "{k}", value: "{k}", selected: style.line_cap as usize == *k, "{label}" } }
+                    }
+                }
+                div { class: "style-row style-join",
+                    label { "{t(lang, \"style.line_join\")}" }
+                    select { onchange: { let s = s.clone(); move |e: Event<FormData>| { if let Ok(v) = e.value().parse::<u8>() { let mut n = s.clone(); n.line_join = v.min(2); apply(n); } } },
+                        for (k, label) in join_labels.iter() { option { key: "{k}", value: "{k}", selected: style.line_join as usize == *k, "{label}" } }
+                    }
+                }
             }
             if caps.width {
                 div { class: "style-row",

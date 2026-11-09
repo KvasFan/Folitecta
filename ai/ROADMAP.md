@@ -776,6 +776,14 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    from a file wherever the document draws it, the number of drawings said
    (`image_drawings`, `replace_image_everywhere`).
 
+### 0.82.0 — ends, corners, blending and fill opacity of comments (on `main`, untagged)
+
+1. ~~**FOL-L026 — Line Cap, Line Join, Blend Mode, Stroke Opacity.**~~ Done: `AnnotStyle` gains
+   `line_cap`, `line_join` (Folitecta's entries, drawn as `J`/`j` in the appearance), `blend`
+   (`/BM`, twelve modes; highlights still multiply when none is chosen) and `fill_opacity`
+   (`/ca`, apart from `/CA` of the lines); the style editor has a row for each, kept in named
+   styles too, and the four commands open it at their row.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

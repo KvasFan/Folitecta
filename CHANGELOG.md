@@ -16,6 +16,9 @@ All notable changes to Folitecta are documented here. The format follows
   as the third, in the page content with the colour and width of the Line tool.
 - View › Snap › To Objects also snaps to the middles of straight lines and of the sides of boxes,
   and to where two lines cross.
+- The style of a comment has line ends (flat, round, square), corners (sharp, round, bevelled), a
+  blend mode (multiply, screen, darken and nine more) and an opacity of the fill apart from that of
+  the lines; Line Cap, Line Join, Blend Mode and Stroke Opacity open the style editor at them.
 - Replace All Image Instances puts a picture from a file in place of the chosen one wherever the
   document draws it, and says how many places that was.
 - Fill Rule fills the chosen path by the even-odd rule (overlapping parts left empty) or by the

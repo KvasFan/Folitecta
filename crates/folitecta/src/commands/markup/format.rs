@@ -17,6 +17,20 @@ fn show_properties(st: AppState) {
     }
 }
 
+/// Open the properties pane at one control of the style editor (`row`: its
+/// class), so a ribbon command lands on what it names.
+fn show_style_row(st: AppState, row: &'static str) {
+    if selected(st).is_none() {
+        st.toast(ToastKind::Info, t(st.lang(), "toast.select_comment_first"), "");
+        return;
+    }
+    show_properties(st);
+    let js = format!(
+        "setTimeout(() => {{ const c = document.querySelector('.style-editor .{row} select, .style-editor .{row} input'); if (c) {{ c.scrollIntoView({{ block: 'nearest' }}); c.focus(); }} }}, 80);"
+    );
+    let _ = dioxus::document::eval(&js);
+}
+
 /// The selected comment and its style.
 fn selected(st: AppState) -> Option<(usize, usize, String, AnnotStyle)> {
     st.read_active(|t| {
@@ -121,6 +135,10 @@ fn note_icon(st: AppState) {
 handlers! {
     "noteIcon" => note_icon,
     "props" => show_properties,
+    "lineCap" => |st| show_style_row(st, "style-cap"),
+    "lineJoin" => |st| show_style_row(st, "style-join"),
+    "blendMode" => |st| show_style_row(st, "style-blend"),
+    "strokeOpacity" => |st| show_style_row(st, "style-opacity"),
     "props.makeDefault" => make_default,
     "props.applyDefault" => apply_default,
     "annotStyle.copy" => copy_style,

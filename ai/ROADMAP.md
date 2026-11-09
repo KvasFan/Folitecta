@@ -708,6 +708,11 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
 1. ~~**FOL-L030 — field values in found tables.**~~ Done: `page_tables` reads a copy whose form
    fields are flattened (`tables_of_text`).
 
+### 0.72.0 — wrapped cells of the last row (on `main`, untagged)
+
+1. ~~**FOL-L030 — bug.**~~ Fixed: `table_of` takes the rows of one cell after the last row of two
+   cells or more, close under it and not in the first column, as words wrapped in its cells.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with

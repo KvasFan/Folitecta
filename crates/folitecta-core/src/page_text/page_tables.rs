@@ -185,7 +185,10 @@ fn column_gaps(rows: &[&Row], allowed: usize, min_width: f32) -> Vec<(f32, f32)>
 }
 
 /// The table made of `rows` (consecutive rows of a page), when they are one.
-fn table_of(rows: &[&Row]) -> Option<([f32; 4], Vec<Vec<String>>)> {
+/// The table made of `rows`, and of the rows of one cell after them that
+/// go on its last row (`after`: words wrapped in a cell, not in its first
+/// column, close under the row above).
+fn table_of(rows: &[&Row], after: &[&Row]) -> Option<([f32; 4], Vec<Vec<String>>)> {
     let size = median(rows.iter().map(|r| r.size).collect());
     let many: Vec<&Row> = rows.iter().copied().filter(|r| r.runs.len() >= 2).collect();
     let gaps = column_gaps(&many, many.len() / 6, 0.4 * size);
@@ -195,6 +198,17 @@ fn table_of(rows: &[&Row]) -> Option<([f32; 4], Vec<Vec<String>>)> {
     let bounds: Vec<f32> = gaps.iter().map(|(a, b)| (a + b) / 2.0).collect();
     let columns = bounds.len() + 1;
     let column = |x: f32| bounds.iter().filter(|b| **b < x).count();
+    let mut rows: Vec<&Row> = rows.to_vec();
+    for r in after {
+        let last = rows[rows.len() - 1];
+        let close = r.middle() - last.middle() <= 1.6 * r.size.max(last.size);
+        let inside = r.runs.iter().all(|run| column(run.x0 + 0.1) > 0);
+        if !(close && inside) {
+            break;
+        }
+        rows.push(r);
+    }
+    let rows = rows.as_slice();
     let mut cells: Vec<Vec<String>> = rows
         .iter()
         .map(|r| {
@@ -270,9 +284,9 @@ pub fn find_tables(text: &PageText) -> Vec<([f32; 4], Vec<Vec<String>>)> {
     let mut run: Vec<&Row> = Vec::new();
     let mut pending: Vec<&Row> = Vec::new();
     let close = |run: &mut Vec<&Row>, pending: &mut Vec<&Row>, out: &mut Vec<_>| {
-        pending.clear();
+        let after = std::mem::take(pending);
         if run.len() >= 2 {
-            if let Some(t) = table_of(run) {
+            if let Some(t) = table_of(run, &after) {
                 out.push(t);
             }
         }

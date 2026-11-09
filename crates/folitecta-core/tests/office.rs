@@ -612,3 +612,74 @@ fn the_tables_of_a_filled_form_hold_its_values() {
         "{tables:#?}"
     );
 }
+
+/// A portrait page turned a quarter (`/Rotate 90`) whose content is drawn
+/// turned the other way, so it reads upright as shown: a heading and a
+/// table of three columns.
+fn turned_page() -> Document {
+    let mut c = String::from("q 0 1 -1 0 595 0 cm\nBT /F3 14 Tf 60 540 Td (Landscape report) Tj ET\n");
+    let rows = [
+        ["Region", "Q1", "Q2"],
+        ["North", "1200", "1350"],
+        ["South", "800", "950"],
+        ["East", "450", "500"],
+    ];
+    for (k, row) in rows.iter().enumerate() {
+        for (j, cell) in row.iter().enumerate() {
+            c.push_str(&format!(
+                "BT /F1 11 Tf {} {} Td ({cell}) Tj ET\n",
+                60 + 150 * j,
+                500 - 18 * k
+            ));
+        }
+    }
+    c.push_str("BT /F1 11 Tf 60 380 Td (Figures in thousands.) Tj ET\nQ\n");
+    let mut b = folitecta_core::testdocs::Builder::new();
+    let mut res = lopdf::Dictionary::new();
+    res.set("Font", folitecta_core::testdocs::standard_fonts());
+    let page = b.page((595.0, 842.0), c.into_bytes(), res, vec![]);
+    let mut doc = Document::from_bytes(b.finish(), None, None).unwrap();
+    let _ = page;
+    let pid = doc.page_ids()[0];
+    doc.inner_mut().get_dictionary_mut(pid).unwrap().set("Rotate", 90);
+    doc.commit().unwrap();
+    doc
+}
+
+#[test]
+fn tables_on_pages_turned_sideways_are_found() {
+    let doc = turned_page();
+    assert_eq!(doc.page_size(0).unwrap().rotation, 90);
+    let tables = doc.page_tables(0..1);
+    assert_eq!(tables.len(), 1);
+    assert_eq!(
+        tables[0].rows[1],
+        vec!["North".to_string(), "1200".into(), "1350".into()]
+    );
+    let out = doc.export_office(OfficeFormat::Html, 0..1, false).unwrap();
+    let page = String::from_utf8(out.bytes).unwrap();
+    let at = |m: &str| page.find(m).unwrap_or_else(|| panic!("{m}: {page}"));
+    assert!(
+        at("<h1>Landscape report</h1>") < at("<table>") && at("</table>") < at("Figures in thousands."),
+        "{page}"
+    );
+}
+
+#[test]
+fn cells_wrapped_on_two_lines_stay_one_cell() {
+    let long = "A long description of the work done in the month, with its details. ".repeat(3);
+    let long = long.trim();
+    let csv = format!("Item;Description;Cost\nA;{long};1,200\nB;Short;300\nC;{long};450\n");
+    let doc = Document::from_csv(&csv, Some(';'), TextLayout::default(), "").unwrap();
+    let tables = doc.page_tables(0..1);
+    assert_eq!(tables.len(), 1, "{tables:#?}");
+    let rows = &tables[0].rows;
+    assert_eq!(rows.len(), 4, "{rows:#?}");
+    // Both long cells whole, the last row's too.
+    assert_eq!(rows[1][1], long, "{rows:#?}");
+    assert_eq!(rows[3][1], long, "{rows:#?}");
+    assert_eq!(rows[3][2], "450");
+    // And nothing of it repeated after the table in the export.
+    let page = String::from_utf8(doc.export_office(OfficeFormat::Html, 0..1, false).unwrap().bytes).unwrap();
+    assert!(!page.contains("<p>"), "{page}");
+}

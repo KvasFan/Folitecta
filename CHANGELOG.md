@@ -70,6 +70,8 @@ All notable changes to Folitecta are documented here. The format follows
 - Export Tables finds the tables of filled forms with the values typed in them.
 
 ### Fixed
+- The last row of a table found on a page lost the words wrapped onto further lines of its cells
+  (they were exported as a paragraph after the table).
 - The pictures of Markdown files were drawn mirrored down the page (the first one at the bottom,
   covering the text); they stand where the file has them.
 - The items of a list are paragraphs of their own in the exports, in reading aloud and in the

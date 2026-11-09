@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — FOL-L030: wrapped cells of the last row (0.72.0)
+
+- **Found:** probing tables whose cells wrap onto several lines: the wrapped lines of the last row
+  were dropped from the table (the run of rows ended at the last row of two cells or more) and
+  exported as a paragraph after it; Export Tables lost them.
+- **What:** `page_tables.rs`: `find_tables` hands the rows of one cell left after a run to
+  `table_of`, which adds them while each is within 1.6 lines of the row above and does not start
+  in the first column (a paragraph after a table starts at its left edge); the rows wrapped in a
+  cell are then joined to the row above as before.
+- **Checked:** `office.rs` `cells_wrapped_on_two_lines_stay_one_cell` (two cells wrapped on three
+  lines, the last row's whole, nothing after the table in the web page) and
+  `tables_on_pages_turned_sideways_are_found` (a page turned with `/Rotate 90` whose content reads
+  upright: its heading, table and note in order), the other office tests; self-test steps
+  `table_export`, `office`.
+
 ## 2026-11-09 — FOL-L030: tables of filled forms (0.71.0)
 
 - **Found:** Export Tables had the same gap as the office exports: the values typed in form fields

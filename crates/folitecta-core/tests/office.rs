@@ -694,5 +694,56 @@ fn a_first_cell_wrapped_on_two_lines_stays_one_cell() {
     assert_eq!(tables.len(), 1, "{tables:#?}");
     let rows = &tables[0].rows;
     assert_eq!(rows.len(), 4, "{rows:#?}");
-    assert_eq!((rows[1][0].as_str(), rows[3][0].as_str(), rows[3][2].as_str()), (long, long, "450"));
+    assert_eq!(
+        (rows[1][0].as_str(), rows[3][0].as_str(), rows[3][2].as_str()),
+        (long, long, "450")
+    );
+}
+
+#[test]
+fn pages_become_the_slides_of_a_presentation() {
+    let doc = mixed_report();
+    let n = doc.page_count();
+    let out = doc.export_office(OfficeFormat::Pptx, 0..n, false).unwrap();
+    assert_eq!(out.slides, n);
+    if let Ok(dir) = std::env::var("OFFICE_DUMP") {
+        std::fs::write(format!("{dir}/mixed.pptx"), &out.bytes).unwrap();
+    }
+    let parts = read(&out.bytes).unwrap();
+    for p in &parts {
+        if p.name.ends_with(".xml") || p.name.ends_with(".rels") {
+            let text = std::str::from_utf8(&p.data).unwrap();
+            let body = &text[text.find("?>").map(|i| i + 2).unwrap_or(0)..];
+            assert!(folitecta_core::xml::parse(body).is_ok(), "{}", p.name);
+        }
+    }
+    let count = |prefix: &str| {
+        parts
+            .iter()
+            .filter(|p| p.name.starts_with(prefix) && !p.name.contains("_rels"))
+            .count()
+    };
+    assert_eq!(count("ppt/slides/slide"), n);
+    assert_eq!(count("ppt/media/page"), n);
+    let slide = String::from_utf8(
+        parts
+            .iter()
+            .find(|p| p.name == "ppt/slides/slide1.xml")
+            .unwrap()
+            .data
+            .clone(),
+    )
+    .unwrap();
+    // The text of the page describes its picture.
+    assert!(
+        slide.contains("descr=\"Quarterly report This report sums up"),
+        "{slide}"
+    );
+    let picture = &parts
+        .iter()
+        .find(|p| p.name == "ppt/media/page1.png")
+        .unwrap()
+        .data;
+    let img = image::load_from_memory(picture).unwrap();
+    assert!(img.width() > 1000, "{}", img.width());
 }

@@ -68,6 +68,8 @@ All notable changes to Folitecta are documented here. The format follows
 - The exports to Word, rich text and web page carry the values of form fields as text in their
   place: a filled invoice keeps its lines in its table and its addresses under their labels.
 - Export Tables finds the tables of filled forms with the values typed in them.
+- Export to Office Formats makes presentations too (PPTX): a slide for each page with the picture of
+  the page as it is shown, its text as the description of the picture.
 
 ### Fixed
 - The last row of a table found on a page lost the words wrapped onto further lines of its cells

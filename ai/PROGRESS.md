@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — FOL-L009: pages as a presentation (0.73.0)
+
+- **Current state before:** no export to presentations.
+- **What:** `organize/slides.rs`: `Document::export_slides` writes a PPTX: content types,
+  presentation (`sldSz` of the first page, within PowerPoint's 1 to 56 inches), a slide master with
+  its colour map, a blank layout, a theme (colours, Calibri, three fills, lines and effects), and a
+  slide for each page: the page drawn at 144 dpi (`render_page_png`, comments and fields as shown)
+  centred and as large as the slide holds, the text of the page (up to 2000 characters) in its
+  `descr`; `OfficeFormat::Pptx`, `OfficeExport::slides`; the window's report counts the slides.
+- **Checked:** `office.rs` `pages_become_the_slides_of_a_presentation` (the report's three pages:
+  every part well-formed, three slides and three pictures, the description, 1190 pixels wide);
+  python-pptx 1 reads the file: A4 slides, three pictures filling them, their descriptions;
+  self-test steps `office` (four formats offered), `permissions`.
+- **Open:** slides with editable text boxes; notes.
+
 ## 2026-11-09 — FOL-L030: wrapped cells of the last row (0.72.0)
 
 - **Found:** probing tables whose cells wrap onto several lines: the wrapped lines of the last row

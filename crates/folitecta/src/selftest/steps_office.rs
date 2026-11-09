@@ -73,8 +73,8 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(200).await;
     cx.record(
-        "export to office formats: three formats offered; Word and web page written with the headings, the text, the table as a table and the picture; the document unchanged",
-        formats == "3"
+        "export to office formats: four formats offered; Word and web page written with the headings, the text, the table as a table and the picture; the document unchanged",
+        formats == "4"
             && body.contains("Heading1")
             && body.contains("Annual report")
             && body.contains("The results are good.")

@@ -26,16 +26,24 @@ pub enum OfficeFormat {
     Docx,
     Rtf,
     Html,
+    /// A presentation: a slide with the picture of each page.
+    Pptx,
 }
 
 impl OfficeFormat {
-    pub const ALL: [OfficeFormat; 3] = [OfficeFormat::Docx, OfficeFormat::Rtf, OfficeFormat::Html];
+    pub const ALL: [OfficeFormat; 4] = [
+        OfficeFormat::Docx,
+        OfficeFormat::Rtf,
+        OfficeFormat::Html,
+        OfficeFormat::Pptx,
+    ];
 
     pub fn id(self) -> &'static str {
         match self {
             OfficeFormat::Docx => "docx",
             OfficeFormat::Rtf => "rtf",
             OfficeFormat::Html => "html",
+            OfficeFormat::Pptx => "pptx",
         }
     }
 
@@ -58,6 +66,8 @@ pub struct OfficeExport {
     pub tables: usize,
     /// The pictures exported.
     pub pictures: usize,
+    /// The slides of a presentation (the pages as pictures).
+    pub slides: usize,
     /// What the export leaves out: `pictures`, `comments`; how many.
     pub left_out: Vec<(&'static str, usize)>,
 }
@@ -556,6 +566,18 @@ impl Document {
         if pages.start >= pages.end || pages.end > n {
             return Err(Error::InvalidPage(pages.end.saturating_sub(1)));
         }
+        if format == OfficeFormat::Pptx {
+            let (bytes, slides) = self.export_slides(pages)?;
+            return Ok(OfficeExport {
+                bytes,
+                paragraphs: 0,
+                headings: 0,
+                tables: 0,
+                pictures: 0,
+                slides,
+                left_out: Vec::new(),
+            });
+        }
         let has_fields = pages.clone().any(|p| {
             self.annotations(p)
                 .is_ok_and(|a| a.iter().any(|x| x.subtype == "Widget"))
@@ -703,6 +725,7 @@ impl Document {
             OfficeFormat::Docx => docx(&pieces, &title, page_breaks)?,
             OfficeFormat::Rtf => rtf(&pieces, page_breaks),
             OfficeFormat::Html => html(&pieces, &title, &self.language(), page_breaks),
+            OfficeFormat::Pptx => self.export_slides(pages.clone())?.0,
         };
         let comments: usize = pages
             .map(|p| {
@@ -730,6 +753,7 @@ impl Document {
                 .filter(|p| matches!(p, Piece::Text { level, .. } if *level > 0))
                 .count(),
             tables: pieces.iter().filter(|p| matches!(p, Piece::Table { .. })).count(),
+            slides: 0,
             pictures: pieces
                 .iter()
                 .filter(|p| matches!(p, Piece::Picture { .. }))

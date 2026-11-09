@@ -82,16 +82,24 @@ pub fn write_export(st: AppState, format: OfficeFormat, all: bool, page_breaks: 
         .await;
         match made {
             Ok(Ok((out, target))) => {
-                let mut detail = tf(
-                    lang,
-                    "office.report",
-                    &[
-                        ("paragraphs", &out.paragraphs.to_string()),
-                        ("headings", &out.headings.to_string()),
-                        ("tables", &out.tables.to_string()),
-                        ("pictures", &out.pictures.to_string()),
-                    ],
-                );
+                let mut detail = if format == OfficeFormat::Pptx {
+                    tf(
+                        lang,
+                        "office.report_slides",
+                        &[("count", &out.slides.to_string())],
+                    )
+                } else {
+                    tf(
+                        lang,
+                        "office.report",
+                        &[
+                            ("paragraphs", &out.paragraphs.to_string()),
+                            ("headings", &out.headings.to_string()),
+                            ("tables", &out.tables.to_string()),
+                            ("pictures", &out.pictures.to_string()),
+                        ],
+                    )
+                };
                 for (what, k) in &out.left_out {
                     detail.push('\n');
                     detail.push_str(&tf(

@@ -26,6 +26,7 @@ pub mod recompress;
 pub mod scanning;
 pub mod scans;
 pub mod sheets;
+pub mod slides;
 pub mod templates;
 pub mod textdoc;
 pub(crate) mod typeset;

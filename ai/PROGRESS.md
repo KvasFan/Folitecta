@@ -4,6 +4,12 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — local check of 0.74.0 to 0.77.0
+
+- **What:** `target/preflight.sh` at `9ca8758`: formatting, clippy for the three systems, the
+  workspace tests (1071 passed, 0 failed), the release build, the licences, the whole self-test
+  (369 interactions, 0 problems) and the Linux package (46 MB): all passed.
+
 ## 2026-11-09 — FOL-L009: notes of the slides (0.77.0)
 
 - **Current state before:** the PPTX had the text of each page only as the description of its

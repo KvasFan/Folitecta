@@ -727,6 +727,13 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    block that is only a mark goes before its label (`join_ballots`); in tables the mark is the
    cell.
 
+### 0.75.0 — lists within lists (on `main`, untagged)
+
+1. ~~**FOL-L009 — nested lists.**~~ Done: each text piece keeps where its first line starts;
+   `list_depths` gives an item further in than the one above it one level more and one back at
+   the place of an outer item that level again; the web page nests `<ul>`/`<ol>` in the item above,
+   Word and RTF indent each level by a quarter inch more.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with

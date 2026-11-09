@@ -9,6 +9,8 @@ All notable changes to Folitecta are documented here. The format follows
 ### Added
 - The exports to Word, rich text and web page write check boxes and radio buttons as ☑ or ☐ before
   their labels, or in their table cells, as they are set.
+- Lists within lists keep their levels in the exports to Word, rich text and web page: the web page
+  nests them, Word and RTF indent each level further.
 
 ## [0.73.0] - 2026-11-09
 

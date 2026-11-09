@@ -865,3 +865,67 @@ fn check_boxes_and_radio_buttons_are_exported_as_ballot_marks() {
     let rtf = String::from_utf8(rtf.bytes).unwrap();
     assert!(rtf.contains("\\u9745?") && rtf.contains("\\u9744?"), "{rtf}");
 }
+
+#[test]
+fn lists_within_lists_are_nested() {
+    // Bullets at the margin, dashes and numbers further in, then a
+    // paragraph at the margin again.
+    let mut c = String::from("BT /F1 12 Tf 60 760 Td (Shopping for the week:) Tj ET\n");
+    for (k, (x, line)) in [
+        (60, "\\225 Fruit"),
+        (80, "- Apples"),
+        (80, "- Pears"),
+        (60, "\\225 Vegetables"),
+        (80, "1. Carrots"),
+        (80, "2. Leeks"),
+        (100, "- the small ones"),
+        (60, "\\225 Bread"),
+    ]
+    .iter()
+    .enumerate()
+    {
+        c.push_str(&format!("BT /F1 12 Tf {x} {} Td ({line}) Tj ET\n", 730 - 18 * k));
+    }
+    c.push_str("BT /F1 12 Tf 60 560 Td (That is all for now.) Tj ET\n");
+    let mut b = Builder::new();
+    b.page((595.0, 842.0), c.into_bytes(), dictionary_fonts(), vec![]);
+    let doc = Document::from_bytes(b.finish(), None, None).unwrap();
+    let out = doc.export_office(OfficeFormat::Html, 0..1, false).unwrap();
+    let page = String::from_utf8(out.bytes).unwrap();
+    if let Ok(dir) = std::env::var("OFFICE_DUMP") {
+        std::fs::write(format!("{dir}/nested.html"), &page).unwrap();
+    }
+    let body: String = page
+        .split("<body>")
+        .nth(1)
+        .unwrap()
+        .split("</body>")
+        .next()
+        .unwrap()
+        .split_whitespace()
+        .collect();
+    assert_eq!(
+        body,
+        "<p>Shoppingfortheweek:</p>\
+         <ul><li>Fruit<ul><li>Apples</li><li>Pears</li></ul></li>\
+         <li>Vegetables<ol><li>Carrots</li><li>Leeks<ul><li>thesmallones</li></ul></li></ol></li>\
+         <li>Bread</li></ul>\
+         <p>Thatisallfornow.</p>",
+        "{page}"
+    );
+    // Word and rich text indent the deeper items further.
+    let docx = doc.export_office(OfficeFormat::Docx, 0..1, false).unwrap();
+    let parts = read(&docx.bytes).unwrap();
+    let body = parts
+        .iter()
+        .find(|p| p.name == "word/document.xml")
+        .map(|p| String::from_utf8_lossy(&p.data).to_string())
+        .unwrap();
+    assert_eq!(body.matches("w:left=\"360\"").count(), 3, "{body}");
+    assert_eq!(body.matches("w:left=\"720\"").count(), 4, "{body}");
+    assert_eq!(body.matches("w:left=\"1080\"").count(), 1, "{body}");
+    let rtf = doc.export_office(OfficeFormat::Rtf, 0..1, false).unwrap();
+    let rtf = String::from_utf8(rtf.bytes).unwrap();
+    assert_eq!(rtf.matches("\\li720\\fi-360").count(), 4, "{rtf}");
+    assert_eq!(rtf.matches("\\li1080\\fi-360").count(), 1, "{rtf}");
+}

@@ -106,9 +106,21 @@ impl Picture {
 /// One piece of the reading order: its page, heading level (0: a
 /// paragraph), text; or a picture of the page.
 enum Piece {
-    Text { page: usize, level: u8, text: String },
-    Picture { page: usize, picture: Picture },
-    Table { page: usize, rows: Vec<Vec<String>> },
+    /// A paragraph or heading; `indent`: where its first line starts.
+    Text {
+        page: usize,
+        level: u8,
+        text: String,
+        indent: f32,
+    },
+    Picture {
+        page: usize,
+        picture: Picture,
+    },
+    Table {
+        page: usize,
+        rows: Vec<Vec<String>>,
+    },
 }
 
 impl Piece {
@@ -117,6 +129,38 @@ impl Piece {
             Piece::Text { page, .. } | Piece::Picture { page, .. } | Piece::Table { page, .. } => *page,
         }
     }
+}
+
+/// The depth of each piece in its list (0 for the outer list and for what
+/// is no list item): an item further in than the one above it goes one
+/// level deeper, one back at the place of an outer item goes back to it.
+fn list_depths(pieces: &[Piece]) -> Vec<usize> {
+    let mut depths = Vec::with_capacity(pieces.len());
+    // The indents of the lists open, the outer first.
+    let mut open: Vec<f32> = Vec::new();
+    for p in pieces {
+        match p {
+            Piece::Text {
+                level: 0,
+                text,
+                indent,
+                ..
+            } if list_mark(text).is_some() => {
+                while open.last().is_some_and(|x| *x > indent + 3.0) {
+                    open.pop();
+                }
+                if open.last().is_none_or(|x| *indent > x + 3.0) {
+                    open.push(*indent);
+                }
+                depths.push(open.len() - 1);
+            }
+            _ => {
+                open.clear();
+                depths.push(0);
+            }
+        }
+    }
+    depths
 }
 
 /// A cell holds a number (either way of marking decimals).
@@ -243,7 +287,8 @@ fn docx(pieces: &[Piece], title: &str, breaks: bool) -> Result<Vec<u8>> {
     let mut body = String::new();
     let mut media: Vec<(String, Vec<u8>)> = Vec::new();
     let mut page = pieces.first().map(Piece::page).unwrap_or(0);
-    for p in pieces {
+    let depths = list_depths(pieces);
+    for (p, depth) in pieces.iter().zip(depths) {
         if breaks && p.page() != page {
             body.push_str("<w:p><w:r><w:br w:type=\"page\"/></w:r></w:p>");
             page = p.page();
@@ -253,9 +298,10 @@ fn docx(pieces: &[Piece], title: &str, breaks: bool) -> Result<Vec<u8>> {
                 // An item of a list: its mark, a tab, its text, hanging.
                 let (_, mark, rest) = list_mark(text).unwrap_or_default();
                 body.push_str(&format!(
-                    "<w:p><w:pPr><w:ind w:left=\"360\" w:hanging=\"360\"/></w:pPr>\
+                    "<w:p><w:pPr><w:ind w:left=\"{}\" w:hanging=\"360\"/></w:pPr>\
                      <w:r><w:t xml:space=\"preserve\">{}</w:t></w:r><w:r><w:tab/></w:r>\
                      <w:r><w:t xml:space=\"preserve\">{}</w:t></w:r></w:p>",
+                    360 * (depth + 1),
                     escape_text(&clean(&mark)),
                     escape_text(&clean(&rest))
                 ));
@@ -397,7 +443,8 @@ fn rtf(pieces: &[Piece], breaks: bool) -> Vec<u8> {
         "{\\rtf1\\ansi\\ansicpg1252\\deff0\\uc1{\\fonttbl{\\f0\\fswiss Helvetica;}}\\f0\\fs22\n",
     );
     let mut page = pieces.first().map(Piece::page).unwrap_or(0);
-    for p in pieces {
+    let depths = list_depths(pieces);
+    for (p, depth) in pieces.iter().zip(depths) {
         if breaks && p.page() != page {
             out.push_str("\\page\n");
             page = p.page();
@@ -405,7 +452,8 @@ fn rtf(pieces: &[Piece], breaks: bool) -> Vec<u8> {
         match p {
             Piece::Text { level: 0, text, .. } => match list_mark(text) {
                 Some((_, mark, rest)) => out.push_str(&format!(
-                    "\\pard\\sa60\\li360\\fi-360 {}\\tab {}\\par\n",
+                    "\\pard\\sa60\\li{}\\fi-360 {}\\tab {}\\par\n",
+                    360 * (depth + 1),
                     rtf_text(&mark),
                     rtf_text(&rest)
                 )),
@@ -467,78 +515,98 @@ fn rtf(pieces: &[Piece], breaks: bool) -> Vec<u8> {
     out.into_bytes()
 }
 
+/// A table or a picture in the web page.
+fn html_block(body: &mut String, piece: &Piece) {
+    match piece {
+        Piece::Table { rows, .. } => {
+            let head = has_head(rows);
+            body.push_str("<table>\n");
+            for (r, row) in rows.iter().enumerate() {
+                body.push_str("<tr>");
+                for cell in row {
+                    let text = escape_text(&clean(cell));
+                    if head && r == 0 {
+                        body.push_str(&format!("<th>{text}</th>"));
+                    } else if numeric(cell) {
+                        body.push_str(&format!("<td class=\"n\">{text}</td>"));
+                    } else {
+                        body.push_str(&format!("<td>{text}</td>"));
+                    }
+                }
+                body.push_str("</tr>\n");
+            }
+            body.push_str("</table>\n");
+        }
+        Piece::Picture { picture, .. } => {
+            // In the page itself, so the file is whole on its own.
+            let (w, h) = picture.size;
+            body.push_str(&format!(
+                "<p class=\"picture\"><img src=\"data:{};base64,{}\" width=\"{}\" height=\"{}\" alt=\"\"></p>\n",
+                picture.mime(),
+                base64::engine::general_purpose::STANDARD.encode(&picture.data),
+                (w * 4.0 / 3.0).round(),
+                (h * 4.0 / 3.0).round()
+            ));
+        }
+        Piece::Text { .. } => {}
+    }
+}
+
 fn html(pieces: &[Piece], title: &str, lang: &str, breaks: bool) -> Vec<u8> {
     let mut body = String::new();
     let mut page = pieces.first().map(Piece::page).unwrap_or(0);
-    // The list open: numbered or not.
-    let mut list: Option<bool> = None;
-    let close = |body: &mut String, list: &mut Option<bool>| {
-        if let Some(numbered) = list.take() {
-            body.push_str(if numbered { "</ol>\n" } else { "</ul>\n" });
+    // The lists open, the outer first: numbered or not; each has an item
+    // open (closed with the next item or with the list).
+    let mut lists: Vec<bool> = Vec::new();
+    let close_to = |body: &mut String, lists: &mut Vec<bool>, keep: usize| {
+        while lists.len() > keep {
+            let numbered = lists.pop().unwrap_or(false);
+            body.push_str(if numbered {
+                "</li>\n</ol>\n"
+            } else {
+                "</li>\n</ul>\n"
+            });
         }
     };
-    for p in pieces {
+    let depths = list_depths(pieces);
+    for (p, depth) in pieces.iter().zip(depths) {
         let item = match p {
             Piece::Text { level: 0, text, .. } => list_mark(text),
             _ => None,
         };
-        if item.as_ref().map(|i| i.0) != list {
-            close(&mut body, &mut list);
-        }
         if breaks && p.page() != page {
-            close(&mut body, &mut list);
+            close_to(&mut body, &mut lists, 0);
             body.push_str("<hr class=\"page\">\n");
             page = p.page();
         }
-        if let Some((numbered, _, rest)) = item {
-            if list.is_none() {
-                body.push_str(if numbered { "<ol>\n" } else { "<ul>\n" });
-                list = Some(numbered);
-            }
-            body.push_str(&format!("<li>{}</li>\n", escape_text(&clean(&rest))));
-            continue;
-        }
-        match p {
-            Piece::Text { level, text, .. } => {
-                let text = escape_text(&clean(text));
-                match level {
-                    0 => body.push_str(&format!("<p>{text}</p>\n")),
-                    l => body.push_str(&format!("<h{n}>{text}</h{n}>\n", n = l.min(&3))),
-                }
-            }
-            Piece::Table { rows, .. } => {
-                let head = has_head(rows);
-                body.push_str("<table>\n");
-                for (r, row) in rows.iter().enumerate() {
-                    body.push_str("<tr>");
-                    for cell in row {
-                        let text = escape_text(&clean(cell));
-                        if head && r == 0 {
-                            body.push_str(&format!("<th>{text}</th>"));
-                        } else if numeric(cell) {
-                            body.push_str(&format!("<td class=\"n\">{text}</td>"));
-                        } else {
-                            body.push_str(&format!("<td>{text}</td>"));
-                        }
+        let Some((numbered, _, rest)) = item else {
+            close_to(&mut body, &mut lists, 0);
+            match p {
+                Piece::Text { level, text, .. } => {
+                    let text = escape_text(&clean(text));
+                    match level {
+                        0 => body.push_str(&format!("<p>{text}</p>\n")),
+                        l => body.push_str(&format!("<h{n}>{text}</h{n}>\n", n = l.min(&3))),
                     }
-                    body.push_str("</tr>\n");
                 }
-                body.push_str("</table>\n");
+                other => html_block(&mut body, other),
             }
-            Piece::Picture { picture, .. } => {
-                // In the page itself, so the file is whole on its own.
-                let (w, h) = picture.size;
-                body.push_str(&format!(
-                    "<p class=\"picture\"><img src=\"data:{};base64,{}\" width=\"{}\" height=\"{}\" alt=\"\"></p>\n",
-                    picture.mime(),
-                    base64::engine::general_purpose::STANDARD.encode(&picture.data),
-                    (w * 4.0 / 3.0).round(),
-                    (h * 4.0 / 3.0).round()
-                ));
-            }
+            continue;
+        };
+        close_to(&mut body, &mut lists, depth + 1);
+        if lists.len() == depth + 1 && lists[depth] != numbered {
+            close_to(&mut body, &mut lists, depth);
         }
+        if lists.len() == depth + 1 {
+            body.push_str("</li>\n");
+        }
+        while lists.len() < depth + 1 {
+            body.push_str(if numbered { "<ol>\n" } else { "<ul>\n" });
+            lists.push(numbered);
+        }
+        body.push_str(&format!("<li>{}", escape_text(&clean(&rest))));
     }
-    close(&mut body, &mut list);
+    close_to(&mut body, &mut lists, 0);
     let lang = if lang.is_empty() { "en" } else { lang };
     format!(
         "<!DOCTYPE html>\n<html lang=\"{}\">\n<head>\n<meta charset=\"utf-8\">\n<title>{}</title>\n\
@@ -863,6 +931,7 @@ endcmap CMapName currentdict /CMap defineresource pop end end\n";
                             page,
                             level: b.level,
                             text: b.text.clone(),
+                            indent: rects.first().map(|r| r[0]).unwrap_or(0.0),
                         },
                     ));
                 } else {
@@ -880,6 +949,7 @@ endcmap CMapName currentdict /CMap defineresource pop end end\n";
                     page,
                     level: b.level,
                     text: b.text.clone(),
+                    indent: rects.first().map(|r| r[0]).unwrap_or(0.0),
                 });
             }
             pieces.extend(placed.map(|(_, piece)| piece));

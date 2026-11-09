@@ -4,6 +4,20 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — FOL-L009: lists within lists in the office exports (0.75.0)
+
+- **Current state before:** every list item was at one level: dashes under a bullet came out as
+  items of the same list (open item of 0.68.0).
+- **What:** `office.rs`: `Piece::Text` keeps `indent` (the left of its first line); `list_depths`
+  keeps a stack of the indents of the lists open (3 points of play) and clears it at anything that
+  is not an item; `html` closes and opens lists by depth, the nested list inside the item above
+  (`<li>` closed with the next item or its list), tables and pictures in `html_block`; DOCX
+  `w:left` and RTF `\li` are 360 twips a level.
+- **Checked:** `office.rs` `lists_within_lists_are_nested` (bullets, dashes and numbers at three
+  levels: the HTML body exactly, DOCX and RTF indents counted); pandoc reads the nesting back; the
+  other office tests (lists, mixed report) unchanged; core tests and clippy.
+- **Open:** Word lists as indented paragraphs, not Word numbering (`w:numPr`).
+
 ## 2026-11-09 — FOL-L009: ballot marks in the office exports (0.74.0)
 
 - **Found:** check boxes and radio buttons were left out of the DOCX, RTF and HTML exports (the

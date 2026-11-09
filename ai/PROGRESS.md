@@ -4,6 +4,14 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — local check of 0.78.0 to 0.82.0
+
+- **What:** `target/preflight.sh` at `dbe2f99`: formatting, clippy for the three systems, the
+  workspace tests (1079 passed, 0 failed), the release build, the licences, the whole self-test
+  (375 interactions, 0 problems) and the Linux package (46 MB): all passed. Two earlier runs
+  failed on tests I had not run after changing what they check (the snap points of the drawing
+  test, which now include the middles; the `blend.` texts, which had no area): both fixed.
+
 ## 2026-11-09 — FOL-L026: ends, corners, blending and fill opacity of comments (0.82.0)
 
 - **Current state before:** Line Cap, Line Join, Blend Mode and Stroke Opacity were planned; a

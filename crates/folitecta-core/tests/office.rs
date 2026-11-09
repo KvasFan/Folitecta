@@ -466,10 +466,29 @@ fn a_mixed_report_keeps_its_pictures_and_tables_in_place() {
     for once in ["North", "Wages", "Text after the table", "First note"] {
         assert_eq!(body.matches(once).count(), 1, "{once}");
     }
-    // The items of the lists are items: a mark, a tab, the text, hanging.
+    // The items of the lists are items of Word lists, numbered by Word.
     assert!(!body.contains("First note • Second note"), "{body}");
-    assert_eq!(body.matches("w:hanging=\"360\"").count(), 4, "{body}");
-    assert!(body.contains("<w:t xml:space=\"preserve\">1.</w:t></w:r><w:r><w:tab/></w:r><w:r><w:t xml:space=\"preserve\">Plan the work</w:t>"), "{body}");
+    assert_eq!(body.matches("<w:numPr>").count(), 4, "{body}");
+    assert!(
+        body.contains(
+            "<w:numId w:val=\"2\"/></w:numPr></w:pPr><w:r><w:t xml:space=\"preserve\">Plan the work</w:t>"
+        ),
+        "{body}"
+    );
+    let numbering = String::from_utf8(
+        parts
+            .iter()
+            .find(|p| p.name == "word/numbering.xml")
+            .unwrap()
+            .data
+            .clone(),
+    )
+    .unwrap();
+    assert!(numbering.contains("<w:numFmt w:val=\"bullet\"/>"), "{numbering}");
+    assert!(
+        numbering.contains("<w:numFmt w:val=\"decimal\"/><w:lvlText w:val=\"%1.\"/>"),
+        "{numbering}"
+    );
     // The web page: the same order, the pictures in it, the tables as tables.
     let page = String::from_utf8(html.bytes).unwrap();
     let marks_html = [
@@ -913,17 +932,46 @@ fn lists_within_lists_are_nested() {
          <p>Thatisallfornow.</p>",
         "{page}"
     );
-    // Word and rich text indent the deeper items further.
+    // Word lists by level; rich text indents the deeper items further.
     let docx = doc.export_office(OfficeFormat::Docx, 0..1, false).unwrap();
+    if let Ok(dir) = std::env::var("OFFICE_DUMP") {
+        std::fs::write(format!("{dir}/nested.docx"), &docx.bytes).unwrap();
+    }
     let parts = read(&docx.bytes).unwrap();
     let body = parts
         .iter()
         .find(|p| p.name == "word/document.xml")
         .map(|p| String::from_utf8_lossy(&p.data).to_string())
         .unwrap();
-    assert_eq!(body.matches("w:left=\"360\"").count(), 3, "{body}");
-    assert_eq!(body.matches("w:left=\"720\"").count(), 4, "{body}");
-    assert_eq!(body.matches("w:left=\"1080\"").count(), 1, "{body}");
+    assert_eq!(body.matches("<w:ilvl w:val=\"0\"/>").count(), 3, "{body}");
+    assert_eq!(body.matches("<w:ilvl w:val=\"1\"/>").count(), 4, "{body}");
+    assert_eq!(body.matches("<w:ilvl w:val=\"2\"/>").count(), 1, "{body}");
+    let numbering = parts
+        .iter()
+        .find(|p| p.name == "word/numbering.xml")
+        .map(|p| String::from_utf8_lossy(&p.data).to_string())
+        .unwrap();
+    // A list of its own at each level under each item: the bullets, the
+    // dashes under Fruit, the numbers under Vegetables, the dash under Leeks.
+    assert_eq!(numbering.matches("<w:abstractNum ").count(), 4, "{numbering}");
+    assert!(numbering.contains("<w:lvl w:ilvl=\"1\"><w:start w:val=\"1\"/><w:numFmt w:val=\"decimal\"/><w:lvlText w:val=\"%2.\"/>"), "{numbering}");
+    for (numid, line) in [
+        (1, "Fruit"),
+        (2, "Apples"),
+        (2, "Pears"),
+        (1, "Vegetables"),
+        (3, "Carrots"),
+        (3, "Leeks"),
+        (4, "the small ones"),
+        (1, "Bread"),
+    ] {
+        assert!(
+            body.contains(&format!(
+                "<w:numId w:val=\"{numid}\"/></w:numPr></w:pPr><w:r><w:t xml:space=\"preserve\">{line}</w:t>"
+            )),
+            "{line}: {body}"
+        );
+    }
     let rtf = doc.export_office(OfficeFormat::Rtf, 0..1, false).unwrap();
     let rtf = String::from_utf8(rtf.bytes).unwrap();
     assert_eq!(rtf.matches("\\li720\\fi-360").count(), 4, "{rtf}");

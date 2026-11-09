@@ -4,6 +4,23 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — FOL-L009: Word lists (0.76.0)
+
+- **Current state before:** list items in DOCX were paragraphs with their mark typed and a hanging
+  indent: Word and pandoc read them as paragraphs.
+- **What:** `office.rs` `word_lists`: for each item the list it belongs to (a new one when its level
+  opens under another item, or when its format differs from the list open at that level), and a
+  `word/numbering.xml` with an `abstractNum` and a `num` for each list: the format of its first
+  item (`bullet` with its mark, `decimal`, `lowerLetter`, `upperLetter`, the `.` or `)` after it),
+  the number it starts from, a quarter inch of indent a level. The items carry
+  `w:numPr` (`w:ilvl`, `w:numId`) and their text without the mark; the part is in the content
+  types and the document's relationships.
+- **Checked:** `office.rs`: the nested lists test (four lists, each item in its list at its level,
+  the numbers under Vegetables decimal from 1 at level 2) and the mixed report (four items,
+  bullet and `%1.` formats); pandoc reads both DOCX files back as nested bullet and numbered lists,
+  the report with its two pictures and two tables; core tests and clippy.
+- **Open:** RTF lists keep their typed marks (`\pntext`/`\ls` lists not written).
+
 ## 2026-11-09 — FOL-L009: lists within lists in the office exports (0.75.0)
 
 - **Current state before:** every list item was at one level: dashes under a bullet came out as
@@ -16,7 +33,7 @@ checked, what is still open. The history before October 2026 is in
 - **Checked:** `office.rs` `lists_within_lists_are_nested` (bullets, dashes and numbers at three
   levels: the HTML body exactly, DOCX and RTF indents counted); pandoc reads the nesting back; the
   other office tests (lists, mixed report) unchanged; core tests and clippy.
-- **Open:** Word lists as indented paragraphs, not Word numbering (`w:numPr`).
+- **Open:** Word lists as indented paragraphs, not Word numbering (`w:numPr`): done in 0.76.0.
 
 ## 2026-11-09 — FOL-L009: ballot marks in the office exports (0.74.0)
 

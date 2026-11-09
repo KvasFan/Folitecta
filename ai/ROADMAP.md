@@ -734,6 +734,13 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    the place of an outer item that level again; the web page nests `<ul>`/`<ol>` in the item above,
    Word and RTF indent each level by a quarter inch more.
 
+### 0.76.0 — Word lists (on `main`, untagged)
+
+1. ~~**FOL-L009 — lists that Word numbers.**~~ Done: list items in DOCX are paragraphs of Word lists
+   (`w:numPr` with their level) defined in `word/numbering.xml` (`word_lists`): each list at one
+   level under one item is a list of its own, with the format of its first item (bullet with its
+   mark, decimal, lower or upper letter, `.` or `)`) and the number it starts from.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with

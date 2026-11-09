@@ -283,26 +283,120 @@ fn docx_picture(n: usize, picture: &Picture) -> String {
     )
 }
 
+/// The Word lists of `pieces`: for each piece the list it belongs to, and
+/// the numbering part with a definition for each list. Each list of items at
+/// one level under one item (or at the outer level) is a list of its own,
+/// with the format of its first item (bullet, number or letter, the number
+/// it starts from), so that it counts from its start.
+fn word_lists(pieces: &[Piece], depths: &[usize]) -> (Vec<usize>, String) {
+    // Its level, and the format, text and start of that level.
+    type List = (usize, &'static str, String, u32);
+    let mut runs = Vec::with_capacity(pieces.len());
+    let mut lists: Vec<List> = Vec::new();
+    // The lists open, by level.
+    let mut open: Vec<usize> = Vec::new();
+    for (p, &depth) in pieces.iter().zip(depths) {
+        let item = match p {
+            Piece::Text { level: 0, text, .. } => list_mark(text),
+            _ => None,
+        };
+        let Some((_, mark, _)) = item else {
+            open.clear();
+            runs.push(0);
+            continue;
+        };
+        let n = depth + 1;
+        let suffix = mark
+            .chars()
+            .last()
+            .filter(|c| matches!(c, '.' | ')'))
+            .map(String::from)
+            .unwrap_or_default();
+        let body = mark.trim_end_matches(['.', ')']);
+        let letter = |c: char| {
+            body.chars().count() == 1
+                && body.chars().all(|x| {
+                    x == c || (c == 'a' && x.is_ascii_lowercase()) || (c == 'A' && x.is_ascii_uppercase())
+                })
+        };
+        let (format, text, start) = if let Ok(k) = body.parse::<u32>() {
+            ("decimal", format!("%{n}{suffix}"), k.max(1))
+        } else if letter('a') {
+            let k = body.bytes().next().map_or(1, |b| u32::from(b - b'a') + 1);
+            ("lowerLetter", format!("%{n}{suffix}"), k)
+        } else if letter('A') {
+            let k = body.bytes().next().map_or(1, |b| u32::from(b - b'A') + 1);
+            ("upperLetter", format!("%{n}{suffix}"), k)
+        } else {
+            ("bullet", mark.clone(), 1)
+        };
+        open.truncate(n);
+        let same = open
+            .get(depth)
+            .is_some_and(|&k| lists[k].1 == format && (format != "bullet" || lists[k].2 == text));
+        if !same {
+            open.truncate(depth);
+            while open.len() < depth {
+                // A level skipped: under the list above.
+                open.push(open.last().copied().unwrap_or(0));
+            }
+            lists.push((depth, format, text, start));
+            open.push(lists.len() - 1);
+        }
+        runs.push(open[depth]);
+    }
+    let mut abstracts = String::new();
+    let mut nums = String::new();
+    for (k, (depth, format, text, start)) in lists.iter().enumerate() {
+        abstracts.push_str(&format!(
+            "<w:abstractNum w:abstractNumId=\"{k}\"><w:multiLevelType w:val=\"hybridMultilevel\"/>"
+        ));
+        for l in 0..=*depth {
+            let (format, text, start) = if l == *depth {
+                (*format, text.clone(), *start)
+            } else {
+                ("bullet", "•".to_string(), 1)
+            };
+            abstracts.push_str(&format!(
+                "<w:lvl w:ilvl=\"{l}\"><w:start w:val=\"{start}\"/><w:numFmt w:val=\"{format}\"/>\
+                 <w:lvlText w:val=\"{}\"/><w:lvlJc w:val=\"left\"/>\
+                 <w:pPr><w:ind w:left=\"{}\" w:hanging=\"360\"/></w:pPr></w:lvl>",
+                escape_text(&text),
+                360 * (l + 1)
+            ));
+        }
+        abstracts.push_str("</w:abstractNum>");
+        nums.push_str(&format!(
+            "<w:num w:numId=\"{}\"><w:abstractNumId w:val=\"{k}\"/></w:num>",
+            k + 1
+        ));
+    }
+    let numbering = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n\
+         <w:numbering xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">{abstracts}{nums}</w:numbering>"
+    );
+    (runs, numbering)
+}
+
 fn docx(pieces: &[Piece], title: &str, breaks: bool) -> Result<Vec<u8>> {
     let mut body = String::new();
     let mut media: Vec<(String, Vec<u8>)> = Vec::new();
     let mut page = pieces.first().map(Piece::page).unwrap_or(0);
     let depths = list_depths(pieces);
-    for (p, depth) in pieces.iter().zip(depths) {
+    let (runs, numbering) = word_lists(pieces, &depths);
+    for ((p, depth), run) in pieces.iter().zip(depths).zip(runs) {
         if breaks && p.page() != page {
             body.push_str("<w:p><w:r><w:br w:type=\"page\"/></w:r></w:p>");
             page = p.page();
         }
         match p {
             Piece::Text { level: 0, text, .. } if list_mark(text).is_some() => {
-                // An item of a list: its mark, a tab, its text, hanging.
-                let (_, mark, rest) = list_mark(text).unwrap_or_default();
+                // An item of a Word list: its list, its level, its text.
+                let (_, _, rest) = list_mark(text).unwrap_or_default();
                 body.push_str(&format!(
-                    "<w:p><w:pPr><w:ind w:left=\"{}\" w:hanging=\"360\"/></w:pPr>\
-                     <w:r><w:t xml:space=\"preserve\">{}</w:t></w:r><w:r><w:tab/></w:r>\
+                    "<w:p><w:pPr><w:numPr><w:ilvl w:val=\"{depth}\"/><w:numId w:val=\"{}\"/></w:numPr></w:pPr>\
                      <w:r><w:t xml:space=\"preserve\">{}</w:t></w:r></w:p>",
-                    360 * (depth + 1),
-                    escape_text(&clean(&mark)),
+                    run + 1,
                     escape_text(&clean(&rest))
                 ));
             }
@@ -370,6 +464,7 @@ fn docx(pieces: &[Piece], title: &str, breaks: bool) -> Result<Vec<u8>> {
              <Default Extension=\"jpeg\" ContentType=\"image/jpeg\"/>\
              <Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>\
              <Override PartName=\"/word/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\"/>\
+             <Override PartName=\"/word/numbering.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml\"/>\
              <Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/>\
              </Types>"
                 .as_bytes()
@@ -391,6 +486,7 @@ fn docx(pieces: &[Piece], title: &str, breaks: bool) -> Result<Vec<u8>> {
                 "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n\
                  <Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\
                  <Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>\
+                 <Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering\" Target=\"numbering.xml\"/>\
                  {}</Relationships>",
                 media
                     .iter()
@@ -405,6 +501,7 @@ fn docx(pieces: &[Piece], title: &str, breaks: bool) -> Result<Vec<u8>> {
         ),
         ZipEntry::new("word/document.xml", document.into_bytes()),
         ZipEntry::new("word/styles.xml", styles.into_bytes()),
+        ZipEntry::new("word/numbering.xml", numbering.into_bytes()),
         ZipEntry::new("docProps/core.xml", core.into_bytes()),
     ];
     let mut entries = entries;

@@ -11,6 +11,8 @@ All notable changes to Folitecta are documented here. The format follows
   their labels, or in their table cells, as they are set.
 - Lists within lists keep their levels in the exports to Word, rich text and web page: the web page
   nests them, Word and RTF indent each level further.
+- Lists exported to Word are Word lists: Word numbers and indents them, and they can be continued
+  and renumbered there.
 
 ## [0.73.0] - 2026-11-09
 

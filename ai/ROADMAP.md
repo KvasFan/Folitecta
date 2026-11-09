@@ -746,6 +746,49 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
 1. ~~**FOL-L009 — notes in PPTX.**~~ Done: a notes master (with its theme) and a notes page for
    each slide, the paragraphs of its page as the notes (up to 20 000 characters).
 
+### Planned releases after 0.73.0 (prepared 9 November 2026)
+
+What is still open, from the requirements below and from the commands of
+[docs/FEATURES.md](../docs/FEATURES.md) that are not available yet (276 planned and 12 partial
+commands once submenus and the same command in menus, ribbon and panes are counted once; about 45
+of them wait for an engine or a remote service decided below). 0.74.0 to 0.77.0 (office export
+fidelity) are done and go out with the first of these releases.
+
+1. **0.80.0 — editing that goes further** (FOL-L019, L020, L021, L028): path nodes made smooth,
+   corner or straight, three-point arcs, circles and rectangles, clipping removed, fill rule; text
+   reflowed inside its area, blocks joined and split; Edit Object and object groups; every use of
+   a picture replaced at once; snapping to the middles of lines and to intersections; the content
+   filters (text, pictures, shapes) of Edit Content.
+2. **0.85.0 — clipboard, presets and the interface of one's own** (FOL-L050, L002, L004): Paste
+   Pages and Paste Pages Special, fields, guides, files, rich text and as a stamp, Copy File; the
+   presets managers (add, edit, clone, order, import, export) and Measurement Options; toolbars
+   and ribbon tabs of one's own (new, rename, make default, lock and unlock); tabs moved between
+   windows, all tabs gathered into one window, tabs distributed; thumbnails selected by shape and
+   by advanced selection; the snapshot of the loupe and of pan and zoom.
+3. **0.90.0 — actions and comments complete** (FOL-L022, L026, L034, L047): the editors of
+   actions (go-to views, action lists of bookmarks, links, pages and layers, document actions),
+   Batch Link and Web Links, the links pane's import and options; comment labels, line caps and
+   joins, blend modes, stroke opacity, text fill and stroke colours, underline style, highlight
+   mode, the styles list of the tools, editing a measurement and copying its information, the row
+   data of comment macros; keystroke scripts while typing and page and document events.
+4. **0.95.0 — creation, conversion and standards** (FOL-L005, L011, L043, L044, L045, L041,
+   L035, L009): new documents from rich text with its styles and from a selection, Insert Scanned
+   Pages, Replace Fonts, Show Problem Details, Bates numbering of files with its columns; PDF/A
+   with composite fonts without a ToUnicode map, PDF/A-1 and -3 and a PDF/UA check; colour
+   profiles and conversion to CMYK, separations preview; font subsets merged; the manual checks of
+   the accessibility report; drawings compared; slides with editable text.
+
+**To be decided by the user before they are planned** (engines or the network, against the
+principle that Folitecta connects to nothing it is not asked to): XFA forms (FOL-L033), on-device
+AI to summarize and translate (FOL-L048), 3D models (FOL-L049, about 15 commands), Office and web
+page import and XPS, metafiles, CAD (FOL-L006, L008), file associations and a virtual printer
+(FOL-L007), and the remote services FOL-C001–C014 (WebDAV, e-signature services, opening from a
+web address, stamps and search providers from the web).
+
+**To be checked by hand** (the self-test uses stand-ins): real printers, mail programs, time
+stamp and OCSP servers, smart cards and system certificate stores, HiDPI and pinch zoom, a
+keyboard-only and screen reader pass, and the macOS packages of 0.73.0 once GitHub Actions run.
+
 ### Later
 
 The rest of the fonts for PDF/A (FOL-L043: composite fonts without a ToUnicode map or with

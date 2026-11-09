@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — 0.73.0 published by hand
+
+- **What:** the tag `v0.73.0` started CI and Release on GitHub, but no job ran ("account is locked
+  due to a billing issue"). The packages were built here from the tag: Windows with `cargo xwin`
+  (MSVC target, C runtime built in: no `VCRUNTIME140` import, only system DLLs), Linux in an
+  Ubuntu 22.04 container (podman) so that it needs glibc 2.35 like the automatic build (built on
+  this system it needed 2.44). Published as a pre-release with their checksums; macOS is not
+  attached (no Apple SDK here) and the notes say so.
+- **Checked:** `folitecta.exe --version` under Wine; `target/pkg.sh 0.73.0` on the published
+  files: 4 assets, checksums OK, the data folders of the two packages equal, steps tools, ocr,
+  spelling, unicode, formats, my_templates and office with the packaged Linux program: 48
+  interactions, 0 problems.
+- **Open:** the macOS packages, when GitHub Actions runs again (run the Release workflow on the
+  tag, or build them on a Mac).
+
 ## 2026-11-09 — release 0.73.0
 
 - **What:** version 0.73.0 (holds 0.44.0 to 0.73.0; 0.45.0 was never published): CHANGELOG,

@@ -4,6 +4,19 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-09 — FOL-L009: notes of the slides (0.77.0)
+
+- **Current state before:** the PPTX had the text of each page only as the description of its
+  picture (open item of 0.73.0).
+- **What:** `slides.rs`: `notes_master` (slide picture and notes placeholders on a notes page,
+  its colour map) with its own theme (`theme2.xml`), listed in `notesMasterIdLst`; `notes` for
+  each slide (picture placeholder, body placeholder with a paragraph for each reading block of
+  the page, 20 000 characters at most) and the relationships both ways; content types.
+- **Checked:** `office.rs` `pages_become_the_slides_of_a_presentation` (every part well-formed,
+  a notes page for each slide, the first one's paragraphs); python-pptx reads the three slides'
+  notes ("Quarterly report" then the first paragraph, 683, 4064 and 2935 characters).
+- **Open:** slides with editable text boxes.
+
 ## 2026-11-09 — FOL-L009: Word lists (0.76.0)
 
 - **Current state before:** list items in DOCX were paragraphs with their mark typed and a hanging
@@ -33,7 +46,7 @@ checked, what is still open. The history before October 2026 is in
 - **Checked:** `office.rs` `lists_within_lists_are_nested` (bullets, dashes and numbers at three
   levels: the HTML body exactly, DOCX and RTF indents counted); pandoc reads the nesting back; the
   other office tests (lists, mixed report) unchanged; core tests and clippy.
-- **Open:** Word lists as indented paragraphs, not Word numbering (`w:numPr`): done in 0.76.0.
+- **Open:** Word lists as indented paragraphs, not Word numbering (`w:numPr`).
 
 ## 2026-11-09 — FOL-L009: ballot marks in the office exports (0.74.0)
 

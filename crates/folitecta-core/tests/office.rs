@@ -765,6 +765,22 @@ fn pages_become_the_slides_of_a_presentation() {
         .data;
     let img = image::load_from_memory(picture).unwrap();
     assert!(img.width() > 1000, "{}", img.width());
+    // The notes of each slide: the paragraphs of its page.
+    assert_eq!(count("ppt/notesSlides/notesSlide"), n);
+    assert_eq!(count("ppt/notesMasters/notesMaster1.xml"), 1);
+    let notes = String::from_utf8(
+        parts
+            .iter()
+            .find(|p| p.name == "ppt/notesSlides/notesSlide1.xml")
+            .unwrap()
+            .data
+            .clone(),
+    )
+    .unwrap();
+    assert!(
+        notes.contains("<a:t>Quarterly report</a:t></a:r></a:p><a:p><a:r><a:rPr lang=\"en-US\" dirty=\"0\"/><a:t>This report sums up"),
+        "{notes}"
+    );
 }
 
 #[test]

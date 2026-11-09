@@ -13,6 +13,8 @@ All notable changes to Folitecta are documented here. The format follows
   nests them, Word and RTF indent each level further.
 - Lists exported to Word are Word lists: Word numbers and indents them, and they can be continued
   and renumbered there.
+- The slides of a presentation exported from the pages carry the text of their page as notes,
+  paragraph by paragraph, for the speaker and for search.
 
 ## [0.73.0] - 2026-11-09
 

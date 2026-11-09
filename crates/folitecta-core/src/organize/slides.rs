@@ -2,7 +2,8 @@
 //! slide for each page, the size of the first page; on it the picture of
 //! the page as it is shown (comments and fields included), as large as the
 //! slide holds, its text as the description of the picture (for search and
-//! screen readers). Nothing else of the page is editable.
+//! screen readers) and, paragraph by paragraph, as the notes of the slide.
+//! Nothing else of the page is editable.
 
 use std::ops::Range;
 
@@ -18,6 +19,8 @@ const EMU: f64 = 12700.0;
 const SCALE: f32 = 2.0;
 /// Characters of the text of a page kept as the description of its picture.
 const DESCRIPTION: usize = 2000;
+/// Characters of the text of a page kept as the notes of its slide.
+const NOTES: usize = 20_000;
 
 const NS: &str = "xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" \
                   xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" \
@@ -98,6 +101,50 @@ fn slide(n: usize, size: (f32, f32), slide: (i64, i64), description: &str) -> St
     )
 }
 
+/// The notes master: where the picture of the slide and the notes stand on
+/// a notes page.
+fn notes_master() -> String {
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n\
+         <p:notesMaster {NS}><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>\
+         <p:grpSpPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"0\" cy=\"0\"/><a:chOff x=\"0\" y=\"0\"/><a:chExt cx=\"0\" cy=\"0\"/></a:xfrm></p:grpSpPr>\
+         <p:sp><p:nvSpPr><p:cNvPr id=\"2\" name=\"Slide image\"/><p:cNvSpPr><a:spLocks noGrp=\"1\" noRot=\"1\" noChangeAspect=\"1\"/></p:cNvSpPr><p:nvPr><p:ph type=\"sldImg\" idx=\"2\"/></p:nvPr></p:nvSpPr>\
+         <p:spPr><a:xfrm><a:off x=\"1143000\" y=\"685800\"/><a:ext cx=\"4572000\" cy=\"3429000\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></p:spPr></p:sp>\
+         <p:sp><p:nvSpPr><p:cNvPr id=\"3\" name=\"Notes\"/><p:cNvSpPr><a:spLocks noGrp=\"1\"/></p:cNvSpPr><p:nvPr><p:ph type=\"body\" sz=\"quarter\" idx=\"3\"/></p:nvPr></p:nvSpPr>\
+         <p:spPr><a:xfrm><a:off x=\"685800\" y=\"4400550\"/><a:ext cx=\"5486400\" cy=\"3600450\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></p:spPr>\
+         <p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang=\"en-US\"/></a:p></p:txBody></p:sp>\
+         </p:spTree></p:cSld>\
+         <p:clrMap bg1=\"lt1\" tx1=\"dk1\" bg2=\"lt2\" tx2=\"dk2\" accent1=\"accent1\" accent2=\"accent2\" accent3=\"accent3\" accent4=\"accent4\" accent5=\"accent5\" accent6=\"accent6\" hlink=\"hlink\" folHlink=\"folHlink\"/>\
+         </p:notesMaster>"
+    )
+}
+
+/// The notes of slide `n`: the picture of the slide, and `paragraphs`.
+fn notes(n: usize, paragraphs: &[String]) -> String {
+    let text: String = if paragraphs.is_empty() {
+        "<a:p><a:endParaRPr lang=\"en-US\"/></a:p>".into()
+    } else {
+        paragraphs
+            .iter()
+            .map(|p| {
+                format!(
+                    "<a:p><a:r><a:rPr lang=\"en-US\" dirty=\"0\"/><a:t>{}</a:t></a:r></a:p>",
+                    escape_text(&clean(p))
+                )
+            })
+            .collect()
+    };
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n\
+         <p:notes {NS}><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id=\"1\" name=\"\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>\
+         <p:grpSpPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"0\" cy=\"0\"/><a:chOff x=\"0\" y=\"0\"/><a:chExt cx=\"0\" cy=\"0\"/></a:xfrm></p:grpSpPr>\
+         <p:sp><p:nvSpPr><p:cNvPr id=\"2\" name=\"Slide image {n}\"/><p:cNvSpPr><a:spLocks noGrp=\"1\" noRot=\"1\" noChangeAspect=\"1\"/></p:cNvSpPr><p:nvPr><p:ph type=\"sldImg\"/></p:nvPr></p:nvSpPr><p:spPr/></p:sp>\
+         <p:sp><p:nvSpPr><p:cNvPr id=\"3\" name=\"Notes {n}\"/><p:cNvSpPr><a:spLocks noGrp=\"1\"/></p:cNvSpPr><p:nvPr><p:ph type=\"body\" idx=\"1\"/></p:nvPr></p:nvSpPr><p:spPr/>\
+         <p:txBody><a:bodyPr/><a:lstStyle/>{text}</p:txBody></p:sp>\
+         </p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>"
+    )
+}
+
 impl Document {
     /// `pages` as a PowerPoint presentation (see the module); how many
     /// slides it has.
@@ -115,9 +162,15 @@ impl Document {
                 "slideMasters/slideMaster1.xml".into(),
             ),
             ("rId2".into(), "theme", "theme/theme1.xml".into()),
+            (
+                "rId3".into(),
+                "notesMaster",
+                "notesMasters/notesMaster1.xml".into(),
+            ),
         ];
         let mut types = String::new();
         let layers = self.text_layers();
+        let blocks = self.reading_blocks(pages.clone());
         for (k, page) in pages.clone().enumerate() {
             let n = k + 1;
             let size = self.page_size(page)?;
@@ -142,13 +195,45 @@ impl Document {
                         "../slideLayouts/slideLayout1.xml".into(),
                     ),
                     ("rId2".into(), "image", format!("../media/page{n}.png")),
+                    (
+                        "rId3".into(),
+                        "notesSlide",
+                        format!("../notesSlides/notesSlide{n}.xml"),
+                    ),
+                ]),
+            ));
+            // The notes: the paragraphs of the page, as far as they go.
+            let mut left = NOTES;
+            let paragraphs: Vec<String> = blocks
+                .iter()
+                .filter(|b| b.page == page && !b.text.trim().is_empty())
+                .map_while(|b| {
+                    let text: String = b.text.trim().chars().take(left).collect();
+                    left = left.saturating_sub(text.chars().count());
+                    (!text.is_empty()).then_some(text)
+                })
+                .collect();
+            entries.push(ZipEntry::new(
+                format!("ppt/notesSlides/notesSlide{n}.xml"),
+                notes(n, &paragraphs).into_bytes(),
+            ));
+            entries.push(ZipEntry::new(
+                format!("ppt/notesSlides/_rels/notesSlide{n}.xml.rels"),
+                rels(&[
+                    (
+                        "rId1".into(),
+                        "notesMaster",
+                        "../notesMasters/notesMaster1.xml".into(),
+                    ),
+                    ("rId2".into(), "slide", format!("../slides/slide{n}.xml")),
                 ]),
             ));
             entries.push(ZipEntry::new(format!("ppt/media/page{n}.png"), picture.png));
             list.push_str(&format!("<p:sldId id=\"{}\" r:id=\"rIdS{n}\"/>", 255 + n));
             pres_rels.push((format!("rIdS{n}"), "slide", format!("slides/slide{n}.xml")));
             types.push_str(&format!(
-                "<Override PartName=\"/ppt/slides/slide{n}.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slide+xml\"/>"
+                "<Override PartName=\"/ppt/slides/slide{n}.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slide+xml\"/>\
+                 <Override PartName=\"/ppt/notesSlides/notesSlide{n}.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml\"/>"
             ));
         }
         let count = pages.len();
@@ -158,6 +243,7 @@ impl Document {
         let presentation = format!(
             "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n\
              <p:presentation {NS}><p:sldMasterIdLst><p:sldMasterId id=\"2147483648\" r:id=\"rId1\"/></p:sldMasterIdLst>\
+             <p:notesMasterIdLst><p:notesMasterId r:id=\"rId3\"/></p:notesMasterIdLst>\
              <p:sldIdLst>{list}</p:sldIdLst><p:sldSz cx=\"{}\" cy=\"{}\"/><p:notesSz cx=\"6858000\" cy=\"9144000\"/></p:presentation>",
             slide_size.0, slide_size.1
         );
@@ -186,6 +272,8 @@ impl Document {
                      <Override PartName=\"/ppt/slideMasters/slideMaster1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml\"/>\
                      <Override PartName=\"/ppt/slideLayouts/slideLayout1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml\"/>\
                      <Override PartName=\"/ppt/theme/theme1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.theme+xml\"/>\
+                     <Override PartName=\"/ppt/theme/theme2.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.theme+xml\"/>\
+                     <Override PartName=\"/ppt/notesMasters/notesMaster1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml\"/>\
                      <Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/>\
                      {types}</Types>"
                 )
@@ -227,6 +315,12 @@ impl Document {
                 rels(&[("rId1".into(), "slideMaster", "../slideMasters/slideMaster1.xml".into())]),
             ),
             ZipEntry::new("ppt/theme/theme1.xml", theme().into_bytes()),
+            ZipEntry::new("ppt/notesMasters/notesMaster1.xml", notes_master().into_bytes()),
+            ZipEntry::new(
+                "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+                rels(&[("rId1".into(), "theme", "../theme/theme2.xml".into())]),
+            ),
+            ZipEntry::new("ppt/theme/theme2.xml", theme().into_bytes()),
         ];
         all.append(&mut entries);
         Ok((write(&all)?, count))

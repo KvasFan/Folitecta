@@ -683,3 +683,16 @@ fn cells_wrapped_on_two_lines_stay_one_cell() {
     let page = String::from_utf8(doc.export_office(OfficeFormat::Html, 0..1, false).unwrap().bytes).unwrap();
     assert!(!page.contains("<p>"), "{page}");
 }
+
+#[test]
+fn a_first_cell_wrapped_on_two_lines_stays_one_cell() {
+    let long = "A long name of the item that does not fit on one line of its column at all. ".repeat(2);
+    let long = long.trim();
+    let csv = format!("Item;Qty;Cost\n{long};2;1,200\nBolts;5;300\n{long};1;450\n");
+    let doc = Document::from_csv(&csv, Some(';'), TextLayout::default(), "").unwrap();
+    let tables = doc.page_tables(0..1);
+    assert_eq!(tables.len(), 1, "{tables:#?}");
+    let rows = &tables[0].rows;
+    assert_eq!(rows.len(), 4, "{rows:#?}");
+    assert_eq!((rows[1][0].as_str(), rows[3][0].as_str(), rows[3][2].as_str()), (long, long, "450"));
+}

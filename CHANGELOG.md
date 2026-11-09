@@ -6,6 +6,11 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.73.0] - 2026-11-09
+
+Holds the work planned as 0.46.0 to 0.73.0, and 0.44.0 and 0.45.0 below, which were never
+published on their own.
+
 ### Added
 - Export Tables (File › Export) finds the tables in the text of the pages, whatever order they are
   drawn in, lists them with their page and size to choose, and writes them as a workbook (XLSX: a
@@ -84,7 +89,7 @@ All notable changes to Folitecta are documented here. The format follows
   field: on pages that are partly scanned only the scanned part gets text, and an area read again
   is not written twice (the program says so).
 
-## [0.45.0] - 2026-11-05
+## [0.45.0] - 2026-11-05 (not published: released with 0.73.0)
 
 ### Added
 - The export to Word (DOCX), rich text (RTF) and web page (HTML) carries the pictures of the pages,

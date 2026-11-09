@@ -55,7 +55,7 @@ without breaking what already works.
 
 ## Where the product stands (summary)
 
-Folitecta 0.45.0 (November 2026) covers most daily work: viewing, page organization, comments and
+Folitecta 0.73.0 (November 2026) covers most daily work: viewing, page organization, comments and
 review, layers, forms designer and data, OCR, spell checking, barcodes, tables, stamps, digital
 signatures with PKCS#12, smart cards, tokens and the system certificate store, RFC 3161 time stamps and revocation checks, accessibility tags and
 checks, comparison, portfolios, e-mail with an attachment dialog, printing with its own window
@@ -63,5 +63,5 @@ checks, comparison, portfolios, e-mail with an attachment dialog, printing with 
 groups, templates, scanning, Markdown and CSV documents, tables of contents, PDF/A-2b preflight and conversion, grey conversion, picture recompression, vector path editing, action sequences with a command line, office exports and a sandboxed JavaScript engine; saves are atomic, protected files stay
 protected (AES-256 for new protection, also through signing) and redaction removes the text,
 pictures and drawings under the marks. The feature matrix [docs/FEATURES.md](../docs/FEATURES.md)
-counts 1465 available, 59 partial and 468 planned commands of the command registry. The next work
+counts 1495 available, 58 partial and 461 planned commands of the command registry. The next work
 (0.4.0) is listed in [ROADMAP.md](ROADMAP.md).

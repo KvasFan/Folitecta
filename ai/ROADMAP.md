@@ -530,7 +530,7 @@ Two stacks of scans put in order after scanning (FOL-L012).
    (`document.interleavePages`) with the number of fronts and the order of the backs, through
    `interleave_backs`.
 
-### 0.44.0 — words marked as they are read (released in 0.45.0, 5 November 2026)
+### 0.44.0 — words marked as they are read (released in 0.73.0, 9 November 2026)
 
 Following the voice word by word (FOL-L042).
 
@@ -539,7 +539,7 @@ Following the voice word by word (FOL-L042).
    speech-dispatcher with a mark before every word in SSML), the word found on the page through
    the characters the read text comes from (`read_word`, `joined_map`) and marked.
 
-### 0.45.0 — pictures in the office exports (released 5 November 2026)
+### 0.45.0 — pictures in the office exports (released in 0.73.0, 9 November 2026)
 
 Word, rich text and web pages with the pictures of the pages (FOL-L009).
 
@@ -549,7 +549,7 @@ Word, rich text and web pages with the pictures of the pages (FOL-L009).
    data addresses in HTML; JPEG data kept as it is, other pictures as PNG, those turned or
    mirrored drawn from the page; specks and the scan of a page with text left out and counted.
 
-### 0.46.0 — tables out of the pages (on `main`, untagged)
+### 0.46.0 — tables out of the pages (released in 0.73.0, 9 November 2026)
 
 The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
 
@@ -560,14 +560,14 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    workbook (`sheets.rs`: inline strings, numbers and percentages with their formats, a bold head)
    or CSV; Export Tables lists the tables found to choose.
 
-### 0.47.0 — tables in the office exports (on `main`, untagged)
+### 0.47.0 — tables in the office exports (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L009 — tables as tables.**~~ Done: the tables `find_tables` finds on a page go into the
    DOCX (`w:tbl` with borders, a repeated head row, numbers right), RTF (`\trowd`, `\trhdr`) and
    HTML (`table`, `th`, `td.n`) exports in place of the paragraphs inside them, before the first
    paragraph below their top; `OfficeExport::tables` in the report.
 
-### 0.48.0 — picture fields (on `main`, untagged)
+### 0.48.0 — picture fields (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L031 — picture fields.**~~ Done: `NewField::Picture` (a push button showing its picture
    alone, `/TP 1`, whose script is `event.target.buttonImportIcon();` as other programs write it),
@@ -575,7 +575,7 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    button scripts know their button as `event.target`; the Picture Field tool
    (`tool.editFields.mode.image`).
 
-### 0.49.0 — repeated fonts and pictures kept once (on `main`, untagged)
+### 0.49.0 — repeated fonts and pictures kept once (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L045 — fonts and other objects.**~~ Done: `merge_duplicates` (`duplicates.rs`): pictures,
    fonts with their descriptors, programs, maps and widths, and colour profiles that are the same
@@ -583,7 +583,7 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    nothing uses is removed. Pages, comments, fields and content streams are never merged; signed
    documents are refused; one undo step, none when there is nothing to merge.
 
-### 0.50.0 — form fields found (on `main`, untagged)
+### 0.50.0 — form fields found (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L014 — field recognition proposals.**~~ Done: `find_form_fields` (`field_finder.rs`):
    underscores in the text, lines drawn with nothing written above them, empty rectangles and
@@ -591,13 +591,13 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    before, after or above them, none where a widget is; `add_found_fields` in one undo step with
    names made unique; Find Form Fields (`forms.findFields`) lists them to choose.
 
-### 0.51.0 — pictures in Markdown (on `main`, untagged)
+### 0.51.0 — pictures in Markdown (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L005 — Markdown pictures.**~~ Done: `Block::Picture` for a paragraph that is only a
    picture, `from_markdown_in` with the folder of the file, `Typeset::picture` (placed on the
    page, drawn when the document is made); the others shown by their description.
 
-### 0.52.0 — hidden information removed, more steps (on `main`, untagged)
+### 0.52.0 — hidden information removed, more steps (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L037 — sanitizing on its own.**~~ Done: `Document::sanitize` (metadata, attachments,
    hidden content, scripts; one undo step; signed documents refused) and Remove Hidden
@@ -605,115 +605,115 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
 2. ~~**FOL-L047 — more steps.**~~ Done: `Step::Sanitize`, `Step::MergeDuplicates`,
    `Step::FindFormFields`, with their settings in the Action Sequences window.
 
-### 0.53.0 — pictures compared (on `main`, untagged)
+### 0.53.0 — pictures compared (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L035 — picture differences.**~~ Done: `picture_differences` pairs the pictures of each
    old page with those of the new pages beside it (`page_map`) by a digest of their data and
    size: moved, replaced where one stood, added, removed; `Difference::picture`, listed and marked
    with the text differences.
 
-### 0.54.0 — object inspector (on `main`, untagged)
+### 0.54.0 — object inspector (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L004 — object inspector.**~~ Done: `Document::inspect` (`inspect.rs`) at an
    `InspectPath` (the trailer or an object, then keys and indices): entries with their kind, a
    summary and where they lead, the data of streams (text, or hexadecimal); the Object Inspector
    window (`document.inspectObjects`).
 
-### 0.55.0 — recognition that leaves out what is there (on `main`, untagged)
+### 0.55.0 — recognition that leaves out what is there (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L013 — exclusions.**~~ Done: `ocr_exclusions` (the letters of the text of the page,
    without the earlier recognition when it is replaced, and the rectangles of comments and fields)
    and `without_places` before the text is written; nothing new: no change, no undo step.
 
-### 0.56.0 — settings that travel (on `main`, untagged)
+### 0.56.0 — settings that travel (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L050 — portable settings.**~~ Done: `portable.rs`: `--settings <folder>`, or a
    `portable` marker beside the program for `settings` beside it, through
    `FOLITECTA_CONFIG_DIR` before anything starts; the folder in About.
 
-### 0.57.0 — nodes added and removed (on `main`, untagged)
+### 0.57.0 — nodes added and removed (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L021 — nodes added and removed.**~~ Done: `add_path_node` (a straight segment after a
    node), `remove_path_node` (its segment goes; the first node hands the start to the next line;
    rectangles refused; two nodes kept); double clicks in the shape editor.
 
-### 0.58.0 — sites opened without asking (on `main`, untagged)
+### 0.58.0 — sites opened without asking (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L052 — the answer to a link kept.**~~ Done: `web_site`, `allowed_sites`,
    `allow_site`, `forget_sites`, `needs_asking` (`follow.rs`), the choice in the question of a web
    link, the list in Preferences.
 
-### 0.59.0 — combs found (on `main`, untagged)
+### 0.59.0 — combs found (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L014 — combs.**~~ Done: `combs` (`field_finder.rs`): squares alike and side by side
    (at most 2 points apart), three or more, become one comb text field (`FieldProposal::comb`,
    `max_len`).
 
-### 0.60.0 — the history of a comment (on `main`, untagged)
+### 0.60.0 — the history of a comment (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L026 — history of a comment.**~~ Done: `comment_history` (made, replies, states,
    last change; `HistoryEntry`, `HistoryEvent`), shown in the Review History window.
 
-### 0.61.0 — measurements pane (on `main`, untagged)
+### 0.61.0 — measurements pane (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L028 — measure info pane.**~~ Done: `measurement_list` (`Measurement`),
    `measure_parts` and `measure_totals`; the Measurements pane (`view.measurements`).
 
-### 0.62.0 — cells over several rows (on `main`, untagged)
+### 0.62.0 — cells over several rows (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L041 — row spans.**~~ Done: `fix_table_spans` keeps the cell of each column row after
    row; the columns a short row leaves before its first cell go to the cells above (`/RowSpan`).
 
-### 0.64.0 — sideways sheets fed askew (on `main`, untagged)
+### 0.64.0 — sideways sheets fed askew (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L012 — sideways pages straightened when askew.**~~ Done: `way_and_skew` (`scans.rs`):
    lines running down measured on the picture turned a quarter; when the way up cannot be told, it
    is told on a copy straightened by the skew, as it lies and turned a quarter.
 
-### 0.65.0 — chosen pages to grey (on `main`, untagged)
+### 0.65.0 — chosen pages to grey (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L044 — selective conversion.**~~ Done: `convert_pages_to_grey` and
    `estimate_pages_grey` (what only those pages reach changes; shared objects counted as kept);
    the pages of the Convert Colours to Grey window.
 
-### 0.66.0 — snapping to what the page draws (on `main`, untagged)
+### 0.66.0 — snapping to what the page draws (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L028 — snapping profile.**~~ Done: `snap_points` (path nodes, rectangle corners) and the
    planned `view.snap.toObjects`, before the grid and guides, kept per tab, page and revision.
 
-### 0.67.0 — office exports checked on a whole report (on `main`, untagged)
+### 0.67.0 — office exports checked on a whole report (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L009, FOL-L005 — pictures and tables with the text.**~~ Done: a report made from
    Markdown with pictures, two tables over two pages and a list, exported to DOCX and HTML and
    read back: pictures of Markdown placed from the bottom as `add_image` measures (they were
    mirrored), list items started as paragraphs of their own (`list_item`).
 
-### 0.68.0 — lists in the office exports (on `main`, untagged)
+### 0.68.0 — lists in the office exports (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L009 — lists as lists.**~~ Done: `list_mark`; `ul` and `ol` in HTML, items with a
    hanging indent in DOCX (`w:ind`, a tab after the mark) and RTF (`\li360\fi-360`).
 
-### 0.69.0 — table columns by their contents (on `main`, untagged)
+### 0.69.0 — table columns by their contents (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L009 — column widths.**~~ Done: `table_widths` (the longest cell of each column, up to
    40 characters; scaled down to the text width) in DOCX and RTF.
 
-### 0.70.0 — form values in the office exports (on `main`, untagged)
+### 0.70.0 — form values in the office exports (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L009 — filled forms exported.**~~ Done: the export reads a copy whose fields are
    flattened; the text inside the fields' areas goes by its place on the page.
 
-### 0.71.0 — tables of filled forms (on `main`, untagged)
+### 0.71.0 — tables of filled forms (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L030 — field values in found tables.**~~ Done: `page_tables` reads a copy whose form
    fields are flattened (`tables_of_text`).
 
-### 0.72.0 — wrapped cells of the last row (on `main`, untagged)
+### 0.72.0 — wrapped cells of the last row (released in 0.73.0, 9 November 2026)
 
 1. ~~**FOL-L030 — bug.**~~ Fixed: `table_of` takes the rows of one cell after the last row of two
    cells or more, close under it and not in the first column, as words wrapped in its cells.
 
-### 0.73.0 — pages as a presentation (on `main`, untagged)
+### 0.73.0 — pages as a presentation (released 9 November 2026)
 
 1. ~~**FOL-L009 — PPTX.**~~ Done: `export_slides` (`slides.rs`): presentation, master, layout,
    theme and a slide for each page with its picture at 144 dpi, centred and as large as the slide

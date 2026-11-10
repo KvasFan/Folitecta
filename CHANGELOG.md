@@ -16,6 +16,10 @@ All notable changes to Folitecta are documented here. The format follows
   as the third, in the page content with the colour and width of the Line tool.
 - View › Snap › To Objects also snaps to the middles of straight lines and of the sides of boxes,
   and to where two lines cross.
+- Thumbnails › Select › Shape selects the pages that draw shapes; Advanced Selection selects pages
+  by number (odd, even, a range), orientation and what they hold (text, pictures, shapes,
+  comments, links, form fields, all of them or one, or nothing), added to the pages selected or
+  in their place.
 - An underline can be made wavy, or straight again, from the style editor (Underline Style); a link
   chosen shows how it reacts to a click (nothing, inverted, outlined, pressed) in the properties
   pane (Highlight Mode); Text Fill Color and Border Width Text open the style editor at the text

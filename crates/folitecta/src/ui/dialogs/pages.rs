@@ -376,6 +376,103 @@ pub(super) fn InterleavePages() -> Element {
     }
 }
 
+/// Advanced Selection: pages by number, range, orientation and what they hold.
+#[component]
+pub(super) fn PageSelection() -> Element {
+    use crate::commands::page_select::{Criteria, Holds, Parity, select};
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let n = st.page_count();
+    let mut parity = use_signal(|| "all".to_string());
+    let mut range = use_signal(String::new);
+    let mut orientation = use_signal(|| "any".to_string());
+    let mut holds = use_signal(Vec::<Holds>::new);
+    let mut any = use_signal(|| false);
+    let mut empty = use_signal(|| false);
+    let mut add = use_signal(|| false);
+    let kinds: Vec<(Holds, String)> = Holds::ALL
+        .iter()
+        .map(|h| (*h, t(lang, &format!("dialog.page_select.holds_{}", h.id()))))
+        .collect();
+    rsx! {
+        Frame { title: t(lang, "dialog.page_select.title"),
+            on_ok: move |_| {
+                let typed = range();
+                let pages = if typed.trim().is_empty() {
+                    None
+                } else {
+                    match crate::util::parse_page_range(&typed, n) {
+                        Ok(p) => Some(p),
+                        Err(e) => {
+                            st.error(e);
+                            return;
+                        }
+                    }
+                };
+                let c = Criteria {
+                    parity: match parity().as_str() {
+                        "odd" => Parity::Odd,
+                        "even" => Parity::Even,
+                        _ => Parity::All,
+                    },
+                    range: pages,
+                    landscape: match orientation().as_str() {
+                        "landscape" => Some(true),
+                        "portrait" => Some(false),
+                        _ => None,
+                    },
+                    holds: holds(),
+                    any: any(),
+                    empty: empty(),
+                };
+                st.set_dialog(Dialog::None);
+                select(st, &c, add());
+            },
+            p { class: "hint", "{t(lang, \"dialog.page_select.hint\")}" }
+            div { class: "field-grid",
+                div { class: "field", label { "{t(lang, \"dialog.page_select.pages\")}" }
+                    select { class: "page-select-parity", onchange: move |e| parity.set(e.value()),
+                        option { value: "all", "{t(lang, \"dialog.page_select.all\")}" }
+                        option { value: "odd", "{t(lang, \"dialog.page_select.odd\")}" }
+                        option { value: "even", "{t(lang, \"dialog.page_select.even\")}" }
+                    }
+                }
+                div { class: "field", label { "{t(lang, \"dialog.page_select.range\")}" }
+                    input { class: "page-select-range", r#type: "text", placeholder: "1-3, 8", value: "{range}", oninput: move |e| range.set(e.value()) }
+                }
+                div { class: "field", label { "{t(lang, \"dialog.page_select.orientation\")}" }
+                    select { class: "page-select-orientation", onchange: move |e| orientation.set(e.value()),
+                        option { value: "any", "{t(lang, \"dialog.page_select.any_orientation\")}" }
+                        option { value: "portrait", "{t(lang, \"dialog.page_select.portrait\")}" }
+                        option { value: "landscape", "{t(lang, \"dialog.page_select.landscape\")}" }
+                    }
+                }
+            }
+            div { class: "field", label { "{t(lang, \"dialog.page_select.holding\")}" }
+                for (h, label) in kinds.iter().cloned() {
+                    label { class: "check", key: "{h.id()}",
+                        input { r#type: "checkbox", class: "page-select-{h.id()}", checked: holds().contains(&h),
+                            onchange: move |_| holds.with_mut(|v| if let Some(i) = v.iter().position(|x| *x == h) { v.remove(i); } else { v.push(h); }) }
+                        span { "{label}" }
+                    }
+                }
+            }
+            label { class: "check",
+                input { r#type: "checkbox", class: "page-select-any", checked: any(), onchange: move |_| any.toggle() }
+                span { "{t(lang, \"dialog.page_select.any\")}" }
+            }
+            label { class: "check",
+                input { r#type: "checkbox", class: "page-select-empty", checked: empty(), onchange: move |_| empty.toggle() }
+                span { "{t(lang, \"dialog.page_select.empty\")}" }
+            }
+            label { class: "check",
+                input { r#type: "checkbox", class: "page-select-add", checked: add(), onchange: move |_| add.toggle() }
+                span { "{t(lang, \"dialog.page_select.add\")}" }
+            }
+        }
+    }
+}
+
 #[component]
 pub(super) fn ExportImages() -> Element {
     let st = use_context::<AppState>();

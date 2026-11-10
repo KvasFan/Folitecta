@@ -145,6 +145,8 @@ handlers! {
     "thumbnailsView.select.comments" => |st| select_pages_where(st, has_comments),
     "thumbnailsView.select.links" => |st| select_pages_where(st, |t, p| t.doc.links(p).map(|l| !l.is_empty()).unwrap_or(false)),
     "thumbnailsView.select.images" => |st| select_pages_where(st, |t, p| t.doc.image_count(p) > 0),
+    "thumbnailsView.select.shape" => |st| select_pages_where(st, |t, p| t.doc.page_paths(p).is_ok_and(|v| !v.is_empty())),
+    "thumbnailsView.select.with" => |st| { if !no_doc(st) { st.set_dialog(crate::state::Dialog::PageSelection); } },
     "thumbnailsView.select.text" => |st| select_pages_where(st, |t, p| !t.doc.page_text(p).trim().is_empty()),
     "thumbnailsView.select.fields" => |st| { let pages: Vec<usize> = st.read_active(|t| t.doc.form_fields().into_iter().filter_map(|f| f.page).collect()).unwrap_or_default(); select_pages_where(st, move |_, p| pages.contains(&p)) },
     "thumbnailsView.select.bookmarks" => |st| { let pages: Vec<usize> = st.read_active(|t| t.doc.outline_flat().into_iter().filter_map(|(_, _, p)| p).collect()).unwrap_or_default(); select_pages_where(st, move |_, p| pages.contains(&p)) },

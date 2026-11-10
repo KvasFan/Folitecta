@@ -4,6 +4,19 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-10 — FOL-L004: pages selected by shape and by conditions (0.84.0)
+
+- **Current state before:** Select › Shape and Advanced Selection of the Thumbnails pane planned.
+- **What:** app `page_select.rs`: `Criteria` (parity, range, orientation, what the page holds,
+  all or one, empty pages), `PageFacts`, the pure `matches`, `select` (added or in place, sorted,
+  the count said); `Dialog::PageSelection` (in the self-test's dialog states too);
+  `thumbnailsView.select.shape` (`page_paths` not empty), `thumbnailsView.select.with`.
+- **Checked:** unit tests `pages_by_number_range_and_orientation`, `pages_by_what_they_hold`;
+  new self-test step `page_select` (3 interactions, 0 problems): five pages, Shape selects the one
+  drawing a circle, pictures-or-comments selects pages 2 and 4, odd pages of 1-3 added gives
+  1-4; all app (154) and core tests, clippy.
+- **Open:** selecting by page size.
+
 ## 2026-11-10 — FOL-L026: wavy underlines, link highlights, format rows (0.83.0)
 
 - **Current state before:** Underline Style, Highlight Mode, Text Fill Color and Border Width Text

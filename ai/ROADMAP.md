@@ -792,6 +792,13 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    Underline row in the style editor and an On click row for a chosen link in the properties
    pane; the four commands open the pane at their row (text colour and thickness included).
 
+### 0.84.0 — pages selected by shape and by conditions (on `main`, untagged)
+
+1. ~~**FOL-L004 — Select › Shape, Advanced Selection.**~~ Done: the pages that draw shapes; a
+   dialog choosing pages odd or even, within a range, upright or lying, holding text, pictures,
+   shapes, comments, links or fields (all of them or one), or nothing, added to the selection or
+   in place of it (`commands/navigation/page_select.rs`).
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

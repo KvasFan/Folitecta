@@ -93,6 +93,8 @@ pub enum Dialog {
     SwapPages,
     /// Fronts and backs scanned in two stacks put in order.
     InterleavePages,
+    /// Advanced Selection of the Thumbnails pane.
+    PageSelection,
     Watermark,
     HeaderFooter,
     PageNumbers,

@@ -496,7 +496,7 @@ fn direct_fonts<'a>(obj: &'a Object, depth: usize, out: &mut Vec<&'a Dictionary>
 
 /// Make every font dictionary written inside another object an object of its
 /// own, referred to from where it was.
-fn lift_direct_fonts(doc: &mut lopdf::Document) {
+pub(crate) fn lift_direct_fonts(doc: &mut lopdf::Document) {
     fn lift(obj: &mut Object, depth: usize, add: &mut dyn FnMut(Dictionary) -> ObjectId) {
         if depth > 5 {
             return;

@@ -74,9 +74,9 @@ pub(crate) fn glyph_char(name: &str) -> Option<char> {
     u32::from_str_radix(hex, 16).ok().and_then(char::from_u32)
 }
 
-/// The family of a substitute face.
+/// The family of a substitute face (and of a replacement, Replace Fonts).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Family {
+pub enum Family {
     Sans,
     Serif,
     Mono,
@@ -434,9 +434,19 @@ impl Document {
     /// FreeFont substitute, with the widths the document lays its text out
     /// with. Whether it was embedded.
     pub(crate) fn embed_substitute(&mut self, id: ObjectId) -> Result<bool> {
+        self.put_substitute(id, None)
+    }
+
+    /// [`Document::embed_substitute`], or with `face` (family, bold, italic)
+    /// in place of the font at `id` even when it is embedded (Replace
+    /// Fonts; simple fonts only).
+    fn put_substitute(&mut self, id: ObjectId, face_wanted: Option<(Family, bool, bool)>) -> Result<bool> {
         let doc = &self.inner;
         let font = doc.get_dictionary(id)?.clone();
         if name_of(&font, b"Subtype") == Some(b"Type0") {
+            if face_wanted.is_some() {
+                return Ok(false);
+            }
             return self.embed_composite(id, &font);
         }
         let descriptor = font
@@ -444,15 +454,20 @@ impl Document {
             .ok()
             .and_then(|d| deref(doc, d).as_dict().ok())
             .cloned();
-        if descriptor
-            .as_ref()
-            .is_some_and(|d| d.has(b"FontFile") || d.has(b"FontFile2") || d.has(b"FontFile3"))
+        if (face_wanted.is_none()
+            && descriptor
+                .as_ref()
+                .is_some_and(|d| d.has(b"FontFile") || d.has(b"FontFile2") || d.has(b"FontFile3")))
             || !can_substitute(doc, &font)
         {
             return Ok(false);
         }
         let name = bare_name(&font);
         let symbolic = symbolic_table(&font);
+        // A face of letters does not stand in for one of symbols.
+        if face_wanted.is_some() && symbolic.is_some() {
+            return Ok(false);
+        }
         // Every code: its glyph name, character and the width readers use.
         let entries: Vec<(u8, String, Option<char>, Option<f32>)> = match symbolic {
             Some(table) => table
@@ -476,10 +491,11 @@ impl Document {
                     .collect()
             }
         };
-        let (family, bold, italic) = match symbolic {
+        let (family, bold, italic) = match (face_wanted, symbolic) {
+            (Some(wanted), None) => wanted,
             // FreeSerif has the Greek, mathematical and dingbat glyphs.
-            Some(_) => (Family::Serif, false, false),
-            None => face_of(&name, descriptor.as_ref()),
+            (_, Some(_)) => (Family::Serif, false, false),
+            (None, None) => face_of(&name, descriptor.as_ref()),
         };
         let Ok(face) = font_file(&substitute_file(family, bold, italic)) else {
             return Ok(false);
@@ -601,6 +617,56 @@ impl Document {
 }
 
 impl Document {
+    /// Replace Fonts: every simple font the document names `name` (without
+    /// the tag of a subset) drawn with a subset of the GNU FreeFont face of
+    /// `family`, bold and italic as asked, embedded, with the widths the text
+    /// is laid out with (no line moves). One undo step; how many fonts were
+    /// replaced. Fonts it cannot replace (composite, Type 3, symbolic, with
+    /// codes of their own, or showing characters the face lacks) stay.
+    pub fn replace_font(&mut self, name: &str, family: Family, bold: bool, italic: bool) -> Result<usize> {
+        self.begin_edit();
+        // Fonts written inside the resources of a page become objects first.
+        crate::pdfa::lift_direct_fonts(&mut self.inner);
+        let ids: Vec<ObjectId> = self
+            .inner
+            .objects
+            .iter()
+            .filter_map(|(id, o)| {
+                let d = o.as_dict().ok()?;
+                (name_of(d, b"Type") == Some(b"Font")
+                    && !matches!(
+                        name_of(d, b"Subtype"),
+                        Some(b"Type0" | b"Type3" | b"CIDFontType0" | b"CIDFontType2")
+                    )
+                    && bare_name(d) == name)
+                    .then_some(*id)
+            })
+            .collect();
+        if ids.is_empty() {
+            self.abandon_edit();
+            return Err(Error::Invalid(format!("the document has no font named {name}")));
+        }
+        let mut done = 0;
+        for id in ids {
+            match self.put_substitute(id, Some((family, bold, italic))) {
+                Ok(true) => done += 1,
+                Ok(false) => {}
+                Err(e) => {
+                    self.abandon_edit();
+                    return Err(e);
+                }
+            }
+        }
+        if done == 0 {
+            self.abandon_edit();
+            return Err(Error::Invalid(format!(
+                "{name} cannot be replaced: its codes are its own, or it shows characters the new font lacks"
+            )));
+        }
+        self.commit()?;
+        Ok(done)
+    }
+
     /// [`Document::embed_substitute`] for a composite font: a CIDFontType2
     /// subset of the substitute, reached through a `/CIDToGIDMap`, the widths
     /// of `/W` kept.

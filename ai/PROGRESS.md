@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-10 — FOL-L019: fonts replaced (0.88.0)
+
+- **Current state before:** Replace Fonts planned; the PDF/A conversion embedded FreeFont subsets
+  for fonts not embedded.
+- **What:** core `substitute.rs`: `put_substitute(id, face)` behind `embed_substitute` (PDF/A,
+  unchanged) and `replace_font(name, family, bold, italic)` (every simple font of that name; an
+  embedded program replaced too; symbolic fonts refused; `lift_direct_fonts` first, one undo
+  step); `fonts::Family` public. App: `Dialog::ReplaceFonts` (the simple fonts with embedded or
+  not, the face, bold, italic), `document.replaceFonts`.
+- **Checked:** `used_fonts.rs` `a_font_replaced_with_a_free_font_keeps_the_text_in_place`
+  (Helvetica → FreeSerifItalic embedded, same text, the glyph where it was; replaced again to
+  FreeMonoBold; undone; unknown names and ZapfDingbats refused); `pdfa_fonts.rs` unchanged; new
+  self-test step `replace_fonts` (3 interactions, 0 problems); all app and core tests, clippy.
+- **Open:** composite fonts; fonts of the system as replacements.
+
 ## 2026-11-10 — FOL-L011, FOL-L001: scanned pages inserted, the window's view copied (0.87.0)
 
 - **Current state before:** Insert Scanned Pages and Pan and Zoom › Snapshot planned (scanning

@@ -86,3 +86,59 @@ fn fonts_listed_but_not_used_do_not_count() {
     assert_eq!(after, before);
     assert!(!after.iter().any(|n| n == "ZapfDingbats"));
 }
+
+#[test]
+fn a_font_replaced_with_a_free_font_keeps_the_text_in_place() {
+    use folitecta_core::fonts::Family;
+    let mut doc = Document::from_bytes(folitecta_core::testdocs::embeddable_fonts_doc(), None, None).unwrap();
+    let text = doc.page_text(0);
+    let before = doc.text_layer(0).unwrap();
+    let at = |l: &folitecta_core::textlayer::PageText, s: &str| {
+        let i = l.text.find(s).unwrap();
+        let g = l.char_glyph[l.text[..i].chars().count()].unwrap();
+        l.glyphs[g].bbox
+    };
+    // Helvetica drawn with FreeSerif, italic: embedded, the text where it was.
+    assert_eq!(
+        doc.replace_font("Helvetica", Family::Serif, false, true).unwrap(),
+        1
+    );
+    let fonts = doc.used_fonts();
+    let serif = fonts
+        .iter()
+        .find(|f| f.name == "FreeSerifItalic")
+        .expect("the replacement is listed");
+    assert!(serif.embedded && serif.subset);
+    assert!(!fonts.iter().any(|f| f.name == "Helvetica"));
+    assert_eq!(doc.page_text(0), text);
+    let after = doc.text_layer(0).unwrap();
+    let (a, b) = (at(&before, "text"), at(&after, "text"));
+    assert!(
+        (a[0] - b[0]).abs() < 0.01,
+        "the line keeps its widths: {a:?} {b:?}"
+    );
+    // An embedded font replaced again: FreeMono, bold.
+    assert_eq!(
+        doc.replace_font("FreeSerifItalic", Family::Mono, true, false)
+            .unwrap(),
+        1
+    );
+    assert!(
+        doc.used_fonts()
+            .iter()
+            .any(|f| f.name == "FreeMonoBold" && f.embedded)
+    );
+    // One undo step each; unknown names and symbolic fonts refused.
+    doc.undo().unwrap();
+    doc.undo().unwrap();
+    assert!(
+        doc.used_fonts()
+            .iter()
+            .any(|f| f.name == "Helvetica" && !f.embedded)
+    );
+    assert!(doc.replace_font("Nowhere", Family::Sans, false, false).is_err());
+    assert!(
+        doc.replace_font("ZapfDingbats", Family::Sans, false, false)
+            .is_err()
+    );
+}

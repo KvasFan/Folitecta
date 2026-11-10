@@ -819,6 +819,13 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    window opened with its pages going into the open document after the current page; the part of
    the current page the window shows copied as a picture.
 
+### 0.88.0 — fonts replaced (on `main`, untagged)
+
+1. ~~**FOL-L019 — Replace Fonts.**~~ Done: `replace_font` draws every simple font of a name with
+   a subset of a GNU FreeFont face chosen (sans, serif, mono; bold, italic), embedded, with the
+   widths the text is laid out with, the fonts written inside page resources lifted first; one
+   undo step; composite, Type 3 and symbol fonts and codes of their own refused.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

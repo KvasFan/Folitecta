@@ -16,6 +16,8 @@ All notable changes to Folitecta are documented here. The format follows
   as the third, in the page content with the colour and width of the Line tool.
 - View › Snap › To Objects also snaps to the middles of straight lines and of the sides of boxes,
   and to where two lines cross.
+- Document › Replace Fonts draws a font of the document with FreeSans, FreeSerif or FreeMono (bold
+  and italic as asked), embedded, the text keeping its place and its widths; one undo step.
 - Document › Insert Scanned Pages opens the scanning window with the pages going into the open
   document after the current page; Pan and Zoom › Snapshot copies what the window shows of the
   current page as a picture.

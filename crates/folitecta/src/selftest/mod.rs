@@ -488,6 +488,7 @@ mod steps_recovery;
 mod steps_redaction;
 mod steps_redaction_crop;
 mod steps_relations;
+mod steps_replace_fonts;
 mod steps_review;
 mod steps_revocation;
 mod steps_sanitize;
@@ -574,6 +575,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "paths" => Box::pin(steps_paths::run(cx)),
             "page_select" => Box::pin(steps_page_select::run(cx)),
             "paste_pages" => Box::pin(steps_paste_pages::run(cx)),
+            "replace_fonts" => Box::pin(steps_replace_fonts::run(cx)),
             "pencil" => Box::pin(steps_pencil::run(cx)),
             "actions" => Box::pin(steps_actions::run(cx)),
             "office" => Box::pin(steps_office::run(cx)),
@@ -688,6 +690,7 @@ const STEPS: &[&str] = &[
     "paths",
     "page_select",
     "paste_pages",
+    "replace_fonts",
     "pencil",
     "actions",
     "office",
@@ -1161,6 +1164,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("labels", Dialog::PageLabels),
         ("page_selection", Dialog::PageSelection),
         ("paste_pages", Dialog::PastePages),
+        ("replace_fonts", Dialog::ReplaceFonts),
         ("stamps", Dialog::StampPicker),
         ("watermark", Dialog::Watermark),
         ("headerfooter", Dialog::HeaderFooter),

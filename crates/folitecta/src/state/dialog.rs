@@ -97,6 +97,8 @@ pub enum Dialog {
     PageSelection,
     /// Paste Pages Special: where the pages copied go, how many times.
     PastePages,
+    /// Replace Fonts: a font of the document drawn with a GNU FreeFont face.
+    ReplaceFonts,
     Watermark,
     HeaderFooter,
     PageNumbers,

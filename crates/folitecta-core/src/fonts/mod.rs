@@ -38,6 +38,7 @@ mod used;
 mod writer;
 
 pub use source::{UNICODE_FONT_FILE, font_dirs, preload, set_font_dirs};
+pub use substitute::Family;
 pub use used::{FontKind, UsedFont};
 pub(crate) use writer::{TextWriter, mirrored, right_to_left, visual_order};
 

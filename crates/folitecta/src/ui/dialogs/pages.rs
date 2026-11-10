@@ -376,6 +376,77 @@ pub(super) fn InterleavePages() -> Element {
     }
 }
 
+/// Replace Fonts: a simple font of the document drawn with a GNU FreeFont
+/// face (sans, serif or monospaced, bold and italic as asked), embedded, the
+/// text where it was.
+#[component]
+pub(super) fn ReplaceFonts() -> Element {
+    use folitecta_core::FontKind;
+    use folitecta_core::fonts::Family;
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let fonts: Vec<(String, String)> = st
+        .read_active(|t| t.doc.used_fonts())
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|f| matches!(f.kind, FontKind::Type1 | FontKind::TrueType))
+        .filter(|f| !["Symbol", "ZapfDingbats"].contains(&f.name.as_str()))
+        .map(|f| {
+            let how = if f.embedded {
+                t(lang, "dialog.replace_fonts.embedded")
+            } else {
+                t(lang, "dialog.replace_fonts.not_embedded")
+            };
+            let label = format!("{} ({how})", f.name);
+            (f.name, label)
+        })
+        .collect();
+    let mut font = use_signal(|| fonts.first().map(|f| f.0.clone()).unwrap_or_default());
+    let mut family = use_signal(|| "serif".to_string());
+    let mut bold = use_signal(|| false);
+    let mut italic = use_signal(|| false);
+    let empty = fonts.is_empty();
+    rsx! {
+        Frame { title: t(lang, "dialog.replace_fonts.title"), ok_disabled: empty,
+            on_ok: move |_| {
+                let fam = match family().as_str() {
+                    "sans" => Family::Sans,
+                    "mono" => Family::Mono,
+                    _ => Family::Serif,
+                };
+                let name = font();
+                apply(st, |tab| tab.doc.replace_font(&name, fam, bold(), italic()).map(|_| ()));
+            },
+            p { class: "hint", "{t(lang, \"dialog.replace_fonts.hint\")}" }
+            if empty {
+                p { class: "hint", "{t(lang, \"dialog.replace_fonts.none\")}" }
+            }
+            div { class: "field-grid",
+                div { class: "field", label { "{t(lang, \"dialog.replace_fonts.font\")}" }
+                    select { class: "replace-fonts-font", onchange: move |e| font.set(e.value()),
+                        for (name, label) in fonts.iter() { option { key: "{name}", value: "{name}", "{label}" } }
+                    }
+                }
+                div { class: "field", label { "{t(lang, \"dialog.replace_fonts.with\")}" }
+                    select { class: "replace-fonts-family", onchange: move |e| family.set(e.value()),
+                        option { value: "serif", "FreeSerif" }
+                        option { value: "sans", "FreeSans" }
+                        option { value: "mono", "FreeMono" }
+                    }
+                }
+            }
+            label { class: "check",
+                input { r#type: "checkbox", class: "replace-fonts-bold", checked: bold(), onchange: move |_| bold.toggle() }
+                span { "{t(lang, \"dialog.replace_fonts.bold\")}" }
+            }
+            label { class: "check",
+                input { r#type: "checkbox", class: "replace-fonts-italic", checked: italic(), onchange: move |_| italic.toggle() }
+                span { "{t(lang, \"dialog.replace_fonts.italic\")}" }
+            }
+        }
+    }
+}
+
 /// Paste Pages Special: the pages copied before or after the current page,
 /// at the start or the end, as many times as asked.
 #[component]

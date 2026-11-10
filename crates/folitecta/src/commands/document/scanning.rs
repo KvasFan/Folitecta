@@ -250,7 +250,18 @@ async fn finish(
     }
 }
 
+/// Insert Scanned Pages: the scanning window, its pages going into the open
+/// document after the current page.
+fn insert_scanned(st: AppState) {
+    if crate::commands::no_doc(st) {
+        return;
+    }
+    st.set_value("scan.into_open", "1");
+    open(st);
+}
+
 handlers! {
+    "document.insertScannedPages" => insert_scanned,
     "newDocScanner" => open,
     "newDocCustomScan" => open,
 }

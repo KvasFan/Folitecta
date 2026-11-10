@@ -246,6 +246,7 @@
   "toast.pages_copied": "{count} pagine copiate: Incolla pagine le inserisce in un documento",
   "toast.pages_pasted": "{count} pagine incollate",
   "toast.loupe_first": "Porta prima la lente sulla pagina",
+  "toast.page_not_shown": "La pagina corrente non è nella finestra",
   "toast.no_pages_copied": "Nessuna pagina copiata: scegli le pagine nelle miniature e copiale prima",
   "toast.picture_replaced_everywhere": "Immagine sostituita ovunque sia disegnata ({n} posizioni)",
   "toast.picture_straight": "L'immagine è già dritta",

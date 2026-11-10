@@ -90,12 +90,20 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         .and_then(|p| image::load_from_memory(&p).ok())
         .map(|i| (i.width() as i64, i.height() as i64));
     let loupe = shot.is_some_and(|(w, _)| (w - expected).abs() <= 2);
+    // What the window shows of the current page, copied.
+    crate::clipboard::set_text("nothing yet");
+    crate::commands::dispatch(st, "panZoomView.snapshot");
+    pause(700).await;
+    let view = crate::clipboard::get_png()
+        .and_then(|p| image::load_from_memory(&p).ok())
+        .map(|i| (i.width(), i.height()));
+    let viewed = view.is_some_and(|(w, h)| w > 100 && h > 100);
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
     cx.record(
-        "paste as stamp: a clipboard picture of 120 × 80 pixels becomes a stamp of 90 × 60 points; the loupe's last view copied as a picture",
-        stamped && loupe,
-        format!("stamp {stamp:?}, loupe snapshot {shot:?} (width {expected} wanted)"),
+        "paste as stamp: a clipboard picture of 120 × 80 pixels becomes a stamp of 90 × 60 points; the loupe's last view and the window's view copied as pictures",
+        stamped && loupe && viewed,
+        format!("stamp {stamp:?}, loupe snapshot {shot:?} (width {expected} wanted), view snapshot {view:?}"),
     );
     cx.record(
         "paste pages: two pages copied from the thumbnails go after the current page in one undo step, then twice at the end",

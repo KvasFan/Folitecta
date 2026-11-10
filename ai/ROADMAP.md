@@ -813,6 +813,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    clipboard as a movable stamp in the middle of the current page (96 to the inch, at most 60% of
    the page); what the loupe shows, or showed last, copied as a picture as enlarged as it shows it.
 
+### 0.87.0 — scanned pages inserted, the window's view copied (on `main`, untagged)
+
+1. ~~**FOL-L011, FOL-L001 — Insert Scanned Pages, Pan and Zoom › Snapshot.**~~ Done: the scanning
+   window opened with its pages going into the open document after the current page; the part of
+   the current page the window shows copied as a picture.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

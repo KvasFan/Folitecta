@@ -49,6 +49,40 @@ fn loupe_snapshot(st: AppState) {
     }
 }
 
+/// Pan and Zoom › Snapshot: the part of the current page the window shows,
+/// copied to the clipboard as a picture.
+fn view_snapshot(st: AppState) {
+    if no_doc(st) || !st.allowed(folitecta_core::Restricted::Copy) {
+        return;
+    }
+    let page = st.current_page();
+    dioxus::prelude::spawn(async move {
+        let js = crate::ui::canvas::VIEWPORT_JS.replace("PAGE", &page.to_string());
+        let shown = dioxus::document::eval(&js).await.ok().and_then(|v| {
+            let n: Vec<f64> = v.as_array()?.iter().filter_map(|x| x.as_f64()).collect();
+            (n.len() == 4).then(|| [n[0], n[1], n[2], n[3]])
+        });
+        let Some(f) = shown else {
+            st.toast(ToastKind::Info, t(st.lang(), "toast.page_not_shown"), "");
+            return;
+        };
+        let png = st.read_active(|t| {
+            let (w, h) = t.display_size(page);
+            let r = [f[0] as f32 * w, f[1] as f32 * h, f[2] as f32 * w, f[3] as f32 * h];
+            t.doc
+                .render_region_png_with_view(page, r, 2.0, &t.view_layer_states())
+        });
+        match png {
+            Some(Ok(png)) => match crate::clipboard::set_png(&png) {
+                Ok(()) => st.toast(ToastKind::Ok, t(st.lang(), "toast.snapshot_copied"), ""),
+                Err(e) => st.error(e),
+            },
+            Some(Err(e)) => st.error(e),
+            None => {}
+        }
+    });
+}
+
 /// View › Expand All / Collapse All: the same command of the visible pane
 /// (bookmarks, form fields or comments).
 fn tree(st: AppState, expand: bool) {
@@ -197,6 +231,7 @@ handlers! {
     "loupeView.zoomIn" => |st| loupe_zoom(st, 1.25),
     "loupeView.zoomOut" => |st| loupe_zoom(st, 0.8),
     "loupeView.snapshot" => loupe_snapshot,
+    "panZoomView.snapshot" => view_snapshot,
     "expandAll" => |st| tree(st, true),
     "collapseAll" => |st| tree(st, false),
     "expandAllDescendants" => expand_descendants,

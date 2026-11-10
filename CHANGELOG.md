@@ -16,6 +16,9 @@ All notable changes to Folitecta are documented here. The format follows
   as the third, in the page content with the colour and width of the Line tool.
 - View › Snap › To Objects also snaps to the middles of straight lines and of the sides of boxes,
   and to where two lines cross.
+- Document › Insert Scanned Pages opens the scanning window with the pages going into the open
+  document after the current page; Pan and Zoom › Snapshot copies what the window shows of the
+  current page as a picture.
 - Paste as Stamp puts the picture of the clipboard as a stamp in the middle of the current page;
   Loupe › Snapshot copies what the loupe shows as a picture.
 - Pages chosen in the thumbnails and copied can be pasted into the same or another document: Paste

@@ -4,6 +4,18 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-10 — FOL-L011, FOL-L001: scanned pages inserted, the window's view copied (0.87.0)
+
+- **Current state before:** Insert Scanned Pages and Pan and Zoom › Snapshot planned (scanning
+  into the open document existed as an option of the scanning window).
+- **What:** app `insert_scanned` sets `scan.into_open` and opens the scanning window;
+  `view_snapshot` reads the part of the current page the canvas shows (`VIEWPORT_JS`) and copies
+  it rendered at 2x, under the copy permission, a note when the page is not in the window.
+- **Checked:** self-test steps `scanning` (Insert Scanned Pages opens the window ticked; the page
+  scanned goes into the open document) and `paste_pages` (the window's view copied, 1190 × 756
+  pixels): 7 interactions, 0 problems; all app and core tests, clippy.
+- **Open:** —
+
 ## 2026-11-10 — local check of 0.83.0 to 0.86.0, Linux and Windows
 
 - **What:** `target/preflight.sh` at `7c5c605`: formatting, clippy for the three systems, the

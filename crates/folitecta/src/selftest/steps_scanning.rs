@@ -99,13 +99,22 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     }
     let single_tab = st.read_active(|t| t.id).unwrap_or(0);
 
-    // Into the open document: the page goes after the current page, no tab.
+    // Into the open document (Insert Scanned Pages, which ticks it): the page
+    // goes after the current page, no tab.
     let tabs_now = st.docs.read().len();
-    crate::commands::dispatch(st, "newDocScanner");
+    st.set_value("scan.into_open", "0");
+    crate::commands::dispatch(st, "document.insertScannedPages");
     let _ = wait_for("return !!document.querySelector('.dialog .scan-into-open');").await;
-    let _ =
-        eval("const c = document.querySelector('.dialog .scan-into-open'); if (c && !c.checked) c.click();")
-            .await;
+    let ticked = eval("return !!document.querySelector('.dialog .scan-into-open')?.checked;")
+        .await
+        .ok()
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    cx.record(
+        "Insert Scanned Pages opens the scanning window with the pages going into the open document",
+        ticked,
+        format!("ticked {ticked}"),
+    );
     pause(200).await;
     let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
     let mut into = 0;

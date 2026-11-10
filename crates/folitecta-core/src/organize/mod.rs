@@ -22,6 +22,7 @@ pub mod pagetools;
 pub mod pdfa;
 pub mod portfolio;
 pub mod print;
+pub mod problems;
 pub mod recompress;
 pub mod scanning;
 pub mod scans;

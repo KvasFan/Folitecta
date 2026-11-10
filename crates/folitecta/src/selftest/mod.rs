@@ -1165,6 +1165,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("page_selection", Dialog::PageSelection),
         ("paste_pages", Dialog::PastePages),
         ("replace_fonts", Dialog::ReplaceFonts),
+        ("problems", Dialog::Problems),
         ("stamps", Dialog::StampPicker),
         ("watermark", Dialog::Watermark),
         ("headerfooter", Dialog::HeaderFooter),

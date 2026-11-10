@@ -49,7 +49,7 @@ pub use navigation::{articles, contents, layer_drawing, layers, links, outline};
 pub(crate) use organize::typeset;
 pub use organize::{
     actions, attachments, combine, compare, csvdoc, delivery, doctools, duplicates, email, export, greyscale,
-    incoming, inspect, markdown, marks, metadata, office, pages, pagetools, pdfa, portfolio, print,
+    incoming, inspect, markdown, marks, metadata, office, pages, pagetools, pdfa, portfolio, print, problems,
     recompress, scanning, scans, sheets, templates, textdoc, user_templates,
 };
 pub(crate) use page_text::{content_edit, content_lex};
@@ -97,6 +97,7 @@ pub use page_tables::FoundTable;
 pub use pagetools::{Sides, TRANSITIONS};
 pub use paths::{NodeKind, PagePath, PathNode, ThreePoint};
 pub use pdfa::{Conversion, Finding, Preflight};
+pub use problems::Problem;
 pub use reading::ReadBlock;
 pub use recompress::{
     Kept, RecompressItem, RecompressPreset, RecompressReport, RecompressScope, RecompressSettings,

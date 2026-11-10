@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-10 — FOL-L004: problem details (0.89.0)
+
+- **Current state before:** Show Problem Details planned; the core keeps nothing of how a file
+  was read.
+- **What:** core `problems.rs`: `Problem { page, kind, detail }`, `Document::problems` (missing
+  objects from every reference of the objects and the trailer, `Content::decode` of each page,
+  the `Tf` names against `get_page_fonts`, the comments of each page's `/Annots` without
+  `/Subtype` or `/Rect`, the `/Count` of the page tree). App: `Dialog::Problems` (a table, or
+  "No problems found"), `document.showProblems`.
+- **Checked:** unit tests: seven sound documents (text, report, form, relations, fonts, a shared
+  picture, `docs/sample.pdf`) have none; a file with an unnamed font, a comment without an area
+  and a missing object has the three, with their pages; self-test step `replace_fonts` (4
+  interactions, 0 problems); all app and core tests, clippy.
+- **Open:** problems met while reading a damaged file (the reader repairs them silently).
+
 ## 2026-11-10 — FOL-L019: fonts replaced (0.88.0)
 
 - **Current state before:** Replace Fonts planned; the PDF/A conversion embedded FreeFont subsets

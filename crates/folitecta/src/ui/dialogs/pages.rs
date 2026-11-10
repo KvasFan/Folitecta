@@ -376,6 +376,42 @@ pub(super) fn InterleavePages() -> Element {
     }
 }
 
+/// Show Problem Details: what is wrong in the file, page by page.
+#[component]
+pub(super) fn Problems() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let rows: Vec<(String, String)> = st
+        .read_active(|t| t.doc.problems())
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| {
+            let page = p.page.map(|n| (n + 1).to_string()).unwrap_or_else(|| "—".into());
+            let what = crate::i18n::tf(
+                lang,
+                &format!("dialog.problems.{}", p.kind),
+                &[("detail", &p.detail)],
+            );
+            (page, what)
+        })
+        .collect();
+    rsx! {
+        Frame { title: t(lang, "dialog.problems.title"),
+            if rows.is_empty() {
+                p { class: "hint problems-none", "{t(lang, \"dialog.problems.none\")}" }
+            } else {
+                p { class: "hint", "{t(lang, \"dialog.problems.hint\")}" }
+                table { class: "problems-list",
+                    tr { th { "{t(lang, \"dialog.problems.page\")}" } th { "{t(lang, \"dialog.problems.problem\")}" } }
+                    for (i, (page, what)) in rows.iter().enumerate() {
+                        tr { key: "{i}", td { "{page}" } td { "{what}" } }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Replace Fonts: a simple font of the document drawn with a GNU FreeFont
 /// face (sans, serif or monospaced, bold and italic as asked), embedded, the
 /// text where it was.

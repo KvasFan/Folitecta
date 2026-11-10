@@ -170,6 +170,7 @@ handlers! {
     "document.swapPages" => |st| doc_dialog(st, Dialog::SwapPages),
     "document.interleavePages" => |st| doc_dialog(st, Dialog::InterleavePages),
     "document.replaceFonts" => |st| doc_dialog(st, Dialog::ReplaceFonts),
+    "document.showProblems" => |st| doc_dialog(st, Dialog::Problems),
     "document.replacePages" => |st| { if !no_doc(st) { files::pick_file_for(st, files::PickPurpose::Replace) } },
     "document.overlayPages" => |st| { if !no_doc(st) { files::pick_file_for(st, files::PickPurpose::Overlay) } },
     "document.findDuplicates" => find_duplicates,

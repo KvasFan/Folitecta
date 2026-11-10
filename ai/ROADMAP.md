@@ -826,6 +826,13 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    widths the text is laid out with, the fonts written inside page resources lifted first; one
    undo step; composite, Type 3 and symbol fonts and codes of their own refused.
 
+### 0.89.0 — problem details (on `main`, untagged)
+
+1. ~~**FOL-L004 — Show Problem Details.**~~ Done: `Document::problems` (`organize/problems.rs`)
+   lists references to objects the file does not hold, page contents that cannot be read, fonts
+   the text uses that the page does not name, comments without an area or a kind, and a page
+   count that disagrees with the pages found, each with its page; a window shows them.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

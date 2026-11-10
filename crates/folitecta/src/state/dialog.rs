@@ -99,6 +99,8 @@ pub enum Dialog {
     PastePages,
     /// Replace Fonts: a font of the document drawn with a GNU FreeFont face.
     ReplaceFonts,
+    /// Show Problem Details: what is wrong in the file.
+    Problems,
     Watermark,
     HeaderFooter,
     PageNumbers,

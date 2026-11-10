@@ -1,6 +1,7 @@
 //! Interaction step: replace_fonts — Replace Fonts on a document whose fonts
 //! are not embedded: Helvetica chosen, FreeSans bold asked; the font listed
-//! afterwards is FreeSansBold, embedded, and the text is the same.
+//! afterwards is FreeSansBold, embedded, and the text is the same. Show
+//! Problem Details finds nothing wrong in it.
 
 use super::*;
 
@@ -45,6 +46,21 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         .unwrap_or_default();
     let replaced =
         fonts.iter().any(|(n, e)| n == "FreeSansBold" && *e) && !fonts.iter().any(|(n, _)| n == "Helvetica");
+    // Show Problem Details: a sound file has none.
+    crate::commands::dispatch(st, "document.showProblems");
+    pause(500).await;
+    let problems_open = matches!((st.dialog)(), crate::state::Dialog::Problems);
+    let none = eval("return !!document.querySelector('.dialog .problems-none');")
+        .await
+        .ok()
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    st.set_dialog(crate::state::Dialog::None);
+    cx.record(
+        "Show Problem Details opens and finds nothing wrong in a sound file",
+        problems_open && none,
+        format!("dialog {problems_open}, none said {none}"),
+    );
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
     cx.record(

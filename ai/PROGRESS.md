@@ -4,6 +4,25 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-10 — FOL-L022: the actions of a link (0.92.0)
+
+- **Current state before:** a link's actions were read (`link_actions`) but could not be edited;
+  Actions › Add, Add from Bookmark, Edit, Up, Down and Remove were planned.
+- **What:** core `links.rs`: `raw_chain` (the actions as written, without `/Next`; a `/Dest` made
+  a go-to), `action_dict` (page, named destination, web address, script, named action, reset),
+  `change_link_actions` (the first action and the rest as its `/Next`, `/Dest` dropped, one
+  undo step, at least one action), `add_`, `replace_`, `move_`, `remove_link_action`. App:
+  `link_actions.rs` (`ACTION_SEL`, the six commands; the link chosen again after each change,
+  since the tab's refresh after an edit lets go of the comment chosen), `LinkActionDialog`, the
+  list and its buttons in the properties pane.
+- **Checked:** `link_kinds.rs` `the_actions_of_a_link_added_moved_replaced_and_removed` (order
+  kept in the file, one undo step, the last action stays); self-test step `tools` (34
+  interactions, 0 problems): a page turn added in the window, its row chosen, moved first,
+  removed. The first tries showed the list empty after Add: the link was no longer chosen (the
+  refresh), fixed as above; a run script went on with the old program when the build failed: it
+  stops now. All app and core tests, clippy.
+- **Open:** the actions of bookmarks and buttons in the same list.
+
 ## 2026-11-10 — FOL-L034: document actions cleared (0.91.0)
 
 - **Current state before:** `docActions` and `docActions.clear` planned (the editor existed as

@@ -28,7 +28,8 @@ pub(crate) use markup::{
     arrange, calculator, comment_styles, comments, format, media, review, stamps, tables, ticks,
 };
 pub(crate) use navigation::{
-    articles, attachments, bookmarks, explorer, history, layers, page_select, panes, portfolio, sessions,
+    articles, attachments, bookmarks, explorer, history, layers, link_actions, page_select, panes, portfolio,
+    sessions,
 };
 pub(crate) use protection::{policies, protect, redaction, revocation, signatures, signs};
 pub(crate) use text::{find_replace, read_aloud, search, spelling, textedit};
@@ -57,6 +58,7 @@ macro_rules! handlers {
 pub(crate) use handlers;
 
 const TABLES: &[&[(&str, Handler)]] = &[
+    link_actions::HANDLERS,
     file::HANDLERS,
     edit::HANDLERS,
     view::HANDLERS,

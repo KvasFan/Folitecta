@@ -1166,6 +1166,13 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("paste_pages", Dialog::PastePages),
         ("replace_fonts", Dialog::ReplaceFonts),
         ("problems", Dialog::Problems),
+        (
+            "link_action",
+            Dialog::LinkAction {
+                edit: None,
+                kind: "page".into(),
+            },
+        ),
         ("stamps", Dialog::StampPicker),
         ("watermark", Dialog::Watermark),
         ("headerfooter", Dialog::HeaderFooter),

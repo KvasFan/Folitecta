@@ -270,3 +270,10 @@
 .measurements-list { display: flex; flex-direction: column; gap: 6px; padding: 4px; }
 .measure-group { display: flex; flex-direction: column; gap: 2px; }
 .measure-item { font-size: 12px; text-align: left; }
+
+/* The actions of the chosen link in the properties pane. */
+.link-actions { display: flex; flex-direction: column; gap: 2px; margin: 4px 0; }
+.link-action { padding: 3px 6px; border-radius: 4px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-action:hover { background: var(--accent-soft); }
+.link-action.chosen { background: var(--active-bg); color: var(--active-fg); border: 1px solid var(--active-border); }
+.link-action-buttons { flex-wrap: wrap; gap: 4px; }

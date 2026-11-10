@@ -56,7 +56,7 @@ const AREAS: &[(&str, &[&str])] = &[
             "qat", "pencil",
         ],
     ),
-    ("dialogs", &["dialog"]),
+    ("dialogs", &["dialog", "link_actions"]),
     ("messages", &["toast"]),
     (
         "comments",

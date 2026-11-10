@@ -846,6 +846,14 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    Actions opens the editor of the document's event scripts; Clear removes all of them after
    asking, in one undo step (`clear_document_actions`); scripts of pages, links and fields stay.
 
+### 0.92.0 — the actions of a link (on `main`, untagged)
+
+1. ~~**FOL-L022 — Actions › Add, Add from Bookmark, Edit, Up, Down, Remove.**~~ Done: the
+   actions of the chosen link listed in the properties pane, a row chosen with a click; added or
+   edited in a window (a page, a web address, a script, a page turn of the reader, the page of a
+   bookmark), moved and removed, the actions as written kept (named destinations, form
+   submissions and other actions are not rewritten); one undo step each, one action always stays.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

@@ -134,3 +134,56 @@ fn the_actions_of_a_button_follow_their_chain_and_a_loop_ends() {
     let chain = doc.button_actions(button);
     assert!(!chain.is_empty() && chain.len() <= 65, "{}", chain.len());
 }
+
+#[test]
+fn the_actions_of_a_link_added_moved_replaced_and_removed() {
+    use folitecta_core::{ButtonAction, LinkTarget};
+    let mut doc = Document::new_blank(3, 300.0, 300.0).unwrap();
+    doc.add_page_link(0, [10.0, 10.0, 100.0, 40.0], 2).unwrap();
+    let link = doc
+        .annotations(0)
+        .unwrap()
+        .iter()
+        .position(|a| a.subtype == "Link")
+        .unwrap();
+    let list = |d: &Document| d.link_actions(0, link);
+    assert_eq!(list(&doc), vec![ButtonAction::Target(LinkTarget::Page(2))]);
+    // A script and a web address after it.
+    doc.add_link_action(0, link, &ButtonAction::Script("app.alert('hi');".into()))
+        .unwrap();
+    doc.add_link_action(
+        0,
+        link,
+        &ButtonAction::Target(LinkTarget::Uri("https://example.org".into())),
+    )
+    .unwrap();
+    assert_eq!(list(&doc).len(), 3);
+    // The address first, the page last, the script made a next-page action.
+    doc.move_link_action(0, link, 2, true).unwrap();
+    doc.move_link_action(0, link, 1, true).unwrap();
+    doc.move_link_action(0, link, 2, false).unwrap();
+    doc.replace_link_action(
+        0,
+        link,
+        2,
+        &ButtonAction::Target(LinkTarget::NamedAction("NextPage".into())),
+    )
+    .unwrap();
+    let reopened = Document::from_bytes(doc.bytes().to_vec(), None, None).unwrap();
+    assert_eq!(
+        reopened.link_actions(0, link),
+        vec![
+            ButtonAction::Target(LinkTarget::Uri("https://example.org".into())),
+            ButtonAction::Target(LinkTarget::Page(2)),
+            ButtonAction::Target(LinkTarget::NamedAction("NextPage".into())),
+        ]
+    );
+    // Removed down to one; the last stays.
+    doc.remove_link_action(0, link, 0).unwrap();
+    doc.remove_link_action(0, link, 1).unwrap();
+    assert_eq!(list(&doc), vec![ButtonAction::Target(LinkTarget::Page(2))]);
+    assert!(doc.remove_link_action(0, link, 0).is_err());
+    // One undo step each.
+    doc.undo().unwrap();
+    assert_eq!(list(&doc).len(), 2);
+}

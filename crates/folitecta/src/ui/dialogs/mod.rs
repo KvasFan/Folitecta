@@ -270,6 +270,7 @@ pub fn Dialogs() -> Element {
         Dialog::PastePages => rsx! { PastePages {} },
         Dialog::ReplaceFonts => rsx! { ReplaceFonts {} },
         Dialog::Problems => rsx! { Problems {} },
+        Dialog::LinkAction { edit, kind } => rsx! { LinkActionDialog { edit, kind } },
         Dialog::Watermark => rsx! { Watermark {} },
         Dialog::HeaderFooter => rsx! { HeaderFooter {} },
         Dialog::PageNumbers => rsx! { PageNumbers { bates: false } },

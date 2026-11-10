@@ -103,6 +103,12 @@ pub enum Dialog {
     ReplaceFonts,
     /// Show Problem Details: what is wrong in the file.
     Problems,
+    /// One action of the chosen link, added or put in place of `edit`;
+    /// `kind` is the kind shown first.
+    LinkAction {
+        edit: Option<usize>,
+        kind: String,
+    },
     Watermark,
     HeaderFooter,
     PageNumbers,

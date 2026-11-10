@@ -529,6 +529,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             Ok::<_, folitecta_core::Error>((u, l))
         });
         let (mut wavy, mut outlined, mut link_focus) = (false, false, false);
+        let mut link_at = None;
         if let Some(Ok((Some(u), Some(l)))) = made {
             st.with_active(|t| t.selected_annot = Some((0, u)));
             pause(500).await;
@@ -556,11 +557,64 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             pause(400).await;
             outlined = st.read_active(|t| t.doc.link_highlight(0, l).ok()).flatten()
                 == Some(folitecta_core::ButtonBehaviour::Outline);
+            link_at = Some(l);
         }
         cx.record(
             "properties: an underline made wavy; a link outlined on a click, Highlight Mode landing on its row",
             wavy && outlined && link_focus,
             format!("wavy {wavy}, outlined {outlined}, focused {link_focus}, made {:?}", made.map(|r| r.is_ok())),
+        );
+        // The link's actions: a page turn added in the window, moved up first,
+        // then removed.
+        let (mut added, mut first, mut after_remove) = (0, None, 0);
+        let (mut rows, mut sel, mut diag) = (0.0, None, String::new());
+        if let Some(l) = link_at {
+            st.with_active(|t| t.selected_annot = Some((0, l)));
+            pause(400).await;
+            crate::commands::dispatch(st, "actions.add");
+            pause(400).await;
+            let _ = eval("document.querySelector('.dialog .link-action-kind-reader')?.click();").await;
+            pause(300).await;
+            let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+            pause(500).await;
+            added = st.read_active(|t| t.doc.link_actions(0, l).len()).unwrap_or(0);
+            diag = eval("return [document.querySelectorAll('.right-pane').length, document.querySelectorAll('.right-pane .link-highlight').length, document.querySelectorAll('.link-actions').length, document.querySelectorAll('.prop-head').length].join(',');")
+                .await
+                .ok()
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_default();
+            diag.push_str(&format!(
+                " sel {:?} link {l}",
+                st.read_active(|t| t.selected_annot)
+            ));
+            rows = eval("return document.querySelectorAll('.right-pane .link-action').length;")
+                .await
+                .ok()
+                .and_then(|v| v.as_f64())
+                .unwrap_or(-1.0);
+            let _ = eval("document.querySelectorAll('.right-pane .link-action')[1]?.click();").await;
+            pause(300).await;
+            sel = *crate::commands::link_actions::ACTION_SEL.peek();
+            crate::commands::dispatch(st, "actions.up");
+            pause(400).await;
+            first = st
+                .read_active(|t| t.doc.link_actions(0, l).first().cloned())
+                .flatten();
+            crate::commands::dispatch(st, "actions.remove");
+            pause(400).await;
+            after_remove = st.read_active(|t| t.doc.link_actions(0, l).len()).unwrap_or(0);
+        }
+        cx.record(
+            "properties: a page turn added to the link's actions, moved first, removed",
+            added == 2
+                && first
+                    == Some(folitecta_core::ButtonAction::Target(
+                        folitecta_core::LinkTarget::NamedAction("NextPage".into()),
+                    ))
+                && after_remove == 1,
+            format!(
+                "added {added}, rows {rows}, chosen {sel:?}, first {first:?}, after removing {after_remove}, pane {diag}"
+            ),
         );
         // A text box's letters outlined: Text Stroke Color lands on the row.
         let callout = st

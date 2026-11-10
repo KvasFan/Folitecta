@@ -7,6 +7,7 @@ pub(crate) mod explorer;
 pub(crate) mod follow;
 pub(crate) mod history;
 pub(crate) mod layers;
+pub(crate) mod link_actions;
 pub(crate) mod page_select;
 pub(crate) mod panes;
 pub(crate) mod portfolio;

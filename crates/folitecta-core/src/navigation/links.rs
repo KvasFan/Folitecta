@@ -490,6 +490,171 @@ impl Document {
         out
     }
 
+    /// The link object `index` of `page` (its place in the page's `/Annots`).
+    fn link_object(&self, page: usize, index: usize) -> Result<ObjectId> {
+        let doc = &self.inner;
+        let page_dict = doc.get_dictionary(self.page_id(page)?)?;
+        let list = deref(doc, page_dict.get(b"Annots")?).as_array()?;
+        let id = list
+            .get(index)
+            .and_then(|a| a.as_reference().ok())
+            .ok_or_else(|| Error::Invalid("the link cannot be edited".into()))?;
+        let d = doc.get_dictionary(id)?;
+        if d.get(b"Subtype").ok().and_then(|s| s.as_name().ok()) != Some(b"Link") {
+            return Err(Error::Invalid("not a link".into()));
+        }
+        Ok(id)
+    }
+
+    /// The actions of a link as they are written, one dictionary each,
+    /// without their `/Next` (a `/Dest` of its own is made a go-to).
+    fn raw_chain(&self, annot: &Dictionary) -> Vec<Dictionary> {
+        fn walk(doc: &lopdf::Document, o: &Object, out: &mut Vec<Dictionary>, depth: usize) {
+            if depth > 32 || out.len() > 64 {
+                return;
+            }
+            match deref(doc, o) {
+                Object::Array(list) => list.iter().for_each(|a| walk(doc, a, out, depth + 1)),
+                Object::Dictionary(d) => {
+                    let mut own = d.clone();
+                    own.remove(b"Next");
+                    out.push(own);
+                    if let Ok(next) = d.get(b"Next") {
+                        walk(doc, next, out, depth + 1);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let doc = &self.inner;
+        let mut out = Vec::new();
+        match annot.get(b"A") {
+            Ok(a) => walk(doc, a, &mut out, 0),
+            Err(_) => {
+                if let Ok(dest) = annot.get(b"Dest") {
+                    out.push(dictionary! { "S" => "GoTo", "D" => dest.clone() });
+                }
+            }
+        }
+        out
+    }
+
+    /// The action dictionary that does `a`.
+    fn action_dict(&self, a: &ButtonAction) -> Result<Dictionary> {
+        Ok(match a {
+            ButtonAction::Script(code) => {
+                if code.trim().is_empty() {
+                    return Err(Error::Invalid("the script is empty".into()));
+                }
+                dictionary! { "S" => "JavaScript", "JS" => lopdf::text_string(code) }
+            }
+            ButtonAction::Target(LinkTarget::Uri(u)) if !u.trim().is_empty() => {
+                dictionary! { "S" => "URI", "URI" => Object::string_literal(u.trim().to_string()) }
+            }
+            ButtonAction::Target(LinkTarget::Page(p)) => {
+                let target = self.page_id(*p)?;
+                dictionary! { "S" => "GoTo", "D" => vec![Object::Reference(target), Object::Name(b"Fit".to_vec())] }
+            }
+            ButtonAction::Target(LinkTarget::Named(n)) if !n.is_empty() => {
+                dictionary! { "S" => "GoTo", "D" => Object::string_literal(n.clone()) }
+            }
+            ButtonAction::Target(LinkTarget::NamedAction(n)) if !n.is_empty() => {
+                dictionary! { "S" => "Named", "N" => Object::Name(n.as_bytes().to_vec()) }
+            }
+            ButtonAction::Target(LinkTarget::Reset) => dictionary! { "S" => "ResetForm" },
+            _ => return Err(Error::Invalid("this action cannot be written".into())),
+        })
+    }
+
+    /// Change the list of actions of link `index` of `page` with `change`
+    /// (the actions as written; at least one must stay). One undo step.
+    fn change_link_actions(
+        &mut self,
+        page: usize,
+        index: usize,
+        change: impl FnOnce(&Self, &mut Vec<Dictionary>) -> Result<()>,
+    ) -> Result<()> {
+        let id = self.link_object(page, index)?;
+        let annot = self.inner.get_dictionary(id)?.clone();
+        let mut list = self.raw_chain(&annot);
+        change(self, &mut list)?;
+        if list.is_empty() {
+            return Err(Error::Invalid(
+                "a link keeps at least one action: delete the link instead".into(),
+            ));
+        }
+        let mut first = list.remove(0);
+        if !list.is_empty() {
+            first.set(
+                "Next",
+                Object::Array(list.into_iter().map(Object::Dictionary).collect()),
+            );
+        }
+        self.edit_step(|doc| {
+            let d = doc.inner.get_dictionary_mut(id)?;
+            d.remove(b"Dest");
+            d.set("A", Object::Dictionary(first));
+            Ok(())
+        })
+    }
+
+    /// Add `action` to the actions of link `index` of `page`, last.
+    pub fn add_link_action(&mut self, page: usize, index: usize, action: &ButtonAction) -> Result<()> {
+        let new = self.action_dict(action)?;
+        self.change_link_actions(page, index, |_, list| {
+            list.push(new);
+            Ok(())
+        })
+    }
+
+    /// Put `action` in place of action `at` of link `index` of `page`.
+    pub fn replace_link_action(
+        &mut self,
+        page: usize,
+        index: usize,
+        at: usize,
+        action: &ButtonAction,
+    ) -> Result<()> {
+        let new = self.action_dict(action)?;
+        self.change_link_actions(page, index, |_, list| {
+            let slot = list
+                .get_mut(at)
+                .ok_or_else(|| Error::Invalid("no such action".into()))?;
+            *slot = new;
+            Ok(())
+        })
+    }
+
+    /// Move action `at` of link `index` of `page` one place up (earlier) or
+    /// down; at an end it stays.
+    pub fn move_link_action(&mut self, page: usize, index: usize, at: usize, up: bool) -> Result<()> {
+        self.change_link_actions(page, index, |_, list| {
+            if at >= list.len() {
+                return Err(Error::Invalid("no such action".into()));
+            }
+            let to = if up {
+                at.checked_sub(1)
+            } else {
+                (at + 1 < list.len()).then_some(at + 1)
+            };
+            if let Some(to) = to {
+                list.swap(at, to);
+            }
+            Ok(())
+        })
+    }
+
+    /// Remove action `at` of link `index` of `page` (one stays).
+    pub fn remove_link_action(&mut self, page: usize, index: usize, at: usize) -> Result<()> {
+        self.change_link_actions(page, index, |_, list| {
+            if at >= list.len() {
+                return Err(Error::Invalid("no such action".into()));
+            }
+            list.remove(at);
+            Ok(())
+        })
+    }
+
     fn action_chain(&self, action: &Object, out: &mut Vec<ButtonAction>, depth: usize) {
         // A chain that turns back on itself ends here.
         if depth > 32 || out.len() > 64 {

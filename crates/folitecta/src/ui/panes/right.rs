@@ -125,6 +125,35 @@ pub fn RightPane() -> Element {
                                     }
                                 }
                             }
+                            {
+                                // The actions of the link, a row chosen with a click.
+                                let (lp, li) = (a.page, a.index);
+                                let rows: Vec<String> = st
+                                    .read_active(|t| t.doc.link_actions(lp, li))
+                                    .unwrap_or_default()
+                                    .iter()
+                                    .map(|x| crate::commands::link_actions::describe(lang, x))
+                                    .collect();
+                                let chosen = crate::commands::link_actions::ACTION_SEL()
+                                    .filter(|(p, i, _)| *p == lp && *i == li)
+                                    .map(|(_, _, k)| k);
+                                rsx! {
+                                    div { class: "prop-head", "{t(lang, \"link_actions.title\")}" }
+                                    div { class: "link-actions",
+                                        for (k, row) in rows.iter().enumerate() {
+                                            div { key: "{k}", class: if chosen == Some(k) { "link-action chosen" } else { "link-action" },
+                                                onclick: move |_| *crate::commands::link_actions::ACTION_SEL.write() = Some((lp, li, k)),
+                                                "{k + 1}. {row}"
+                                            }
+                                        }
+                                    }
+                                    div { class: "row link-action-buttons",
+                                        for (id, key) in [("actions.add", "link_actions.add"), ("actions.edit", "link_actions.edit"), ("actions.up", "link_actions.up"), ("actions.down", "link_actions.down"), ("actions.remove", "link_actions.remove")] {
+                                            button { key: "{id}", class: "tbtn", "data-cmd": "{id}", onclick: move |_| dispatch(st, id), "{t(lang, key)}" }
+                                        }
+                                    }
+                                }
+                            }
                         }
                         {prop(t(lang, "dialog.note.author"), a.author.clone())}
                         {prop(t(lang, "dialog.props.modified"), a.modified.clone())}

@@ -150,6 +150,107 @@ pub(super) fn TextBoxDialog(page: usize, rect: Vec<f32>, border: bool) -> Elemen
 const LINK_KINDS: [&str; 5] = ["web", "page", "dest", "file", "script"];
 
 #[component]
+pub(super) fn LinkActionDialog(edit: Option<usize>, kind: String) -> Element {
+    use folitecta_core::{ButtonAction, LinkTarget};
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let count = st.page_count();
+    let mut kind = use_signal(|| kind);
+    let target_page = use_signal(|| "1".to_string());
+    let mut url = use_signal(|| "https://".to_string());
+    let mut script = use_signal(|| "app.alert('…');".to_string());
+    let mut reader = use_signal(|| "NextPage".to_string());
+    let marks: Vec<(String, usize)> = st
+        .read_active(|t| {
+            t.doc
+                .outline_flat()
+                .into_iter()
+                .filter_map(|(depth, title, page)| {
+                    page.map(|p| (format!("{}{title}", "  ".repeat(depth)), p))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut mark = use_signal(|| marks.first().map(|m| m.1).unwrap_or(0));
+    let kinds = ["page", "web", "script", "reader", "bookmark"];
+    let readers: Vec<(&str, String)> = ["NextPage", "PrevPage", "FirstPage", "LastPage"]
+        .iter()
+        .map(|r| (*r, t(lang, &format!("link_actions.reader_{r}"))))
+        .collect();
+    let kind_names: Vec<(&str, String)> = kinds
+        .iter()
+        .map(|k| (*k, t(lang, &format!("link_actions.kind_{k}"))))
+        .collect();
+    let title = if edit.is_some() {
+        t(lang, "link_actions.edit_title")
+    } else {
+        t(lang, "link_actions.add_title")
+    };
+    rsx! {
+        Frame { title: title,
+            on_ok: move |_| {
+                let action = match kind().as_str() {
+                    "web" => ButtonAction::Target(LinkTarget::Uri(url())),
+                    "script" => ButtonAction::Script(script()),
+                    "reader" => ButtonAction::Target(LinkTarget::NamedAction(reader())),
+                    "bookmark" => ButtonAction::Target(LinkTarget::Page(mark())),
+                    _ => {
+                        let p = num_or(&target_page, 1.0) as usize;
+                        if p < 1 || p > count {
+                            st.error(tf(st.lang(), "dialog.replace.bad_range", &[("count", &count.to_string())]));
+                            return;
+                        }
+                        ButtonAction::Target(LinkTarget::Page(p - 1))
+                    }
+                };
+                if crate::commands::link_actions::store(st, edit, action) {
+                    st.set_dialog(Dialog::None);
+                }
+            },
+            div { class: "field",
+                div { class: "radio-row",
+                    for (k, name) in kind_names.iter().cloned() {
+                        label { key: "{k}",
+                            input { r#type: "radio", name: "link-action-kind", class: "link-action-kind-{k}", checked: kind() == k,
+                                disabled: k == "bookmark" && marks.is_empty(),
+                                onchange: move |_| kind.set(k.to_string()) }
+                            span { "{name}" }
+                        }
+                    }
+                }
+            }
+            match kind().as_str() {
+                "web" => rsx! {
+                    div { class: "field", label { "{t(lang, \"dialog.link.web\")}" }
+                        input { class: "grow link-action-url", value: "{url}", oninput: move |e| url.set(e.value()) }
+                    }
+                },
+                "script" => rsx! {
+                    div { class: "field", label { "JavaScript" }
+                        textarea { class: "code link-action-script", value: "{script}", spellcheck: false, oninput: move |e| script.set(e.value()) }
+                    }
+                },
+                "reader" => rsx! {
+                    div { class: "field", label { "{t(lang, \"link_actions.kind_reader\")}" }
+                        select { class: "link-action-reader", onchange: move |e| reader.set(e.value()),
+                            for (r, label) in readers.iter().cloned() { option { key: "{r}", value: "{r}", selected: reader() == r, "{label}" } }
+                        }
+                    }
+                },
+                "bookmark" => rsx! {
+                    div { class: "field", label { "{t(lang, \"link_actions.kind_bookmark\")}" }
+                        select { class: "link-action-bookmark", onchange: move |e| { if let Ok(p) = e.value().parse() { mark.set(p); } },
+                            for (k, (name, p)) in marks.iter().enumerate() { option { key: "{k}", value: "{p}", "{name}" } }
+                        }
+                    }
+                },
+                _ => rsx! { Num { label: format!("{} (1-{count})", t(lang, "status.page")), value: target_page, min: "1", max: count.to_string() } },
+            }
+        }
+    }
+}
+
+#[component]
 pub(super) fn LinkDialog(page: usize, rect: Vec<f32>) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();

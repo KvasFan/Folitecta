@@ -4,6 +4,18 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-10 — a test that failed now and then: the mixed report's pictures
+
+- **Found:** running the core tests after 0.90.0, `a_mixed_report_keeps_its_pictures_and_tables_in_place`
+  failed once (one picture found where two are) and passed alone. Two tests of `office.rs` make
+  the report at the same time in one folder named after the process; the first done removes
+  the folder while the other still reads its pictures. (0.90.0 was committed before I read the
+  failure: its command went on after the tests.)
+- **What:** `mixed_report` makes a folder of its own for each call (a counter in its name). The
+  other per-process folders of the tests only receive files of different names and are not
+  removed while in use.
+- **Checked:** `office.rs` three times in a row, 18 passed each.
+
 ## 2026-11-10 — FOL-L026: letters of text boxes outlined (0.90.0)
 
 - **Current state before:** Text Stroke Color planned, the last of the comment format commands.

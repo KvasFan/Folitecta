@@ -380,7 +380,11 @@ fn tables_go_into_the_office_exports_as_tables() {
 /// between two paragraphs, a chart, a list, and a second page with another
 /// table; made from Markdown with its pictures.
 fn mixed_report() -> Document {
-    let dir = std::env::temp_dir().join(format!("folitecta-mixed-{}", std::process::id()));
+    // A folder of its own for each call: tests making the report at once
+    // must not remove each other's pictures.
+    static CALLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let call = CALLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let dir = std::env::temp_dir().join(format!("folitecta-mixed-{}-{call}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     image::RgbImage::from_fn(120, 60, |x, _| image::Rgb([20, 60 + (x as u8), 160]))
         .save(dir.join("logo.png"))

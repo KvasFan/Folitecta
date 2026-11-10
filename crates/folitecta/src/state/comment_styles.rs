@@ -29,6 +29,9 @@ pub struct Stored {
     blend: String,
     #[serde(default)]
     fill_opacity: Option<f32>,
+    // Added in 0.90.0.
+    #[serde(default)]
+    text_stroke: Option<[f32; 3]>,
 }
 
 impl Default for Stored {
@@ -54,6 +57,7 @@ impl From<&AnnotStyle> for Stored {
             line_join: s.line_join,
             blend: s.blend.clone(),
             fill_opacity: s.fill_opacity,
+            text_stroke: s.text_stroke,
         }
     }
 }
@@ -79,6 +83,7 @@ impl From<Stored> for AnnotStyle {
                 "Normal".into()
             },
             fill_opacity: s.fill_opacity.map(|v| v.clamp(0.0, 1.0)),
+            text_stroke: s.text_stroke,
         }
     }
 }

@@ -62,7 +62,15 @@ fn free_text_body(
         f((bx[2] - bx[0] - 2.0 * w).max(0.0)),
         f((bx[3] - bx[1] - 2.0 * w).max(0.0))
     ));
+    // Letters outlined in a colour of their own: filled, then stroked.
+    if let Some(c) = style.text_stroke {
+        body.push_str(&rgb(c, "RG"));
+        body.push_str(&format!("{} w ", f((fs * 0.04).clamp(0.2, 4.0))));
+    }
     body.push_str(&format!("BT /{} {} Tf ", writer.resource_name(), f(fs)));
+    if style.text_stroke.is_some() {
+        body.push_str("2 Tr ");
+    }
     body.push_str(&rgb(style.text_color, "rg"));
     let mut y = bx[3] - pad - fs * 0.88;
     for line in writer.wrap(fs, inner_w) {

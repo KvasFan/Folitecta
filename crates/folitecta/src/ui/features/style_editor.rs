@@ -332,6 +332,18 @@ pub fn StyleEditor() -> Element {
                             onchange: { let s = s.clone(); move |e: Event<FormData>| { let mut n = s.clone(); n.text_color = parse_color(&e.value()); apply(n); } },
                         }
                     }
+                    if kind == "FreeText" || kind == "Typewriter" || kind == "Callout" {
+                        div { class: "style-row style-text-stroke",
+                            label { "{t(lang, \"style.text_stroke\")}" }
+                            input { r#type: "color", value: "{color_hex(style.text_stroke.unwrap_or([0.0, 0.0, 0.0]))}",
+                                onchange: { let s = s.clone(); move |e: Event<FormData>| { let mut n = s.clone(); n.text_stroke = Some(parse_color(&e.value())); apply(n); } },
+                            }
+                            label { class: "check mini",
+                                input { r#type: "checkbox", checked: style.text_stroke.is_none(), onchange: { let s = s.clone(); move |_| { let mut n = s.clone(); n.text_stroke = if n.text_stroke.is_some() { None } else { Some([0.0, 0.0, 0.0]) }; apply(n); } } }
+                                span { "{t(lang, \"style.none\")}" }
+                            }
+                        }
+                    }
                     div { class: "style-row",
                         label { "{t(lang, \"style.align\")}" }
                         div { class: "seg-buttons",

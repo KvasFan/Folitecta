@@ -833,6 +833,13 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    the text uses that the page does not name, comments without an area or a kind, and a page
    count that disagrees with the pages found, each with its page; a window shows them.
 
+### 0.90.0 — letters of text boxes outlined (on `main`, untagged)
+
+1. ~~**FOL-L026 — Text Stroke Color.**~~ Done: `AnnotStyle::text_stroke`
+   (`/FolitectaTextStroke`), the letters of text boxes filled and outlined (`2 Tr`) in that
+   colour, a 25th of the text size wide; a Letter outline row in the style editor for text boxes,
+   typewriter text and callouts.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

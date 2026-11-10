@@ -562,6 +562,52 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
             wavy && outlined && link_focus,
             format!("wavy {wavy}, outlined {outlined}, focused {link_focus}, made {:?}", made.map(|r| r.is_ok())),
         );
+        // A text box's letters outlined: Text Stroke Color lands on the row.
+        let callout = st
+            .with_active(|t| {
+                t.doc.add_free_text_styled(
+                    0,
+                    [300.0, 600.0, 500.0, 640.0],
+                    "Outlined",
+                    "t",
+                    &folitecta_core::AnnotStyle {
+                        font_size: 18.0,
+                        ..folitecta_core::AnnotStyle::default()
+                    },
+                )?;
+                Ok::<_, folitecta_core::Error>(
+                    t.doc
+                        .annotations(0)?
+                        .into_iter()
+                        .rev()
+                        .find(|a| a.subtype == "FreeText")
+                        .map(|a| a.index),
+                )
+            })
+            .and_then(|r| r.ok())
+            .flatten();
+        let (mut stroke_focus, mut stroke) = (false, None);
+        if let Some(c) = callout {
+            st.with_active(|t| t.selected_annot = Some((0, c)));
+            pause(500).await;
+            crate::commands::dispatch(st, "scolorText");
+            pause(400).await;
+            stroke_focus = eval("return !!document.activeElement?.closest('.style-text-stroke');")
+                .await
+                .ok()
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let _ = eval("const c = document.querySelector('.style-editor .style-text-stroke input[type=color]'); if (c) { c.value = '#0000ff'; c.dispatchEvent(new Event('change', { bubbles: true })); }").await;
+            pause(500).await;
+            stroke = st
+                .read_active(|t| t.doc.annotation_style(0, c).ok().and_then(|s| s.text_stroke))
+                .flatten();
+        }
+        cx.record(
+            "style editor: Text Stroke Color lands on the letter outline of a text box, made blue",
+            stroke_focus && stroke == Some([0.0, 0.0, 1.0]),
+            format!("callout {callout:?}, focused {stroke_focus}, outline {stroke:?}"),
+        );
         let _ = capture_window(&dir.join("interaction-style-editor.png"));
         st.ui_mut().show_right_pane = false;
     } else {

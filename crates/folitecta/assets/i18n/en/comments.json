@@ -232,6 +232,7 @@
   "style.underline": "Underline",
   "style.underline_straight": "Straight",
   "style.underline_wavy": "Wavy",
+  "style.text_stroke": "Letter outline",
   "style.dashed": "Dashed",
   "style.default_saved": "Default style saved",
   "style.end": "End",

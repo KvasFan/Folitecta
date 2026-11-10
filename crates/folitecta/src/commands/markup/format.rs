@@ -142,6 +142,7 @@ handlers! {
     "highlightMode" => |st| show_style_row(st, "link-highlight"),
     "underlineStyle" => |st| show_style_row(st, "style-underline"),
     "fcolorText" => |st| show_style_row(st, "style-text-color"),
+    "scolorText" => |st| show_style_row(st, "style-text-stroke"),
     "borderWidthText" => |st| show_style_row(st, "style-width"),
     "props.makeDefault" => make_default,
     "props.applyDefault" => apply_default,

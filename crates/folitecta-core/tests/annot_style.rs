@@ -296,3 +296,39 @@ fn underlines_straight_or_wavy_and_the_highlight_of_links() {
     assert!(doc.set_link_highlight(0, 0, ButtonBehaviour::Push).is_err());
     assert!(doc.set_underline_wavy(0, link, true).is_err());
 }
+
+#[test]
+fn the_letters_of_a_text_box_outlined() {
+    let mut doc = blank();
+    let style = AnnotStyle {
+        color: None,
+        font_size: 40.0,
+        text_color: [1.0, 1.0, 1.0],
+        text_stroke: Some([0.0, 0.0, 1.0]),
+        ..AnnotStyle::default()
+    };
+    doc.add_free_text_styled(0, [20.0, 100.0, 280.0, 160.0], "HHHH", "t", &style)
+        .unwrap();
+    let doc = Document::from_bytes(doc.bytes().to_vec(), None, None).unwrap();
+    assert_eq!(
+        doc.annotation_style(0, 0).unwrap().text_stroke,
+        Some([0.0, 0.0, 1.0])
+    );
+    // White letters outlined in blue: blue pixels where the letters are.
+    let r = doc.render_page_png(0, 1.0).unwrap();
+    let img = image::load_from_memory(&r.png).unwrap().to_rgba8();
+    let blue = (20..280)
+        .flat_map(|x| (140..200).map(move |y| (x, y)))
+        .filter(|(x, y)| {
+            let p = img.get_pixel(*x, *y).0;
+            p[2] > 150 && p[0] < 100
+        })
+        .count();
+    assert!(blue > 40, "{blue} blue pixels");
+    // Without it: none.
+    let mut doc = doc;
+    let mut plain = doc.annotation_style(0, 0).unwrap();
+    plain.text_stroke = None;
+    doc.set_annotation_style(0, 0, &plain).unwrap();
+    assert_eq!(doc.annotation_style(0, 0).unwrap().text_stroke, None);
+}

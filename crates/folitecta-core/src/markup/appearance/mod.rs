@@ -87,6 +87,10 @@ pub struct AnnotStyle {
     pub blend: String,
     /// Opacity of fills, when it differs from the opacity of lines (`/ca`).
     pub fill_opacity: Option<f32>,
+    /// The colour the letters of a text box are outlined in
+    /// (`/FolitectaTextStroke`, drawn in the appearance); `None`: not
+    /// outlined.
+    pub text_stroke: Option<[f32; 3]>,
 }
 
 /// The blend modes a comment can be drawn with (PDF 32000-2, 11.3.5).
@@ -109,6 +113,8 @@ pub const BLEND_MODES: [&str; 12] = [
 /// none for comments; the appearance draws them for every reader).
 pub(crate) const LINE_CAP: &str = "FolitectaLineCap";
 pub(crate) const LINE_JOIN: &str = "FolitectaLineJoin";
+/// Folitecta's entry for the colour that outlines the letters of a text box.
+pub(crate) const TEXT_STROKE: &str = "FolitectaTextStroke";
 
 impl Default for AnnotStyle {
     fn default() -> Self {
@@ -127,6 +133,7 @@ impl Default for AnnotStyle {
             line_join: 0,
             blend: "Normal".into(),
             fill_opacity: None,
+            text_stroke: None,
         }
     }
 }
@@ -297,6 +304,10 @@ impl Document {
                     let ca_all = d.get(b"CA").ok().and_then(|v| num(deref(doc, v))).unwrap_or(1.0);
                     (ca - ca_all).abs() > 0.001
                 }),
+            text_stroke: {
+                let v = numbers(doc, d.get(TEXT_STROKE.as_bytes()).ok());
+                (v.len() == 3).then(|| [v[0], v[1], v[2]])
+            },
         }
     }
 
@@ -495,6 +506,12 @@ pub(crate) fn apply_style(d: &mut Dictionary, subtype: &str, style: &AnnotStyle)
         );
     }
     if subtype == "FreeText" {
+        match style.text_stroke {
+            Some(c) => d.set(TEXT_STROKE, color_obj(Some(c))),
+            None => {
+                d.remove(TEXT_STROKE.as_bytes());
+            }
+        }
         let f = fmt_num;
         let c = style.text_color;
         d.set(

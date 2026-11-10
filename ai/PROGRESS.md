@@ -4,6 +4,20 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-10 — FOL-L026: letters of text boxes outlined (0.90.0)
+
+- **Current state before:** Text Stroke Color planned, the last of the comment format commands.
+- **What:** core `AnnotStyle::text_stroke`, `/FolitectaTextStroke` written and read like line
+  caps and joins; the text box appearance sets `RG`, a width of 4% of the size (0.2 to 4 points)
+  and `2 Tr` when it has one. App: kept in named and default styles (`serde(default)`), a
+  `style-text-stroke` row, `scolorText`.
+- **Checked:** `annot_style.rs` `the_letters_of_a_text_box_outlined` (kept in the file, white
+  letters outlined in blue rendered blue, removed again); self-test step `tools` (33
+  interactions, 0 problems: a text box's letters made blue from the row Text Stroke Color focuses;
+  the first try of the check looked for a callout that was no longer on the page); all app and
+  core tests, clippy.
+- **Open:** —
+
 ## 2026-11-10 — local check of 0.87.0 to 0.89.0, Linux and Windows
 
 - **What:** `target/preflight.sh` at `60eea3d`: formatting, clippy for the three systems, the

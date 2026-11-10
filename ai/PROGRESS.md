@@ -4,6 +4,13 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-10 — local check of 0.87.0 to 0.89.0, Linux and Windows
+
+- **What:** `target/preflight.sh` at `60eea3d`: formatting, clippy for the three systems, the
+  workspace tests (1086 passed, 0 failed), the release build, the licences, the whole self-test
+  (382 interactions, 0 problems), the Linux package (47 MB) and the Windows job (1063 tests
+  passed under Wine, 0 failed; notices of 534 libraries; no `VCRUNTIME140` import): all passed.
+
 ## 2026-11-10 — FOL-L004: problem details (0.89.0)
 
 - **Current state before:** Show Problem Details planned; the core keeps nothing of how a file

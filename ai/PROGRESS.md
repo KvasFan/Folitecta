@@ -4,6 +4,20 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-10 — the Windows job of CI in the local check
+
+- **Found:** CI runs the workspace tests on Windows and macOS too; the local copy of CI
+  (`target/preflight.sh`) only linted those systems, so a test failing there would have shown on
+  GitHub first.
+- **What:** `target/preflight-windows.sh`, now run by `preflight.sh`: `cargo xwin test --workspace`
+  for `x86_64-pc-windows-msvc` run under Wine, the Windows debug build, the licence notices of the
+  Windows libraries (the native tool with `--target`: under Wine it cannot call cargo) and the
+  check that the program does not import the Visual C++ runtime; about 13 minutes.
+- **Checked:** first run at `85bbdfc`: 1060 tests passed, 0 failed (Linux runs 1079: tests that
+  exist only on Linux), no `VCRUNTIME140` import, notices of 534 libraries.
+- **Open:** the macOS tests still run only on GitHub (no Apple SDK here; the macOS lint catches
+  what does not compile).
+
 ## 2026-11-10 — FOL-L027, FOL-L001: pictures pasted as stamps, loupe snapshots (0.86.0)
 
 - **Current state before:** Paste as Stamp and Loupe › Snapshot planned.

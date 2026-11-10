@@ -248,6 +248,26 @@ pub fn StyleEditor() -> Element {
                     }
                 }
             }
+            if let (Target::Comment(up, ui, _), true) = (target, kind == "Underline" || kind == "Squiggly") {
+                div { class: "style-row style-underline",
+                    label { "{t(lang, \"style.underline\")}" }
+                    select {
+                        onchange: move |e: Event<FormData>| {
+                            let wavy = e.value() == "wavy";
+                            match st.with_active(|t| {
+                                let r = t.doc.set_underline_wavy(up, ui, wavy);
+                                t.selected_annot = Some((up, ui));
+                                r
+                            }) {
+                                Some(Err(e)) => st.error(e),
+                                _ => files::set_window_title(st),
+                            }
+                        },
+                        option { value: "straight", selected: kind == "Underline", "{t(lang, \"style.underline_straight\")}" }
+                        option { value: "wavy", selected: kind == "Squiggly", "{t(lang, \"style.underline_wavy\")}" }
+                    }
+                }
+            }
             div { class: "style-row style-blend",
                 label { "{t(lang, \"style.blend\")}" }
                 select { onchange: { let s = s.clone(); move |e: Event<FormData>| { let mut n = s.clone(); n.blend = e.value(); apply(n); } },
@@ -269,7 +289,7 @@ pub fn StyleEditor() -> Element {
                 }
             }
             if caps.width {
-                div { class: "style-row",
+                div { class: "style-row style-width",
                     label { "{t(lang, \"style.width\")}" }
                     input { r#type: "number", min: "0", max: "40", step: "0.5", value: "{style.width}",
                         onchange: { let s = s.clone(); move |e: Event<FormData>| { if let Ok(v) = e.value().replace(',', ".").parse::<f32>() { let mut n = s.clone(); n.width = v.clamp(0.0, 40.0); apply(n); } } },
@@ -306,7 +326,7 @@ pub fn StyleEditor() -> Element {
                     }
                 }
                 if kind != "Distance" && kind != "Perimeter" && kind != "Area" {
-                    div { class: "style-row",
+                    div { class: "style-row style-text-color",
                         label { "{t(lang, \"style.text_color\")}" }
                         input { r#type: "color", value: "{color_hex(style.text_color)}",
                             onchange: { let s = s.clone(); move |e: Event<FormData>| { let mut n = s.clone(); n.text_color = parse_color(&e.value()); apply(n); } },

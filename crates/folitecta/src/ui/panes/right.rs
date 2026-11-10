@@ -97,6 +97,35 @@ pub fn RightPane() -> Element {
                     if let Some(a) = selected.filter(|a| a.subtype != "Widget") {
                         div { class: "prop-head", "{t(lang, \"props.selection\")}" }
                         {prop(t(lang, "props.type"), annot_name(lang, &a.subtype))}
+                        if a.subtype == "Link" {
+                            {
+                                let (lp, li) = (a.page, a.index);
+                                let mode = st
+                                    .read_active(|t| t.doc.link_highlight(lp, li).ok())
+                                    .flatten()
+                                    .unwrap_or(folitecta_core::ButtonBehaviour::Invert);
+                                rsx! {
+                                    div { class: "prop prop-select link-highlight",
+                                        span { class: "k", "{t(lang, \"field.behaviour\")}" }
+                                        select {
+                                            onchange: move |e| {
+                                                let Some(b) = folitecta_core::ButtonBehaviour::ALL.into_iter().find(|b| b.id() == e.value()) else { return };
+                                                match st.with_active(|t| t.doc.set_link_highlight(lp, li, b)) {
+                                                    Some(Err(e)) => st.error(e),
+                                                    Some(Ok(())) => crate::files::set_window_title(st),
+                                                    None => {}
+                                                }
+                                            },
+                                            for b in folitecta_core::ButtonBehaviour::ALL {
+                                                option { key: "{b.id()}", value: "{b.id()}", selected: b == mode,
+                                                    {t(lang, &["field.behaviour_", b.id()].concat())}
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         {prop(t(lang, "dialog.note.author"), a.author.clone())}
                         {prop(t(lang, "dialog.props.modified"), a.modified.clone())}
                         // Only what the layer commands put on layers (not marks for

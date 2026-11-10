@@ -16,6 +16,10 @@ All notable changes to Folitecta are documented here. The format follows
   as the third, in the page content with the colour and width of the Line tool.
 - View › Snap › To Objects also snaps to the middles of straight lines and of the sides of boxes,
   and to where two lines cross.
+- An underline can be made wavy, or straight again, from the style editor (Underline Style); a link
+  chosen shows how it reacts to a click (nothing, inverted, outlined, pressed) in the properties
+  pane (Highlight Mode); Text Fill Color and Border Width Text open the style editor at the text
+  colour and the thickness.
 - The style of a comment has line ends (flat, round, square), corners (sharp, round, bevelled), a
   blend mode (multiply, screen, darken and nine more) and an opacity of the fill apart from that of
   the lines; Line Cap, Line Join, Blend Mode and Stroke Opacity open the style editor at them.

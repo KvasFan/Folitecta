@@ -1,6 +1,6 @@
 //! Comment styles: reading, changing and regenerating appearances.
 
-use folitecta_core::{AnnotStyle, Document, Markup, Shape};
+use folitecta_core::{AnnotStyle, ButtonBehaviour, Document, Markup, Shape};
 
 fn blank() -> Document {
     Document::new_blank(1, 300.0, 300.0).unwrap()
@@ -260,4 +260,39 @@ fn line_ends_corners_blending_and_fill_opacity() {
         ),
         (0, 0, "Normal", None)
     );
+}
+
+#[test]
+fn underlines_straight_or_wavy_and_the_highlight_of_links() {
+    let mut doc = blank();
+    let quad = [50.0, 120.0, 150.0, 120.0, 50.0, 100.0, 150.0, 100.0];
+    doc.add_text_markup(0, Markup::Underline, &[quad], [1.0, 0.0, 0.0], "t", "")
+        .unwrap();
+    doc.set_underline_wavy(0, 0, true).unwrap();
+    let a = &doc.annotations(0).unwrap()[0];
+    assert_eq!(a.subtype, "Squiggly");
+    assert_eq!(
+        doc.annotation_style(0, 0).unwrap().color,
+        Some([1.0, 0.0, 0.0]),
+        "its colour kept"
+    );
+    doc.undo().unwrap();
+    assert_eq!(doc.annotations(0).unwrap()[0].subtype, "Underline");
+    // A link: inverted unless it says otherwise; outlined on request.
+    doc.add_uri_link(0, [50.0, 200.0, 150.0, 220.0], "https://example.org")
+        .unwrap();
+    let link = doc
+        .annotations(0)
+        .unwrap()
+        .iter()
+        .position(|a| a.subtype == "Link")
+        .unwrap();
+    assert_eq!(doc.link_highlight(0, link).unwrap(), ButtonBehaviour::Invert);
+    doc.set_link_highlight(0, link, ButtonBehaviour::Outline).unwrap();
+    let doc = Document::from_bytes(doc.bytes().to_vec(), None, None).unwrap();
+    assert_eq!(doc.link_highlight(0, link).unwrap(), ButtonBehaviour::Outline);
+    // Neither works on other comments.
+    let mut doc = doc;
+    assert!(doc.set_link_highlight(0, 0, ButtonBehaviour::Push).is_err());
+    assert!(doc.set_underline_wavy(0, link, true).is_err());
 }

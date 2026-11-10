@@ -337,6 +337,31 @@ impl Document {
         })
     }
 
+    /// Make the underline `index` of page `page` wavy (a `Squiggly` comment)
+    /// or straight (`Underline`), its appearance drawn again. One undo step.
+    pub fn set_underline_wavy(&mut self, page: usize, index: usize, wavy: bool) -> Result<()> {
+        let id = self.annotation_object(page, index)?;
+        let mut d = self.inner.get_dictionary(id)?.clone();
+        let subtype = name_of(&d, b"Subtype").unwrap_or_default();
+        if !matches!(subtype.as_str(), "Underline" | "Squiggly") {
+            return Err(Error::Invalid("only underlines can be straight or wavy".into()));
+        }
+        d.set(
+            "Subtype",
+            Object::Name(if wavy {
+                b"Squiggly".to_vec()
+            } else {
+                b"Underline".to_vec()
+            }),
+        );
+        self.edit_step(|doc| {
+            doc.generate_appearance(&mut d)?;
+            d.set("M", Object::string_literal(crate::util::pdf_date_now()));
+            *doc.inner.get_dictionary_mut(id)? = d;
+            Ok(())
+        })
+    }
+
     /// The icon of a note (`/Name` of a `Text` annotation), `None` for other comments.
     pub fn note_icon_of(&self, page: usize, index: usize) -> Option<String> {
         let d = self.annotation_dict(page, index).ok()?;

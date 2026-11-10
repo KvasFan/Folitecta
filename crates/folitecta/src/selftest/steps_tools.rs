@@ -505,6 +505,63 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
                 }),
             format!("focused {focused}, {:?}", more.map(|s| (s.line_join, s.blend, s.fill_opacity))),
         );
+        // An underline made wavy in the editor; a link outlined on a click,
+        // Highlight Mode landing on that row.
+        let quad = [60.0, 760.0, 200.0, 760.0, 60.0, 748.0, 200.0, 748.0];
+        let made = st.with_active(|t| {
+            t.doc.add_text_markup(
+                0,
+                folitecta_core::Markup::Underline,
+                &[quad],
+                [1.0, 0.0, 0.0],
+                "t",
+                "",
+            )?;
+            t.doc
+                .add_uri_link(0, [60.0, 700.0, 200.0, 720.0], "https://example.org")?;
+            let all = t.doc.annotations(0)?;
+            let u = all
+                .iter()
+                .rev()
+                .find(|a| a.subtype == "Underline")
+                .map(|a| a.index);
+            let l = all.iter().rev().find(|a| a.subtype == "Link").map(|a| a.index);
+            Ok::<_, folitecta_core::Error>((u, l))
+        });
+        let (mut wavy, mut outlined, mut link_focus) = (false, false, false);
+        if let Some(Ok((Some(u), Some(l)))) = made {
+            st.with_active(|t| t.selected_annot = Some((0, u)));
+            pause(500).await;
+            let _ = eval(&change(".style-underline select", "wavy")).await;
+            pause(500).await;
+            wavy = st
+                .read_active(|t| {
+                    t.doc
+                        .annotations(0)
+                        .ok()
+                        .map(|a| a.iter().any(|x| x.index == u && x.subtype == "Squiggly"))
+                })
+                .flatten()
+                .unwrap_or(false);
+            st.with_active(|t| t.selected_annot = Some((0, l)));
+            pause(500).await;
+            crate::commands::dispatch(st, "highlightMode");
+            pause(400).await;
+            link_focus = eval("return !!document.activeElement?.closest('.link-highlight');")
+                .await
+                .ok()
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let _ = eval("const c = document.querySelector('.right-pane .link-highlight select'); if (c) { c.value = 'outline'; c.dispatchEvent(new Event('change', { bubbles: true })); }").await;
+            pause(400).await;
+            outlined = st.read_active(|t| t.doc.link_highlight(0, l).ok()).flatten()
+                == Some(folitecta_core::ButtonBehaviour::Outline);
+        }
+        cx.record(
+            "properties: an underline made wavy; a link outlined on a click, Highlight Mode landing on its row",
+            wavy && outlined && link_focus,
+            format!("wavy {wavy}, outlined {outlined}, focused {link_focus}, made {:?}", made.map(|r| r.is_ok())),
+        );
         let _ = capture_window(&dir.join("interaction-style-editor.png"));
         st.ui_mut().show_right_pane = false;
     } else {

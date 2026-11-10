@@ -4,6 +4,22 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-10 — FOL-L026: wavy underlines, link highlights, format rows (0.83.0)
+
+- **Current state before:** Underline Style, Highlight Mode, Text Fill Color and Border Width Text
+  were planned; links had no highlight setting (push buttons did).
+- **What:** core `set_underline_wavy` (only `Underline`/`Squiggly`; the colour kept, one undo
+  step), `link_highlight` (inverted when `/H` says nothing) and `set_link_highlight` (links only),
+  `ButtonBehaviour::name` shared. App: a `style-underline` row for underlines, a `link-highlight`
+  row (On click, the push buttons' labels) for a chosen link, classes on the text colour and
+  thickness rows; `show_style_row` looks in the whole properties pane; `highlightMode`,
+  `underlineStyle`, `fcolorText`, `borderWidthText`.
+- **Checked:** `annot_style.rs` `underlines_straight_or_wavy_and_the_highlight_of_links` (wavy and
+  undone, a link outlined and kept in the file, refused on other comments); self-test step
+  `tools` (32 interactions, 0 problems): the underline made wavy in the editor, the link
+  outlined, Highlight Mode focusing its row; all app (152) and core tests, clippy.
+- **Open:** Text Stroke Color (outlined text in text boxes).
+
 ## 2026-11-09 — local check of 0.78.0 to 0.82.0
 
 - **What:** `target/preflight.sh` at `dbe2f99`: formatting, clippy for the three systems, the

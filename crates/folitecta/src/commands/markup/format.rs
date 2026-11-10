@@ -26,7 +26,7 @@ fn show_style_row(st: AppState, row: &'static str) {
     }
     show_properties(st);
     let js = format!(
-        "setTimeout(() => {{ const c = document.querySelector('.style-editor .{row} select, .style-editor .{row} input'); if (c) {{ c.scrollIntoView({{ block: 'nearest' }}); c.focus(); }} }}, 80);"
+        "setTimeout(() => {{ const c = document.querySelector('.right-pane .{row} select, .right-pane .{row} input'); if (c) {{ c.scrollIntoView({{ block: 'nearest' }}); c.focus(); }} }}, 80);"
     );
     let _ = dioxus::document::eval(&js);
 }
@@ -139,6 +139,10 @@ handlers! {
     "lineJoin" => |st| show_style_row(st, "style-join"),
     "blendMode" => |st| show_style_row(st, "style-blend"),
     "strokeOpacity" => |st| show_style_row(st, "style-opacity"),
+    "highlightMode" => |st| show_style_row(st, "link-highlight"),
+    "underlineStyle" => |st| show_style_row(st, "style-underline"),
+    "fcolorText" => |st| show_style_row(st, "style-text-color"),
+    "borderWidthText" => |st| show_style_row(st, "style-width"),
     "props.makeDefault" => make_default,
     "props.applyDefault" => apply_default,
     "annotStyle.copy" => copy_style,

@@ -627,6 +627,45 @@ impl Document {
         Ok(out)
     }
 
+    /// How link `index` of page `page` (its position among the comments of
+    /// the page) shows a click (`/H`; inverted when it says nothing).
+    pub fn link_highlight(&self, page: usize, index: usize) -> Result<crate::ButtonBehaviour> {
+        let id = self.annotation_object(page, index)?;
+        let d = self.inner.get_dictionary(id)?;
+        Ok(match d.get(b"H").ok().and_then(|h| h.as_name().ok()) {
+            Some(b"N") => crate::ButtonBehaviour::None,
+            Some(b"O") => crate::ButtonBehaviour::Outline,
+            Some(b"P") => crate::ButtonBehaviour::Push,
+            _ => crate::ButtonBehaviour::Invert,
+        })
+    }
+
+    /// Set how link `index` of page `page` shows a click. One undo step.
+    pub fn set_link_highlight(
+        &mut self,
+        page: usize,
+        index: usize,
+        mode: crate::ButtonBehaviour,
+    ) -> Result<()> {
+        let id = self.annotation_object(page, index)?;
+        if self
+            .inner
+            .get_dictionary(id)?
+            .get(b"Subtype")
+            .ok()
+            .and_then(|s| s.as_name().ok())
+            != Some(b"Link")
+        {
+            return Err(Error::Invalid("only links have a highlight mode".into()));
+        }
+        self.edit_step(|doc| {
+            doc.inner
+                .get_dictionary_mut(id)?
+                .set("H", Object::Name(mode.name().as_bytes().to_vec()));
+            Ok(())
+        })
+    }
+
     /// Links of the whole document.
     pub fn all_links(&self) -> Vec<Link> {
         self.kept("all_links", || {

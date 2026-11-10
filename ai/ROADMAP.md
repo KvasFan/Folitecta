@@ -784,6 +784,14 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    (`/ca`, apart from `/CA` of the lines); the style editor has a row for each, kept in named
    styles too, and the four commands open it at their row.
 
+### 0.83.0 — wavy underlines, link highlights, format rows (on `main`, untagged)
+
+1. ~~**FOL-L026 — Underline Style, Highlight Mode, Text Fill Color, Border Width Text.**~~ Done:
+   `set_underline_wavy` (an underline made `Squiggly` or back, its appearance drawn again),
+   `link_highlight`/`set_link_highlight` (`/H` of a link: nothing, invert, outline, push); an
+   Underline row in the style editor and an On click row for a chosen link in the properties
+   pane; the four commands open the pane at their row (text colour and thickness included).
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

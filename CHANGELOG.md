@@ -16,6 +16,9 @@ All notable changes to Folitecta are documented here. The format follows
   as the third, in the page content with the colour and width of the Line tool.
 - View › Snap › To Objects also snaps to the middles of straight lines and of the sides of boxes,
   and to where two lines cross.
+- Pages chosen in the thumbnails and copied can be pasted into the same or another document: Paste
+  Pages puts them after the current page, Paste Pages Special before or after it, at the start or
+  the end and as many times as asked, with their fields, bookmarks and links, in one undo step.
 - Thumbnails › Select › Shape selects the pages that draw shapes; Advanced Selection selects pages
   by number (odd, even, a range), orientation and what they hold (text, pictures, shapes,
   comments, links, form fields, all of them or one, or nothing), added to the pages selected or

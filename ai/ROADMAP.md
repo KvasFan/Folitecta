@@ -799,6 +799,14 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    shapes, comments, links or fields (all of them or one), or nothing, added to the selection or
    in place of it (`commands/navigation/page_select.rs`).
 
+### 0.85.0 — pages copied and pasted (on `main`, untagged)
+
+1. ~~**FOL-L050 — Paste Pages, Paste Pages Special.**~~ Done: Copy with pages chosen in the
+   thumbnails keeps them as a document of their own (`Clip::Pages`); Paste Pages puts them after
+   the current page (a picture of the clipboard when no pages were copied), Paste Pages Special
+   before or after it, at the start or the end, up to 100 times; one undo step
+   (`insert_document_copies`). Plain Paste leaves copied pages alone.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

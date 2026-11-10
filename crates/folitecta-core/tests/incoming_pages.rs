@@ -276,3 +276,26 @@ fn attached_files_come_with_all_the_pages_of_a_document() {
     doc.undo().unwrap();
     assert_eq!((doc.page_count(), doc.attachments().len()), (1, 1));
 }
+
+#[test]
+fn copied_pages_pasted_twice_in_one_undo_step() {
+    let mut doc = Document::from_bytes(folitecta_core::testdocs::text_doc(2), None, None).unwrap();
+    let source = Document::from_bytes(folitecta_core::testdocs::text_doc(5), None, None).unwrap();
+    // Pages 2 and 4 of the source, copied.
+    let copied = source.extract_pages(&[1, 3]).unwrap();
+    let pasted = Document::from_bytes(copied.bytes().to_vec(), None, None).unwrap();
+    let before: Vec<String> = (0..2).map(|p| doc.page_text(p)).collect();
+    let n = doc.insert_document_copies(1, &pasted, 2).unwrap();
+    assert_eq!(n, 4);
+    assert_eq!(doc.page_count(), 6);
+    // After the first page: 2, 4, 2, 4 of the source; then the second page.
+    let text = |d: &Document, p: usize| d.page_text(p);
+    assert_eq!(text(&doc, 0), before[0]);
+    assert_eq!(text(&doc, 1), source.page_text(1));
+    assert_eq!(text(&doc, 2), source.page_text(3));
+    assert_eq!(text(&doc, 3), source.page_text(1));
+    assert_eq!(text(&doc, 4), source.page_text(3));
+    assert_eq!(text(&doc, 5), before[1]);
+    doc.undo().unwrap();
+    assert_eq!(doc.page_count(), 2, "one undo step");
+}

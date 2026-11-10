@@ -469,6 +469,7 @@ mod steps_page_boxes;
 mod steps_page_label_ranges;
 mod steps_page_select;
 mod steps_panes;
+mod steps_paste_pages;
 mod steps_paths;
 mod steps_pencil;
 mod steps_perf;
@@ -572,6 +573,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "scans" => Box::pin(steps_scans::run(cx)),
             "paths" => Box::pin(steps_paths::run(cx)),
             "page_select" => Box::pin(steps_page_select::run(cx)),
+            "paste_pages" => Box::pin(steps_paste_pages::run(cx)),
             "pencil" => Box::pin(steps_pencil::run(cx)),
             "actions" => Box::pin(steps_actions::run(cx)),
             "office" => Box::pin(steps_office::run(cx)),
@@ -685,6 +687,7 @@ const STEPS: &[&str] = &[
     "scans",
     "paths",
     "page_select",
+    "paste_pages",
     "pencil",
     "actions",
     "office",
@@ -1157,6 +1160,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("security", Dialog::Security),
         ("labels", Dialog::PageLabels),
         ("page_selection", Dialog::PageSelection),
+        ("paste_pages", Dialog::PastePages),
         ("stamps", Dialog::StampPicker),
         ("watermark", Dialog::Watermark),
         ("headerfooter", Dialog::HeaderFooter),

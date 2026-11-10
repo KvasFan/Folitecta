@@ -317,6 +317,12 @@ pub enum Clip {
     Annotation { tab: u64, page: usize, index: usize },
     /// A comment that was cut (kept as a detached copy).
     Detached(folitecta_core::AnnotSnapshot),
+    /// Pages chosen in the thumbnails, copied: a document of their own (so
+    /// the paste works after their tab changes or closes).
+    Pages {
+        pdf: std::sync::Arc<Vec<u8>>,
+        count: usize,
+    },
 }
 
 /// A text selection on one page: character offsets in the page text layer.

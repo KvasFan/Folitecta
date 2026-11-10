@@ -1,4 +1,5 @@
-//! Edit menu: undo/redo, selection, clipboard, find, preferences.
+//! Edit menu: undo/redo, selection, clipboard (comments, pictures, text and
+//! the pages chosen in the thumbnails), find, preferences.
 
 use crate::commands::{core_result, handlers, no_doc, show_pane};
 use crate::files;
@@ -43,11 +44,37 @@ fn copy(st: AppState) {
     if !st.allowed(folitecta_core::Restricted::Copy) {
         return;
     }
+    // Pages chosen in the thumbnails: the pages themselves too, for Paste
+    // Pages (the picture of the page still goes to the system clipboard).
+    let chosen = st.read_active(|t| t.selected_pages.clone()).unwrap_or_default();
+    let mut pages_copied = None;
+    if !chosen.is_empty() {
+        let mut pages = chosen;
+        pages.sort_unstable();
+        match st.read_active(|t| t.doc.extract_pages(&pages).map(|d| d.bytes())) {
+            Some(Ok(pdf)) => {
+                st.set_clip(Some(Clip::Pages {
+                    pdf,
+                    count: pages.len(),
+                }));
+                pages_copied = Some(pages.len());
+            }
+            Some(Err(e)) => st.error(e),
+            None => {}
+        }
+    }
     // The page as the view shows it.
     let png = st.read_active(|t| t.doc.render_page_png_with_view(page, 2.0, &t.view_layer_states()));
     match png {
         Some(Ok(img)) => match crate::clipboard::set_png(&img.png) {
-            Ok(()) => st.toast(ToastKind::Ok, t(st.lang(), "toast.page_copied"), ""),
+            Ok(()) => match pages_copied {
+                Some(count) => {
+                    let text =
+                        crate::i18n::tf(st.lang(), "toast.pages_copied", &[("count", &count.to_string())]);
+                    st.toast(ToastKind::Ok, text, "");
+                }
+                None => st.toast(ToastKind::Ok, t(st.lang(), "toast.page_copied"), ""),
+            },
             Err(e) => st.error(e),
         },
         Some(Err(e)) => st.error(e),
@@ -86,7 +113,14 @@ fn paste(st: AppState) {
     if no_doc(st) {
         return;
     }
-    if let Some(clip) = st.clip.peek().clone() {
+    // Pages copied go only with Paste Pages: a copy made since in another
+    // program comes first here.
+    if let Some(clip) = st
+        .clip
+        .peek()
+        .clone()
+        .filter(|c| !matches!(c, Clip::Pages { .. }))
+    {
         paste_clip(st, clip);
         return;
     }
@@ -132,8 +166,67 @@ fn paste_clip(st: AppState, clip: Clip) {
         Clip::Detached(s) => {
             st.with_active(|t| t.doc.paste_annotation_snapshot(page, &s, 0.0, 0.0).map(|_| ()))
         }
+        Clip::Pages { pdf, .. } => {
+            paste_pages(st, &pdf, page + 1, 1);
+            return;
+        }
     };
     core_result(st, r);
+}
+
+/// Insert the pages copied (`pdf`) `copies` times before page index `at`,
+/// one undo step, and go to the first of them.
+pub(crate) fn paste_pages(st: AppState, pdf: &std::sync::Arc<Vec<u8>>, at: usize, copies: usize) {
+    let src = match folitecta_core::Document::from_bytes(pdf.to_vec(), None, None) {
+        Ok(d) => d,
+        Err(e) => {
+            st.error(e);
+            return;
+        }
+    };
+    match st.with_active(|t| t.doc.insert_document_copies(at, &src, copies)) {
+        Some(Ok(n)) => {
+            files::set_window_title(st);
+            st.go_to_page(at);
+            let text = crate::i18n::tf(st.lang(), "toast.pages_pasted", &[("count", &n.to_string())]);
+            st.toast(ToastKind::Ok, text, "");
+        }
+        Some(Err(e)) => st.error(e),
+        None => {}
+    }
+}
+
+/// The pages copied, if pages are what was copied last.
+fn copied_pages(st: AppState) -> Option<std::sync::Arc<Vec<u8>>> {
+    match st.clip.peek().clone() {
+        Some(Clip::Pages { pdf, .. }) => Some(pdf),
+        _ => None,
+    }
+}
+
+/// Paste Pages: the pages copied after the current page; without any, a
+/// picture of the clipboard as a new page.
+fn paste_pages_command(st: AppState) {
+    if no_doc(st) {
+        return;
+    }
+    match copied_pages(st) {
+        Some(pdf) => paste_pages(st, &pdf, st.current_page() + 1, 1),
+        None if crate::clipboard::get_png().is_some() => insert_page_from_clipboard(st),
+        None => st.toast(ToastKind::Info, t(st.lang(), "toast.no_pages_copied"), ""),
+    }
+}
+
+/// Paste Pages Special: where the pages copied go and how many times.
+fn paste_pages_special(st: AppState) {
+    if no_doc(st) {
+        return;
+    }
+    if copied_pages(st).is_some() {
+        st.set_dialog(Dialog::PastePages);
+    } else {
+        st.toast(ToastKind::Info, t(st.lang(), "toast.no_pages_copied"), "");
+    }
 }
 
 fn paste_image(st: AppState) -> bool {
@@ -219,6 +312,8 @@ fn insert_page_from_clipboard(st: AppState) {
 handlers! {
     "newDocClipboard" => new_doc_from_clipboard,
     "document.insertPagesFromClipboard" => insert_page_from_clipboard,
+    "pastePages" => paste_pages_command,
+    "pastePagesSpecial" => paste_pages_special,
     "undo" => |st| {
         if no_doc(st) { return; }
         match st.with_active(|t| t.doc.undo()) { Some(Err(_)) => st.toast(ToastKind::Info, t(st.lang(), "toast.nothing_to_undo"), ""), _ => files::set_window_title(st) }

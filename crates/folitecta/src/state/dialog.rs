@@ -95,6 +95,8 @@ pub enum Dialog {
     InterleavePages,
     /// Advanced Selection of the Thumbnails pane.
     PageSelection,
+    /// Paste Pages Special: where the pages copied go, how many times.
+    PastePages,
     Watermark,
     HeaderFooter,
     PageNumbers,

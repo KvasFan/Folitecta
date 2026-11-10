@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-10 — FOL-L050: pages copied and pasted (0.85.0)
+
+- **Current state before:** Copy put a picture of the current page on the clipboard; Paste Pages
+  and Paste Pages Special were planned.
+- **What:** core `insert_document_copies` (`insert_pages_from` repeated, joined into one undo
+  step; a failure takes back what arrived). App: `Clip::Pages { pdf, count }` made by Copy from
+  the pages chosen (`extract_pages`, the picture of the page still on the system clipboard);
+  `pastePages` (after the current page; a clipboard picture as a page when no pages were copied),
+  `pastePagesSpecial` and `Dialog::PastePages` (where, copies); plain Paste skips copied pages so
+  a later copy in another program comes first.
+- **Checked:** `incoming_pages.rs` `copied_pages_pasted_twice_in_one_undo_step`; new self-test
+  step `paste_pages` (copied, pasted after page 1, undone, two copies at the end: 7 pages in the
+  order wanted); all app and core tests, clippy.
+- **Open:** Paste Fields, Paste Guides, Paste as Stamp.
+
 ## 2026-11-10 — FOL-L004: pages selected by shape and by conditions (0.84.0)
 
 - **Current state before:** Select › Shape and Advanced Selection of the Thumbnails pane planned.

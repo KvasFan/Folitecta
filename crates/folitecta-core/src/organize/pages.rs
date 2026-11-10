@@ -444,6 +444,28 @@ impl Document {
         self.insert_pages_from(at, other, pages, None).map(|_| ())
     }
 
+    /// Insert every page of `other` `copies` times (1 to 100) before index
+    /// `at`, one copy after the other, with what belongs to the pages (see
+    /// [`Document::insert_pages_from`]). One undo step; returns how many
+    /// pages arrived.
+    pub fn insert_document_copies(&mut self, at: usize, other: &Document, copies: usize) -> Result<usize> {
+        let copies = copies.clamp(1, 100);
+        let n = other.page_count();
+        let mark = self.undo_mark();
+        for k in 0..copies {
+            if let Err(e) = self.insert_pages_from(at + k * n, other, None, None) {
+                // What arrived before goes back with the rest.
+                self.squash_undo(&mark);
+                if k > 0 {
+                    let _ = self.undo();
+                }
+                return Err(e);
+            }
+        }
+        self.squash_undo(&mark);
+        Ok(n * copies)
+    }
+
     /// Set the crop box of pages (PDF user-space rectangle).
     pub fn crop_pages(&mut self, pages: &[usize], rect: [f32; 4]) -> Result<()> {
         self.check_pages(pages)?;

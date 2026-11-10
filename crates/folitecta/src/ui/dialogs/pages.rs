@@ -376,6 +376,54 @@ pub(super) fn InterleavePages() -> Element {
     }
 }
 
+/// Paste Pages Special: the pages copied before or after the current page,
+/// at the start or the end, as many times as asked.
+#[component]
+pub(super) fn PastePages() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let n = st.page_count();
+    let current = st.current_page();
+    let mut place = use_signal(|| "after".to_string());
+    let copies = use_signal(|| "1".to_string());
+    let count = match st.clip.peek().clone() {
+        Some(crate::state::Clip::Pages { count, .. }) => count,
+        _ => 0,
+    };
+    let hint = crate::i18n::tf(lang, "dialog.paste_pages.hint", &[("count", &count.to_string())]);
+    rsx! {
+        Frame { title: t(lang, "dialog.paste_pages.title"),
+            on_ok: move |_| {
+                let pdf = match st.clip.peek().clone() {
+                    Some(crate::state::Clip::Pages { pdf, .. }) => pdf,
+                    _ => return,
+                };
+                let at = match place().as_str() {
+                    "before" => current,
+                    "start" => 0,
+                    "end" => n,
+                    _ => current + 1,
+                };
+                let times: usize = copies().trim().parse().unwrap_or(1);
+                st.set_dialog(Dialog::None);
+                crate::commands::edit::paste_pages(st, &pdf, at, times);
+            },
+            p { class: "hint", "{hint}" }
+            div { class: "field-grid",
+                div { class: "field", label { "{t(lang, \"dialog.paste_pages.where\")}" }
+                    select { class: "paste-pages-where", onchange: move |e| place.set(e.value()),
+                        option { value: "after", "{t(lang, \"dialog.paste_pages.after\")}" }
+                        option { value: "before", "{t(lang, \"dialog.paste_pages.before\")}" }
+                        option { value: "start", "{t(lang, \"dialog.paste_pages.start\")}" }
+                        option { value: "end", "{t(lang, \"dialog.paste_pages.end\")}" }
+                    }
+                }
+                Num { label: t(lang, "dialog.paste_pages.copies"), value: copies, min: "1", max: "100" }
+            }
+        }
+    }
+}
+
 /// Advanced Selection: pages by number, range, orientation and what they hold.
 #[component]
 pub(super) fn PageSelection() -> Element {

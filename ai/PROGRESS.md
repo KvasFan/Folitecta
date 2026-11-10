@@ -4,6 +4,13 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-10 — local check of 0.90.0 to 0.92.0, Linux and Windows
+
+- **What:** `target/preflight.sh` at `e52cd49`: formatting, clippy for the three systems, the
+  workspace tests (1089 passed, 0 failed), the release build, the licences, the whole self-test
+  (385 interactions, 0 problems), the Linux package (47 MB) and the Windows job (1066 tests
+  passed under Wine, 0 failed; notices of 534 libraries; no `VCRUNTIME140` import): all passed.
+
 ## 2026-11-10 — FOL-L022: the actions of a link (0.92.0)
 
 - **Current state before:** a link's actions were read (`link_actions`) but could not be edited;

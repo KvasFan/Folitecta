@@ -1,6 +1,7 @@
 //! Interaction step: paste_pages — pages 1 and 3 chosen in the thumbnails and
 //! copied; Paste Pages puts them after the current page (one undo step);
-//! Paste Pages Special puts two copies at the end.
+//! Paste Pages Special puts two copies at the end. A picture of the clipboard
+//! pasted as a stamp; what the loupe showed copied as a picture.
 
 use super::*;
 
@@ -59,8 +60,43 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         && end[4] == texts[2]
         && end[5] == texts[0]
         && end[6] == texts[2];
+    // A picture of 120 × 80 pixels: a stamp of 90 × 60 points in the middle.
+    let mut png = std::io::Cursor::new(Vec::new());
+    let _ = image::RgbaImage::from_pixel(120, 80, image::Rgba([20, 120, 220, 255]))
+        .write_to(&mut png, image::ImageFormat::Png);
+    let put = crate::clipboard::set_png(&png.into_inner()).is_ok();
+    crate::commands::dispatch(st, "pasteAsStamp");
+    pause(500).await;
+    let page = st.current_page();
+    let stamp = st
+        .read_active(|t| {
+            t.doc
+                .annotations(page)
+                .ok()
+                .and_then(|a| a.into_iter().rev().find(|x| x.subtype == "Stamp").map(|x| x.rect))
+        })
+        .flatten();
+    let stamped = put
+        && stamp.is_some_and(|r| ((r[2] - r[0]) - 90.0).abs() < 0.5 && ((r[3] - r[1]) - 60.0).abs() < 0.5);
+    // The loupe over the page, then the snapshot of what it shows.
+    st.set_loupe(Some((0, 200.0, 300.0, 0.0, 0.0)));
+    st.set_loupe(None);
+    crate::clipboard::set_text("nothing yet");
+    crate::commands::dispatch(st, "loupeView.snapshot");
+    pause(500).await;
+    let mag = (crate::commands::current_zoom(st) * crate::ui::canvas::loupe_factor(st)).min(8.0);
+    let expected = (240.0 / mag * (mag * 2.0).min(8.0)).round() as i64;
+    let shot = crate::clipboard::get_png()
+        .and_then(|p| image::load_from_memory(&p).ok())
+        .map(|i| (i.width() as i64, i.height() as i64));
+    let loupe = shot.is_some_and(|(w, _)| (w - expected).abs() <= 2);
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
+    cx.record(
+        "paste as stamp: a clipboard picture of 120 × 80 pixels becomes a stamp of 90 × 60 points; the loupe's last view copied as a picture",
+        stamped && loupe,
+        format!("stamp {stamp:?}, loupe snapshot {shot:?} (width {expected} wanted)"),
+    );
     cx.record(
         "paste pages: two pages copied from the thumbnails go after the current page in one undo step, then twice at the end",
         copied && pasted && undone && open && at_end,

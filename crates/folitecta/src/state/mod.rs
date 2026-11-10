@@ -40,6 +40,10 @@ pub struct CompareState {
     pub protection: Option<folitecta_core::Protection>,
 }
 
+/// Where the loupe was last on a page (it goes when the pointer leaves the
+/// page): Loupe › Snapshot copies what it showed there.
+pub static LAST_LOUPE: std::sync::Mutex<Option<LoupePos>> = std::sync::Mutex::new(None);
+
 /// All reactive state, cheap to copy into closures.
 #[derive(Clone, Copy)]
 pub struct AppState {
@@ -233,6 +237,11 @@ impl AppState {
     #[track_caller]
     pub fn set_loupe(&self, v: Option<LoupePos>) {
         note_write();
+        if let Some(at) = v {
+            if let Ok(mut last) = LAST_LOUPE.lock() {
+                *last = Some(at);
+            }
+        }
         *self.loupe.write_unchecked() = v;
     }
     #[track_caller]

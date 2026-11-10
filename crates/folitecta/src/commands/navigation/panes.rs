@@ -13,6 +13,42 @@ fn loupe_zoom(st: AppState, by: f32) {
     st.set_value("loupe.factor", format!("{next:.2}"));
 }
 
+/// Loupe › Snapshot: what the loupe shows (or showed last), enlarged as it
+/// shows it, copied to the clipboard as a picture.
+fn loupe_snapshot(st: AppState) {
+    if no_doc(st) {
+        return;
+    }
+    let at = (*st.loupe.peek()).or_else(|| crate::state::LAST_LOUPE.lock().ok().and_then(|l| *l));
+    let Some((page, x, y, _, _)) = at else {
+        st.toast(ToastKind::Info, t(st.lang(), "toast.loupe_first"), "");
+        return;
+    };
+    if !st.allowed(folitecta_core::Restricted::Copy) {
+        return;
+    }
+    let zoom = crate::commands::current_zoom(st);
+    let mag = (zoom * crate::ui::canvas::loupe_factor(st)).min(8.0);
+    // The loupe is 240 by 170 pixels.
+    let (hw, hh) = (120.0 / mag, 85.0 / mag);
+    let png = st.read_active(|t| {
+        t.doc.render_region_png_with_view(
+            page,
+            [x - hw, y - hh, x + hw, y + hh],
+            (mag * 2.0).min(8.0),
+            &t.view_layer_states(),
+        )
+    });
+    match png {
+        Some(Ok(png)) => match crate::clipboard::set_png(&png) {
+            Ok(()) => st.toast(ToastKind::Ok, t(st.lang(), "toast.snapshot_copied"), ""),
+            Err(e) => st.error(e),
+        },
+        Some(Err(e)) => st.error(e),
+        None => {}
+    }
+}
+
 /// View › Expand All / Collapse All: the same command of the visible pane
 /// (bookmarks, form fields or comments).
 fn tree(st: AppState, expand: bool) {
@@ -160,6 +196,7 @@ handlers! {
     "document.find.gotoPrev" => |st| crate::ui::panes::step_search(st, false),
     "loupeView.zoomIn" => |st| loupe_zoom(st, 1.25),
     "loupeView.zoomOut" => |st| loupe_zoom(st, 0.8),
+    "loupeView.snapshot" => loupe_snapshot,
     "expandAll" => |st| tree(st, true),
     "collapseAll" => |st| tree(st, false),
     "expandAllDescendants" => expand_descendants,

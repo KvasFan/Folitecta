@@ -204,6 +204,36 @@ fn copied_pages(st: AppState) -> Option<std::sync::Arc<Vec<u8>>> {
     }
 }
 
+/// Paste as Stamp: the picture of the clipboard as a stamp in the middle of
+/// the current page, at its size (96 to the inch), no larger than most of
+/// the page; it moves like any stamp.
+fn paste_as_stamp(st: AppState) {
+    if no_doc(st) {
+        return;
+    }
+    let Some(png) = crate::clipboard::get_png() else {
+        st.toast(ToastKind::Info, t(st.lang(), "toast.clipboard_no_image"), "");
+        return;
+    };
+    let Ok((w, h)) =
+        image::load_from_memory(&png).map(|i| (i.width() as f32 * 0.75, i.height() as f32 * 0.75))
+    else {
+        st.toast(ToastKind::Info, t(st.lang(), "toast.clipboard_no_image"), "");
+        return;
+    };
+    let page = st.current_page();
+    let author = st.ui.read().author.clone();
+    let r = st.with_active(|t| {
+        let c = t.page_sizes[page].crop_box;
+        let fit = ((c[2] - c[0]) * 0.6 / w).min((c[3] - c[1]) * 0.6 / h).min(1.0);
+        let (w, h) = (w * fit, h * fit);
+        let (cx, cy) = ((c[0] + c[2]) / 2.0, (c[1] + c[3]) / 2.0);
+        let rect = [cx - w / 2.0, cy - h / 2.0, cx + w / 2.0, cy + h / 2.0];
+        t.doc.add_image_stamp(page, rect, png, &author, "").map(|_| ())
+    });
+    core_result(st, r);
+}
+
 /// Paste Pages: the pages copied after the current page; without any, a
 /// picture of the clipboard as a new page.
 fn paste_pages_command(st: AppState) {
@@ -313,6 +343,7 @@ handlers! {
     "newDocClipboard" => new_doc_from_clipboard,
     "document.insertPagesFromClipboard" => insert_page_from_clipboard,
     "pastePages" => paste_pages_command,
+    "pasteAsStamp" => paste_as_stamp,
     "pastePagesSpecial" => paste_pages_special,
     "undo" => |st| {
         if no_doc(st) { return; }

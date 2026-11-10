@@ -4,6 +4,19 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-10 — FOL-L027, FOL-L001: pictures pasted as stamps, loupe snapshots (0.86.0)
+
+- **Current state before:** Paste as Stamp and Loupe › Snapshot planned.
+- **What:** app `paste_as_stamp` (`add_image_stamp`, the picture's pixels at 0.75 points, fitted
+  into 60% of the crop box, centred); `LAST_LOUPE` kept by `set_loupe`; `loupe_snapshot` renders
+  the 240 × 170 pixel window of the loupe at twice its enlargement (8 at most) to the clipboard,
+  under the copy permission.
+- **Checked:** self-test step `paste_pages` (5 interactions with `page_select`, 0 problems): a
+  picture of 120 × 80 pixels pasted as a stamp of 90 × 60 points; the loupe's last view copied,
+  430 pixels wide as computed; all app and core tests, clippy.
+- **Open:** Pan and Zoom › Snapshot; Paste Fields and Paste Guides (nothing copies fields or
+  guides yet).
+
 ## 2026-11-10 — FOL-L050: pages copied and pasted (0.85.0)
 
 - **Current state before:** Copy put a picture of the current page on the clipboard; Paste Pages

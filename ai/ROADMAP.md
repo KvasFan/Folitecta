@@ -807,6 +807,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    before or after it, at the start or the end, up to 100 times; one undo step
    (`insert_document_copies`). Plain Paste leaves copied pages alone.
 
+### 0.86.0 — pictures pasted as stamps, loupe snapshots (on `main`, untagged)
+
+1. ~~**FOL-L027, FOL-L001 — Paste as Stamp, Loupe › Snapshot.**~~ Done: the picture of the
+   clipboard as a movable stamp in the middle of the current page (96 to the inch, at most 60% of
+   the page); what the loupe shows, or showed last, copied as a picture as enlarged as it shows it.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

@@ -4,6 +4,16 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-10 — local check of 0.83.0 to 0.86.0, Linux and Windows
+
+- **What:** `target/preflight.sh` at `7c5c605`: formatting, clippy for the three systems, the
+  workspace tests (1083 passed, 0 failed), the release build, the licences and the self-test (379
+  interactions) passed; the self-test reported one problem: no frames drawn during the step
+  `left_behind` (the window of the nested session, not a check: the step alone passes, 4
+  interactions, 0 problems). The parts after it, run then: the Linux package (46 MB) and the
+  Windows job (1060 tests passed under Wine, 0 failed; notices of 534 libraries; no
+  `VCRUNTIME140` import): all passed.
+
 ## 2026-11-10 — the Windows job of CI in the local check
 
 - **Found:** CI runs the workspace tests on Windows and macOS too; the local copy of CI

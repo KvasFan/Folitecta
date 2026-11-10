@@ -16,6 +16,8 @@ All notable changes to Folitecta are documented here. The format follows
   as the third, in the page content with the colour and width of the Line tool.
 - View › Snap › To Objects also snaps to the middles of straight lines and of the sides of boxes,
   and to where two lines cross.
+- View › Zoom Slider puts the keyboard on the zoom slider of the status bar, Zoom Tools choose the
+  zoom tool, Edit › Position reaches the position of the media playing.
 - The actions of a link are listed in the properties pane and edited there (Document › Actions):
   added (a page, a web address, a script, a page turn, the page of a bookmark), changed, moved
   up and down and removed, one undo step each.

@@ -204,7 +204,7 @@ pub fn StatusBar() -> Element {
                 div { class: "seg zoom-seg",
                     button { title: "{t(lang, \"status.zoom_out\")} (Ctrl+-)", onclick: move |_| dispatch(st, "zoomOut"), Icon { name: "zoom-out" } }
                     input {
-                        class: "sb-opt",
+                        class: "sb-opt", id: "folitecta-zoom-slider",
                         r#type: "range", min: "10", max: "400", step: "5", value: "{zoom_pct.clamp(10, 400)}",
                         title: "{t(lang, \"status.zoom\")}",
                         oninput: move |e| { if let Ok(v) = e.value().parse::<f32>() { st.with_active(|t| t.zoom = Zoom::Fixed(v / 100.0)); } },

@@ -4,6 +4,16 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-10 — FOL-L001: zoom controls reached from the menus (0.93.0)
+
+- **Current state before:** Zoom Slider, Zoom Tools and Edit › Position planned, though the
+  status bar has a zoom slider and the media player a position slider.
+- **What:** the slider of the status bar gets an id; `zoomSlider` focuses it, `tools.zoom` and
+  `zoomToolsGroup` run `tool.zoom`, `position.Slider` the player's `position` control.
+- **Checked:** self-test step `page_select` (4 interactions, 0 problems): the slider focused,
+  the zoom tool chosen; all app and core tests, clippy.
+- **Open:** —
+
 ## 2026-11-10 — local check of 0.90.0 to 0.92.0, Linux and Windows
 
 - **What:** `target/preflight.sh` at `e52cd49`: formatting, clippy for the three systems, the

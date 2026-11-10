@@ -854,6 +854,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    bookmark), moved and removed, the actions as written kept (named destinations, form
    submissions and other actions are not rewritten); one undo step each, one action always stays.
 
+### 0.93.0 — zoom controls reached from the menus (on `main`, untagged)
+
+1. ~~**FOL-L001 — Zoom Slider, Zoom Tools, Edit › Position.**~~ Done: View › Zoom Slider puts
+   the keyboard on the zoom slider of the status bar; Tools › Zoom Tools and the ribbon's group
+   choose the zoom tool; Edit › Position reaches the position slider of the media player.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

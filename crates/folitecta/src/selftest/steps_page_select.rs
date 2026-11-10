@@ -1,6 +1,7 @@
 //! Interaction step: page_select — Select › Shape chooses the pages that draw
 //! shapes; Advanced Selection chooses the pages holding pictures or comments
-//! (one of them enough), then adds the odd pages among the first three.
+//! (one of them enough), then adds the odd pages among the first three. Zoom
+//! Slider and Zoom Tools reach the zoom slider and the zoom tool.
 
 use super::*;
 
@@ -89,6 +90,24 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     ok().await;
     let added = selected(st);
 
+    // Zoom Slider focuses the slider of the status bar; Zoom Tools chooses
+    // the zoom tool.
+    crate::commands::dispatch(st, "zoomSlider");
+    pause(300).await;
+    let slider = eval("return document.activeElement?.id === 'folitecta-zoom-slider';")
+        .await
+        .ok()
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    crate::commands::dispatch(st, "tools.zoom");
+    pause(200).await;
+    let zoom_tool = (st.tool)() == Tool::Zoom;
+    st.set_tool(Tool::Hand);
+    cx.record(
+        "Zoom Slider focuses the zoom slider of the status bar; Zoom Tools chooses the zoom tool",
+        slider && zoom_tool,
+        format!("slider focused {slider}, zoom tool {zoom_tool}"),
+    );
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
     cx.record(

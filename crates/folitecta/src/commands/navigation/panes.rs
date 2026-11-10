@@ -231,6 +231,10 @@ handlers! {
     "loupeView.zoomIn" => |st| loupe_zoom(st, 1.25),
     "loupeView.zoomOut" => |st| loupe_zoom(st, 0.8),
     "loupeView.snapshot" => loupe_snapshot,
+    // The zoom slider of the status bar, ready for the arrow keys.
+    "zoomSlider" => |st| { if !no_doc(st) { let _ = dioxus::document::eval("document.getElementById('folitecta-zoom-slider')?.focus();"); } },
+    "tools.zoom" => |st| crate::commands::dispatch(st, "tool.zoom"),
+    "zoomToolsGroup" => |st| crate::commands::dispatch(st, "tool.zoom"),
     "panZoomView.snapshot" => view_snapshot,
     "expandAll" => |st| tree(st, true),
     "collapseAll" => |st| tree(st, false),

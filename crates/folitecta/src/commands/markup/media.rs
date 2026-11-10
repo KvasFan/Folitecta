@@ -384,6 +384,7 @@ handlers! {
     "media.position.Slider" => |st| control(st, "position"),
     "media.volume.Slider" => |st| control(st, "volume"),
     "volume.Slider" => |st| control(st, "volume"),
+    "position.Slider" => |st| control(st, "position"),
     "mediaAnnot.properties" => properties,
     "mediaAnnot.saveAudio" => |st| save_media(st, Some(false)),
     "mediaAnnot.saveVideo" => |st| save_media(st, Some(true)),

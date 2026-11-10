@@ -16,6 +16,8 @@ All notable changes to Folitecta are documented here. The format follows
   as the third, in the page content with the colour and width of the Line tool.
 - View › Snap › To Objects also snaps to the middles of straight lines and of the sides of boxes,
   and to where two lines cross.
+- Document Actions › Clear removes, after asking, the scripts the document runs when it opens,
+  closes, is saved or printed, in one undo step.
 - The letters of text boxes, typewriter text and callouts can be outlined in a colour of their own
   (Text Stroke Color, the Letter outline of the style editor).
 - Document › Show Problem Details lists what is wrong in the file as it stands, page by page:

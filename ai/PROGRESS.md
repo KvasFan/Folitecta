@@ -4,6 +4,18 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-10 — FOL-L034: document actions cleared (0.91.0)
+
+- **Current state before:** `docActions` and `docActions.clear` planned (the editor existed as
+  `document.actions`).
+- **What:** core `clear_document_actions` (every event of `document_actions` set empty, joined
+  into one undo step, taken back whole on a failure). App: `docActions` opens the editor;
+  `docActions.clear` asks (`ConfirmAction::ClearDocumentActions`) and says how many went.
+- **Checked:** `doctools.rs` `document_actions_cleared_in_one_step` (none: 0; three cleared; one
+  undo brings them back); self-test step `replace_fonts` (5 interactions, 0 problems): asked,
+  then none left; all app and core tests (1078, a command that now fails when one does), clippy.
+- **Open:** the action lists of links and bookmarks (Actions › Add, Edit, Up, Down, Remove).
+
 ## 2026-11-10 — a test that failed now and then: the mixed report's pictures
 
 - **Found:** running the core tests after 0.90.0, `a_mixed_report_keeps_its_pictures_and_tables_in_place`

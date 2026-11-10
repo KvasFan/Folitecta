@@ -381,6 +381,7 @@
   "toast.table_made": "La tabella è stata rifatta",
   "toast.scans_done": "Pagine scansionate pulite — raddrizzate: {straightened}, girate per il verso giusto: {turned}, eliminate: {deleted}, sbiancate: {whitened}, senza puntini: {despeckled}, in bianco e nero: {black_white}.",
   "toast.scripts_removed": "{count} script rimossi",
+  "toast.document_actions_cleared": "{count} azioni del documento rimosse",
   "toast.scripts_removed_one": "{count} script rimosso",
   "toast.search_first": "Esegui prima una ricerca",
   "toast.search_query_first": "Scrivi prima cosa cercare",

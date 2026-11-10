@@ -564,6 +564,25 @@ impl Document {
     }
 
     /// Set (or, with empty `code`, remove) the script of a document event.
+    /// Remove every script the document runs on its events (Document
+    /// Actions › Clear). One undo step; how many there were.
+    pub fn clear_document_actions(&mut self) -> Result<usize> {
+        let events: Vec<String> = self.document_actions().into_iter().map(|(e, _)| e).collect();
+        if events.is_empty() {
+            return Ok(0);
+        }
+        let mark = self.undo_mark();
+        for e in &events {
+            if let Err(err) = self.set_document_action(e, "") {
+                self.squash_undo(&mark);
+                let _ = self.undo();
+                return Err(err);
+            }
+        }
+        self.squash_undo(&mark);
+        Ok(events.len())
+    }
+
     pub fn set_document_action(&mut self, event: &str, code: &str) -> Result<()> {
         if !DOCUMENT_EVENTS.iter().any(|(k, _)| *k == event) {
             return Err(Error::Invalid(format!("unknown document event {event}")));

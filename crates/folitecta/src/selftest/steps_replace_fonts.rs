@@ -1,7 +1,8 @@
 //! Interaction step: replace_fonts — Replace Fonts on a document whose fonts
 //! are not embedded: Helvetica chosen, FreeSans bold asked; the font listed
 //! afterwards is FreeSansBold, embedded, and the text is the same. Show
-//! Problem Details finds nothing wrong in it.
+//! Problem Details finds nothing wrong in it; Document Actions › Clear
+//! removes the scripts of its events after asking.
 
 use super::*;
 
@@ -60,6 +61,22 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
         "Show Problem Details opens and finds nothing wrong in a sound file",
         problems_open && none,
         format!("dialog {problems_open}, none said {none}"),
+    );
+    // Document Actions › Clear: asked first, then the scripts of the events go.
+    st.with_active(|t| {
+        let _ = t.doc.set_document_action("WP", "app.alert('printing');");
+        let _ = t.doc.set_document_action("WC", "app.alert('closing');");
+    });
+    crate::commands::dispatch(st, "docActions.clear");
+    pause(400).await;
+    let asked = matches!((st.dialog)(), crate::state::Dialog::Confirm { .. });
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.danger')?.click();").await;
+    pause(500).await;
+    let left = st.read_active(|t| t.doc.document_actions().len()).unwrap_or(99);
+    cx.record(
+        "Document Actions › Clear asks, then removes the scripts of the document's events",
+        asked && left == 0,
+        format!("asked {asked}, left {left}"),
     );
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;

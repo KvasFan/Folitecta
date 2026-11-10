@@ -840,6 +840,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    colour, a 25th of the text size wide; a Letter outline row in the style editor for text boxes,
    typewriter text and callouts.
 
+### 0.91.0 — document actions cleared (on `main`, untagged)
+
+1. ~~**FOL-L034 — Document Actions, Document Actions › Clear.**~~ Done: the menu's Document
+   Actions opens the editor of the document's event scripts; Clear removes all of them after
+   asking, in one undo step (`clear_document_actions`); scripts of pages, links and fields stay.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

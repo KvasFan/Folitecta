@@ -545,6 +545,8 @@
   "dialog.rotate.title": "Ruota pagine",
   "dialog.scripts.none": "Questo documento non contiene script.",
   "dialog.scripts.remove_all": "Rimuovi tutti gli script",
+  "dialog.doc_actions.clear": "Cancella le azioni del documento",
+  "dialog.doc_actions.clear_body": "Rimuovere gli script che il documento esegue quando si apre, si chiude, si salva o si stampa? Gli script di pagine, collegamenti e campi restano.",
   "dialog.scripts.remove_body": "Rimuovere tutti gli script di documento, pagine, collegamenti e campi? Il comportamento interattivo del file potrebbe smettere di funzionare.",
   "dialog.scripts.title": "Script del documento",
   "dialog.security.aes128": "AES-128 (per lettori meno recenti)",

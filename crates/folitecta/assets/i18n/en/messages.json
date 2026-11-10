@@ -381,6 +381,7 @@
   "toast.table_made": "The table was made again",
   "toast.scans_done": "Scanned pages cleaned up — straightened: {straightened}, turned upright: {turned}, deleted: {deleted}, whitened: {whitened}, specks removed: {despeckled}, made black and white: {black_white}.",
   "toast.scripts_removed": "{count} scripts removed",
+  "toast.document_actions_cleared": "{count} document actions removed",
   "toast.scripts_removed_one": "{count} script removed",
   "toast.search_first": "Search for something first",
   "toast.search_query_first": "Type what to search for first",

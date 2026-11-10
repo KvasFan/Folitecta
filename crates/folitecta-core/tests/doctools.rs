@@ -179,3 +179,20 @@ fn the_objects_of_the_file_are_inspected_from_the_trailer_down() {
     assert!(doc.inspect(&wrong).is_err());
     assert!(doc.object_count() > 5);
 }
+
+#[test]
+fn document_actions_cleared_in_one_step() {
+    let mut doc = Document::new_blank(1, 200.0, 200.0).unwrap();
+    assert_eq!(doc.clear_document_actions().unwrap(), 0);
+    doc.set_document_action("WP", "app.alert('printing');").unwrap();
+    doc.set_document_action("WC", "app.alert('closing');").unwrap();
+    doc.set_document_action("Open", "console.println('hi');").unwrap();
+    assert_eq!(doc.clear_document_actions().unwrap(), 3);
+    assert!(doc.document_actions().is_empty());
+    doc.undo().unwrap();
+    assert_eq!(
+        doc.document_actions().len(),
+        3,
+        "one undo step brings all three back"
+    );
+}

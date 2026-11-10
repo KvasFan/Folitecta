@@ -354,4 +354,10 @@ handlers! {
     "document.discardPDFA" => discard_pdfa,
     "document.signature.multiPlace" => multi_place,
     "document.actions" => |st| doc_dialog(st, Dialog::DocumentActions),
+    "docActions" => |st| doc_dialog(st, Dialog::DocumentActions),
+    "docActions.clear" => |st| {
+        if !no_doc(st) {
+            crate::commands::confirm(st, "dialog.doc_actions.clear", "dialog.doc_actions.clear_body", crate::state::ConfirmAction::ClearDocumentActions);
+        }
+    },
 }

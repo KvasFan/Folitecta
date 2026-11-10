@@ -324,6 +324,7 @@ pub(super) fn Confirm(title: String, body: String, action: ConfirmAction) -> Ele
                     ConfirmAction::ResetForm => apply(st, |tab| tab.doc.reset_form().map(|_| ())),
                     ConfirmAction::Revert => { st.set_dialog(Dialog::None); files::revert(st); }
                     ConfirmAction::RemoveScripts => apply_count(st, "toast.scripts_removed", |tab| tab.doc.remove_scripts()),
+                    ConfirmAction::ClearDocumentActions => apply_count(st, "toast.document_actions_cleared", |tab| tab.doc.clear_document_actions()),
                     ConfirmAction::ClearSignatures => {
                         apply_count(st, "toast.signatures_cleared", |tab| tab.doc.clear_signatures());
                     }

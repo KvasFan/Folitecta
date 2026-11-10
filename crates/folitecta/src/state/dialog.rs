@@ -25,6 +25,8 @@ pub enum ConfirmAction {
     ResetForm,
     Revert,
     RemoveScripts,
+    /// Document Actions › Clear: the scripts of the document's events.
+    ClearDocumentActions,
     /// Delete these pages.
     DeletePages(Vec<usize>),
     /// Take away what lies outside the crop boxes of these pages.

@@ -471,3 +471,112 @@ pub(super) fn PaneOptionsDialog(pane: String) -> Element {
         }
     }
 }
+
+/// Document › Action › Go to › Edit: the page and the view of a go-to.
+#[component]
+pub(super) fn GoToViewDialog(page: usize, index: usize, at: usize) -> Element {
+    use folitecta_core::{ActionInfo, DestView};
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let info = st
+        .read_active(|t| t.doc.link_action_info(page, index, at))
+        .flatten();
+    let count = st.read_active(|t| t.doc.page_count()).unwrap_or(1);
+    let (target, view) = match info {
+        Some(ActionInfo::GoTo {
+            page: Some(p), view, ..
+        }) => (p, view),
+        _ => (0, None),
+    };
+    let (kind0, zoom0) = match view {
+        Some(DestView::Fit) | None => ("fit", 100.0),
+        Some(DestView::FitWidth(_)) => ("width", 100.0),
+        Some(DestView::Xyz { zoom, .. }) => ("xyz", zoom.unwrap_or(1.0) * 100.0),
+        Some(DestView::Rect(_)) => ("fit", 100.0),
+    };
+    let to_page = use_signal(|| (target + 1).to_string());
+    let mut kind = use_signal(|| kind0.to_string());
+    let zoom = use_signal(|| format!("{}", zoom0.round()));
+    let kept = view;
+    rsx! {
+        Frame { title: t(lang, "cmd.action.goto.edit").trim_end_matches('…').to_string(),
+            on_ok: move |_| {
+                let p = to_page().trim().parse::<usize>().unwrap_or(1).clamp(1, count) - 1;
+                let top = st.read_active(|t| t.page_sizes.get(p).map(|s| s.crop_box[3])).flatten();
+                let v = match kind().as_str() {
+                    "width" => DestView::FitWidth(top),
+                    "xyz" => {
+                        let (left, t0) = match kept { Some(DestView::Xyz { left, top, .. }) => (left, top), _ => (None, top) };
+                        DestView::Xyz { left, top: t0, zoom: Some(zoom().trim().trim_end_matches('%').parse::<f32>().unwrap_or(100.0).clamp(10.0, 6400.0) / 100.0) }
+                    }
+                    _ => DestView::Fit,
+                };
+                crate::commands::action_views::store_view(st, page, index, at, p, v);
+                st.set_dialog(Dialog::None);
+            },
+            div { class: "field-grid",
+                Num { label: t(lang, "status.page"), value: to_page, min: "1", max: "{count}" }
+                div { class: "field", label { "{t(lang, \"dialog.goto_view.kind\")}" }
+                    select { class: "goto-kind", onchange: move |e| kind.set(e.value()),
+                        option { value: "fit", selected: kind() == "fit", "{t(lang, \"dialog.goto_view.fit\")}" }
+                        option { value: "width", selected: kind() == "width", "{t(lang, \"dialog.goto_view.width\")}" }
+                        option { value: "xyz", selected: kind() == "xyz", "{t(lang, \"dialog.goto_view.xyz\")}" }
+                    }
+                }
+                if kind() == "xyz" { Num { label: "%".to_string(), value: zoom, min: "10", max: "6400", step: "10" } }
+            }
+        }
+    }
+}
+
+/// Document › Action › Go to › Rename: the name of the go-to's destination.
+#[component]
+pub(super) fn GoToNameDialog(page: usize, index: usize, at: usize, name: String) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let value = use_signal(|| name.clone());
+    rsx! {
+        Frame { title: t(lang, "cmd.action.goto.rename").trim_end_matches('…').to_string(),
+            on_ok: move |_| { crate::commands::action_views::store_name(st, page, index, at, &value()); st.set_dialog(Dialog::None); },
+            Text { label: t(lang, "dialog.goto_name"), value, autofocus: true }
+            p { class: "hint", "{t(lang, \"dialog.goto_name_hint\")}" }
+        }
+    }
+}
+
+/// Layer Actions › Used Data › Layers: the layers the action changes.
+#[component]
+pub(super) fn LayerActionLayersDialog(page: usize, index: usize, at: usize) -> Element {
+    use folitecta_core::ActionInfo;
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let layers = st.read_active(|t| t.doc.layers()).unwrap_or_default();
+    let now = match st
+        .read_active(|t| t.doc.link_action_info(page, index, at))
+        .flatten()
+    {
+        Some(ActionInfo::Layers { layers, .. }) => layers,
+        _ => Vec::new(),
+    };
+    let mut chosen = use_signal(|| now.clone());
+    rsx! {
+        Frame { title: t(lang, "cmd.dao.usedData.Layers"), ok_disabled: chosen().is_empty(),
+            on_ok: move |_| { crate::commands::action_views::store_layers(st, page, index, at, chosen()); st.set_dialog(Dialog::None); },
+            div { class: "check-list",
+                for l in layers.into_iter() {
+                    {
+                        let id = l.id;
+                        let on = chosen().contains(&id);
+                        rsx! {
+                            label { class: "check", key: "{id.0}",
+                                input { r#type: "checkbox", class: "layer-pick", checked: on,
+                                    onchange: move |_| { let mut c = chosen.write(); if let Some(k) = c.iter().position(|x| *x == id) { c.remove(k); } else { c.push(id); } } }
+                                span { "{l.name}" }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

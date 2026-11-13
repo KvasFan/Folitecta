@@ -430,6 +430,14 @@ pub fn Dialogs() -> Element {
         Dialog::StyleList(tool) => rsx! { StyleListDialog { tool } },
         Dialog::RowData => rsx! { RowDataDialog {} },
         Dialog::MoveTabs => rsx! { MoveTabsDialog {} },
+        Dialog::GoToView { page, index, at } => rsx! { GoToViewDialog { page, index, at } },
+        Dialog::GoToName {
+            page,
+            index,
+            at,
+            name,
+        } => rsx! { GoToNameDialog { page, index, at, name } },
+        Dialog::LayerActionLayers { page, index, at } => rsx! { LayerActionLayersDialog { page, index, at } },
         Dialog::Presets => rsx! { crate::ui::features::presets::PresetsDialog {} },
         Dialog::BatesFiles => rsx! { crate::ui::features::bates_files::BatesFilesDialog {} },
         Dialog::MediaProps { page, index } => {

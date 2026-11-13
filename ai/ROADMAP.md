@@ -916,6 +916,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    Merge All Tabs, Move Tabs, Distribute Tabs), `tab_groups::into_new_group`; the sessions'
    group commands no longer partial.
 
+### 0.102.0 — go-to views and layer actions of links (on `main`, untagged)
+
+1. ~~**FOL-L022, L023 — go-to views and layer actions.**~~ Done: core `link_action_info`,
+   `set_link_goto`, `name_link_goto`, `set_link_layer_action`, `simplify_link_actions`;
+   `commands/navigation/action_views.rs` and the windows of view, name and layers.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

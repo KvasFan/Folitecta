@@ -490,5 +490,9 @@
   "toast.select_measure_first": "Scegli prima una misura (con lo strumento commenti).",
   "toast.windows_kept": "{count} documenti con modifiche non salvate (o mai salvati) sono rimasti qui.",
   "toast.windows_none": "Nessun'altra finestra di Folitecta è aperta.",
-  "toast.windows_asked": "Chieste a {count} finestre i loro documenti."
+  "toast.windows_asked": "Chieste a {count} finestre i loro documenti.",
+  "toast.choose_goto": "Scegli prima un'azione «vai a» di questo documento tra le azioni del collegamento.",
+  "toast.choose_layer_action": "Scegli prima un'azione dei livelli tra le azioni del collegamento.",
+  "toast.actions_simple": "Le azioni sono già le più semplici possibili.",
+  "toast.actions_simplified": "{count} azioni unite o tolte."
 }

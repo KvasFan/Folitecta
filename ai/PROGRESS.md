@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-13 — FOL-L022, L023: go-to views and layer actions of links (0.102.0)
+
+- **Current state before:** the eight Document › Action › Go to commands and the six Layer
+  Actions commands were planned; a link's go-to always showed the whole page.
+- **What:** core (links.rs): `ActionInfo` (go-to with page, view and destination name; layer
+  action with its word and layers), `LayerState`; `set_link_goto` (replace or add),
+  `name_link_goto` (rename the named destination, or make one of the page and view and point
+  the go-to at it, one undo step), `set_link_layer_action` (all layers or those given,
+  `/PreserveRB`), `simplify_link_actions`. App: `action_views.rs` (the window's view from
+  the visible part of the page and the zoom; edits of the go-to chosen in the link's list),
+  `GoToViewDialog`, `GoToNameDialog`, `LayerActionLayersDialog`.
+- **Checked:** core test `link_kinds.rs` (a view, a name, a new name; layer actions, one
+  limited, joined; kept in the file); self-test step `complete` (17 interactions, 0 problems).
+- **Open:** the same editors for bookmarks' and buttons' actions.
+
 ## 2026-11-13 — FOL-L002: documents moved between windows (0.101.0)
 
 - **Current state before:** Merge All Tabs into This Window, Distribute Tabs and Move Tabs were

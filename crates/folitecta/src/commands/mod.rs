@@ -29,8 +29,8 @@ pub(crate) use markup::{
     arrange, calculator, comment_more, comment_styles, comments, format, media, review, stamps, tables, ticks,
 };
 pub(crate) use navigation::{
-    articles, attachments, bookmarks, explorer, history, layers, link_actions, page_select, panes, portfolio,
-    sessions,
+    action_views, articles, attachments, bookmarks, explorer, history, layers, link_actions, page_select,
+    panes, portfolio, sessions,
 };
 pub(crate) use protection::{policies, protect, redaction, revocation, signatures, signs};
 pub(crate) use text::{find_replace, read_aloud, search, spelling, textedit};
@@ -133,6 +133,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     clip_more::HANDLERS,
     comment_more::HANDLERS,
     windows::HANDLERS,
+    action_views::HANDLERS,
 ];
 
 static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {

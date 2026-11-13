@@ -490,5 +490,9 @@
   "toast.select_measure_first": "Choose a measurement first (with the comment tool).",
   "toast.windows_kept": "{count} documents with unsaved changes (or never saved) stayed here.",
   "toast.windows_none": "No other Folitecta window is open.",
-  "toast.windows_asked": "{count} windows asked for their documents."
+  "toast.windows_asked": "{count} windows asked for their documents.",
+  "toast.choose_goto": "Choose a go-to of this document in the link's actions first.",
+  "toast.choose_layer_action": "Choose a layer action in the link's actions first.",
+  "toast.actions_simple": "The actions are as simple as they can be.",
+  "toast.actions_simplified": "{count} actions joined or taken away."
 }

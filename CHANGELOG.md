@@ -7,6 +7,13 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Document › Action › Go to: the go-to chosen among a link's actions takes the view of the window
+  (Use Current View) or a new go-to is added with it (Add Current View); Edit chooses its page and
+  view (the whole page, its width, a place at a zoom), Rename gives it a named destination, Reset
+  shows the whole page, Zoom In and Zoom Out change its zoom, Delete removes it.
+- Document › Layer Actions: a link turns layers on or off or toggles them (Change State), all of
+  them or those chosen (Used Data); Simplify Actions joins layer actions next to each other and
+  takes away repeated ones.
 - Window › Merge All Tabs into This Window asks the other Folitecta windows for their saved
   documents; Move Tabs sends the active document to another window (listed with its documents) or
   a new one; Distribute Tabs gives each saved document but the active one a window of its own.

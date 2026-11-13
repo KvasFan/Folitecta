@@ -721,5 +721,11 @@
   "dialog.move_tabs.hint": "“{title}” si apre nella finestra scelta e la sua scheda si chiude qui.",
   "dialog.move_tabs.empty": "nessun documento",
   "dialog.move_tabs.window": "Finestra {n}",
-  "dialog.move_tabs.new": "Una nuova finestra"
+  "dialog.move_tabs.new": "Una nuova finestra",
+  "dialog.goto_view.kind": "Vista",
+  "dialog.goto_view.fit": "La pagina intera",
+  "dialog.goto_view.width": "La larghezza della pagina",
+  "dialog.goto_view.xyz": "Il punto mostrato, a uno zoom",
+  "dialog.goto_name": "Nome della destinazione",
+  "dialog.goto_name_hint": "Un «vai a» con una destinazione con nome continua ad andarci quando le pagine si spostano; anche altri collegamenti e segnalibri possono usare il nome."
 }

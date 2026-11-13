@@ -1029,3 +1029,251 @@ impl Document {
         out
     }
 }
+
+/// What an action of a link does, for its view and layer editors.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ActionInfo {
+    /// A go-to: the page, the view and the name of the destination, when it
+    /// has one.
+    GoTo {
+        page: Option<usize>,
+        view: Option<crate::outline::DestView>,
+        named: Option<String>,
+    },
+    /// Layers turned on, off or toggled: the word of the action (`ON`,
+    /// `OFF`, `Toggle`, or `Mixed` when it has several) and the layers.
+    Layers {
+        state: String,
+        layers: Vec<ObjectId>,
+    },
+    Other,
+}
+
+/// What a layer action does to its layers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LayerState {
+    On,
+    Off,
+    Toggle,
+}
+
+impl LayerState {
+    fn word(self) -> &'static [u8] {
+        match self {
+            LayerState::On => b"ON",
+            LayerState::Off => b"OFF",
+            LayerState::Toggle => b"Toggle",
+        }
+    }
+}
+
+impl Document {
+    /// What action `at` of link `index` of `page` does.
+    pub fn link_action_info(&self, page: usize, index: usize, at: usize) -> Option<ActionInfo> {
+        let id = self.link_object(page, index).ok()?;
+        let annot = self.inner.get_dictionary(id).ok()?.clone();
+        let a = self.raw_chain(&annot).into_iter().nth(at)?;
+        let kind = a
+            .get(b"S")
+            .ok()
+            .and_then(|s| s.as_name().ok())
+            .unwrap_or_default();
+        Some(match kind {
+            b"GoTo" => {
+                let d = a.get(b"D").ok()?;
+                let named = match deref(&self.inner, d) {
+                    Object::String(b, _) => Some(
+                        lopdf::decode_text_string(&Object::String(b.clone(), lopdf::StringFormat::Literal))
+                            .unwrap_or_default(),
+                    ),
+                    Object::Name(n) => Some(String::from_utf8_lossy(n).to_string()),
+                    _ => None,
+                };
+                let target = match &named {
+                    Some(_) => self.named_destination_object(d),
+                    None => Some(deref(&self.inner, d).clone()),
+                };
+                let page = target.as_ref().and_then(|t| match deref(&self.inner, t) {
+                    Object::Array(arr) => arr
+                        .first()
+                        .and_then(|o| o.as_reference().ok())
+                        .and_then(|r| self.page_ids().iter().position(|p| *p == r)),
+                    Object::Dictionary(d) => d
+                        .get(b"D")
+                        .ok()
+                        .and_then(|d| deref(&self.inner, d).as_array().ok())
+                        .and_then(|arr| arr.first())
+                        .and_then(|o| o.as_reference().ok())
+                        .and_then(|r| self.page_ids().iter().position(|p| *p == r)),
+                    _ => None,
+                });
+                ActionInfo::GoTo {
+                    page,
+                    view: self.destination_view(d, 0),
+                    named,
+                }
+            }
+            b"SetOCGState" => {
+                let mut words = Vec::new();
+                let mut layers = Vec::new();
+                for o in a
+                    .get(b"State")
+                    .ok()
+                    .and_then(|s| s.as_array().ok())
+                    .into_iter()
+                    .flatten()
+                {
+                    match o {
+                        Object::Name(n) => words.push(String::from_utf8_lossy(n).to_string()),
+                        Object::Reference(r) => layers.push(*r),
+                        _ => {}
+                    }
+                }
+                words.dedup();
+                let state = if words.len() == 1 {
+                    words.remove(0)
+                } else {
+                    "Mixed".into()
+                };
+                ActionInfo::Layers { state, layers }
+            }
+            _ => ActionInfo::Other,
+        })
+    }
+
+    /// Make action `at` of link `index` of `page` a go-to of page
+    /// `target` with `view` (with `at` past the end, add it). One undo step.
+    pub fn set_link_goto(
+        &mut self,
+        page: usize,
+        index: usize,
+        at: usize,
+        target: usize,
+        view: &crate::outline::DestView,
+    ) -> Result<()> {
+        let d = self.dest_array(target, view)?;
+        let new = dictionary! { "S" => "GoTo", "D" => d };
+        self.change_link_actions(page, index, |_, list| {
+            match list.get_mut(at) {
+                Some(slot) => *slot = new,
+                None => list.push(new),
+            }
+            Ok(())
+        })
+    }
+
+    /// Give the go-to `at` of link `index` of `page` the named destination
+    /// `name`: its destination renamed when it has a name, else a named
+    /// destination made of its page and view and the go-to pointed at it.
+    /// One undo step.
+    pub fn name_link_goto(&mut self, page: usize, index: usize, at: usize, name: &str) -> Result<()> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(Error::Invalid("the destination name is empty".into()));
+        }
+        match self.link_action_info(page, index, at) {
+            Some(ActionInfo::GoTo { named: Some(old), .. }) => self.rename_named_destination(&old, name),
+            Some(ActionInfo::GoTo {
+                page: Some(target),
+                view,
+                named: None,
+            }) => {
+                let mark = self.undo_mark();
+                self.add_named_destination(name, target, view)?;
+                let new = dictionary! { "S" => "GoTo", "D" => lopdf::text_string(name) };
+                let r = self.change_link_actions(page, index, |_, list| {
+                    let slot = list
+                        .get_mut(at)
+                        .ok_or_else(|| Error::Invalid("no such action".into()))?;
+                    *slot = new;
+                    Ok(())
+                });
+                self.squash_undo(&mark);
+                if r.is_err() {
+                    let _ = self.undo();
+                }
+                r
+            }
+            _ => Err(Error::Invalid(
+                "the action is not a go-to of this document".into(),
+            )),
+        }
+    }
+
+    /// Make action `at` of link `index` of `page` turn `layers` on, off or
+    /// toggle them (None: every layer of the document); with `at` past the
+    /// end, add it. One undo step.
+    pub fn set_link_layer_action(
+        &mut self,
+        page: usize,
+        index: usize,
+        at: usize,
+        state: LayerState,
+        layers: Option<&[ObjectId]>,
+    ) -> Result<()> {
+        let layers: Vec<ObjectId> = match layers {
+            Some(l) => l.to_vec(),
+            None => self.layers().into_iter().map(|l| l.id).collect(),
+        };
+        if layers.is_empty() {
+            return Err(Error::Invalid("the document has no layers".into()));
+        }
+        let mut list = vec![Object::Name(state.word().to_vec())];
+        list.extend(layers.into_iter().map(Object::Reference));
+        let new = dictionary! { "S" => "SetOCGState", "State" => list, "PreserveRB" => true };
+        self.change_link_actions(page, index, |_, list| {
+            match list.get_mut(at) {
+                Some(slot) => *slot = new,
+                None => list.push(new),
+            }
+            Ok(())
+        })
+    }
+
+    /// Simplify Actions: layer actions next to each other become one (in
+    /// their order), and an action that repeats the one before it goes.
+    /// One undo step; returns the actions taken away.
+    pub fn simplify_link_actions(&mut self, page: usize, index: usize) -> Result<usize> {
+        let mut removed = 0;
+        let id = self.link_object(page, index)?;
+        let annot = self.inner.get_dictionary(id)?.clone();
+        let before = self.raw_chain(&annot);
+        let mut out: Vec<Dictionary> = Vec::new();
+        for a in before {
+            let layers = a.get(b"S").ok().and_then(|s| s.as_name().ok()) == Some(b"SetOCGState");
+            if let Some(last) = out.last_mut() {
+                if *last == a {
+                    removed += 1;
+                    continue;
+                }
+                let last_layers = last.get(b"S").ok().and_then(|s| s.as_name().ok()) == Some(b"SetOCGState");
+                if layers && last_layers {
+                    let mut state = last
+                        .get(b"State")
+                        .ok()
+                        .and_then(|s| s.as_array().ok())
+                        .cloned()
+                        .unwrap_or_default();
+                    state.extend(
+                        a.get(b"State")
+                            .ok()
+                            .and_then(|s| s.as_array().ok())
+                            .cloned()
+                            .unwrap_or_default(),
+                    );
+                    last.set("State", state);
+                    removed += 1;
+                    continue;
+                }
+            }
+            out.push(a);
+        }
+        if removed > 0 {
+            self.change_link_actions(page, index, move |_, list| {
+                *list = out;
+                Ok(())
+            })?;
+        }
+        Ok(removed)
+    }
+}

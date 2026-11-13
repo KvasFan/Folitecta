@@ -187,3 +187,62 @@ fn the_actions_of_a_link_added_moved_replaced_and_removed() {
     doc.undo().unwrap();
     assert_eq!(list(&doc).len(), 2);
 }
+
+#[test]
+fn go_to_views_and_layer_actions_of_a_link() {
+    use folitecta_core::outline::DestView;
+    use folitecta_core::{ActionInfo, LayerState};
+    let mut doc = Document::new_blank(3, 595.0, 842.0).unwrap();
+    doc.add_layer("Notes", &[]).unwrap();
+    doc.add_layer("Plans", &[]).unwrap();
+    doc.add_page_link(0, [100.0, 100.0, 200.0, 120.0], 1).unwrap();
+    let index = doc
+        .annotations(0)
+        .unwrap()
+        .iter()
+        .position(|a| a.subtype == "Link")
+        .unwrap();
+    // The go-to gets a view, then a name of its own, then the name changes.
+    let view = DestView::Xyz {
+        left: Some(10.0),
+        top: Some(700.0),
+        zoom: Some(1.5),
+    };
+    doc.set_link_goto(0, index, 0, 2, &view).unwrap();
+    match doc.link_action_info(0, index, 0) {
+        Some(ActionInfo::GoTo {
+            page: Some(2),
+            view: Some(DestView::Xyz { zoom: Some(z), .. }),
+            named: None,
+        }) => assert!((z - 1.5).abs() < 1e-3),
+        other => panic!("{other:?}"),
+    }
+    doc.name_link_goto(0, index, 0, "Plans page").unwrap();
+    assert!(
+        matches!(doc.link_action_info(0, index, 0), Some(ActionInfo::GoTo { page: Some(2), named: Some(ref n), .. }) if n == "Plans page")
+    );
+    doc.name_link_goto(0, index, 0, "Plans").unwrap();
+    assert!(
+        matches!(doc.link_action_info(0, index, 0), Some(ActionInfo::GoTo { named: Some(ref n), .. }) if n == "Plans")
+    );
+    // Two layer actions added, then one: Simplify makes one of them.
+    doc.set_link_layer_action(0, index, 9, LayerState::Off, None)
+        .unwrap();
+    let first = doc.layers()[0].id;
+    doc.set_link_layer_action(0, index, 9, LayerState::Toggle, Some(&[first]))
+        .unwrap();
+    assert!(
+        matches!(doc.link_action_info(0, index, 2), Some(ActionInfo::Layers { ref state, ref layers }) if state == "Toggle" && layers == &[first])
+    );
+    assert_eq!(doc.simplify_link_actions(0, index).unwrap(), 1);
+    match doc.link_action_info(0, index, 1) {
+        Some(ActionInfo::Layers { state, layers }) => {
+            assert_eq!(state, "Mixed");
+            assert_eq!(layers.len(), 3);
+        }
+        other => panic!("{other:?}"),
+    }
+    // Kept in the file.
+    let again = Document::from_bytes(doc.bytes().to_vec(), None, None).unwrap();
+    assert_eq!(again.link_actions(0, index).len(), 2);
+}

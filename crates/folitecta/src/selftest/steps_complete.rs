@@ -8,7 +8,8 @@
 //! guides and form fields copied and pasted, files pasted, the file copied;
 //! comment labels and text, a comment on selected text, measurement
 //! information, style lists, rows of data in page marks; documents moved
-//! between windows, a group of tabs of their own.
+//! between windows, a group of tabs of their own; go-to views and layer
+//! actions of a link.
 
 use super::*;
 
@@ -108,6 +109,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     clipboard_more(cx).await;
     comments_more(cx).await;
     windows(cx).await;
+    action_views(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -834,5 +836,84 @@ async fn windows(cx: &mut Ctx<'_>) {
         "documents travel between windows: Move Tabs, a document arriving, Merge All Tabs asked by another window, Distribute Tabs; tabs in a group of their own",
         held && seen && moved && arrived && gathered && distributed && grouped,
         format!("lock held {held}, window seen {seen}, moved {moved}, arrived {arrived}, gathered {gathered}, distributed {distributed}, grouped {grouped}"),
+    );
+}
+
+/// A link's go-to zoomed, reset, named; a go-to of the window's view
+/// added; layer actions added, limited to a layer, made one.
+async fn action_views(cx: &mut Ctx<'_>) {
+    use crate::commands::link_actions::ACTION_SEL;
+    use folitecta_core::{ActionInfo, DestView};
+    let st = cx.st;
+    let made = st.with_active(|t| -> folitecta_core::Result<usize> {
+        t.doc.add_layer("Notes", &[])?;
+        t.doc.add_layer("Plans", &[])?;
+        t.doc.add_page_link(0, [300.0, 300.0, 400.0, 320.0], 1)?;
+        Ok(t.doc
+            .annotations(0)?
+            .iter()
+            .rposition(|a| a.subtype == "Link")
+            .unwrap_or(0))
+    });
+    let Some(Ok(link)) = made else {
+        cx.record("go-to views", false, "the link could not be made".into());
+        return;
+    };
+    let info = |st: AppState, at: usize| st.read_active(|t| t.doc.link_action_info(0, link, at)).flatten();
+    st.with_active(|t| t.selected_annot = Some((0, link)));
+    *ACTION_SEL.write() = Some((0, link, 0));
+    crate::commands::dispatch(st, "action.goto.zoomIn");
+    let zoomed = matches!(info(st, 0), Some(ActionInfo::GoTo { view: Some(DestView::Xyz { zoom: Some(z), .. }), .. }) if (z - 1.25).abs() < 1e-3);
+    crate::commands::dispatch(st, "action.goto.reset");
+    let reset = matches!(
+        info(st, 0),
+        Some(ActionInfo::GoTo {
+            view: Some(DestView::Fit),
+            page: Some(1),
+            ..
+        })
+    );
+    crate::commands::dispatch(st, "action.goto.rename");
+    pause(300).await;
+    let _ = eval("const i = document.querySelector('.dialog input'); if (i) { i.value = 'Second page'; i.dispatchEvent(new Event('input', { bubbles: true })); }").await;
+    pause(200).await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(300).await;
+    let named =
+        matches!(info(st, 0), Some(ActionInfo::GoTo { named: Some(ref n), .. }) if n == "Second page");
+    crate::commands::dispatch(st, "action.goto.addCurrentView");
+    pause(600).await;
+    let added = matches!(
+        info(st, 1),
+        Some(ActionInfo::GoTo {
+            view: Some(DestView::Xyz {
+                zoom: Some(_),
+                top: Some(_),
+                ..
+            }),
+            ..
+        })
+    );
+    // Layer actions: Off for every layer, then Toggle limited to one layer.
+    crate::commands::dispatch(st, "dao.changeState.Off");
+    let off = matches!(info(st, 2), Some(ActionInfo::Layers { ref state, ref layers }) if state == "OFF" && layers.len() == 2);
+    *ACTION_SEL.write() = Some((0, link, 99));
+    crate::commands::dispatch(st, "dao.changeState.Toggle");
+    *ACTION_SEL.write() = Some((0, link, 3));
+    crate::commands::dispatch(st, "dao.usedData.Layers");
+    pause(300).await;
+    let _ = eval("document.querySelector('.dialog .layer-pick')?.click();").await;
+    pause(200).await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(300).await;
+    let limited = matches!(info(st, 3), Some(ActionInfo::Layers { ref state, ref layers }) if state == "Toggle" && layers.len() == 1);
+    crate::commands::dispatch(st, "dao.simplifyActions");
+    let actions = st.read_active(|t| t.doc.link_actions(0, link).len()).unwrap_or(0);
+    *ACTION_SEL.write() = None;
+    st.with_active(|t| t.selected_annot = None);
+    cx.record(
+        "a link's go-to zoomed, reset to the page, named; the window's view added; layer actions turned off, toggled for one layer, made one",
+        zoomed && reset && named && added && off && limited && actions == 3,
+        format!("zoomed {zoomed}, reset {reset}, named {named}, added {added}, off {off}, limited {limited}, actions after simplify {actions}"),
     );
 }

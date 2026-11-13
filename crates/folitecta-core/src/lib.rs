@@ -87,7 +87,7 @@ pub use greyscale::GreyReport;
 pub use incoming::Arrival;
 pub use inspect::{InspectEntry, InspectPath, Inspected, StreamView};
 pub use layers::{Layer, LayerNode};
-pub use links::{ButtonAction, Link, LinkTarget, NamedDestination};
+pub use links::{ActionInfo, ButtonAction, LayerState, Link, LinkTarget, NamedDestination};
 pub use marks::{MACROS, MarkPosition, TextMarkOptions};
 pub use markup_tools::{MeasureKind, MeasureScale, Measurement, measure_parts, measure_totals};
 pub use ocr::{DOUBTFUL_BELOW, DoubtfulWord, OcrEngine, OcrLine, OcrModels, OcrOptions, OcrWord, PageOcr};

@@ -402,6 +402,25 @@ pub enum Dialog {
     RowData,
     /// Move the active document to another window.
     MoveTabs,
+    /// The view of a go-to of a link's actions.
+    GoToView {
+        page: usize,
+        index: usize,
+        at: usize,
+    },
+    /// The name of the destination of a go-to.
+    GoToName {
+        page: usize,
+        index: usize,
+        at: usize,
+        name: String,
+    },
+    /// The layers of a layer action of a link's actions.
+    LayerActionLayers {
+        page: usize,
+        index: usize,
+        at: usize,
+    },
     /// Properties of a sound or video comment.
     MediaProps {
         page: usize,

@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1680 |
+| ✅ available | 1699 |
 | 🟡 partial | 41 |
-| ⬜ planned | 293 |
+| ⬜ planned | 274 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -715,8 +715,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Action | `action` | ⬜ planned |
-| ↳ Go to | `action.goto` | ⬜ planned |
+| Action | `action` | ✅ available |
+| ↳ Go to | `action.goto` | ✅ available |
 | Actions | `actions` | ✅ available |
 | ↳ Add | `actions.add` | ✅ available |
 | ↳ Add from Bookmark | `actions.addFromBookmark` | ✅ available |
@@ -746,10 +746,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Add | `jssnippet.add` | ✅ available |
 | ↳ Clone… | `jssnippet.clone` | ✅ available |
 | ↳ Delete | `jssnippet.delete` | ✅ available |
-| Layer Actions | `dao` | ⬜ planned |
-| ↳ Change State | `dao.changeState` | ⬜ planned |
-| ↳ Simplify Actions | `dao.simplifyActions` | ⬜ planned |
-| ↳ Used Data | `dao.usedData` | ⬜ planned |
+| Layer Actions | `dao` | ✅ available |
+| ↳ Change State | `dao.changeState` | ✅ available |
+| ↳ Simplify Actions | `dao.simplifyActions` | ✅ available |
+| ↳ Used Data | `dao.usedData` | ✅ available |
 
 ### Organize
 
@@ -1598,7 +1598,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Word Count | `document.wordCount` | ✅ available |
 | Accessibility | `acc` | ✅ available |
 | Accessibility | `accessibility` | ✅ available |
-| Action | `action` | ⬜ planned |
+| Action | `action` | ✅ available |
 | Actions | `actions` | ✅ available |
 | Add Bookmark | `addBookmark` | ✅ available |
 | Add Image… | `document.addImage` | ✅ available |
@@ -1638,7 +1638,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | JavaScript Edit Snippets | `jsEditSnippets` | ✅ available |
 | JavaScript List | `javaScriptList` | ✅ available |
 | JavaScript Snippet | `jssnippet` | ✅ available |
-| Layer Actions | `dao` | ⬜ planned |
+| Layer Actions | `dao` | ✅ available |
 | Link | `link` | ⬜ planned |
 | Merge Duplicate Fonts and Pictures | `document.mergeDuplicates` | ✅ available |
 | More Page Tools | `document.pagesMore` | ✅ available |
@@ -1859,14 +1859,14 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `ac.rounding.down` | Comments › Accounting Calculator › Rounding › Down | ✅ available |
 | `ac.rounding.up` | Comments › Accounting Calculator › Rounding › Up | ✅ available |
 | `ac.tape.reset` | Comments › Accounting Calculator › Tape › Reset | ✅ available |
-| `action.goto.addCurrentView` | Document › Action › Go to › Add Current View | ⬜ planned |
-| `action.goto.delete` | Document › Action › Go to › Delete | ⬜ planned |
-| `action.goto.edit` | Document › Action › Go to › Edit | ⬜ planned |
-| `action.goto.rename` | Document › Action › Go to › Rename | ⬜ planned |
-| `action.goto.reset` | Document › Action › Go to › Reset | ⬜ planned |
-| `action.goto.useCurrentView` | Document › Action › Go to › Use Current View | ⬜ planned |
-| `action.goto.zoomIn` | Document › Action › Go to › Zoom in | ⬜ planned |
-| `action.goto.zoomOut` | Document › Action › Go to › Zoom Out | ⬜ planned |
+| `action.goto.addCurrentView` | Document › Action › Go to › Add Current View | ✅ available |
+| `action.goto.delete` | Document › Action › Go to › Delete | ✅ available |
+| `action.goto.edit` | Document › Action › Go to › Edit | ✅ available |
+| `action.goto.rename` | Document › Action › Go to › Rename | ✅ available |
+| `action.goto.reset` | Document › Action › Go to › Reset | ✅ available |
+| `action.goto.useCurrentView` | Document › Action › Go to › Use Current View | ✅ available |
+| `action.goto.zoomIn` | Document › Action › Go to › Zoom in | ✅ available |
+| `action.goto.zoomOut` | Document › Action › Go to › Zoom Out | ✅ available |
 | `addAnnotsByFindResult.highlight` | Comments › Add Annotations by Find Result › Highlight | ✅ available |
 | `addAnnotsByFindResult.strikeout` | Comments › Add Annotations by Find Result › Strikeout | ✅ available |
 | `addAnnotsByFindResult.underline` | Comments › Add Annotations by Find Result › Underline | ✅ available |
@@ -2041,11 +2041,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `contentsView.showInTags` | View › Content Pane › Show in Tags | ✅ available |
 | `cryptAlterBar.allow.always` | Document › Crypt Alter Bar › Allow › Always | ⬜ planned |
 | `cryptAlterBar.allow.once` | Document › Crypt Alter Bar › Allow › Once | ⬜ planned |
-| `dao.changeState.Off` | Document › Layer Actions › Change State › Off | ⬜ planned |
-| `dao.changeState.On` | Document › Layer Actions › Change State › On | ⬜ planned |
-| `dao.changeState.Toggle` | Document › Layer Actions › Change State › Toggle | ⬜ planned |
-| `dao.usedData.AllOC` | Document › Layer Actions › Used Data › All Optional Content | ⬜ planned |
-| `dao.usedData.Layers` | Document › Layer Actions › Used Data › Layers | ⬜ planned |
+| `dao.changeState.Off` | Document › Layer Actions › Change State › Off | ✅ available |
+| `dao.changeState.On` | Document › Layer Actions › Change State › On | ✅ available |
+| `dao.changeState.Toggle` | Document › Layer Actions › Change State › Toggle | ✅ available |
+| `dao.usedData.AllOC` | Document › Layer Actions › Used Data › All Optional Content | ✅ available |
+| `dao.usedData.Layers` | Document › Layer Actions › Used Data › Layers | ✅ available |
 | `digisig.view.certify` | Document › Digital Signature › View › Certify | ✅ available |
 | `digisig.view.clear` | Document › Digital Signature › View › Clear | ✅ available |
 | `digisig.view.sign` | Document › Digital Signature › View › Sign | ✅ available |

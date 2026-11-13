@@ -152,6 +152,25 @@ fn add_here(st: AppState) {
     mark_opened(st, i);
 }
 
+/// Open the session's files in a group of tabs of their own (beside the
+/// others; with two groups already, in the one not worked in).
+fn add_new_group(st: AppState) {
+    let Some((i, f, s)) = need_selected(st) else {
+        return;
+    };
+    let before: Vec<u64> = st.docs.peek().iter().map(|t| t.id).collect();
+    open_here(st, chosen(f, &s));
+    mark_opened(st, i);
+    let new: Vec<u64> = st
+        .docs
+        .peek()
+        .iter()
+        .map(|t| t.id)
+        .filter(|id| !before.contains(id))
+        .collect();
+    crate::commands::tab_groups::into_new_group(st, &new);
+}
+
 /// Open the session (or its selected file) in a new window.
 fn new_window(st: AppState) {
     let Some((i, f, s)) = need_selected(st) else {
@@ -339,7 +358,7 @@ handlers! {
     "sessions.open.wholeSession" => open_whole,
     "sessions.open.addWholeSession" => add_here,
     "sessions.open.addToActiveGroup" => add_here,
-    "sessions.open.addToNewGroup" => add_here,
+    "sessions.open.addToNewGroup" => add_new_group,
     "sessions.open.addToNewFrame" => new_window,
     "sessions.remove" => remove,
     "sessions.rename" => |st| { if let Some((i, _, _)) = need_selected(st) { st.set_dialog(Dialog::SessionName(Some(i))) } },

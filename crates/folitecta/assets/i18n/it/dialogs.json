@@ -717,5 +717,9 @@
   "dialog.rowdata.clear": "Togli",
   "dialog.rowdata.columns": "Colonne:",
   "dialog.rowdata.region": "Regione di {region} (vuoto: quella del sistema)",
-  "dialog.rowdata.hint": "La prima pagina marcata prende la prima riga, la pagina dopo la riga dopo e così via, ricominciando quando le righe finiscono: {rowindex} è il numero della riga, {rowdata:2} la sua seconda colonna, {rowdata:City} la sua colonna City."
+  "dialog.rowdata.hint": "La prima pagina marcata prende la prima riga, la pagina dopo la riga dopo e così via, ricominciando quando le righe finiscono: {rowindex} è il numero della riga, {rowdata:2} la sua seconda colonna, {rowdata:City} la sua colonna City.",
+  "dialog.move_tabs.hint": "“{title}” si apre nella finestra scelta e la sua scheda si chiude qui.",
+  "dialog.move_tabs.empty": "nessun documento",
+  "dialog.move_tabs.window": "Finestra {n}",
+  "dialog.move_tabs.new": "Una nuova finestra"
 }

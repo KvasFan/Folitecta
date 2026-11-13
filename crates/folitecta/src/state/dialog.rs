@@ -400,6 +400,8 @@ pub enum Dialog {
     StyleList(bool),
     /// The rows of data and the region of page marks.
     RowData,
+    /// Move the active document to another window.
+    MoveTabs,
     /// Properties of a sound or video comment.
     MediaProps {
         page: usize,

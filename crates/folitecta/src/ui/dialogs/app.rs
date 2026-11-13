@@ -587,3 +587,39 @@ pub(super) fn CommandGroupDialog(id: String) -> Element {
         }
     }
 }
+
+/// Window › Move Tabs: the other windows (with their documents) and a new
+/// one; a click sends the active document there.
+#[component]
+pub(super) fn MoveTabsDialog() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let others = crate::commands::windows::others();
+    let title = st.read_active(|t| t.title()).unwrap_or_default();
+    rsx! {
+        Frame { title: t(lang, "cmd.window.moveTabsTo").trim_end_matches('…').to_string(),
+            p { class: "hint", "{tf(lang, \"dialog.move_tabs.hint\", &[(\"title\", &title)])}" }
+            div { class: "command-group",
+                for (i, w) in others.into_iter().enumerate() {
+                    {
+                        let s = w.session.clone();
+                        let docs = if w.titles.is_empty() { t(lang, "dialog.move_tabs.empty") } else { w.titles.join(", ") };
+                        let name = tf(lang, "dialog.move_tabs.window", &[("n", &(i + 1).to_string())]);
+                        rsx! {
+                            button { class: "command-group-row move-to-window", key: "{s}", "data-session": "{s}",
+                                onclick: move |_| { st.set_dialog(Dialog::None); crate::commands::windows::move_active(st, Some(s.clone())); },
+                                Icon { name: "window" }
+                                span { class: "grow", title: "{docs}", b { "{name}" } " — {docs}" }
+                            }
+                        }
+                    }
+                }
+                button { class: "command-group-row move-to-new",
+                    onclick: move |_| { st.set_dialog(Dialog::None); crate::commands::windows::move_active(st, None); },
+                    Icon { name: "new" }
+                    span { class: "grow", "{t(lang, \"dialog.move_tabs.new\")}" }
+                }
+            }
+        }
+    }
+}

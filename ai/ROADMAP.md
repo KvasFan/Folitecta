@@ -909,6 +909,13 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    `commands/markup/comment_more.rs`, `CommentLabel`, `StyleList`, `RowData` windows; Region no
    longer partial.
 
+### 0.101.0 — documents moved between windows (on `main`, untagged)
+
+1. ~~**FOL-L002 — documents moved between windows.**~~ Done: `commands/window/windows.rs`
+   (each window's note and inbox next to its lock in the recovery folder, read every second;
+   Merge All Tabs, Move Tabs, Distribute Tabs), `tab_groups::into_new_group`; the sessions'
+   group commands no longer partial.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

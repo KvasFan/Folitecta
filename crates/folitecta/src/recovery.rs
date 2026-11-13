@@ -122,7 +122,7 @@ fn hold_lock(dir: &Path) {
 
 /// The window of `session` still runs: it holds its lock. When that cannot
 /// be told, the window is taken as running (its copies are left alone).
-fn running(dir: &Path, session: &str) -> bool {
+pub(crate) fn running(dir: &Path, session: &str) -> bool {
     if session == self::session() {
         return true;
     }

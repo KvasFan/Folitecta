@@ -9,3 +9,4 @@ pub(crate) mod qat;
 pub(crate) mod split_view;
 pub(crate) mod tab_groups;
 pub(crate) mod view;
+pub(crate) mod windows;

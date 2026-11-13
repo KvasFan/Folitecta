@@ -4,6 +4,24 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-13 — FOL-L002: documents moved between windows (0.101.0)
+
+- **Current state before:** Merge All Tabs into This Window, Distribute Tabs and Move Tabs were
+  planned; Sessions › Open › Add to Active Group and Add to New Group were partial (no groups).
+- **What:** `windows.rs`: every window writes `<session>.window` (its documents) beside its
+  lock and reads `<session>.inbox.*` every second (one file per message, written through a
+  temporary file): `Open(files)` opens them, `Gather(window)` sends the saved documents without
+  changes there and closes their tabs. Windows running are those whose lock is held
+  (`recovery::running`). Move Tabs lists them with their documents (`MoveTabsDialog`).
+  `tab_groups::into_new_group` (beside the others, or in the group not worked in);
+  `tab_groups::noting`.
+- **Checked:** self-test steps `complete` and `groups` (17 interactions, 0 problems): another
+  window stood for by a held lock and its note: a saved document moved to it, a document arriving
+  from it, Merge All Tabs asked by it, Distribute Tabs noted, a tab in a group of its own. The
+  first run turned the noting of windows off for the steps after it (a real window would have
+  started): the step puts it back as it was.
+- **Open:** tried with two real windows by hand.
+
 ## 2026-11-13 — FOL-L026, L017, L028: comment labels, notes on text, rows of data (0.100.0)
 
 - **Current state before:** Edit Label, Delete Label, Add Text, Comment on selected text, Measure

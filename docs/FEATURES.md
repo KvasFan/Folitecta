@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1673 |
-| 🟡 partial | 45 |
-| ⬜ planned | 296 |
+| ✅ available | 1680 |
+| 🟡 partial | 41 |
+| ⬜ planned | 293 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -335,13 +335,13 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Unlock All Cmd Panes | `view.unlockAllCmdPanes` | ✅ available |
 | View | `view.toolbar.view` | ✅ available |
 | Window | `window` | 🟡 partial |
-| ↳ Distribute Tabs | `window.distributeTabs` | ⬜ planned |
+| ↳ Distribute Tabs | `window.distributeTabs` | ✅ available |
 | ↳ Distribute Tabs One Above the Other | `window.distributeDocsHorz` | ✅ available |
 | ↳ Distribute Tabs Side by Side | `window.distributeDocsVert` | ✅ available |
 | ↳ Merge All Tabs into One Group | `window.allDocsToOneTabGroup` | ✅ available |
-| ↳ Merge All Tabs into This Window | `window.allDocsToActiveWindow` | ⬜ planned |
+| ↳ Merge All Tabs into This Window | `window.allDocsToActiveWindow` | ✅ available |
 | ↳ Move Tab to the Other Group | `window.moveTabTo` | ✅ available |
-| ↳ Move Tabs… | `window.moveTabsTo` | ⬜ planned |
+| ↳ Move Tabs… | `window.moveTabsTo` | ✅ available |
 | ↳ Move to New Window | `window.activeDocToNewWindow` | ✅ available |
 | ↳ New Blank Window | `window.newBlank` | ✅ available |
 | ↳ New Document Tab | `window.new` | ✅ available |
@@ -1231,7 +1231,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Open… | `open` | ✅ available |
 | Open From | `openFrom` | ✅ available |
 | Recent Files | `recentFiles` | ✅ available |
-| Sessions | `sessions` | 🟡 partial |
+| Sessions | `sessions` | ✅ available |
 | New Document | `newDoc` | ✅ available |
 | PDF Portfolio… | `newPortfolio` | ✅ available |
 | Save | `save` | ✅ available |
@@ -1799,13 +1799,13 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Close Tabs to the Right | `closeTabsToTheRight` | ✅ available |
 | Split | `window.split` | 🟡 partial |
 | Remove Split | `window.removeSplit` | ✅ available |
-| Distribute Tabs | `window.distributeTabs` | ⬜ planned |
+| Distribute Tabs | `window.distributeTabs` | ✅ available |
 | Distribute Tabs One Above the Other | `window.distributeDocsHorz` | ✅ available |
 | Distribute Tabs Side by Side | `window.distributeDocsVert` | ✅ available |
 | Merge All Tabs into One Group | `window.allDocsToOneTabGroup` | ✅ available |
-| Merge All Tabs into This Window | `window.allDocsToActiveWindow` | ⬜ planned |
+| Merge All Tabs into This Window | `window.allDocsToActiveWindow` | ✅ available |
 | Move Tab to the Other Group | `window.moveTabTo` | ✅ available |
-| Move Tabs… | `window.moveTabsTo` | ⬜ planned |
+| Move Tabs… | `window.moveTabsTo` | ✅ available |
 | Move to New Window | `window.activeDocToNewWindow` | ✅ available |
 | New Blank Window | `window.newBlank` | ✅ available |
 | New Horizontal Tab Group | `window.activeDocToNewHorzTabGroup` | ✅ available |
@@ -2340,10 +2340,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `sessions.clear` | File › Sessions › Clear | ✅ available |
 | `sessions.export` | File › Sessions › Export | ✅ available |
 | `sessions.import` | File › Sessions › Import | ✅ available |
-| `sessions.open` | File › Sessions › Open | 🟡 partial |
-| `sessions.open.addToActiveGroup` | File › Sessions › Open › Add to Active Group | 🟡 partial |
+| `sessions.open` | File › Sessions › Open | ✅ available |
+| `sessions.open.addToActiveGroup` | File › Sessions › Open › Add to Active Group | ✅ available |
 | `sessions.open.addToNewFrame` | File › Sessions › Open › Add to New Frame | ✅ available |
-| `sessions.open.addToNewGroup` | File › Sessions › Open › Add to New Group | 🟡 partial |
+| `sessions.open.addToNewGroup` | File › Sessions › Open › Add to New Group | ✅ available |
 | `sessions.open.addWholeSession` | File › Sessions › Open › Add Whole Session | ✅ available |
 | `sessions.open.wholeSession` | File › Sessions › Open › Whole Session | ✅ available |
 | `sessions.remove` | File › Sessions › Remove | ✅ available |

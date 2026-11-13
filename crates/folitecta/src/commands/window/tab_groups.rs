@@ -192,6 +192,45 @@ fn to_other_group(st: AppState, side_by_side: bool) {
     set(st, g);
 }
 
+/// Tabs `new` in a group of their own: beside the others when there are no
+/// groups, else in the group not worked in (the other tabs staying).
+pub fn into_new_group(st: AppState, new: &[u64]) {
+    if new.is_empty() {
+        return;
+    }
+    let (ids, active) = tabs(st);
+    let old: Vec<u64> = ids.iter().copied().filter(|id| !new.contains(id)).collect();
+    if old.is_empty() {
+        return;
+    }
+    let g = match st.groups.peek().clone() {
+        None => TabGroups {
+            side_by_side: true,
+            tabs: [old.clone(), new.to_vec()],
+            shown: [old[0], new.last().copied().unwrap_or(active)],
+            focus: 1,
+        },
+        Some(mut g) => {
+            let to = 1 - g.focus.min(1);
+            for tabs in g.tabs.iter_mut() {
+                tabs.retain(|id| !new.contains(id));
+            }
+            g.tabs[to].extend_from_slice(new);
+            if g.tabs[1 - to].is_empty() {
+                g.tabs[1 - to] = old.clone();
+            }
+            g.shown[to] = new[new.len() - 1];
+            g.focus = to;
+            g
+        }
+    };
+    let last = new[new.len() - 1];
+    if let Some(i) = st.docs.peek().iter().position(|t| t.id == last) {
+        st.set_active(i);
+    }
+    set(st, g);
+}
+
 /// Move tab `id` to group `to` (dropped on its strip), the groups placed as
 /// they are; it becomes the tab worked in.
 pub fn move_tab_to_group(st: AppState, id: u64, to: usize) {
@@ -277,6 +316,11 @@ static NOTED: Mutex<Option<Vec<Vec<PathBuf>>>> = Mutex::new(None);
 /// Note windows instead of starting them (the self-test), or start them again.
 pub fn set_noting(on: bool) {
     *NOTED.lock().unwrap_or_else(|e| e.into_inner()) = on.then(Vec::new);
+}
+
+/// Windows are noted instead of started.
+pub fn noting() -> bool {
+    NOTED.lock().unwrap_or_else(|e| e.into_inner()).is_some()
 }
 
 /// The windows noted: the files each would open.

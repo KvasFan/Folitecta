@@ -717,5 +717,9 @@
   "dialog.rowdata.clear": "Clear",
   "dialog.rowdata.columns": "Columns:",
   "dialog.rowdata.region": "Region of {region} (empty: the system's)",
-  "dialog.rowdata.hint": "The first page marked takes the first row, the next page the next row, and so on, the rows starting again when they end: {rowindex} is the number of the row, {rowdata:2} its second column, {rowdata:City} its column City."
+  "dialog.rowdata.hint": "The first page marked takes the first row, the next page the next row, and so on, the rows starting again when they end: {rowindex} is the number of the row, {rowdata:2} its second column, {rowdata:City} its column City.",
+  "dialog.move_tabs.hint": "“{title}” opens in the window chosen and its tab closes here.",
+  "dialog.move_tabs.empty": "no documents",
+  "dialog.move_tabs.window": "Window {n}",
+  "dialog.move_tabs.new": "A new window"
 }

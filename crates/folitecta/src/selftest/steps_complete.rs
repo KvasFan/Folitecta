@@ -7,7 +7,8 @@
 //! Presets window; toolbars and tabs of one's own, locked toolbars and panes;
 //! guides and form fields copied and pasted, files pasted, the file copied;
 //! comment labels and text, a comment on selected text, measurement
-//! information, style lists, rows of data in page marks.
+//! information, style lists, rows of data in page marks; documents moved
+//! between windows, a group of tabs of their own.
 
 use super::*;
 
@@ -106,6 +107,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     own_bars(cx).await;
     clipboard_more(cx).await;
     comments_more(cx).await;
+    windows(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -720,5 +722,117 @@ async fn comments_more(cx: &mut Ctx<'_>) {
         made.is_some_and(|r| r.is_ok()) && labelled == "Check" && unlabelled.is_empty() && text_window && after == before + 1 && note_open
             && measured.is_some_and(|r| r.is_ok()) && copied.starts_with(&kind) && style_rows >= 1 && expanded == "Turin 2 IT",
         format!("label {labelled:?} then {unlabelled:?}, text window {text_window}, comments {before}->{after} note open {note_open}, copied {copied:?}, style rows {style_rows}, expanded {expanded:?}"),
+    );
+}
+
+/// Another window stands for itself (its lock held, its note written): a
+/// saved document moved to it, its documents asked for by Merge All Tabs, a
+/// document arriving from it; Distribute Tabs; tabs in a group of their own.
+async fn windows(cx: &mut Ctx<'_>) {
+    use crate::commands::windows::{Message, check_now, others, send};
+    let st = cx.st;
+    let Some(rdir) = crate::recovery::folder() else {
+        cx.record("windows", false, "no recovery folder".into());
+        return;
+    };
+    let _ = std::fs::create_dir_all(&rdir);
+    let fake = "selftest-other-window";
+    let lock = std::fs::File::create(rdir.join(format!("{fake}.lock")));
+    let held = lock.as_ref().is_ok_and(|f| f.try_lock().is_ok());
+    let _ = std::fs::write(
+        rdir.join(format!("{fake}.window")),
+        br#"{"session":"","titles":["plan.pdf"]}"#,
+    );
+    let seen = others()
+        .iter()
+        .any(|w| w.session == fake && w.titles == ["plan.pdf"]);
+    let dir = std::env::temp_dir().join(format!("foli-windows-{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&dir);
+    let (a, b) = (dir.join("a.pdf"), dir.join("b.pdf"));
+    let _ = std::fs::write(&a, folitecta_core::testdocs::text_doc(1));
+    let _ = std::fs::write(&b, folitecta_core::testdocs::text_doc(1));
+    let inbox = |rdir: &std::path::Path| -> Vec<Message> {
+        std::fs::read_dir(rdir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .starts_with(&format!("{fake}.inbox."))
+            })
+            .filter_map(|e| {
+                let m = std::fs::read(e.path())
+                    .ok()
+                    .and_then(|b| serde_json::from_slice(&b).ok());
+                let _ = std::fs::remove_file(e.path());
+                m
+            })
+            .collect()
+    };
+    let tabs = |st: AppState| st.docs.peek().len();
+    // Move Tabs: a.pdf to the other window.
+    let start = tabs(st);
+    crate::files::open_path(st, a.clone(), None);
+    pause(300).await;
+    crate::commands::dispatch(st, "window.moveTabsTo");
+    pause(300).await;
+    let _ = eval(&format!(
+        "document.querySelector('.dialog .move-to-window[data-session=\"{fake}\"]')?.click();"
+    ))
+    .await;
+    pause(300).await;
+    let moved = inbox(&rdir) == vec![Message::Open(vec![a.clone()])] && tabs(st) == start;
+    // A document arriving from it, then Merge All Tabs asked by it.
+    let me = crate::recovery::session().to_string();
+    let _ = send(&me, &Message::Open(vec![b.clone()]));
+    check_now(st);
+    pause(300).await;
+    let arrived = tabs(st) == start + 1;
+    let _ = send(&me, &Message::Gather(fake.to_string()));
+    check_now(st);
+    pause(300).await;
+    let gathered = inbox(&rdir) == vec![Message::Open(vec![b.clone()])] && tabs(st) == start;
+    // Distribute Tabs: a.pdf to a window of its own (noted, not started).
+    let noting = crate::commands::tab_groups::noting();
+    crate::commands::tab_groups::set_noting(true);
+    let step_tab = st.read_active(|t| t.id).unwrap_or(0);
+    crate::files::open_path(st, a.clone(), None);
+    pause(200).await;
+    if let Some(i) = st.docs.peek().iter().position(|t| t.id == step_tab) {
+        st.set_active(i);
+    }
+    crate::commands::dispatch(st, "window.distributeTabs");
+    pause(300).await;
+    let distributed = crate::commands::tab_groups::noted() == vec![vec![a.clone()]] && tabs(st) == start;
+    crate::commands::tab_groups::set_noting(noting);
+    // Tabs in a group of their own.
+    crate::files::open_path(st, b.clone(), None);
+    pause(200).await;
+    let new_id = st.read_active(|t| t.id).unwrap_or(0);
+    crate::commands::tab_groups::into_new_group(st, &[new_id]);
+    pause(300).await;
+    let grouped = st
+        .groups
+        .peek()
+        .as_ref()
+        .is_some_and(|g| g.tabs[1] == vec![new_id]);
+    crate::files::close_tab(st, new_id, true, crate::state::AfterUnsaved::Close);
+    pause(300).await;
+    if let Some(i) = st.docs.peek().iter().position(|t| t.id == step_tab) {
+        st.set_active(i);
+    }
+    if let Ok(f) = &lock {
+        let _ = f.unlock();
+    }
+    for ext in ["lock", "window"] {
+        let _ = std::fs::remove_file(rdir.join(format!("{fake}.{ext}")));
+    }
+    let _ = inbox(&rdir);
+    let _ = std::fs::remove_dir_all(&dir);
+    cx.record(
+        "documents travel between windows: Move Tabs, a document arriving, Merge All Tabs asked by another window, Distribute Tabs; tabs in a group of their own",
+        held && seen && moved && arrived && gathered && distributed && grouped,
+        format!("lock held {held}, window seen {seen}, moved {moved}, arrived {arrived}, gathered {gathered}, distributed {distributed}, grouped {grouped}"),
     );
 }

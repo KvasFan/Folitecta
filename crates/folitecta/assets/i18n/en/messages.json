@@ -487,5 +487,8 @@
   "toast.file_copied": "The file is on the clipboard.",
   "toast.guides_on_clip": "{count} guides copied.",
   "toast.no_label": "This comment has no label.",
-  "toast.select_measure_first": "Choose a measurement first (with the comment tool)."
+  "toast.select_measure_first": "Choose a measurement first (with the comment tool).",
+  "toast.windows_kept": "{count} documents with unsaved changes (or never saved) stayed here.",
+  "toast.windows_none": "No other Folitecta window is open.",
+  "toast.windows_asked": "{count} windows asked for their documents."
 }

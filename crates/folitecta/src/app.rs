@@ -250,6 +250,8 @@ pub fn App() -> Element {
 
     // Copies of the documents with unsaved changes, and the ones left behind.
     use_hook(|| crate::recovery::start(st));
+    // The other windows' messages (documents moved between windows).
+    use_hook(|| crate::commands::windows::start(st));
     // The rows of data and the region of page marks.
     use_hook(|| crate::commands::comment_more::apply_macro_data(st));
     // The ribbon tab of one's own made the default one.

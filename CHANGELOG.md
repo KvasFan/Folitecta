@@ -7,6 +7,12 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Window › Merge All Tabs into This Window asks the other Folitecta windows for their saved
+  documents; Move Tabs sends the active document to another window (listed with its documents) or
+  a new one; Distribute Tabs gives each saved document but the active one a window of its own.
+  Documents with unsaved changes stay where they are, and the window says so.
+- Sessions › Open › Add to New Group opens the session's files in a group of tabs of their own;
+  Add to Active Group joins the group worked in.
 - Comments › Annotation › Edit Label and Delete Label give a comment a label (its subject) or take
   it away; Add Text opens its text. Comment on selected text highlights it and opens its note.
   Measure Info › Copy copies what the chosen measurement measures, its value and page.

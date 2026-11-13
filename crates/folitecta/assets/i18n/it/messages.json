@@ -487,5 +487,8 @@
   "toast.file_copied": "Il file è negli appunti.",
   "toast.guides_on_clip": "{count} guide copiate.",
   "toast.no_label": "Questo commento non ha un'etichetta.",
-  "toast.select_measure_first": "Scegli prima una misura (con lo strumento commenti)."
+  "toast.select_measure_first": "Scegli prima una misura (con lo strumento commenti).",
+  "toast.windows_kept": "{count} documenti con modifiche non salvate (o mai salvati) sono rimasti qui.",
+  "toast.windows_none": "Nessun'altra finestra di Folitecta è aperta.",
+  "toast.windows_asked": "Chieste a {count} finestre i loro documenti."
 }

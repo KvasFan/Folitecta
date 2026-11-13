@@ -429,6 +429,7 @@ pub fn Dialogs() -> Element {
         Dialog::CommentLabel { page, index, label } => rsx! { CommentLabelDialog { page, index, label } },
         Dialog::StyleList(tool) => rsx! { StyleListDialog { tool } },
         Dialog::RowData => rsx! { RowDataDialog {} },
+        Dialog::MoveTabs => rsx! { MoveTabsDialog {} },
         Dialog::Presets => rsx! { crate::ui::features::presets::PresetsDialog {} },
         Dialog::BatesFiles => rsx! { crate::ui::features::bates_files::BatesFilesDialog {} },
         Dialog::MediaProps { page, index } => {

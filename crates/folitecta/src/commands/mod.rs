@@ -34,7 +34,9 @@ pub(crate) use navigation::{
 };
 pub(crate) use protection::{policies, protect, redaction, revocation, signatures, signs};
 pub(crate) use text::{find_replace, read_aloud, search, spelling, textedit};
-pub(crate) use window::{clip_more, edit, groups, help, interface, qat, split_view, tab_groups, view};
+pub(crate) use window::{
+    clip_more, edit, groups, help, interface, qat, split_view, tab_groups, view, windows,
+};
 
 use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
@@ -130,6 +132,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     presets::HANDLERS,
     clip_more::HANDLERS,
     comment_more::HANDLERS,
+    windows::HANDLERS,
 ];
 
 static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {
@@ -149,9 +152,6 @@ pub const PARTIAL: &[&str] = &[
     "layersView.selectCorresponding.comments",
     "layersView.selectCorresponding.fields",
     "layersView.selectCorresponding.links",
-    // There are no tab groups: the files open in this window.
-    "sessions.open.addToActiveGroup",
-    "sessions.open.addToNewGroup",
     // The first stamp made with the design is selected.
     "stampCustom.selectAnnots",
     // They show the stamps pane.

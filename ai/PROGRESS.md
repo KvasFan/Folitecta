@@ -6,14 +6,14 @@ checked, what is still open. The history before October 2026 is in
 
 ## 2026-11-13 — local check of 0.94.0 to 0.98.0, Linux and Windows
 
-- **What:** \`target/preflight.sh\`: formatting, clippy for the three systems, the workspace tests
+- **What:** `target/preflight.sh`: formatting, clippy for the three systems, the workspace tests
   (1091 passed, 0 failed), the release build, the licences, the whole self-test (396
   interactions, 0 problems), the Linux package (47 MB), the Windows job (1058 tests passed under
-  Wine; \`page_relations\` stopped on a page fault of Wine in a thread, the debugger waiting, and
-  passed alone, 10 of 10; core unchanged since the last green Windows run; no \`VCRUNTIME140\`).
-- **Found by the first run:** the step \`complete\` left the measure settings empty strings (read
+  Wine; `page_relations` stopped on a page fault of Wine in a thread, the debugger waiting, and
+  passed alone, 10 of 10; core unchanged since the last green Windows run; no `VCRUNTIME140`).
+- **Found by the first run:** the step `complete` left the measure settings empty strings (read
   as no units, not as the defaults) and the thumbnails pane open, which failed three later steps
-  (the measures' quick panel, reading from a paragraph, a tab closing): \`AppState::unset_value\`
+  (the measures' quick panel, reading from a paragraph, a tab closing): `AppState::unset_value`
   forgets a setting (presets use it for empty values, Digital Signatures › Reset too), and the
   step puts the panes back.
 

@@ -494,5 +494,7 @@
   "toast.choose_goto": "Scegli prima un'azione «vai a» di questo documento tra le azioni del collegamento.",
   "toast.choose_layer_action": "Scegli prima un'azione dei livelli tra le azioni del collegamento.",
   "toast.actions_simple": "Le azioni sono già le più semplici possibili.",
-  "toast.actions_simplified": "{count} azioni unite o tolte."
+  "toast.actions_simplified": "{count} azioni unite o tolte.",
+  "toast.link_blocked": "La lista consentiti/bloccati blocca questo collegamento: {what}",
+  "toast.batch_links": "{files} file con collegamenti web ({links} collegamenti), ciascuno in una copia con “-links” nel nome."
 }

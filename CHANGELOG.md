@@ -7,6 +7,12 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Tools › Allow/Block List: web sites, patterns of sites (*.example.org), files and folders whose
+  links open without asking, or never (a block wins); Add Host, Add Pattern, Add File and Add Folder
+  open the list on that kind.
+- Document › Link › Batch Link makes web links from the addresses written in several files, each in
+  a copy named “-links”. File › New › From Rich Text makes a document of an RTF file's text, From
+  Selection one of the pages chosen. The Image group lists the picture commands.
 - Format › Eraser Diameter sets how wide the eraser is; Ink Smooth Level how much the Pencil's
   strokes are smoothed (0 keeps the points as drawn); Thickness Scale how much a pen's pressure
   changes the width; Line Width Profile the width along a stroke: the pen's pressure, one width,

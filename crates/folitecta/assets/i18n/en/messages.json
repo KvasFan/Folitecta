@@ -494,5 +494,7 @@
   "toast.choose_goto": "Choose a go-to of this document in the link's actions first.",
   "toast.choose_layer_action": "Choose a layer action in the link's actions first.",
   "toast.actions_simple": "The actions are as simple as they can be.",
-  "toast.actions_simplified": "{count} actions joined or taken away."
+  "toast.actions_simplified": "{count} actions joined or taken away.",
+  "toast.link_blocked": "The Allow/Block List blocks this link: {what}",
+  "toast.batch_links": "{files} files with web links ({links} links), each in a copy named “-links”."
 }

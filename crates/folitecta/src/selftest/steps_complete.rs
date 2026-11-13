@@ -11,7 +11,8 @@
 //! between windows, a group of tabs of their own; go-to views and layer
 //! actions of a link; page display and snap settings, inertial scroll, the
 //! panes' info bar, Manage Form Data, History; the settings of freehand
-//! strokes and of the eraser.
+//! strokes and of the eraser; the Allow/Block List, Batch Link, a new
+//! document from the selection, the picture commands.
 
 use super::*;
 
@@ -114,6 +115,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     action_views(cx).await;
     display_settings(cx).await;
     ink_settings(cx).await;
+    allow_and_batch(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -1057,5 +1059,74 @@ async fn ink_settings(cx: &mut Ctx<'_>) {
         "Line Width Profile: thin ends give a mouse stroke a changing width, one width a plain stroke; the eraser's diameter and the smoothing set in their windows",
         tapered == Some(true) && plain == Some(false) && (eraser - 30.0).abs() < 0.01 && smooth == 3,
         format!("thin ends pressed {tapered:?}, one width pressed {plain:?}, eraser {eraser}, smoothing {smooth}"),
+    );
+}
+
+async fn allow_and_batch(cx: &mut Ctx<'_>) {
+    use folitecta_core::LinkTarget;
+    let st = cx.st;
+    st.unset_value("links.list");
+    // A site blocked from the window, a pattern allowed.
+    crate::commands::dispatch(st, "bwList.addHost");
+    pause(300).await;
+    let _ = eval("const i = document.querySelector('.dialog .allow-value'); if (i) { i.value = 'blocked.example'; i.dispatchEvent(new Event('input', { bubbles: true })); } document.querySelector('.dialog .allow-block')?.click();").await;
+    pause(200).await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(300).await;
+    st.set_dialog(Dialog::None);
+    crate::commands::allow_list::add(st, "pattern", "*.trusted.example", true);
+    let blocked = crate::commands::navigation::follow::verdict(
+        st,
+        &LinkTarget::Uri("https://blocked.example/a".into()),
+    );
+    let trusted = crate::commands::navigation::follow::needs_asking(
+        st,
+        &LinkTarget::Uri("https://docs.trusted.example/x".into()),
+    );
+    let other = crate::commands::navigation::follow::needs_asking(
+        st,
+        &LinkTarget::Uri("https://else.example/".into()),
+    );
+    crate::commands::navigation::follow::follow(st, LinkTarget::Uri("https://blocked.example/a".into()));
+    pause(200).await;
+    let not_asked = !matches!(*st.dialog.peek(), Dialog::OpenTarget { .. });
+    st.set_dialog(Dialog::None);
+    st.unset_value("links.list");
+    // Batch Link on a file with an address in its text.
+    let dir = std::env::temp_dir().join(format!("foli-batch-{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&dir);
+    let src = dir.join("notes.pdf");
+    let wrote = folitecta_core::Document::from_text(
+        "See https://example.org/info for more.",
+        folitecta_core::TextLayout::default(),
+    )
+    .and_then(|mut d| d.save_as(&src))
+    .is_ok();
+    let (files, links, errors) = crate::commands::more_files::batch_links_in(std::slice::from_ref(&src));
+    let copy = dir.join("notes-links.pdf").exists();
+    let _ = std::fs::remove_dir_all(&dir);
+    // A new document from the pages chosen; the picture commands.
+    let tabs = st.docs.peek().len();
+    st.with_active(|t| t.selected_pages = vec![0]);
+    crate::commands::dispatch(st, "newDocSelection");
+    pause(500).await;
+    let new_tab = st.docs.peek().len() == tabs + 1;
+    if new_tab {
+        let id = st.read_active(|t| t.id).unwrap_or(0);
+        crate::files::close_tab(st, id, true, crate::state::AfterUnsaved::Close);
+        pause(300).await;
+    }
+    crate::commands::dispatch(st, "image");
+    pause(300).await;
+    let picture_rows = eval("return document.querySelectorAll('.dialog .command-group-row').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    st.set_dialog(Dialog::None);
+    cx.record(
+        "the Allow/Block List blocks a site and lets a pattern open without asking; Batch Link; a new document from the pages chosen; the picture commands",
+        blocked == Some(false) && !trusted && other && not_asked && wrote && files == 1 && links >= 1 && errors.is_empty() && copy && new_tab && picture_rows >= 3,
+        format!("blocked {blocked:?}, trusted asked {trusted}, other asked {other}, not asked {not_asked}, batch {files} files {links} links {errors:?} copy {copy}, new tab {new_tab}, picture commands {picture_rows}"),
     );
 }

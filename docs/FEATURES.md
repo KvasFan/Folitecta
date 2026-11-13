@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1713 |
+| ✅ available | 1723 |
 | 🟡 partial | 40 |
-| ⬜ planned | 261 |
+| ⬜ planned | 251 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -911,9 +911,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | From Email… | `newDocEmail` | ✅ available |
 | From Files… | `newDocFromFiles` | ✅ available |
 | From Images… | `newDocImage` | ✅ available |
-| From Rich Text… | `newDocRTF` | ⬜ planned |
+| From Rich Text… | `newDocRTF` | ✅ available |
 | From Scanner… | `newDocScanner` | ✅ available |
-| From Selection… | `newDocSelection` | ⬜ planned |
+| From Selection… | `newDocSelection` | ✅ available |
 | From Template… | `newDocTemplate` | ✅ available |
 | From Text… | `newDocText` | ✅ available |
 | From Web Page… | `newDocHtml` | ⬜ planned |
@@ -1275,9 +1275,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | From Email… | `newDocEmail` | ✅ available |
 | From Files… | `newDocFromFiles` | ✅ available |
 | From Images… | `newDocImage` | ✅ available |
-| From Rich Text… | `newDocRTF` | ⬜ planned |
+| From Rich Text… | `newDocRTF` | ✅ available |
 | From Scanner… | `newDocScanner` | ✅ available |
-| From Selection… | `newDocSelection` | ⬜ planned |
+| From Selection… | `newDocSelection` | ✅ available |
 | From Template… | `newDocTemplate` | ✅ available |
 | From Text… | `newDocText` | ✅ available |
 | From Web Page… | `newDocHtml` | ⬜ planned |
@@ -1639,7 +1639,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | JavaScript List | `javaScriptList` | ✅ available |
 | JavaScript Snippet | `jssnippet` | ✅ available |
 | Layer Actions | `dao` | ✅ available |
-| Link | `link` | ⬜ planned |
+| Link | `link` | ✅ available |
 | Merge Duplicate Fonts and Pictures | `document.mergeDuplicates` | ✅ available |
 | More Page Tools | `document.pagesMore` | ✅ available |
 | New Document from Selection… | `document.createNewDocFromSel` | ✅ available |
@@ -1723,7 +1723,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Flatten Selected | `comments.flattenSel` | ✅ available |
 | Hide All Comments | `comments.hideAll` | ✅ available |
 | Highlight Mode | `highlightMode` | ✅ available |
-| Image | `image` | ⬜ planned |
+| Image | `image` | ✅ available |
 | Line Cap | `lineCap` | ✅ available |
 | Line End | `lineEnd` | ✅ available |
 | Line Join | `lineJoin` | ✅ available |
@@ -1778,7 +1778,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Compare Documents… | `compareDocs` | ✅ available |
 | Launch Application | `launchExternalApp` | ✅ available |
 | Action Sequences… | `tools.actionSequences` | ✅ available |
-| Allow/Block List | `bwList` | ⬜ planned |
+| Allow/Block List | `bwList` | ✅ available |
 | Metadata | `msp` | ✅ available |
 | Other Tools | `otherToolsGroup` | ✅ available |
 | Portfolio Schema | `portfolioSchemaList` | ✅ available |
@@ -1967,10 +1967,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `bookmarksView.useTextForTitle` | View › Bookmarks Pane › Use Text for Title | ✅ available |
 | `bookmarksView.viewOptions` | View › Bookmarks Pane › View Options | ✅ available |
 | `bookmarksView.wrapTitles` | View › Bookmarks Pane › Wrap Titles | ✅ available |
-| `bwList.addFile` | Tools › Allow/Block List › Add File | ⬜ planned |
-| `bwList.addFolder` | Tools › Allow/Block List › Add Folder | ⬜ planned |
-| `bwList.addHost` | Tools › Allow/Block List › Add Host | ⬜ planned |
-| `bwList.addPattern` | Tools › Allow/Block List › Add Pattern | ⬜ planned |
+| `bwList.addFile` | Tools › Allow/Block List › Add File | ✅ available |
+| `bwList.addFolder` | Tools › Allow/Block List › Add Folder | ✅ available |
+| `bwList.addHost` | Tools › Allow/Block List › Add Host | ✅ available |
+| `bwList.addPattern` | Tools › Allow/Block List › Add Pattern | ✅ available |
 | `chekerView.show.inComments` | View › Checker › Show › In Comments | ✅ available |
 | `chekerView.show.inContent` | View › Checker › Show › In Content | ✅ available |
 | `chekerView.show.inFields` | View › Checker › Show › In Fields | ✅ available |
@@ -2183,7 +2183,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `layersView.toggleSelected` | View › Layers Pane › Toggle Selected | ✅ available |
 | `layersView.viewAllPages` | View › Layers Pane › View All Pages | ✅ available |
 | `layersView.viewVisiblePages` | View › Layers Pane › View Visible Pages | ✅ available |
-| `link.batch` | Document › Link › Batch Link | ⬜ planned |
+| `link.batch` | Document › Link › Batch Link | ✅ available |
 | `linksView.import` | View › Links Pane › Import | ⬜ planned |
 | `linksView.link` | View › Links Pane › Link | ✅ available |
 | `linksView.link.copyURL` | View › Links Pane › Link › Copy URL | ✅ available |

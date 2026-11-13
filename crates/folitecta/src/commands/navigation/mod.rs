@@ -1,6 +1,7 @@
 //! Moving through documents: bookmarks, layers, attachments and the other panes, portfolios, the explorer, history and sessions.
 
 pub(crate) mod action_views;
+pub(crate) mod allow_list;
 pub(crate) mod articles;
 pub(crate) mod attachments;
 pub(crate) mod bookmarks;

@@ -934,6 +934,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    (eraser diameter, smoothing levels, thickness scale, width profile), `InkSettingDialog`, the
    Pencil and the eraser read them.
 
+### 0.105.0 — the Allow/Block List, Batch Link, new documents (on `main`, untagged)
+
+1. ~~**FOL-L022, L005, L034 — the Allow/Block List, Batch Link, new documents.**~~ Done:
+   `follow::verdict` and `ListEntry`, `commands/navigation/allow_list.rs`, `AllowBlockDialog`;
+   `commands/document/more_files.rs` (From Rich Text, From Selection, Batch Link); Image.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

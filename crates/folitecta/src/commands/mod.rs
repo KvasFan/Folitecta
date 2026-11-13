@@ -20,9 +20,9 @@ pub(crate) mod protection;
 pub(crate) mod text;
 pub(crate) mod window;
 pub(crate) use document::{
-    actions, barcodes, bates_files, compare, convert, doctools, file, fileops, greyscale, macros, mail, ocr,
-    office, pages, paths, pictures, preflight, presets, print, scanning, scans, sources, split, table_export,
-    templates,
+    actions, barcodes, bates_files, compare, convert, doctools, file, fileops, greyscale, macros, mail,
+    more_files, ocr, office, pages, paths, pictures, preflight, presets, print, scanning, scans, sources,
+    split, table_export, templates,
 };
 pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
@@ -30,8 +30,8 @@ pub(crate) use markup::{
     tables, ticks,
 };
 pub(crate) use navigation::{
-    action_views, articles, attachments, bookmarks, explorer, history, layers, link_actions, page_select,
-    panes, portfolio, sessions,
+    action_views, allow_list, articles, attachments, bookmarks, explorer, history, layers, link_actions,
+    page_select, panes, portfolio, sessions,
 };
 pub(crate) use protection::{policies, protect, redaction, revocation, signatures, signs};
 pub(crate) use text::{find_replace, read_aloud, search, spelling, textedit};
@@ -136,6 +136,8 @@ const TABLES: &[&[(&str, Handler)]] = &[
     windows::HANDLERS,
     action_views::HANDLERS,
     ink_settings::HANDLERS,
+    allow_list::HANDLERS,
+    more_files::HANDLERS,
 ];
 
 static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {

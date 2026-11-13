@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-13 — FOL-L022, L005, L034: the Allow/Block List, Batch Link, new documents (0.105.0)
+
+- **Current state before:** the four Allow/Block List commands, Batch Link, From Rich Text, From
+  Selection and Image were planned; only the web sites allowed from the asking window existed.
+- **What:** `follow.rs`: `ListEntry` (host, pattern, file, folder; allow or block) kept in
+  `links.list`; `glob`; `verdict` (a block wins); a blocked link is refused with a note, an
+  allowed one opens without asking (programs stay refused). `AllowBlockDialog` (the list, a new
+  entry typed or chosen). `more_files.rs`: a document of an RTF file's text; From Selection runs
+  New Document from Selection; `batch_links_in` on a worker thread. Image is a group command.
+- **Checked:** unit test of patterns and hosts; self-test step `complete` and the whole
+  self-test: a site blocked from the window is refused without asking, a pattern allowed opens
+  without asking, others are asked; Batch Link made the links of a file in its copy; a new
+  document from page 1; the picture commands listed.
+- **Open:** —
+
 ## 2026-11-13 — local check of 0.99.0 to 0.104.0, Linux and Windows
 
 - **What:** `target/preflight.sh` at `639358f`: formatting, clippy for the three systems, the

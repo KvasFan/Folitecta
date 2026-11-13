@@ -80,9 +80,97 @@ pub fn forget_sites(st: AppState) {
     st.set_value(SITES, "");
 }
 
+/// An entry of the Allow/Block List: a web site (host), a pattern of
+/// hosts (`*.example.org`), a file or a folder, and whether its links open
+/// without asking (allow) or never (block).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ListEntry {
+    pub kind: String,
+    pub value: String,
+    pub allow: bool,
+}
+
+const LIST: &str = "links.list";
+
+pub fn list_entries(st: AppState) -> Vec<ListEntry> {
+    serde_json::from_str(&st.value(LIST)).unwrap_or_default()
+}
+
+pub fn save_list(st: AppState, list: &[ListEntry]) {
+    st.set_value(LIST, serde_json::to_string(list).unwrap_or_default());
+}
+
+/// `text` matches `pattern` (`*` any letters, `?` one), letter case aside.
+pub fn glob(pattern: &str, text: &str) -> bool {
+    fn go(p: &[char], t: &[char]) -> bool {
+        match (p.first(), t.first()) {
+            (None, None) => true,
+            (Some('*'), _) => go(&p[1..], t) || (!t.is_empty() && go(p, &t[1..])),
+            (Some('?'), Some(_)) => go(&p[1..], &t[1..]),
+            (Some(a), Some(b)) if a == b => go(&p[1..], &t[1..]),
+            _ => false,
+        }
+    }
+    let p: Vec<char> = pattern.trim().to_lowercase().chars().collect();
+    let t: Vec<char> = text.trim().to_lowercase().chars().collect();
+    go(&p, &t)
+}
+
+/// The host of a web address (`https://a.example.org:8080/x` → `a.example.org`).
+fn host_of(url: &str) -> Option<String> {
+    let site = web_site(url)?;
+    let host = site.split_once("://")?.1;
+    Some(host.split(':').next().unwrap_or(host).to_string())
+}
+
+/// What the Allow/Block List says of `target`: Some(true) opens without
+/// asking, Some(false) never opens, None asks. A block wins over an allow.
+pub fn verdict(st: AppState, target: &LinkTarget) -> Option<bool> {
+    let list = list_entries(st);
+    let hits: Vec<bool> = match target {
+        LinkTarget::Uri(u) => {
+            let host = host_of(u)?;
+            list.iter()
+                .filter(|e| match e.kind.as_str() {
+                    "host" => {
+                        let v = e.value.trim().to_lowercase();
+                        let v = v.split_once("://").map(|(_, h)| h.to_string()).unwrap_or(v);
+                        v.trim_end_matches('/') == host
+                    }
+                    "pattern" => glob(&e.value, &host),
+                    _ => false,
+                })
+                .map(|e| e.allow)
+                .collect()
+        }
+        LinkTarget::Launch(name) | LinkTarget::Remote(name) => {
+            let path = file_of(st, name);
+            list.iter()
+                .filter(|e| match e.kind.as_str() {
+                    "file" => std::path::Path::new(&e.value) == path,
+                    "folder" => path.starts_with(&e.value),
+                    _ => false,
+                })
+                .map(|e| e.allow)
+                .collect()
+        }
+        _ => Vec::new(),
+    };
+    if hits.contains(&false) {
+        Some(false)
+    } else if hits.contains(&true) {
+        Some(true)
+    } else {
+        None
+    }
+}
+
 /// Whether `target` of document `tab` is asked before it opens.
 pub fn needs_asking(st: AppState, target: &LinkTarget) -> bool {
     if st.read_active(|t| t.trust_links).unwrap_or(false) {
+        return false;
+    }
+    if verdict(st, target) == Some(true) {
         return false;
     }
     match target {
@@ -138,6 +226,14 @@ pub fn follow(st: AppState, target: LinkTarget) {
         ),
         LinkTarget::Submit(to) => st.toast(ToastKind::Info, tf(lang, "toast.link_submit", &[("to", to)]), ""),
         LinkTarget::Uri(_) | LinkTarget::Launch(_) | LinkTarget::Remote(_) => {
+            if verdict(st, &target) == Some(false) {
+                st.toast(
+                    ToastKind::Warn,
+                    tf(lang, "toast.link_blocked", &[("what", &target.describe())]),
+                    "",
+                );
+                return;
+            }
             if let LinkTarget::Launch(name) = &target {
                 if is_program(&file_of(st, name)) {
                     st.toast(
@@ -212,6 +308,17 @@ pub fn open(st: AppState, target: &LinkTarget) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn patterns_of_hosts() {
+        assert!(glob("*.example.org", "docs.example.org"));
+        assert!(!glob("*.example.org", "example.com"));
+        assert!(glob("intra?et", "INTRANET"));
+        assert_eq!(
+            host_of("https://Docs.Example.org:8080/a").as_deref(),
+            Some("docs.example.org")
+        );
+    }
 
     #[test]
     fn the_site_of_a_web_address() {

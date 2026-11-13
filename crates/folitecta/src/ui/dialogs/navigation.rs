@@ -614,3 +614,68 @@ pub(super) fn LayerActionLayersDialog(page: usize, index: usize, at: usize) -> E
         }
     }
 }
+
+/// Tools › Allow/Block List: its entries (removed with their button) and a
+/// new entry of a kind: typed (a site, a pattern) or chosen (a file, a
+/// folder), allowed or blocked.
+#[component]
+pub(super) fn AllowBlockDialog(kind: String) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let list = crate::commands::navigation::follow::list_entries(st);
+    let mut value = use_signal(String::new);
+    let mut allow = use_signal(|| true);
+    let picks = kind == "file" || kind == "folder";
+    let k2 = kind.clone();
+    let k3 = kind.clone();
+    let rows: Vec<(usize, String, String, bool)> = list
+        .iter()
+        .enumerate()
+        .map(|(i, e)| {
+            (
+                i,
+                t(lang, &format!("dialog.allow.kind.{}", e.kind)),
+                e.value.clone(),
+                e.allow,
+            )
+        })
+        .collect();
+    let (allowed, blocked) = (t(lang, "dialog.allow.allowed"), t(lang, "dialog.allow.blocked"));
+    let new_label = t(lang, &format!("dialog.allow.new.{kind}"));
+    let new_hint = t(lang, &format!("dialog.allow.hint.{kind}"));
+    rsx! {
+        Frame { title: t(lang, "cmd.bwList"), wide: true, ok_label: Some(t(lang, "dialog.allow.add")), ok_disabled: value().trim().is_empty(),
+            on_ok: move |_| { crate::commands::allow_list::add(st, &k2, &value(), allow()); value.set(String::new()); },
+            div { class: "allow-list",
+                if rows.is_empty() { div { class: "pane-empty", "{t(lang, \"dialog.allow.empty\")}" } }
+                for (i, what, v, ok) in rows {
+                    div { class: "allow-row", key: "{i}-{v}",
+                        span { class: if ok { "badge allow" } else { "badge block" }, if ok { "{allowed}" } else { "{blocked}" } }
+                        span { class: "muted", "{what}" }
+                        span { class: "grow ellipsis", title: "{v}", "{v}" }
+                        button { class: "ibtn", title: "{t(lang, \"dialog.allow.remove\")}", onclick: move |_| crate::commands::allow_list::remove(st, i), "×" }
+                    }
+                }
+            }
+            div { class: "field", label { "{new_label}" }
+                div { class: "row",
+                    input { class: "grow allow-value", value: "{value}", placeholder: "{new_hint}", oninput: move |e| value.set(e.value()) }
+                    if picks {
+                        button { class: "tbtn", onclick: move |_| {
+                            let folder = k3 == "folder";
+                            dioxus::prelude::spawn(async move {
+                                let d = rfd::AsyncFileDialog::new();
+                                let picked = if folder { d.pick_folder().await } else { d.pick_file().await };
+                                if let Some(p) = picked { value.set(p.path().display().to_string()); }
+                            });
+                        }, "{t(lang, \"dialog.rowdata.choose\")}" }
+                    }
+                }
+            }
+            div { class: "radio-row",
+                label { input { r#type: "radio", name: "allow-mode", checked: allow(), onchange: move |_| allow.set(true) } span { "{t(lang, \"dialog.allow.mode_allow\")}" } }
+                label { input { r#type: "radio", name: "allow-mode", class: "allow-block", checked: !allow(), onchange: move |_| allow.set(false) } span { "{t(lang, \"dialog.allow.mode_block\")}" } }
+            }
+        }
+    }
+}

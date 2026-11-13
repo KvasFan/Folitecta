@@ -160,6 +160,15 @@ pub fn group_commands(id: &str) -> Vec<&'static str> {
             "comments.deleteAllDoc",
         ],
         "document.pagesMore" => ribbon("organize", "pages"),
+        "image" => vec![
+            "tool.editContent.images",
+            "imageEditor",
+            "replaceImage",
+            "replaceAllImageInstances",
+            "document.ocrImages",
+            "document.export.images",
+            "document.recompressImages",
+        ],
         "forms.manageData" => {
             let mut v = ribbon("form", "data");
             v.extend([
@@ -207,6 +216,7 @@ handlers! {
     "comments.newGroup" => |st| open_group(st, "comments.newGroup"),
     "comments.deleteGroup" => |st| { if !no_doc(st) { open_group(st, "comments.deleteGroup") } },
     "document.pagesMore" => |st| open_group(st, "document.pagesMore"),
+    "image" => |st| { if !no_doc(st) { open_group(st, "image") } },
     "forms.manageData" => |st| { if !no_doc(st) { open_group(st, "forms.manageData") } },
     // The properties pane, also when nothing is chosen.
     "noProps" => |st| { if !st.ui.read().show_right_pane { st.ui_mut().show_right_pane = true; st.save_prefs(); } },

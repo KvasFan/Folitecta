@@ -404,6 +404,8 @@ pub enum Dialog {
     MoveTabs,
     /// A setting of freehand strokes or of the eraser (its command id).
     InkSetting(String),
+    /// The Allow/Block List, adding an entry of a kind.
+    AllowBlock(String),
     /// The view of a go-to of a link's actions.
     GoToView {
         page: usize,

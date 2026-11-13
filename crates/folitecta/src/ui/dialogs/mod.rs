@@ -431,6 +431,7 @@ pub fn Dialogs() -> Element {
         Dialog::RowData => rsx! { RowDataDialog {} },
         Dialog::MoveTabs => rsx! { MoveTabsDialog {} },
         Dialog::InkSetting(what) => rsx! { InkSettingDialog { what } },
+        Dialog::AllowBlock(kind) => rsx! { AllowBlockDialog { kind } },
         Dialog::GoToView { page, index, at } => rsx! { GoToViewDialog { page, index, at } },
         Dialog::GoToName {
             page,

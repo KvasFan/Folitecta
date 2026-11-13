@@ -106,3 +106,9 @@
 
 .style-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border); flex: none; }
 .rowdata-file { font-size: 12.5px; }
+
+/* The Allow/Block List. */
+.allow-list { display: flex; flex-direction: column; gap: 2px; max-height: 36vh; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px; margin-bottom: 8px; }
+.allow-row { display: flex; align-items: center; gap: 8px; padding: 3px 6px; font-size: 12.5px; min-width: 0; }
+.badge.allow { background: var(--accent-soft); color: var(--text); }
+.badge.block { background: rgba(220, 38, 38, .15); color: var(--text); }

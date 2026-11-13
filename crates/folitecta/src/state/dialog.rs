@@ -385,6 +385,8 @@ pub enum Dialog {
     /// The options of a pane or tool: "thumbnails", "links", "loupe",
     /// "recovery".
     PaneOptions(String),
+    /// Bates numbering of several files: the list of files.
+    BatesFiles,
     /// Properties of a sound or video comment.
     MediaProps {
         page: usize,

@@ -7,3 +7,13 @@
 .source-name { display: flex; flex-direction: column; min-width: 0; }
 .source-name .tree-label, .source-name .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .source-range { min-width: 0; height: 24px; font-size: 12px; }
+/* Bates numbering of several files */
+.bates-files-wrap { max-height: 46vh; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); margin: 6px 0; }
+table.bates-files { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.bates-files th { position: sticky; top: 0; background: var(--surface); text-align: left; font-weight: 600; font-size: 11.5px; color: var(--muted); padding: 4px 6px; white-space: nowrap; }
+table.bates-files td { padding: 3px 6px; white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+table.bates-files td.name { font-weight: 500; }
+table.bates-files tr.selected td { background: var(--accent-soft); }
+table.bates-files .source-range { width: 110px; }
+.dropdown-wrap { position: relative; }
+.bates-columns-menu { position: absolute; right: 0; top: 100%; z-index: 30; padding: 6px 10px; display: flex; flex-direction: column; gap: 4px; min-width: 200px; }

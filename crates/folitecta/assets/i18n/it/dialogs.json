@@ -680,5 +680,15 @@
   "dialog.pane_options.thumb_size": "Dimensione delle miniature",
   "dialog.pane_options.loupe_factor": "Ingrandimento",
   "dialog.pane_options.recovery_every": "Ogni quanti minuti",
-  "dialog.pane_options.recovery_hint": "Le copie sono proposte al successivo avvio quando Folitecta termina senza salvare; non contengono mai documenti protetti."
+  "dialog.pane_options.recovery_hint": "Le copie sono proposte al successivo avvio quando Folitecta termina senza salvare; non contengono mai documenti protetti.",
+  "bates_files.choose": "Numerazione Bates: scegli i documenti",
+  "bates_files.choose_file": "Scegli prima un file dell'elenco.",
+  "bates_files.empty": "Aggiungi i file PDF da numerare, nell'ordine della numerazione.",
+  "bates_files.unreadable": "{file} non si può aprire: toglilo dall'elenco.",
+  "bates_files.bad_range": "Le pagine “{range}” di {file} non sono pagine del file.",
+  "bates_files.number": "Numera",
+  "bates_files.file": "File",
+  "bates_files.hint": "Ogni file è numerato in una copia accanto, con “-bates” nel nome; i numeri proseguono da un file al successivo. {docnumber} nel formato è il posto del file nell'elenco.",
+  "dialog.mark_preview.title": "Anteprima",
+  "dialog.mark_preview.failed": "La pagina non si può mostrare con questo segno."
 }

@@ -4,6 +4,26 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-13 — FOL-L017: Bates numbering of files listed, previews of page marks (0.96.0)
+
+- **Current state before:** Bates numbering of several files numbered the files picked at once
+  (no list, no pages per file); its eight columns, Edit › List (Add, Edit, Delete, Up, Down,
+  Clear) and Page Marks › Zoom In and Zoom Out were planned.
+- **What:** `bates_files.rs`: `BATES_FILES` (path, title, size, modified, pages, first page
+  size, pages typed), read on a worker thread; the List commands act on the files chosen; the
+  columns are options (title, number of pages and pages numbered shown by default); `number`
+  checks every range first, then numbers the files in their order on a worker thread into
+  `<name>-bates.pdf`, the next number kept. `mark_preview.rs`: `MarkJob` (watermark, header
+  and footer, numbers with the number of the page previewed, background, nothing when the page
+  is not marked), applied to the current page of a copy of the document 250 ms after the last
+  change and drawn at the zoom of Page Marks › Zoom In/Out, served at `/markprev/{n}.png`.
+  The old `files::bates_multiple` is gone.
+- **Checked:** self-test step `complete` (9 interactions, 0 problems): b.pdf moved before
+  a.pdf, a.pdf given page 1: b-bates.pdf has B7…B9, a-bates.pdf B10 on page 1 and nothing on
+  page 2, the next number 11; a column added; the watermark preview 297 px wide at 50 %, wider
+  after Zoom In, the document unchanged.
+- **Open:** —
+
 ## 2026-11-13 — FOL-L003, L001, L004: search, loupe and pane options (0.95.0)
 
 - **Current state before:** Search › Stop, Annotate Results, Colored Results, Select › Annotate

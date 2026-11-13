@@ -2,6 +2,7 @@
 
 pub(crate) mod actions;
 pub(crate) mod barcodes;
+pub(crate) mod bates_files;
 pub(crate) mod compare;
 pub(crate) mod convert;
 pub(crate) mod doctools;

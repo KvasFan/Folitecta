@@ -20,8 +20,9 @@ pub(crate) mod protection;
 pub(crate) mod text;
 pub(crate) mod window;
 pub(crate) use document::{
-    actions, barcodes, compare, convert, doctools, file, fileops, greyscale, macros, mail, ocr, office,
-    pages, paths, pictures, preflight, print, scanning, scans, sources, split, table_export, templates,
+    actions, barcodes, bates_files, compare, convert, doctools, file, fileops, greyscale, macros, mail, ocr,
+    office, pages, paths, pictures, preflight, print, scanning, scans, sources, split, table_export,
+    templates,
 };
 pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
@@ -125,6 +126,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     mail::HANDLERS,
     articles::HANDLERS,
     groups::HANDLERS,
+    bates_files::HANDLERS,
 ];
 
 static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {
@@ -366,6 +368,7 @@ pub fn toggle_state(st: AppState, id: &str) -> Option<bool> {
         .or_else(|| split::split_state(st, id))
         .or_else(|| qat::qat_state(st, id))
         .or_else(|| read_aloud::reading_state(st, id))
+        .or_else(|| bates_files::bates_files_state(st, id))
 }
 
 fn toggle_view_option(st: AppState, id: &str) {

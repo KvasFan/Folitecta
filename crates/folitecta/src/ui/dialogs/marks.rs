@@ -1,6 +1,7 @@
 //! Page mark dialogs: watermarks, headers and footers, page and Bates numbers, backgrounds and removing marks.
 
 use super::*;
+use crate::ui::features::mark_preview::MarkJob;
 
 /// Localized name of a mark position.
 pub(super) fn pos_label(lang: Lang, p: MarkPosition) -> String {
@@ -23,7 +24,7 @@ pub(super) fn Watermark() -> Element {
     let mut position = use_signal(|| "Center".to_string());
     let mut color = use_signal(|| "#9ca3af".to_string());
     rsx! {
-        Frame { title: t(lang, "dialog.watermark.title"),
+        Frame { title: t(lang, "dialog.watermark.title"), wide: true,
             on_ok: move |_| match scope_pages(st, mode(), &range()) {
                 Ok(pages) => {
                     let opts = TextMarkOptions {
@@ -56,7 +57,31 @@ pub(super) fn Watermark() -> Element {
                 div { class: "field", label { "{t(lang, \"dialog.watermark.color\")}" } input { r#type: "color", value: "{color}", oninput: move |e| color.set(e.value()) } }
             }
             PageScope { mode, range }
+            crate::ui::features::mark_preview::MarkPreview {
+                job: in_scope(st, mode(), &range(), |_| MarkJob::Watermark(TextMarkOptions {
+                    text: text(),
+                    font_size: size().trim().parse().unwrap_or(72.0),
+                    color: parse_color(&color()),
+                    opacity: opacity().trim().parse::<f32>().unwrap_or(40.0) / 100.0,
+                    rotation: rotation().trim().parse().unwrap_or(45.0),
+                    position: MarkPosition::from_label(&position()).unwrap_or_default(),
+                    margin: 24.0,
+                }))
+            }
         }
+    }
+}
+
+/// The mark of the preview when the current page is among the pages
+/// marked (`ordinal`: its place among them), else none.
+fn in_scope(st: AppState, mode: Scope, range: &str, job: impl FnOnce(usize) -> MarkJob) -> MarkJob {
+    let page = st.current_page();
+    match scope_pages(st, mode, range) {
+        Ok(pages) => match pages.iter().position(|p| *p == page) {
+            Some(ordinal) => job(ordinal),
+            None => MarkJob::Nothing,
+        },
+        Err(_) => MarkJob::Nothing,
     }
 }
 
@@ -100,6 +125,14 @@ pub(super) fn HeaderFooter() -> Element {
             div { class: "field-grid", Num { label: t(lang, "dialog.watermark.size"), value: size, min: "5", max: "72" } Num { label: t(lang, "dialog.margin.pt"), value: margin, min: "0", max: "200" } }
             crate::ui::features::macros::MacroPicker {}
             PageScope { mode, range }
+            crate::ui::features::mark_preview::MarkPreview {
+                job: in_scope(st, mode(), &range(), |_| MarkJob::HeaderFooter {
+                    header: [hl(), hc(), hr()],
+                    footer: [fl(), fc(), fr()],
+                    size: size().trim().parse().unwrap_or(10.0),
+                    margin: margin().trim().parse().unwrap_or(28.0),
+                })
+            }
         }
     }
 }
@@ -139,7 +172,7 @@ pub(super) fn PageNumbers(bates: bool) -> Element {
         t(lang, "dialog.numbers.title")
     };
     rsx! {
-        Frame { title,
+        Frame { title, wide: true,
             on_ok: move |_| match scope_pages(st, mode(), &range()) {
                 Ok(pages) => {
                     let fmt = format();
@@ -169,6 +202,14 @@ pub(super) fn PageNumbers(bates: bool) -> Element {
                 }
             }
             PageScope { mode, range }
+            crate::ui::features::mark_preview::MarkPreview {
+                job: in_scope(st, mode(), &range(), |ordinal| MarkJob::Numbers {
+                    format: format(),
+                    number: start().trim().parse::<i64>().unwrap_or(1) + ordinal as i64,
+                    position: MarkPosition::from_label(&position()).unwrap_or(MarkPosition::BottomCenter),
+                    size: size().trim().parse().unwrap_or(10.0),
+                })
+            }
         }
     }
 }
@@ -212,7 +253,7 @@ pub(super) fn Background() -> Element {
     let mut color = use_signal(|| "#fff8dc".to_string());
     let opacity = use_signal(|| "100".to_string());
     rsx! {
-        Frame { title: t(lang, "dialog.background.title"),
+        Frame { title: t(lang, "dialog.background.title"), wide: true,
             on_ok: move |_| match scope_pages(st, mode(), &range()) {
                 Ok(pages) => { let c = parse_color(&color()); let o = num_or(&opacity, 100.0).clamp(1.0, 100.0) / 100.0; apply(st, |tab| tab.doc.add_background_color(&pages, c, o)); }
                 Err(e) => st.error(e),
@@ -223,6 +264,12 @@ pub(super) fn Background() -> Element {
             }
             div { class: "hint", "{t(lang, \"dialog.background.hint\")}" }
             PageScope { mode, range }
+            crate::ui::features::mark_preview::MarkPreview {
+                job: in_scope(st, mode(), &range(), |_| MarkJob::Background {
+                    color: parse_color(&color()),
+                    opacity: num_or(&opacity, 100.0).clamp(1.0, 100.0) / 100.0,
+                })
+            }
         }
     }
 }

@@ -680,5 +680,15 @@
   "dialog.pane_options.thumb_size": "Size of the thumbnails",
   "dialog.pane_options.loupe_factor": "Enlargement",
   "dialog.pane_options.recovery_every": "Every how many minutes",
-  "dialog.pane_options.recovery_hint": "The copies are offered at the next start when Folitecta ends without saving; they never hold protected documents."
+  "dialog.pane_options.recovery_hint": "The copies are offered at the next start when Folitecta ends without saving; they never hold protected documents.",
+  "bates_files.choose": "Bates numbering: choose the documents",
+  "bates_files.choose_file": "Choose a file of the list first.",
+  "bates_files.empty": "Add the PDF files to number, in the order they are numbered.",
+  "bates_files.unreadable": "{file} cannot be opened: remove it from the list.",
+  "bates_files.bad_range": "The pages “{range}” of {file} are not pages of the file.",
+  "bates_files.number": "Number",
+  "bates_files.file": "File",
+  "bates_files.hint": "Each file is numbered in a copy next to it, named with “-bates”; the numbers go on from one file to the next. {docnumber} in the format is the place of the file in the list.",
+  "dialog.mark_preview.title": "Preview",
+  "dialog.mark_preview.failed": "The page cannot be shown with this mark."
 }

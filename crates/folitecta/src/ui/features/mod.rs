@@ -4,6 +4,7 @@
 pub mod acc_dialogs;
 pub mod actions;
 pub mod barcodes;
+pub mod bates_files;
 pub mod calculator;
 pub mod calendar;
 pub mod compare;
@@ -22,6 +23,7 @@ pub mod inspect;
 pub mod javascript;
 pub mod macros;
 pub mod mail;
+pub mod mark_preview;
 pub mod media;
 pub mod ocr;
 pub mod office;

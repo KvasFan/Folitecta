@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1587 |
-| 🟡 partial | 54 |
-| ⬜ planned | 373 |
+| ✅ available | 1607 |
+| 🟡 partial | 53 |
+| ⬜ planned | 354 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -883,13 +883,13 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Time | `macro.time` | ✅ available |
 | ↳ User | `macro.user` | ✅ available |
 | ↳ Year | `macro.year` | ✅ available |
-| Page Marks | `pagemarks` | 🟡 partial |
+| Page Marks | `pagemarks` | ✅ available |
 | ↳ Add | `pagemarks.add` | ✅ available |
 | ↳ Edit… | `pagemarks.edit` | ✅ available |
 | ↳ Remove | `pagemarks.remove` | ✅ available |
 | ↳ Remove All | `pagemarks.removeAll` | ✅ available |
-| ↳ Zoom Out | `pagemarks.zoomOut` | ⬜ planned |
-| ↳ Zoom in | `pagemarks.zoomIn` | ⬜ planned |
+| ↳ Zoom Out | `pagemarks.zoomOut` | ✅ available |
+| ↳ Zoom in | `pagemarks.zoomIn` | ✅ available |
 | Page Numbering… | `document.pageNumbering` | ✅ available |
 | Page Transitions | `document.pageTransitions` | ✅ available |
 | Watermarks | `document.watermarks` | ✅ available |
@@ -1251,7 +1251,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Security Properties… | `document.security` | ✅ available |
 | Exit | `exit` | ✅ available |
 | Add Place | `addPlace` | ✅ available |
-| Bates Numbering Files | `batesNumberingFiles` | ⬜ planned |
+| Bates Numbering Files | `batesNumberingFiles` | ✅ available |
 | Blank Pages… | `newDocBlank` | ✅ available |
 | Browse Places… | `openFromPlaces` | ✅ available |
 | Browse Places… | `saveToPlaces` | ✅ available |
@@ -1370,7 +1370,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Ink Smooth Level | `inkSmoothLevel` | ⬜ planned |
 | Item | `item` | 🟡 partial |
 | Line Width Profile | `lineWidthProfile` | ⬜ planned |
-| List | `list` | ⬜ planned |
+| List | `list` | ✅ available |
 | Make Same Height | `makeSameHeight` | ✅ available |
 | Make Same Size | `makeSameSize` | ✅ available |
 | Make Same Width | `makeSameWidth` | ✅ available |
@@ -1655,7 +1655,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Overlay | `overlay` | ✅ available |
 | Overlay Pages… | `document.overlayPages` | ✅ available |
 | Page Boxes… | `document.pageBoxes` | ✅ available |
-| Page Marks | `pagemarks` | 🟡 partial |
+| Page Marks | `pagemarks` | ✅ available |
 | Page Structure | `pageStructure` | ✅ available |
 | Page Transitions | `document.pageTransitions` | ✅ available |
 | Preflight PDF/A… | `document.preflight` | ✅ available |
@@ -1903,15 +1903,15 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `attachmentsView.open` | View › Attachments Pane › Open | ✅ available |
 | `attachmentsView.options` | View › Attachments Pane › Options | ✅ available |
 | `attachmentsView.save` | View › Attachments Pane › Save | ✅ available |
-| `batesNumberingFiles.hdr` | File › Bates Numbering Files › Columns | ⬜ planned |
-| `batesNumberingFiles.hdr.location` | File › Bates Numbering Files › Columns › Location | ⬜ planned |
-| `batesNumberingFiles.hdr.modified` | File › Bates Numbering Files › Columns › Modified | ⬜ planned |
-| `batesNumberingFiles.hdr.pagesCount` | File › Bates Numbering Files › Columns › Pages Count | ⬜ planned |
-| `batesNumberingFiles.hdr.pagesRange` | File › Bates Numbering Files › Columns › Pages Range | ⬜ planned |
-| `batesNumberingFiles.hdr.pagesSize` | File › Bates Numbering Files › Columns › Pages Size | ⬜ planned |
-| `batesNumberingFiles.hdr.size` | File › Bates Numbering Files › Columns › Size | ⬜ planned |
-| `batesNumberingFiles.hdr.title` | File › Bates Numbering Files › Columns › Title | ⬜ planned |
-| `batesNumberingFiles.hdr.type` | File › Bates Numbering Files › Columns › Type | ⬜ planned |
+| `batesNumberingFiles.hdr` | File › Bates Numbering Files › Columns | ✅ available |
+| `batesNumberingFiles.hdr.location` | File › Bates Numbering Files › Columns › Location | ✅ available |
+| `batesNumberingFiles.hdr.modified` | File › Bates Numbering Files › Columns › Modified | ✅ available |
+| `batesNumberingFiles.hdr.pagesCount` | File › Bates Numbering Files › Columns › Pages Count | ✅ available |
+| `batesNumberingFiles.hdr.pagesRange` | File › Bates Numbering Files › Columns › Pages Range | ✅ available |
+| `batesNumberingFiles.hdr.pagesSize` | File › Bates Numbering Files › Columns › Pages Size | ✅ available |
+| `batesNumberingFiles.hdr.size` | File › Bates Numbering Files › Columns › Size | ✅ available |
+| `batesNumberingFiles.hdr.title` | File › Bates Numbering Files › Columns › Title | ✅ available |
+| `batesNumberingFiles.hdr.type` | File › Bates Numbering Files › Columns › Type | ✅ available |
 | `bookmarks.bold` | Document › Bookmarks › Bold | ✅ available |
 | `bookmarks.italic` | Document › Bookmarks › Italic | ✅ available |
 | `bookmarksView.addDest` | View › Bookmarks Pane › Add Destination | ✅ available |
@@ -2190,12 +2190,12 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `linksView.link.openInBrowser` | View › Links Pane › Link › Open in Browser | ✅ available |
 | `linksView.options` | View › Links Pane › Options | ✅ available |
 | `linksView.wrapTitles` | View › Links Pane › Wrap Titles | ✅ available |
-| `list.add` | Edit › List › Add | ⬜ planned |
-| `list.clear` | Edit › List › Clear | ⬜ planned |
-| `list.delete` | Edit › List › Delete | ⬜ planned |
-| `list.down` | Edit › List › Down | ⬜ planned |
-| `list.edit` | Edit › List › Edit | ⬜ planned |
-| `list.up` | Edit › List › Up | ⬜ planned |
+| `list.add` | Edit › List › Add | ✅ available |
+| `list.clear` | Edit › List › Clear | ✅ available |
+| `list.delete` | Edit › List › Delete | ✅ available |
+| `list.down` | Edit › List › Down | ✅ available |
+| `list.edit` | Edit › List › Edit | ✅ available |
+| `list.up` | Edit › List › Up | ✅ available |
 | `loupeView.showBoxes` | View › Loupe › Show Boxes | ✅ available |
 | `loupeView.showGuides` | View › Loupe › Show Guides | ✅ available |
 | `loupeView.snapshot` | View › Loupe › Snapshot | ✅ available |

@@ -386,6 +386,18 @@ pub fn App() -> Element {
         });
     });
 
+    // The preview of a page mark in its window at /markprev/{number}.png.
+    use_asset_handler("markprev", move |request, responder| {
+        let resp = match ui::features::mark_preview::serve(request.uri().path()) {
+            Some(png) => Response::builder()
+                .status(200)
+                .header("Content-Type", "image/png")
+                .body(png.to_vec()),
+            None => Response::builder().status(404).body(Vec::new()),
+        };
+        responder.respond(resp.unwrap_or_else(|_| Response::new(Vec::new())));
+    });
+
     // Thumbnails of PDF files in the explorer at /thumb/{hex path}.png, rendered on a thread.
     use_asset_handler("thumb", move |request, responder| {
         let path = request.uri().path().to_string();

@@ -7,6 +7,12 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Document › Bates Numbering › Add to Several Files opens the list of the files to number: added,
+  moved up and down, removed and cleared (Edit › List), the pages of each chosen, the columns
+  chosen (title, location, type, size, modified, number of pages, pages numbered, page size),
+  the format and the first number; each file is numbered in a copy, the numbers going on.
+- The watermark, header and footer, page number, Bates number and background windows preview the
+  current page with the mark; Page Marks › Zoom In and Zoom Out enlarge the preview.
 - Search › Select › Annotate Result highlights the current result only; Search › Annotate Results
   and Colored Results are Find's options; Search › Stop stops a search through a folder.
 - Loupe › Show Boxes and Show Guides draw the page boxes and the guides in the loupe; Loupe › Zoom

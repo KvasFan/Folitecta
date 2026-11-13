@@ -2,7 +2,8 @@
 //! group commands open the list of their group's commands, and a row runs
 //! its command; Search › Annotate Result and the search options; the page
 //! boxes and guides in the loupe; Interactive Visible of the thumbnails; the
-//! options windows of panes and of recovery.
+//! options windows of panes and of recovery; Bates numbering of several
+//! files from their list; the preview of page marks and its zoom.
 
 use super::*;
 
@@ -94,6 +95,8 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
 
     search_and_loupe(cx).await;
     thumbnails_and_options(cx).await;
+    bates_files(cx).await;
+    mark_preview(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -213,5 +216,114 @@ async fn thumbnails_and_options(cx: &mut Ctx<'_>) {
         "Recovery › Options and Thumbnails › Options set their values",
         minutes == 5 && toggled,
         format!("recovery every {minutes} minutes, logical visible toggled {toggled}"),
+    );
+}
+
+/// Two files in the list, the second moved first, the first given one page:
+/// the copies get the numbers in that order; a column shown and hidden.
+async fn bates_files(cx: &mut Ctx<'_>) {
+    use crate::commands::bates_files::BATES_FILES;
+    let st = cx.st;
+    let dir = std::env::temp_dir().join(format!("foli-bates-{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&dir);
+    let (a, b) = (dir.join("a.pdf"), dir.join("b.pdf"));
+    let _ = std::fs::write(&a, folitecta_core::testdocs::text_doc(2));
+    let _ = std::fs::write(&b, folitecta_core::testdocs::text_doc(3));
+    *BATES_FILES.write() = Default::default();
+    crate::commands::dispatch(st, "document.batesNumbering.addMulti");
+    crate::commands::bates_files::add_paths(vec![a.clone(), b.clone()]);
+    for _ in 0..30 {
+        if BATES_FILES.peek().items.len() == 2 {
+            break;
+        }
+        pause(100).await;
+    }
+    pause(300).await;
+    let heads = || eval("return document.querySelectorAll('.dialog table.bates-files th').length;");
+    let before = heads().await.ok().and_then(|v| v.as_u64()).unwrap_or(0);
+    crate::commands::dispatch(st, "batesNumberingFiles.hdr.size");
+    pause(300).await;
+    let more = heads().await.ok().and_then(|v| v.as_u64()).unwrap_or(0);
+    crate::commands::dispatch(st, "batesNumberingFiles.hdr.size");
+    // b first, a with its first page only.
+    let _ = eval("document.querySelectorAll('.dialog table.bates-files tbody tr')[1]?.click();").await;
+    pause(200).await;
+    crate::commands::dispatch(st, "list.up");
+    pause(200).await;
+    let order: Vec<String> = BATES_FILES
+        .peek()
+        .items
+        .iter()
+        .filter_map(|f| f.path.file_name().map(|n| n.to_string_lossy().to_string()))
+        .collect();
+    let _ = eval("const i = document.getElementById('bates-range-1'); if (i) { i.value = '1'; i.dispatchEvent(new Event('input', { bubbles: true })); }").await;
+    let _ = eval("const f = document.querySelectorAll('.dialog .field-grid input'); if (f[0]) { f[0].value = 'B{page}'; f[0].dispatchEvent(new Event('input', { bubbles: true })); } if (f[1]) { f[1].value = '7'; f[1].dispatchEvent(new Event('input', { bubbles: true })); }").await;
+    pause(300).await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    let (ab, bb) = (dir.join("a-bates.pdf"), dir.join("b-bates.pdf"));
+    for _ in 0..50 {
+        if ab.exists() && bb.exists() {
+            break;
+        }
+        pause(200).await;
+    }
+    pause(300).await;
+    let text = |p: &std::path::Path, page: usize| {
+        folitecta_core::Document::open(p)
+            .map(|d| d.page_text(page))
+            .unwrap_or_default()
+    };
+    let (b1, b3, a1, a2) = (text(&bb, 0), text(&bb, 2), text(&ab, 0), text(&ab, 1));
+    let numbered = b1.contains("B7") && b3.contains("B9") && a1.contains("B10") && !a2.contains("B11");
+    let next = st.value("bates.next");
+    let _ = std::fs::remove_dir_all(&dir);
+    st.set_value("bates.next", "1");
+    st.set_value("bates.format", "");
+    *BATES_FILES.write() = Default::default();
+    cx.record(
+        "Bates numbering of several files: the list ordered, pages chosen, a column added; the copies numbered in that order",
+        more == before + 1 && order == ["b.pdf", "a.pdf"] && numbered && next == "11",
+        format!("columns {before} then {more}, order {order:?}, numbered {numbered}, next {next}"),
+    );
+}
+
+/// The watermark window shows the page with the watermark; Zoom In draws it
+/// larger.
+async fn mark_preview(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    st.set_value("marks.preview_zoom", "0.5");
+    let bytes = st.read_active(|t| t.doc.bytes());
+    st.set_dialog(Dialog::Watermark);
+    let width = || {
+        eval(
+            "const i = document.querySelector('.dialog .mark-preview-page img'); return i && i.complete ? i.naturalWidth : 0;",
+        )
+    };
+    let mut first = 0;
+    for _ in 0..30 {
+        pause(200).await;
+        first = width().await.ok().and_then(|v| v.as_u64()).unwrap_or(0);
+        if first > 0 {
+            break;
+        }
+    }
+    crate::commands::dispatch(st, "pagemarks.zoomIn");
+    let mut second = 0;
+    for _ in 0..30 {
+        pause(200).await;
+        second = width().await.ok().and_then(|v| v.as_u64()).unwrap_or(0);
+        if second > first {
+            break;
+        }
+    }
+    let changed = match (bytes, st.read_active(|t| t.doc.bytes())) {
+        (Some(a), Some(b)) => !std::sync::Arc::ptr_eq(&a, &b),
+        _ => true,
+    };
+    st.set_dialog(Dialog::None);
+    cx.record(
+        "the watermark window previews the page with the mark; Page Marks › Zoom In draws it larger; the document is not changed",
+        first > 250 && first < 350 && second > first && !changed,
+        format!("preview {first} px wide, after Zoom In {second} px, document changed {changed}"),
     );
 }

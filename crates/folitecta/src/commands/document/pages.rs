@@ -206,13 +206,15 @@ handlers! {
     "document.headerAndFooter.removeAll" => |st| remove_marks(st, "HeaderFooter"),
     "document.batesNumbering" => |st| doc_dialog(st, Dialog::Bates),
     "document.batesNumbering.add" => |st| doc_dialog(st, Dialog::Bates),
-    "document.batesNumbering.addMulti" => |st| files::bates_multiple(st),
     "document.batesNumbering.removeAll" => |st| remove_marks(st, "PageNumber"),
     "document.pageNumbering" => |st| doc_dialog(st, Dialog::PageLabels),
     "macro.pageNumberingStyle.options" => |st| doc_dialog(st, Dialog::PageLabels),
     "document.pageTransitions" => |st| doc_dialog(st, Dialog::Transitions),
     "pagemarks.removeAll" => |st| doc_dialog(st, Dialog::RemoveMarks),
     "pagemarks.add" => |st| doc_dialog(st, Dialog::PageNumbers),
+    // The preview of the page mark windows.
+    "pagemarks.zoomIn" => |st| crate::ui::features::mark_preview::zoom_by(st, 1.25),
+    "pagemarks.zoomOut" => |st| crate::ui::features::mark_preview::zoom_by(st, 0.8),
     // The marks of the pages listed, to change or remove one by one.
     "pagemarks.edit" => |st| doc_dialog(st, Dialog::ManageMarks("PageNumber".into())),
     "pagemarks.remove" => |st| doc_dialog(st, Dialog::ManageMarks("PageNumber".into())),

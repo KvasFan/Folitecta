@@ -873,6 +873,13 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    Interactive Visible of the thumbnails; the options windows of the thumbnails, links and
    recovery (`Dialog::PaneOptions`), recovery copies every 1–15 minutes or none.
 
+### 0.96.0 — Bates numbering of files listed, page mark previews (on `main`, untagged)
+
+1. ~~**FOL-L017 — Bates numbering of files listed, previews of page marks.**~~ Done: the
+   list of files (`commands/document/bates_files.rs`, `Dialog::BatesFiles`), Edit › List and
+   the eight columns; the preview of the page mark windows (`ui/features/mark_preview.rs`,
+   `/markprev/`) with Page Marks › Zoom In and Zoom Out.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

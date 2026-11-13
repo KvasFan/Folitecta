@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1723 |
-| 🟡 partial | 40 |
-| ⬜ planned | 251 |
+| ✅ available | 1729 |
+| 🟡 partial | 39 |
+| ⬜ planned | 246 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -801,14 +801,14 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Crop | `crop` | ⬜ planned |
-| ↳ Apply | `crop.apply` | ⬜ planned |
-| Crop Page | `cropPage` | 🟡 partial |
-| ↳ Apply | `cropPage.apply` | ⬜ planned |
+| Crop | `crop` | ✅ available |
+| ↳ Apply | `crop.apply` | ✅ available |
+| Crop Page | `cropPage` | ✅ available |
+| ↳ Apply | `cropPage.apply` | ✅ available |
 | ↳ Hide All Boxes | `cropPage.hideAllBoxes` | ✅ available |
-| ↳ Hide Origin Anchor | `cropPage.hideOriginAnchor` | ⬜ planned |
+| ↳ Hide Origin Anchor | `cropPage.hideOriginAnchor` | ✅ available |
 | ↳ Show All Boxes | `cropPage.showAllBoxes` | ✅ available |
-| ↳ Show Origin Anchor | `cropPage.showOriginAnchor` | ⬜ planned |
+| ↳ Show Origin Anchor | `cropPage.showOriginAnchor` | ✅ available |
 | Crop Page Tool | `tool.cropPage` | ✅ available |
 | Crop Pages… | `document.cropPages` | ✅ available |
 | Crop to White Margins | `document.cropToWhiteMargins` | ✅ available |
@@ -1342,8 +1342,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Align To | `alignto` | ✅ available |
 | Choose Layer | `chooseLayer` | ✅ available |
 | Clipboard | `clipboardGroup` | ✅ available |
-| Crop | `crop` | ⬜ planned |
-| Crop Page | `cropPage` | 🟡 partial |
+| Crop | `crop` | ✅ available |
+| Crop Page | `cropPage` | ✅ available |
 | Customize Toolbars | `customizeToolbars` | ✅ available |
 | Default Layer | `defaultLayer` | ✅ available |
 | Distribute Horizontally | `distribHorz` | 🟡 partial |

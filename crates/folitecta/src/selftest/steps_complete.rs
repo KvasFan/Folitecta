@@ -12,7 +12,8 @@
 //! actions of a link; page display and snap settings, inertial scroll, the
 //! panes' info bar, Manage Form Data, History; the settings of freehand
 //! strokes and of the eraser; the Allow/Block List, Batch Link, a new
-//! document from the selection, the picture commands.
+//! document from the selection, the picture commands; the area drawn to crop
+//! to, the origin anchor.
 
 use super::*;
 
@@ -116,6 +117,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     display_settings(cx).await;
     ink_settings(cx).await;
     allow_and_batch(cx).await;
+    crop_area(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -1128,5 +1130,53 @@ async fn allow_and_batch(cx: &mut Ctx<'_>) {
         "the Allow/Block List blocks a site and lets a pattern open without asking; Batch Link; a new document from the pages chosen; the picture commands",
         blocked == Some(false) && !trusted && other && not_asked && wrote && files == 1 && links >= 1 && errors.is_empty() && copy && new_tab && picture_rows >= 3,
         format!("blocked {blocked:?}, trusted asked {trusted}, other asked {other}, not asked {not_asked}, batch {files} files {links} links {errors:?} copy {copy}, new tab {new_tab}, picture commands {picture_rows}"),
+    );
+}
+
+/// Crop Page › Apply asks for the area, the snapshot tool draws it, Apply
+/// crops page 1 to it; the origin anchor shown and hidden.
+async fn crop_area(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    st.go_to_page(0);
+    st.with_active(|t| t.zoom = crate::state::Zoom::FitWidth);
+    pause(500).await;
+    let z = crate::commands::current_zoom(st);
+    crate::commands::dispatch(st, "cropPage.apply");
+    pause(300).await;
+    let asked = (st.tool)() == Tool::Snapshot;
+    let _ = pointer_path(0, z, &[(100.0, 150.0), (300.0, 400.0)], false).await;
+    pause(600).await;
+    let area = st.read_active(|t| t.crop_area).flatten();
+    let shown = eval("return document.querySelectorAll('#pg-0 .crop-area').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    crate::commands::dispatch(st, "cropPage.apply");
+    pause(400).await;
+    let crop = st
+        .read_active(|t| t.doc.page_size(0).ok().map(|s| s.crop_box))
+        .flatten();
+    let cropped = crop.is_some_and(|c| {
+        (c[0] - 100.0).abs() < 2.0 && (c[2] - c[0] - 200.0).abs() < 2.0 && (c[3] - c[1] - 250.0).abs() < 2.0
+    });
+    let other = st
+        .read_active(|t| t.doc.page_size(1).ok().map(|s| s.crop_box == s.media_box))
+        .flatten()
+        == Some(true);
+    let _ = st.with_active(|t| t.doc.undo());
+    crate::commands::dispatch(st, "cropPage.showOriginAnchor");
+    pause(400).await;
+    let anchor = eval("return document.querySelectorAll('#pg-0 .origin-anchor').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    crate::commands::dispatch(st, "cropPage.hideOriginAnchor");
+    st.set_tool(Tool::Hand);
+    cx.record(
+        "Crop Page › Apply asks for the area, it is drawn and shown, the second Apply crops that page only; the origin anchor shown",
+        asked && area.is_some() && shown == 1 && cropped && other && anchor == 1,
+        format!("asked {asked}, area {area:?} shown {shown}, crop {crop:?} other page uncropped {other}, anchor {anchor}"),
     );
 }

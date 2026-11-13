@@ -144,6 +144,8 @@ pub struct DocTab {
     pub guides: Vec<Guide>,
     /// The guides chosen (Guides › Select All, Select on Page): their places in `guides`.
     pub guide_sel: Vec<usize>,
+    /// The area drawn to crop to (Crop › Apply): page and display rectangle.
+    pub crop_area: Option<(usize, [f32; 4])>,
     /// Visited pages for previous/next view navigation.
     pub history: Vec<usize>,
     pub history_pos: usize,
@@ -349,6 +351,7 @@ impl DocTab {
             text_sel: None,
             guides: Vec::new(),
             guide_sel: Vec::new(),
+            crop_area: None,
             history: vec![0],
             history_pos: 0,
             comment_filter: CommentFilter::default(),

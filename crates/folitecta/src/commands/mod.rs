@@ -20,9 +20,9 @@ pub(crate) mod protection;
 pub(crate) mod text;
 pub(crate) mod window;
 pub(crate) use document::{
-    actions, barcodes, bates_files, compare, convert, doctools, file, fileops, greyscale, macros, mail,
-    more_files, ocr, office, pages, paths, pictures, preflight, presets, print, scanning, scans, sources,
-    split, table_export, templates,
+    actions, barcodes, bates_files, compare, convert, crop_area, doctools, file, fileops, greyscale, macros,
+    mail, more_files, ocr, office, pages, paths, pictures, preflight, presets, print, scanning, scans,
+    sources, split, table_export, templates,
 };
 pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
@@ -137,6 +137,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     action_views::HANDLERS,
     ink_settings::HANDLERS,
     allow_list::HANDLERS,
+    crop_area::HANDLERS,
     more_files::HANDLERS,
 ];
 

@@ -89,6 +89,9 @@ pub(super) fn PageView(
         link_hits: Vec<(usize, String, [f32; 4])>,
         popups: Vec<PopupView>,
         flash: Option<[f32; 4]>,
+        crop_area: Option<[f32; 4]>,
+        /// Where the page's coordinates start (Crop Page › Show Origin Anchor).
+        origin: Option<(f32, f32)>,
         /// The boxes of the page, when they are shown: kind and rectangle.
         boxes: Vec<(&'static str, [f32; 4])>,
         /// The lines of the paragraph read aloud.
@@ -395,6 +398,9 @@ pub(super) fn PageView(
                 link_hits,
                 popups,
                 flash: t.flash.filter(|(p, _)| *p == page).map(|(_, r)| r),
+                crop_area: t.crop_area.filter(|(p, _)| *p == page).map(|(_, r)| r),
+                origin: crate::commands::option_on(st, "view.originAnchor")
+                    .then(|| folitecta_core::marks::pdf_to_display(&size, 0.0, 0.0)),
                 boxes: if show_boxes {
                     page_box_marks(t, page, &size)
                 } else {
@@ -1263,6 +1269,12 @@ pub(super) fn PageView(
                 }
                 if let Some(r) = view.flash {
                     div { class: "dest-flash", style: "{css(r)}" }
+                }
+                if let Some(r) = view.crop_area {
+                    div { class: "crop-area", style: "{css(r)}" }
+                }
+                if let Some((ox, oy)) = view.origin {
+                    div { class: "origin-anchor", style: "left:{ox * z}px;top:{oy * z}px" }
                 }
                 for (kind, r) in view.boxes.iter() {
                     div { key: "box{kind}", class: "page-box {kind}", style: "{css(*r)}" }

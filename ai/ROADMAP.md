@@ -940,6 +940,11 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    `follow::verdict` and `ListEntry`, `commands/navigation/allow_list.rs`, `AllowBlockDialog`;
    `commands/document/more_files.rs` (From Rich Text, From Selection, Batch Link); Image.
 
+### 0.106.0 — the area drawn to crop to (on `main`, untagged)
+
+1. ~~**FOL-L016 — the area drawn to crop to.**~~ Done: `commands/document/crop_area.rs`,
+   `DocTab::crop_area` drawn on its page, the snapshot tool's `crop` target, the origin anchor.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

@@ -504,6 +504,15 @@ pub(super) fn finish_create(
                 t.doc
                     .render_region_png_with_view(page, [x0, y0, x1, y1], 2.0, &t.view_layer_states())
             });
+            // Crop › Apply asked for the area: it is kept, shown, and applied
+            // by Apply.
+            if st.ui.read().value("snapshot.target") == Some("crop") {
+                st.set_value("snapshot.target", "");
+                st.with_active(|t| t.crop_area = Some((page, [x0, y0, x1, y1])));
+                st.set_tool(Tool::Hand);
+                st.toast(ToastKind::Info, t(st.lang(), "toast.crop_area_drawn"), "");
+                return;
+            }
             // "New stamp from selection" keeps the area as a stamp.
             let to_stamp = st.ui.read().value("snapshot.target") == Some("stamp");
             match png {

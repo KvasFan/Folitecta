@@ -7,6 +7,10 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Crop Page › Apply and Crop › Apply: the first asks for the area to keep, drawn with the snapshot
+  tool and shown with the rest dimmed; the second crops the page it was drawn on (Crop Page) or
+  every page, those chosen in the thumbnails when there are (Crop). Show / Hide Origin Anchor mark
+  where the page's coordinates start.
 - Tools › Allow/Block List: web sites, patterns of sites (*.example.org), files and folders whose
   links open without asking, or never (a block wins); Add Host, Add Pattern, Add File and Add Folder
   open the list on that kind.

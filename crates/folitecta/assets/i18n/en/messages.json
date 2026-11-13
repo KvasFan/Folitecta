@@ -496,5 +496,7 @@
   "toast.actions_simple": "The actions are as simple as they can be.",
   "toast.actions_simplified": "{count} actions joined or taken away.",
   "toast.link_blocked": "The Allow/Block List blocks this link: {what}",
-  "toast.batch_links": "{files} files with web links ({links} links), each in a copy named “-links”."
+  "toast.batch_links": "{files} files with web links ({links} links), each in a copy named “-links”.",
+  "toast.crop_draw": "Draw the area to keep, then Apply again.",
+  "toast.crop_area_drawn": "The area to keep is shown: Crop Page › Apply crops this page, Crop › Apply every page (or those chosen)."
 }

@@ -178,3 +178,9 @@ textarea.field-input { resize: none; padding: 2px 3px; }
 .article-part.drawing .article-part-n { background: rgba(200, 90, 20, 0.9); }
 /* Guides chosen (Guides › Select All, Select on Page), for Copy and Delete. */
 .guide.chosen { background: #f97316; opacity: 1; box-shadow: 0 0 0 1px rgba(249, 115, 22, .45); }
+/* The area drawn to crop to, and the origin of the page's coordinates. */
+.crop-area { position: absolute; z-index: 5; pointer-events: none; outline: 2px dashed #16a34a; box-shadow: 0 0 0 4000px rgba(0, 0, 0, .25); }
+.origin-anchor { position: absolute; z-index: 6; width: 14px; height: 14px; margin: -7px 0 0 -7px; pointer-events: none; border: 2px solid #dc2626; border-radius: 50%; }
+.origin-anchor::before, .origin-anchor::after { content: ""; position: absolute; background: #dc2626; }
+.origin-anchor::before { left: -6px; right: -6px; top: 5px; height: 2px; }
+.origin-anchor::after { top: -6px; bottom: -6px; left: 5px; width: 2px; }

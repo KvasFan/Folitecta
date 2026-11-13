@@ -4,6 +4,19 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-14 — FOL-L016: the area drawn to crop to (0.106.0)
+
+- **Current state before:** Crop › Apply, Crop Page › Apply, Show Origin Anchor and Hide Origin
+  Anchor were planned; crops were typed as margins.
+- **What:** `crop_area.rs`: Apply without an area sets the snapshot tool's target to `crop`
+  and chooses it; the area drawn is kept in `DocTab::crop_area` and drawn (`.crop-area`, the
+  rest dimmed); Apply crops one page or all (or the chosen ones) to it, one undo step, and forgets
+  it. `view.originAnchor` draws a mark where the page's coordinates start.
+- **Checked:** self-test step `complete` (21 interactions, 0 problems): the snapshot tool asked
+  for, the area drawn and shown, page 1 cropped to 200 × 250 points at 100 from the left, page 2
+  untouched; the anchor drawn.
+- **Open:** —
+
 ## 2026-11-13 — FOL-L022, L005, L034: the Allow/Block List, Batch Link, new documents (0.105.0)
 
 - **Current state before:** the four Allow/Block List commands, Batch Link, From Rich Text, From

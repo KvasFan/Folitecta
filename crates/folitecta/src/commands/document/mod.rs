@@ -5,6 +5,7 @@ pub(crate) mod barcodes;
 pub(crate) mod bates_files;
 pub(crate) mod compare;
 pub(crate) mod convert;
+pub(crate) mod crop_area;
 pub(crate) mod doctools;
 pub(crate) mod file;
 pub(crate) mod fileops;

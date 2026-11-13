@@ -7,6 +7,11 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- The commands named after a group (Other Tools, Clipboard, Selection, Snap, Web Links, Share,
+  Panes, Other Panes, Page Layout, Rotate View, Document Tabs, Show, the tool sets of Tools ›
+  Tools, Add Comments, Delete Comments, More Page Tools) open a small window listing the commands
+  of their group that work, to run one; File and Form open their menus, No Properties the
+  properties pane.
 - Edit Content › Shapes: a click on a node of the chosen path chooses it; Convert makes it a sharp
   corner, smooth (its handles on one line, straight sides made curves) or straight (the segments
   at it made lines), and Anchors › Add puts a node halfway to the next one, from the bar over the

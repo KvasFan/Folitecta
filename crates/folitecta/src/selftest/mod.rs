@@ -429,6 +429,7 @@ mod steps_cards;
 mod steps_changes;
 mod steps_comment_history;
 mod steps_compare_pictures;
+mod steps_complete;
 mod steps_contents;
 mod steps_csv_options;
 mod steps_doubtful_words;
@@ -574,6 +575,7 @@ async fn run_step(cx: &mut Ctx<'_>, name: &str) {
             "scans" => Box::pin(steps_scans::run(cx)),
             "paths" => Box::pin(steps_paths::run(cx)),
             "page_select" => Box::pin(steps_page_select::run(cx)),
+            "complete" => Box::pin(steps_complete::run(cx)),
             "paste_pages" => Box::pin(steps_paste_pages::run(cx)),
             "replace_fonts" => Box::pin(steps_replace_fonts::run(cx)),
             "pencil" => Box::pin(steps_pencil::run(cx)),
@@ -689,6 +691,7 @@ const STEPS: &[&str] = &[
     "scans",
     "paths",
     "page_select",
+    "complete",
     "paste_pages",
     "replace_fonts",
     "pencil",
@@ -1271,6 +1274,7 @@ async fn full_suite(st: AppState, dir: &std::path::Path, log: &mut Vec<serde_jso
         ("js-prefs", Dialog::JsPrefs),
         ("doc-scripts", Dialog::DocScripts(Some(String::new()))),
         ("media-list", Dialog::MediaList),
+        ("command-group", Dialog::CommandGroup("otherToolsGroup".into())),
         ("new-folder", Dialog::NewFolder),
         ("folder-filter", Dialog::FolderFilter(None)),
         ("combine", Dialog::Combine),

@@ -553,3 +553,37 @@ pub(super) fn ArticleRename(index: usize, title: String) -> Element {
         }
     }
 }
+
+/// The commands of a group command (Other Tools, Clipboard, Panes…): a click
+/// runs one and closes the window.
+#[component]
+pub(super) fn CommandGroupDialog(id: String) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let reg = registry();
+    let title = reg.get(&id).map(|c| cmd_label(lang, c)).unwrap_or_default();
+    let ids = crate::commands::groups::group_commands(&id);
+    rsx! {
+        Frame { title,
+            div { class: "command-group",
+                if ids.is_empty() { p { class: "muted", "{t(lang, \"dialog.group.none\")}" } }
+                for cid in ids.into_iter() {
+                    {
+                        let label = reg.get(cid).map(|c| cmd_label(lang, c)).unwrap_or_default();
+                        let path = reg.path_label(cid);
+                        let shortcut = reg.get(cid).and_then(|c| c.shortcut.clone()).unwrap_or_default();
+                        rsx! {
+                            button { class: "command-group-row", key: "{cid}", "data-cmd": "{cid}", title: "{path}",
+                                onclick: move |_| { st.set_dialog(Dialog::None); crate::commands::dispatch(st, cid); },
+                                Icon { name: crate::icons::for_command(cid) }
+                                span { class: "grow", "{label}" }
+                                if !shortcut.is_empty() { span { class: "muted", "{shortcut}" } }
+                                {crate::ui::status_badge(cid)}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

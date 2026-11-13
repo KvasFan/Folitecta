@@ -674,5 +674,6 @@
   "dialog.watermark.text": "Text",
   "dialog.watermark.title": "Add watermark",
   "dialog.wordcount.chars": "Characters",
-  "dialog.wordcount.words": "Words"
+  "dialog.wordcount.words": "Words",
+  "dialog.group.none": "No command of this group works yet."
 }

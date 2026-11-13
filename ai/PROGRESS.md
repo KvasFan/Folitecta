@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-13 — FOL-L050: the commands of a group (0.94.0)
+
+- **Current state before:** 21 commands named after a group (Other Tools, Clipboard, Panes, the
+  tool sets of Tools › Tools…) and File, Form and No Properties were planned.
+- **What:** `commands/window/groups.rs`: `group_commands` (the curated ribbon groups of
+  `ribbon_layout.rs` and lists of their own; only commands with a handler, each once),
+  `Dialog::CommandGroup` drawn by `CommandGroupDialog` (a row per command: icon, name, shortcut;
+  a click closes the window and runs it). File and Form open their menus, also with the menu bar
+  hidden; No Properties shows the properties pane.
+- **Checked:** new self-test step `complete` (0 problems): Other Tools lists the loupe and a
+  click chooses it and closes the window; every group lists commands, none planned or partial;
+  Rotate View turns the view. The first run showed submenus without a handler in the panes
+  groups: only commands with a handler are listed now. The dialog audit has the new window.
+- **Open:** —
+
 ## 2026-11-10 — FOL-L001: zoom controls reached from the menus (0.93.0)
 
 - **Current state before:** Zoom Slider, Zoom Tools and Edit › Position planned, though the

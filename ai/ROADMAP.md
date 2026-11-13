@@ -860,6 +860,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    the keyboard on the zoom slider of the status bar; Tools › Zoom Tools and the ribbon's group
    choose the zoom tool; Edit › Position reaches the position slider of the media player.
 
+### 0.94.0 — the commands of a group (on `main`, untagged)
+
+1. ~~**FOL-L050 — group commands.**~~ Done: the 21 commands named after a group of commands open
+   a window listing the commands of the group that run by themselves (`commands/window/groups.rs`,
+   `Dialog::CommandGroup`); File and Form open their menus, No Properties the properties pane.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

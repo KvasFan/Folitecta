@@ -674,5 +674,6 @@
   "dialog.watermark.text": "Testo",
   "dialog.watermark.title": "Aggiungi filigrana",
   "dialog.wordcount.chars": "Caratteri",
-  "dialog.wordcount.words": "Parole"
+  "dialog.wordcount.words": "Parole",
+  "dialog.group.none": "Nessun comando di questo gruppo funziona ancora."
 }

@@ -380,6 +380,8 @@ pub enum Dialog {
     DocScripts(Option<String>),
     /// Sound and video comments of the document.
     MediaList,
+    /// The commands of a group command (its id), to run one.
+    CommandGroup(String),
     /// Properties of a sound or video comment.
     MediaProps {
         page: usize,

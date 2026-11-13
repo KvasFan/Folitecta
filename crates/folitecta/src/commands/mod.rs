@@ -33,7 +33,7 @@ pub(crate) use navigation::{
 };
 pub(crate) use protection::{policies, protect, redaction, revocation, signatures, signs};
 pub(crate) use text::{find_replace, read_aloud, search, spelling, textedit};
-pub(crate) use window::{edit, help, interface, qat, split_view, tab_groups, view};
+pub(crate) use window::{edit, groups, help, interface, qat, split_view, tab_groups, view};
 
 use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
@@ -124,6 +124,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     qat::HANDLERS,
     mail::HANDLERS,
     articles::HANDLERS,
+    groups::HANDLERS,
 ];
 
 static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {

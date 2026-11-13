@@ -389,6 +389,17 @@ pub enum Dialog {
     BatesFiles,
     /// The presets of a kind (`commands::presets::CHOSEN`).
     Presets,
+    /// The label of a comment.
+    CommentLabel {
+        page: usize,
+        index: usize,
+        label: String,
+    },
+    /// The styles of the comment chosen (false) or of the tool (true), to
+    /// apply one.
+    StyleList(bool),
+    /// The rows of data and the region of page marks.
+    RowData,
     /// Properties of a sound or video comment.
     MediaProps {
         page: usize,

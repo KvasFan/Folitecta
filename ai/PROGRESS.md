@@ -4,6 +4,22 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-13 — FOL-L026, L017, L028: comment labels, notes on text, rows of data (0.100.0)
+
+- **Current state before:** Edit Label, Delete Label, Add Text, Comment on selected text, Measure
+  Info › Copy, Comment Styles, Tool Styles List, Row Data (Options, Index, Name, Row Index) were
+  planned; Region was partial (the locale only).
+- **What:** core: `set_annotation_subject` (one undo step), `marks::RowData::from_csv`
+  (separator guessed), `set_row_data` and `set_region` read by `{rowindex}`, `{rowdata:N}`,
+  `{rowdata:Name}` (the page's place among those marked; rows start again) and `{region}`.
+  App: `comment_more.rs` (labels, Add Text, a highlight with its note, a measurement's
+  information as text, style lists, row data applied at start and after Options),
+  `CommentLabelDialog`, `StyleListDialog`, `RowDataDialog`; `macros::insert_owned`.
+- **Checked:** core test `macros.rs` (rows by place, by column number and name, again from the
+  first row; the region chosen; nothing without data); self-test step `complete` (15
+  interactions, 0 problems).
+- **Open:** —
+
 ## 2026-11-13 — FOL-L050 and others: guides, fields and files through the clipboard (0.99.0)
 
 - **Current state before:** Paste Guides, Paste Fields, Paste Files, Guides Select All and Select

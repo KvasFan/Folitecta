@@ -63,6 +63,11 @@ return true;
     });
 }
 
+/// Insert a macro made at run time (with a part to select).
+pub fn insert_owned(st: AppState, token: String, part: Option<String>) {
+    insert_token(st, &token, part.as_deref());
+}
+
 fn put(st: AppState, token: &'static str) {
     insert_token(st, token, None);
 }

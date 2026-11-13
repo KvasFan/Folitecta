@@ -26,7 +26,7 @@ pub(crate) use document::{
 };
 pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
-    arrange, calculator, comment_styles, comments, format, media, review, stamps, tables, ticks,
+    arrange, calculator, comment_more, comment_styles, comments, format, media, review, stamps, tables, ticks,
 };
 pub(crate) use navigation::{
     articles, attachments, bookmarks, explorer, history, layers, link_actions, page_select, panes, portfolio,
@@ -129,6 +129,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     bates_files::HANDLERS,
     presets::HANDLERS,
     clip_more::HANDLERS,
+    comment_more::HANDLERS,
 ];
 
 static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {
@@ -144,8 +145,6 @@ static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {
 /// Commands that perform a reduced version of the full operation.
 pub const PARTIAL: &[&str] = &[
     "fontName",
-    // From the locale environment variables only.
-    "macro.region",
     // The first matching annotation is selected (the selection holds one).
     "layersView.selectCorresponding.comments",
     "layersView.selectCorresponding.fields",

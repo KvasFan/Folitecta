@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1657 |
-| 🟡 partial | 48 |
-| ⬜ planned | 309 |
+| ✅ available | 1673 |
+| 🟡 partial | 45 |
+| ⬜ planned | 296 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -385,7 +385,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Add Replace Text Note | `textsel.addReplaceTextNote` | ✅ available |
 | Add Strikeout | `textsel.addStrikeout` | ✅ available |
 | Add Underline | `textsel.addUnderline` | ✅ available |
-| Comment | `textsel.comment` | ⬜ planned |
+| Comment | `textsel.comment` | ✅ available |
 | Highlight | `addAnnotBySelect.highlight` | ✅ available |
 | Insert Text | `tool.annot.insertText` | ✅ available |
 | Redaction | `addAnnotBySelect.redaction` | ✅ available |
@@ -421,8 +421,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Group Separator | `measure.groupSeparator` | ✅ available |
 | ↳ Precision | `measure.precision` | ✅ available |
 | Measure Edit | `measureEdit` | ⬜ planned |
-| Measure Info | `measureInfo` | ⬜ planned |
-| ↳ Copy | `measureInfo.copy` | ⬜ planned |
+| Measure Info | `measureInfo` | ✅ available |
+| ↳ Copy | `measureInfo.copy` | ✅ available |
 | Measurement Options… | `prefs.measurement` | ✅ available |
 | Measures | `measures` | ✅ available |
 | ↳ Manage… | `measures.manage` | ✅ available |
@@ -436,7 +436,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 |---|---|---|
 | Accounting Calculator | `comments.accountingCalc` | ✅ available |
 | Add Comments | `comments.newGroup` | ✅ available |
-| Comment Styles | `annotStylesList` | ⬜ planned |
+| Comment Styles | `annotStylesList` | ✅ available |
 | Comment Styles | `commentStyles` | ✅ available |
 | ↳ Apply Style | `commentStyles.applyStyle` | ✅ available |
 | ↳ Clone… | `commentStyles.clone` | ✅ available |
@@ -469,7 +469,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Popups | `comments.show.popups` | ✅ available |
 | Show/Hide All Comments | `comments.showhideAll` | ✅ available |
 | Summarize Comments… | `comments.summarize` | ✅ available |
-| Tool Styles List | `toolStylesList` | ⬜ planned |
+| Tool Styles List | `toolStylesList` | ✅ available |
 
 **Popup**
 
@@ -845,7 +845,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Add… | `document.headerAndFooter.add` | ✅ available |
 | ↳ Manage… | `document.headerAndFooter.manage` | ✅ available |
 | ↳ Remove All… | `document.headerAndFooter.removeAll` | ✅ available |
-| Macro | `macro` | 🟡 partial |
+| Macro | `macro` | ✅ available |
 | ↳ Application Version | `macro.appVersion` | ✅ available |
 | ↳ Auto-Number | `macro.autonumber` | ✅ available |
 | ↳ Bates Number | `macro.bates` | ✅ available |
@@ -873,11 +873,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Page Label | `macro.pageLabel` | ✅ available |
 | ↳ Page Number | `macro.page` | ✅ available |
 | ↳ Page Numbering Style | `macro.pageNumberingStyle` | ✅ available |
-| ↳ Region | `macro.region` | 🟡 partial |
-| ↳ Row Data | `macro.rowData` | ⬜ planned |
-| ↳ Row Data Index | `macro.rowDataIndex` | ⬜ planned |
-| ↳ Row Data Name | `macro.rowDataName` | ⬜ planned |
-| ↳ Row Index | `macro.rowIndex` | ⬜ planned |
+| ↳ Region | `macro.region` | ✅ available |
+| ↳ Row Data | `macro.rowData` | ✅ available |
+| ↳ Row Data Index | `macro.rowDataIndex` | ✅ available |
+| ↳ Row Data Name | `macro.rowDataName` | ✅ available |
+| ↳ Row Index | `macro.rowIndex` | ✅ available |
 | ↳ Seconds | `macro.seconds` | ✅ available |
 | ↳ Source Pages | `macro.srcPages` | ✅ available |
 | ↳ Time | `macro.time` | ✅ available |
@@ -1697,7 +1697,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Import Comments… | `comments.import` | ✅ available |
 | Export Comments to Data File… | `comments.export` | ✅ available |
 | Summarize Comments… | `comments.summarize` | ✅ available |
-| Comment Styles | `annotStylesList` | ⬜ planned |
+| Comment Styles | `annotStylesList` | ✅ available |
 | Comment Styles | `commentStyles` | ✅ available |
 | 3D | `3d` | ⬜ planned |
 | Accounting Calculator | `ac` | ✅ available |
@@ -1729,16 +1729,16 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Line Join | `lineJoin` | ✅ available |
 | Line Start | `lineStart` | ✅ available |
 | Locked | `comments.locked` | ✅ available |
-| Macro | `macro` | 🟡 partial |
+| Macro | `macro` | ✅ available |
 | Measure | `measure` | ✅ available |
 | Measure Edit | `measureEdit` | ⬜ planned |
-| Measure Info | `measureInfo` | ⬜ planned |
+| Measure Info | `measureInfo` | ✅ available |
 | Media | `media` | ✅ available |
 | Media Annotation | `mediaAnnot` | ✅ available |
 | Note Icon | `noteIcon` | ✅ available |
 | Opacity | `opacity` | ✅ available |
 | Printable | `comments.printable` | ✅ available |
-| Selected Text | `textsel` | 🟡 partial |
+| Selected Text | `textsel` | ✅ available |
 | Selection | `selection` | ⬜ planned |
 | Show All Comments | `comments.showAll` | ✅ available |
 | Show/Hide All Comments | `comments.showhideAll` | ✅ available |
@@ -1749,7 +1749,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Stroke Opacity | `strokeOpacity` | ✅ available |
 | Text Fill Color | `fcolorText` | ✅ available |
 | Text Stroke Color | `scolorText` | ✅ available |
-| Tool Styles List | `toolStylesList` | ⬜ planned |
+| Tool Styles List | `toolStylesList` | ✅ available |
 | Underline Style | `underlineStyle` | ✅ available |
 
 ### Form
@@ -1877,11 +1877,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `aiView.summarizeDoc` | View › AI Assistant › Summarize Document | ⬜ planned |
 | `aiView.translateDoc` | View › AI Assistant › Translate Document | ⬜ planned |
 | `annot.3d` | Comments › Annotation › 3D | ⬜ planned |
-| `annot.addText` | Comments › Annotation › Add Text | ⬜ planned |
+| `annot.addText` | Comments › Annotation › Add Text | ✅ available |
 | `annot.callout` | Comments › Annotation › Callout | ⬜ planned |
 | `annot.copyText` | Comments › Annotation › Copy Text | ✅ available |
-| `annot.deleteLabel` | Comments › Annotation › Delete Label | ⬜ planned |
-| `annot.editLabel` | Comments › Annotation › Edit Label | ⬜ planned |
+| `annot.deleteLabel` | Comments › Annotation › Delete Label | ✅ available |
+| `annot.editLabel` | Comments › Annotation › Edit Label | ✅ available |
 | `annot.line` | Comments › Annotation › Line | 🟡 partial |
 | `annot.link` | Comments › Annotation › Link | ⬜ planned |
 | `annot.measure` | Comments › Annotation › Measure | ✅ available |
@@ -2214,7 +2214,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `macro.LaunchApp.Zoom` | Comments › Macro › Launch Application › Zoom | ✅ available |
 | `macro.bates.options` | Comments › Macro › Bates Number › Bates Numbering Settings | ✅ available |
 | `macro.pageNumberingStyle.options` | Comments › Macro › Page Numbering Style › Options | ✅ available |
-| `macro.rowData.options` | Comments › Macro › Row Data › Options | ⬜ planned |
+| `macro.rowData.options` | Comments › Macro › Row Data › Options | ✅ available |
 | `media.position.Slider` | Comments › Media › Position › Position | ✅ available |
 | `media.volume.Slider` | Comments › Media › Volume › Volume | ✅ available |
 | `msp.hdr` | Tools › Metadata › Columns | ✅ available |

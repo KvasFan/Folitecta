@@ -708,5 +708,14 @@
   "presets.time_stamp": "marca temporale",
   "presets.defaults": "impostazioni predefinite",
   "dialog.pane_options.mail_method": "Cosa fa per prima cosa la finestra e-mail",
-  "dialog.pane_options.mail_hint": "Folitecta non invia mai messaggi: il programma di posta apre un nuovo messaggio con i file, oppure il messaggio è salvato come bozza (.eml) da aprire con qualsiasi programma di posta. L'altro modo resta un pulsante della finestra."
+  "dialog.pane_options.mail_hint": "Folitecta non invia mai messaggi: il programma di posta apre un nuovo messaggio con i file, oppure il messaggio è salvato come bozza (.eml) da aprire con qualsiasi programma di posta. L'altro modo resta un pulsante della finestra.",
+  "dialog.comment_label": "Etichetta",
+  "dialog.comment_label_hint": "L'etichetta è l'oggetto del commento: il riquadro commenti la mostra, filtri e riepiloghi la usano.",
+  "dialog.rowdata.file": "Righe di dati (un file CSV, la cui prima riga dà i nomi delle colonne)",
+  "dialog.rowdata.none": "Nessun file scelto",
+  "dialog.rowdata.choose": "Scegli…",
+  "dialog.rowdata.clear": "Togli",
+  "dialog.rowdata.columns": "Colonne:",
+  "dialog.rowdata.region": "Regione di {region} (vuoto: quella del sistema)",
+  "dialog.rowdata.hint": "La prima pagina marcata prende la prima riga, la pagina dopo la riga dopo e così via, ricominciando quando le righe finiscono: {rowindex} è il numero della riga, {rowdata:2} la sua seconda colonna, {rowdata:City} la sua colonna City."
 }

@@ -700,6 +700,27 @@ impl Document {
         }
         Ok(removed)
     }
+    /// The label of a comment (its subject, `/Subj`); empty takes it away.
+    /// One undo step.
+    pub fn set_annotation_subject(&mut self, page: usize, index: usize, subject: &str) -> Result<()> {
+        let id = self
+            .annotations(page)?
+            .get(index)
+            .and_then(|a| a.id)
+            .ok_or_else(|| Error::Invalid("annotation is not an indirect object".into()))?;
+        let subject = util::clean_text(subject.trim());
+        self.edit_step(|doc| {
+            let d = doc.inner.get_dictionary_mut(id)?;
+            if subject.is_empty() {
+                d.remove(b"Subj");
+            } else {
+                d.set("Subj", lopdf::text_string(&subject));
+            }
+            d.set("M", Object::string_literal(util::pdf_date_now()));
+            Ok(())
+        })
+    }
+
     /// Update the text of an annotation (control characters other than tabs
     /// and line breaks are left out). Text boxes and text stamps are drawn
     /// again; text they cannot draw is refused before anything changes.

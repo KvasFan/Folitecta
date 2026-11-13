@@ -267,5 +267,6 @@
   "table.line_color": "Line color",
   "table.new": "New table",
   "table.rows": "Rows",
-  "table.text_color": "Text color"
+  "table.text_color": "Text color",
+  "measure.info": "{kind}: {value} (page {page})"
 }

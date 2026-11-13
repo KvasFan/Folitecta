@@ -7,6 +7,14 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Comments › Annotation › Edit Label and Delete Label give a comment a label (its subject) or take
+  it away; Add Text opens its text. Comment on selected text highlights it and opens its note.
+  Measure Info › Copy copies what the chosen measurement measures, its value and page.
+- Comment Styles and Tool Styles List list the styles of the kind (the default and the named
+  ones): a click applies one to the chosen comment, or makes it the tool's style.
+- Macros › Row Data: page marks read rows of a CSV file, one row per page marked ({rowindex},
+  {rowdata:2}, {rowdata:City}); Row Data › Options chooses the file and the region {region}
+  writes.
 - Edit › Guides Select All and Select on Page choose ruler guides (drawn in orange); Copy copies
   them, Paste Guides puts them in any document (those of one page on the current page), Delete
   deletes them.

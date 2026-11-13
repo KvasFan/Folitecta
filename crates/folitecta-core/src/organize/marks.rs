@@ -174,6 +174,60 @@ fn pagination(content: String, subtype: Option<&str>) -> Vec<u8> {
 
 /// Region of the system locale (`IT` for `it_IT.UTF-8`), from the locale
 /// environment variables; empty when they are not set.
+/// Rows of data for page marks (Macros › Row Data): the names of the
+/// columns and the rows; page `n` of the pages marked takes row `n`, the
+/// rows starting again when there are more pages.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RowData {
+    pub columns: Vec<String>,
+    pub rows: Vec<Vec<String>>,
+}
+
+impl RowData {
+    /// Rows read from CSV text (the first row names the columns; the
+    /// separator guessed among comma, semicolon and tab).
+    pub fn from_csv(text: &str) -> RowData {
+        let first = text.lines().next().unwrap_or_default();
+        let sep = [';', '\t', ',']
+            .into_iter()
+            .max_by_key(|c| first.matches(*c).count())
+            .unwrap_or(',');
+        let mut lines = crate::organize::csvdoc::parse_csv(text, sep).into_iter();
+        let columns = lines.next().unwrap_or_default();
+        let rows = lines.filter(|r| r.iter().any(|c| !c.trim().is_empty())).collect();
+        RowData { columns, rows }
+    }
+
+    fn row(&self, ordinal: usize) -> Option<&Vec<String>> {
+        if self.rows.is_empty() {
+            None
+        } else {
+            self.rows.get(ordinal % self.rows.len())
+        }
+    }
+}
+
+static ROW_DATA: std::sync::Mutex<Option<RowData>> = std::sync::Mutex::new(None);
+static REGION: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+/// The rows of data `{rowindex}`, `{rowdata:N}` and `{rowdata:Name}` read.
+pub fn set_row_data(data: Option<RowData>) {
+    *ROW_DATA.lock().unwrap_or_else(|e| e.into_inner()) = data;
+}
+
+/// The region `{region}` writes (None: the region of the system locale).
+pub fn set_region(region: Option<String>) {
+    *REGION.lock().unwrap_or_else(|e| e.into_inner()) = region.filter(|r| !r.trim().is_empty());
+}
+
+fn region() -> String {
+    REGION
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+        .unwrap_or_else(locale_region)
+}
+
 fn locale_region() -> String {
     ["LC_ALL", "LC_MESSAGES", "LANG"]
         .iter()
@@ -221,7 +275,19 @@ pub const MACROS: &[(&str, &str)] = &[
     ("{computer}", "computer name"),
     ("{user}", "user name"),
     ("{env:NAME}", "environment variable"),
-    ("{region}", "region of the system locale"),
+    (
+        "{region}",
+        "region of the system locale (or the one chosen in Row Data › Options)",
+    ),
+    (
+        "{rowindex}",
+        "number of the row of data of the page (Row Data › Options)",
+    ),
+    ("{rowdata:1}", "column 1 of the row of data of the page"),
+    (
+        "{rowdata:Name}",
+        "the column called Name of the row of data of the page",
+    ),
     ("{app}", "application name and version"),
 ];
 
@@ -309,7 +375,28 @@ impl Document {
                 "srcpages" => Some(self.page_count().to_string()),
                 // Multi-document numbering replaces it before; one document is number 1.
                 "docnumber" => Some(padded(1)),
-                "region" => Some(locale_region()),
+                "region" => Some(region()),
+                // The row of data of the page: the page's place among those
+                // marked counts from `number` - 1 (the first page marked
+                // prints the start number).
+                "rowindex" | "rowdata" => {
+                    let data = ROW_DATA.lock().unwrap_or_else(|e| e.into_inner()).clone();
+                    let ordinal = (number - 1).max(0) as usize;
+                    data.and_then(|d| {
+                        let n = d.rows.len().max(1);
+                        let row = d.row(ordinal)?.clone();
+                        if name == "rowindex" {
+                            return Some((ordinal % n + 1).to_string());
+                        }
+                        let key = arg?.trim();
+                        let col = match key.parse::<usize>() {
+                            Ok(i) if i >= 1 => Some(i - 1),
+                            _ => d.columns.iter().position(|c| c.trim().eq_ignore_ascii_case(key)),
+                        }?;
+                        Some(row.get(col).cloned().unwrap_or_default())
+                    })
+                    .or(Some(String::new()))
+                }
                 "date" => Some(util::today_display()),
                 "time" => Some(format!("{}:{}", two(now.hour()), two(now.minute()))),
                 "year" => Some(now.year().to_string()),

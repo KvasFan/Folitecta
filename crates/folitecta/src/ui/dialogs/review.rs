@@ -587,3 +587,115 @@ pub(super) fn CalibrateDialog() -> Element {
         }
     }
 }
+
+/// The label of a comment (shown in the comments pane as its subject).
+#[component]
+pub(super) fn CommentLabelDialog(page: usize, index: usize, label: String) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let value = use_signal(|| label.clone());
+    rsx! {
+        Frame { title: t(lang, "cmd.annot.editLabel"),
+            on_ok: move |_| { crate::commands::comment_more::set_label(st, page, index, &value()); st.set_dialog(Dialog::None); },
+            Text { label: t(lang, "dialog.comment_label"), value, autofocus: true }
+            p { class: "hint", "{t(lang, \"dialog.comment_label_hint\")}" }
+        }
+    }
+}
+
+/// The styles of the kind of the comment chosen (or of the tool): a click
+/// applies one to the comment, or makes it the tool's style.
+#[component]
+pub(super) fn StyleListDialog(tool: bool) -> Element {
+    use crate::state::comment_styles::{default_style, named_styles, set_default_style};
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let kind = crate::commands::comment_styles::current_kind(st);
+    let selected = st.read_active(|t| t.selected_annot).flatten();
+    let mut rows: Vec<(String, folitecta_core::AnnotStyle)> = vec![(
+        crate::commands::comment_styles::default_name(lang, &kind),
+        default_style(st, &kind),
+    )];
+    rows.extend(
+        named_styles(st)
+            .into_iter()
+            .filter(|n| n.kind == kind)
+            .map(|n| (n.name.clone(), n.style())),
+    );
+    let title = t(
+        lang,
+        if tool {
+            "cmd.toolStylesList"
+        } else {
+            "cmd.annotStylesList"
+        },
+    );
+    let need = !tool && selected.is_none();
+    rsx! {
+        Frame { title,
+            if need { p { class: "hint", "{t(lang, \"toast.select_comment_first\")}" } }
+            div { class: "command-group",
+                for (i, (name, style)) in rows.into_iter().enumerate() {
+                    {
+                        let k = kind.clone();
+                        let swatch = style.color.map(|c| format!("background:rgb({},{},{})", (c[0] * 255.0) as u8, (c[1] * 255.0) as u8, (c[2] * 255.0) as u8)).unwrap_or_default();
+                        rsx! {
+                            button { class: "command-group-row style-row", key: "{i}", disabled: need,
+                                onclick: move |_| {
+                                    if tool {
+                                        set_default_style(st, &k, &style);
+                                        st.toast(ToastKind::Ok, t(lang, "style.default_saved"), "");
+                                    } else if let Some((p, x)) = selected {
+                                        let r = st.with_active(|t| t.doc.set_annotation_style(p, x, &style));
+                                        st.with_active(|t| t.selected_annot = Some((p, x)));
+                                        if let Some(Err(e)) = r { st.error(e); } else { crate::files::set_window_title(st); }
+                                    }
+                                    st.set_dialog(Dialog::None);
+                                },
+                                span { class: "style-swatch", style: "{swatch}" }
+                                span { class: "grow", "{name}" }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Macros › Row Data › Options: the CSV file whose rows the page marks
+/// read, and the region `{region}` writes.
+#[component]
+pub(super) fn RowDataDialog() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let file = st.value("macro.rowdata.file");
+    let columns = crate::commands::comment_more::row_columns(st);
+    let mut region = use_signal(|| st.value("macro.region"));
+    let shown = if file.is_empty() {
+        t(lang, "dialog.rowdata.none")
+    } else {
+        file.clone()
+    };
+    let cols = columns.join(", ");
+    rsx! {
+        Frame { title: t(lang, "cmd.macro.rowData.options"),
+            on_ok: move |_| {
+                st.set_value("macro.region", region().trim().to_string());
+                crate::commands::comment_more::apply_macro_data(st);
+                st.set_dialog(Dialog::None);
+            },
+            div { class: "field", label { "{t(lang, \"dialog.rowdata.file\")}" }
+                div { class: "row",
+                    span { class: "grow ellipsis rowdata-file", title: "{shown}", "{shown}" }
+                    button { class: "tbtn", onclick: move |_| crate::commands::comment_more::choose_rows_file(st), "{t(lang, \"dialog.rowdata.choose\")}" }
+                    button { class: "tbtn", disabled: file.is_empty(), onclick: move |_| { st.unset_value("macro.rowdata.file"); crate::commands::comment_more::apply_macro_data(st); }, "{t(lang, \"dialog.rowdata.clear\")}" }
+                }
+            }
+            if !columns.is_empty() { p { class: "hint rowdata-columns", "{t(lang, \"dialog.rowdata.columns\")} {cols}" } }
+            div { class: "field", label { "{t(lang, \"dialog.rowdata.region\")}" }
+                input { class: "rowdata-region", value: "{region}", placeholder: "IT, DE, US…", oninput: move |e| region.set(e.value()) } }
+            p { class: "hint", "{t(lang, \"dialog.rowdata.hint\")}" }
+        }
+    }
+}

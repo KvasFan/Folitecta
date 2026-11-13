@@ -902,6 +902,13 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    Page, Paste Guides, Paste Fields, Paste Files, Copy File); Show Both and Remove Cropped Content
    no longer partial.
 
+### 0.100.0 — comment labels, notes on text, rows of data (on `main`, untagged)
+
+1. ~~**FOL-L026, L017, L028 — comment labels, notes on text, rows of data.**~~ Done:
+   `set_annotation_subject`, `marks::RowData`, `set_row_data`, `set_region` (core);
+   `commands/markup/comment_more.rs`, `CommentLabel`, `StyleList`, `RowData` windows; Region no
+   longer partial.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

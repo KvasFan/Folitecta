@@ -88,3 +88,27 @@ fn page_numbers_use_the_page_and_the_running_number() {
     assert!(doc.page_text(0).contains("Annual report 1"));
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn rows_of_data_and_the_region_chosen_fill_page_marks() {
+    use folitecta_core::marks::{RowData, set_region, set_row_data};
+    let data = RowData::from_csv("Name;City\nAnna;Rome\nBruno;Turin\n");
+    assert_eq!(data.columns, vec!["Name", "City"]);
+    set_row_data(Some(data));
+    set_region(Some("IT".into()));
+    let doc = Document::new_blank(3, 595.0, 842.0).unwrap();
+    // The first page marked (number 1) takes the first row; the third page
+    // takes the first again.
+    assert_eq!(
+        doc.expand_macros_numbered("{rowindex} {rowdata:Name} {rowdata:2} {region}", 0, 1),
+        "1 Anna Rome IT"
+    );
+    assert_eq!(doc.expand_macros_numbered("{rowdata:city}", 1, 2), "Turin");
+    assert_eq!(
+        doc.expand_macros_numbered("{rowindex} {rowdata:Name}", 2, 3),
+        "1 Anna"
+    );
+    set_row_data(None);
+    set_region(None);
+    assert_eq!(doc.expand_macros_numbered("[{rowdata:Name}]", 0, 1), "[]");
+}

@@ -485,5 +485,7 @@
   "toast.files_pasted": "{pages} pagine aggiunte, {files} file allegati.",
   "toast.copy_file_saved": "Il file è copiato com'era all'ultimo salvataggio.",
   "toast.file_copied": "Il file è negli appunti.",
-  "toast.guides_on_clip": "{count} guide copiate."
+  "toast.guides_on_clip": "{count} guide copiate.",
+  "toast.no_label": "Questo commento non ha un'etichetta.",
+  "toast.select_measure_first": "Scegli prima una misura (con lo strumento commenti)."
 }

@@ -5,7 +5,9 @@
 //! options windows of panes and of recovery; Bates numbering of several
 //! files from their list; the preview of page marks and its zoom; the
 //! Presets window; toolbars and tabs of one's own, locked toolbars and panes;
-//! guides and form fields copied and pasted, files pasted, the file copied.
+//! guides and form fields copied and pasted, files pasted, the file copied;
+//! comment labels and text, a comment on selected text, measurement
+//! information, style lists, rows of data in page marks.
 
 use super::*;
 
@@ -103,6 +105,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     mail_method(cx).await;
     own_bars(cx).await;
     clipboard_more(cx).await;
+    comments_more(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -610,5 +613,112 @@ async fn clipboard_more(cx: &mut Ctx<'_>) {
         fields_copied && pasted == vec!["Town".to_string()] && set.is_ok() && back == vec![pdf.clone()] && pages == 3
             && wrote && file_on_clip == vec![saved.clone()] && back_to,
         format!("copied {fields_copied}, pasted {pasted:?}, clipboard set {set:?} read {back:?}, pages {pages}, saved {wrote}, file on clipboard {file_on_clip:?}"),
+    );
+}
+
+async fn comments_more(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    let lang = st.lang();
+    // A note given a label, then without it; Add Text opens its text.
+    let made = st.with_active(|t| t.doc.add_note(0, 100.0, 700.0, "", "Reviewer", [1.0, 0.8, 0.0]));
+    let index = st
+        .read_active(|t| t.doc.annotations(0).map(|a| a.len()).unwrap_or(1) - 1)
+        .unwrap_or(0);
+    st.with_active(|t| t.selected_annot = Some((0, index)));
+    crate::commands::dispatch(st, "annot.editLabel");
+    pause(300).await;
+    let _ = eval("const i = document.querySelector('.dialog input'); if (i) { i.value = 'Check'; i.dispatchEvent(new Event('input', { bubbles: true })); }").await;
+    pause(200).await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(300).await;
+    let subject = |st: AppState| {
+        st.read_active(|t| {
+            t.doc
+                .annotations(0)
+                .ok()
+                .and_then(|a| a.get(index).map(|x| x.subject.clone()))
+        })
+        .flatten()
+        .unwrap_or_default()
+    };
+    let labelled = subject(st);
+    crate::commands::dispatch(st, "annot.deleteLabel");
+    let unlabelled = subject(st);
+    crate::commands::dispatch(st, "annot.addText");
+    pause(200).await;
+    let text_window = matches!(*st.dialog.peek(), Dialog::AnnotationText { .. });
+    st.set_dialog(Dialog::None);
+    // A comment on selected text: a highlight, its note open.
+    let before = st
+        .read_active(|t| t.doc.annotations(0).map(|a| a.len()).unwrap_or(0))
+        .unwrap_or(0);
+    st.with_active(|t| {
+        t.text_sel = Some(crate::state::TextSel {
+            page: 0,
+            anchor: 0,
+            head: 12,
+        })
+    });
+    crate::commands::dispatch(st, "textsel.comment");
+    pause(300).await;
+    let after = st
+        .read_active(|t| t.doc.annotations(0).map(|a| a.len()).unwrap_or(0))
+        .unwrap_or(0);
+    let note_open = matches!(*st.dialog.peek(), Dialog::AnnotationText { .. });
+    st.set_dialog(Dialog::None);
+    // A distance measured: its information copied.
+    let style = folitecta_core::AnnotStyle::default();
+    let measured = st.with_active(|t| {
+        t.doc.add_measurement(
+            0,
+            folitecta_core::MeasureKind::Distance,
+            &[(100.0, 100.0), (172.0, 100.0)],
+            &style,
+            &folitecta_core::MeasureScale::default(),
+            "Reviewer",
+        )
+    });
+    let m_index = st
+        .read_active(|t| t.doc.annotations(0).map(|a| a.len()).unwrap_or(1) - 1)
+        .unwrap_or(0);
+    st.with_active(|t| t.selected_annot = Some((0, m_index)));
+    crate::commands::dispatch(st, "measureInfo.copy");
+    pause(300).await;
+    let copied = crate::clipboard::get_text().unwrap_or_default();
+    // The tool's styles list.
+    st.set_tool(Tool::Rect);
+    crate::commands::dispatch(st, "toolStylesList");
+    pause(300).await;
+    let style_rows = eval("return document.querySelectorAll('.dialog .style-row').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    st.set_dialog(Dialog::None);
+    st.set_tool(Tool::Hand);
+    // Rows of data from a CSV file and a region of one's own.
+    let dir = std::env::temp_dir().join(format!("foli-rows-{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&dir);
+    let csv = dir.join("rows.csv");
+    let _ = std::fs::write(&csv, "Name,City\nAnna,Rome\nBruno,Turin\n");
+    st.set_value("macro.rowdata.file", csv.display().to_string());
+    st.set_value("macro.region", "IT");
+    crate::commands::comment_more::apply_macro_data(st);
+    let expanded = st
+        .read_active(|t| {
+            t.doc
+                .expand_macros_numbered("{rowdata:City} {rowindex} {region}", 1, 2)
+        })
+        .unwrap_or_default();
+    st.unset_value("macro.rowdata.file");
+    st.unset_value("macro.region");
+    crate::commands::comment_more::apply_macro_data(st);
+    let _ = std::fs::remove_dir_all(&dir);
+    let kind = crate::i18n::annot_name(lang, "Distance");
+    cx.record(
+        "comment labels set and taken away; Add Text; a comment on selected text; a measurement's information copied; the tool's styles; rows of data in page marks",
+        made.is_some_and(|r| r.is_ok()) && labelled == "Check" && unlabelled.is_empty() && text_window && after == before + 1 && note_open
+            && measured.is_some_and(|r| r.is_ok()) && copied.starts_with(&kind) && style_rows >= 1 && expanded == "Turin 2 IT",
+        format!("label {labelled:?} then {unlabelled:?}, text window {text_window}, comments {before}->{after} note open {note_open}, copied {copied:?}, style rows {style_rows}, expanded {expanded:?}"),
     );
 }

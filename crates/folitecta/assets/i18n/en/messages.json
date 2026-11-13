@@ -485,5 +485,7 @@
   "toast.files_pasted": "{pages} pages added, {files} files attached.",
   "toast.copy_file_saved": "The file is copied as it was last saved.",
   "toast.file_copied": "The file is on the clipboard.",
-  "toast.guides_on_clip": "{count} guides copied."
+  "toast.guides_on_clip": "{count} guides copied.",
+  "toast.no_label": "This comment has no label.",
+  "toast.select_measure_first": "Choose a measurement first (with the comment tool)."
 }

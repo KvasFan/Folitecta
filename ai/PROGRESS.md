@@ -4,6 +4,24 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-13 — FOL-L003, L001, L004: search, loupe and pane options (0.95.0)
+
+- **Current state before:** Search › Stop, Annotate Results, Colored Results, Select › Annotate
+  Result; Loupe › Show Boxes, Show Guides, Zoom; Thumbnails › Interactive Visible and Options;
+  Links › Options; Recovery › Recovery and Options were planned.
+- **What:** `annotate_current` (comments.rs: the current hit highlighted, the results found
+  again); the search toggles dispatch Find's options and share their check state; `stop` ends a
+  folder search. The loupe draws `page_box_marks` and the guides at its enlargement.
+  `Thumb` gets `interactive`: a press on the current page's picture centres the canvas there,
+  a layer follows the drag. `Dialog::PaneOptions` (thumbnails: options and size; links; loupe:
+  options and enlargement; recovery: Keep Copies and every how many minutes). `recovery::minutes`;
+  `checkpoint` writes no copy and drops the old ones when Keep Copies is off.
+- **Checked:** self-test step `complete` (7 interactions, 0 problems): one comment added by
+  Annotate Result out of many results, the option shared; the trim box and a guide in the loupe,
+  gone with the option off; a press low on the thumbnail scrolled the view; the options windows
+  set the minutes and a check box. The dialog audit has the three windows.
+- **Open:** —
+
 ## 2026-11-13 — FOL-L050: the commands of a group (0.94.0)
 
 - **Current state before:** 21 commands named after a group (Other Tools, Clipboard, Panes, the

@@ -409,10 +409,63 @@ fn Loupe() -> Element {
             (c, r, style)
         })
         .collect();
+    // The page boxes and the guides, placed as the loupe enlarges them
+    // (Loupe › Show Boxes, Show Guides).
+    let at = move |v: f32, o: f32| (v * s - o) / dpr;
+    let boxes: Vec<(&'static str, String)> = if option_on(st, "loupeView.showBoxes") {
+        st.read_active(|t| {
+            t.page_sizes
+                .get(page)
+                .map(|size| page::page_box_marks(t, page, size))
+                .unwrap_or_default()
+        })
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(kind, r)| {
+            let style = format!(
+                "left:{}px;top:{}px;width:{}px;height:{}px",
+                at(r[0], x0),
+                at(r[1], y0),
+                (r[2] - r[0]) * s / dpr,
+                (r[3] - r[1]) * s / dpr
+            );
+            (kind, style)
+        })
+        .collect()
+    } else {
+        Vec::new()
+    };
+    let guides: Vec<String> = if option_on(st, "loupeView.showGuides") {
+        st.read_active(|t| {
+            t.guides
+                .iter()
+                .filter(|g| g.page.is_none() || g.page == Some(page))
+                .map(|g| {
+                    if g.horizontal {
+                        format!("guide h|top:{}px", at(g.pos, y0))
+                    } else {
+                        format!("guide v|left:{}px", at(g.pos, x0))
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
     rsx! {
         div { class: "loupe", style: "left:{left}px;top:{top}px;width:{w}px;height:{h}px",
             for (c, r, style) in tiles {
                 img { key: "{c}-{r}", src: "/page/{tab}/{page}/{rev}/{scale}.png?tile={c},{r}", alt: "", draggable: "false", style: "{style}" }
+            }
+            for (kind, style) in boxes {
+                div { key: "b{kind}", class: "page-box {kind}", style: "{style}" }
+            }
+            for (i, g) in guides.into_iter().enumerate() {
+                {
+                    let (class, style) = g.split_once('|').map(|(a, b)| (a.to_string(), b.to_string())).unwrap_or_default();
+                    rsx! { div { key: "g{i}", class: "{class}", style: "{style}" } }
+                }
             }
         }
     }

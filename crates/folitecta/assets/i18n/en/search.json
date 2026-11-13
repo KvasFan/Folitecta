@@ -86,5 +86,6 @@
   "spell.skip_capitals": "Skip words in capitals",
   "spell.skip_digits": "Skip words with digits",
   "spell.suggestions": "Suggestions",
-  "spell.your_words": "Your words"
+  "spell.your_words": "Your words",
+  "search.nothing_running": "No search through a folder is running."
 }

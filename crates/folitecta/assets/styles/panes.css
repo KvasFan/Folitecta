@@ -277,3 +277,6 @@
 .link-action:hover { background: var(--accent-soft); }
 .link-action.chosen { background: var(--active-bg); color: var(--active-fg); border: 1px solid var(--active-border); }
 .link-action-buttons { flex-wrap: wrap; gap: 4px; }
+/* Interactive Visible: the picture of the current page moves the view. */
+.thumb-img.interactive { cursor: move; }
+.thumb-capture { position: absolute; inset: 0; z-index: 2; cursor: move; }

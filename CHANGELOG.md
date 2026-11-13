@@ -7,6 +7,13 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Search › Select › Annotate Result highlights the current result only; Search › Annotate Results
+  and Colored Results are Find's options; Search › Stop stops a search through a folder.
+- Loupe › Show Boxes and Show Guides draw the page boxes and the guides in the loupe; Loupe › Zoom
+  chooses how much it enlarges.
+- Thumbnails › Interactive Visible: a press or a drag on the picture of the current page moves
+  the part of it shown. Thumbnails › Options, Links › Options and Recovery › Options in windows;
+  copies for recovery are kept every 1 to 15 minutes, or not at all.
 - The commands named after a group (Other Tools, Clipboard, Selection, Snap, Web Links, Share,
   Panes, Other Panes, Page Layout, Rotate View, Document Tabs, Show, the tool sets of Tools ›
   Tools, Add Comments, Delete Comments, More Page Tools) open a small window listing the commands

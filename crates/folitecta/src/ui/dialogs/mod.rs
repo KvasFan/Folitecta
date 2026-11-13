@@ -425,6 +425,7 @@ pub fn Dialogs() -> Element {
         Dialog::DocScripts(add) => rsx! { crate::ui::features::javascript::DocScriptsDialog { add } },
         Dialog::MediaList => rsx! { crate::ui::features::media::MediaListDialog {} },
         Dialog::CommandGroup(id) => rsx! { CommandGroupDialog { id } },
+        Dialog::PaneOptions(pane) => rsx! { PaneOptionsDialog { pane } },
         Dialog::MediaProps { page, index } => {
             rsx! { crate::ui::features::media::MediaPropsDialog { page, index } }
         }

@@ -231,6 +231,12 @@ handlers! {
     "loupeView.zoomIn" => |st| loupe_zoom(st, 1.25),
     "loupeView.zoomOut" => |st| loupe_zoom(st, 0.8),
     "loupeView.snapshot" => loupe_snapshot,
+    // The options of panes and of the loupe, in a window.
+    "loupeView.zoom.combo" => |st| st.set_dialog(crate::state::Dialog::PaneOptions("loupe".into())),
+    "thumbnailsView.options" => |st| st.set_dialog(crate::state::Dialog::PaneOptions("thumbnails".into())),
+    "linksView.options" => |st| st.set_dialog(crate::state::Dialog::PaneOptions("links".into())),
+    "recoveryView.options" => |st| st.set_dialog(crate::state::Dialog::PaneOptions("recovery".into())),
+    "recoveryView.recovery" => |st| st.set_dialog(crate::state::Dialog::Recovery),
     // The zoom slider of the status bar, ready for the arrow keys.
     "zoomSlider" => |st| { if !no_doc(st) { let _ = dioxus::document::eval("document.getElementById('folitecta-zoom-slider')?.focus();"); } },
     "tools.zoom" => |st| crate::commands::dispatch(st, "tool.zoom"),

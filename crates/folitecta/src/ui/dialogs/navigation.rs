@@ -357,3 +357,96 @@ pub(super) fn BookmarkRename(path: Vec<usize>) -> Element {
         }
     }
 }
+
+/// The options of a pane or tool: check boxes of its options and the values
+/// of its own (the size of the thumbnails, how much the loupe enlarges, how
+/// often copies of the documents are kept).
+#[component]
+pub(super) fn PaneOptionsDialog(pane: String) -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let reg = registry();
+    let (title_id, ids): (&str, &[&str]) = match pane.as_str() {
+        "thumbnails" => (
+            "thumbnailsView.options",
+            &[
+                "thumbnailsView.highlightVisible",
+                "thumbnailsView.interactiveVisible",
+                "thumbnailsView.logicalVisible",
+            ],
+        ),
+        "links" => (
+            "linksView.options",
+            &["linksView.wrapTitles", "view.highlightLinks"],
+        ),
+        "loupe" => (
+            "loupeView.zoom.combo",
+            &[
+                "loupeView.showBoxes",
+                "loupeView.showGuides",
+                "tool.loupe.trackMouse",
+            ],
+        ),
+        _ => ("recoveryView.options", &["recovery.keep"]),
+    };
+    let title = reg
+        .get(title_id)
+        .map(|c| {
+            let l = cmd_label(lang, c);
+            let l = l.trim_end_matches('…');
+            match reg.get(c.parent.as_deref().unwrap_or_default()) {
+                Some(p) if pane != "loupe" => format!("{} — {l}", cmd_label(lang, p)),
+                _ => l.to_string(),
+            }
+        })
+        .unwrap_or_default();
+    let thumb = st.value("thumb.size");
+    let thumb = if thumb.is_empty() {
+        "150".to_string()
+    } else {
+        thumb
+    };
+    let factor = format!("{:.2}", crate::ui::canvas::loupe_factor(st));
+    let minutes = crate::recovery::minutes(st).to_string();
+    rsx! {
+        Frame { title,
+            div { class: "check-list pane-options",
+                for id in ids.iter().copied() {
+                    {
+                        let on = option_on(st, id);
+                        let label = reg.get(id).map(|c| cmd_label(lang, c)).unwrap_or_else(|| t(lang, &format!("dialog.pane_options.{id}")));
+                        rsx! { label { class: "check", key: "{id}", input { r#type: "checkbox", "data-opt": "{id}", checked: on, onchange: move |_| st.set_option(id, !on) } span { "{label}" } } }
+                    }
+                }
+            }
+            if pane == "thumbnails" {
+                div { class: "field",
+                    label { "{t(lang, \"dialog.pane_options.thumb_size\")}" }
+                    input { r#type: "range", min: "80", max: "320", step: "10", value: "{thumb}",
+                        oninput: move |e| st.set_value("thumb.size", e.value()) }
+                }
+            }
+            if pane == "loupe" {
+                div { class: "field",
+                    label { "{t(lang, \"dialog.pane_options.loupe_factor\")}" }
+                    select { class: "loupe-factor", onchange: move |e| st.set_value("loupe.factor", e.value()),
+                        for f in ["1.50", "2.00", "3.00", "4.00", "6.00", "8.00"] {
+                            option { key: "{f}", value: "{f}", selected: factor == f, "{f.trim_end_matches(\"0\").trim_end_matches('.')}×" }
+                        }
+                    }
+                }
+            }
+            if pane == "recovery" {
+                div { class: "field",
+                    label { "{t(lang, \"dialog.pane_options.recovery_every\")}" }
+                    select { class: "recovery-every", onchange: move |e| st.set_value("recovery.minutes", e.value()),
+                        for m in ["1", "2", "5", "10", "15"] {
+                            option { key: "{m}", value: "{m}", selected: minutes == m, "{m}" }
+                        }
+                    }
+                }
+                p { class: "hint", "{t(lang, \"dialog.pane_options.recovery_hint\")}" }
+            }
+        }
+    }
+}

@@ -675,5 +675,10 @@
   "dialog.watermark.title": "Add watermark",
   "dialog.wordcount.chars": "Characters",
   "dialog.wordcount.words": "Words",
-  "dialog.group.none": "No command of this group works yet."
+  "dialog.group.none": "No command of this group works yet.",
+  "dialog.pane_options.recovery.keep": "Keep copies of the documents with unsaved changes",
+  "dialog.pane_options.thumb_size": "Size of the thumbnails",
+  "dialog.pane_options.loupe_factor": "Enlargement",
+  "dialog.pane_options.recovery_every": "Every how many minutes",
+  "dialog.pane_options.recovery_hint": "The copies are offered at the next start when Folitecta ends without saving; they never hold protected documents."
 }

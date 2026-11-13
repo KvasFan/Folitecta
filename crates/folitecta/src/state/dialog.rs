@@ -382,6 +382,9 @@ pub enum Dialog {
     MediaList,
     /// The commands of a group command (its id), to run one.
     CommandGroup(String),
+    /// The options of a pane or tool: "thumbnails", "links", "loupe",
+    /// "recovery".
+    PaneOptions(String),
     /// Properties of a sound or video comment.
     MediaProps {
         page: usize,

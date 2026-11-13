@@ -3,7 +3,11 @@
 use super::*;
 
 /// The bleed, trim and art boxes of `page` as the view shows them.
-fn page_box_marks(t: &crate::state::DocTab, page: usize, size: &PageSize) -> Vec<(&'static str, [f32; 4])> {
+pub(super) fn page_box_marks(
+    t: &crate::state::DocTab,
+    page: usize,
+    size: &PageSize,
+) -> Vec<(&'static str, [f32; 4])> {
     let Ok(boxes) = t.doc.page_boxes(page) else {
         return Vec::new();
     };

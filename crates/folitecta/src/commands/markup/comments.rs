@@ -247,6 +247,45 @@ pub(crate) fn markup_results(st: AppState, kind: Option<Markup>) {
     }
 }
 
+/// Search › Select › Annotate Result: the result chosen in the search pane
+/// (the current one) highlighted with a comment.
+pub(crate) fn annotate_current(st: AppState) {
+    if no_doc(st) {
+        return;
+    }
+    let hit = st
+        .read_active(|t| t.search.hits.get(t.search.current).cloned())
+        .flatten();
+    let Some(hit) = hit else {
+        show_pane(st, Pane::Search);
+        st.toast(ToastKind::Info, t(st.lang(), "toast.search_first"), "");
+        return;
+    };
+    let author = st.ui.read().author.clone();
+    let color = markup_color(st, Markup::Highlight);
+    let query = st.read_active(|t| t.search.query.clone()).unwrap_or_default();
+    let current = st.read_active(|t| t.search.current).unwrap_or(0);
+    match st.with_active(|t| {
+        t.doc
+            .markup_hits(std::slice::from_ref(&hit), Markup::Highlight, color, &author)
+    }) {
+        Some(Ok(n)) => {
+            files::set_window_title(st);
+            // The comment changed the document, which cleared the results:
+            // find them again and stay on the same one.
+            crate::ui::panes::refresh_hits(st, &query);
+            st.with_active(|t| t.search.current = current.min(t.search.hits.len().saturating_sub(1)));
+            st.toast(
+                ToastKind::Ok,
+                tf(st.lang(), "toast.marked_results", &[("count", &n.to_string())]),
+                "",
+            );
+        }
+        Some(Err(e)) => st.error(e),
+        None => {}
+    }
+}
+
 fn create_links(st: AppState) {
     if no_doc(st) {
         return;
@@ -365,6 +404,7 @@ handlers! {
     "addAnnotsBySearchResult.underline" => |st| markup_results(st, Some(Markup::Underline)),
     "addAnnotsBySearchResult.strikeout" => |st| markup_results(st, Some(Markup::StrikeOut)),
     "addAnnotsBySearchResult.redaction" => |st| markup_results(st, None),
+    "search.select.annotateResult" => annotate_current,
     "addAnnotsByFindResult.highlight" => |st| markup_results(st, Some(Markup::Highlight)),
     "addAnnotsByFindResult.underline" => |st| markup_results(st, Some(Markup::Underline)),
     "addAnnotsByFindResult.strikeout" => |st| markup_results(st, Some(Markup::StrikeOut)),

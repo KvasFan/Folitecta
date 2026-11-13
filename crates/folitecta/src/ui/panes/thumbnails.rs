@@ -54,7 +54,9 @@ pub(super) fn ThumbnailsPane() -> Element {
     let mut visible: Signal<Option<[f64; 4]>> = use_signal(|| None);
     use_future(move || async move {
         loop {
-            let shown = if option_on(st, "thumbnailsView.highlightVisible") {
+            let shown = if option_on(st, "thumbnailsView.highlightVisible")
+                || option_on(st, "thumbnailsView.interactiveVisible")
+            {
                 let js = crate::ui::canvas::VIEWPORT_JS.replace("PAGE", &st.current_page().to_string());
                 document::eval(&js).await.ok().and_then(|v| {
                     let n: Vec<f64> = v.as_array()?.iter().filter_map(|x| x.as_f64()).collect();
@@ -78,6 +80,7 @@ pub(super) fn ThumbnailsPane() -> Element {
             (r[3] - r[1]) * 100.0
         )
     });
+    let interactive = option_on(st, "thumbnailsView.interactiveVisible");
     let mut finish_drag = move || {
         let (src, over) = (*drag_src.peek(), *drag_over.peek());
         drag_src.set(None);
@@ -133,8 +136,9 @@ pub(super) fn ThumbnailsPane() -> Element {
                     let (iw, ih) = if rotation % 180 != 0 { (hpx, wpx) } else { (wpx, hpx) };
                     let title = format!("{} {}", t(lang, "status.page"), p + 1);
                     let shown = if p == page { outline.clone() } else { None };
+                    let interactive = interactive && p == page;
                     rsx! {
-                        Thumb { key: "{p}", page: p, class, title, src, label, img_style, wpx, hpx, iw, ih, shown, drag_src, drag_over, dragged }
+                        Thumb { key: "{p}", page: p, class, title, src, label, img_style, wpx, hpx, iw, ih, shown, interactive, drag_src, drag_over, dragged }
                     }
                 }
             }
@@ -158,12 +162,26 @@ fn Thumb(
     ih: i32,
     /// The outline of the part the canvas shows (current page only).
     shown: Option<String>,
+    /// A press or a drag on the picture moves the part shown there
+    /// (Interactive Visible, current page only).
+    interactive: bool,
     drag_src: Signal<Option<usize>>,
     drag_over: Signal<Option<usize>>,
     dragged: Signal<bool>,
 ) -> Element {
     let st = use_context::<AppState>();
     let p = page;
+    let mut moving = use_signal(|| false);
+    // Centre the canvas on a point of the page (fractions of its picture).
+    let move_to = move |fx: f64, fy: f64| {
+        let js = format!(
+            "const c = document.getElementById('canvas'); const el = document.getElementById('pg-{p}'); if (c && el) {{ const r = el.getBoundingClientRect(), v = c.getBoundingClientRect(); c.scrollLeft += (r.left + {fx} * r.width) - (v.left + c.clientWidth / 2); c.scrollTop += (r.top + {fy} * r.height) - (v.top + c.clientHeight / 2); }}"
+        );
+        spawn(async move {
+            let _ = document::eval(&js).await;
+        });
+    };
+    let (box_w, box_h) = (wpx.max(iw) as f64, hpx.max(ih) as f64);
     rsx! {
         div { class: "{class}", title: "{title}",
             onmousedown: move |e| {
@@ -193,10 +211,30 @@ fn Thumb(
                 }
             },
             ondoubleclick: move |_| st.go_to_page(p),
-            div { class: "thumb-img", style: "width:{wpx.max(iw)}px;height:{hpx.max(ih)}px",
+            div { class: if interactive { "thumb-img interactive" } else { "thumb-img" }, style: "width:{wpx.max(iw)}px;height:{hpx.max(ih)}px",
+                onmousedown: move |e| {
+                    if interactive && e.trigger_button() == Some(MouseButton::Primary) {
+                        e.stop_propagation();
+                        moving.set(true);
+                        let at = e.element_coordinates();
+                        move_to(at.x / box_w, at.y / box_h);
+                    }
+                },
+                onclick: move |e| { if interactive { e.stop_propagation(); } },
+                onmouseup: move |_| moving.set(false),
+                onmouseleave: move |_| moving.set(false),
                 img { src: "{src}", alt: "", loading: "lazy", decoding: "async", draggable: "false", width: "{wpx}", height: "{hpx}", style: "{img_style}" }
                 if let Some(style) = shown {
                     div { class: "thumb-visible", style: "{style}" }
+                }
+                // Moves are followed only while the outline is dragged.
+                if moving() {
+                    div { class: "thumb-capture",
+                        onmousemove: move |e| {
+                            let at = e.element_coordinates();
+                            move_to(at.x / box_w, at.y / box_h);
+                        },
+                    }
                 }
             }
             span { class: "num", "{label}" }

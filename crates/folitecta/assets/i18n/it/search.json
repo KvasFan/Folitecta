@@ -86,5 +86,6 @@
   "spell.skip_capitals": "Salta le parole in maiuscolo",
   "spell.skip_digits": "Salta le parole con cifre",
   "spell.suggestions": "Suggerimenti",
-  "spell.your_words": "Parole aggiunte"
+  "spell.your_words": "Parole aggiunte",
+  "search.nothing_running": "Nessuna ricerca in una cartella è in corso."
 }

@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1570 |
-| 🟡 partial | 56 |
-| ⬜ planned | 388 |
+| ✅ available | 1587 |
+| 🟡 partial | 54 |
+| ⬜ planned | 373 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -1504,7 +1504,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Lock All Cmd Panes | `view.lockAllCmdPanes` | ⬜ planned |
 | Lock Unlock All Cmd Bars | `view.lockUnlockAllCmdBars` | ⬜ planned |
 | Lock Unlock All Cmd Panes | `view.lockUnlockAllCmdPanes` | ⬜ planned |
-| Loupe | `loupeView` | 🟡 partial |
+| Loupe | `loupeView` | ✅ available |
 | Loupe | `view.loupe` | ✅ available |
 | Measurements | `view.measurements` | ✅ available |
 | Mouse-Optimized UI | `view.switchToMouseUI` | ✅ available |
@@ -1525,7 +1525,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Portfolio Tools | `view.portfolioTools` | ✅ available |
 | Presentation | `view.presentation` | ✅ available |
 | Read Aloud | `view.readAloud` | ✅ available |
-| Recovery Pane | `recoveryView` | ⬜ planned |
+| Recovery Pane | `recoveryView` | ✅ available |
 | Reflow | `view.reflow` | ✅ available |
 | Restore Cmd Bars Visibility | `view.restoreCmdBarsVisibility` | ✅ available |
 | Ribbon / Classic UI | `view.ribbonClassicUI` | ✅ available |
@@ -1546,7 +1546,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Tags Pane | `tagsView` | ✅ available |
 | Tags Pane | `tagsview` | ✅ available |
 | Thin Lines | `view.thinLines` | ⬜ planned |
-| Thumbnails Pane | `thumbnailsView` | 🟡 partial |
+| Thumbnails Pane | `thumbnailsView` | ✅ available |
 | Toggle All Cmd Bars | `view.toggleAllCmdBars` | ✅ available |
 | Toggle All Cmd Panes | `view.toggleAllCmdPanes` | ✅ available |
 | Tool Names | `view.ribbonLabels` | ✅ available |
@@ -2188,7 +2188,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `linksView.link` | View › Links Pane › Link | ✅ available |
 | `linksView.link.copyURL` | View › Links Pane › Link › Copy URL | ✅ available |
 | `linksView.link.openInBrowser` | View › Links Pane › Link › Open in Browser | ✅ available |
-| `linksView.options` | View › Links Pane › Options | ⬜ planned |
+| `linksView.options` | View › Links Pane › Options | ✅ available |
 | `linksView.wrapTitles` | View › Links Pane › Wrap Titles | ✅ available |
 | `list.add` | Edit › List › Add | ⬜ planned |
 | `list.clear` | Edit › List › Clear | ⬜ planned |
@@ -2196,11 +2196,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `list.down` | Edit › List › Down | ⬜ planned |
 | `list.edit` | Edit › List › Edit | ⬜ planned |
 | `list.up` | Edit › List › Up | ⬜ planned |
-| `loupeView.showBoxes` | View › Loupe › Show Boxes | ⬜ planned |
-| `loupeView.showGuides` | View › Loupe › Show Guides | ⬜ planned |
+| `loupeView.showBoxes` | View › Loupe › Show Boxes | ✅ available |
+| `loupeView.showGuides` | View › Loupe › Show Guides | ✅ available |
 | `loupeView.snapshot` | View › Loupe › Snapshot | ✅ available |
-| `loupeView.zoom` | View › Loupe › Zoom | ⬜ planned |
-| `loupeView.zoom.combo` | View › Loupe › Zoom › Zoom | ⬜ planned |
+| `loupeView.zoom` | View › Loupe › Zoom | ✅ available |
+| `loupeView.zoom.combo` | View › Loupe › Zoom › Zoom | ✅ available |
 | `loupeView.zoomIn` | View › Loupe › Zoom in | ✅ available |
 | `loupeView.zoomOut` | View › Loupe › Zoom Out | ✅ available |
 | `macro.LaunchApp.CurrentPage` | Comments › Macro › Launch Application › Current Page | ✅ available |
@@ -2290,8 +2290,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `pubsec.cert.browse` | Document › Public Key Security › Cert › Browse | ✅ available |
 | `pubsec.cert.details` | Document › Public Key Security › Cert › Details | ✅ available |
 | `pubsec.cert.remove` | Document › Public Key Security › Cert › Remove | ✅ available |
-| `recoveryView.options` | View › Recovery Pane › Options | ⬜ planned |
-| `recoveryView.recovery` | View › Recovery Pane › Recovery | ⬜ planned |
+| `recoveryView.options` | View › Recovery Pane › Options | ✅ available |
+| `recoveryView.recovery` | View › Recovery Pane › Recovery | ✅ available |
 | `redaction.overlay.blur` | Document › Redaction › Overlay › Blur | ✅ available |
 | `redaction.overlay.blurExtra` | Document › Redaction › Overlay › Blur Extra | ✅ available |
 | `redaction.overlay.pixelate` | Document › Redaction › Overlay › Pixelate | ✅ available |
@@ -2302,12 +2302,12 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `rulers.units.millimeters` | View › Rulers › Units › Millimeters | ✅ available |
 | `rulers.units.picas` | View › Rulers › Units › Picas | ✅ available |
 | `rulers.units.points` | View › Rulers › Units › Points | ✅ available |
-| `search.annotateResults` | Edit › Search › Annotate Results | ⬜ planned |
-| `search.coloredResults` | Edit › Search › Colored Results | ⬜ planned |
-| `search.select` | Edit › Search › Select | ⬜ planned |
-| `search.select.annotateResult` | Edit › Search › Select › Annotate Result | ⬜ planned |
+| `search.annotateResults` | Edit › Search › Annotate Results | ✅ available |
+| `search.coloredResults` | Edit › Search › Colored Results | ✅ available |
+| `search.select` | Edit › Search › Select | ✅ available |
+| `search.select.annotateResult` | Edit › Search › Select › Annotate Result | ✅ available |
 | `search.start` | Edit › Search › Start | ✅ available |
-| `search.stop` | Edit › Search › Stop | ⬜ planned |
+| `search.stop` | Edit › Search › Stop | ✅ available |
 | `searchView.caseSensitive` | View › Search Pane › Case Sensitive | ✅ available |
 | `searchView.estimateFolder` | View › Search Pane › Estimate Folder | ✅ available |
 | `searchView.ignoreDiacritics` | View › Search Pane › Ignore Diacritics | ✅ available |
@@ -2418,9 +2418,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `textPara.indent.decrease` | Edit › Text Para › Indent › Decrease | ⬜ planned |
 | `textPara.indent.increase` | Edit › Text Para › Indent › Increase | ⬜ planned |
 | `thumbnailsView.highlightVisible` | View › Thumbnails Pane › Highlight Visible | ✅ available |
-| `thumbnailsView.interactiveVisible` | View › Thumbnails Pane › Interactive Visible | ⬜ planned |
+| `thumbnailsView.interactiveVisible` | View › Thumbnails Pane › Interactive Visible | ✅ available |
 | `thumbnailsView.logicalVisible` | View › Thumbnails Pane › Logical Visible | ✅ available |
-| `thumbnailsView.options` | View › Thumbnails Pane › Options | ⬜ planned |
+| `thumbnailsView.options` | View › Thumbnails Pane › Options | ✅ available |
 | `thumbnailsView.select` | View › Thumbnails Pane › Select | ✅ available |
 | `thumbnailsView.select.bookmarks` | View › Thumbnails Pane › Select › Bookmarks | ✅ available |
 | `thumbnailsView.select.comments` | View › Thumbnails Pane › Select › Comments | ✅ available |

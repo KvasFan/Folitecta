@@ -379,6 +379,9 @@ pub fn search_state(st: AppState, id: &str) -> Option<bool> {
             st.read_active(|t| t.search.case_sensitive)
         }
         "searchView.wholeWords" | "document.find.wholeWords" => st.read_active(|t| t.search.whole_words),
+        // The same options as Find's.
+        "search.annotateResults" => Some(option_on(st, "find.annotateResults")),
+        "search.coloredResults" => Some(option_on(st, "document.find.coloredResults")),
         _ => None,
     }
 }
@@ -430,7 +433,26 @@ fn save_results(st: AppState) {
     }
 }
 
+/// Stop the search through the files of a folder.
+fn stop(st: AppState) {
+    let running = st
+        .read_active(|t| t.search.folder.as_ref().is_some_and(|f| f.running))
+        .unwrap_or(false);
+    if running {
+        st.with_active(|t| {
+            if let Some(f) = t.search.folder.as_mut() {
+                f.running = false;
+            }
+        });
+    } else {
+        st.toast(ToastKind::Info, t(st.lang(), "search.nothing_running"), "");
+    }
+}
+
 handlers! {
+    "search.stop" => stop,
+    "search.annotateResults" => |st| crate::commands::dispatch(st, "find.annotateResults"),
+    "search.coloredResults" => |st| crate::commands::dispatch(st, "document.find.coloredResults"),
     "searchView.results.save" => save_results,
     "searchView.caseSensitive" => toggle_case,
     "searchView.wholeWords" => toggle_whole,

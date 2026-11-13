@@ -675,5 +675,10 @@
   "dialog.watermark.title": "Aggiungi filigrana",
   "dialog.wordcount.chars": "Caratteri",
   "dialog.wordcount.words": "Parole",
-  "dialog.group.none": "Nessun comando di questo gruppo funziona ancora."
+  "dialog.group.none": "Nessun comando di questo gruppo funziona ancora.",
+  "dialog.pane_options.recovery.keep": "Conserva copie dei documenti con modifiche non salvate",
+  "dialog.pane_options.thumb_size": "Dimensione delle miniature",
+  "dialog.pane_options.loupe_factor": "Ingrandimento",
+  "dialog.pane_options.recovery_every": "Ogni quanti minuti",
+  "dialog.pane_options.recovery_hint": "Le copie sono proposte al successivo avvio quando Folitecta termina senza salvare; non contengono mai documenti protetti."
 }

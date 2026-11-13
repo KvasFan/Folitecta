@@ -866,6 +866,13 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    a window listing the commands of the group that run by themselves (`commands/window/groups.rs`,
    `Dialog::CommandGroup`); File and Form open their menus, No Properties the properties pane.
 
+### 0.95.0 — search, loupe and pane options (on `main`, untagged)
+
+1. ~~**FOL-L003, L001, L004 — search, loupe and pane options.**~~ Done: Annotate Result, the
+   search toggles shared with Find, Stop; the boxes and guides in the loupe and its enlargement;
+   Interactive Visible of the thumbnails; the options windows of the thumbnails, links and
+   recovery (`Dialog::PaneOptions`), recovery copies every 1–15 minutes or none.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

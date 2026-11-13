@@ -234,6 +234,11 @@ pub const VIEW_OPTIONS: &[&str] = &[
     "searchView.results.showPageNum",
     "searchView.results.wrapText",
     "thumbnailsView.logicalVisible",
+    // Dragging the outline of the part shown moves the view.
+    "thumbnailsView.interactiveVisible",
+    // The page boxes and the guides in the loupe.
+    "loupeView.showBoxes",
+    "loupeView.showGuides",
     "attachmentsView.autoShowPane",
     "attachmentsView.hdr.name",
     "attachmentsView.hdr.description",
@@ -263,6 +268,8 @@ pub const VIEW_OPTIONS: &[&str] = &[
 /// Options that are on unless the user turned them off.
 pub const DEFAULT_ON: &[&str] = &[
     "view.ribbonLabels",
+    // Copies of the documents with changes are kept for recovery.
+    "recovery.keep",
     "pages.useLabels",
     "view.spellCheck",
     "search.pageText",

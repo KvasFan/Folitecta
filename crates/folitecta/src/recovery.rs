@@ -29,6 +29,11 @@ use crate::state::{AppState, Dialog, ToastKind};
 /// How often the open documents are checked.
 pub const EVERY: Duration = Duration::from_secs(60);
 
+/// Every how many minutes copies are kept (Recovery › Options; 1 to 15).
+pub fn minutes(st: AppState) -> u64 {
+    st.value("recovery.minutes").parse().unwrap_or(1).clamp(1, 15)
+}
+
 /// The note kept with a copy.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Entry {
@@ -205,6 +210,9 @@ fn changed(written: &HashMap<u64, Weak<Vec<u8>>>, tab: u64, state: &Arc<Vec<u8>>
 /// the documents with changes (when they changed since), forget the others.
 pub fn checkpoint(st: AppState) {
     let Some(dir) = folder() else { return };
+    // With Keep Copies off (Recovery › Options) no copy is written and the
+    // ones written before go.
+    let keep_on = crate::commands::option_on(st, "recovery.keep");
     let open: Vec<Open> = {
         let written = lock(&WRITTEN);
         let origins = lock(&ORIGINS);
@@ -214,7 +222,7 @@ pub fn checkpoint(st: AppState) {
             .map(|t| {
                 // Protected documents are never copied plain.
                 let protected = t.doc.is_protected() || t.doc.from_encrypted_file();
-                let keep = t.doc.is_dirty() && !protected;
+                let keep = keep_on && t.doc.is_dirty() && !protected;
                 let state = t.doc.bytes();
                 let copy = (keep && changed(&written, t.id, &state))
                     .then(|| t.doc.copy_bytes())
@@ -420,9 +428,15 @@ pub fn start(st: AppState) {
     dioxus::core::spawn_forever(async move {
         tokio::time::sleep(Duration::from_secs(2)).await;
         offer(st);
+        let mut waited = 0u64;
         loop {
             tokio::time::sleep(EVERY).await;
-            checkpoint(st);
+            waited += 1;
+            // Copies are kept every few minutes (Recovery › Options).
+            if waited >= minutes(st) {
+                waited = 0;
+                checkpoint(st);
+            }
             offer(st);
         }
     });

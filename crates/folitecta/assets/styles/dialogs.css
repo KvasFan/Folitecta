@@ -96,3 +96,10 @@
 .mark-preview-zoom { min-width: 40px; text-align: center; }
 .mark-preview-page { max-height: 320px; overflow: auto; padding: 8px; display: flex; justify-content: center; align-items: flex-start; min-height: 80px; }
 .mark-preview-page img { display: block; box-shadow: var(--shadow); background: white; }
+
+/* The Presets window. */
+.preset-list { display: flex; flex-direction: column; gap: 2px; max-height: 46vh; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px; margin: 6px 0; }
+.preset-row { display: grid; grid-template-columns: minmax(120px, 220px) minmax(0, 1fr); gap: 8px; align-items: center; padding: 3px 6px; border-radius: var(--radius-sm); min-width: 0; }
+.preset-row.selected { background: var(--accent-soft); }
+.preset-name { height: 26px; font-size: 13px; min-width: 0; }
+.preset-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }

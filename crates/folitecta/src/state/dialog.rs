@@ -387,6 +387,8 @@ pub enum Dialog {
     PaneOptions(String),
     /// Bates numbering of several files: the list of files.
     BatesFiles,
+    /// The presets of a kind (`commands::presets::CHOSEN`).
+    Presets,
     /// Properties of a sound or video comment.
     MediaProps {
         page: usize,

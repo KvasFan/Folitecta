@@ -54,10 +54,13 @@ pub fn save_preset(st: AppState, name: &str, settings: &ScanSettings) {
     if name.is_empty() {
         return;
     }
+    // A preset of the same name keeps its place in the list (Presets
+    // window), a new one goes last.
     let mut all = presets(st);
-    all.retain(|(n, _)| n != name);
-    all.push((name.to_string(), settings.clone()));
-    all.sort_by_key(|a| a.0.to_lowercase());
+    match all.iter_mut().find(|(n, _)| n == name) {
+        Some(p) => p.1 = settings.clone(),
+        None => all.push((name.to_string(), settings.clone())),
+    }
     st.set_value("scan.presets", serde_json::to_string(&all).unwrap_or_default());
 }
 

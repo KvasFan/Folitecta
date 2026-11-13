@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1607 |
+| ✅ available | 1634 |
 | 🟡 partial | 53 |
-| ⬜ planned | 354 |
+| ⬜ planned | 327 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -423,9 +423,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Measure Edit | `measureEdit` | ⬜ planned |
 | Measure Info | `measureInfo` | ⬜ planned |
 | ↳ Copy | `measureInfo.copy` | ⬜ planned |
-| Measurement Options… | `prefs.measurement` | ⬜ planned |
-| Measures | `measures` | ⬜ planned |
-| ↳ Manage… | `measures.manage` | ⬜ planned |
+| Measurement Options… | `prefs.measurement` | ✅ available |
+| Measures | `measures` | ✅ available |
+| ↳ Manage… | `measures.manage` | ✅ available |
 | Perimeter | `tool.annot.perimeter` | ✅ available |
 | Radius | `tool.annot.radius` | ✅ available |
 | Volume | `tool.annot.volume` | ✅ available |
@@ -559,11 +559,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Summary | `digisig.summary` | ✅ available |
 | ↳ Validate | `digisig.validate` | ✅ available |
 | ↳ View | `digisig.view` | ✅ available |
-| Digital Signatures | `digiSigList` | ⬜ planned |
-| ↳ Clone… | `digiSigList.clone` | ⬜ planned |
-| ↳ Delete | `digiSigList.delete` | ⬜ planned |
-| ↳ Edit… | `digiSigList.edit` | ⬜ planned |
-| ↳ Reset | `digiSigList.reset` | ⬜ planned |
+| Digital Signatures | `digiSigList` | ✅ available |
+| ↳ Clone… | `digiSigList.clone` | ✅ available |
+| ↳ Delete | `digiSigList.delete` | ✅ available |
+| ↳ Edit… | `digiSigList.edit` | ✅ available |
+| ↳ Reset | `digiSigList.reset` | ✅ available |
 | Digital Signatures | `document.signatures` | ✅ available |
 | ↳ Certify (Visible)… | `document.signatures.certify` | ✅ available |
 | ↳ Clear All Signatures | `document.signatures.clear` | ✅ available |
@@ -905,7 +905,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 |---|---|---|
 | Blank Pages… | `newDocBlank` | ✅ available |
 | Combine Files into One PDF… | `newDocCombine` | ✅ available |
-| Configure Scan Presets… | `configureScanPresets` | ⬜ planned |
+| Configure Scan Presets… | `configureScanPresets` | ✅ available |
 | Custom Scan… | `newDocCustomScan` | ✅ available |
 | From Clipboard… | `newDocClipboard` | ✅ available |
 | From Email… | `newDocEmail` | ✅ available |
@@ -1016,8 +1016,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Zoom in | `imageEditor.zoomIn` | ✅ available |
 | Merge Duplicate Fonts and Pictures | `document.mergeDuplicates` | ✅ available |
 | Object Inspector… | `document.inspectObjects` | ✅ available |
-| Recompress Images | `recompressImages` | ⬜ planned |
-| ↳ Edit… | `recompressImages.edit` | ⬜ planned |
+| Recompress Images | `recompressImages` | ✅ available |
+| ↳ Edit… | `recompressImages.edit` | ✅ available |
 | Recompress Images… | `document.recompressImages` | ✅ available |
 | Recompress Image… | `document.recompressImage` | ✅ available |
 | Replace Image | `replaceImage` | ✅ available |
@@ -1035,8 +1035,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Email All Open Documents as ZIP… | `sendByEmailOpenAllZip` | ✅ available |
 | Email All Open Documents… | `sendByEmailOpenAll` | ✅ available |
 | Email Document… | `sendByEmail` | ✅ available |
-| Email Methods | `emailMethods` | ⬜ planned |
-| ↳ Manage… | `emailMethods.manage` | ⬜ planned |
+| Email Methods | `emailMethods` | ✅ available |
+| ↳ Manage… | `emailMethods.manage` | ✅ available |
 | Email as ZIP… | `sendByEmailZip` | ✅ available |
 | Explorer | `explorer` | ✅ available |
 | ↳ Delete | `explorer.delete` | ✅ available |
@@ -1188,7 +1188,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Show Icon | `item.showIcon` | ✅ available |
 | ↳ Show Text | `item.showText` | ✅ available |
 | Preferences… | `prefs` | ✅ available |
-| ↳ Measurement Options… | `prefs.measurement` | ⬜ planned |
+| ↳ Measurement Options… | `prefs.measurement` | ✅ available |
 | Rename Toolbar | `renameToolbar` | ⬜ planned |
 | Reset Menu | `resetMenu` | ⬜ planned |
 | Reset Toolbar | `resetToolbar` | ✅ available |
@@ -1265,7 +1265,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | E-Signature Service | `esign` | ⬜ planned |
 | Email All Open Documents as ZIP… | `sendByEmailOpenAllZip` | ✅ available |
 | Email All Open Documents… | `sendByEmailOpenAll` | ✅ available |
-| Email Methods | `emailMethods` | ⬜ planned |
+| Email Methods | `emailMethods` | ✅ available |
 | Email as ZIP… | `sendByEmailZip` | ✅ available |
 | Explorer | `explorer` | ✅ available |
 | Export Tables… | `document.exportTables` | ✅ available |
@@ -1392,8 +1392,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Paste as Stamp | `pasteAsStamp` | ✅ available |
 | Path Editing | `pathedit` | 🟡 partial |
 | Position | `position` | ✅ available |
-| Presets | `presetList` | ⬜ planned |
-| Presets | `presets` | ⬜ planned |
+| Presets | `presetList` | ✅ available |
+| Presets | `presets` | ✅ available |
 | Properties… | `props` | ✅ available |
 | Remove Clip | `removeClip` | ⬜ planned |
 | Rename Toolbar | `renameToolbar` | ⬜ planned |
@@ -1619,7 +1619,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Detect Barcodes in Region… | `document.detectBarcodes` | ✅ available |
 | Detect Barcodes… | `document.detectImageBarcode` | ✅ available |
 | Digital Signature | `digisig` | ✅ available |
-| Digital Signatures | `digiSigList` | ⬜ planned |
+| Digital Signatures | `digiSigList` | ✅ available |
 | Document Actions | `docActions` | ✅ available |
 | Enable Editing (Discard PDF/A) | `document.discardPDFA` | ✅ available |
 | Export All Bookmarks… | `document.exportBookmarks` | ✅ available |
@@ -1662,7 +1662,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Previous Bookmark | `document.prevBookm` | ✅ available |
 | Public Key Security | `pubsec` | ✅ available |
 | Rasterize Pages… | `document.rasterizePages` | ✅ available |
-| Recompress Images | `recompressImages` | ⬜ planned |
+| Recompress Images | `recompressImages` | ✅ available |
 | Recompress Image… | `document.recompressImage` | ✅ available |
 | Redaction | `redaction` | ✅ available |
 | Remove All Web Links | `removeAllWebLinks` | ✅ available |
@@ -2272,18 +2272,18 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `pdfNamedDestsView.useTextForTitle` | View › Named Destinations Pane › Use Text for Title | ✅ available |
 | `pdfNamedDestsView.wrapTitles` | View › Named Destinations Pane › Wrap Titles | ✅ available |
 | `position.Slider` | Edit › Position › Position | ✅ available |
-| `presetList.add` | Edit › Presets › Add | ⬜ planned |
-| `presetList.clone` | Edit › Presets › Clone | ⬜ planned |
-| `presetList.delete` | Edit › Presets › Delete | ⬜ planned |
-| `presetList.down` | Edit › Presets › Down | ⬜ planned |
-| `presetList.edit` | Edit › Presets › Edit | ⬜ planned |
-| `presetList.export` | Edit › Presets › Export | ⬜ planned |
-| `presetList.import` | Edit › Presets › Import | ⬜ planned |
-| `presetList.up` | Edit › Presets › Up | ⬜ planned |
-| `presets.addNew` | Edit › Presets › Add New | ⬜ planned |
-| `presets.addNew2` | Edit › Presets › Add New 2 | ⬜ planned |
-| `presets.delete` | Edit › Presets › Delete | ⬜ planned |
-| `presets.manage` | Edit › Presets › Manage | ⬜ planned |
+| `presetList.add` | Edit › Presets › Add | ✅ available |
+| `presetList.clone` | Edit › Presets › Clone | ✅ available |
+| `presetList.delete` | Edit › Presets › Delete | ✅ available |
+| `presetList.down` | Edit › Presets › Down | ✅ available |
+| `presetList.edit` | Edit › Presets › Edit | ✅ available |
+| `presetList.export` | Edit › Presets › Export | ✅ available |
+| `presetList.import` | Edit › Presets › Import | ✅ available |
+| `presetList.up` | Edit › Presets › Up | ✅ available |
+| `presets.addNew` | Edit › Presets › Add New | ✅ available |
+| `presets.addNew2` | Edit › Presets › Add New 2 | ✅ available |
+| `presets.delete` | Edit › Presets › Delete | ✅ available |
+| `presets.manage` | Edit › Presets › Manage | ✅ available |
 | `props.applyDefault` | Edit › Properties › Apply Default | ✅ available |
 | `props.makeDefault` | Edit › Properties › Make Default | ✅ available |
 | `pubsec.cert.add` | Document › Public Key Security › Cert › Add | ✅ available |

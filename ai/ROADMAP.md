@@ -880,6 +880,13 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    the eight columns; the preview of the page mark windows (`ui/features/mark_preview.rs`,
    `/markprev/`) with Page Marks › Zoom In and Zoom Out.
 
+### 0.97.0 — presets of one's own, e-mail methods (on `main`, untagged)
+
+1. ~~**FOL-L050, L045, L011, L028, L040, L053 — presets and e-mail methods.**~~ Done: the
+   Presets window (`commands/document/presets.rs`, `ui/features/presets.rs`) for four kinds,
+   with Edit › Presets, Measures › Manage, Configure Scan Presets, Recompress Images › Edit,
+   Digital Signatures and Measurement Options; Email Methods › Manage.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

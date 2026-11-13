@@ -387,6 +387,7 @@ pub(super) fn PaneOptionsDialog(pane: String) -> Element {
                 "tool.loupe.trackMouse",
             ],
         ),
+        "email" => ("emailMethods.manage", &[]),
         _ => ("recoveryView.options", &["recovery.keep"]),
     };
     let title = reg
@@ -408,6 +409,11 @@ pub(super) fn PaneOptionsDialog(pane: String) -> Element {
     };
     let factor = format!("{:.2}", crate::ui::canvas::loupe_factor(st));
     let minutes = crate::recovery::minutes(st).to_string();
+    let mail_method = if st.value("mail.method") == "draft" {
+        "draft"
+    } else {
+        "program"
+    };
     rsx! {
         Frame { title,
             div { class: "check-list pane-options",
@@ -435,6 +441,21 @@ pub(super) fn PaneOptionsDialog(pane: String) -> Element {
                         }
                     }
                 }
+            }
+            if pane == "email" {
+                div { class: "field",
+                    label { "{t(lang, \"dialog.pane_options.mail_method\")}" }
+                    div { class: "radio-col",
+                        for (v, key) in [("program", "dialog.mail.open_program"), ("draft", "dialog.mail.save_draft")] {
+                            label { class: "check", key: "{v}",
+                                input { r#type: "radio", name: "mail-method", value: "{v}", checked: mail_method == v,
+                                    onchange: move |_| st.set_value("mail.method", v) }
+                                span { "{t(lang, key)}" }
+                            }
+                        }
+                    }
+                }
+                p { class: "hint", "{t(lang, \"dialog.pane_options.mail_hint\")}" }
             }
             if pane == "recovery" {
                 div { class: "field",

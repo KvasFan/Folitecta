@@ -18,6 +18,7 @@ pub(crate) mod pages;
 pub(crate) mod paths;
 pub(crate) mod pictures;
 pub(crate) mod preflight;
+pub(crate) mod presets;
 pub(crate) mod print;
 pub(crate) mod scanning;
 pub(crate) mod scans;

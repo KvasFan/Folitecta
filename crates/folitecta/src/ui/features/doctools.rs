@@ -137,9 +137,14 @@ pub fn RecompressDialog(current: bool) -> Element {
         let v = st.value("recompress.preset");
         if v.is_empty() { "ebook".to_string() } else { v }
     });
-    let mut quality = use_signal(|| "70".to_string());
-    let mut dpi = use_signal(|| "150".to_string());
-    let mut max_px = use_signal(|| "0".to_string());
+    // The settings of one's own used last (or set by a preset).
+    let kept = |k: &str, d: &str| {
+        let v = st.value(k);
+        if v.trim().is_empty() { d.to_string() } else { v }
+    };
+    let mut quality = use_signal(|| kept("recompress.quality", "70"));
+    let mut dpi = use_signal(|| kept("recompress.dpi", "150"));
+    let mut max_px = use_signal(|| kept("recompress.max_px", "0"));
     let mut estimate: Signal<Option<Result<RecompressReport, String>>> = use_signal(|| None);
     let mut busy = use_signal(|| false);
     let num = |s: String, d: u32| s.trim().parse::<u32>().unwrap_or(d);
@@ -239,6 +244,11 @@ pub fn RecompressDialog(current: bool) -> Element {
             on_ok: move |_| {
                 let (sc, se) = (chosen_scope(), settings());
                 st.set_value("recompress.preset", preset());
+                if preset() == "custom" {
+                    st.set_value("recompress.quality", quality());
+                    st.set_value("recompress.dpi", dpi());
+                    st.set_value("recompress.max_px", max_px());
+                }
                 let r = st.with_active(|t| t.doc.recompress(&sc, se));
                 match r {
                     Some(Ok(rep)) => {

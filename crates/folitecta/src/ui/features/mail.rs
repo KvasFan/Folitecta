@@ -137,10 +137,13 @@ pub fn MailDialog() -> Element {
         None => t(lang, "dialog.mail.preparing"),
     };
     let can_go = ready.is_some() && !busy;
+    // Email Methods › Manage: the mail program or a draft saved as a file
+    // by default (the other one stays a button of its own).
+    let by_draft = st.value("mail.method") == "draft";
     rsx! {
         Frame { title: t(lang, "dialog.mail.title"), wide: true,
-            ok_label: Some(t(lang, "dialog.mail.open_program")), ok_disabled: !can_go, enter_from_text: true,
-            on_ok: move |_| m::hand_over(st),
+            ok_label: Some(t(lang, if by_draft { "dialog.mail.save_draft" } else { "dialog.mail.open_program" })), ok_disabled: !can_go, enter_from_text: true,
+            on_ok: move |_| if by_draft { m::save_draft(st) } else { m::hand_over(st) },
             div { class: "mail-dialog",
                 div { class: "mail-list", role: "list", "aria-label": "{t(lang, \"dialog.mail.files\")}",
                     for (i, it) in d.items.iter().enumerate() {
@@ -233,7 +236,11 @@ pub fn MailDialog() -> Element {
             }
             if !matches!(d.phase, Phase::Opened(_) | Phase::Failed(_)) {
                 div { class: "row mail-actions",
-                    button { class: "tbtn mail-save", disabled: !can_go, onclick: move |_| m::save_draft(st), "{t(lang, \"dialog.mail.save_draft\")}" }
+                    if by_draft {
+                        button { class: "tbtn mail-program", disabled: !can_go, onclick: move |_| m::hand_over(st), "{t(lang, \"dialog.mail.open_program\")}" }
+                    } else {
+                        button { class: "tbtn mail-save", disabled: !can_go, onclick: move |_| m::save_draft(st), "{t(lang, \"dialog.mail.save_draft\")}" }
+                    }
                     span { class: "hint", "{t(lang, \"dialog.mail.save_hint\")}" }
                 }
             }

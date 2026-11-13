@@ -7,6 +7,13 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Edit › Presets opens the Presets window: presets of measurements, scanning, recompressing
+  pictures and signing, added from the settings in use or the default ones, renamed in place,
+  cloned, deleted, moved, used, imported and exported as JSON; Measures › Manage, Configure Scan
+  Presets, Recompress Images › Edit and Digital Signatures open it on their kind; Digital
+  Signatures › Reset brings the signing settings back to their defaults; Measurement Options opens
+  the scale and number format of measures. Recompress Pictures remembers the settings of one's own.
+- Email Methods › Manage chooses what the e-mail window does first: the mail program or a draft.
 - Document › Bates Numbering › Add to Several Files opens the list of the files to number: added,
   moved up and down, removed and cleared (Edit › List), the pages of each chosen, the columns
   chosen (title, location, type, size, modified, number of pages, pages numbered, page size),

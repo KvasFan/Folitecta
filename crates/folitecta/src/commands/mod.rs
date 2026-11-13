@@ -21,7 +21,7 @@ pub(crate) mod text;
 pub(crate) mod window;
 pub(crate) use document::{
     actions, barcodes, bates_files, compare, convert, doctools, file, fileops, greyscale, macros, mail, ocr,
-    office, pages, paths, pictures, preflight, print, scanning, scans, sources, split, table_export,
+    office, pages, paths, pictures, preflight, presets, print, scanning, scans, sources, split, table_export,
     templates,
 };
 pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
@@ -127,6 +127,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     articles::HANDLERS,
     groups::HANDLERS,
     bates_files::HANDLERS,
+    presets::HANDLERS,
 ];
 
 static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {

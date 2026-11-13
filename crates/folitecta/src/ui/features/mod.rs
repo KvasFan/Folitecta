@@ -33,6 +33,7 @@ pub mod policies;
 pub mod portfolio;
 pub mod preflight;
 pub mod presentation;
+pub mod presets;
 pub mod print;
 pub mod quick_panel;
 pub mod read_aloud;

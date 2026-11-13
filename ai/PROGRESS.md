@@ -4,6 +4,26 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-13 — FOL-L050 and others: presets of one's own, e-mail methods (0.97.0)
+
+- **Current state before:** Edit › Presets (Add New, Add New 2, Delete, Manage), Presets (Add,
+  Edit, Clone, Delete, Up, Down, Import, Export), Measures › Manage, Measurement Options, Configure
+  Scan Presets, Recompress Images › Edit, Digital Signatures (Edit, Clone, Delete, Reset) and Email
+  Methods › Manage were planned; scan presets were kept sorted by name, the Recompress window
+  forgot the settings of one's own.
+- **What:** `presets.rs`: kinds (measure, scan, recompress, sign) with their setting keys; a
+  preset is a name and the values of those keys (the scan presets keep the scanning window's
+  format); add from the settings in use or empty (defaults), clone, delete, move, rename in place,
+  use, export and import (`folitecta_presets` + `presets`; unknown keys dropped, names taken
+  numbered). `PresetsDialog` with a kind chooser. Scan presets keep their order; Recompress keeps
+  quality, resolution and size of its own settings. The e-mail window's main button follows
+  `mail.method` (mail program or draft) chosen in `PaneOptions("email")`.
+- **Checked:** unit tests of names; self-test step `complete` (11 interactions) and `email`
+  (14 together, 0 problems): two presets, one renamed Fine, moved, a clone added and deleted, Fine
+  used (3 decimals), a file imported as Fine (2) without the unknown key; Digital Signatures ›
+  Reset; with a draft first the main button saves the draft.
+- **Open:** —
+
 ## 2026-11-13 — FOL-L017: Bates numbering of files listed, previews of page marks (0.96.0)
 
 - **Current state before:** Bates numbering of several files numbered the files picked at once

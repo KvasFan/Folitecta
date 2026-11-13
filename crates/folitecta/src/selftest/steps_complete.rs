@@ -3,7 +3,8 @@
 //! its command; Search › Annotate Result and the search options; the page
 //! boxes and guides in the loupe; Interactive Visible of the thumbnails; the
 //! options windows of panes and of recovery; Bates numbering of several
-//! files from their list; the preview of page marks and its zoom.
+//! files from their list; the preview of page marks and its zoom; the
+//! Presets window.
 
 use super::*;
 
@@ -97,6 +98,8 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     thumbnails_and_options(cx).await;
     bates_files(cx).await;
     mark_preview(cx).await;
+    presets(cx).await;
+    mail_method(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -325,5 +328,93 @@ async fn mark_preview(cx: &mut Ctx<'_>) {
         "the watermark window previews the page with the mark; Page Marks › Zoom In draws it larger; the document is not changed",
         first > 250 && first < 350 && second > first && !changed,
         format!("preview {first} px wide, after Zoom In {second} px, document changed {changed}"),
+    );
+}
+
+/// Measurement presets: added from the settings in use and from the
+/// defaults, renamed in place, moved, cloned, deleted, used; imported from
+/// a file of them; Digital Signatures › Reset.
+async fn presets(cx: &mut Ctx<'_>) {
+    use crate::commands::presets::{CHOSEN, load};
+    let st = cx.st;
+    st.set_value("measure.presets", "");
+    st.set_value("measure.decimals", "3");
+    crate::commands::dispatch(st, "measures.manage");
+    pause(300).await;
+    let open = matches!(*st.dialog.peek(), Dialog::Presets) && CHOSEN.peek().kind == "measure";
+    crate::commands::dispatch(st, "presetList.add");
+    st.set_value("measure.decimals", "1");
+    crate::commands::dispatch(st, "presets.addNew2");
+    pause(300).await;
+    let _ = eval("const i = document.getElementById('preset-name-0'); if (i) { i.value = 'Fine'; i.dispatchEvent(new Event('change', { bubbles: true })); }").await;
+    pause(300).await;
+    // The defaults first, then Fine; a clone of Fine added and deleted.
+    CHOSEN.write().index = Some(1);
+    crate::commands::dispatch(st, "presetList.up");
+    crate::commands::dispatch(st, "presetList.down");
+    crate::commands::dispatch(st, "presetList.clone");
+    let three = load(st, "measure").len();
+    crate::commands::dispatch(st, "presetList.delete");
+    pause(300).await;
+    let names: Vec<String> = load(st, "measure").into_iter().map(|p| p.0).collect();
+    // Use Fine.
+    let at = names.iter().position(|n| n == "Fine");
+    CHOSEN.write().index = at;
+    pause(200).await;
+    let _ = eval("document.querySelector('.dialog .preset-use')?.click();").await;
+    pause(300).await;
+    let used = st.value("measure.decimals");
+    let imported = crate::commands::presets::import_text(
+        st,
+        r#"{"folitecta_presets":"measure","presets":[["Fine",{"measure.decimals":"2","other":"x"}]]}"#,
+    );
+    let after = load(st, "measure");
+    let kept_only_known = after
+        .last()
+        .is_some_and(|p| p.0 == "Fine (2)" && !p.1.contains_key("other"));
+    st.set_value("sign.reason", "Approved");
+    crate::commands::dispatch(st, "digiSigList.reset");
+    let reset = st.value("sign.reason").is_empty();
+    st.set_dialog(Dialog::None);
+    st.set_value("measure.presets", "");
+    st.set_value("measure.decimals", "");
+    cx.record(
+        "the Presets window adds, renames, moves, clones, deletes, uses and imports measurement presets; Digital Signatures › Reset",
+        open && three == 3 && names.len() == 2 && names.contains(&"Fine".to_string()) && used == "3"
+            && imported == Ok(1) && kept_only_known && reset,
+        format!("open {open}, after clone {three}, names {names:?}, decimals used {used}, imported {imported:?} known keys only {kept_only_known}, sign reset {reset}"),
+    );
+}
+
+/// Email Methods › Manage: a draft first; the e-mail window's main button
+/// saves the draft, the mail program a button of its own.
+async fn mail_method(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    crate::commands::dispatch(st, "emailMethods.manage");
+    pause(300).await;
+    let _ = eval("document.querySelector('.dialog input[name=mail-method][value=draft]')?.click();").await;
+    pause(200).await;
+    let chosen = st.value("mail.method");
+    st.set_dialog(Dialog::None);
+    crate::commands::dispatch(st, "sendByEmail");
+    pause(600).await;
+    let buttons = eval("return [document.querySelector('.dialog-foot .tbtn.primary')?.textContent ?? '', !!document.querySelector('.dialog .mail-program')];")
+        .await
+        .ok()
+        .unwrap_or_default();
+    let main = buttons
+        .get(0)
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_string();
+    let program = buttons.get(1).and_then(|v| v.as_bool()).unwrap_or(false);
+    st.set_dialog(Dialog::None);
+    *crate::commands::mail::MAIL.write() = None;
+    st.set_value("mail.method", "");
+    let want = crate::i18n::t(st.lang(), "dialog.mail.save_draft");
+    cx.record(
+        "Email Methods › Manage: with a draft first the e-mail window's main button saves the draft",
+        chosen == "draft" && main.trim() == want && program,
+        format!("method {chosen}, main button {main:?}, mail program button {program}"),
     );
 }

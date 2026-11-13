@@ -142,3 +142,31 @@ fn a_font_replaced_with_a_free_font_keeps_the_text_in_place() {
             .is_err()
     );
 }
+
+#[test]
+fn replaced_fonts_come_back_and_maps_are_repaired() {
+    use folitecta_core::fonts::Family;
+    // A page drawing with Arial, not embedded, WinAnsi: no ToUnicode map.
+    let mut doc = Document::from_bytes(folitecta_core::testdocs::text_doc(1), None, None).unwrap();
+    let before = doc.used_fonts();
+    let name = before
+        .iter()
+        .find(|f| !f.embedded)
+        .map(|f| f.name.clone())
+        .expect("a font not embedded");
+    let repaired = doc.repair_to_unicode().unwrap();
+    assert!(repaired >= 1, "{repaired}");
+    assert_eq!(
+        doc.repair_to_unicode().unwrap(),
+        0,
+        "a second time there is nothing to do"
+    );
+    let n = doc.replace_font(&name, Family::Serif, false, false).unwrap();
+    assert!(n >= 1);
+    assert_eq!(doc.substituted_fonts(), vec![name.clone()]);
+    let back = doc.reset_substituted_fonts(Some(&name)).unwrap();
+    assert_eq!(back, n);
+    assert!(doc.substituted_fonts().is_empty());
+    let again = Document::from_bytes(doc.bytes().to_vec(), None, None).unwrap();
+    assert!(again.used_fonts().iter().any(|f| f.name == name && !f.embedded));
+}

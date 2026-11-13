@@ -499,5 +499,9 @@
   "toast.batch_links": "{files} file con collegamenti web ({links} collegamenti), ciascuno in una copia con “-links” nel nome.",
   "toast.crop_draw": "Disegna l'area da tenere, poi di nuovo Applica.",
   "toast.crop_area_drawn": "L'area da tenere è mostrata: Ritaglia pagina › Applica ritaglia questa pagina, Ritaglia › Applica tutte le pagine (o quelle scelte).",
-  "toast.place_annot": "Ogni clic posiziona una copia del commento."
+  "toast.place_annot": "Ogni clic posiziona una copia del commento.",
+  "toast.no_replaced_fonts": "Nessun font di questo documento è stato sostituito (o è stato sostituito prima che si potesse ripristinare).",
+  "toast.fonts_back": "{count} font ripristinati com'erano.",
+  "toast.unicode_maps_fine": "Ogni font ha già la mappa dei suoi caratteri (o i suoi codici sono propri).",
+  "toast.unicode_maps_made": "{count} font hanno ricevuto la mappa dei caratteri: il loro testo si legge e si copia correttamente."
 }

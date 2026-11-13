@@ -432,6 +432,7 @@ pub fn Dialogs() -> Element {
         Dialog::MoveTabs => rsx! { MoveTabsDialog {} },
         Dialog::InkSetting(what) => rsx! { InkSettingDialog { what } },
         Dialog::AllowBlock(kind) => rsx! { AllowBlockDialog { kind } },
+        Dialog::ResetFonts => rsx! { ResetFontsDialog {} },
         Dialog::MeasureEdit { page, index } => rsx! { CalibrateDialog { target: Some((page, index)) } },
         Dialog::GoToView { page, index, at } => rsx! { GoToViewDialog { page, index, at } },
         Dialog::GoToName {

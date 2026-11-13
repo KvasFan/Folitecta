@@ -406,6 +406,8 @@ pub enum Dialog {
     InkSetting(String),
     /// The Allow/Block List, adding an entry of a kind.
     AllowBlock(String),
+    /// The fonts replaced that can be brought back.
+    ResetFonts,
     /// The scale of one measurement.
     MeasureEdit {
         page: usize,

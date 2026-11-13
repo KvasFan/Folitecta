@@ -7,6 +7,11 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Substitute Fonts: Change Font opens Replace Fonts; a font replaced keeps the font it was, so
+  Reset Font brings one back and Reset All Fonts all of them, also after the file is saved and
+  opened again.
+- Font › Repair To Unicode CMap gives the simple fonts that lack one a map of their characters,
+  made from their encoding, so their text is read, searched and copied right.
 - Tools › Place Annotation: the comment chosen becomes a template, and each click on a page places
   a copy of it there; the tool stays chosen.
 - Comments › Measure Edit measures the measurement chosen again at another scale (ratio, unit,

@@ -755,5 +755,6 @@
   "dialog.allow.hint.folder": "/percorso/della/cartella",
   "dialog.allow.mode_allow": "Apri senza chiedere",
   "dialog.allow.mode_block": "Non aprire mai",
-  "dialog.batch_links.choose": "Collegamenti in blocco: scegli i documenti"
+  "dialog.batch_links.choose": "Collegamenti in blocco: scegli i documenti",
+  "dialog.reset_fonts.hint": "Questi font sono stati sostituiti (Cambia font, Sostituisci font): un clic ne ripristina uno com'era."
 }

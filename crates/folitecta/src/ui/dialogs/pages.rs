@@ -1170,3 +1170,30 @@ pub(super) fn OverlayFile(path: String) -> Element {
         }
     }
 }
+
+/// Substitute Fonts › Reset Font: the fonts replaced; a click brings one back.
+#[component]
+pub(super) fn ResetFontsDialog() -> Element {
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let names = st.read_active(|t| t.doc.substituted_fonts()).unwrap_or_default();
+    rsx! {
+        Frame { title: t(lang, "cmd.saf.resetFont"),
+            p { class: "hint", "{t(lang, \"dialog.reset_fonts.hint\")}" }
+            div { class: "command-group",
+                for name in names.into_iter() {
+                    {
+                        let n = name.clone();
+                        rsx! {
+                            button { class: "command-group-row reset-font", key: "{name}",
+                                onclick: move |_| { st.set_dialog(Dialog::None); crate::commands::font_tools::reset(st, Some(n.clone())); },
+                                Icon { name: "font" }
+                                span { class: "grow", "{name}" }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

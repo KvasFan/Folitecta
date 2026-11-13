@@ -499,5 +499,9 @@
   "toast.batch_links": "{files} files with web links ({links} links), each in a copy named “-links”.",
   "toast.crop_draw": "Draw the area to keep, then Apply again.",
   "toast.crop_area_drawn": "The area to keep is shown: Crop Page › Apply crops this page, Crop › Apply every page (or those chosen).",
-  "toast.place_annot": "Each click places a copy of the comment."
+  "toast.place_annot": "Each click places a copy of the comment.",
+  "toast.no_replaced_fonts": "No font of this document was replaced (or it was replaced before it could be brought back).",
+  "toast.fonts_back": "{count} fonts brought back as they were.",
+  "toast.unicode_maps_fine": "Every font maps its characters already (or its codes are its own).",
+  "toast.unicode_maps_made": "{count} fonts got a map of their characters: their text is read and copied right."
 }

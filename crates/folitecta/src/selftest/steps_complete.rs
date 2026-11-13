@@ -13,7 +13,8 @@
 //! panes' info bar, Manage Form Data, History; the settings of freehand
 //! strokes and of the eraser; the Allow/Block List, Batch Link, a new
 //! document from the selection, the picture commands; the area drawn to crop
-//! to, the origin anchor; Place Annotation, Measure Edit.
+//! to, the origin anchor; Place Annotation, Measure Edit; fonts replaced and
+//! brought back, maps of characters repaired.
 
 use super::*;
 
@@ -119,6 +120,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     allow_and_batch(cx).await;
     crop_area(cx).await;
     place_and_measure(cx).await;
+    fonts_back(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -1252,5 +1254,45 @@ async fn place_and_measure(cx: &mut Ctx<'_>) {
         "Place Annotation puts a copy of the note at each click; Measure Edit measures a distance again at 1 mm = 10 cm, the settings of new measures kept",
         tool && placed == 2 && copy_text == "Template" && value == "254 cm" && settings_kept,
         format!("tool {tool}, placed {placed} ({copy_text:?}), value {value:?}, settings kept {settings_kept}"),
+    );
+}
+
+async fn fonts_back(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    let name = st
+        .read_active(|t| {
+            t.doc
+                .used_fonts()
+                .into_iter()
+                .find(|f| !f.embedded)
+                .map(|f| f.name)
+        })
+        .flatten()
+        .unwrap_or_default();
+    crate::commands::dispatch(st, "font.repairToUnicodeCMap");
+    let again = st.with_active(|t| t.doc.repair_to_unicode()).and_then(|r| r.ok());
+    let replaced = st
+        .with_active(|t| {
+            t.doc
+                .replace_font(&name, folitecta_core::fonts::Family::Mono, false, false)
+        })
+        .is_some_and(|r| r.is_ok_and(|n| n > 0));
+    crate::commands::dispatch(st, "saf.resetFont");
+    pause(300).await;
+    let rows = eval("return document.querySelectorAll('.dialog .reset-font').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let _ = eval("document.querySelector('.dialog .reset-font')?.click();").await;
+    pause(300).await;
+    let left = st.read_active(|t| t.doc.substituted_fonts().len()).unwrap_or(9);
+    let back = st
+        .read_active(|t| t.doc.used_fonts().iter().any(|f| f.name == name && !f.embedded))
+        .unwrap_or(false);
+    cx.record(
+        "Repair To Unicode CMap gives the fonts their maps; a font replaced is brought back with Reset Font",
+        !name.is_empty() && again == Some(0) && replaced && rows == 1 && left == 0 && back,
+        format!("font {name:?}, second repair {again:?}, replaced {replaced}, rows {rows}, left {left}, back {back}"),
     );
 }

@@ -951,6 +951,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    `PLACE_TEMPLATE` and `AnnotSnapshot::rect`; core `set_measure_scale`, the calibration window
    aimed at one measurement.
 
+### 0.108.0 — fonts brought back, maps of characters repaired (on `main`, untagged)
+
+1. ~~**FOL-L018, L043 — fonts brought back, maps repaired.**~~ Done: core
+   `substituted_fonts`, `reset_substituted_fonts` (the replaced font kept under
+   `FolitectaOriginalFont`), `repair_to_unicode`; `commands/document/font_tools.rs`.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

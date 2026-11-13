@@ -755,5 +755,6 @@
   "dialog.allow.hint.folder": "/path/of/the/folder",
   "dialog.allow.mode_allow": "Open without asking",
   "dialog.allow.mode_block": "Never open",
-  "dialog.batch_links.choose": "Batch Link: choose the documents"
+  "dialog.batch_links.choose": "Batch Link: choose the documents",
+  "dialog.reset_fonts.hint": "These fonts were replaced (Change Font, Replace Fonts): a click brings one back as it was."
 }

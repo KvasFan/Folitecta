@@ -4,6 +4,20 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-14 — FOL-L018, L043: fonts brought back, maps of characters repaired (0.108.0)
+
+- **Current state before:** Substitute Fonts › Change Font, Reset Font, Reset All Fonts and Font ›
+  Repair To Unicode CMap were planned; a replaced font could only be undone.
+- **What:** core: `replace_font` keeps the font it replaces in the new font dictionary
+  (`FolitectaOriginalFont`, the first one when replaced again); `substituted_fonts`,
+  `reset_substituted_fonts` (one or all, one undo step); `repair_to_unicode` (fonts inside
+  page resources lifted first, simple fonts without `/ToUnicode` get one from their encoding
+  and the Adobe Glyph List). App: `font_tools.rs`, `ResetFontsDialog`.
+- **Checked:** core test `used_fonts.rs` (a map made, none the second time; a font replaced,
+  brought back, kept so in the file); self-test steps `complete` and `replace_fonts` (26
+  interactions, 0 problems).
+- **Open:** maps for composite fonts without one (their font program's own table).
+
 ## 2026-11-14 — FOL-L025, L028: Place Annotation, Measure Edit (0.107.0)
 
 - **Current state before:** Place Annotation and Measure Edit were planned.

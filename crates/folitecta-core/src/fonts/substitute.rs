@@ -74,6 +74,9 @@ pub(crate) fn glyph_char(name: &str) -> Option<char> {
     u32::from_str_radix(hex, 16).ok().and_then(char::from_u32)
 }
 
+/// The key under which a replaced font keeps the font it was.
+const ORIGINAL: &str = "FolitectaOriginalFont";
+
 /// The family of a substitute face (and of a replacement, Replace Fonts).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Family {
@@ -648,8 +651,19 @@ impl Document {
         }
         let mut done = 0;
         for id in ids {
+            // The font as it was, kept with it so Substitute Fonts › Reset can
+            // bring it back (once: a second replacement keeps the first one).
+            let original = self.inner.get_dictionary(id)?.clone();
             match self.put_substitute(id, Some((family, bold, italic))) {
-                Ok(true) => done += 1,
+                Ok(true) => {
+                    let d = self.inner.get_dictionary_mut(id)?;
+                    if !d.has(ORIGINAL.as_bytes()) && !original.has(ORIGINAL.as_bytes()) {
+                        d.set(ORIGINAL, Object::Dictionary(original));
+                    } else if let Ok(kept) = original.get(ORIGINAL.as_bytes()).cloned() {
+                        d.set(ORIGINAL, kept);
+                    }
+                    done += 1;
+                }
                 Ok(false) => {}
                 Err(e) => {
                     self.abandon_edit();
@@ -665,6 +679,106 @@ impl Document {
         }
         self.commit()?;
         Ok(done)
+    }
+
+    /// The fonts replaced with Replace Fonts or Substitute Fonts › Change
+    /// Font that can be brought back: their names as they were.
+    pub fn substituted_fonts(&self) -> Vec<String> {
+        let mut out: Vec<String> = self
+            .inner
+            .objects
+            .values()
+            .filter_map(|o| o.as_dict().ok())
+            .filter_map(|d| d.get(ORIGINAL.as_bytes()).ok()?.as_dict().ok().map(bare_name))
+            .collect();
+        out.sort();
+        out.dedup();
+        out
+    }
+
+    /// Substitute Fonts › Reset Font (a name) and Reset All Fonts (none):
+    /// the fonts replaced brought back as they were. One undo step; how
+    /// many fonts came back.
+    pub fn reset_substituted_fonts(&mut self, name: Option<&str>) -> Result<usize> {
+        let ids: Vec<(ObjectId, Dictionary)> = self
+            .inner
+            .objects
+            .iter()
+            .filter_map(|(id, o)| {
+                let kept = o
+                    .as_dict()
+                    .ok()?
+                    .get(ORIGINAL.as_bytes())
+                    .ok()?
+                    .as_dict()
+                    .ok()?
+                    .clone();
+                name.is_none_or(|n| bare_name(&kept) == n).then_some((*id, kept))
+            })
+            .collect();
+        if ids.is_empty() {
+            return Err(Error::Invalid("no replaced font to bring back".into()));
+        }
+        self.begin_edit();
+        for (id, kept) in &ids {
+            if let Ok(d) = self.inner.get_dictionary_mut(*id) {
+                *d = kept.clone();
+            }
+        }
+        self.commit()?;
+        Ok(ids.len())
+    }
+
+    /// Font › Repair To Unicode CMap: simple fonts without a ToUnicode map
+    /// get one made from their encoding (the glyph names read with the Adobe
+    /// Glyph List), so their text is read and copied right. One undo step;
+    /// how many fonts got a map.
+    pub fn repair_to_unicode(&mut self) -> Result<usize> {
+        self.begin_edit();
+        // Fonts written inside the resources of a page become objects first.
+        crate::pdfa::lift_direct_fonts(&mut self.inner);
+        let todo: Vec<(ObjectId, BTreeMap<u8, char>)> = self
+            .inner
+            .objects
+            .iter()
+            .filter_map(|(id, o)| {
+                let d = o.as_dict().ok()?;
+                if name_of(d, b"Type") != Some(b"Font") || d.has(b"ToUnicode") {
+                    return None;
+                }
+                if matches!(
+                    name_of(d, b"Subtype"),
+                    Some(b"Type0" | b"CIDFontType0" | b"CIDFontType2") | None
+                ) {
+                    return None;
+                }
+                let names = code_names(&self.inner, d)?;
+                let map: BTreeMap<u8, char> = names
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(code, n)| {
+                        (n != ".notdef" && !n.is_empty())
+                            .then(|| glyph_char(n).map(|c| (code as u8, c)))
+                            .flatten()
+                    })
+                    .collect();
+                (!map.is_empty()).then_some((*id, map))
+            })
+            .collect();
+        if todo.is_empty() {
+            self.abandon_edit();
+            return Ok(0);
+        }
+        for (id, map) in &todo {
+            let stream = self
+                .inner
+                .add_object(Stream::new(Dictionary::new(), byte_to_unicode(map)));
+            if let Ok(d) = self.inner.get_dictionary_mut(*id) {
+                d.set("ToUnicode", stream);
+            }
+        }
+        self.commit()?;
+        Ok(todo.len())
     }
 
     /// [`Document::embed_substitute`] for a composite font: a CIDFontType2

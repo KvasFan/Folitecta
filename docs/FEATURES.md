@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1731 |
+| ✅ available | 1737 |
 | 🟡 partial | 39 |
-| ⬜ planned | 244 |
+| ⬜ planned | 238 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -960,8 +960,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Detect Barcodes in Region… | `document.detectBarcodes` | ✅ available |
 | Detect Barcodes… | `document.detectImageBarcode` | ✅ available |
 | Enable Editing (Discard PDF/A) | `document.discardPDFA` | ✅ available |
-| Font | `font` | ⬜ planned |
-| ↳ Repair to Unicode C Map | `font.repairToUnicodeCMap` | ⬜ planned |
+| Font | `font` | ✅ available |
+| ↳ Repair to Unicode C Map | `font.repairToUnicodeCMap` | ✅ available |
 | Highlight from File | `document.highlightFile` | ✅ available |
 | Import Bookmarks | `document.importBookmarks` | ✅ available |
 | New Stamp from Active Document | `document.createStampFromActiveDoc` | ✅ available |
@@ -970,10 +970,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Preflight PDF/A… | `document.preflight` | ✅ available |
 | Replace Fonts… | `document.replaceFonts` | ✅ available |
 | Show Problem Details… | `document.showProblems` | ✅ available |
-| Substitute Fonts | `saf` | ⬜ planned |
-| ↳ Change Font… | `saf.changeFont` | ⬜ planned |
-| ↳ Reset All Fonts | `saf.resetAllFonts` | ⬜ planned |
-| ↳ Reset Font | `saf.resetFont` | ⬜ planned |
+| Substitute Fonts | `saf` | ✅ available |
+| ↳ Change Font… | `saf.changeFont` | ✅ available |
+| ↳ Reset All Fonts | `saf.resetAllFonts` | ✅ available |
+| ↳ Reset Font | `saf.resetFont` | ✅ available |
 | Word Count | `document.wordCount` | ✅ available |
 | XMP | `xmp` | ✅ available |
 | ↳ Export | `xmp.export` | ✅ available |
@@ -1360,7 +1360,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Filter Shapes | `filterShapes` | ⬜ planned |
 | Filter Text Items | `filterTextItems` | ⬜ planned |
 | Find | `findGroup` | ✅ available |
-| Font | `font` | ⬜ planned |
+| Font | `font` | ✅ available |
 | Font | `fontName` | 🟡 partial |
 | Font Size | `fontSize` | ✅ available |
 | Group | `group` | ✅ available |
@@ -1416,7 +1416,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Show Quick Access Toolbar Below Ribbon | `QABarBelow` | ✅ available |
 | Snapshot | `snapshot` | 🟡 partial |
 | Split Pages | `splitPages` | ✅ available |
-| Substitute Fonts | `saf` | ⬜ planned |
+| Substitute Fonts | `saf` | ✅ available |
 | Text | `text` | ⬜ planned |
 | Text Align | `textAlign` | 🟡 partial |
 | Text Block | `textBlock` | ⬜ planned |

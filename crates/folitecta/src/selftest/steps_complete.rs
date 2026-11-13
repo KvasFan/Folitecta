@@ -9,7 +9,8 @@
 //! comment labels and text, a comment on selected text, measurement
 //! information, style lists, rows of data in page marks; documents moved
 //! between windows, a group of tabs of their own; go-to views and layer
-//! actions of a link.
+//! actions of a link; page display and snap settings, inertial scroll, the
+//! panes' info bar, Manage Form Data, History.
 
 use super::*;
 
@@ -110,6 +111,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     comments_more(cx).await;
     windows(cx).await;
     action_views(cx).await;
+    display_settings(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -915,5 +917,79 @@ async fn action_views(cx: &mut Ctx<'_>) {
         "a link's go-to zoomed, reset to the page, named; the window's view added; layer actions turned off, toggled for one layer, made one",
         zoomed && reset && named && added && off && limited && actions == 3,
         format!("zoomed {zoomed}, reset {reset}, named {named}, added {added}, off {off}, limited {limited}, actions after simplify {actions}"),
+    );
+}
+
+async fn display_settings(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    let (shown, pane) = {
+        let ui = st.ui.peek();
+        (ui.show_left_pane, ui.left_pane.clone())
+    };
+    // Page display preferences: Inertial Scroll on.
+    crate::commands::dispatch(st, "open.prefsPageDisplay");
+    pause(300).await;
+    let _ = eval("document.querySelector('.dialog input[data-opt=\"inertialScroll\"]')?.click();").await;
+    pause(300).await;
+    st.set_dialog(Dialog::None);
+    let inertia = crate::commands::option_on(st, "inertialScroll");
+    let flag = eval("return document.documentElement.dataset.inertia;")
+        .await
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default();
+    // A quick drag with the hand goes on after the mouse is let go.
+    st.set_tool(Tool::Hand);
+    st.with_active(|t| t.zoom = crate::state::Zoom::Fixed(3.0));
+    st.go_to_page(0);
+    pause(800).await;
+    let glide = eval("const c = document.getElementById('canvas'); if (!c) return [0, 0]; const r = c.getBoundingClientRect(); const x = r.left + r.width / 2; let y = r.top + r.height * 0.8; const ev = (k, yy) => c.dispatchEvent(new MouseEvent(k, { bubbles: true, button: 0, clientX: x, clientY: yy })); ev('mousedown', y); for (let i = 0; i < 5; i++) { y -= 30; document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: x, clientY: y })); } document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: x, clientY: y })); const at = c.scrollTop; return await new Promise(res => setTimeout(() => res([at, c.scrollTop]), 400));")
+        .await
+        .ok()
+        .and_then(|v| serde_json::from_value::<Vec<f64>>(v).ok())
+        .unwrap_or_default();
+    let glided = glide.len() == 2 && glide[1] > glide[0] + 20.0;
+    st.set_option("inertialScroll", false);
+    st.with_active(|t| t.zoom = crate::state::Zoom::FitWidth);
+    // Snap settings: the grid step.
+    crate::commands::dispatch(st, "view.snap.settings");
+    pause(300).await;
+    let _ = eval("const i = document.querySelector('.dialog .grid-step'); if (i) { i.value = '24'; i.dispatchEvent(new Event('input', { bubbles: true })); }").await;
+    pause(200).await;
+    st.set_dialog(Dialog::None);
+    let step = st.value("grid.step");
+    st.unset_value("grid.step");
+    // The panes' info bar.
+    st.set_option("showPaneInfoBar", true);
+    crate::commands::show_pane(st, Pane::Thumbnails);
+    pause(400).await;
+    let info = eval("return document.querySelector('.pane-info')?.textContent ?? '';")
+        .await
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default();
+    st.set_option("showPaneInfoBar", false);
+    // Manage Form Data and History.
+    crate::commands::dispatch(st, "forms.manageData");
+    pause(300).await;
+    let data_rows =
+        eval("return [...document.querySelectorAll('.dialog .command-group-row')].map(b => b.dataset.cmd);")
+            .await
+            .ok()
+            .and_then(|v| serde_json::from_value::<Vec<String>>(v).ok())
+            .unwrap_or_default();
+    st.set_dialog(Dialog::None);
+    crate::commands::dispatch(st, "showHistory");
+    pause(200).await;
+    let history = st.ui.peek().left_pane == "history";
+    {
+        let mut ui = st.ui_mut();
+        ui.show_left_pane = shown;
+        ui.left_pane = pane;
+    }
+    cx.record(
+        "page display settings turn Inertial Scroll on, a quick drag goes on after the release; the grid step set; the panes' info bar; Manage Form Data; History",
+        inertia && flag == "1" && glided && step == "24" && info.starts_with('2') && data_rows.contains(&"forms.exportData".to_string()) && history,
+        format!("inertia {inertia} flag {flag:?}, scroll {glide:?}, grid {step:?}, info {info:?}, form data {data_rows:?}, history {history}"),
     );
 }

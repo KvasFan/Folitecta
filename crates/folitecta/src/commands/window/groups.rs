@@ -160,6 +160,17 @@ pub fn group_commands(id: &str) -> Vec<&'static str> {
             "comments.deleteAllDoc",
         ],
         "document.pagesMore" => ribbon("organize", "pages"),
+        "forms.manageData" => {
+            let mut v = ribbon("form", "data");
+            v.extend([
+                "forms.exportData",
+                "forms.importData",
+                "forms.emailData",
+                "forms.populate",
+                "forms.reset",
+            ]);
+            v
+        }
         _ => Vec::new(),
     };
     // Commands that run by themselves (not submenus), each once.
@@ -196,6 +207,7 @@ handlers! {
     "comments.newGroup" => |st| open_group(st, "comments.newGroup"),
     "comments.deleteGroup" => |st| { if !no_doc(st) { open_group(st, "comments.deleteGroup") } },
     "document.pagesMore" => |st| open_group(st, "document.pagesMore"),
+    "forms.manageData" => |st| { if !no_doc(st) { open_group(st, "forms.manageData") } },
     // The properties pane, also when nothing is chosen.
     "noProps" => |st| { if !st.ui.read().show_right_pane { st.ui_mut().show_right_pane = true; st.save_prefs(); } },
     "file" => |st| { st.set_open_dropdown(None); st.set_open_menu(Some("file".into())) },

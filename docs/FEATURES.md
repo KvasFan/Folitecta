@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1699 |
-| 🟡 partial | 41 |
-| ⬜ planned | 274 |
+| ✅ available | 1709 |
+| 🟡 partial | 40 |
+| ⬜ planned | 265 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -229,7 +229,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Show | `view.show` | ✅ available |
 | Show Page Size | `view.showPageMeasureInfo` | ✅ available |
 | Snap | `view.snap` | ✅ available |
-| ↳ Settings | `view.snap.settings` | ⬜ planned |
+| ↳ Settings | `view.snap.settings` | ✅ available |
 | ↳ To Grid | `view.snap.toGrid` | ✅ available |
 | ↳ To Guides | `view.snap.toGuides` | ✅ available |
 | ↳ To Objects | `view.snap.toObjects` | ✅ available |
@@ -663,7 +663,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Up Icon | `btn.upIcon` | ✅ available |
 | Combobox | `combobox` | ✅ available |
 | ↳ Items | `combobox.items` | ✅ available |
-| Edit Document Forms | `tool.edit.form` | ⬜ planned |
+| Edit Document Forms | `tool.edit.form` | ✅ available |
 | Edit Form | `tool.editFields` | ✅ available |
 | ↳ Add New Field | `tool.editFields.addNewField` | ✅ available |
 | ↳ Create Multi | `tool.editFields.createMulti` | ✅ available |
@@ -700,13 +700,13 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Forms | `forms` | 🟡 partial |
+| Forms | `forms` | ✅ available |
 | ↳ Email Form Data… | `forms.emailData` | ✅ available |
 | ↳ Export Data… | `forms.exportData` | ✅ available |
 | ↳ Find Form Fields… | `forms.findFields` | ✅ available |
 | ↳ Highlight Form Fields | `forms.highlight` | ✅ available |
 | ↳ Import Data… | `forms.importData` | ✅ available |
-| ↳ Manage Form Data | `forms.manageData` | ⬜ planned |
+| ↳ Manage Form Data | `forms.manageData` | ✅ available |
 | ↳ Populate Forms… | `forms.populate` | ✅ available |
 | ↳ Reset Form | `forms.reset` | ✅ available |
 | ↳ Set Field Calculation Order… | `forms.calcOrder` | ✅ available |
@@ -1139,7 +1139,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Page Structure | `pageStructure` | ✅ available |
 | ↳ Clear… | `pageStructure.clear` | ✅ available |
 | ↳ Delete Item | `pageStructure.deleteItem` | ✅ available |
-| Reading Order | `tool.order` | ⬜ planned |
+| Reading Order | `tool.order` | ✅ available |
 | Tags | `tags` | ✅ available |
 | Tags Pane | `tagsView` | ✅ available |
 | ↳ Create Root | `tagsView.createRoot` | ✅ available |
@@ -1283,7 +1283,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | From Web Page… | `newDocHtml` | ⬜ planned |
 | History | `historyList` | ✅ available |
 | History and Recents Options… | `manageHistory` | ✅ available |
-| History… | `showHistory` | ⬜ planned |
+| History… | `showHistory` | ✅ available |
 | Manage Sessions… | `manageSessions` | ✅ available |
 | Move File… | `moveDoc` | ✅ available |
 | Move to Recycle Bin | `moveToTrash` | ✅ available |
@@ -1494,7 +1494,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Highlight Links | `view.highlightLinks` | ✅ available |
 | History | `view.history` | ✅ available |
 | History of Changes | `view.changes` | ✅ available |
-| Inertial Scroll | `inertialScroll` | ⬜ planned |
+| Inertial Scroll | `inertialScroll` | ✅ available |
 | Invert Vertical Axis | `view.mathY` | ✅ available |
 | JavaScript Console | `jsConsole` | ✅ available |
 | JavaScript Options… | `view.javaScriptOpts` | ✅ available |
@@ -1535,7 +1535,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Search Pane | `searchView` | ✅ available |
 | Show | `view.show` | ✅ available |
 | Show Page Size | `view.showPageMeasureInfo` | ✅ available |
-| Show Pane Info Bar | `showPaneInfoBar` | ⬜ planned |
+| Show Pane Info Bar | `showPaneInfoBar` | ✅ available |
 | Signatures Pane | `signaturesView` | ✅ available |
 | Snap | `view.snapGroup` | ✅ available |
 | Spell Check | `view.spellCheck` | ✅ available |
@@ -1759,9 +1759,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Edit Form | `tool.editFields` | ✅ available |
 | Button | `btn` | ✅ available |
 | Combobox | `combobox` | ✅ available |
-| Edit | `tool.edit` | ⬜ planned |
+| Edit | `tool.edit` | ✅ available |
 | Field Editor | `editFields` | ✅ available |
-| Forms | `forms` | 🟡 partial |
+| Forms | `forms` | ✅ available |
 | Listbox | `listbox` | ✅ available |
 
 ### Tools
@@ -2221,7 +2221,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `msp.hdr.tagName` | Tools › Metadata › Columns › Tag Name | ✅ available |
 | `msp.hdr.value` | Tools › Metadata › Columns › Value | ✅ available |
 | `noProps` | No Properties | ✅ available |
-| `open.prefsPageDisplay` | File › Open › Preferences Page Display | ⬜ planned |
+| `open.prefsPageDisplay` | File › Open › Preferences Page Display | ✅ available |
 | `orderview.show.tableCells` | View › Order Pane › Show › Table Cells | ✅ available |
 | `orderview.show.tablesAndFigures` | View › Order Pane › Show › Tables and Figures | ✅ available |
 | `orderview.showmode.none` | View › Order Pane › Showmode › None | ✅ available |

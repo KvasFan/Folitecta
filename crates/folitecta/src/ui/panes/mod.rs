@@ -279,10 +279,57 @@ pub fn PanePanel() -> Element {
                     }
                 }
             }
+            if crate::commands::option_on(st, "showPaneInfoBar") {
+                if let Some(info) = pane_info(st, &pane) {
+                    div { class: "pane-info", "{info}" }
+                }
+            }
             div { class: "pane-body", {body} }
         }
     }
 }
+/// The line of View › Show Pane Info Bar: what the pane holds.
+fn pane_info(st: AppState, pane: &Pane) -> Option<String> {
+    let lang = st.lang();
+    let count = |key: &str, n: usize| tf(lang, key, &[("count", &n.to_string())]);
+    st.read_active(|t| match pane {
+        Pane::Thumbnails => Some(tf(
+            lang,
+            "pane.info.pages",
+            &[
+                ("count", &t.doc.page_count().to_string()),
+                ("chosen", &t.selected_pages.len().to_string()),
+            ],
+        )),
+        Pane::Bookmarks => Some(count("pane.info.bookmarks", t.doc.bookmark_count())),
+        Pane::Comments => Some(count(
+            "pane.info.comments",
+            (0..t.doc.page_count())
+                .map(|p| {
+                    t.doc
+                        .annotations(p)
+                        .map(|a| {
+                            a.iter()
+                                .filter(|x| !matches!(x.subtype.as_str(), "Link" | "Widget" | "Popup"))
+                                .count()
+                        })
+                        .unwrap_or(0)
+                })
+                .sum(),
+        )),
+        Pane::Attachments => Some(count("pane.info.attachments", t.doc.attachments().len())),
+        Pane::Layers => Some(count("pane.info.layers", t.doc.layers().len())),
+        Pane::Fields => Some(count("pane.info.fields", t.doc.form_fields().len())),
+        Pane::Links => Some(count("pane.info.links", t.doc.all_links().len())),
+        Pane::Search => Some(count(
+            "pane.info.results",
+            t.search.hits.len() + t.search.other.len(),
+        )),
+        _ => None,
+    })
+    .flatten()
+}
+
 // ---- Thumbnails -------------------------------------------------------------------
 
 /// The links of the document: a click selects one and shows it on its page

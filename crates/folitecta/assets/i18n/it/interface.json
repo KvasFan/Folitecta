@@ -432,5 +432,13 @@
   "qat.delete_bar": "Elimina questa barra",
   "qat.new_tab": "Mia scheda",
   "qat.new_toolbar": "Mia barra",
-  "qat.tab_empty": "Questa scheda personale non ha ancora strumenti: aggiungili in Personalizza barre."
+  "qat.tab_empty": "Questa scheda personale non ha ancora strumenti: aggiungili in Personalizza barre.",
+  "pane.info.pages": "{count} pagine, {chosen} scelte",
+  "pane.info.bookmarks": "{count} segnalibri",
+  "pane.info.comments": "{count} commenti",
+  "pane.info.attachments": "{count} allegati",
+  "pane.info.layers": "{count} livelli",
+  "pane.info.fields": "{count} campi modulo",
+  "pane.info.links": "{count} collegamenti",
+  "pane.info.results": "{count} risultati"
 }

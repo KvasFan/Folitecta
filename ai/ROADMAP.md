@@ -922,6 +922,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    `set_link_goto`, `name_link_goto`, `set_link_layer_action`, `simplify_link_actions`;
    `commands/navigation/action_views.rs` and the windows of view, name and layers.
 
+### 0.103.0 — page display settings, inertial scroll, pane info (on `main`, untagged)
+
+1. ~~**FOL-L001, L004 — page display settings, inertial scroll, pane info.**~~ Done:
+   `PaneOptions` for page display and snap, the pan script's glide, `pane_info`, Manage Form
+   Data, History, Reading Order, Edit Document Forms.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

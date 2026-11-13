@@ -7,6 +7,14 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- File › Open › Preferences Page Display: the page display options in one window (gaps, cover,
+  right to left, dark pages, document colours, transparency grid, links, Inertial Scroll).
+- View › Inertial Scroll: a quick drag with the hand goes on a little after the mouse is let go.
+- View › Snap › Settings: the snap options and the grid step. View › Show Pane Info Bar: a line over
+  the pane with what it holds (pages and those chosen, bookmarks, comments, attachments, layers,
+  fields, links, results).
+- Form › Manage Form Data lists the form data commands; File › History shows the history pane; the
+  Reading Order tool shows its pane; Edit Document Forms chooses the form tool.
 - Document › Action › Go to: the go-to chosen among a link's actions takes the view of the window
   (Use Current View) or a new go-to is added with it (Add Current View); Edit chooses its page and
   view (the whole page, its width, a place at a zoom), Rename gives it a named destination, Reset

@@ -388,6 +388,29 @@ pub(super) fn PaneOptionsDialog(pane: String) -> Element {
             ],
         ),
         "email" => ("emailMethods.manage", &[]),
+        "pageDisplay" => (
+            "open.prefsPageDisplay",
+            &[
+                "view.layout.showGaps",
+                "view.layout.showCover",
+                "view.layout.r2l",
+                "view.darkPageMode",
+                "view.overrideDocumentColors",
+                "view.showTranspGrid",
+                "view.highlightLinks",
+                "inertialScroll",
+            ],
+        ),
+        "snap" => (
+            "view.snap.settings",
+            &[
+                "view.snap",
+                "view.snap.toGrid",
+                "view.snap.toGuides",
+                "view.snap.toObjects",
+                "view.showGrid",
+            ],
+        ),
         _ => ("recoveryView.options", &["recovery.keep"]),
     };
     let title = reg
@@ -409,6 +432,10 @@ pub(super) fn PaneOptionsDialog(pane: String) -> Element {
     };
     let factor = format!("{:.2}", crate::ui::canvas::loupe_factor(st));
     let minutes = crate::recovery::minutes(st).to_string();
+    let grid = {
+        let g = st.value("grid.step");
+        if g.is_empty() { "18".to_string() } else { g }
+    };
     let mail_method = if st.value("mail.method") == "draft" {
         "draft"
     } else {
@@ -456,6 +483,13 @@ pub(super) fn PaneOptionsDialog(pane: String) -> Element {
                     }
                 }
                 p { class: "hint", "{t(lang, \"dialog.pane_options.mail_hint\")}" }
+            }
+            if pane == "snap" {
+                div { class: "field",
+                    label { "{t(lang, \"dialog.pane_options.grid_step\")}" }
+                    input { r#type: "number", class: "grid-step", min: "2", max: "200", step: "1", value: "{grid}",
+                        oninput: move |e| { if e.value().trim().parse::<f32>().is_ok_and(|v| v >= 2.0) { st.set_value("grid.step", e.value().trim().to_string()); } } }
+                }
             }
             if pane == "recovery" {
                 div { class: "field",

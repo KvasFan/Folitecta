@@ -479,7 +479,8 @@ const PAN_SCRIPT: &str = r#"
     const c = e.target.closest && e.target.closest('#canvas');
     if (!c || !c.classList.contains('tool-hand') || e.button !== 0) return;
     if (e.target.closest('.annot-hit, .handle, .sel-toolbar, .field-hit, .field-input, input, textarea, select, button, a')) return;
-    drag = { c, x: e.clientX, y: e.clientY, sl: c.scrollLeft, st: c.scrollTop };
+    drag = { c, x: e.clientX, y: e.clientY, sl: c.scrollLeft, st: c.scrollTop, moves: [] };
+    if (window.__foliGlide) { cancelAnimationFrame(window.__foliGlide); window.__foliGlide = 0; }
     c.classList.add('dragging');
     e.preventDefault();
   }, true);
@@ -487,9 +488,26 @@ const PAN_SCRIPT: &str = r#"
     if (!drag) return;
     drag.c.scrollLeft = drag.sl - (e.clientX - drag.x);
     drag.c.scrollTop = drag.st - (e.clientY - drag.y);
+    drag.moves.push([performance.now(), e.clientX, e.clientY]);
+    if (drag.moves.length > 6) drag.moves.shift();
   }, true);
   document.addEventListener('mouseup', () => {
-    if (drag) { drag.c.classList.remove('dragging'); drag = null; }
+    if (!drag) return;
+    drag.c.classList.remove('dragging');
+    // Inertial Scroll: the view goes on at the speed of the last moves,
+    // slowing down.
+    const m = drag.moves, c = drag.c;
+    drag = null;
+    if (document.documentElement.dataset.inertia !== '1' || m.length < 2) return;
+    const a = m[0], b = m[m.length - 1], dt = Math.max(1, b[0] - a[0]);
+    if (performance.now() - b[0] > 80) return;
+    let vx = (b[1] - a[1]) / dt * 16, vy = (b[2] - a[2]) / dt * 16;
+    const step = () => {
+      c.scrollLeft -= vx; c.scrollTop -= vy;
+      vx *= 0.92; vy *= 0.92;
+      window.__foliGlide = (Math.abs(vx) > 0.4 || Math.abs(vy) > 0.4) ? requestAnimationFrame(step) : 0;
+    };
+    window.__foliGlide = requestAnimationFrame(step);
   }, true);
 })();
 "#;
@@ -870,6 +888,14 @@ fn page_rows(
 fn Canvas(pane: u8) -> Element {
     crate::perf::CANVASES.bump();
     let st = use_context::<AppState>();
+    // View › Inertial Scroll, read by the pan script.
+    let inertia = option_on(st, "inertialScroll");
+    use_effect(use_reactive!(|inertia| {
+        let v = if inertia { "1" } else { "0" };
+        spawn(async move {
+            let _ = document::eval(&format!("document.documentElement.dataset.inertia = '{v}';")).await;
+        });
+    }));
     use_hook(|| {
         spawn(async move {
             let _ = document::eval(PAN_SCRIPT).await;

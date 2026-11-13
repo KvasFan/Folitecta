@@ -386,5 +386,13 @@
   "qat.delete_bar": "Delete This Toolbar",
   "qat.new_tab": "My Tab",
   "qat.new_toolbar": "My Toolbar",
-  "qat.tab_empty": "This tab of your own has no tools yet: add them in Customize Toolbars."
+  "qat.tab_empty": "This tab of your own has no tools yet: add them in Customize Toolbars.",
+  "pane.info.pages": "{count} pages, {chosen} chosen",
+  "pane.info.bookmarks": "{count} bookmarks",
+  "pane.info.comments": "{count} comments",
+  "pane.info.attachments": "{count} attachments",
+  "pane.info.layers": "{count} layers",
+  "pane.info.fields": "{count} form fields",
+  "pane.info.links": "{count} links",
+  "pane.info.results": "{count} results"
 }

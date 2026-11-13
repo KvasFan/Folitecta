@@ -4,6 +4,20 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-13 — FOL-L001, L004: page display settings, inertial scroll, pane info (0.103.0)
+
+- **Current state before:** Preferences Page Display, Inertial Scroll, Snap › Settings, Show Pane
+  Info Bar, Manage Form Data, History…, Reading Order (tool) and Edit Document Forms were planned.
+- **What:** two more `PaneOptions` windows (page display options; snap options with the grid
+  step); the pan script keeps the last moves of a drag and, with
+  `document.documentElement.dataset.inertia` set from the option, glides on slowing down;
+  `pane_info` over the pane body; `forms.manageData` a group command; the others open their
+  pane or tool.
+- **Checked:** self-test step `complete` (18 interactions, 0 problems): Inertial Scroll turned on
+  in its window, a quick drag at 300 % went on after the release; grid step 24; the info bar of
+  the thumbnails; the form data commands listed; the history pane shown.
+- **Open:** —
+
 ## 2026-11-13 — FOL-L022, L023: go-to views and layer actions of links (0.102.0)
 
 - **Current state before:** the eight Document › Action › Go to commands and the six Layer

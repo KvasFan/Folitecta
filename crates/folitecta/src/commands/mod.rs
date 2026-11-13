@@ -235,6 +235,10 @@ pub const VIEW_OPTIONS: &[&str] = &[
     "thumbnailsView.logicalVisible",
     // Dragging the outline of the part shown moves the view.
     "thumbnailsView.interactiveVisible",
+    // A drag with the hand goes on a little after the mouse is let go.
+    "inertialScroll",
+    // A line over the panes with what they hold.
+    "showPaneInfoBar",
     // The page boxes and the guides in the loupe.
     "loupeView.showBoxes",
     "loupeView.showGuides",

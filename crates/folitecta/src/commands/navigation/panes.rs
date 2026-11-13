@@ -237,6 +237,11 @@ handlers! {
     "linksView.options" => |st| st.set_dialog(crate::state::Dialog::PaneOptions("links".into())),
     "recoveryView.options" => |st| st.set_dialog(crate::state::Dialog::PaneOptions("recovery".into())),
     "recoveryView.recovery" => |st| st.set_dialog(crate::state::Dialog::Recovery),
+    "open.prefsPageDisplay" => |st| st.set_dialog(crate::state::Dialog::PaneOptions("pageDisplay".into())),
+    "view.snap.settings" => |st| st.set_dialog(crate::state::Dialog::PaneOptions("snap".into())),
+    "showHistory" => |st| crate::commands::show_pane(st, crate::state::Pane::History),
+    "tool.order" => |st| crate::commands::show_pane(st, crate::state::Pane::Order),
+    "tool.edit.form" => |st| crate::commands::dispatch(st, "tool.editFields"),
     "emailMethods.manage" => |st| st.set_dialog(crate::state::Dialog::PaneOptions("email".into())),
     // The zoom slider of the status bar, ready for the arrow keys.
     "zoomSlider" => |st| { if !no_doc(st) { let _ = dioxus::document::eval("document.getElementById('folitecta-zoom-slider')?.focus();"); } },

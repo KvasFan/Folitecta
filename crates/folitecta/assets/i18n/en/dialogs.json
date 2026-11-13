@@ -727,5 +727,6 @@
   "dialog.goto_view.width": "The width of the page",
   "dialog.goto_view.xyz": "The place shown, at a zoom",
   "dialog.goto_name": "Name of the destination",
-  "dialog.goto_name_hint": "A go-to with a named destination keeps going to it when pages move; other links and bookmarks can use the name too."
+  "dialog.goto_name_hint": "A go-to with a named destination keeps going to it when pages move; other links and bookmarks can use the name too.",
+  "dialog.pane_options.grid_step": "Grid step (points)"
 }

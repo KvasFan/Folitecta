@@ -250,6 +250,13 @@ pub fn App() -> Element {
 
     // Copies of the documents with unsaved changes, and the ones left behind.
     use_hook(|| crate::recovery::start(st));
+    // The ribbon tab of one's own made the default one.
+    use_hook(|| {
+        let tab = st.value("ribbon.default_tab");
+        if !tab.is_empty() {
+            st.set_ribbon_tab(tab);
+        }
+    });
     // Decrypted files left by windows that ended without Exit.
     use_hook(crate::private_files::sweep);
 

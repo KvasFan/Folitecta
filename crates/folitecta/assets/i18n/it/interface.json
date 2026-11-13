@@ -425,5 +425,12 @@
   "welcome.open.hint": "Cerca un file PDF su questo computer",
   "welcome.recent": "File recenti",
   "welcome.recent.none": "Nessun file recente.",
-  "welcome.stats": "{commands} comandi · {implemented} disponibili in questa versione · {planned} pianificati"
+  "welcome.stats": "{commands} comandi · {implemented} disponibili in questa versione · {planned} pianificati",
+  "qat.kind_tab": "scheda della barra multifunzione",
+  "qat.kind_toolbar": "barra degli strumenti",
+  "qat.shown": "Mostrata",
+  "qat.delete_bar": "Elimina questa barra",
+  "qat.new_tab": "Mia scheda",
+  "qat.new_toolbar": "Mia barra",
+  "qat.tab_empty": "Questa scheda personale non ha ancora strumenti: aggiungili in Personalizza barre."
 }

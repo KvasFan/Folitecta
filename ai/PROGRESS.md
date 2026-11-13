@@ -4,6 +4,24 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-13 — FOL-L050: toolbars and tabs of one's own, locks (0.98.0)
+
+- **Current state before:** Customize Toolbars changed only the Quick Access Toolbar; New, New
+  Toolbar, New Tab, Rename, Make Default, Rename Toolbar, Reset Menu and the eight View › Lock /
+  Unlock commands were planned.
+- **What:** `qat.rs`: `UserBar` kept in `user.bars`; `TARGET` chooses what Customize
+  Toolbars changes (every edit goes through `target_items`/`target_save`); new bars named
+  My Toolbar n / My Tab n; rename in place, delete, shown; Make Default (`ribbon.default_tab`,
+  applied at start). The ribbon adds the tabs of one's own after the main tabs and draws their
+  tools in one group; the classic interface adds the toolbars of one's own. Locks:
+  `ui.lock_bars` (Customize Toolbars, right clicks on tools and the ribbon's handles refuse),
+  `ui.lock_panes` (the panes' handles do not move); toggles show the state. Reset Menu shows
+  the menu bar again.
+- **Checked:** self-test step `complete` (12 interactions, 0 problems): a toolbar with Zoom In
+  and a tab Review with Zoom Out, the Quick Access Toolbar unchanged, the tab active in the ribbon
+  with its tool; with the toolbars locked a tool is refused; panes locked and unlocked.
+- **Open:** —
+
 ## 2026-11-13 — FOL-L050 and others: presets of one's own, e-mail methods (0.97.0)
 
 - **Current state before:** Edit › Presets (Add New, Add New 2, Delete, Manage), Presets (Add,

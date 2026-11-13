@@ -68,3 +68,8 @@ input, select, textarea { user-select: text; min-width: 0; }
 @keyframes present-box { from { clip-path: inset(50% 50% 50% 50%); } to { clip-path: inset(0 0 0 0); } }
 @keyframes present-push { from { transform: translateX(100%); } to { transform: translateX(0); } }
 @keyframes present-uncover { from { transform: scale(0.92); opacity: 0.3; } to { transform: scale(1); opacity: 1; } }
+/* A handle that cannot be dragged (View › Lock All Toolbars, Lock All Panes). */
+.splitter.locked { cursor: default; pointer-events: auto; }
+.splitter.locked:hover { background: transparent; }
+.ribbon-tab.user { font-style: italic; }
+.user-tab-empty { padding: 8px 12px; font-size: 12px; }

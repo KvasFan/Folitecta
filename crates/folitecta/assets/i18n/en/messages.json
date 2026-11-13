@@ -471,5 +471,9 @@
   "toast.time_stamp_asking": "Asking the time stamp server…",
   "toast.time_stamped": "Time stamp added and document saved",
   "toast.trashed": "The file is in the recycle bin",
-  "toast.unsupported_protection": "The file is protected in a way Folitecta cannot open yet ({what})."
+  "toast.unsupported_protection": "The file is protected in a way Folitecta cannot open yet ({what}).",
+  "toast.bars_locked": "The toolbars are locked: View › Unlock All Toolbars lets them change.",
+  "toast.qat_own_first": "Choose a toolbar or tab of your own first (or make one with New Toolbar or New Tab).",
+  "toast.qat_default": "Done: a tab opens with the window, a toolbar is shown.",
+  "toast.menu_reset": "The menu bar is shown with its menus as installed."
 }

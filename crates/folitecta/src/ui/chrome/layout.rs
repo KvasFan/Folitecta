@@ -23,6 +23,17 @@ pub fn group_key(tab: &str, group: &str) -> String {
     format!("layout.group.{tab}.{group}")
 }
 
+/// A handle that cannot be dragged now: the ribbon's with the toolbars
+/// locked, the panes' with the panes locked (View › Lock All…).
+pub fn locked(st: AppState, key: &str) -> bool {
+    let bars = key == RIBBON_ROWS || key == RIBBON_TILE_ROWS || key.starts_with("layout.group.");
+    if bars {
+        crate::commands::qat::bars_locked(st)
+    } else {
+        crate::commands::qat::panes_locked(st)
+    }
+}
+
 /// Direction a handle moves in.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Axis {
@@ -155,11 +166,19 @@ pub fn Splitter(
         if dragging { " dragging" } else { "" }
     );
     let reset_key = name.clone();
+    let classes = if locked(st, &name) {
+        format!("{classes} locked")
+    } else {
+        classes
+    };
     rsx! {
         div { class: "{classes}", title: "{title}", "data-size": "{name}",
             onmousedown: move |e| {
                 e.stop_propagation();
                 e.prevent_default();
+                if locked(st, &name) {
+                    return;
+                }
                 let c = e.client_coordinates();
                 *DRAG.write() = Some(Drag {
                     key: name.clone(),
@@ -175,6 +194,9 @@ pub fn Splitter(
             },
             ondoubleclick: move |e| {
                 e.stop_propagation();
+                if locked(st, &reset_key) {
+                    return;
+                }
                 reset(st, &reset_key);
             },
             onclick: move |e| e.stop_propagation(),

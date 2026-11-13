@@ -89,7 +89,25 @@ pub fn CustomizeQatDialog() -> Element {
     let reg = registry();
     let label = |id: &str| reg.get(id).map(|c| cmd_label(lang, c)).unwrap_or_default();
     let mut query = use_signal(String::new);
-    let list = qat::items(st);
+    let bars = qat::user_bars(st);
+    let target = (*qat::TARGET.read()).filter(|i| *i < bars.len());
+    let own = target.and_then(|i| bars.get(i).cloned());
+    let list = qat::target_items(st);
+    let locked = qat::bars_locked(st);
+    let list_title = own
+        .as_ref()
+        .map(|b| b.name.clone())
+        .unwrap_or_else(|| t(lang, "qat.toolbar"));
+    let bar_names: Vec<String> = bars
+        .iter()
+        .map(|b| {
+            format!(
+                "{} ({})",
+                b.name,
+                t(lang, if b.tab { "qat.kind_tab" } else { "qat.kind_toolbar" })
+            )
+        })
+        .collect();
     let selected = (*SELECTED.read()).filter(|i| *i < list.len());
     let chosen = selected.and_then(|i| list.get(i).cloned());
     let found: Vec<&'static Command> = if query().trim().is_empty() {
@@ -104,6 +122,36 @@ pub fn CustomizeQatDialog() -> Element {
     rsx! {
         Frame { title: label("customizeToolbars"), wide: true,
             p { class: "hint", "{t(lang, \"qat.hint\")}" }
+            if locked { p { class: "hint warn", "{t(lang, \"toast.bars_locked\")}" } }
+            div { class: "row qat-targets",
+                select { class: "qat-target",
+                    onchange: move |e| { *qat::TARGET.write() = e.value().parse::<usize>().ok(); *SELECTED.write() = None; },
+                    option { value: "qat", selected: target.is_none(), "{t(lang, \"qat.toolbar\")}" }
+                    for (i, name) in bar_names.into_iter().enumerate() {
+                        option { key: "{i}", value: "{i}", selected: target == Some(i), "{name}" }
+                    }
+                }
+                button { class: "tbtn qat-new-toolbar", disabled: locked, onclick: move |_| commands::dispatch(st, "customizeToolbars.newToolbar"), "{label(\"customizeToolbars.newToolbar\")}" }
+                button { class: "tbtn qat-new-tab", disabled: locked, onclick: move |_| commands::dispatch(st, "customizeToolbars.newTab"), "{label(\"customizeToolbars.newTab\")}" }
+            }
+            if let Some(b) = own.clone() {
+                div { class: "row qat-own",
+                    input { class: "qat-bar-name", value: "{b.name}", disabled: locked, onchange: move |e| qat::set_name(st, &e.value()) }
+                    if !b.tab {
+                        label { class: "check",
+                            input { r#type: "checkbox", class: "qat-bar-shown", checked: b.shown, disabled: locked,
+                                onchange: move |_| {
+                                    let mut all = qat::user_bars(st);
+                                    if let Some(x) = target.and_then(|i| all.get_mut(i)) { x.shown = !x.shown; }
+                                    qat::save_user_bars(st, &all);
+                                } }
+                            span { "{t(lang, \"qat.shown\")}" }
+                        }
+                    }
+                    button { class: "tbtn", disabled: locked, onclick: move |_| commands::dispatch(st, "customizeToolbars.makeDefault"), "{label(\"customizeToolbars.makeDefault\")}" }
+                    button { class: "tbtn danger qat-delete-bar", disabled: locked, onclick: move |_| qat::delete_bar(st), "{t(lang, \"qat.delete_bar\")}" }
+                }
+            }
             div { class: "qat-columns",
                 div { class: "qat-column",
                     b { "{t(lang, \"qat.commands\")}" }
@@ -126,7 +174,7 @@ pub fn CustomizeQatDialog() -> Element {
                     }
                 }
                 div { class: "qat-column",
-                    b { "{t(lang, \"qat.toolbar\")}" }
+                    b { "{list_title}" }
                     div { class: "qat-list qat-current",
                         for (i, item) in list.iter().enumerate() {
                             button { key: "{i}-{item.id}", class: if selected == Some(i) { "qat-entry on" } else { "qat-entry" },

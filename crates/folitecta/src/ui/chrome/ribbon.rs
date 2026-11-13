@@ -305,6 +305,17 @@ pub fn Ribbon() -> Element {
         })
         .unwrap_or(&ribbon_layout::RIBBON[0]);
     let tab_id = tab.id;
+    // A ribbon tab of one's own (Customize Toolbars › New Tab).
+    let user_tabs: Vec<(usize, commands::qat::UserBar)> = commands::qat::user_bars(st)
+        .into_iter()
+        .enumerate()
+        .filter(|(_, b)| b.tab)
+        .collect();
+    let user_active: Option<(usize, commands::qat::UserBar)> = active_tab
+        .strip_prefix("user:")
+        .and_then(|i| i.parse::<usize>().ok())
+        .and_then(|i| user_tabs.iter().find(|(j, _)| *j == i).cloned());
+    let tab_id = if user_active.is_some() { "" } else { tab_id };
 
     // The tools are tiles, an icon above its short name; with View › Tool
     // Names off they are icons alone, the names in the tooltips.
@@ -390,6 +401,17 @@ pub fn Ribbon() -> Element {
                         }
                     }
                 }
+                for (i, b) in user_tabs.iter().cloned() {
+                    {
+                        let on = user_active.as_ref().is_some_and(|(j, _)| *j == i);
+                        rsx! {
+                            button { class: if on { "ribbon-tab user active" } else { "ribbon-tab user" }, key: "user{i}", title: "{b.name}",
+                                onclick: move |_| { st.set_ribbon_tab(format!("user:{i}")); st.set_open_dropdown(None); },
+                                "{b.name}"
+                            }
+                        }
+                    }
+                }
                 if show_ctx {
                     {
                         let ctx = ribbon_layout::tab(CONTEXT_TAB).unwrap();
@@ -434,6 +456,23 @@ pub fn Ribbon() -> Element {
                     }
                 }
             }
+            if let Some((_, b)) = user_active.clone() {
+                div { class: "ribbon-body user-tab", style: "height:{body_h}px",
+                    div { class: if labels { "ribbon-group tiles" } else { "ribbon-group icons" }, "data-group": "user",
+                        div { class: "ribbon-group-items",
+                            if b.items.is_empty() {
+                                span { class: "muted user-tab-empty", "{t(lang, \"qat.tab_empty\")}" }
+                            }
+                            for it in b.items.iter().filter(|it| !it.is_separator()) {
+                                if let Some(c) = reg.get(&it.id) {
+                                    {ribbon_button(st, lang, c, small_style)}
+                                }
+                            }
+                        }
+                        div { class: "ribbon-group-title", title: "{b.name}", "{b.name}" }
+                    }
+                }
+            } else {
             div { class: "ribbon-body", style: "height:{body_h}px",
                 for (i, GroupTools { group: g, items, extras, fixed }) in groups.into_iter().enumerate() {
                     {
@@ -503,6 +542,7 @@ pub fn Ribbon() -> Element {
                         }
                     }
                 }
+            }
             }
             // The bottom edge: dragged down, more rows of tools in every column.
             layout::Splitter { name: rows_key, axis: layout::Axis::Y, class: "ribbon-edge", title: resize_title,

@@ -4,7 +4,7 @@
 //! boxes and guides in the loupe; Interactive Visible of the thumbnails; the
 //! options windows of panes and of recovery; Bates numbering of several
 //! files from their list; the preview of page marks and its zoom; the
-//! Presets window.
+//! Presets window; toolbars and tabs of one's own, locked toolbars and panes.
 
 use super::*;
 
@@ -100,6 +100,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     mark_preview(cx).await;
     presets(cx).await;
     mail_method(cx).await;
+    own_bars(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -416,5 +417,62 @@ async fn mail_method(cx: &mut Ctx<'_>) {
         "Email Methods › Manage: with a draft first the e-mail window's main button saves the draft",
         chosen == "draft" && main.trim() == want && program,
         format!("method {chosen}, main button {main:?}, mail program button {program}"),
+    );
+}
+
+/// A toolbar and a ribbon tab of one's own, each with a tool; the tab
+/// shown in the ribbon; renamed; the toolbars locked refuse changes; the
+/// panes locked keep their width.
+async fn own_bars(cx: &mut Ctx<'_>) {
+    use crate::commands::qat;
+    let st = cx.st;
+    st.set_value("user.bars", "");
+    let qat_before = qat::items(st);
+    crate::commands::dispatch(st, "customizeToolbars.newToolbar");
+    pause(200).await;
+    qat::add(st, "zoomIn");
+    crate::commands::dispatch(st, "customizeToolbars.newTab");
+    pause(200).await;
+    qat::add(st, "zoomOut");
+    qat::set_name(st, "Review");
+    let bars = qat::user_bars(st);
+    let made = bars.len() == 2
+        && !bars[0].tab
+        && bars[0].items.iter().map(|i| i.id.as_str()).eq(["zoomIn"])
+        && bars[1].tab
+        && bars[1].name == "Review"
+        && bars[1].items.iter().map(|i| i.id.as_str()).eq(["zoomOut"]);
+    let qat_kept = qat::items(st) == qat_before;
+    st.set_dialog(Dialog::None);
+    let ribbon = st.ui.peek().ribbon;
+    st.ui_mut().ribbon = true;
+    st.set_ribbon_tab("user:1".into());
+    pause(500).await;
+    let shown = eval("return [!!document.querySelector('.ribbon-tab.user.active'), !!document.querySelector('.ribbon-body.user-tab [data-cmd=\"zoomOut\"]')];")
+        .await
+        .ok()
+        .and_then(|v| serde_json::from_value::<Vec<bool>>(v).ok())
+        .unwrap_or_default();
+    st.set_ribbon_tab("home".into());
+    // Locked toolbars refuse a new tool; locked panes keep their width.
+    crate::commands::dispatch(st, "view.lockAllCmdBars");
+    let locked = crate::commands::toggle_state(st, "view.lockAllCmdBars") == Some(true)
+        && crate::commands::toggle_state(st, "view.unlockAllCmdBars") == Some(false);
+    *qat::TARGET.write() = Some(0);
+    qat::add(st, "zoom.level.actual");
+    let refused = qat::user_bars(st)[0].items.len() == 1;
+    crate::commands::dispatch(st, "view.unlockAllCmdBars");
+    crate::commands::dispatch(st, "view.lockAllCmdPanes");
+    let panes = crate::ui::chrome::layout::locked(st, crate::ui::chrome::layout::LEFT_W)
+        && !crate::ui::chrome::layout::locked(st, crate::ui::chrome::layout::RIBBON_ROWS);
+    crate::commands::dispatch(st, "view.lockUnlockAllCmdPanes");
+    let unlocked = !crate::ui::chrome::layout::locked(st, crate::ui::chrome::layout::LEFT_W);
+    st.ui_mut().ribbon = ribbon;
+    st.set_value("user.bars", "");
+    *qat::TARGET.write() = None;
+    cx.record(
+        "toolbars and ribbon tabs of one's own get their tools, the tab shows them; locked toolbars refuse changes, locked panes their handles",
+        made && qat_kept && shown == vec![true, true] && locked && refused && panes && unlocked,
+        format!("made {made}, quick access kept {qat_kept}, tab shown {shown:?}, locked {locked}, refused {refused}, panes {panes}, unlocked {unlocked}"),
     );
 }

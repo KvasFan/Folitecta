@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1634 |
+| ✅ available | 1647 |
 | 🟡 partial | 53 |
-| ⬜ planned | 327 |
+| ⬜ planned | 314 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -267,10 +267,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Launch Application | `view.toolbar.launchApp` | ✅ available |
 | Layers | `view.layers` | ✅ available |
 | Links | `view.links` | ✅ available |
-| Lock All Cmd Bars | `view.lockAllCmdBars` | ⬜ planned |
-| Lock All Cmd Panes | `view.lockAllCmdPanes` | ⬜ planned |
-| Lock Unlock All Cmd Bars | `view.lockUnlockAllCmdBars` | ⬜ planned |
-| Lock Unlock All Cmd Panes | `view.lockUnlockAllCmdPanes` | ⬜ planned |
+| Lock All Cmd Bars | `view.lockAllCmdBars` | ✅ available |
+| Lock All Cmd Panes | `view.lockAllCmdPanes` | ✅ available |
+| Lock Unlock All Cmd Bars | `view.lockUnlockAllCmdBars` | ✅ available |
+| Lock Unlock All Cmd Panes | `view.lockUnlockAllCmdPanes` | ✅ available |
 | Measurements | `view.measurements` | ✅ available |
 | Measuring | `view.toolbar.measuring` | ✅ available |
 | Menu Bar | `view.toolbar.menu` | ✅ available |
@@ -331,8 +331,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Dark Gray Theme | `view.theme.darkGray` | ✅ available |
 | ↳ Default Theme | `view.theme.default` | ✅ available |
 | ↳ Light Theme | `view.theme.white` | ✅ available |
-| Unlock All Cmd Bars | `view.unlockAllCmdBars` | ⬜ planned |
-| Unlock All Cmd Panes | `view.unlockAllCmdPanes` | ⬜ planned |
+| Unlock All Cmd Bars | `view.unlockAllCmdBars` | ✅ available |
+| Unlock All Cmd Panes | `view.unlockAllCmdPanes` | ✅ available |
 | View | `view.toolbar.view` | ✅ available |
 | Window | `window` | 🟡 partial |
 | ↳ Distribute Tabs | `window.distributeTabs` | ⬜ planned |
@@ -1170,11 +1170,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Customize Toolbars | `customizeToolbars` | ✅ available |
 | ↳ Delete | `customizeToolbars.delete` | ✅ available |
 | ↳ Down | `customizeToolbars.down` | ✅ available |
-| ↳ Make Default | `customizeToolbars.makeDefault` | ⬜ planned |
-| ↳ New Tab | `customizeToolbars.newTab` | ⬜ planned |
-| ↳ New Toolbar | `customizeToolbars.newToolbar` | ⬜ planned |
-| ↳ New… | `customizeToolbars.new` | ⬜ planned |
-| ↳ Rename… | `customizeToolbars.rename` | ⬜ planned |
+| ↳ Make Default | `customizeToolbars.makeDefault` | ✅ available |
+| ↳ New Tab | `customizeToolbars.newTab` | ✅ available |
+| ↳ New Toolbar | `customizeToolbars.newToolbar` | ✅ available |
+| ↳ New… | `customizeToolbars.new` | ✅ available |
+| ↳ Rename… | `customizeToolbars.rename` | ✅ available |
 | ↳ Reset | `customizeToolbars.reset` | ✅ available |
 | ↳ Up | `customizeToolbars.up` | ✅ available |
 | Item | `item` | 🟡 partial |
@@ -1189,8 +1189,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Show Text | `item.showText` | ✅ available |
 | Preferences… | `prefs` | ✅ available |
 | ↳ Measurement Options… | `prefs.measurement` | ✅ available |
-| Rename Toolbar | `renameToolbar` | ⬜ planned |
-| Reset Menu | `resetMenu` | ⬜ planned |
+| Rename Toolbar | `renameToolbar` | ✅ available |
+| Reset Menu | `resetMenu` | ✅ available |
 | Reset Toolbar | `resetToolbar` | ✅ available |
 | Settings | `settings` | ✅ available |
 | ↳ Export Settings… | `settings.export` | ✅ available |
@@ -1396,12 +1396,12 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Presets | `presets` | ✅ available |
 | Properties… | `props` | ✅ available |
 | Remove Clip | `removeClip` | ⬜ planned |
-| Rename Toolbar | `renameToolbar` | ⬜ planned |
+| Rename Toolbar | `renameToolbar` | ✅ available |
 | Rename… | `rename` | ✅ available |
 | Replace All Image Instances | `replaceAllImageInstances` | ✅ available |
 | Replace Image | `replaceImage` | ✅ available |
 | Replace Image Clipboard | `replaceImageClipboard` | ✅ available |
-| Reset Menu | `resetMenu` | ⬜ planned |
+| Reset Menu | `resetMenu` | ✅ available |
 | Reset Toolbar | `resetToolbar` | ✅ available |
 | Search Providers | `searchProviders` | ⬜ planned |
 | Select All Content Items | `selectAllContentItems` | ⬜ planned |
@@ -1500,10 +1500,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | JavaScript Options… | `view.javaScriptOpts` | ✅ available |
 | Layers Pane | `layersView` | 🟡 partial |
 | Links Pane | `linksView` | 🟡 partial |
-| Lock All Cmd Bars | `view.lockAllCmdBars` | ⬜ planned |
-| Lock All Cmd Panes | `view.lockAllCmdPanes` | ⬜ planned |
-| Lock Unlock All Cmd Bars | `view.lockUnlockAllCmdBars` | ⬜ planned |
-| Lock Unlock All Cmd Panes | `view.lockUnlockAllCmdPanes` | ⬜ planned |
+| Lock All Cmd Bars | `view.lockAllCmdBars` | ✅ available |
+| Lock All Cmd Panes | `view.lockAllCmdPanes` | ✅ available |
+| Lock Unlock All Cmd Bars | `view.lockUnlockAllCmdBars` | ✅ available |
+| Lock Unlock All Cmd Panes | `view.lockUnlockAllCmdPanes` | ✅ available |
 | Loupe | `loupeView` | ✅ available |
 | Loupe | `view.loupe` | ✅ available |
 | Measurements | `view.measurements` | ✅ available |
@@ -1554,8 +1554,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Touch-Optimized UI | `view.switchToTouchUI` | ✅ available |
 | Touch/Mouse Mode | `view.touchMouseMode` | ✅ available |
 | Transparency Grid | `view.showTranspGrid` | ✅ available |
-| Unlock All Cmd Bars | `view.unlockAllCmdBars` | ⬜ planned |
-| Unlock All Cmd Panes | `view.unlockAllCmdPanes` | ⬜ planned |
+| Unlock All Cmd Bars | `view.unlockAllCmdBars` | ✅ available |
+| Unlock All Cmd Panes | `view.unlockAllCmdPanes` | ✅ available |
 | XFA Tree | `view.xfaTree` | ⬜ planned |
 | Zoom | `zoom` | ✅ available |
 | Zoom Slider | `zoomSlider` | ✅ available |

@@ -7,6 +7,11 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Customize Toolbars makes toolbars (classic interface) and ribbon tabs of one's own (New, New
+  Toolbar, New Tab), fills them like the Quick Access Toolbar, renames them (Rename, Rename
+  Toolbar), shows or deletes them; Make Default opens a tab with the window. View › Lock All
+  Toolbars and Lock All Panes keep the toolbars, the ribbon's handles and the panes' widths as they
+  are until unlocked. Reset Menu shows the menu bar again.
 - Edit › Presets opens the Presets window: presets of measurements, scanning, recompressing
   pictures and signing, added from the settings in use or the default ones, renamed in place,
   cloned, deleted, moved, used, imported and exported as JSON; Measures › Manage, Configure Scan

@@ -379,5 +379,12 @@
   "welcome.open.hint": "Browse for a PDF file on this computer",
   "welcome.recent": "Recent files",
   "welcome.recent.none": "No recent files yet.",
-  "welcome.stats": "{commands} commands · {implemented} available in this version · {planned} planned"
+  "welcome.stats": "{commands} commands · {implemented} available in this version · {planned} planned",
+  "qat.kind_tab": "ribbon tab",
+  "qat.kind_toolbar": "toolbar",
+  "qat.shown": "Shown",
+  "qat.delete_bar": "Delete This Toolbar",
+  "qat.new_tab": "My Tab",
+  "qat.new_toolbar": "My Toolbar",
+  "qat.tab_empty": "This tab of your own has no tools yet: add them in Customize Toolbars."
 }

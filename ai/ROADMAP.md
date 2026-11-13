@@ -887,6 +887,13 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    with Edit › Presets, Measures › Manage, Configure Scan Presets, Recompress Images › Edit,
    Digital Signatures and Measurement Options; Email Methods › Manage.
 
+### 0.98.0 — toolbars and tabs of one's own, locks (on `main`, untagged)
+
+1. ~~**FOL-L050 — toolbars and tabs of one's own, locks.**~~ Done: `qat::UserBar` (toolbar or
+   ribbon tab, shown, entries), Customize Toolbars edits the Quick Access Toolbar or one of them;
+   the ribbon draws the tabs of one's own, the classic interface the toolbars; Make Default;
+   View › Lock/Unlock All Toolbars and Panes (`layout::locked`); Reset Menu.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

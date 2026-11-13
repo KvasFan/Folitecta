@@ -147,11 +147,32 @@ pub fn ClassicToolbars() -> Element {
         .filter(|(id, _)| visible.iter().any(|v| v == id))
         .map(|(id, cmds)| (*id, cmds.iter().filter_map(|c| reg.get(c)).collect()))
         .collect();
+    // The toolbars of one's own that are shown (Customize Toolbars).
+    let own: Vec<(usize, String, Vec<&'static folitecta_core::Command>)> =
+        crate::commands::qat::user_bars(st)
+            .into_iter()
+            .enumerate()
+            .filter(|(_, b)| !b.tab && b.shown)
+            .map(|(i, b)| {
+                (
+                    i,
+                    b.name,
+                    b.items.iter().filter_map(|it| reg.get(&it.id)).collect(),
+                )
+            })
+            .collect();
     rsx! {
         div { class: "ribbon classic", onclick: move |e| e.stop_propagation(),
             div { class: "classic-toolbars",
                 for (id, cmds) in bars {
                     div { class: "toolbar-group", key: "{id}",
+                        for c in cmds {
+                            {ribbon_button(st, lang, c, BtnStyle::Icon)}
+                        }
+                    }
+                }
+                for (i, name, cmds) in own {
+                    div { class: "toolbar-group own", key: "own{i}", title: "{name}",
                         for c in cmds {
                             {ribbon_button(st, lang, c, BtnStyle::Icon)}
                         }

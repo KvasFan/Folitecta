@@ -471,5 +471,9 @@
   "toast.time_stamp_asking": "Richiesta al server di marche temporali…",
   "toast.time_stamped": "Marca temporale aggiunta e documento salvato",
   "toast.trashed": "Il file è nel cestino",
-  "toast.unsupported_protection": "Il file è protetto in un modo che Folitecta non sa ancora aprire ({what})."
+  "toast.unsupported_protection": "Il file è protetto in un modo che Folitecta non sa ancora aprire ({what}).",
+  "toast.bars_locked": "Le barre degli strumenti sono bloccate: Visualizza › Sblocca tutte le barre permette di modificarle.",
+  "toast.qat_own_first": "Scegli prima una barra o una scheda personale (o creane una con Nuova barra o Nuova scheda).",
+  "toast.qat_default": "Fatto: una scheda si apre con la finestra, una barra è mostrata.",
+  "toast.menu_reset": "La barra dei menu è mostrata con i menu come installati."
 }

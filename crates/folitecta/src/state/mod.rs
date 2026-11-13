@@ -293,6 +293,14 @@ impl AppState {
         self.save_prefs();
     }
 
+    /// Forget a setting: its readers take their default again.
+    pub fn unset_value(&self, key: &str) {
+        if self.ui.peek().values.contains_key(key) {
+            self.ui_mut().values.remove(key);
+            self.save_prefs();
+        }
+    }
+
     // Setters usable through a shared copy of the state (signals are handles).
     #[track_caller]
     /// The name of an undo step made now: the command under way, else the

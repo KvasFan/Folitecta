@@ -178,6 +178,11 @@ async fn search_and_loupe(cx: &mut Ctx<'_>) {
 /// view there; the options windows set their values.
 async fn thumbnails_and_options(cx: &mut Ctx<'_>) {
     let st = cx.st;
+    // The panes as they were, for the steps after this one.
+    let (shown, pane) = {
+        let ui = st.ui.peek();
+        (ui.show_left_pane, ui.left_pane.clone())
+    };
     crate::commands::show_pane(st, Pane::Thumbnails);
     st.with_active(|t| t.zoom = crate::state::Zoom::Fixed(3.0));
     st.go_to_page(0);
@@ -191,6 +196,11 @@ async fn thumbnails_and_options(cx: &mut Ctx<'_>) {
     let after = top().await.ok().and_then(|v| v.as_f64()).unwrap_or(-1.0);
     st.set_option("thumbnailsView.interactiveVisible", false);
     st.with_active(|t| t.zoom = crate::state::Zoom::FitWidth);
+    {
+        let mut ui = st.ui_mut();
+        ui.show_left_pane = shown;
+        ui.left_pane = pane;
+    }
     cx.record(
         "Thumbnails › Interactive Visible: a press low on the current page's thumbnail scrolls the view down",
         before >= 0.0 && after > before + 100.0,
@@ -214,7 +224,7 @@ async fn thumbnails_and_options(cx: &mut Ctx<'_>) {
     pause(200).await;
     let toggled = crate::commands::option_on(st, "thumbnailsView.logicalVisible") != was;
     st.set_option("thumbnailsView.logicalVisible", was);
-    st.set_value("recovery.minutes", "1");
+    st.unset_value("recovery.minutes");
     st.set_dialog(Dialog::None);
     cx.record(
         "Recovery › Options and Thumbnails › Options set their values",
@@ -281,8 +291,8 @@ async fn bates_files(cx: &mut Ctx<'_>) {
     let numbered = b1.contains("B7") && b3.contains("B9") && a1.contains("B10") && !a2.contains("B11");
     let next = st.value("bates.next");
     let _ = std::fs::remove_dir_all(&dir);
-    st.set_value("bates.next", "1");
-    st.set_value("bates.format", "");
+    st.unset_value("bates.next");
+    st.unset_value("bates.format");
     *BATES_FILES.write() = Default::default();
     cx.record(
         "Bates numbering of several files: the list ordered, pages chosen, a column added; the copies numbered in that order",
@@ -320,6 +330,7 @@ async fn mark_preview(cx: &mut Ctx<'_>) {
             break;
         }
     }
+    st.unset_value("marks.preview_zoom");
     let changed = match (bytes, st.read_active(|t| t.doc.bytes())) {
         (Some(a), Some(b)) => !std::sync::Arc::ptr_eq(&a, &b),
         _ => true,
@@ -338,7 +349,7 @@ async fn mark_preview(cx: &mut Ctx<'_>) {
 async fn presets(cx: &mut Ctx<'_>) {
     use crate::commands::presets::{CHOSEN, load};
     let st = cx.st;
-    st.set_value("measure.presets", "");
+    st.unset_value("measure.presets");
     st.set_value("measure.decimals", "3");
     crate::commands::dispatch(st, "measures.manage");
     pause(300).await;
@@ -377,8 +388,8 @@ async fn presets(cx: &mut Ctx<'_>) {
     crate::commands::dispatch(st, "digiSigList.reset");
     let reset = st.value("sign.reason").is_empty();
     st.set_dialog(Dialog::None);
-    st.set_value("measure.presets", "");
-    st.set_value("measure.decimals", "");
+    st.unset_value("measure.presets");
+    st.unset_value("measure.decimals");
     cx.record(
         "the Presets window adds, renames, moves, clones, deletes, uses and imports measurement presets; Digital Signatures › Reset",
         open && three == 3 && names.len() == 2 && names.contains(&"Fine".to_string()) && used == "3"
@@ -411,7 +422,7 @@ async fn mail_method(cx: &mut Ctx<'_>) {
     let program = buttons.get(1).and_then(|v| v.as_bool()).unwrap_or(false);
     st.set_dialog(Dialog::None);
     *crate::commands::mail::MAIL.write() = None;
-    st.set_value("mail.method", "");
+    st.unset_value("mail.method");
     let want = crate::i18n::t(st.lang(), "dialog.mail.save_draft");
     cx.record(
         "Email Methods › Manage: with a draft first the e-mail window's main button saves the draft",
@@ -426,7 +437,7 @@ async fn mail_method(cx: &mut Ctx<'_>) {
 async fn own_bars(cx: &mut Ctx<'_>) {
     use crate::commands::qat;
     let st = cx.st;
-    st.set_value("user.bars", "");
+    st.unset_value("user.bars");
     let qat_before = qat::items(st);
     crate::commands::dispatch(st, "customizeToolbars.newToolbar");
     pause(200).await;
@@ -468,7 +479,7 @@ async fn own_bars(cx: &mut Ctx<'_>) {
     crate::commands::dispatch(st, "view.lockUnlockAllCmdPanes");
     let unlocked = !crate::ui::chrome::layout::locked(st, crate::ui::chrome::layout::LEFT_W);
     st.ui_mut().ribbon = ribbon;
-    st.set_value("user.bars", "");
+    st.unset_value("user.bars");
     *qat::TARGET.write() = None;
     cx.record(
         "toolbars and ribbon tabs of one's own get their tools, the tab shows them; locked toolbars refuse changes, locked panes their handles",

@@ -117,7 +117,10 @@ pub fn current(st: AppState, kind: &str) -> BTreeMap<String, String> {
 /// default of that setting).
 pub fn apply(st: AppState, kind: &str, values: &BTreeMap<String, String>) {
     for k in keys(kind) {
-        st.set_value(k, values.get(*k).cloned().unwrap_or_default());
+        match values.get(*k).filter(|v| !v.is_empty()) {
+            Some(v) => st.set_value(k, v.clone()),
+            None => st.unset_value(k),
+        }
     }
 }
 
@@ -385,7 +388,7 @@ fn import(st: AppState) {
 /// Digital Signatures › Reset: the signing settings back to their defaults.
 fn reset_signing(st: AppState) {
     for k in keys("sign") {
-        st.set_value(k, "");
+        st.unset_value(k);
     }
     st.toast(ToastKind::Ok, t(st.lang(), "presets.sign_reset"), "");
 }

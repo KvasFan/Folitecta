@@ -394,5 +394,6 @@
   "pane.info.layers": "{count} layers",
   "pane.info.fields": "{count} form fields",
   "pane.info.links": "{count} links",
-  "pane.info.results": "{count} results"
+  "pane.info.results": "{count} results",
+  "tool.place_annot": "Place Annotation"
 }

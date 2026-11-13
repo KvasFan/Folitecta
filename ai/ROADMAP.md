@@ -945,6 +945,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
 1. ~~**FOL-L016 — the area drawn to crop to.**~~ Done: `commands/document/crop_area.rs`,
    `DocTab::crop_area` drawn on its page, the snapshot tool's `crop` target, the origin anchor.
 
+### 0.107.0 — Place Annotation, Measure Edit (on `main`, untagged)
+
+1. ~~**FOL-L025, L028 — Place Annotation, Measure Edit.**~~ Done: `Tool::PlaceAnnot` with
+   `PLACE_TEMPLATE` and `AnnotSnapshot::rect`; core `set_measure_scale`, the calibration window
+   aimed at one measurement.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

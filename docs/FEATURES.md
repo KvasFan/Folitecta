@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1729 |
+| ✅ available | 1731 |
 | 🟡 partial | 39 |
-| ⬜ planned | 246 |
+| ⬜ planned | 244 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -27,7 +27,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Other Tools | `comment.otherToolsGroup` | ✅ available |
 | Other Tools | `otherToolsGroup` | ✅ available |
 | Pan and Zoom Tool | `tool.panZoom` | ✅ available |
-| Place Annotation | `tool.selAnnotPlace` | ⬜ planned |
+| Place Annotation | `tool.selAnnotPlace` | ✅ available |
 | Select Text | `tool.selectText` | ✅ available |
 | ↳ Copy as Rich | `tool.selectText.copyAsRich` | ✅ available |
 | Snapshot Tool | `tool.snapshot` | ✅ available |
@@ -420,7 +420,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | ↳ Decimal Separator | `measure.decimalSeparator` | ✅ available |
 | ↳ Group Separator | `measure.groupSeparator` | ✅ available |
 | ↳ Precision | `measure.precision` | ✅ available |
-| Measure Edit | `measureEdit` | ⬜ planned |
+| Measure Edit | `measureEdit` | ✅ available |
 | Measure Info | `measureInfo` | ✅ available |
 | ↳ Copy | `measureInfo.copy` | ✅ available |
 | Measurement Options… | `prefs.measurement` | ✅ available |
@@ -1731,7 +1731,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Locked | `comments.locked` | ✅ available |
 | Macro | `macro` | ✅ available |
 | Measure | `measure` | ✅ available |
-| Measure Edit | `measureEdit` | ⬜ planned |
+| Measure Edit | `measureEdit` | ✅ available |
 | Measure Info | `measureInfo` | ✅ available |
 | Media | `media` | ✅ available |
 | Media Annotation | `mediaAnnot` | ✅ available |

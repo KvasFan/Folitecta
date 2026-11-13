@@ -207,6 +207,7 @@ pub fn stays_chosen(tool: Tool) -> bool {
                 | Tool::Polygon
                 | Tool::Polyline
                 | Tool::Cloud
+                | Tool::PlaceAnnot
         )
 }
 
@@ -495,6 +496,23 @@ pub(super) fn finish_create(
                         rect
                     };
                     st.with_active(|t| t.doc.add_stamp(page, r, &text, color, &author).map(|_| ()))
+                }
+            }
+        }
+        // A copy of the comment chosen, centred where the click was.
+        Tool::PlaceAnnot => {
+            let template = crate::commands::comment_more::PLACE_TEMPLATE.peek().clone();
+            match template {
+                Some(snap) => {
+                    let (dx, dy) = snap
+                        .rect()
+                        .map(|r| (point.0 - (r[0] + r[2]) / 2.0, point.1 - (r[1] + r[3]) / 2.0))
+                        .unwrap_or((0.0, 0.0));
+                    st.with_active(|t| t.doc.paste_annotation_snapshot(page, &snap, dx, dy).map(|_| ()))
+                }
+                None => {
+                    st.toast(ToastKind::Info, t(st.lang(), "toast.select_comment_first"), "");
+                    None
                 }
             }
         }

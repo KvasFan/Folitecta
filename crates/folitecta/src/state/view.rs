@@ -99,6 +99,8 @@ pub enum Tool {
     /// Three clicks: an arc, a circle or a rectangle drawn in the page
     /// content (Edit › Path Editing › 3 Point).
     ThreePoint(folitecta_core::ThreePoint),
+    /// A click places a copy of the comment chosen (Place Annotation).
+    PlaceAnnot,
 }
 
 impl Tool {
@@ -202,6 +204,7 @@ impl Tool {
             Tool::ThreePoint(folitecta_core::ThreePoint::Arc) => "pathedit.3point.arc",
             Tool::ThreePoint(folitecta_core::ThreePoint::Circle) => "pathedit.3point.circle",
             Tool::ThreePoint(folitecta_core::ThreePoint::Rect) => "pathedit.3point.rect",
+            Tool::PlaceAnnot => "tool.selAnnotPlace",
         }
     }
 
@@ -274,6 +277,7 @@ impl Tool {
             Tool::ThreePoint(folitecta_core::ThreePoint::Arc) => "tool.three_point_arc",
             Tool::ThreePoint(folitecta_core::ThreePoint::Circle) => "tool.three_point_circle",
             Tool::ThreePoint(folitecta_core::ThreePoint::Rect) => "tool.three_point_rect",
+            Tool::PlaceAnnot => "tool.place_annot",
         }
     }
 

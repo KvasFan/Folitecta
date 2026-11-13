@@ -9,6 +9,54 @@ use crate::commands::{handlers, no_doc};
 use crate::i18n::{t, tf};
 use crate::state::{AppState, Dialog, ToastKind};
 
+/// The comment Place Annotation copies at each click.
+pub static PLACE_TEMPLATE: GlobalSignal<Option<folitecta_core::AnnotSnapshot>> = Signal::global(|| None);
+
+/// Place Annotation: the comment chosen becomes the one each click places.
+fn place_tool(st: AppState) {
+    if no_doc(st) {
+        return;
+    }
+    let snap = st
+        .read_active(|t| {
+            t.selected_annot
+                .and_then(|(p, i)| t.doc.annotation_snapshot(p, i).ok())
+        })
+        .flatten();
+    match snap {
+        Some(s) => {
+            *PLACE_TEMPLATE.write() = Some(s);
+            crate::commands::select_tool(st, crate::state::Tool::PlaceAnnot);
+            st.toast(ToastKind::Info, t(st.lang(), "toast.place_annot"), "");
+        }
+        None if PLACE_TEMPLATE.peek().is_some() => {
+            crate::commands::select_tool(st, crate::state::Tool::PlaceAnnot)
+        }
+        None => st.toast(ToastKind::Info, t(st.lang(), "toast.select_comment_first"), ""),
+    }
+}
+
+/// Measure Edit: the scale of the measurement chosen.
+fn measure_edit(st: AppState) {
+    if no_doc(st) {
+        return;
+    }
+    let found = st
+        .read_active(|t| {
+            let (p, i) = t.selected_annot?;
+            t.doc
+                .measurement_list()
+                .into_iter()
+                .find(|m| m.page == p && m.index == i)
+                .map(|m| (m.page, m.index))
+        })
+        .flatten();
+    match found {
+        Some((page, index)) => st.set_dialog(Dialog::MeasureEdit { page, index }),
+        None => st.toast(ToastKind::Info, t(st.lang(), "toast.select_measure_first"), ""),
+    }
+}
+
 /// The comment chosen: page, index, its text and label.
 fn chosen(st: AppState) -> Option<(usize, usize, String, String)> {
     if no_doc(st) {
@@ -172,6 +220,8 @@ fn row_by_name(st: AppState) {
 
 handlers! {
     "annot.addText" => add_text,
+    "tool.selAnnotPlace" => place_tool,
+    "measureEdit" => measure_edit,
     "annot.editLabel" => edit_label,
     "annot.deleteLabel" => delete_label,
     "textsel.comment" => comment_selection,

@@ -519,7 +519,7 @@ pub(super) fn SummarizeCommentsDialog() -> Element {
 }
 
 #[component]
-pub(super) fn CalibrateDialog() -> Element {
+pub(super) fn CalibrateDialog(target: Option<(usize, usize)>) -> Element {
     let st = use_context::<AppState>();
     let lang = st.lang();
     let get = |k: &str, d: &str| st.ui.read().value(k).unwrap_or(d).to_string();
@@ -543,8 +543,23 @@ pub(super) fn CalibrateDialog() -> Element {
         &group_sep(),
     );
     rsx! {
-        Frame { title: t(lang, "dialog.calibrate.title"),
+        Frame { title: if target.is_some() { t(lang, "cmd.measureEdit") } else { t(lang, "dialog.calibrate.title") },
             on_ok: move |_| {
+                // Measure Edit: this measurement measured again, the
+                // settings of new measures left as they are.
+                if let Some((page, index)) = target {
+                    let p: f32 = paper().replace(',', ".").parse().unwrap_or(1.0);
+                    let r: f32 = real().replace(',', ".").parse().unwrap_or(1.0);
+                    let scale = folitecta_core::MeasureScale::from_ratio(p, &paper_unit(), r, &real_unit(), decimals().parse().unwrap_or(1))
+                        .with_separators(&decimal_sep(), &group_sep());
+                    let res = st.with_active(|t| t.doc.set_measure_scale(page, index, &scale));
+                    st.with_active(|t| t.selected_annot = Some((page, index)));
+                    match res {
+                        Some(Err(e)) => st.error(e),
+                        _ => { crate::files::set_window_title(st); st.set_dialog(Dialog::None); }
+                    }
+                    return;
+                }
                 st.set_value("measure.paper", paper());
                 st.set_value("measure.paper_unit", paper_unit());
                 st.set_value("measure.real", real());

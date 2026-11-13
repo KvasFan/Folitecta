@@ -7,6 +7,10 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Tools › Place Annotation: the comment chosen becomes a template, and each click on a page places
+  a copy of it there; the tool stays chosen.
+- Comments › Measure Edit measures the measurement chosen again at another scale (ratio, unit,
+  decimals, separators), the settings of new measures left as they are.
 - Crop Page › Apply and Crop › Apply: the first asks for the area to keep, drawn with the snapshot
   tool and shown with the rest dimmed; the second crops the page it was drawn on (Crop Page) or
   every page, those chosen in the thumbnails when there are (Crop). Show / Hide Origin Anchor mark

@@ -329,7 +329,7 @@ pub fn Dialogs() -> Element {
             end,
             note,
         } => rsx! { ReplaceTextDialog { key: "{page}-{start}-{end}-{note}", page, start, end, note } },
-        Dialog::Calibrate => rsx! { CalibrateDialog {} },
+        Dialog::Calibrate => rsx! { CalibrateDialog { target: None } },
         Dialog::SummarizeComments => rsx! { SummarizeCommentsDialog {} },
         Dialog::Reply { page, index } => rsx! { ReplyDialog { page, index } },
         Dialog::ReviewStatus { page, index } => rsx! { ReviewStatusDialog { page, index } },
@@ -432,6 +432,7 @@ pub fn Dialogs() -> Element {
         Dialog::MoveTabs => rsx! { MoveTabsDialog {} },
         Dialog::InkSetting(what) => rsx! { InkSettingDialog { what } },
         Dialog::AllowBlock(kind) => rsx! { AllowBlockDialog { kind } },
+        Dialog::MeasureEdit { page, index } => rsx! { CalibrateDialog { target: Some((page, index)) } },
         Dialog::GoToView { page, index, at } => rsx! { GoToViewDialog { page, index, at } },
         Dialog::GoToName {
             page,

@@ -333,3 +333,29 @@ fn measurements_are_listed_with_their_places_and_totals() {
         vec![(4.0, "mm".to_string()), (2.0, "m".to_string())]
     );
 }
+
+#[test]
+fn a_measurement_measured_again_with_another_scale() {
+    use folitecta_core::{AnnotStyle, MeasureKind, MeasureScale};
+    let mut doc = Document::new_blank(1, 595.0, 842.0).unwrap();
+    // 72 points: 25.4 mm at 1:1.
+    doc.add_measurement(
+        0,
+        MeasureKind::Distance,
+        &[(100.0, 100.0), (172.0, 100.0)],
+        &AnnotStyle::default(),
+        &MeasureScale::default(),
+        "R",
+    )
+    .unwrap();
+    let index = doc.annotations(0).unwrap().len() - 1;
+    let before = doc.measurements()[0].2.clone();
+    assert!(before.starts_with("25.4"), "{before}");
+    // 1 mm on paper = 10 cm: 254 cm.
+    let scale = MeasureScale::from_ratio(1.0, "mm", 10.0, "cm", 0);
+    doc.set_measure_scale(0, index, &scale).unwrap();
+    let after = doc.measurements()[0].2.clone();
+    assert_eq!(after, "254 cm");
+    doc.undo().unwrap();
+    assert_eq!(doc.measurements()[0].2, before);
+}

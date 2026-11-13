@@ -440,5 +440,6 @@
   "pane.info.layers": "{count} livelli",
   "pane.info.fields": "{count} campi modulo",
   "pane.info.links": "{count} collegamenti",
-  "pane.info.results": "{count} risultati"
+  "pane.info.results": "{count} risultati",
+  "tool.place_annot": "Posiziona annotazione"
 }

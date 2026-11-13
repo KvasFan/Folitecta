@@ -498,5 +498,6 @@
   "toast.link_blocked": "La lista consentiti/bloccati blocca questo collegamento: {what}",
   "toast.batch_links": "{files} file con collegamenti web ({links} collegamenti), ciascuno in una copia con “-links” nel nome.",
   "toast.crop_draw": "Disegna l'area da tenere, poi di nuovo Applica.",
-  "toast.crop_area_drawn": "L'area da tenere è mostrata: Ritaglia pagina › Applica ritaglia questa pagina, Ritaglia › Applica tutte le pagine (o quelle scelte)."
+  "toast.crop_area_drawn": "L'area da tenere è mostrata: Ritaglia pagina › Applica ritaglia questa pagina, Ritaglia › Applica tutte le pagine (o quelle scelte).",
+  "toast.place_annot": "Ogni clic posiziona una copia del commento."
 }

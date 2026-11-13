@@ -4,6 +4,18 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-14 — FOL-L025, L028: Place Annotation, Measure Edit (0.107.0)
+
+- **Current state before:** Place Annotation and Measure Edit were planned.
+- **What:** `Tool::PlaceAnnot`: a click pastes `PLACE_TEMPLATE` (a snapshot of the comment
+  chosen) centred on it; the tool stays chosen. Core `set_measure_scale` rewrites the measure
+  dictionary's ratio and number formats and draws the comment again (one undo step);
+  `CalibrateDialog` takes a target measurement (`Dialog::MeasureEdit`).
+- **Checked:** core test `markup_tools.rs` (25.4 mm becomes 254 cm, undone); self-test step
+  `complete` (22 interactions, 0 problems). The first run placed one copy: the tool went back to
+  the hand after it; it stays chosen now.
+- **Open:** —
+
 ## 2026-11-14 — FOL-L016: the area drawn to crop to (0.106.0)
 
 - **Current state before:** Crop › Apply, Crop Page › Apply, Show Origin Anchor and Hide Origin

@@ -406,6 +406,11 @@ pub enum Dialog {
     InkSetting(String),
     /// The Allow/Block List, adding an entry of a kind.
     AllowBlock(String),
+    /// The scale of one measurement.
+    MeasureEdit {
+        page: usize,
+        index: usize,
+    },
     /// The view of a go-to of a link's actions.
     GoToView {
         page: usize,

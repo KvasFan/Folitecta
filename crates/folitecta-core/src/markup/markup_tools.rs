@@ -439,6 +439,36 @@ impl Document {
         })
     }
 
+    /// Measure Edit: measurement `index` of `page` measured again with
+    /// `scale` (its ratio, unit, decimals and separators). One undo step.
+    pub fn set_measure_scale(&mut self, page: usize, index: usize, scale: &MeasureScale) -> Result<()> {
+        let id = self
+            .annotations(page)?
+            .get(index)
+            .and_then(|a| a.id)
+            .ok_or_else(|| Error::Invalid("annotation is not an indirect object".into()))?;
+        if !self.inner.get_dictionary(id)?.has(b"Measure") {
+            return Err(Error::Invalid("the comment is not a measurement".into()));
+        }
+        let area_unit = format!("{}\u{b2}", scale.unit);
+        self.edit_step(|doc| {
+            let old = doc.inner.get_dictionary(id)?.get(b"Measure").ok().cloned();
+            let mut m = old
+                .map(|o| util::deref(&doc.inner, &o).clone())
+                .and_then(|o| o.as_dict().ok().cloned())
+                .unwrap_or_else(|| dictionary! { "Type" => "Measure", "Subtype" => "RL" });
+            m.set("R", lopdf::text_string(&scale.ratio));
+            m.set("X", number_format(&scale.unit, scale.factor, scale));
+            m.set("D", number_format(&scale.unit, scale.factor, scale));
+            m.set("A", number_format(&area_unit, scale.factor * scale.factor, scale));
+            let d = doc.inner.get_dictionary_mut(id)?;
+            d.set("Measure", m);
+            d.set("M", Object::string_literal(util::pdf_date_now()));
+            doc.refresh_appearance(id)?;
+            Ok(())
+        })
+    }
+
     /// Measurement comments of the whole document as `(page, kind, value text)`.
     pub fn measurements(&self) -> Vec<(usize, String, String)> {
         self.measurement_list()

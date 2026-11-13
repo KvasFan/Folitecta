@@ -13,7 +13,7 @@
 //! panes' info bar, Manage Form Data, History; the settings of freehand
 //! strokes and of the eraser; the Allow/Block List, Batch Link, a new
 //! document from the selection, the picture commands; the area drawn to crop
-//! to, the origin anchor.
+//! to, the origin anchor; Place Annotation, Measure Edit.
 
 use super::*;
 
@@ -118,6 +118,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     ink_settings(cx).await;
     allow_and_batch(cx).await;
     crop_area(cx).await;
+    place_and_measure(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -1178,5 +1179,78 @@ async fn crop_area(cx: &mut Ctx<'_>) {
         "Crop Page › Apply asks for the area, it is drawn and shown, the second Apply crops that page only; the origin anchor shown",
         asked && area.is_some() && shown == 1 && cropped && other && anchor == 1,
         format!("asked {asked}, area {area:?} shown {shown}, crop {crop:?} other page uncropped {other}, anchor {anchor}"),
+    );
+}
+
+/// Place Annotation puts copies of a note where the clicks are; Measure
+/// Edit measures a distance again at another scale.
+async fn place_and_measure(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    st.go_to_page(0);
+    pause(300).await;
+    let z = crate::commands::current_zoom(st);
+    let count = |st: AppState| {
+        st.read_active(|t| t.doc.annotations(0).map(|a| a.len()).unwrap_or(0))
+            .unwrap_or(0)
+    };
+    let _ = st.with_active(|t| {
+        t.doc
+            .add_note(0, 60.0, 780.0, "Template", "Reviewer", [0.2, 0.6, 1.0])
+    });
+    let template = count(st) - 1;
+    st.with_active(|t| t.selected_annot = Some((0, template)));
+    crate::commands::dispatch(st, "tool.selAnnotPlace");
+    pause(300).await;
+    let tool = (st.tool)() == Tool::PlaceAnnot;
+    let before = count(st);
+    let _ = pointer_path(0, z, &[(300.0, 300.0)], false).await;
+    pause(400).await;
+    let _ = pointer_path(0, z, &[(300.0, 450.0)], false).await;
+    pause(400).await;
+    let placed = count(st) - before;
+    let copy_text = st
+        .read_active(|t| {
+            t.doc
+                .annotations(0)
+                .ok()
+                .and_then(|a| a.last().map(|x| x.contents.clone()))
+        })
+        .flatten()
+        .unwrap_or_default();
+    st.set_tool(Tool::Hand);
+    // A distance of 72 points, measured again at 1 mm = 10 cm.
+    let _ = st.with_active(|t| {
+        t.doc.add_measurement(
+            0,
+            folitecta_core::MeasureKind::Distance,
+            &[(100.0, 100.0), (172.0, 100.0)],
+            &folitecta_core::AnnotStyle::default(),
+            &folitecta_core::MeasureScale::default(),
+            "Reviewer",
+        )
+    });
+    let m = count(st) - 1;
+    st.with_active(|t| t.selected_annot = Some((0, m)));
+    crate::commands::dispatch(st, "measureEdit");
+    pause(300).await;
+    let _ = eval("const n = document.querySelectorAll('.dialog input[type=number]'); const set = (i, v) => { if (n[i]) { n[i].value = v; n[i].dispatchEvent(new Event('input', { bubbles: true })); } }; set(1, '10'); set(2, '0'); const s = document.querySelectorAll('.dialog select'); if (s[1]) { s[1].value = 'cm'; s[1].dispatchEvent(new Event('change', { bubbles: true })); }").await;
+    pause(300).await;
+    let _ = eval("document.querySelector('.dialog-foot .tbtn.primary')?.click();").await;
+    pause(400).await;
+    let value = st
+        .read_active(|t| {
+            t.doc
+                .measurement_list()
+                .into_iter()
+                .find(|x| x.page == 0 && x.index == m)
+                .map(|x| x.value)
+        })
+        .flatten()
+        .unwrap_or_default();
+    let settings_kept = st.value("measure.real").is_empty();
+    cx.record(
+        "Place Annotation puts a copy of the note at each click; Measure Edit measures a distance again at 1 mm = 10 cm, the settings of new measures kept",
+        tool && placed == 2 && copy_text == "Template" && value == "254 cm" && settings_kept,
+        format!("tool {tool}, placed {placed} ({copy_text:?}), value {value:?}, settings kept {settings_kept}"),
     );
 }

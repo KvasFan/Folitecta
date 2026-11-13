@@ -22,6 +22,18 @@ pub struct AnnotSnapshot {
     layer: Option<(ObjectId, String)>,
 }
 
+impl AnnotSnapshot {
+    /// The rectangle of the comment copied (PDF space of its page).
+    pub fn rect(&self) -> Option<[f32; 4]> {
+        let a = self.root.get(b"Rect").ok()?.as_array().ok()?;
+        let n: Vec<f32> = a
+            .iter()
+            .filter_map(|o| o.as_float().ok().or_else(|| o.as_i64().ok().map(|v| v as f32)))
+            .collect();
+        (n.len() == 4).then(|| [n[0].min(n[2]), n[1].min(n[3]), n[0].max(n[2]), n[1].max(n[3])])
+    }
+}
+
 /// Keys that point back into the source page tree or to other annotations.
 const SKIP_KEYS: &[&[u8]] = &[b"P", b"Popup", b"Parent", b"IRT", b"StructParent"];
 

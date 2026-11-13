@@ -4,6 +4,13 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-13 — local check of 0.99.0 to 0.104.0, Linux and Windows
+
+- **What:** `target/preflight.sh` at `639358f`: formatting, clippy for the three systems, the
+  workspace tests (1096 passed, 0 failed), the release build, the licences, the whole self-test
+  (403 interactions, 0 problems), the Linux package (47 MB) and the Windows job (1073 passed, 0 failed under Wine;
+  no `VCRUNTIME140` import): all passed.
+
 ## 2026-11-13 — FOL-L025: freehand stroke settings (0.104.0)
 
 - **Current state before:** Eraser Diameter, Ink Smooth Level, Thickness Scale and Line Width

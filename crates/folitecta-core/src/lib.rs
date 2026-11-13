@@ -80,7 +80,7 @@ pub use flatten::FlattenScope;
 pub use fonts::{AppearanceFont, FontKind, GlyphProblem, UsedFont};
 pub use form_calc::{CalcOp, Calculation};
 pub use form_data::{FormDataFormat, PageWidget};
-pub use form_design::{FieldProps, NewField};
+pub use form_design::{FieldCopy, FieldProps, NewField};
 pub use form_format::{FieldCheck, FieldFormat};
 pub use forms::{FieldKind, FilledFields, FormField, SignatureInfo};
 pub use greyscale::GreyReport;

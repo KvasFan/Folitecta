@@ -4,6 +4,28 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-13 — FOL-L050 and others: guides, fields and files through the clipboard (0.99.0)
+
+- **Current state before:** Paste Guides, Paste Fields, Paste Files, Guides Select All and Select
+  on Page were planned; Copy File copied the path as text (partial); Compare › Show Both and
+  Remove Cropped Content were still marked partial although the side-by-side comparison and the
+  removal of what lies beyond the crop box were done.
+- **What:** core: `FieldCopy`, `field_copy` (kind, page, rectangle, properties; dates as date
+  fields, picture buttons as picture fields), `paste_fields` (kept inside the page, names
+  numbered when taken, one undo step, undone whole on an error), `paste_files` (PDF files and
+  pictures as pages in their order, others attached, one undo step). App: `clipboard::set_files`
+  / `get_files` (Linux: text/uri-list, the file managers' list and the paths as text; Windows:
+  `CF_HDROP`; macOS: file references through `osascript`); `DocTab::guide_sel` drawn as chosen;
+  Copy, Paste, Delete and Deselect know the guides and the fields chosen; `Clip::Fields`,
+  `Clip::Guides`.
+- **Checked:** core tests (`form_design.rs`: a field into a smaller page of another document,
+  again with a numbered name, one undo step; `attachments.rs`: a PDF, a picture and a text file
+  pasted, undone at once); self-test step `complete` (14 interactions, 0 problems): guides of a
+  page chosen, drawn, copied, pasted on page 2, deleted; a field pasted into a new document; a PDF
+  file through the system clipboard of the nested session added two pages; Copy File put the saved
+  file on the clipboard. The first run showed the guides not drawn: the test now shows them.
+- **Open:** Copy File and Paste Files tried on Windows and macOS by hand (built and linted here).
+
 ## 2026-11-13 — local check of 0.94.0 to 0.98.0, Linux and Windows
 
 - **What:** `target/preflight.sh`: formatting, clippy for the three systems, the workspace tests

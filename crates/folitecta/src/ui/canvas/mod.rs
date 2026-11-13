@@ -764,6 +764,7 @@ fn page_stamps(t: &crate::state::DocTab, count: usize) -> Vec<u64> {
     for g in &t.guides {
         (g.page, g.horizontal, g.pos.to_bits()).hash(&mut common);
     }
+    t.guide_sel.hash(&mut common);
     if let Some(run) = &t.spell {
         (run.list.len(), run.current, run.anchor, run.passed.len()).hash(&mut common);
         run.made_for.map(|m| (m.0, m.1, m.2)).hash(&mut common);

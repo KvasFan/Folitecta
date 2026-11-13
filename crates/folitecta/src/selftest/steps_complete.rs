@@ -4,7 +4,8 @@
 //! boxes and guides in the loupe; Interactive Visible of the thumbnails; the
 //! options windows of panes and of recovery; Bates numbering of several
 //! files from their list; the preview of page marks and its zoom; the
-//! Presets window; toolbars and tabs of one's own, locked toolbars and panes.
+//! Presets window; toolbars and tabs of one's own, locked toolbars and panes;
+//! guides and form fields copied and pasted, files pasted, the file copied.
 
 use super::*;
 
@@ -101,6 +102,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     presets(cx).await;
     mail_method(cx).await;
     own_bars(cx).await;
+    clipboard_more(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -485,5 +487,128 @@ async fn own_bars(cx: &mut Ctx<'_>) {
         "toolbars and ribbon tabs of one's own get their tools, the tab shows them; locked toolbars refuse changes, locked panes their handles",
         made && qat_kept && shown == vec![true, true] && locked && refused && panes && unlocked,
         format!("made {made}, quick access kept {qat_kept}, tab shown {shown:?}, locked {locked}, refused {refused}, panes {panes}, unlocked {unlocked}"),
+    );
+}
+
+/// Guides chosen on a page, copied and pasted on another; deleted. A form
+/// field copied into another document. A PDF file on the system clipboard
+/// pasted as pages; Copy File puts the document's file there.
+async fn clipboard_more(cx: &mut Ctx<'_>) {
+    use crate::state::{Clip, Guide};
+    let st = cx.st;
+    st.with_active(|t| {
+        t.guides = vec![
+            Guide {
+                page: Some(0),
+                horizontal: true,
+                pos: 100.0,
+            },
+            Guide {
+                page: Some(1),
+                horizontal: true,
+                pos: 300.0,
+            },
+            Guide {
+                page: None,
+                horizontal: false,
+                pos: 50.0,
+            },
+        ];
+        t.guide_sel.clear();
+    });
+    let guides_shown = crate::commands::option_on(st, "view.showGuides");
+    st.set_option("view.showGuides", true);
+    st.go_to_page(0);
+    pause(300).await;
+    crate::commands::dispatch(st, "guidesSelectOnPage");
+    let chosen = st.read_active(|t| t.guide_sel.clone()).unwrap_or_default();
+    pause(300).await;
+    let drawn = eval("return document.querySelectorAll('#pg-0 .guide.chosen').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    crate::commands::dispatch(st, "copy");
+    let copied = matches!(st.clip.peek().as_ref(), Some(Clip::Guides(g)) if g.len() == 2);
+    st.go_to_page(1);
+    pause(200).await;
+    crate::commands::dispatch(st, "pasteGuides");
+    let on_second = st
+        .read_active(|t| t.guides.iter().filter(|g| g.page == Some(1)).count())
+        .unwrap_or(0);
+    crate::commands::dispatch(st, "guidesSelectAll");
+    crate::commands::dispatch(st, "delete");
+    let left = st.read_active(|t| t.guides.len()).unwrap_or(9);
+    st.set_option("view.showGuides", guides_shown);
+    cx.record(
+        "Guides › Select on Page chooses the page's guides, Copy and Paste Guides put them on another page, Delete takes the chosen ones",
+        chosen == vec![0, 2] && drawn == 2 && copied && on_second == 2 && left == 0,
+        format!("chosen {chosen:?}, drawn chosen {drawn}, copied {copied}, on page 2 {on_second}, left {left}"),
+    );
+
+    // A text field copied with the form tool, pasted into a new document.
+    let props = folitecta_core::FieldProps {
+        name: "Town".into(),
+        ..Default::default()
+    };
+    let field = st.with_active(|t| {
+        t.doc.add_form_field(
+            0,
+            folitecta_core::NewField::Text,
+            [100.0, 600.0, 250.0, 620.0],
+            &props,
+        )
+    });
+    let Some(Ok(field)) = field else {
+        cx.record("form fields copied", false, "the field could not be made".into());
+        return;
+    };
+    let from = st.read_active(|t| t.id).unwrap_or(0);
+    st.set_tool(Tool::EditFields);
+    st.with_active(|t| t.selected_fields = vec![field]);
+    crate::commands::dispatch(st, "copy");
+    let fields_copied =
+        matches!(st.clip.peek().as_ref(), Some(Clip::Fields { fields, .. }) if fields.len() == 1);
+    st.set_tool(Tool::Hand);
+    let Ok(other) = folitecta_core::Document::new_blank(1, 595.0, 842.0) else {
+        return;
+    };
+    crate::files::open_document_tab(st, other);
+    pause(400).await;
+    crate::commands::dispatch(st, "pasteFields");
+    let pasted: Vec<String> = st
+        .read_active(|t| t.doc.form_fields().into_iter().map(|f| f.name).collect())
+        .unwrap_or_default();
+    let other_tab = st.read_active(|t| t.id).unwrap_or(0);
+
+    // Files on the system clipboard.
+    let dir = std::env::temp_dir().join(format!("foli-clip-files-{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&dir);
+    let pdf = dir.join("two.pdf");
+    let _ = std::fs::write(&pdf, folitecta_core::testdocs::text_doc(2));
+    let set = crate::clipboard::set_files(std::slice::from_ref(&pdf));
+    pause(300).await;
+    let back = crate::clipboard::get_files();
+    crate::commands::dispatch(st, "pasteFiles");
+    pause(300).await;
+    let pages = st.read_active(|t| t.doc.page_count()).unwrap_or(0);
+    // Copy File: the document saved as a file, then put on the clipboard.
+    let saved = dir.join("saved.pdf");
+    let wrote = st
+        .with_active(|t| t.doc.save_as(&saved))
+        .is_some_and(|r| r.is_ok());
+    crate::commands::dispatch(st, "copySrcFile");
+    pause(300).await;
+    let file_on_clip = crate::clipboard::get_files();
+    crate::files::close_tab(st, other_tab, true, crate::state::AfterUnsaved::Close);
+    pause(300).await;
+    let _ = std::fs::remove_dir_all(&dir);
+    st.set_clip(None);
+    let back_to = st.read_active(|t| t.id).unwrap_or(0) == from;
+    cx.record(
+        "a form field copied with the form tool is pasted into another document; files on the clipboard become pages; Copy File puts the file there",
+        fields_copied && pasted == vec!["Town".to_string()] && set.is_ok() && back == vec![pdf.clone()] && pages == 3
+            && wrote && file_on_clip == vec![saved.clone()] && back_to,
+        format!("copied {fields_copied}, pasted {pasted:?}, clipboard set {set:?} read {back:?}, pages {pages}, saved {wrote}, file on clipboard {file_on_clip:?}"),
     );
 }

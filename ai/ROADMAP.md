@@ -894,6 +894,14 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    the ribbon draws the tabs of one's own, the classic interface the toolbars; Make Default;
    View › Lock/Unlock All Toolbars and Panes (`layout::locked`); Reset Menu.
 
+### 0.99.0 — guides, fields and files through the clipboard (on `main`, untagged)
+
+1. ~~**FOL-L050, L031, L023 — guides, fields and files through the clipboard.**~~ Done:
+   `Document::field_copy`/`paste_fields` and `paste_files` (core), `clipboard::set_files`/
+   `get_files` on the three systems, `commands/window/clip_more.rs` (Guides Select All / on
+   Page, Paste Guides, Paste Fields, Paste Files, Copy File); Show Both and Remove Cropped Content
+   no longer partial.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

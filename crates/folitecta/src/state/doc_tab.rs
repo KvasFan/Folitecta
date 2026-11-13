@@ -142,6 +142,8 @@ pub struct DocTab {
     pub text_sel: Option<TextSel>,
     /// Ruler guides (view only, not saved in the PDF).
     pub guides: Vec<Guide>,
+    /// The guides chosen (Guides › Select All, Select on Page): their places in `guides`.
+    pub guide_sel: Vec<usize>,
     /// Visited pages for previous/next view navigation.
     pub history: Vec<usize>,
     pub history_pos: usize,
@@ -346,6 +348,7 @@ impl DocTab {
             split: None,
             text_sel: None,
             guides: Vec::new(),
+            guide_sel: Vec::new(),
             history: vec![0],
             history_pos: 0,
             comment_filter: CommentFilter::default(),

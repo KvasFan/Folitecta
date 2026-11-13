@@ -1,5 +1,6 @@
 //! The window: the Edit, View and Help menus, the split window, the Quick Access Toolbar and interface settings.
 
+pub(crate) mod clip_more;
 pub(crate) mod edit;
 pub(crate) mod groups;
 pub(crate) mod help;

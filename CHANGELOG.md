@@ -7,6 +7,16 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Edit › Guides Select All and Select on Page choose ruler guides (drawn in orange); Copy copies
+  them, Paste Guides puts them in any document (those of one page on the current page), Delete
+  deletes them.
+- Form fields chosen with the form tool are copied with Copy and pasted with Paste Fields on the
+  current page of any document, with their properties (a name already used gets a number).
+- Paste Files: files copied in a file manager become pages after the current one (PDF files and
+  pictures) or attachments (other files), one undo step. Copy File puts the document's file on the
+  clipboard as file managers copy files.
+- Compare › Show Both and Remove Cropped Content are counted as complete: the comparison is side by
+  side, and what lies outside the crop box is taken out of the content.
 - Customize Toolbars makes toolbars (classic interface) and ribbon tabs of one's own (New, New
   Toolbar, New Tab), fills them like the Quick Access Toolbar, renames them (Rename, Rename
   Toolbar), shows or deletes them; Make Default opens a tab with the window. View › Lock All

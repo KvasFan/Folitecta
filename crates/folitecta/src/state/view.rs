@@ -323,6 +323,13 @@ pub enum Clip {
         pdf: std::sync::Arc<Vec<u8>>,
         count: usize,
     },
+    /// Form fields copied (Paste Fields), with the tab they came from.
+    Fields {
+        tab: u64,
+        fields: Vec<folitecta_core::FieldCopy>,
+    },
+    /// Ruler guides copied (Paste Guides).
+    Guides(Vec<Guide>),
 }
 
 /// A text selection on one page: character offsets in the page text layer.

@@ -79,7 +79,7 @@ pub(super) fn PageView(
         hits: Vec<(bool, [f32; 4], usize)>,
         sel: Vec<[f32; 4]>,
         caret: Option<[f32; 4]>,
-        guides: Vec<(bool, f32)>,
+        guides: Vec<(bool, f32, bool)>,
         selected: Option<usize>,
         /// Every comment chosen on this page (the selected one and those
         /// added with Shift or Ctrl).
@@ -252,8 +252,9 @@ pub(super) fn PageView(
             let guides = t
                 .guides
                 .iter()
-                .filter(|g| g.page.is_none() || g.page == Some(page))
-                .map(|g| (g.horizontal, g.pos))
+                .enumerate()
+                .filter(|(_, g)| g.page.is_none() || g.page == Some(page))
+                .map(|(i, g)| (g.horizontal, g.pos, t.guide_sel.contains(&i)))
                 .collect();
             let selected = t.selected_annot.filter(|(p, _)| *p == page).map(|(_, i)| i);
             let chosen = t
@@ -999,8 +1000,8 @@ pub(super) fn PageView(
                     div { class: "grid-overlay", style: "background-size:{grid_px}px {grid_px}px" }
                 }
                 if show_guides {
-                    for (i, (horizontal, pos)) in view.guides.iter().enumerate() {
-                        div { key: "g{i}", class: if *horizontal { "guide h" } else { "guide v" }, style: if *horizontal { format!("top:{}px", pos * z) } else { format!("left:{}px", pos * z) } }
+                    for (i, (horizontal, pos, chosen)) in view.guides.iter().enumerate() {
+                        div { key: "g{i}", class: match (*horizontal, *chosen) { (true, false) => "guide h", (true, true) => "guide h chosen", (false, false) => "guide v", (false, true) => "guide v chosen" }, style: if *horizontal { format!("top:{}px", pos * z) } else { format!("left:{}px", pos * z) } }
                     }
                 }
                 for (i, r) in view.links.iter().enumerate() {

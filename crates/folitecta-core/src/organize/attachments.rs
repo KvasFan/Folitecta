@@ -300,6 +300,50 @@ impl Document {
         Ok(spec_id)
     }
 
+    /// Edit › Paste Files: PDF files and pictures become pages before
+    /// index `at` (in their order), other files attachments. One undo step;
+    /// returns the pages added and the files attached.
+    pub fn paste_files(&mut self, at: usize, paths: &[std::path::PathBuf]) -> Result<(usize, usize)> {
+        const PICTURES: &[&str] = &["png", "jpg", "jpeg", "tif", "tiff", "bmp", "gif", "webp"];
+        let mark = self.undo_mark();
+        let (mut pages, mut attached) = (0usize, 0usize);
+        let mut at = at.min(self.page_count());
+        let result = (|| -> Result<()> {
+            for path in paths {
+                let ext = path
+                    .extension()
+                    .map(|e| e.to_string_lossy().to_lowercase())
+                    .unwrap_or_default();
+                if ext == "pdf" {
+                    let other = Document::open(path)?;
+                    let n = other.page_count();
+                    self.insert_document(at, &other, None)?;
+                    at += n;
+                    pages += n;
+                } else if PICTURES.contains(&ext.as_str()) {
+                    let data = std::fs::read(path).map_err(|e| Error::io(path, e))?;
+                    let other = Document::from_images(vec![data])?;
+                    let n = other.page_count();
+                    self.insert_document(at, &other, None)?;
+                    at += n;
+                    pages += n;
+                } else {
+                    self.add_attachment_from_path(path, "")?;
+                    attached += 1;
+                }
+            }
+            Ok(())
+        })();
+        self.squash_undo(&mark);
+        if let Err(e) = result {
+            if pages + attached > 0 {
+                let _ = self.undo();
+            }
+            return Err(e);
+        }
+        Ok((pages, attached))
+    }
+
     /// Attach a file from disk (name = file name).
     pub fn add_attachment_from_path(
         &mut self,

@@ -34,7 +34,7 @@ pub(crate) use navigation::{
 };
 pub(crate) use protection::{policies, protect, redaction, revocation, signatures, signs};
 pub(crate) use text::{find_replace, read_aloud, search, spelling, textedit};
-pub(crate) use window::{edit, groups, help, interface, qat, split_view, tab_groups, view};
+pub(crate) use window::{clip_more, edit, groups, help, interface, qat, split_view, tab_groups, view};
 
 use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
@@ -128,6 +128,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     groups::HANDLERS,
     bates_files::HANDLERS,
     presets::HANDLERS,
+    clip_more::HANDLERS,
 ];
 
 static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {
@@ -143,7 +144,6 @@ static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {
 /// Commands that perform a reduced version of the full operation.
 pub const PARTIAL: &[&str] = &[
     "fontName",
-    "copySrcFile",
     // From the locale environment variables only.
     "macro.region",
     // The first matching annotation is selected (the selection holds one).
@@ -158,10 +158,6 @@ pub const PARTIAL: &[&str] = &[
     // They show the stamps pane.
     "stampCustom.menu",
     "stampCustom.recentsMenu",
-    // The content outside the crop box is clipped, not deleted from the file.
-    "document.removeCroppedContent",
-    // There is no side-by-side view: it switches between the two documents.
-    "cmpDocs.show.both",
     // The system decides where the browser opens a link.
     "tool.link.openInBrowser.newTab",
     "tool.link.openInBrowser.newWindow",

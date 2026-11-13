@@ -106,7 +106,6 @@ handlers! {
         }
     },
     "copySrcFileName" => copy_path,
-    "copySrcFile" => copy_path,
     "recentFiles" => |st| st.set_palette(Some(String::new())),
     "recentsList" => |st| st.set_palette(Some(String::new())),
     "manageHistory" => |st| crate::commands::show_pane(st, crate::state::Pane::History),

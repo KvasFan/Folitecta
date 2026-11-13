@@ -468,3 +468,46 @@ fn a_row_of_squares_side_by_side_is_a_comb() {
     let props = doc.field_props(id).unwrap();
     assert!(props.comb && props.max_len == 5, "{props:?}");
 }
+
+#[test]
+fn fields_copied_into_another_document_keep_their_properties() {
+    let mut a = Document::new_blank(1, 595.0, 842.0).unwrap();
+    let props = FieldProps {
+        name: "City".into(),
+        tooltip: "Where".into(),
+        required: true,
+        ..FieldProps::default()
+    };
+    let id = a
+        .add_form_field(0, NewField::Text, [100.0, 700.0, 300.0, 720.0], &props)
+        .unwrap();
+    let copy = a.field_copy(id).unwrap();
+    assert_eq!(copy.kind, NewField::Text);
+    // Into another document, then into the same one: the name gets a number.
+    let mut b = Document::new_blank(1, 300.0, 400.0).unwrap();
+    let made = b.paste_fields(0, std::slice::from_ref(&copy), 0.0, 0.0).unwrap();
+    assert_eq!(made.len(), 1);
+    let pasted = b.form_fields().into_iter().find(|f| f.id == made[0]).unwrap();
+    assert_eq!(pasted.name, "City");
+    let r = pasted.rect.unwrap();
+    assert!(
+        r[2] <= 300.0 && r[3] <= 400.0,
+        "kept inside the smaller page: {r:?}"
+    );
+    let p = b.field_props(made[0]).unwrap();
+    assert!(p.required && p.tooltip == "Where");
+    let again = a.paste_fields(0, &[copy], 12.0, -12.0).unwrap();
+    let name = a
+        .form_fields()
+        .into_iter()
+        .find(|f| f.id == again[0])
+        .unwrap()
+        .name;
+    assert_ne!(name, "City");
+    // One undo step, and the file opens again with the field.
+    let bytes = b.bytes().as_ref().clone();
+    let reopened = Document::from_bytes(bytes, None, None).unwrap();
+    assert_eq!(reopened.form_fields().len(), 1);
+    b.undo().unwrap();
+    assert!(b.form_fields().is_empty());
+}

@@ -92,3 +92,31 @@ fn executables_are_recognized() {
         assert!(!is_executable_name(safe), "{safe}");
     }
 }
+
+#[test]
+fn pasted_files_become_pages_and_attachments_in_one_undo_step() {
+    let dir = std::env::temp_dir().join(format!("foli-paste-files-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let pdf = dir.join("two.pdf");
+    Document::new_blank(2, 595.0, 842.0)
+        .unwrap()
+        .save_as(&pdf)
+        .unwrap();
+    let png = dir.join("dot.png");
+    let mut buf = std::io::Cursor::new(Vec::new());
+    image::RgbaImage::from_pixel(8, 8, image::Rgba([0, 0, 0, 255]))
+        .write_to(&mut buf, image::ImageFormat::Png)
+        .unwrap();
+    std::fs::write(&png, buf.into_inner()).unwrap();
+    let txt = dir.join("notes.txt");
+    std::fs::write(&txt, b"notes").unwrap();
+    let mut doc = Document::new_blank(1, 595.0, 842.0).unwrap();
+    let (pages, attached) = doc.paste_files(1, &[pdf, png, txt]).unwrap();
+    assert_eq!((pages, attached), (3, 1));
+    assert_eq!(doc.page_count(), 4);
+    assert_eq!(doc.attachments().len(), 1);
+    doc.undo().unwrap();
+    assert_eq!(doc.page_count(), 1);
+    assert!(doc.attachments().is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
+}

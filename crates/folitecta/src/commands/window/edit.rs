@@ -22,6 +22,12 @@ fn copy(st: AppState) {
     if no_doc(st) {
         return;
     }
+    if crate::commands::clip_more::copy_guides(st) {
+        return;
+    }
+    if st.allowed(folitecta_core::Restricted::Copy) && crate::commands::clip_more::copy_fields(st) {
+        return;
+    }
     let sel = st.read_active(|t| (t.id, t.selected_annot, t.page)).unwrap();
     if let (tab, Some((page, index)), _) = sel {
         let text = st
@@ -168,6 +174,14 @@ fn paste_clip(st: AppState, clip: Clip) {
         }
         Clip::Pages { pdf, .. } => {
             paste_pages(st, &pdf, page + 1, 1);
+            return;
+        }
+        Clip::Fields { .. } => {
+            crate::commands::clip_more::paste_fields(st);
+            return;
+        }
+        Clip::Guides(_) => {
+            crate::commands::clip_more::paste_guides(st);
             return;
         }
     };
@@ -355,9 +369,10 @@ handlers! {
     },
     "selectAll" => select_all,
     "invertSelection" => |st| { if !no_doc(st) { st.with_active(|t| { let n = t.doc.page_count(); t.selected_pages = (0..n).filter(|p| !t.selected_pages.contains(p)).collect(); }); } },
-    "edit.deselect" => |st| { st.with_active(|t| { t.selected_pages.clear(); t.selected_annot = None; }); },
+    "edit.deselect" => |st| { st.with_active(|t| { t.selected_pages.clear(); t.selected_annot = None; t.guide_sel.clear(); }); },
     "delete" => |st| {
         if no_doc(st) { return; }
+        if crate::commands::clip_more::delete_guides(st) { return; }
         // Every chosen comment (a group, or those added with Shift) in one step.
         match st.read_active(|t| t.chosen_annots()).flatten() {
             Some((page, list)) if list.len() > 1 => core_result(st, st.with_active(|t| t.doc.delete_annotations(page, &list).map(|_| ()))),

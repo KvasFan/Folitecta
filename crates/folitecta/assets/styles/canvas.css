@@ -176,3 +176,5 @@ textarea.field-input { resize: none; padding: 2px 3px; }
 .article-part.drawing { border-style: dashed; border-color: rgba(200, 90, 20, 0.9); background: rgba(200, 90, 20, 0.08); }
 .article-part-n { position: absolute; left: 0; top: 0; padding: 1px 5px; font: 600 11px/1.4 sans-serif; color: #fff; background: rgba(40, 110, 200, 0.9); border-bottom-right-radius: 4px; }
 .article-part.drawing .article-part-n { background: rgba(200, 90, 20, 0.9); }
+/* Guides chosen (Guides › Select All, Select on Page), for Copy and Delete. */
+.guide.chosen { background: #f97316; opacity: 1; box-shadow: 0 0 0 1px rgba(249, 115, 22, .45); }

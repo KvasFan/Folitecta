@@ -9,6 +9,16 @@ use crate::error::{Error, Result};
 use crate::form_format::{DATE_FORMATS, FieldCheck, FieldFormat};
 use crate::util::{deref, fmt_num, num, text_of};
 
+/// A field copied (see [`Document::field_copy`]).
+#[derive(Debug, Clone, PartialEq)]
+pub struct FieldCopy {
+    pub kind: NewField,
+    pub page: usize,
+    /// PDF rectangle on its page.
+    pub rect: [f32; 4],
+    pub props: FieldProps,
+}
+
 /// Kinds of fields that can be created.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NewField {
@@ -838,6 +848,82 @@ impl Document {
                 let nr = [rect[0] + ox, rect[1] + oy, rect[2] + ox, rect[3] + oy];
                 self.add_form_field(page, kind, nr, &props)?;
                 made += 1;
+            }
+        }
+        self.squash_undo(&mark);
+        Ok(made)
+    }
+
+    /// A field as Edit › Copy keeps it (with fields chosen): its kind, page,
+    /// rectangle and properties, for Paste Fields here or in another
+    /// document.
+    pub fn field_copy(&self, field: ObjectId) -> Result<FieldCopy> {
+        let f = self
+            .form_fields()
+            .into_iter()
+            .find(|x| x.id == field)
+            .ok_or_else(|| Error::Invalid("field not found".into()))?;
+        let props = self.field_props(field)?;
+        let kind = match f.kind {
+            crate::forms::FieldKind::Text if matches!(props.format, FieldFormat::Date(_)) => NewField::Date,
+            crate::forms::FieldKind::Text => NewField::Text,
+            crate::forms::FieldKind::CheckBox => NewField::CheckBox,
+            crate::forms::FieldKind::RadioButton => NewField::RadioButton,
+            crate::forms::FieldKind::ComboBox => NewField::ComboBox,
+            crate::forms::FieldKind::ListBox => NewField::ListBox,
+            crate::forms::FieldKind::PushButton if self.is_picture_field(field) => NewField::Picture,
+            crate::forms::FieldKind::PushButton => NewField::PushButton,
+            crate::forms::FieldKind::Signature => NewField::Signature,
+            crate::forms::FieldKind::Unknown(k) => {
+                return Err(Error::Invalid(format!("fields of kind {k} cannot be copied")));
+            }
+        };
+        let (Some(page), Some(rect)) = (f.page, f.rect) else {
+            return Err(Error::Invalid("the field has no widget on a page".into()));
+        };
+        Ok(FieldCopy {
+            kind,
+            page,
+            rect,
+            props,
+        })
+    }
+
+    /// Make copied fields again on `page`, moved by `dx`, `dy` (PDF points)
+    /// and kept inside the page; a name already used gets a number (a
+    /// radio button so starts a group of its own). One undo step; returns
+    /// the new fields.
+    pub fn paste_fields(
+        &mut self,
+        page: usize,
+        copies: &[FieldCopy],
+        dx: f32,
+        dy: f32,
+    ) -> Result<Vec<ObjectId>> {
+        if copies.is_empty() {
+            return Ok(Vec::new());
+        }
+        let size = self.page_size(page)?;
+        let b = size.crop_box;
+        let mark = self.undo_mark();
+        let mut made = Vec::new();
+        for c in copies {
+            let mut props = c.props.clone();
+            if self.form_fields().iter().any(|f| f.name == props.name) {
+                props.name = self.unique_field_name(&format!("{}.", props.name));
+            }
+            let (w, h) = (c.rect[2] - c.rect[0], c.rect[3] - c.rect[1]);
+            let x = (c.rect[0] + dx).clamp(b[0], (b[2] - w).max(b[0]));
+            let y = (c.rect[1] + dy).clamp(b[1], (b[3] - h).max(b[1]));
+            match self.add_form_field(page, c.kind, [x, y, x + w, y + h], &props) {
+                Ok(id) => made.push(id),
+                Err(e) => {
+                    self.squash_undo(&mark);
+                    if !made.is_empty() {
+                        let _ = self.undo();
+                    }
+                    return Err(e);
+                }
             }
         }
         self.squash_undo(&mark);

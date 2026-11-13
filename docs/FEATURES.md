@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1647 |
-| 🟡 partial | 53 |
-| ⬜ planned | 314 |
+| ✅ available | 1657 |
+| 🟡 partial | 48 |
+| ⬜ planned | 309 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -820,7 +820,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Overlay Pages… | `document.overlayPages` | ✅ available |
 | Page Boxes… | `document.pageBoxes` | ✅ available |
 | Rasterize Pages… | `document.rasterizePages` | ✅ available |
-| Remove Cropped Content | `document.removeCroppedContent` | 🟡 partial |
+| Remove Cropped Content | `document.removeCroppedContent` | ✅ available |
 | Resize Pages… | `document.resizePages` | ✅ available |
 | Rotate Pages… | `document.rotatePages` | ✅ available |
 | ↳ Rotate 180° | `document.rotatePages.180` | ✅ available |
@@ -1079,10 +1079,10 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 
 | Command | Id | Status |
 |---|---|---|
-| Compare Documents | `cmpDocs` | 🟡 partial |
+| Compare Documents | `cmpDocs` | ✅ available |
 | ↳ Filter | `cmpDocs.filter` | ✅ available |
 | ↳ Go to | `cmpDocs.goto` | ✅ available |
-| ↳ Show | `cmpDocs.show` | 🟡 partial |
+| ↳ Show | `cmpDocs.show` | ✅ available |
 | Compare Documents… | `compareDocs` | ✅ available |
 | Comparison | `comparisonView` | ✅ available |
 | ↳ First | `comparisonView.first` | ✅ available |
@@ -1258,7 +1258,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Browse for Open | `browseForOpen` | ✅ available |
 | Browse for Save | `browseForSave` | ✅ available |
 | Combine Files into One PDF… | `newDocCombine` | ✅ available |
-| Copy File | `copySrcFile` | 🟡 partial |
+| Copy File | `copySrcFile` | ✅ available |
 | Copy Full Path | `copySrcFileName` | ✅ available |
 | Custom Scan… | `newDocCustomScan` | ✅ available |
 | E-Signature Service | `document.esign` | ⬜ planned |
@@ -1364,8 +1364,8 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Font | `fontName` | 🟡 partial |
 | Font Size | `fontSize` | ✅ available |
 | Group | `group` | ✅ available |
-| Guides Select All | `guidesSelectAll` | ⬜ planned |
-| Guides Select on Page | `guidesSelectOnPage` | ⬜ planned |
+| Guides Select All | `guidesSelectAll` | ✅ available |
+| Guides Select on Page | `guidesSelectOnPage` | ✅ available |
 | Image Editor | `imageEditor` | ✅ available |
 | Ink Smooth Level | `inkSmoothLevel` | ⬜ planned |
 | Item | `item` | 🟡 partial |
@@ -1380,9 +1380,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Paste Annotations | `pasteAnnots` | ✅ available |
 | Paste Bookmarks | `pasteBookmarks` | ✅ available |
 | Paste Contents | `pasteContents` | ⬜ planned |
-| Paste Fields | `pasteFields` | ⬜ planned |
-| Paste Files | `pasteFiles` | ⬜ planned |
-| Paste Guides | `pasteGuides` | ⬜ planned |
+| Paste Fields | `pasteFields` | ✅ available |
+| Paste Files | `pasteFiles` | ✅ available |
+| Paste Guides | `pasteGuides` | ✅ available |
 | Paste Image | `pasteImage` | ✅ available |
 | Paste Metafile | `pasteMetafile` | ⬜ planned |
 | Paste Pages | `pastePages` | ✅ available |
@@ -1477,7 +1477,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Collapse All | `collapseAll` | ✅ available |
 | Comment Styles Palette | `view.commentStyles` | ✅ available |
 | Comments View | `commentsView` | ✅ available |
-| Compare Documents | `cmpDocs` | 🟡 partial |
+| Compare Documents | `cmpDocs` | ✅ available |
 | Comparison | `comparisonView` | ✅ available |
 | Content | `view.content` | ✅ available |
 | Content Pane | `contentsView` | ✅ available |
@@ -1666,7 +1666,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Recompress Image… | `document.recompressImage` | ✅ available |
 | Redaction | `redaction` | ✅ available |
 | Remove All Web Links | `removeAllWebLinks` | ✅ available |
-| Remove Cropped Content | `document.removeCroppedContent` | 🟡 partial |
+| Remove Cropped Content | `document.removeCroppedContent` | ✅ available |
 | Remove Hidden Information… | `document.sanitize` | ✅ available |
 | Review Recognized Text… | `document.ocrReview` | ✅ available |
 | Security Policies | `secPoliciesList` | ✅ available |
@@ -1982,7 +1982,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `cmpDocs.goto.nextDiff` | View › Compare Documents › Go to › Next Diff | ✅ available |
 | `cmpDocs.goto.prevDiff` | View › Compare Documents › Go to › Previous Diff | ✅ available |
 | `cmpDocs.show.allDiffs` | View › Compare Documents › Show › All Diffs | ✅ available |
-| `cmpDocs.show.both` | View › Compare Documents › Show › Both | 🟡 partial |
+| `cmpDocs.show.both` | View › Compare Documents › Show › Both | ✅ available |
 | `cmpDocs.show.new` | View › Compare Documents › Show › New | ✅ available |
 | `cmpDocs.show.old` | View › Compare Documents › Show › Old | ✅ available |
 | `cmpDocs.show.results` | View › Compare Documents › Show › Results | ✅ available |

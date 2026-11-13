@@ -699,3 +699,53 @@ pub(super) fn RowDataDialog() -> Element {
         }
     }
 }
+
+/// The eraser's diameter, the smoothing of strokes, the thickness scale or
+/// the line width profile.
+#[component]
+pub(super) fn InkSettingDialog(what: String) -> Element {
+    use crate::commands::ink_settings::{eraser_diameter, smooth_level, thickness_scale, width_profile};
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let title = registry()
+        .get(&what)
+        .map(|c| cmd_label(lang, c))
+        .unwrap_or_default();
+    let (key, min, max, step, now, unit): (&str, f32, f32, f32, f32, &str) = match what.as_str() {
+        "eraserDiameter" => ("eraser.diameter", 4.0, 80.0, 1.0, eraser_diameter(st), "px"),
+        "inkSmoothLevel" => ("ink.smooth", 0.0, 4.0, 1.0, smooth_level(st) as f32, ""),
+        "thicknessScale" => (
+            "ink.thickness_scale",
+            0.0,
+            200.0,
+            5.0,
+            thickness_scale(st) * 100.0,
+            "%",
+        ),
+        _ => ("ink.width_profile", 0.0, 0.0, 0.0, 0.0, ""),
+    };
+    let profile = width_profile(st);
+    let hint = t(lang, &format!("dialog.ink.{what}"));
+    let shown = format!("{title}: {now} {unit}");
+    rsx! {
+        Frame { title,
+            if what == "lineWidthProfile" {
+                div { class: "radio-col",
+                    for (v, k) in [("pressure", "dialog.ink.profile.pressure"), ("uniform", "dialog.ink.profile.uniform"), ("taper", "dialog.ink.profile.taper")] {
+                        label { class: "check", key: "{v}",
+                            input { r#type: "radio", name: "ink-profile", value: "{v}", checked: profile == v, onchange: move |_| st.set_value("ink.width_profile", v) }
+                            span { "{t(lang, k)}" }
+                        }
+                    }
+                }
+            } else {
+                div { class: "field",
+                    label { "{shown}" }
+                    input { r#type: "range", class: "ink-value", min: "{min}", max: "{max}", step: "{step}", value: "{now}",
+                        oninput: move |e| st.set_value(key, e.value()) }
+                }
+            }
+            p { class: "hint", "{hint}" }
+        }
+    }
+}

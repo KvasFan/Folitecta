@@ -10,7 +10,8 @@
 //! information, style lists, rows of data in page marks; documents moved
 //! between windows, a group of tabs of their own; go-to views and layer
 //! actions of a link; page display and snap settings, inertial scroll, the
-//! panes' info bar, Manage Form Data, History.
+//! panes' info bar, Manage Form Data, History; the settings of freehand
+//! strokes and of the eraser.
 
 use super::*;
 
@@ -112,6 +113,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     windows(cx).await;
     action_views(cx).await;
     display_settings(cx).await;
+    ink_settings(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -991,5 +993,69 @@ async fn display_settings(cx: &mut Ctx<'_>) {
         "page display settings turn Inertial Scroll on, a quick drag goes on after the release; the grid step set; the panes' info bar; Manage Form Data; History",
         inertia && flag == "1" && glided && step == "24" && info.starts_with('2') && data_rows.contains(&"forms.exportData".to_string()) && history,
         format!("inertia {inertia} flag {flag:?}, scroll {glide:?}, grid {step:?}, info {info:?}, form data {data_rows:?}, history {history}"),
+    );
+}
+
+/// Thin ends make a mouse stroke a stroke of changing width; one width
+/// draws it plain; the windows set the eraser and the smoothing.
+async fn ink_settings(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    let pressed = |st: AppState| -> Option<bool> {
+        st.read_active(|t| {
+            let a = t
+                .doc
+                .annotations(0)
+                .ok()?
+                .into_iter()
+                .rev()
+                .find(|a| a.subtype == "Ink")?;
+            let d = t.doc.inner().get_dictionary(a.id?).ok()?;
+            Some(d.has(b"FolitectaPressure"))
+        })
+        .flatten()
+    };
+    st.go_to_page(0);
+    st.with_active(|t| t.zoom = crate::state::Zoom::FitWidth);
+    pause(500).await;
+    let z = crate::commands::current_zoom(st);
+    let line: Vec<(f32, f32)> = (0..12)
+        .map(|i| (120.0 + i as f32 * 12.0, 500.0 + (i as f32 * 0.7).sin() * 10.0))
+        .collect();
+    crate::commands::dispatch(st, "lineWidthProfile");
+    pause(300).await;
+    let _ = eval("document.querySelector('.dialog input[name=ink-profile][value=taper]')?.click();").await;
+    pause(200).await;
+    st.set_dialog(Dialog::None);
+    st.set_tool(Tool::Ink);
+    pause(300).await;
+    let _ = pointer_path(0, z, &line, false).await;
+    pause(700).await;
+    let tapered = pressed(st);
+    st.set_value("ink.width_profile", "uniform");
+    let line2: Vec<(f32, f32)> = line.iter().map(|(x, y)| (*x, y + 60.0)).collect();
+    let _ = pointer_path(0, z, &line2, false).await;
+    pause(700).await;
+    let plain = pressed(st);
+    st.set_tool(Tool::Hand);
+    st.unset_value("ink.width_profile");
+    // The eraser's diameter and the smoothing from their windows.
+    crate::commands::dispatch(st, "eraserDiameter");
+    pause(300).await;
+    let _ = eval("const i = document.querySelector('.dialog .ink-value'); if (i) { i.value = '30'; i.dispatchEvent(new Event('input', { bubbles: true })); }").await;
+    pause(200).await;
+    st.set_dialog(Dialog::None);
+    let eraser = crate::commands::ink_settings::eraser_diameter(st);
+    crate::commands::dispatch(st, "inkSmoothLevel");
+    pause(300).await;
+    let _ = eval("const i = document.querySelector('.dialog .ink-value'); if (i) { i.value = '3'; i.dispatchEvent(new Event('input', { bubbles: true })); }").await;
+    pause(200).await;
+    st.set_dialog(Dialog::None);
+    let smooth = crate::commands::ink_settings::smooth_level(st);
+    st.unset_value("eraser.diameter");
+    st.unset_value("ink.smooth");
+    cx.record(
+        "Line Width Profile: thin ends give a mouse stroke a changing width, one width a plain stroke; the eraser's diameter and the smoothing set in their windows",
+        tapered == Some(true) && plain == Some(false) && (eraser - 30.0).abs() < 0.01 && smooth == 3,
+        format!("thin ends pressed {tapered:?}, one width pressed {plain:?}, eraser {eraser}, smoothing {smooth}"),
     );
 }

@@ -728,5 +728,12 @@
   "dialog.goto_view.xyz": "Il punto mostrato, a uno zoom",
   "dialog.goto_name": "Nome della destinazione",
   "dialog.goto_name_hint": "Un «vai a» con una destinazione con nome continua ad andarci quando le pagine si spostano; anche altri collegamenti e segnalibri possono usare il nome.",
-  "dialog.pane_options.grid_step": "Passo della griglia (punti)"
+  "dialog.pane_options.grid_step": "Passo della griglia (punti)",
+  "dialog.ink.eraserDiameter": "La gomma toglie le parti dei tratti a mano libera su cui passa, larga così sullo schermo.",
+  "dialog.ink.inkSmoothLevel": "0 tiene i punti come disegnati; i livelli più alti tolgono più tremolio della mano e disegnano curve più lunghe.",
+  "dialog.ink.thicknessScale": "Quanto la pressione di una penna cambia la larghezza dei tratti della Matita: 0 % per niente, 100 % come di solito, 200 % il doppio.",
+  "dialog.ink.lineWidthProfile": "La larghezza lungo i tratti della Matita.",
+  "dialog.ink.profile.pressure": "Secondo la pressione della penna",
+  "dialog.ink.profile.uniform": "Una sola larghezza",
+  "dialog.ink.profile.taper": "Sottile alle estremità (anche con il mouse)"
 }

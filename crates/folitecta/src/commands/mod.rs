@@ -26,7 +26,8 @@ pub(crate) use document::{
 };
 pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
-    arrange, calculator, comment_more, comment_styles, comments, format, media, review, stamps, tables, ticks,
+    arrange, calculator, comment_more, comment_styles, comments, format, ink_settings, media, review, stamps,
+    tables, ticks,
 };
 pub(crate) use navigation::{
     action_views, articles, attachments, bookmarks, explorer, history, layers, link_actions, page_select,
@@ -134,6 +135,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     comment_more::HANDLERS,
     windows::HANDLERS,
     action_views::HANDLERS,
+    ink_settings::HANDLERS,
 ];
 
 static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {

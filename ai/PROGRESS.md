@@ -4,6 +4,19 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-13 — FOL-L025: freehand stroke settings (0.104.0)
+
+- **Current state before:** Eraser Diameter, Ink Smooth Level, Thickness Scale and Line Width
+  Profile were planned; the eraser was 12 screen pixels wide and the smoothing fixed.
+- **What:** `ink_settings.rs`: the four settings with their defaults (the old behaviour);
+  `smoothing(level)` (jitter dropped, length of the curve pieces); `stroke_pressures` (the
+  pen's pressure spread by the thickness scale, none for one width, rising and falling along the
+  stroke for thin ends); `finish_create` draws the Pencil's strokes and the eraser with them.
+- **Checked:** unit test of the levels; self-test steps `complete` and `pencil` (22
+  interactions, 0 problems): a mouse stroke with thin ends kept its widths, one with one width
+  none; the eraser at 30 px and smoothing level 3 set in their windows.
+- **Open:** tried with real tablets.
+
 ## 2026-11-13 — FOL-L001, L004: page display settings, inertial scroll, pane info (0.103.0)
 
 - **Current state before:** Preferences Page Display, Inertial Scroll, Snap › Settings, Show Pane

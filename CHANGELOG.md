@@ -7,6 +7,10 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Format › Eraser Diameter sets how wide the eraser is; Ink Smooth Level how much the Pencil's
+  strokes are smoothed (0 keeps the points as drawn); Thickness Scale how much a pen's pressure
+  changes the width; Line Width Profile the width along a stroke: the pen's pressure, one width,
+  or thin ends (also with a mouse).
 - File › Open › Preferences Page Display: the page display options in one window (gaps, cover,
   right to left, dark pages, document colours, transparency grid, links, Inertial Scroll).
 - View › Inertial Scroll: a quick drag with the hand goes on a little after the mouse is let go.

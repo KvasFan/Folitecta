@@ -358,14 +358,32 @@ pub(super) fn finish_create(
                     .map(|_| ())
             })
         }
-        // A stroke of a pen that told how hard it pressed, its width following.
+        // A stroke whose width changes: a pen that told how hard it pressed,
+        // or the thin-ends profile.
         Tool::Ink
             if points.len() > 1
-                && pressures.len() == points.len()
-                && crate::ui::features::quick_panel::pressure_on(st) =>
+                && !crate::commands::ink_settings::stroke_pressures(
+                    st,
+                    &points,
+                    &pressures,
+                    crate::ui::features::quick_panel::pressure_on(st),
+                )
+                .is_empty() =>
         {
-            let (path, pressed) =
-                folitecta_core::smooth::smooth_pressed_stroke(&path_pdf(), &pressures, 0.5 / z, 2.0);
+            let pressures = crate::commands::ink_settings::stroke_pressures(
+                st,
+                &points,
+                &pressures,
+                crate::ui::features::quick_panel::pressure_on(st),
+            );
+            let (gap, step) =
+                crate::commands::ink_settings::smoothing(crate::commands::ink_settings::smooth_level(st));
+            let (path, pressed) = folitecta_core::smooth::smooth_pressed_stroke(
+                &path_pdf(),
+                &pressures,
+                gap / z,
+                step / z * 4.0,
+            );
             st.with_active(|t| {
                 t.doc
                     .add_pressed_ink(page, &path, &pressed, &style("Ink"), &author)
@@ -374,15 +392,17 @@ pub(super) fn finish_create(
         }
         Tool::Ink | Tool::FreeHighlight if points.len() > 1 => {
             let s = style(if tool == Tool::Ink { "Ink" } else { "FreeHighlight" });
-            // Pointer jitter under half a screen pixel dropped, a piece of
-            // curve at least every two points of length.
-            let path = folitecta_core::smooth::smooth_stroke(&path_pdf(), 0.5 / z, 2.0);
+            // Pointer jitter dropped and pieces of curve as long as the
+            // smoothing level says (Ink Smooth Level).
+            let (gap, step) =
+                crate::commands::ink_settings::smoothing(crate::commands::ink_settings::smooth_level(st));
+            let path = folitecta_core::smooth::smooth_stroke(&path_pdf(), gap / z, step / z * 4.0);
             st.with_active(|t| t.doc.add_ink_styled(page, &[path], &s, &author).map(|_| ()))
         }
         Tool::Eraser => {
             let path = path_pdf();
-            // Radius of 6 screen pixels, in page points.
-            let radius = (6.0 / z).max(1.5);
+            // Half the eraser's diameter (screen pixels), in page points.
+            let radius = (crate::commands::ink_settings::eraser_diameter(st) / 2.0 / z).max(1.0);
             match st.with_active(|t| t.doc.erase_ink(page, &path, radius)) {
                 Some(Ok(_)) => files::set_window_title(st),
                 Some(Err(e)) => st.error(e),

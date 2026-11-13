@@ -430,6 +430,7 @@ pub fn Dialogs() -> Element {
         Dialog::StyleList(tool) => rsx! { StyleListDialog { tool } },
         Dialog::RowData => rsx! { RowDataDialog {} },
         Dialog::MoveTabs => rsx! { MoveTabsDialog {} },
+        Dialog::InkSetting(what) => rsx! { InkSettingDialog { what } },
         Dialog::GoToView { page, index, at } => rsx! { GoToViewDialog { page, index, at } },
         Dialog::GoToName {
             page,

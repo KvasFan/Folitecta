@@ -402,6 +402,8 @@ pub enum Dialog {
     RowData,
     /// Move the active document to another window.
     MoveTabs,
+    /// A setting of freehand strokes or of the eraser (its command id).
+    InkSetting(String),
     /// The view of a go-to of a link's actions.
     GoToView {
         page: usize,

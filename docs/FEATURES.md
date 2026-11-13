@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1709 |
+| ✅ available | 1713 |
 | 🟡 partial | 40 |
-| ⬜ planned | 265 |
+| ⬜ planned | 261 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -1353,7 +1353,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Edit Image | `editImage` | ✅ available |
 | Edit Link | `editLink` | ⬜ planned |
 | Edit Object | `editObject` | ⬜ planned |
-| Eraser Diameter | `eraserDiameter` | ⬜ planned |
+| Eraser Diameter | `eraserDiameter` | ✅ available |
 | Fill Rule | `fillRule` | ✅ available |
 | Filter Content Items | `filterContentItems` | ⬜ planned |
 | Filter Image Items | `filterImageItems` | ⬜ planned |
@@ -1367,9 +1367,9 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Guides Select All | `guidesSelectAll` | ✅ available |
 | Guides Select on Page | `guidesSelectOnPage` | ✅ available |
 | Image Editor | `imageEditor` | ✅ available |
-| Ink Smooth Level | `inkSmoothLevel` | ⬜ planned |
+| Ink Smooth Level | `inkSmoothLevel` | ✅ available |
 | Item | `item` | 🟡 partial |
-| Line Width Profile | `lineWidthProfile` | ⬜ planned |
+| Line Width Profile | `lineWidthProfile` | ✅ available |
 | List | `list` | ✅ available |
 | Make Same Height | `makeSameHeight` | ✅ available |
 | Make Same Size | `makeSameSize` | ✅ available |
@@ -1425,7 +1425,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Text List | `textList` | ⬜ planned |
 | Text Para | `textPara` | ⬜ planned |
 | Text Style | `textStyle` | 🟡 partial |
-| Thickness Scale | `thicknessScale` | ⬜ planned |
+| Thickness Scale | `thicknessScale` | ✅ available |
 | Ungroup | `ungroup` | ✅ available |
 | Volume | `volume` | ✅ available |
 | Widget | `widget` | ✅ available |

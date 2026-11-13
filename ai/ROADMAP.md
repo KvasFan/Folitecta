@@ -928,6 +928,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    `PaneOptions` for page display and snap, the pan script's glide, `pane_info`, Manage Form
    Data, History, Reading Order, Edit Document Forms.
 
+### 0.104.0 — freehand stroke settings (on `main`, untagged)
+
+1. ~~**FOL-L025 — freehand stroke settings.**~~ Done: `commands/markup/ink_settings.rs`
+   (eraser diameter, smoothing levels, thickness scale, width profile), `InkSettingDialog`, the
+   Pencil and the eraser read them.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

@@ -728,5 +728,12 @@
   "dialog.goto_view.xyz": "The place shown, at a zoom",
   "dialog.goto_name": "Name of the destination",
   "dialog.goto_name_hint": "A go-to with a named destination keeps going to it when pages move; other links and bookmarks can use the name too.",
-  "dialog.pane_options.grid_step": "Grid step (points)"
+  "dialog.pane_options.grid_step": "Grid step (points)",
+  "dialog.ink.eraserDiameter": "The eraser takes away the parts of freehand strokes it passes over, this wide on the screen.",
+  "dialog.ink.inkSmoothLevel": "0 keeps the points as drawn; higher levels drop more of the hand's tremble and draw longer curves.",
+  "dialog.ink.thicknessScale": "How much a pen's pressure changes the width of the Pencil's strokes: 0 % not at all, 100 % as usual, 200 % twice as much.",
+  "dialog.ink.lineWidthProfile": "The width along the Pencil's strokes.",
+  "dialog.ink.profile.pressure": "Following the pen's pressure",
+  "dialog.ink.profile.uniform": "One width",
+  "dialog.ink.profile.taper": "Thin at the ends (also with a mouse)"
 }

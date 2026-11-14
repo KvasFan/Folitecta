@@ -27,6 +27,10 @@ impl CommentFilter {
     }
 }
 
+/// The objects chosen with Edit Content › All: page, pictures, paths,
+/// reused drawings.
+pub type ContentSel = (usize, Vec<usize>, Vec<usize>, Vec<usize>);
+
 #[derive(Debug, Clone, Default)]
 pub struct SearchState {
     pub query: String,
@@ -144,9 +148,8 @@ pub struct DocTab {
     pub guides: Vec<Guide>,
     /// The guides chosen (Guides › Select All, Select on Page): their places in `guides`.
     pub guide_sel: Vec<usize>,
-    /// The objects chosen with Edit Content › All: page, pictures, paths,
-    /// reused drawings.
-    pub content_sel: Option<(usize, Vec<usize>, Vec<usize>, Vec<usize>)>,
+    /// The objects chosen with Edit Content › All.
+    pub content_sel: Option<ContentSel>,
     /// The area drawn to crop to (Crop › Apply): page and display rectangle.
     pub crop_area: Option<(usize, [f32; 4])>,
     /// Visited pages for previous/next view navigation.

@@ -183,11 +183,38 @@ fn pictures_and_paths_deleted_together_in_one_step() {
         doc.page_paths(0).unwrap().len(),
     );
     assert!(images >= 1 && paths >= 2);
-    doc.delete_content_items(0, &[images - 1], &[paths - 2, paths - 1])
+    doc.delete_content_items(0, &[images - 1], &[paths - 2, paths - 1], &[])
         .unwrap();
     assert_eq!(doc.page_images(0).unwrap().len(), images - 1);
     assert_eq!(doc.page_paths(0).unwrap().len(), paths - 2);
     doc.undo().unwrap();
     assert_eq!(doc.page_images(0).unwrap().len(), images);
     assert_eq!(doc.page_paths(0).unwrap().len(), paths);
+}
+
+#[test]
+fn reused_drawings_found_with_their_box_and_deleted() {
+    use lopdf::dictionary;
+    let mut b = folitecta_core::testdocs::Builder::new();
+    let form = b.form(
+        [0.0, 0.0, 50.0, 30.0],
+        "0 0 1 rg 0 0 50 30 re f",
+        lopdf::Dictionary::new(),
+        lopdf::Dictionary::new(),
+    );
+    b.page(
+        (300.0, 300.0),
+        b"q 1 0 0 1 100 200 cm /Fm Do Q q 2 0 0 2 10 10 cm /Fm Do Q".to_vec(),
+        dictionary! { "XObject" => dictionary! { "Fm" => form } },
+        vec![],
+    );
+    let mut doc = Document::from_bytes(b.finish(), None, None).unwrap();
+    let forms = doc.page_forms(0).unwrap();
+    assert_eq!(forms.len(), 2);
+    assert_eq!(forms[0].rect, [100.0, 200.0, 150.0, 230.0]);
+    assert_eq!(forms[1].rect, [10.0, 10.0, 110.0, 70.0]);
+    doc.delete_content_items(0, &[], &[], &[0]).unwrap();
+    let left = doc.page_forms(0).unwrap();
+    assert_eq!(left.len(), 1);
+    assert_eq!(left[0].rect, [10.0, 10.0, 110.0, 70.0]);
 }

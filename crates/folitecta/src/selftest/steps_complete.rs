@@ -122,6 +122,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     place_and_measure(cx).await;
     fonts_back(cx).await;
     content_items(cx).await;
+    reused_drawings(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -1353,7 +1354,7 @@ async fn content_items(cx: &mut Ctx<'_>) {
     let _ = eval("const b = document.querySelectorAll('#pg-0 .path-box'); const x = b[b.length - 1]; if (x) { const r = x.getBoundingClientRect(); x.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: r.left + 2, clientY: r.top + 2 })); }").await;
     pause(300).await;
     let one = st
-        .read_active(|t| t.content_sel.as_ref().map(|(_, im, pa)| (im.len(), pa.len())))
+        .read_active(|t| t.content_sel.as_ref().map(|(_, im, pa, _)| (im.len(), pa.len())))
         .flatten();
     crate::commands::dispatch(st, "editObject");
     pause(300).await;
@@ -1379,5 +1380,47 @@ async fn content_items(cx: &mut Ctx<'_>) {
         "Edit Content › All: everything chosen and deleted in one step; a shape chosen with a click and edited; Filter Shapes leaves the pictures alone",
         made.is_some_and(|r| r.is_ok()) && tool && drawn as usize == before.0 + before.1 && after == (0, 0) && one == Some((0, 1)) && editing && path_boxes == 0 && image_boxes >= 1,
         format!("tool {tool}, before {before:?}, chosen drawn {drawn}, after {after:?}, one {one:?}, editing {editing}, path boxes {path_boxes}, picture boxes {image_boxes}"),
+    );
+}
+
+/// A page drawing a reused drawing twice: both shown, chosen and deleted.
+async fn reused_drawings(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    let Ok(doc) =
+        folitecta_core::Document::from_bytes(folitecta_core::testdocs::reused_drawing_doc(), None, None)
+    else {
+        cx.record("reused drawings", false, "the document could not be made".into());
+        return;
+    };
+    let from = st.read_active(|t| t.id).unwrap_or(0);
+    crate::files::open_document_tab(st, doc);
+    pause(500).await;
+    crate::commands::dispatch(st, "selectXFormItems");
+    pause(400).await;
+    let chosen = st
+        .read_active(|t| t.content_sel.as_ref().map(|(_, _, _, fo)| fo.len()))
+        .flatten()
+        .unwrap_or(0);
+    let boxes = eval("return document.querySelectorAll('#pg-0 .form-box.chosen').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    crate::commands::dispatch(st, "delete");
+    pause(300).await;
+    let left = st
+        .read_active(|t| t.doc.page_forms(0).map(|l| l.len()).unwrap_or(9))
+        .unwrap_or(9);
+    st.set_tool(Tool::Hand);
+    let tab = st.read_active(|t| t.id).unwrap_or(0);
+    crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
+    pause(300).await;
+    if let Some(i) = st.docs.peek().iter().position(|t| t.id == from) {
+        st.set_active(i);
+    }
+    cx.record(
+        "Edit Content › Select X Form Items chooses the reused drawings, shown with their boxes; Delete takes them out",
+        chosen == 2 && boxes == 2 && left == 0,
+        format!("chosen {chosen}, boxes {boxes}, left {left}"),
     );
 }

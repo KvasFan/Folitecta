@@ -245,6 +245,7 @@ pub const VIEW_OPTIONS: &[&str] = &[
     // What Edit Content › All shows and lets choose.
     "filterImageItems",
     "filterShapes",
+    "filterContentItems",
     // A drag with the hand goes on a little after the mouse is let go.
     "inertialScroll",
     // A line over the panes with what they hold.
@@ -283,6 +284,7 @@ pub const DEFAULT_ON: &[&str] = &[
     "view.ribbonLabels",
     "filterImageItems",
     "filterShapes",
+    "filterContentItems",
     // Copies of the documents with changes are kept for recovery.
     "recovery.keep",
     "pages.useLabels",

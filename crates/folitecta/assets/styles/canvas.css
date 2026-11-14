@@ -186,3 +186,6 @@ textarea.field-input { resize: none; padding: 2px 3px; }
 .origin-anchor::after { top: -6px; bottom: -6px; left: 5px; width: 2px; }
 /* The objects chosen with Edit Content › All. */
 .image-box.chosen, .path-box.chosen { outline: 2px solid #f97316 !important; background: rgba(249, 115, 22, .12); }
+.form-box { position: absolute; z-index: 6; outline: 1px dashed #7c3aed; cursor: pointer; }
+.form-box:hover { background: rgba(124, 58, 237, .08); }
+.form-box.chosen { outline: 2px solid #f97316; background: rgba(249, 115, 22, .12); }

@@ -964,6 +964,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    `commands/document/content_items.rs`. Text items, reused drawings, shadings, clipping,
    groups and Paste Contents stay open.
 
+### 0.110.0 — reused drawings in Edit Content (on `main`, untagged)
+
+1. ~~**FOL-L019, L021 — reused drawings in Edit Content.**~~ Done: core `page_forms`
+   (their boxes through their matrix and the page's), deleted with `delete_content_items`;
+   `Item::Form`, the form boxes, Select X Form Items, Filter Content Items.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

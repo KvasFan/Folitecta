@@ -7,6 +7,9 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Edit Content › All also shows the reused drawings of the page (form XObjects) with their boxes, as
+  Filter Content Items says; Select X Form Items chooses them all; Delete takes them out of the
+  content with the pictures and shapes chosen.
 - Edit Content › All shows the pictures and the shapes of the page together (Filter Image Items and
   Filter Shapes choose which); a click chooses one, Ctrl or Shift and a click adds one; Select Image
   Items, Select Shapes and Select All Content Items choose them all; Delete takes the chosen ones

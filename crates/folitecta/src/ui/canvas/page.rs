@@ -106,8 +106,10 @@ pub(super) fn PageView(
         images: Vec<(usize, [f32; 4])>,
         /// The picture selected on this page.
         image_sel: Option<usize>,
-        /// The pictures and paths chosen with Edit Content › All.
-        chosen_items: (Vec<usize>, Vec<usize>),
+        /// The pictures, paths and reused drawings chosen with Edit Content › All.
+        chosen_items: (Vec<usize>, Vec<usize>, Vec<usize>),
+        /// The reused drawings shown by Edit Content › All.
+        forms: Vec<(usize, [f32; 4])>,
         /// Paths of the page for Edit Paths: index and rectangle (display space).
         paths: Vec<(usize, [f32; 4])>,
         /// The path chosen on this page and its nodes (display space).
@@ -325,6 +327,19 @@ pub(super) fn PageView(
             };
             let all_shapes = tool == Tool::EditAll && crate::commands::option_on(st, "filterShapes");
             let all_images = tool == Tool::EditAll && crate::commands::option_on(st, "filterImageItems");
+            let forms: Vec<(usize, [f32; 4])> =
+                if tool == Tool::EditAll && crate::commands::option_on(st, "filterContentItems") {
+                    t.doc
+                        .page_forms(page)
+                        .map(|l| {
+                            l.into_iter()
+                                .map(|f| (f.index, pdf_rect_to_display(&size, f.rect)))
+                                .collect()
+                        })
+                        .unwrap_or_default()
+                } else {
+                    Vec::new()
+                };
             let (paths, path_sel) = if tool == Tool::EditPaths || all_shapes {
                 let list = t.doc.page_paths(page).unwrap_or_default();
                 let shown: Vec<(usize, [f32; 4])> = list
@@ -427,9 +442,10 @@ pub(super) fn PageView(
                 chosen_items: t
                     .content_sel
                     .as_ref()
-                    .filter(|(p, _, _)| *p == page)
-                    .map(|(_, im, pa)| (im.clone(), pa.clone()))
+                    .filter(|(p, _, _, _)| *p == page)
+                    .map(|(_, im, pa, fo)| (im.clone(), pa.clone(), fo.clone()))
                     .unwrap_or_default(),
+                forms,
                 paths,
                 path_sel,
                 field_marks,
@@ -1059,13 +1075,22 @@ pub(super) fn PageView(
                         span { class: "num", "{label}" }
                     }
                 }
+                for (i, r) in view.forms.iter().copied() {
+                    div { key: "fo{i}", class: if view.chosen_items.2.contains(&i) { "form-box chosen" } else { "form-box" }, style: "{css(r)}",
+                        onmousedown: move |e| {
+                            e.stop_propagation();
+                            let add = e.modifiers().ctrl() || e.modifiers().shift() || e.modifiers().meta();
+                            crate::commands::content_items::choose(st, page, crate::commands::content_items::Item::Form(i), add);
+                        },
+                    }
+                }
                 for (i, r) in view.images.iter().copied() {
                     div { key: "im{i}", class: if view.chosen_items.0.contains(&i) { "image-box selected chosen" } else if view.image_sel == Some(i) { "image-box selected" } else { "image-box" }, style: "{css(r)}",
                         onmousedown: move |e| {
                             e.stop_propagation();
                             if tool == Tool::EditAll {
                                 let add = e.modifiers().ctrl() || e.modifiers().shift() || e.modifiers().meta();
-                                crate::commands::content_items::choose(st, page, Some(i), None, add);
+                                crate::commands::content_items::choose(st, page, crate::commands::content_items::Item::Picture(i), add);
                                 return;
                             }
                             st.with_active(|t| t.image_sel = Some((page, i)));
@@ -1087,7 +1112,7 @@ pub(super) fn PageView(
                                     e.stop_propagation();
                                     if tool == Tool::EditAll {
                                         let add = e.modifiers().ctrl() || e.modifiers().shift() || e.modifiers().meta();
-                                        crate::commands::content_items::choose(st, page, None, Some(i), add);
+                                        crate::commands::content_items::choose(st, page, crate::commands::content_items::Item::Path(i), add);
                                         return;
                                     }
                                     crate::commands::paths::choose(st, page, i);

@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1745 |
+| ✅ available | 1747 |
 | 🟡 partial | 39 |
-| ⬜ planned | 230 |
+| ⬜ planned | 228 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -1355,7 +1355,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Edit Object | `editObject` | ✅ available |
 | Eraser Diameter | `eraserDiameter` | ✅ available |
 | Fill Rule | `fillRule` | ✅ available |
-| Filter Content Items | `filterContentItems` | ⬜ planned |
+| Filter Content Items | `filterContentItems` | ✅ available |
 | Filter Image Items | `filterImageItems` | ✅ available |
 | Filter Shapes | `filterShapes` | ✅ available |
 | Filter Text Items | `filterTextItems` | ⬜ planned |
@@ -1410,7 +1410,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Select Pages | `selectPages` | ✅ available |
 | Select Shapes | `selectShapes` | ✅ available |
 | Select Text Items | `selectTextItems` | ⬜ planned |
-| Select X Form Items | `selectXFormItems` | ⬜ planned |
+| Select X Form Items | `selectXFormItems` | ✅ available |
 | Selection | `selectionGroup` | ✅ available |
 | Show Quick Access Toolbar Above Ribbon | `QABarAbove` | ✅ available |
 | Show Quick Access Toolbar Below Ribbon | `QABarBelow` | ✅ available |

@@ -1911,6 +1911,25 @@ pub fn fonts_doc() -> Vec<u8> {
     b.finish()
 }
 
+/// A page drawing one reused drawing (a form XObject, a blue box of 50 × 30
+/// points) twice: at (100, 200), and twice as large at (10, 10).
+pub fn reused_drawing_doc() -> Vec<u8> {
+    let mut b = Builder::new();
+    let form = b.form(
+        [0.0, 0.0, 50.0, 30.0],
+        "0 0 1 rg 0 0 50 30 re f",
+        Dictionary::new(),
+        Dictionary::new(),
+    );
+    b.page(
+        (300.0, 300.0),
+        b"q 1 0 0 1 100 200 cm /Fm Do Q q 2 0 0 2 10 10 cm /Fm Do Q".to_vec(),
+        dictionary! { "XObject" => dictionary! { "Fm" => form } },
+        vec![],
+    );
+    b.finish()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

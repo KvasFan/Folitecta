@@ -4,6 +4,18 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-14 — FOL-L019, L021: reused drawings in Edit Content (0.110.0)
+
+- **Current state before:** Select X Form Items and Filter Content Items were planned; the All
+  tool offered pictures and shapes only.
+- **What:** core: `PageForm`, `page_forms` (the `Do` of form XObjects, their `/BBox` through
+  `/Matrix` and the content's matrix), their drawings taken out by `delete_content_items`
+  (now with a list of forms); `testdocs::reused_drawing_doc`. App: `content_sel` holds
+  forms, `Item` (picture, path, form), form boxes drawn as `filterContentItems` says.
+- **Checked:** core test `paths.rs` (two drawings of one form, boxes 100,200–150,230 and
+  10,10–110,70, the first deleted); self-test step `complete` (25 interactions, 0 problems).
+- **Open:** text items, shadings, Remove Clip, Add Object Group, Paste Contents.
+
 ## 2026-11-14 — FOL-L019, L020, L021: Edit Content › All (0.109.0)
 
 - **Current state before:** Edit Content had a tool per kind (text, pictures, shapes); All, the

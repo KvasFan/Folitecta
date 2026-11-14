@@ -114,6 +114,105 @@ fn is_image(doc: &lopdf::Document, id: ObjectId) -> bool {
         == Some(b"Image".as_slice())
 }
 
+fn is_form(doc: &lopdf::Document, id: ObjectId) -> bool {
+    doc.get_object(id)
+        .and_then(Object::as_stream)
+        .ok()
+        .and_then(|s| s.dict.get(b"Subtype").ok()?.as_name().ok())
+        == Some(b"Form".as_slice())
+}
+
+/// A reused drawing (form XObject) drawn by the page content: its place
+/// among them and its bounds on the page (PDF user space).
+#[derive(Debug, Clone, PartialEq)]
+pub struct PageForm {
+    pub index: usize,
+    pub rect: [f32; 4],
+}
+
+/// The reused drawings drawn by the page content, in drawing order: where
+/// their operation is and the bounds of their box on the page.
+fn form_draws(doc: &lopdf::Document, page_id: ObjectId, data: &[u8]) -> Vec<(usize, usize, [f32; 4])> {
+    let xobjects = page_xobjects(doc, page_id);
+    let mut out = Vec::new();
+    let mut stack: Vec<Affine> = Vec::new();
+    let mut ctm = Affine::IDENTITY;
+    for op in operations(data) {
+        match op.operator {
+            b"q" => stack.push(ctm),
+            b"Q" => {
+                if let Some(m) = stack.pop() {
+                    ctm = m;
+                }
+            }
+            b"cm" if op.operands.len() == 6 => {
+                let n: Vec<f64> = op.operands.iter().filter_map(|r| number(data, *r)).collect();
+                if let [a, b, c, d, e, f] = n[..] {
+                    ctm *= Affine::new([a, b, c, d, e, f]);
+                }
+            }
+            b"Do" => {
+                let Some(r) = op.operands.first() else { continue };
+                let Some(name) = name_of(data, *r) else { continue };
+                let Ok(Object::Reference(id)) = xobjects.get(&name) else {
+                    continue;
+                };
+                if !is_form(doc, *id) {
+                    continue;
+                }
+                let Ok(s) = doc.get_object(*id).and_then(Object::as_stream) else {
+                    continue;
+                };
+                let n = |o: &Object| {
+                    o.as_float()
+                        .ok()
+                        .map(f64::from)
+                        .or_else(|| o.as_i64().ok().map(|v| v as f64))
+                };
+                let bbox: Vec<f64> = s
+                    .dict
+                    .get(b"BBox")
+                    .ok()
+                    .and_then(|b| b.as_array().ok())
+                    .map(|a| a.iter().filter_map(n).collect())
+                    .unwrap_or_default();
+                if bbox.len() != 4 {
+                    continue;
+                }
+                let m: Vec<f64> = s
+                    .dict
+                    .get(b"Matrix")
+                    .ok()
+                    .and_then(|b| b.as_array().ok())
+                    .map(|a| a.iter().filter_map(n).collect())
+                    .unwrap_or_default();
+                let matrix = match m[..] {
+                    [a, b, c, d, e, f] => Affine::new([a, b, c, d, e, f]),
+                    _ => Affine::IDENTITY,
+                };
+                let full = ctm * matrix;
+                let pts = [
+                    full * Point::new(bbox[0], bbox[1]),
+                    full * Point::new(bbox[2], bbox[1]),
+                    full * Point::new(bbox[2], bbox[3]),
+                    full * Point::new(bbox[0], bbox[3]),
+                ];
+                let xs = pts.iter().map(|p| p.x);
+                let ys = pts.iter().map(|p| p.y);
+                let rect = [
+                    xs.clone().fold(f64::MAX, f64::min) as f32,
+                    ys.clone().fold(f64::MAX, f64::min) as f32,
+                    xs.fold(f64::MIN, f64::max) as f32,
+                    ys.fold(f64::MIN, f64::max) as f32,
+                ];
+                out.push((op.start, op.end, rect));
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
 /// The pictures drawn by the page content, in drawing order.
 fn draws(doc: &lopdf::Document, page_id: ObjectId, data: &[u8]) -> Vec<Draw> {
     let xobjects = page_xobjects(doc, page_id);
@@ -936,10 +1035,54 @@ impl Document {
         rewrite(&mut self.inner, pid, &j, &splices)
     }
 
-    /// Edit Content › Delete: pictures `images` and paths `paths` of a page
-    /// taken out of its content. One undo step.
-    pub fn delete_content_items(&mut self, page: usize, images: &[usize], paths: &[usize]) -> Result<()> {
-        if images.is_empty() && paths.is_empty() {
+    /// The reused drawings (form XObjects) the content of a page draws.
+    pub fn page_forms(&self, page: usize) -> Result<Vec<PageForm>> {
+        let pid = self.page_id(page)?;
+        let j = joined(&self.inner, pid);
+        Ok(form_draws(&self.inner, pid, &j.data)
+            .into_iter()
+            .enumerate()
+            .map(|(index, (_, _, rect))| PageForm { index, rect })
+            .collect())
+    }
+
+    /// Take the drawings of reused drawings `indices` of a page out of its
+    /// content, as part of the edit under way.
+    fn remove_form_drawings(&mut self, page: usize, indices: &[usize]) -> Result<()> {
+        let pid = self.page_id(page)?;
+        let j = joined(&self.inner, pid);
+        let all = form_draws(&self.inner, pid, &j.data);
+        let mut list: Vec<usize> = indices.to_vec();
+        list.sort_unstable();
+        list.dedup();
+        let mut splices = Vec::new();
+        for i in list {
+            let (start, end, _) = *all
+                .get(i)
+                .ok_or_else(|| Error::Invalid("the drawing is not on the page".into()))?;
+            stream_span(&j, start, end)?;
+            splices.push(Splice {
+                start,
+                end,
+                with: Vec::new(),
+            });
+        }
+        if splices.is_empty() {
+            return Ok(());
+        }
+        rewrite(&mut self.inner, pid, &j, &splices)
+    }
+
+    /// Edit Content › Delete: pictures `images`, paths `paths` and reused
+    /// drawings `forms` of a page taken out of its content. One undo step.
+    pub fn delete_content_items(
+        &mut self,
+        page: usize,
+        images: &[usize],
+        paths: &[usize],
+        forms: &[usize],
+    ) -> Result<()> {
+        if images.is_empty() && paths.is_empty() && forms.is_empty() {
             return Ok(());
         }
         let mark = self.undo_mark();
@@ -949,6 +1092,9 @@ impl Document {
             }
             if !images.is_empty() {
                 self.edit_step(|doc| doc.remove_picture_drawings(page, images))?;
+            }
+            if !forms.is_empty() {
+                self.edit_step(|doc| doc.remove_form_drawings(page, forms))?;
             }
             Ok(())
         })();

@@ -783,6 +783,7 @@ fn page_stamps(t: &crate::state::DocTab, count: usize) -> Vec<u64> {
         (g.page, g.horizontal, g.pos.to_bits()).hash(&mut common);
     }
     t.guide_sel.hash(&mut common);
+    t.content_sel.hash(&mut common);
     t.crop_area
         .map(|(p, r)| (p, r.map(f32::to_bits)))
         .hash(&mut common);

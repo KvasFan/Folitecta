@@ -4,6 +4,20 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-14 — FOL-L019, L020, L021: Edit Content › All (0.109.0)
+
+- **Current state before:** Edit Content had a tool per kind (text, pictures, shapes); All, the
+  filters, the Select commands and Edit Object were planned, and pictures could not be deleted.
+- **What:** core: `remove_picture_drawings` (their drawings spliced out of the content, the
+  picture objects kept while used), `delete_paths`, `delete_content_items` (one undo step).
+  App: `Tool::EditAll` draws the picture and path boxes (as `filterImageItems` and
+  `filterShapes` say, both on by default); `content_sel` chosen with clicks (Ctrl/Shift adds,
+  a second click takes away) and drawn; Select Image Items, Select Shapes, Select All Content
+  Items, Select Content Items; Delete and Edit Object act on them.
+- **Checked:** core test `paths.rs` (a picture and two shapes deleted at once, undone);
+  self-test steps `complete` and `paths` (29 interactions, 0 problems).
+- **Open:** text items, form XObjects, shadings, Remove Clip, Add Object Group, Paste Contents.
+
 ## 2026-11-14 — FOL-L018, L043: fonts brought back, maps of characters repaired (0.108.0)
 
 - **Current state before:** Substitute Fonts › Change Font, Reset Font, Reset All Fonts and Font ›

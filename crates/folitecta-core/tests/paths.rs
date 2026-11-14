@@ -152,3 +152,42 @@ fn drawings_snap_to_the_corners_and_ends_of_the_paths() {
     }
     assert_eq!(points.len(), 14, "{points:?}");
 }
+
+#[test]
+fn pictures_and_paths_deleted_together_in_one_step() {
+    let mut doc = Document::from_bytes(folitecta_core::testdocs::text_doc(1), None, None).unwrap();
+    let mut png = std::io::Cursor::new(Vec::new());
+    image::RgbaImage::from_pixel(10, 10, image::Rgba([0, 0, 255, 255]))
+        .write_to(&mut png, image::ImageFormat::Png)
+        .unwrap();
+    doc.add_image(0, png.into_inner(), Some([100.0, 100.0, 150.0, 150.0]))
+        .unwrap();
+    doc.add_three_point_shape(
+        0,
+        folitecta_core::ThreePoint::Circle,
+        [[300.0, 300.0], [350.0, 350.0], [400.0, 300.0]],
+        [0.0; 3],
+        1.0,
+    )
+    .unwrap();
+    doc.add_three_point_shape(
+        0,
+        folitecta_core::ThreePoint::Rect,
+        [[100.0, 500.0], [200.0, 500.0], [200.0, 560.0]],
+        [0.0; 3],
+        1.0,
+    )
+    .unwrap();
+    let (images, paths) = (
+        doc.page_images(0).unwrap().len(),
+        doc.page_paths(0).unwrap().len(),
+    );
+    assert!(images >= 1 && paths >= 2);
+    doc.delete_content_items(0, &[images - 1], &[paths - 2, paths - 1])
+        .unwrap();
+    assert_eq!(doc.page_images(0).unwrap().len(), images - 1);
+    assert_eq!(doc.page_paths(0).unwrap().len(), paths - 2);
+    doc.undo().unwrap();
+    assert_eq!(doc.page_images(0).unwrap().len(), images);
+    assert_eq!(doc.page_paths(0).unwrap().len(), paths);
+}

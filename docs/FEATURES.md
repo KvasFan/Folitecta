@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1737 |
+| ✅ available | 1745 |
 | 🟡 partial | 39 |
-| ⬜ planned | 238 |
+| ⬜ planned | 230 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -77,7 +77,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Add Image… | `tool.selImagePlace` | ✅ available |
 | Add Text | `tool.addText` | ✅ available |
 | Edit Content | `tool.editContent` | 🟡 partial |
-| ↳ All | `tool.editContent.all` | ⬜ planned |
+| ↳ All | `tool.editContent.all` | ✅ available |
 | ↳ Images | `tool.editContent.images` | ✅ available |
 | ↳ Shades | `tool.editContent.shades` | ⬜ planned |
 | ↳ Shapes | `tool.editContent.shapes` | ✅ available |
@@ -1352,12 +1352,12 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Document Size | `dsd` | ✅ available |
 | Edit Image | `editImage` | ✅ available |
 | Edit Link | `editLink` | ⬜ planned |
-| Edit Object | `editObject` | ⬜ planned |
+| Edit Object | `editObject` | ✅ available |
 | Eraser Diameter | `eraserDiameter` | ✅ available |
 | Fill Rule | `fillRule` | ✅ available |
 | Filter Content Items | `filterContentItems` | ⬜ planned |
-| Filter Image Items | `filterImageItems` | ⬜ planned |
-| Filter Shapes | `filterShapes` | ⬜ planned |
+| Filter Image Items | `filterImageItems` | ✅ available |
+| Filter Shapes | `filterShapes` | ✅ available |
 | Filter Text Items | `filterTextItems` | ⬜ planned |
 | Find | `findGroup` | ✅ available |
 | Font | `font` | ✅ available |
@@ -1404,11 +1404,11 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Reset Menu | `resetMenu` | ✅ available |
 | Reset Toolbar | `resetToolbar` | ✅ available |
 | Search Providers | `searchProviders` | ⬜ planned |
-| Select All Content Items | `selectAllContentItems` | ⬜ planned |
-| Select Content Items | `selectContentItems` | ⬜ planned |
-| Select Image Items | `selectImageItems` | ⬜ planned |
+| Select All Content Items | `selectAllContentItems` | ✅ available |
+| Select Content Items | `selectContentItems` | ✅ available |
+| Select Image Items | `selectImageItems` | ✅ available |
 | Select Pages | `selectPages` | ✅ available |
-| Select Shapes | `selectShapes` | ⬜ planned |
+| Select Shapes | `selectShapes` | ✅ available |
 | Select Text Items | `selectTextItems` | ⬜ planned |
 | Select X Form Items | `selectXFormItems` | ⬜ planned |
 | Selection | `selectionGroup` | ✅ available |

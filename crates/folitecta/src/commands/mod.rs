@@ -20,9 +20,9 @@ pub(crate) mod protection;
 pub(crate) mod text;
 pub(crate) mod window;
 pub(crate) use document::{
-    actions, barcodes, bates_files, compare, convert, crop_area, doctools, file, fileops, font_tools,
-    greyscale, macros, mail, more_files, ocr, office, pages, paths, pictures, preflight, presets, print,
-    scanning, scans, sources, split, table_export, templates,
+    actions, barcodes, bates_files, compare, content_items, convert, crop_area, doctools, file, fileops,
+    font_tools, greyscale, macros, mail, more_files, ocr, office, pages, paths, pictures, preflight, presets,
+    print, scanning, scans, sources, split, table_export, templates,
 };
 pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
@@ -139,6 +139,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     allow_list::HANDLERS,
     crop_area::HANDLERS,
     font_tools::HANDLERS,
+    content_items::HANDLERS,
     more_files::HANDLERS,
 ];
 
@@ -241,6 +242,9 @@ pub const VIEW_OPTIONS: &[&str] = &[
     "thumbnailsView.logicalVisible",
     // Dragging the outline of the part shown moves the view.
     "thumbnailsView.interactiveVisible",
+    // What Edit Content › All shows and lets choose.
+    "filterImageItems",
+    "filterShapes",
     // A drag with the hand goes on a little after the mouse is let go.
     "inertialScroll",
     // A line over the panes with what they hold.
@@ -277,6 +281,8 @@ pub const VIEW_OPTIONS: &[&str] = &[
 /// Options that are on unless the user turned them off.
 pub const DEFAULT_ON: &[&str] = &[
     "view.ribbonLabels",
+    "filterImageItems",
+    "filterShapes",
     // Copies of the documents with changes are kept for recovery.
     "recovery.keep",
     "pages.useLabels",

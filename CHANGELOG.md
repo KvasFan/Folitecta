@@ -7,6 +7,11 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Edit Content › All shows the pictures and the shapes of the page together (Filter Image Items and
+  Filter Shapes choose which); a click chooses one, Ctrl or Shift and a click adds one; Select Image
+  Items, Select Shapes and Select All Content Items choose them all; Delete takes the chosen ones
+  out of the content in one undo step; Edit Object opens the one chosen in the picture editor or
+  with its nodes.
 - Substitute Fonts: Change Font opens Replace Fonts; a font replaced keeps the font it was, so
   Reset Font brings one back and Reset All Fonts all of them, also after the file is saved and
   opened again.

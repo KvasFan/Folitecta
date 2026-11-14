@@ -184,3 +184,5 @@ textarea.field-input { resize: none; padding: 2px 3px; }
 .origin-anchor::before, .origin-anchor::after { content: ""; position: absolute; background: #dc2626; }
 .origin-anchor::before { left: -6px; right: -6px; top: 5px; height: 2px; }
 .origin-anchor::after { top: -6px; bottom: -6px; left: 5px; width: 2px; }
+/* The objects chosen with Edit Content › All. */
+.image-box.chosen, .path-box.chosen { outline: 2px solid #f97316 !important; background: rgba(249, 115, 22, .12); }

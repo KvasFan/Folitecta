@@ -106,6 +106,8 @@ pub(super) fn PageView(
         images: Vec<(usize, [f32; 4])>,
         /// The picture selected on this page.
         image_sel: Option<usize>,
+        /// The pictures and paths chosen with Edit Content › All.
+        chosen_items: (Vec<usize>, Vec<usize>),
         /// Paths of the page for Edit Paths: index and rectangle (display space).
         paths: Vec<(usize, [f32; 4])>,
         /// The path chosen on this page and its nodes (display space).
@@ -321,7 +323,9 @@ pub(super) fn PageView(
             } else {
                 Vec::new()
             };
-            let (paths, path_sel) = if tool == Tool::EditPaths {
+            let all_shapes = tool == Tool::EditAll && crate::commands::option_on(st, "filterShapes");
+            let all_images = tool == Tool::EditAll && crate::commands::option_on(st, "filterImageItems");
+            let (paths, path_sel) = if tool == Tool::EditPaths || all_shapes {
                 let list = t.doc.page_paths(page).unwrap_or_default();
                 let shown: Vec<(usize, [f32; 4])> = list
                     .iter()
@@ -347,7 +351,7 @@ pub(super) fn PageView(
             } else {
                 (Vec::new(), None)
             };
-            let images = if tool == Tool::EditImages {
+            let images = if tool == Tool::EditImages || all_images {
                 t.doc
                     .page_images(page)
                     .map(|list| {
@@ -420,6 +424,12 @@ pub(super) fn PageView(
                     .unwrap_or_default(),
                 images,
                 image_sel: t.image_sel.filter(|(p, _)| *p == page).map(|(_, i)| i),
+                chosen_items: t
+                    .content_sel
+                    .as_ref()
+                    .filter(|(p, _, _)| *p == page)
+                    .map(|(_, im, pa)| (im.clone(), pa.clone()))
+                    .unwrap_or_default(),
                 paths,
                 path_sel,
                 field_marks,
@@ -881,6 +891,12 @@ pub(super) fn PageView(
             crate::commands::paths::clear(st);
             return;
         }
+        if tool == Tool::EditAll {
+            if st.read_active(|t| t.content_sel.is_some()).unwrap_or(false) {
+                st.with_active(|t| t.content_sel = None);
+            }
+            return;
+        }
         if tool.is_drawing() {
             let (sx, sy) = snap(st, page, x, y, z);
             let start = ((sx * z) as f64, (sy * z) as f64);
@@ -1044,9 +1060,14 @@ pub(super) fn PageView(
                     }
                 }
                 for (i, r) in view.images.iter().copied() {
-                    div { key: "im{i}", class: if view.image_sel == Some(i) { "image-box selected" } else { "image-box" }, style: "{css(r)}",
+                    div { key: "im{i}", class: if view.chosen_items.0.contains(&i) { "image-box selected chosen" } else if view.image_sel == Some(i) { "image-box selected" } else { "image-box" }, style: "{css(r)}",
                         onmousedown: move |e| {
                             e.stop_propagation();
+                            if tool == Tool::EditAll {
+                                let add = e.modifiers().ctrl() || e.modifiers().shift() || e.modifiers().meta();
+                                crate::commands::content_items::choose(st, page, Some(i), None, add);
+                                return;
+                            }
                             st.with_active(|t| t.image_sel = Some((page, i)));
                         },
                         ondoubleclick: move |e| {
@@ -1060,10 +1081,15 @@ pub(super) fn PageView(
                     {
                         let nodes = view.path_sel.as_ref().filter(|(p, _, _)| p.index == i).map(|(_, n, _)| n.clone());
                         rsx! {
-                            div { key: "pa{i}", class: if nodes.is_some() { "path-box selected" } else { "path-box" },
+                            div { key: "pa{i}", class: if view.chosen_items.1.contains(&i) { "path-box selected chosen" } else if nodes.is_some() { "path-box selected" } else { "path-box" },
                                 style: "{grown(r)}",
                                 onmousedown: move |e| {
                                     e.stop_propagation();
+                                    if tool == Tool::EditAll {
+                                        let add = e.modifiers().ctrl() || e.modifiers().shift() || e.modifiers().meta();
+                                        crate::commands::content_items::choose(st, page, None, Some(i), add);
+                                        return;
+                                    }
                                     crate::commands::paths::choose(st, page, i);
                                 },
                                 // On the chosen path: a node where the pointer is.

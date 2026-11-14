@@ -844,6 +844,23 @@ impl Document {
         self.write_page_content(page, &content)
     }
 
+    /// Delete paths `list` of page `page` (one change).
+    pub fn delete_paths(&mut self, page: usize, list: &[usize]) -> Result<()> {
+        let (content, base) = self.page_content_ops(page)?;
+        let paths = find_paths(&content, base);
+        let mut chosen: Vec<usize> = list.to_vec();
+        chosen.sort_unstable();
+        chosen.dedup();
+        let mut ops = content.operations;
+        for i in chosen.into_iter().rev() {
+            let p = paths
+                .get(i)
+                .ok_or_else(|| Error::Invalid("no such path".into()))?;
+            ops.drain(p.first..=p.last);
+        }
+        self.write_page_content(page, &Content { operations: ops })
+    }
+
     /// Delete path `path` of page `page`.
     pub fn delete_path(&mut self, page: usize, path: usize) -> Result<()> {
         let (content, base) = self.page_content_ops(page)?;

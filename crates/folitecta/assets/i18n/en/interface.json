@@ -395,5 +395,6 @@
   "pane.info.fields": "{count} form fields",
   "pane.info.links": "{count} links",
   "pane.info.results": "{count} results",
-  "tool.place_annot": "Place Annotation"
+  "tool.place_annot": "Place Annotation",
+  "tool.edit_all": "Edit Content: All"
 }

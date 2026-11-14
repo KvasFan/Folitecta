@@ -373,6 +373,7 @@ handlers! {
     "delete" => |st| {
         if no_doc(st) { return; }
         if crate::commands::clip_more::delete_guides(st) { return; }
+        if crate::commands::content_items::delete_chosen(st) { return; }
         // Every chosen comment (a group, or those added with Shift) in one step.
         match st.read_active(|t| t.chosen_annots()).flatten() {
             Some((page, list)) if list.len() > 1 => core_result(st, st.with_active(|t| t.doc.delete_annotations(page, &list).map(|_| ()))),

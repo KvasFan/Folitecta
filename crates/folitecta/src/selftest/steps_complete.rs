@@ -14,7 +14,7 @@
 //! strokes and of the eraser; the Allow/Block List, Batch Link, a new
 //! document from the selection, the picture commands; the area drawn to crop
 //! to, the origin anchor; Place Annotation, Measure Edit; fonts replaced and
-//! brought back, maps of characters repaired.
+//! brought back, maps of characters repaired; Edit Content › All.
 
 use super::*;
 
@@ -121,6 +121,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     crop_area(cx).await;
     place_and_measure(cx).await;
     fonts_back(cx).await;
+    content_items(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -1294,5 +1295,89 @@ async fn fonts_back(cx: &mut Ctx<'_>) {
         "Repair To Unicode CMap gives the fonts their maps; a font replaced is brought back with Reset Font",
         !name.is_empty() && again == Some(0) && replaced && rows == 1 && left == 0 && back,
         format!("font {name:?}, second repair {again:?}, replaced {replaced}, rows {rows}, left {left}, back {back}"),
+    );
+}
+
+/// A picture and two shapes: all of them chosen and deleted at once, undone;
+/// a shape chosen with Shift and a click, edited; the shapes filtered out.
+async fn content_items(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    let made = st.with_active(|t| -> folitecta_core::Result<()> {
+        let mut png = std::io::Cursor::new(Vec::new());
+        let _ = image::RgbaImage::from_pixel(12, 12, image::Rgba([0, 120, 0, 255]))
+            .write_to(&mut png, image::ImageFormat::Png);
+        t.doc
+            .add_image(0, png.into_inner(), Some([80.0, 80.0, 140.0, 140.0]))?;
+        t.doc.add_three_point_shape(
+            0,
+            folitecta_core::ThreePoint::Circle,
+            [[300.0, 300.0], [350.0, 350.0], [400.0, 300.0]],
+            [0.0; 3],
+            1.0,
+        )?;
+        t.doc.add_three_point_shape(
+            0,
+            folitecta_core::ThreePoint::Rect,
+            [[100.0, 500.0], [200.0, 500.0], [200.0, 560.0]],
+            [0.0; 3],
+            1.0,
+        )?;
+        Ok(())
+    });
+    st.go_to_page(0);
+    pause(400).await;
+    let counts = |st: AppState| {
+        st.read_active(|t| {
+            (
+                t.doc.page_images(0).map(|l| l.len()).unwrap_or(0),
+                t.doc.page_paths(0).map(|l| l.len()).unwrap_or(0),
+            )
+        })
+        .unwrap_or((0, 0))
+    };
+    let before = counts(st);
+    crate::commands::dispatch(st, "selectAllContentItems");
+    pause(400).await;
+    let tool = (st.tool)() == Tool::EditAll;
+    let drawn = eval("return document.querySelectorAll('#pg-0 .chosen').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    crate::commands::dispatch(st, "delete");
+    pause(300).await;
+    let after = counts(st);
+    let _ = st.with_active(|t| t.doc.undo());
+    pause(400).await;
+    // A shape chosen with a click, then edited.
+    let _ = eval("const b = document.querySelectorAll('#pg-0 .path-box'); const x = b[b.length - 1]; if (x) { const r = x.getBoundingClientRect(); x.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: r.left + 2, clientY: r.top + 2 })); }").await;
+    pause(300).await;
+    let one = st
+        .read_active(|t| t.content_sel.as_ref().map(|(_, im, pa)| (im.len(), pa.len())))
+        .flatten();
+    crate::commands::dispatch(st, "editObject");
+    pause(300).await;
+    let editing = (st.tool)() == Tool::EditPaths;
+    // Filter Shapes off: the All tool shows the pictures only.
+    st.set_tool(Tool::EditAll);
+    st.set_option("filterShapes", false);
+    pause(400).await;
+    let path_boxes = eval("return document.querySelectorAll('#pg-0 .path-box').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(9);
+    let image_boxes = eval("return document.querySelectorAll('#pg-0 .image-box').length;")
+        .await
+        .ok()
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    st.set_option("filterShapes", true);
+    st.set_tool(Tool::Hand);
+    st.with_active(|t| t.content_sel = None);
+    cx.record(
+        "Edit Content › All: everything chosen and deleted in one step; a shape chosen with a click and edited; Filter Shapes leaves the pictures alone",
+        made.is_some_and(|r| r.is_ok()) && tool && drawn as usize == before.0 + before.1 && after == (0, 0) && one == Some((0, 1)) && editing && path_boxes == 0 && image_boxes >= 1,
+        format!("tool {tool}, before {before:?}, chosen drawn {drawn}, after {after:?}, one {one:?}, editing {editing}, path boxes {path_boxes}, picture boxes {image_boxes}"),
     );
 }

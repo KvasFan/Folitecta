@@ -101,6 +101,9 @@ pub enum Tool {
     ThreePoint(folitecta_core::ThreePoint),
     /// A click places a copy of the comment chosen (Place Annotation).
     PlaceAnnot,
+    /// Edit Content › All: the pictures and the shapes of the page, chosen
+    /// with clicks (Ctrl or Shift adds one).
+    EditAll,
 }
 
 impl Tool {
@@ -117,6 +120,7 @@ impl Tool {
                 | Tool::EditFields
                 | Tool::EditImages
                 | Tool::EditPaths
+                | Tool::EditAll
                 | Tool::EditText
                 | Tool::TextCorrection
         )
@@ -197,6 +201,7 @@ impl Tool {
             Tool::Video => "tool.annot.editVideo",
             Tool::EditImages => "tool.editContent.images",
             Tool::EditPaths => "tool.editContent.shapes",
+            Tool::EditAll => "tool.editContent.all",
             Tool::EditText => "tool.editContent.text",
             Tool::TextCorrection => "tool.textCorrectionMarkup",
             Tool::OcrRegion => "document.OCRSelRgn",
@@ -270,6 +275,7 @@ impl Tool {
             Tool::Video => "tool.video",
             Tool::EditImages => "tool.edit_images",
             Tool::EditPaths => "tool.edit_paths",
+            Tool::EditAll => "tool.edit_all",
             Tool::EditText => "tool.edit_text",
             Tool::TextCorrection => "tool.text_correction",
             Tool::OcrRegion => "tool.ocr_region",

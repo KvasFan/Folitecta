@@ -957,6 +957,13 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    `substituted_fonts`, `reset_substituted_fonts` (the replaced font kept under
    `FolitectaOriginalFont`), `repair_to_unicode`; `commands/document/font_tools.rs`.
 
+### 0.109.0 — Edit Content: All (on `main`, untagged)
+
+1. ~~**FOL-L019, L020, L021 — Edit Content: All.**~~ Done: core `delete_content_items`,
+   `delete_paths`, picture drawings taken out; `Tool::EditAll`, `DocTab::content_sel`,
+   `commands/document/content_items.rs`. Text items, reused drawings, shadings, clipping,
+   groups and Paste Contents stay open.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

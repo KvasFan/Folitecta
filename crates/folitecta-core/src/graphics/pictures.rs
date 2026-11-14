@@ -908,6 +908,57 @@ impl Document {
         })
     }
 
+    /// Take the drawings of pictures `indices` of a page out of its content,
+    /// as part of the edit under way (the picture objects stay while other
+    /// drawings use them).
+    pub(crate) fn remove_picture_drawings(&mut self, page: usize, indices: &[usize]) -> Result<()> {
+        let pid = self.page_id(page)?;
+        let j = joined(&self.inner, pid);
+        let all = draws(&self.inner, pid, &j.data);
+        let mut splices = Vec::new();
+        let mut list: Vec<usize> = indices.to_vec();
+        list.sort_unstable();
+        list.dedup();
+        for i in list {
+            let d = all
+                .get(i)
+                .ok_or_else(|| Error::Invalid("the picture is not on the page".into()))?;
+            stream_span(&j, d.start, d.end)?;
+            splices.push(Splice {
+                start: d.start,
+                end: d.end,
+                with: Vec::new(),
+            });
+        }
+        if splices.is_empty() {
+            return Ok(());
+        }
+        rewrite(&mut self.inner, pid, &j, &splices)
+    }
+
+    /// Edit Content › Delete: pictures `images` and paths `paths` of a page
+    /// taken out of its content. One undo step.
+    pub fn delete_content_items(&mut self, page: usize, images: &[usize], paths: &[usize]) -> Result<()> {
+        if images.is_empty() && paths.is_empty() {
+            return Ok(());
+        }
+        let mark = self.undo_mark();
+        let r = (|| -> Result<()> {
+            if !paths.is_empty() {
+                self.delete_paths(page, paths)?;
+            }
+            if !images.is_empty() {
+                self.edit_step(|doc| doc.remove_picture_drawings(page, images))?;
+            }
+            Ok(())
+        })();
+        self.squash_undo(&mark);
+        if r.is_err() && !Arc::ptr_eq(&mark, &self.undo_mark()) {
+            let _ = self.undo();
+        }
+        r
+    }
+
     /// The pictures drawn by the content of a page (cached per revision).
     pub fn page_images(&self, page: usize) -> Result<Arc<Vec<PageImage>>> {
         let pid = self.page_id(page)?;

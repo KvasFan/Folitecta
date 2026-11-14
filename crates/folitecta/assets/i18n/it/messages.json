@@ -503,5 +503,7 @@
   "toast.no_replaced_fonts": "Nessun font di questo documento è stato sostituito (o è stato sostituito prima che si potesse ripristinare).",
   "toast.fonts_back": "{count} font ripristinati com'erano.",
   "toast.unicode_maps_fine": "Ogni font ha già la mappa dei suoi caratteri (o i suoi codici sono propri).",
-  "toast.unicode_maps_made": "{count} font hanno ricevuto la mappa dei caratteri: il loro testo si legge e si copia correttamente."
+  "toast.unicode_maps_made": "{count} font hanno ricevuto la mappa dei caratteri: il loro testo si legge e si copia correttamente.",
+  "toast.no_content_items": "Questa pagina non disegna immagini o forme da scegliere.",
+  "toast.choose_one_object": "Scegli prima un'immagine o una forma (Modifica contenuto › Tutto)."
 }

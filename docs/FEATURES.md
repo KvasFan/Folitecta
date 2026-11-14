@@ -4,8 +4,8 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1749 |
-| 🟡 partial | 38 |
+| ✅ available | 1750 |
+| 🟡 partial | 37 |
 | ⬜ planned | 227 |
 | total | 2014 |
 
@@ -1361,7 +1361,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | Filter Text Items | `filterTextItems` | ⬜ planned |
 | Find | `findGroup` | ✅ available |
 | Font | `font` | ✅ available |
-| Font | `fontName` | 🟡 partial |
+| Font | `fontName` | ✅ available |
 | Font Size | `fontSize` | ✅ available |
 | Group | `group` | ✅ available |
 | Guides Select All | `guidesSelectAll` | ✅ available |

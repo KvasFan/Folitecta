@@ -332,3 +332,37 @@ fn the_letters_of_a_text_box_outlined() {
     doc.set_annotation_style(0, 0, &plain).unwrap();
     assert_eq!(doc.annotation_style(0, 0).unwrap().text_stroke, None);
 }
+
+#[test]
+fn text_boxes_written_in_times_and_courier() {
+    let mut doc = Document::new_blank(1, 595.0, 842.0).unwrap();
+    let style = AnnotStyle {
+        font: "Times".into(),
+        font_size: 14.0,
+        ..AnnotStyle::default()
+    };
+    doc.add_free_text_styled(0, [100.0, 600.0, 300.0, 660.0], "Città nuova", "R", &style)
+        .unwrap();
+    let index = doc.annotations(0).unwrap().len() - 1;
+    let again = Document::from_bytes(doc.bytes().to_vec(), None, None).unwrap();
+    let read = again.annotation_style(0, index).unwrap();
+    assert_eq!(read.font, "Times");
+    assert_eq!(read.font_size, 14.0);
+    // Courier for the same box; Helvetica again with no font.
+    let mut courier = read.clone();
+    courier.font = "Courier".into();
+    doc.set_annotation_style(0, index, &courier).unwrap();
+    assert_eq!(doc.annotation_style(0, index).unwrap().font, "Courier");
+    let text = format!(
+        "{:?}",
+        doc.inner()
+            .get_dictionary(doc.annotations(0).unwrap()[index].id.unwrap())
+            .unwrap()
+            .get(b"DA")
+            .unwrap()
+    );
+    assert!(text.contains("Cour"), "{text}");
+    courier.font = String::new();
+    doc.set_annotation_style(0, index, &courier).unwrap();
+    assert_eq!(doc.annotation_style(0, index).unwrap().font, "");
+}

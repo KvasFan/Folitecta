@@ -32,6 +32,9 @@ pub struct Stored {
     // Added in 0.90.0.
     #[serde(default)]
     text_stroke: Option<[f32; 3]>,
+    // Added in 0.112.0.
+    #[serde(default)]
+    font: String,
 }
 
 impl Default for Stored {
@@ -58,6 +61,7 @@ impl From<&AnnotStyle> for Stored {
             blend: s.blend.clone(),
             fill_opacity: s.fill_opacity,
             text_stroke: s.text_stroke,
+            font: s.font.clone(),
         }
     }
 }
@@ -84,6 +88,7 @@ impl From<Stored> for AnnotStyle {
             },
             fill_opacity: s.fill_opacity.map(|v| v.clamp(0.0, 1.0)),
             text_stroke: s.text_stroke,
+            font: s.font.clone(),
         }
     }
 }

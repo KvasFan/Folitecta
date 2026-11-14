@@ -168,5 +168,4 @@ handlers! {
     "lineStart" => show_properties,
     "lineEnd" => show_properties,
     "fontSize" => show_properties,
-    "fontName" => show_properties,
 }

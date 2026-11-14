@@ -756,5 +756,6 @@
   "dialog.allow.mode_allow": "Open without asking",
   "dialog.allow.mode_block": "Never open",
   "dialog.batch_links.choose": "Batch Link: choose the documents",
-  "dialog.reset_fonts.hint": "These fonts were replaced (Change Font, Replace Fonts): a click brings one back as it was."
+  "dialog.reset_fonts.hint": "These fonts were replaced (Change Font, Replace Fonts): a click brings one back as it was.",
+  "dialog.font_family.hint": "The chosen text box gets the font, or the text boxes and typewriter text made next. Letters beyond Western European ones are drawn with the font Folitecta embeds."
 }

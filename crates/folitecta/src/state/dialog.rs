@@ -408,6 +408,8 @@ pub enum Dialog {
     AllowBlock(String),
     /// The fonts replaced that can be brought back.
     ResetFonts,
+    /// The font of the text of text boxes.
+    FontFamily,
     /// The scale of one measurement.
     MeasureEdit {
         page: usize,

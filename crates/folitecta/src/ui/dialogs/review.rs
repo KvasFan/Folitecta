@@ -764,3 +764,32 @@ pub(super) fn InkSettingDialog(what: String) -> Element {
         }
     }
 }
+
+/// Format › Font: Helvetica, Times or Courier for the chosen text box, or
+/// for the text boxes made next.
+#[component]
+pub(super) fn FontFamilyDialog() -> Element {
+    use crate::commands::fonts_of_text::{FAMILIES, apply, current};
+    let st = use_context::<AppState>();
+    let lang = st.lang();
+    let now = current(st);
+    rsx! {
+        Frame { title: t(lang, "cmd.fontName"),
+            div { class: "command-group",
+                for (value, name) in FAMILIES.iter().copied() {
+                    {
+                        let family = match value { "Times" => "Times New Roman, Times, serif", "Courier" => "Courier New, Courier, monospace", _ => "Helvetica, Arial, sans-serif" };
+                        rsx! {
+                            button { class: if now == value { "command-group-row font-family on" } else { "command-group-row font-family" }, key: "{name}", "data-font": "{value}",
+                                onclick: move |_| { apply(st, value); st.set_dialog(Dialog::None); },
+                                span { class: "grow", style: "font-family:{family};font-size:15px", "{name}" }
+                                if now == value { span { class: "muted", "✓" } }
+                            }
+                        }
+                    }
+                }
+            }
+            p { class: "hint", "{t(lang, \"dialog.font_family.hint\")}" }
+        }
+    }
+}

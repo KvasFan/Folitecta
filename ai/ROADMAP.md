@@ -975,6 +975,12 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
 1. ~~**FOL-L022 — links imported.**~~ Done: core `import_links_from` (one undo step),
    Links › Import.
 
+### 0.112.0 — Times and Courier for text boxes (on `main`, untagged)
+
+1. ~~**FOL-L018, L025 — Times and Courier for text boxes.**~~ Done: core `AnnotStyle::font`,
+   `TextWriter::with_family` (`StdFont`, widths of Times and Courier), `standard_font_id`;
+   `commands/markup/fonts_of_text.rs`, `FontFamilyDialog`; Font no longer partial.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

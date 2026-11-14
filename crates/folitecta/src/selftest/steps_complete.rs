@@ -124,6 +124,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     content_items(cx).await;
     reused_drawings(cx).await;
     links_import(cx).await;
+    text_fonts(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -1442,5 +1443,43 @@ async fn links_import(cx: &mut Ctx<'_>) {
         "Links › Import makes the links of another document on the same pages",
         after == before + 2,
         format!("links {before} -> {after}"),
+    );
+}
+
+/// Format › Font: a text box in Times; the text boxes made next in Courier.
+async fn text_fonts(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    let _ = st.with_active(|t| {
+        t.doc.add_free_text(
+            0,
+            [100.0, 600.0, 300.0, 650.0],
+            "Town hall",
+            "Reviewer",
+            12.0,
+            [0.0; 3],
+            true,
+        )
+    });
+    let index = st
+        .read_active(|t| t.doc.annotations(0).map(|a| a.len()).unwrap_or(1) - 1)
+        .unwrap_or(0);
+    st.with_active(|t| t.selected_annot = Some((0, index)));
+    crate::commands::dispatch(st, "fontName");
+    pause(300).await;
+    let _ = eval("document.querySelector('.dialog .font-family[data-font=\"Times\"]')?.click();").await;
+    pause(300).await;
+    let font = st
+        .read_active(|t| t.doc.annotation_style(0, index).ok().map(|s| s.font))
+        .flatten()
+        .unwrap_or_default();
+    st.with_active(|t| t.selected_annot = None);
+    let before = crate::state::comment_styles::default_style(st, "FreeText");
+    crate::commands::fonts_of_text::apply(st, "Courier");
+    let next = crate::state::comment_styles::default_style(st, "FreeText").font;
+    crate::state::comment_styles::set_default_style(st, "FreeText", &before);
+    cx.record(
+        "Format › Font gives a text box Times, and the text boxes made next Courier",
+        font == "Times" && next == "Courier",
+        format!("text box {font:?}, next {next:?}"),
     );
 }

@@ -756,5 +756,6 @@
   "dialog.allow.mode_allow": "Apri senza chiedere",
   "dialog.allow.mode_block": "Non aprire mai",
   "dialog.batch_links.choose": "Collegamenti in blocco: scegli i documenti",
-  "dialog.reset_fonts.hint": "Questi font sono stati sostituiti (Cambia font, Sostituisci font): un clic ne ripristina uno com'era."
+  "dialog.reset_fonts.hint": "Questi font sono stati sostituiti (Cambia font, Sostituisci font): un clic ne ripristina uno com'era.",
+  "dialog.font_family.hint": "La casella di testo scelta riceve il carattere, oppure le caselle di testo e il testo a macchina creati dopo. Le lettere oltre quelle dell'Europa occidentale sono disegnate con il carattere che Folitecta incorpora."
 }

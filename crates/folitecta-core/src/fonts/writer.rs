@@ -19,9 +19,65 @@ use crate::util::{helvetica_width, pdf_literal, winansi_code};
 /// Name of the Unicode font in the resources of a drawing.
 pub(crate) const UNICODE_RESOURCE: &str = "FoliUni";
 
+/// A standard font of the reader, with WinAnsi codes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum StdFont {
+    Helvetica,
+    Times,
+    Courier,
+}
+
+impl StdFont {
+    pub(crate) fn of(family: &str) -> StdFont {
+        match family {
+            "Times" => StdFont::Times,
+            "Courier" => StdFont::Courier,
+            _ => StdFont::Helvetica,
+        }
+    }
+
+    fn resource(self) -> &'static str {
+        match self {
+            StdFont::Helvetica => "Helv",
+            StdFont::Times => "TiRo",
+            StdFont::Courier => "Cour",
+        }
+    }
+
+    pub(crate) fn base_font(self) -> &'static str {
+        match self {
+            StdFont::Helvetica => "Helvetica",
+            StdFont::Times => "Times-Roman",
+            StdFont::Courier => "Courier",
+        }
+    }
+
+    /// The width of a WinAnsi line at `size` points.
+    fn width(self, line: &str, size: f32) -> f32 {
+        match self {
+            StdFont::Helvetica => helvetica_width(line, size),
+            StdFont::Courier => line.chars().count() as f32 * 600.0 * size / 1000.0,
+            StdFont::Times => {
+                let table = super::standard_metrics::TIMES_ROMAN;
+                let units: f32 = line
+                    .chars()
+                    .map(|c| {
+                        crate::util::winansi_code(c)
+                            .map(|code| super::encodings::WIN_ANSI[code as usize])
+                            .and_then(|name| table.binary_search_by(|(n, _)| n.cmp(&name)).ok())
+                            .map(|i| f32::from(table[i].1))
+                            .unwrap_or(500.0)
+                    })
+                    .sum();
+                units * size / 1000.0
+            }
+        }
+    }
+}
+
 enum Face {
-    /// The standard Helvetica with WinAnsi codes, exactly as before.
-    Standard,
+    /// A standard font with WinAnsi codes (Helvetica exactly as before).
+    Standard(StdFont),
     /// A subset of the Unicode font; codes are given in order of first use.
     Unicode {
         font: Arc<SourceFont>,
@@ -155,10 +211,17 @@ impl TextWriter {
     /// Choose how `text` is drawn, or say why it cannot be. Nothing is added
     /// to any document here.
     pub(crate) fn new(text: &str) -> std::result::Result<TextWriter, GlyphProblem> {
+        TextWriter::with_family(text, "")
+    }
+
+    /// [`TextWriter::new`] with a standard family for WinAnsi text ("" for
+    /// Helvetica, "Times", "Courier"); other text uses the Unicode font.
+    pub(crate) fn with_family(text: &str, family: &str) -> std::result::Result<TextWriter, GlyphProblem> {
+        let family = StdFont::of(family);
         if text.chars().all(|c| winansi_code(c).is_some()) {
             return Ok(TextWriter {
                 text: text.to_string(),
-                face: Face::Standard,
+                face: Face::Standard(family),
                 prepared: false,
                 unicode_resource: UNICODE_RESOURCE.to_string(),
             });
@@ -167,7 +230,7 @@ impl TextWriter {
         if text.chars().all(|c| winansi_code(c).is_some()) {
             return Ok(TextWriter {
                 text,
-                face: Face::Standard,
+                face: Face::Standard(family),
                 prepared: true,
                 unicode_resource: UNICODE_RESOURCE.to_string(),
             });
@@ -227,7 +290,8 @@ impl TextWriter {
     /// points, measured with this writer's font.
     pub(crate) fn wrap_piece(&self, text: &str, size: f32, max_width: f32) -> Vec<String> {
         match self.face {
-            Face::Standard => wrap_text(text, size, max_width),
+            Face::Standard(StdFont::Helvetica) => wrap_text(text, size, max_width),
+            Face::Standard(f) => wrap_text_by(text, max_width.max(size), &|s| f.width(s, size)),
             Face::Unicode { .. } => wrap_text_by(text, max_width.max(size), &|s| self.width(s, size)),
         }
     }
@@ -256,7 +320,7 @@ impl TextWriter {
             .unwrap_or_default();
         let name = &self.unicode_resource;
         Ok(match self.face {
-            Face::Standard => {
+            Face::Standard(_) => {
                 let name = if bold { standard.1 } else { standard.0 };
                 format!("BT /{name} {} Tf {fill}{position} {shown} Tj ET", f(size))
             }
@@ -281,13 +345,13 @@ impl TextWriter {
     }
 
     pub(crate) fn is_standard(&self) -> bool {
-        matches!(self.face, Face::Standard)
+        matches!(self.face, Face::Standard(_))
     }
 
     /// Name of the font in the resources of the drawing.
     pub(crate) fn resource_name(&self) -> String {
         match self.face {
-            Face::Standard => "Helv".to_string(),
+            Face::Standard(f) => f.resource().to_string(),
             Face::Unicode { .. } => self.unicode_resource.clone(),
         }
     }
@@ -302,7 +366,7 @@ impl TextWriter {
     /// Width of one line at `size` points, with the widths written in the font.
     pub(crate) fn width(&self, line: &str, size: f32) -> f32 {
         match &self.face {
-            Face::Standard => helvetica_width(line, size),
+            Face::Standard(f) => f.width(line, size),
             Face::Unicode { font, .. } => {
                 let units: u32 = line
                     .chars()
@@ -317,7 +381,8 @@ impl TextWriter {
     /// The lines of the text, no wider than `max_width` at `size` points.
     pub(crate) fn wrap(&self, size: f32, max_width: f32) -> Vec<String> {
         match self.face {
-            Face::Standard => wrap_text(&self.text, size, max_width),
+            Face::Standard(StdFont::Helvetica) => wrap_text(&self.text, size, max_width),
+            Face::Standard(f) => wrap_text_by(&self.text, max_width.max(size), &|s| f.width(s, size)),
             Face::Unicode { .. } => wrap_text_by(&self.text, max_width.max(size), &|s| self.width(s, size)),
         }
     }
@@ -326,7 +391,7 @@ impl TextWriter {
     /// the two-byte codes of the Unicode font (given on first use).
     pub(crate) fn show(&mut self, line: &str) -> std::result::Result<String, GlyphProblem> {
         match &mut self.face {
-            Face::Standard => Ok(String::from_utf8_lossy(&pdf_literal(line)).to_string()),
+            Face::Standard(_) => Ok(String::from_utf8_lossy(&pdf_literal(line)).to_string()),
             Face::Unicode { font, chars, codes } => {
                 let mut hex = String::with_capacity(2 + 4 * line.len());
                 hex.push('<');
@@ -370,7 +435,8 @@ impl TextWriter {
     /// strings shown after this use the same codes.
     pub(crate) fn font_object(&self, doc: &mut Document, reuse: Option<ObjectId>) -> Result<ObjectId> {
         match &self.face {
-            Face::Standard => Ok(doc.helvetica_font_id()),
+            Face::Standard(StdFont::Helvetica) => Ok(doc.helvetica_font_id()),
+            Face::Standard(f) => Ok(doc.standard_font_id(f.base_font())),
             Face::Unicode { font, chars, .. } => {
                 let parts = build_subset(font, chars)?;
                 if let Some(id) = reuse.filter(|id| doc.same_subset(*id, &parts)) {

@@ -2127,6 +2127,27 @@ impl Document {
         id
     }
 
+    /// A standard font of the reader with WinAnsi codes (`Times-Roman`,
+    /// `Courier`): the one the file has already, else a new one.
+    pub(crate) fn standard_font_id(&mut self, base: &str) -> ObjectId {
+        let found = self.inner.objects.iter().find_map(|(id, o)| {
+            let d = o.as_dict().ok()?;
+            (d.get(b"Type").ok()?.as_name().ok()? == b"Font"
+                && d.get(b"BaseFont").ok()?.as_name().ok()? == base.as_bytes()
+                && d.get(b"Encoding").ok()?.as_name().ok()? == b"WinAnsiEncoding"
+                && !d.has(b"FontDescriptor"))
+            .then_some(*id)
+        });
+        found.unwrap_or_else(|| {
+            self.inner.add_object(dictionary! {
+                "Type" => "Font",
+                "Subtype" => "Type1",
+                "BaseFont" => Object::Name(base.as_bytes().to_vec()),
+                "Encoding" => "WinAnsiEncoding",
+            })
+        })
+    }
+
     /// Append a content stream to a page (optionally tagged so it can be removed later).
     pub(crate) fn append_page_content(
         &mut self,

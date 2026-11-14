@@ -91,6 +91,10 @@ pub struct AnnotStyle {
     /// (`/FolitectaTextStroke`, drawn in the appearance); `None`: not
     /// outlined.
     pub text_stroke: Option<[f32; 3]>,
+    /// The font of the text of text boxes and typewriter text: "" for
+    /// Helvetica, "Times" or "Courier" (text beyond WinAnsi is drawn with
+    /// the embedded Unicode font whatever this says).
+    pub font: String,
 }
 
 /// The blend modes a comment can be drawn with (PDF 32000-2, 11.3.5).
@@ -134,8 +138,32 @@ impl Default for AnnotStyle {
             blend: "Normal".into(),
             fill_opacity: None,
             text_stroke: None,
+            font: String::new(),
         }
     }
+}
+
+/// The font resource of a font of text boxes ("" Helvetica, "Times", "Courier").
+pub(crate) fn font_resource(font: &str) -> &'static str {
+    match font {
+        "Times" => "TiRo",
+        "Courier" => "Cour",
+        _ => "Helv",
+    }
+}
+
+/// The font of text boxes a default appearance string names.
+fn font_of_da(da: &str) -> String {
+    let words: Vec<&str> = da.split_whitespace().collect();
+    words
+        .windows(3)
+        .find(|w| w[2] == "Tf")
+        .map(|w| match w[0].trim_start_matches('/') {
+            "TiRo" => "Times".to_string(),
+            "Cour" => "Courier".to_string(),
+            _ => String::new(),
+        })
+        .unwrap_or_default()
 }
 
 /// A number from 0 to 2 under `key` (0 when missing).
@@ -269,6 +297,7 @@ impl Document {
             .and_then(|o| crate::util::text_of(doc, o))
             .unwrap_or_default();
         let (font_size, text_color) = parse_da(&da);
+        let font = font_of_da(&da);
         AnnotStyle {
             color: color_from(doc, d.get(b"C").ok()),
             fill: color_from(doc, d.get(b"IC").ok()),
@@ -284,6 +313,7 @@ impl Document {
             line_end: le_name(1),
             font_size,
             text_color,
+            font,
             align: d
                 .get(b"Q")
                 .ok()
@@ -517,7 +547,8 @@ pub(crate) fn apply_style(d: &mut Dictionary, subtype: &str, style: &AnnotStyle)
         d.set(
             "DA",
             Object::string_literal(format!(
-                "/Helv {} Tf {} {} {} rg",
+                "/{} {} Tf {} {} {} rg",
+                font_resource(&style.font),
                 f(style.font_size),
                 f(c[0]),
                 f(c[1]),

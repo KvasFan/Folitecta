@@ -432,7 +432,7 @@ impl Document {
             "FreeText" => {
                 let text = crate::util::dict_text(doc, d, b"Contents").unwrap_or_default();
                 // The font is chosen (or the text refused) before anything is added.
-                let mut writer = TextWriter::new(&text)?;
+                let mut writer = TextWriter::with_family(&text, &style.font)?;
                 let previous = previous_font(doc, d, &writer);
                 let callout = name_of(d, b"IT").as_deref() == Some("FreeTextCallout");
                 let cl = pairs(&numbers(doc, d.get(b"CL").ok()));
@@ -482,7 +482,14 @@ impl Document {
                 let (r, g, b) = (style.text_color[0], style.text_color[1], style.text_color[2]);
                 d.set(
                     "DA",
-                    Object::string_literal(format!("/Helv {} Tf {} {} {} rg", f(fs), f(r), f(g), f(b))),
+                    Object::string_literal(format!(
+                        "/{} {} Tf {} {} {} rg",
+                        super::font_resource(&style.font),
+                        f(fs),
+                        f(r),
+                        f(g),
+                        f(b)
+                    )),
                 );
                 // The standard Helvetica, the same subset as before, or a new one.
                 let name = writer.resource_name();

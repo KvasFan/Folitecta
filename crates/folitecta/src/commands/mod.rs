@@ -26,8 +26,8 @@ pub(crate) use document::{
 };
 pub(crate) use fields::{buttons, field_items, fields_pane, forms, javascript};
 pub(crate) use markup::{
-    arrange, calculator, comment_more, comment_styles, comments, format, ink_settings, media, review, stamps,
-    tables, ticks,
+    arrange, calculator, comment_more, comment_styles, comments, fonts_of_text, format, ink_settings, media,
+    review, stamps, tables, ticks,
 };
 pub(crate) use navigation::{
     action_views, allow_list, articles, attachments, bookmarks, explorer, history, layers, link_actions,
@@ -140,6 +140,7 @@ const TABLES: &[&[(&str, Handler)]] = &[
     crop_area::HANDLERS,
     font_tools::HANDLERS,
     content_items::HANDLERS,
+    fonts_of_text::HANDLERS,
     more_files::HANDLERS,
 ];
 
@@ -155,7 +156,6 @@ static INDEX: LazyLock<HashMap<&'static str, Handler>> = LazyLock::new(|| {
 
 /// Commands that perform a reduced version of the full operation.
 pub const PARTIAL: &[&str] = &[
-    "fontName",
     // The first matching annotation is selected (the selection holds one).
     "layersView.selectCorresponding.comments",
     "layersView.selectCorresponding.fields",

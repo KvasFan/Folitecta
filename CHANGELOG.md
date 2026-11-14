@@ -7,6 +7,9 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Format › Font chooses Helvetica, Times or Courier for the chosen text box or typewriter text, or
+  for those made next; the font is kept in the file (its default appearance) and read back.
+  Letters beyond Western European ones are drawn with the font Folitecta embeds.
 - Links › Import makes the links of another PDF file on the same pages of this one: web links,
   links to a page, and links to named destinations (by name when this document has it, else to the
   page it reaches there); other actions are left out and counted.

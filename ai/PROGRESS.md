@@ -4,6 +4,21 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-14 — FOL-L018, L025: Times and Courier for text boxes (0.112.0)
+
+- **Current state before:** Format › Font was partial: it showed the properties pane; text boxes
+  were always Helvetica.
+- **What:** core: `AnnotStyle::font` ("" Helvetica, Times, Courier) read from and written to
+  the default appearance (`/TiRo`, `/Cour`); `TextWriter::with_family` with `StdFont` (the
+  widths of Times-Roman from its metrics, Courier fixed), the standard font object found or added
+  (`standard_font_id`); text beyond WinAnsi still uses the embedded Unicode font. App: the
+  stored comment styles keep the font; `FontFamilyDialog` for the chosen text box or the next
+  ones.
+- **Checked:** core tests `annot_style.rs` (Times read back after reopening, Courier in the
+  default appearance, Helvetica again) and `unicode_text.rs`; self-test steps `complete` and
+  `unicode` (36 interactions, 0 problems).
+- **Open:** bold and italic faces.
+
 ## 2026-11-14 — FOL-L022: links imported from another document (0.111.0)
 
 - **Current state before:** Links › Import was planned.

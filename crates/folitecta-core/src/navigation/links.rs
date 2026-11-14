@@ -906,6 +906,60 @@ impl Document {
         Ok(annot_id)
     }
 
+    /// Links › Import: the links of the pages of `other` made again on the
+    /// same pages here (as many pages as both have): web links, links to a
+    /// page (the same page here, or the last one) and to named destinations
+    /// (by name when this document has it, else to the page it reaches
+    /// there). One undo step; the links made and those left out (other
+    /// actions).
+    pub fn import_links_from(&mut self, other: &Document) -> Result<(usize, usize)> {
+        let n = self.page_count();
+        let pages = n.min(other.page_count());
+        let own: std::collections::HashSet<String> =
+            self.named_destinations().into_iter().map(|d| d.name).collect();
+        let theirs: HashMap<String, Option<usize>> = other
+            .named_destinations()
+            .into_iter()
+            .map(|d| (d.name, d.page))
+            .collect();
+        let mark = self.undo_mark();
+        let (mut made, mut left) = (0usize, 0usize);
+        let result = (|| -> Result<()> {
+            for p in 0..pages {
+                for l in other.links(p)? {
+                    let r = match &l.target {
+                        LinkTarget::Uri(u) if !u.trim().is_empty() => Some(self.add_uri_link(p, l.rect, u)),
+                        LinkTarget::Page(t) => Some(self.add_page_link(p, l.rect, (*t).min(n - 1))),
+                        LinkTarget::Named(name) if own.contains(name) => {
+                            Some(self.add_named_link(p, l.rect, name))
+                        }
+                        LinkTarget::Named(name) => match theirs.get(name).copied().flatten() {
+                            Some(t) => Some(self.add_page_link(p, l.rect, t.min(n - 1))),
+                            None => None,
+                        },
+                        _ => None,
+                    };
+                    match r {
+                        Some(r) => {
+                            r?;
+                            made += 1;
+                        }
+                        None => left += 1,
+                    }
+                }
+            }
+            Ok(())
+        })();
+        self.squash_undo(&mark);
+        if let Err(e) = result {
+            if made > 0 {
+                let _ = self.undo();
+            }
+            return Err(e);
+        }
+        Ok((made, left))
+    }
+
     /// Add a web link.
     pub fn add_uri_link(&mut self, page: usize, rect: [f32; 4], uri: &str) -> Result<ObjectId> {
         if uri.trim().is_empty() {

@@ -4,6 +4,17 @@ Finished work, newest first. One entry per sub-task: requirement, commit, what c
 checked, what is still open. The history before October 2026 is in
 [CHANGELOG.md](../CHANGELOG.md). Never rewrite an old entry: when a task is reopened, add a new one.
 
+## 2026-11-14 — FOL-L022: links imported from another document (0.111.0)
+
+- **Current state before:** Links › Import was planned.
+- **What:** core `import_links_from`: for each page both documents have, the links of the other
+  made again (web, page — kept within the pages here —, named destinations by name or resolved to
+  their page); one undo step, undone whole on an error; the links made and those left out.
+  App: a PDF file chosen, the toast with both counts.
+- **Checked:** core test `link_kinds.rs` (a web link, a page link, a named link resolved to its
+  page; undone); self-test step `complete` (26 interactions, 0 problems).
+- **Open:** —
+
 ## 2026-11-14 — local check of 0.105.0 to 0.110.0, Linux and Windows
 
 - **What:** `target/preflight.sh` at `39b8a91`: formatting, clippy for the three systems, the

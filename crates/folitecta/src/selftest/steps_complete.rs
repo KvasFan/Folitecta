@@ -123,6 +123,7 @@ pub(super) async fn run(cx: &mut Ctx<'_>) {
     fonts_back(cx).await;
     content_items(cx).await;
     reused_drawings(cx).await;
+    links_import(cx).await;
 
     crate::files::close_tab(st, tab, true, crate::state::AfterUnsaved::Close);
     pause(300).await;
@@ -1422,5 +1423,24 @@ async fn reused_drawings(cx: &mut Ctx<'_>) {
         "Edit Content › Select X Form Items chooses the reused drawings, shown with their boxes; Delete takes them out",
         chosen == 2 && boxes == 2 && left == 0,
         format!("chosen {chosen}, boxes {boxes}, left {left}"),
+    );
+}
+
+/// Links › Import: the links of another document made on the same pages.
+async fn links_import(cx: &mut Ctx<'_>) {
+    let st = cx.st;
+    let Ok(mut other) = folitecta_core::Document::new_blank(2, 595.0, 842.0) else {
+        return;
+    };
+    let _ = other.add_uri_link(0, [10.0, 10.0, 100.0, 30.0], "https://example.org");
+    let _ = other.add_page_link(1, [10.0, 40.0, 100.0, 60.0], 0);
+    let before = st.read_active(|t| t.doc.all_links().len()).unwrap_or(0);
+    crate::commands::more_files::import_links_from(st, &other);
+    let after = st.read_active(|t| t.doc.all_links().len()).unwrap_or(0);
+    let _ = st.with_active(|t| t.doc.undo());
+    cx.record(
+        "Links › Import makes the links of another document on the same pages",
+        after == before + 2,
+        format!("links {before} -> {after}"),
     );
 }

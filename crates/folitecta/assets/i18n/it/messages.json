@@ -505,5 +505,6 @@
   "toast.unicode_maps_fine": "Ogni font ha già la mappa dei suoi caratteri (o i suoi codici sono propri).",
   "toast.unicode_maps_made": "{count} font hanno ricevuto la mappa dei caratteri: il loro testo si legge e si copia correttamente.",
   "toast.no_content_items": "Questa pagina non disegna immagini o forme da scegliere.",
-  "toast.choose_one_object": "Scegli prima un'immagine o una forma (Modifica contenuto › Tutto)."
+  "toast.choose_one_object": "Scegli prima un'immagine o una forma (Modifica contenuto › Tutto).",
+  "toast.links_imported": "{count} collegamenti importati ({left} esclusi: azioni di altro tipo)."
 }

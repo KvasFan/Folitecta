@@ -505,5 +505,6 @@
   "toast.unicode_maps_fine": "Every font maps its characters already (or its codes are its own).",
   "toast.unicode_maps_made": "{count} fonts got a map of their characters: their text is read and copied right.",
   "toast.no_content_items": "This page draws no pictures or shapes to choose.",
-  "toast.choose_one_object": "Choose one picture or one shape (Edit Content › All) first."
+  "toast.choose_one_object": "Choose one picture or one shape (Edit Content › All) first.",
+  "toast.links_imported": "{count} links imported ({left} left out: actions of other kinds)."
 }

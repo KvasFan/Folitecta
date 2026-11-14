@@ -7,6 +7,9 @@ All notable changes to Folitecta are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Links › Import makes the links of another PDF file on the same pages of this one: web links,
+  links to a page, and links to named destinations (by name when this document has it, else to the
+  page it reaches there); other actions are left out and counted.
 - Edit Content › All also shows the reused drawings of the page (form XObjects) with their boxes, as
   Filter Content Items says; Select X Form Items chooses them all; Delete takes them out of the
   content with the pictures and shapes chosen.

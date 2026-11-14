@@ -246,3 +246,30 @@ fn go_to_views_and_layer_actions_of_a_link() {
     let again = Document::from_bytes(doc.bytes().to_vec(), None, None).unwrap();
     assert_eq!(again.link_actions(0, index).len(), 2);
 }
+
+#[test]
+fn links_imported_from_another_document() {
+    let mut from = Document::new_blank(3, 595.0, 842.0).unwrap();
+    from.add_uri_link(0, [10.0, 10.0, 100.0, 30.0], "https://example.org")
+        .unwrap();
+    from.add_page_link(1, [10.0, 40.0, 100.0, 60.0], 2).unwrap();
+    from.add_named_destination("End", 2, None).unwrap();
+    from.add_named_link(2, [10.0, 70.0, 100.0, 90.0], "End").unwrap();
+    let mut doc = Document::new_blank(3, 595.0, 842.0).unwrap();
+    let (made, left) = doc.import_links_from(&from).unwrap();
+    assert_eq!((made, left), (3, 0));
+    let targets: Vec<LinkTarget> = (0..3)
+        .flat_map(|p| doc.links(p).unwrap())
+        .map(|l| l.target)
+        .collect();
+    assert_eq!(
+        targets,
+        vec![
+            LinkTarget::Uri("https://example.org".into()),
+            LinkTarget::Page(2),
+            LinkTarget::Page(2)
+        ]
+    );
+    doc.undo().unwrap();
+    assert!((0..3).all(|p| doc.links(p).unwrap().is_empty()));
+}

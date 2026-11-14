@@ -4,9 +4,9 @@ Generated from the command registry for version 0.73.0. Every command of the ful
 
 | Status | Count |
 |---|---:|
-| ✅ available | 1747 |
-| 🟡 partial | 39 |
-| ⬜ planned | 228 |
+| ✅ available | 1749 |
+| 🟡 partial | 38 |
+| ⬜ planned | 227 |
 | total | 2014 |
 
 Legend: *available* performs the complete operation; *partial* performs a reduced version (documented in the UI); *planned* is listed in menus and ribbon but shows a roadmap notice when invoked. A submenu counts as available when all of its commands are available, and as partial when only some of them work.
@@ -1499,7 +1499,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | JavaScript Console | `jsConsole` | ✅ available |
 | JavaScript Options… | `view.javaScriptOpts` | ✅ available |
 | Layers Pane | `layersView` | 🟡 partial |
-| Links Pane | `linksView` | 🟡 partial |
+| Links Pane | `linksView` | ✅ available |
 | Lock All Cmd Bars | `view.lockAllCmdBars` | ✅ available |
 | Lock All Cmd Panes | `view.lockAllCmdPanes` | ✅ available |
 | Lock Unlock All Cmd Bars | `view.lockUnlockAllCmdBars` | ✅ available |
@@ -2184,7 +2184,7 @@ Legend: *available* performs the complete operation; *partial* performs a reduce
 | `layersView.viewAllPages` | View › Layers Pane › View All Pages | ✅ available |
 | `layersView.viewVisiblePages` | View › Layers Pane › View Visible Pages | ✅ available |
 | `link.batch` | Document › Link › Batch Link | ✅ available |
-| `linksView.import` | View › Links Pane › Import | ⬜ planned |
+| `linksView.import` | View › Links Pane › Import | ✅ available |
 | `linksView.link` | View › Links Pane › Link | ✅ available |
 | `linksView.link.copyURL` | View › Links Pane › Link › Copy URL | ✅ available |
 | `linksView.link.openInBrowser` | View › Links Pane › Link › Open in Browser | ✅ available |

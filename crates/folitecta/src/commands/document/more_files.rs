@@ -94,7 +94,52 @@ pub fn batch_links_in(paths: &[std::path::PathBuf]) -> (usize, usize, Vec<String
     (files, links, errors)
 }
 
+/// Links › Import: the links of another PDF file made on the same pages.
+fn import_links(st: AppState) {
+    if crate::commands::no_doc(st) || !st.allowed(folitecta_core::Restricted::Annotate) {
+        return;
+    }
+    spawn(async move {
+        let Some(f) = rfd::AsyncFileDialog::new()
+            .add_filter("PDF", &["pdf", "PDF"])
+            .pick_file()
+            .await
+        else {
+            return;
+        };
+        let other = match folitecta_core::Document::open(f.path()) {
+            Ok(d) => d,
+            Err(e) => {
+                st.error(e);
+                return;
+            }
+        };
+        import_links_from(st, &other);
+    });
+}
+
+/// Import the links of `other` into the active document.
+pub fn import_links_from(st: AppState, other: &folitecta_core::Document) {
+    match st.with_active(|t| t.doc.import_links_from(other)) {
+        Some(Ok((made, left))) => {
+            crate::files::set_window_title(st);
+            st.toast(
+                ToastKind::Ok,
+                tf(
+                    st.lang(),
+                    "toast.links_imported",
+                    &[("count", &made.to_string()), ("left", &left.to_string())],
+                ),
+                "",
+            );
+        }
+        Some(Err(e)) => st.error(st.core_error_text(&e)),
+        None => {}
+    }
+}
+
 handlers! {
+    "linksView.import" => import_links,
     "newDocRTF" => new_from_rtf,
     "newDocSelection" => |st| crate::commands::dispatch(st, "document.createNewDocFromSel"),
     "link.batch" => batch_links,

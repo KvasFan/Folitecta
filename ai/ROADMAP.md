@@ -970,6 +970,11 @@ The tables of the pages taken out as spreadsheets (FOL-L009, FOL-L030).
    (their boxes through their matrix and the page's), deleted with `delete_content_items`;
    `Item::Form`, the form boxes, Select X Form Items, Filter Content Items.
 
+### 0.111.0 — links imported from another document (on `main`, untagged)
+
+1. ~~**FOL-L022 — links imported.**~~ Done: core `import_links_from` (one undo step),
+   Links › Import.
+
 ### Planned releases after 0.73.0 (prepared 9 November 2026)
 
 What is still open, from the requirements below and from the commands of

@@ -1,0 +1,37 @@
+plugins { id 'com.android.application' }
+
+def releaseVersion = providers.gradleProperty('releaseVersion').getOrElse('0.113.0')
+def signingPath = providers.environmentVariable('ANDROID_KEYSTORE_PATH').orNull
+android {
+    namespace 'io.github.kvasfan.folitecta'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'io.github.kvasfan.folitecta'
+        minSdk 26
+        targetSdk 35
+        versionCode 11300
+        versionName releaseVersion
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+    if (signingPath) {
+        signingConfigs {
+            release {
+                storeFile file(signingPath)
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (signingPath) { signingConfig signingConfigs.release }
+        }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    lint { abortOnError true }
+}
+
+dependencies {
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+}

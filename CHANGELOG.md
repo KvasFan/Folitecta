@@ -6,6 +6,26 @@ All notable changes to Folitecta are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.113.0] - 2026-11-21
+
+### Added
+- Native Android PDF reader (Android 8+), with system file picker, Open With / Share input,
+  page navigation, page-number jump, zoom and read-only sharing, in English and Italian.
+- Per-user Windows NSIS installer, Start menu shortcuts, PDF Open With registration and uninstaller.
+- Debian/Ubuntu installer declaring runtime dependencies, and a per-user installer in Linux archives.
+- Signed Android APK release builds, persistent signing secrets and signature verification.
+- Release publication now waits for the cross-platform format, Clippy and test checks.
+
+### Changed
+- Reorganized desktop welcome screen: primary Open action, aligned document actions, recent files
+  and command-search guidance, localized labels, keyboard buttons and visible focus.
+- Clearer active ribbon tabs, softer canvas shadows and reduced-motion support.
+- Shortened the GitHub project page, bringing platform downloads first; detailed reference in
+  docs/DESKTOP_GUIDE.md. Added a focused welcome-screen audit in both languages and all themes.
+
+The following desktop changes were developed after 0.73.0 and ship with 0.113.0.
+
+
 ### Added
 - Format › Font chooses Helvetica, Times or Courier for the chosen text box or typewriter text, or
   for those made next; the font is kept in the file (its default appearance) and read back.

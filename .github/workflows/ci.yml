@@ -1,12 +1,13 @@
 name: CI
 
-# The full check on every platform runs for releases (their tags), for pull
-# requests and on demand. Pushes to main are checked before they are made
-# (fmt, clippy, the tests and the interface self-test, on Windows), and only
-# the larger releases get a tag.
+# Reusable cross-platform checks gate release publication; also run for PRs and on demand.
 on:
-  push:
-    tags: ["v*"]
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: false
+        default: ''
   pull_request:
   workflow_dispatch:
 
@@ -24,7 +25,9 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: dtolnay/rust-toolchain@1.99.1
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2

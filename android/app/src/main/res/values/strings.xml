@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">Folitecta</string>
+    <string name="tagline">Your documents, wherever you are.</string>
+    <string name="intro">Open a PDF to start reading. Use the page controls and pinch to zoom, then share a copy with another app.</string>
+    <string name="scope">Android reader · PDF editing is available in the desktop app.</string>
+    <string name="open">Open PDF</string>
+    <string name="share">Share</string>
+    <string name="previous">Previous page</string>
+    <string name="next">Next page</string>
+    <string name="zoom_in">Zoom in</string>
+    <string name="zoom_out">Zoom out</string>
+    <string name="page">Page %1$d of %2$d</string>
+    <string name="loading">Opening document…</string>
+    <string name="rendering">Rendering page…</string>
+    <string name="error_title">Cannot open this PDF</string>
+    <string name="error">The file may be damaged or password protected. Choose another PDF.</string>
+    <string name="too_large">This reader supports files up to 256 MB.</string>
+    <string name="render_error">This page cannot be displayed. Try another page or document.</string>
+    <string name="share_error">No app is available to share this PDF.</string>
+    <string name="page_title">Go to page</string>
+    <string name="go">Go</string>
+    <string name="cancel">Cancel</string>
+    <string name="page_invalid">Enter a page number between 1 and %1$d.</string>
+    <string name="document">PDF document</string>
+</resources>

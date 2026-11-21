@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">Folitecta</string>
+    <string name="tagline">I tuoi documenti, sempre con te.</string>
+    <string name="intro">Apri un PDF per iniziare a leggere. Sfoglia le pagine e ingrandisci con due dita, poi condividi una copia con un’altra app.</string>
+    <string name="scope">Lettore Android · La modifica dei PDF è disponibile nell’app desktop.</string>
+    <string name="open">Apri PDF</string>
+    <string name="share">Condividi</string>
+    <string name="previous">Pagina precedente</string>
+    <string name="next">Pagina successiva</string>
+    <string name="zoom_in">Ingrandisci</string>
+    <string name="zoom_out">Riduci</string>
+    <string name="page">Pagina %1$d di %2$d</string>
+    <string name="loading">Apertura documento…</string>
+    <string name="rendering">Preparazione pagina…</string>
+    <string name="error_title">Impossibile aprire questo PDF</string>
+    <string name="error">Il file potrebbe essere danneggiato o protetto da password. Scegli un altro PDF.</string>
+    <string name="too_large">Questo lettore supporta file fino a 256 MB.</string>
+    <string name="render_error">Impossibile mostrare questa pagina. Prova un’altra pagina o un altro documento.</string>
+    <string name="share_error">Nessuna app disponibile per condividere questo PDF.</string>
+    <string name="page_title">Vai alla pagina</string>
+    <string name="go">Vai</string>
+    <string name="cancel">Annulla</string>
+    <string name="page_invalid">Inserisci un numero di pagina tra 1 e %1$d.</string>
+    <string name="document">Documento PDF</string>
+</resources>

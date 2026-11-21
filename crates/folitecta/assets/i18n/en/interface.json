@@ -396,5 +396,12 @@
   "pane.info.links": "{count} links",
   "pane.info.results": "{count} results",
   "tool.place_annot": "Place Annotation",
-  "tool.edit_all": "Edit Content: All"
+  "tool.edit_all": "Edit Content: All",
+  "welcome.workspace": "YOUR DOCUMENT WORKSPACE",
+  "welcome.combine.hint": "Bring PDF files together in one document.",
+  "welcome.recent.hint": "Open a document to find it here next time.",
+  "welcome.shortcuts": "A faster way to work",
+  "welcome.palette.hint": "Find any tool by typing its name.",
+  "welcome.palette": "Find a command",
+  "welcome.theme.hint": "Use the sun or moon in the top bar to change theme."
 }

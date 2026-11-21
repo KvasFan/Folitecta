@@ -29,34 +29,44 @@ pub fn Welcome() -> Element {
     let icon = icon_data_url();
     rsx! {
         div { class: "welcome",
-            div { class: "hero",
+            div { class: "welcome-heading",
+              div { class: "hero",
                 img { src: "{icon}", alt: "" }
                 div {
+                    span { class: "welcome-eyebrow", "{t(lang, \"welcome.workspace\")}" }
                     h1 { "Folitecta" }
                     p { "{t(lang, \"app.tagline\")}" }
                 }
+              }
+              span { class: "chip", "v{folitecta_core::VERSION}" }
             }
             div { class: "actions",
-                div { class: "card", onclick: move |_| files::open_dialog(st),
+                button { class: "card primary", onclick: move |_| files::open_dialog(st),
                     Icon { name: "open" }
                     b { "{t(lang, \"welcome.open\")}" }
                     span { "{t(lang, \"welcome.open.hint\")}" }
+                    kbd { "Ctrl + O" }
                 }
-                div { class: "card", onclick: move |_| files::new_blank(st, 1, 595.0, 842.0),
+                button { class: "card", onclick: move |_| files::new_blank(st, 1, 595.0, 842.0),
                     Icon { name: "new" }
                     b { "{t(lang, \"welcome.new\")}" }
                     span { "{t(lang, \"welcome.new.hint\")}" }
                 }
-                div { class: "card", onclick: move |_| crate::commands::sources::open(st),
+                button { class: "card", onclick: move |_| crate::commands::sources::open(st),
                     Icon { name: "merge" }
                     b { "{reg.get(\"newDocCombine\").map(|c| c.label.clone()).unwrap_or_default()}" }
-                    span { "PDF + PDF → one document" }
+                    span { "{t(lang, \"welcome.combine.hint\")}" }
                 }
             }
+            div { class: "welcome-content",
             div { class: "recent",
                 h3 { "{t(lang, \"welcome.recent\")}" }
                 if recent.is_empty() {
-                    div { class: "pane-empty", "{t(lang, \"welcome.recent.none\")}" }
+                    div { class: "welcome-empty",
+                        Icon { name: "page" }
+                        b { "{t(lang, \"welcome.recent.none\")}" }
+                        span { "{t(lang, \"welcome.recent.hint\")}" }
+                    }
                 }
                 for path in recent {
                     {
@@ -64,15 +74,26 @@ pub fn Welcome() -> Element {
                         let name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
                         let full = path.display().to_string();
                         rsx! {
-                            div { class: "list-item", key: "{full}", onclick: move |_| files::open_path(st, p.clone(), None),
-                                div { class: "title", Icon { name: "page" } "{name}" }
-                                div { class: "meta", "{full}" }
+                            button { class: "list-item", key: "{full}", title: "{full}", onclick: move |_| files::open_path(st, p.clone(), None),
+                                span { class: "title", Icon { name: "page" } span { class: "ellipsis", "{name}" } }
+                                span { class: "meta ellipsis", "{full}" }
                             }
                         }
                     }
                 }
             }
-            div { class: "stats", span { "{stats}" } span { "·" } span { "v{folitecta_core::VERSION}" } }
+            aside { class: "welcome-guide",
+                h3 { "{t(lang, \"welcome.shortcuts\")}" }
+                p { "{t(lang, \"welcome.palette.hint\")}" }
+                button { class: "tbtn", onclick: move |_| st.set_palette(Some(String::new())),
+                    Icon { name: "palette" }
+                    "{t(lang, \"welcome.palette\")}"
+                }
+                kbd { "Ctrl + Shift + P" }
+                div { class: "welcome-tip", Icon { name: "moon" } span { "{t(lang, \"welcome.theme.hint\")}" } }
+            }
+            }
+            div { class: "stats", span { "{stats}" } }
         }
     }
 }

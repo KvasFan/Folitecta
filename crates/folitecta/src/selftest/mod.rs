@@ -40,7 +40,7 @@ const clippedByScroller = el => {
   return false;
 };
 // 1. Nothing outside the window (except content of scrolling containers).
-const roots = ['.menubar', '.ribbon-tabs', '.ribbon-body', '.statusbar', '.pane-strip', '.pane-header', '.pane-toolbar', '.doc-tabs', '.dialog', '.rbtn-menu', '.menu-dropdown', '.submenu', '.sel-toolbar', '.search-box', '.search-nav', '.right-pane', '.toasts'];
+const roots = ['.welcome', '.menubar', '.ribbon-tabs', '.ribbon-body', '.statusbar', '.pane-strip', '.pane-header', '.pane-toolbar', '.doc-tabs', '.dialog', '.rbtn-menu', '.menu-dropdown', '.submenu', '.sel-toolbar', '.search-box', '.search-nav', '.right-pane', '.toasts'];
 for (const sel of roots) {
   for (const root of document.querySelectorAll(sel)) {
     if (!visible(root)) continue;
@@ -821,9 +821,10 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
     // Print jobs go to the fake printer (and its folder), never to a printer.
     crate::printing::use_fake(Some(dir.join("print-jobs")));
     let full = only.is_none();
+    let welcome_only = only.as_deref() == Some("welcome");
     // Welcome screen (no document) at the smallest and a large size.
     pause(1500).await;
-    for (w, h) in if full {
+    for (w, h) in if full || welcome_only {
         vec![(960.0, 620.0), (1920.0, 1080.0)]
     } else {
         Vec::new()
@@ -831,6 +832,34 @@ pub async fn run(st: AppState, cfg: SelfTestConfig) {
         set_size(w, h);
         pause(900).await;
         total += check(st, &dir, &format!("{}x{}-welcome", w as u32, h as u32), &mut log).await;
+    }
+    if welcome_only {
+        for lang in crate::i18n::Lang::ALL {
+            st.ui_mut().lang = lang;
+            for theme in Theme::ALL {
+                st.ui_mut().theme = theme;
+                for (w, h) in [(960.0, 620.0), (1440.0, 900.0)] {
+                    set_size(w, h);
+                    pause(900).await;
+                    let name = format!(
+                        "welcome-{}-{}-{}x{}",
+                        lang.code(),
+                        theme.attr(),
+                        w as u32,
+                        h as u32
+                    );
+                    total += check(st, &dir, &name, &mut log).await;
+                }
+            }
+        }
+        let report = serde_json::json!({ "total_problems": total, "complete": true, "states": log });
+        let _ = std::fs::write(
+            dir.join("report.json"),
+            serde_json::to_string_pretty(&report).unwrap_or_default(),
+        );
+        progress::done(total);
+        crate::recovery::forget_session();
+        std::process::exit(if total == 0 { 0 } else { 3 });
     }
     match sample_document() {
         Ok(doc) => {

@@ -442,5 +442,12 @@
   "pane.info.links": "{count} collegamenti",
   "pane.info.results": "{count} risultati",
   "tool.place_annot": "Posiziona annotazione",
-  "tool.edit_all": "Modifica contenuto: tutto"
+  "tool.edit_all": "Modifica contenuto: tutto",
+  "welcome.workspace": "IL TUO SPAZIO PER I DOCUMENTI",
+  "welcome.combine.hint": "Riunisci più file PDF in un unico documento.",
+  "welcome.recent.hint": "Apri un documento per ritrovarlo qui la prossima volta.",
+  "welcome.shortcuts": "Lavora più velocemente",
+  "welcome.palette.hint": "Trova uno strumento scrivendo il suo nome.",
+  "welcome.palette": "Cerca un comando",
+  "welcome.theme.hint": "Usa il sole o la luna nella barra superiore per cambiare tema."
 }

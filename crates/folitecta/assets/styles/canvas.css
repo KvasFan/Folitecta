@@ -42,7 +42,7 @@
 .pages.with-rulers { padding-left: 46px; padding-top: 40px; }
 .page-row { display: flex; gap: 18px; align-items: flex-start; justify-content: center; }
 .pages.nogap .page-row { gap: 2px; }
-.page { position: relative; background: white; box-shadow: 0 6px 24px rgba(0,0,0,.25); flex: none; }
+.page { position: relative; background: white; box-shadow: 0 3px 16px rgba(20,24,40,.16); flex: none; }
 .page.current-page { outline: 2px solid var(--accent); outline-offset: 2px; }
 .page-inner { position: absolute; left: 0; top: 0; transform-origin: 0 0; overflow: hidden; }
 .page-inner.transparent { background-color: #fff; background-image: linear-gradient(45deg, #d9dbe3 25%, transparent 25%), linear-gradient(-45deg, #d9dbe3 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #d9dbe3 75%), linear-gradient(-45deg, transparent 75%, #d9dbe3 75%); background-size: 16px 16px; background-position: 0 0, 0 8px, 8px -8px, -8px 0; }
@@ -81,7 +81,7 @@ textarea.field-input { resize: none; padding: 2px 3px; }
 .field-option.on { background: #9ec3f5; }
 /* The calendar of a date field. */
 .field-calendar-btn { position: absolute; z-index: 6; width: 24px; padding: 0; display: grid; place-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 3px; box-shadow: 0 2px 10px rgba(0,0,0,.2); }
-.date-calendar { position: absolute; z-index: 7; width: 224px; padding: 6px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: 0 6px 24px rgba(0,0,0,.25); }
+.date-calendar { position: absolute; z-index: 7; width: 224px; padding: 6px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: 0 3px 16px rgba(20,24,40,.16); }
 .date-calendar-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
 .date-calendar-title { font-weight: 600; }
 .date-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }

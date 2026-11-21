@@ -4,7 +4,7 @@
    white, dark or black. */
 :root {
   color-scheme: light;
-  --bg: #eef0f6;
+  --bg: #f3f5fa;
   --surface: #ffffff;
   --surface-2: #f6f7fb;
   --surface-3: #eceef5;
@@ -22,7 +22,7 @@
   --danger: #d93838;
   --warn: #c27a00;
   --ok: #1f9d55;
-  --canvas: #cfd3df;
+  --canvas: #dde2ec;
   --splitter: rgba(79, 70, 229, 0.55);
   /* Chips and notes with a meaning. */
   --partial-bg: #fff3d6;
@@ -35,7 +35,7 @@
   --del-fg: #b91c1c;
   --chg-fg: #b45309;
   --shadow: 0 10px 30px rgba(20, 24, 40, 0.16);
-  --shadow-sm: 0 1px 3px rgba(20, 24, 40, 0.12);
+  --shadow-sm: 0 2px 8px rgba(20, 24, 40, 0.05);
   --radius: 10px;
   --radius-sm: 6px;
   --pane-w: clamp(220px, 22vw, 320px);

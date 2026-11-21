@@ -39,13 +39,13 @@ Section "Folitecta"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Folitecta" "Publisher" "KvasFan"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Folitecta" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Folitecta" "DisplayIcon" "$INSTDIR\folitecta.exe"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Folitecta" "UninstallString" '$"$INSTDIR\Uninstall.exe$"'
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Folitecta" "QuietUninstallString" '$"$INSTDIR\Uninstall.exe$" /S'
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Folitecta" "UninstallString" '"$INSTDIR\Uninstall.exe"'
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Folitecta" "QuietUninstallString" '"$INSTDIR\Uninstall.exe" /S'
   WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Folitecta" "NoModify" 1
   WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Folitecta" "NoRepair" 1
   WriteRegStr HKCU "Software\Classes\Folitecta.PDF" "" "PDF document"
   WriteRegStr HKCU "Software\Classes\Folitecta.PDF\DefaultIcon" "" "$INSTDIR\folitecta.exe,0"
-  WriteRegStr HKCU "Software\Classes\Folitecta.PDF\shell\open\command" "" '$"$INSTDIR\folitecta.exe$" $"%1$"'
+  WriteRegStr HKCU "Software\Classes\Folitecta.PDF\shell\open\command" "" '"$INSTDIR\folitecta.exe" "%1"'
   WriteRegStr HKCU "Software\Classes\.pdf\OpenWithProgids" "Folitecta.PDF" ""
 SectionEnd
 Section "Uninstall"

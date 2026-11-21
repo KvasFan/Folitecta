@@ -76,7 +76,7 @@ jobs:
           choco install nsis --no-progress -y
           $version = $env:PACKAGE_VERSION
           $payload = (Resolve-Path "dist/folitecta-$version-windows-x64").Path
-          & "${env:ProgramFiles(x86)}/NSIS/makensis.exe" "/DVERSION=$version" "/DPAYLOAD=$payload" packaging/windows/folitecta.nsi
+          & "${env:ProgramFiles(x86)}/NSIS/makensis.exe" "/WX" "/DVERSION=$version" "/DPAYLOAD=$payload" packaging/windows/folitecta.nsi
           if ($LASTEXITCODE -ne 0) { throw "NSIS failed" }
           $file = "folitecta-$version-windows-x64-setup.exe"
           $hash = (Get-FileHash "dist/$file" -Algorithm SHA256).Hash.ToLower()

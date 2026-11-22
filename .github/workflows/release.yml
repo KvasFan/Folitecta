@@ -343,5 +343,6 @@ jobs:
           name: Folitecta ${{ env.RELEASE_TAG }}
           body_path: docs/RELEASE_NOTES.md
           files: artifacts/*
+          overwrite_files: false
           draft: false
           prerelease: true
